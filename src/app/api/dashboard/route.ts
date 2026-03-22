@@ -69,12 +69,13 @@ export async function GET(req: Request) {
   const leaseAlerts = tenants
     .map((t) => {
       const status = getLeaseStatus(t.leaseEnd);
-      const days = daysUntilExpiry(t.leaseEnd);
+      const days   = daysUntilExpiry(t.leaseEnd);
       return {
-        tenantName: t.name,
-        unitNumber: t.unit.unitNumber,
+        tenantId:    t.id,
+        tenantName:  t.name,
+        unitNumber:  t.unit.unitNumber,
         propertyName: t.unit.property.name,
-        leaseEnd: t.leaseEnd,
+        leaseEnd:    t.leaseEnd,
         days,
         status,
       };
@@ -93,10 +94,66 @@ export async function GET(req: Request) {
   const noRentAlerts = longtermTenants
     .filter((t) => !longtermIncomeUnitIds.has(t.unitId))
     .map((t) => ({
-      tenantName: t.name,
-      unitNumber: t.unit.unitNumber,
+      tenantId:    t.id,
+      tenantName:  t.name,
+      unitNumber:  t.unit.unitNumber,
       propertyName: t.unit.property.name,
     }));
+
+  // Multi-month arrears — fetch all-time LONGTERM_RENT entries for accessible properties
+  const allRentEntries = await prisma.incomeEntry.findMany({
+    where: {
+      type:   "LONGTERM_RENT",
+      unit:   { propertyId: { in: propertyIds } },
+    },
+    select: { unitId: true, tenantId: true, grossAmount: true, date: true },
+  });
+
+  const arrearsAlerts = longtermTenants
+    .map((t) => {
+      if (!t.leaseStart) return null;
+      const leaseStart = new Date(t.leaseStart);
+      const today      = new Date();
+      const start      = new Date(leaseStart.getFullYear(), leaseStart.getMonth(), 1);
+      const end        = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      const tenantEntries = allRentEntries.filter(
+        (e) => e.tenantId === t.id || e.unitId === t.unitId,
+      );
+
+      let totalArrears  = 0;
+      let monthsUnpaid  = 0;
+      let cursor        = new Date(start);
+
+      while (cursor <= end) {
+        const yr = cursor.getFullYear();
+        const mo = cursor.getMonth();
+        const paid = tenantEntries
+          .filter((e) => {
+            const d = new Date(e.date);
+            return d.getFullYear() === yr && d.getMonth() === mo;
+          })
+          .reduce((s, e) => s + e.grossAmount, 0);
+
+        const expected = t.monthlyRent ?? 0;
+        if (paid < expected * 0.99) {
+          totalArrears += Math.max(0, expected - paid);
+          monthsUnpaid++;
+        }
+        cursor = new Date(yr, mo + 1, 1);
+      }
+
+      if (monthsUnpaid <= 1) return null; // single-month covered by noRentAlerts
+      return {
+        tenantId:    t.id,
+        tenantName:  t.name,
+        unitNumber:  t.unit.unitNumber,
+        propertyName: t.unit.property.name,
+        monthsUnpaid,
+        totalArrears,
+      };
+    })
+    .filter((a): a is NonNullable<typeof a> => a !== null);
 
   // Airbnb properties
   const airbnbProperties = properties.filter((p) => p.type === "AIRBNB");
@@ -254,6 +311,7 @@ export async function GET(req: Request) {
       leaseAlerts,
       noRentAlerts,
       noIncomeAlerts,
+      arrearsAlerts,
       pettyCashDeficit: pettyCashBalance < 0,
     },
     rentStatus,

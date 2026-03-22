@@ -96,6 +96,7 @@ export default function DashboardPage() {
                 leaseAlerts={data.alerts.leaseAlerts}
                 noRentAlerts={data.alerts.noRentAlerts}
                 noIncomeAlerts={data.alerts.noIncomeAlerts}
+                arrearsAlerts={data.alerts.arrearsAlerts}
                 pettyCashDeficit={data.alerts.pettyCashDeficit}
                 pettyCashBalance={data.kpis.pettyCashBalance}
                 mgmtFeeBalance={data.mgmtFeeReconciliation.balance}

@@ -1,0 +1,374 @@
+// Property Manager — Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Auth (NextAuth / Auth.js) ────────────────────────────────────────────────
+
+enum UserRole {
+  OWNER
+  MANAGER
+  ACCOUNTANT
+}
+
+model User {
+  id               String           @id @default(cuid())
+  name             String?
+  email            String?          @unique
+  emailVerified    DateTime?
+  image            String?
+  password         String?
+  role             UserRole         @default(MANAGER)
+  phone            String?
+  isActive         Boolean          @default(true)
+  propertyAccess   PropertyAccess[]
+  ownedProperties  Property[]       @relation("PropertyOwner")
+  accounts         Account[]
+  sessions         Session[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Application Models ───────────────────────────────────────────────────────
+
+enum PropertyType {
+  AIRBNB
+  LONGTERM
+}
+
+enum UnitType {
+  BEDSITTER
+  ONE_BED
+  TWO_BED
+  THREE_BED
+  FOUR_BED
+  PENTHOUSE
+  COMMERCIAL
+  OTHER
+}
+
+enum UnitStatus {
+  ACTIVE
+  VACANT
+  LISTED
+  UNDER_NOTICE
+  MAINTENANCE
+  OWNER_OCCUPIED
+}
+
+enum IncomeType {
+  LONGTERM_RENT
+  SERVICE_CHARGE
+  DEPOSIT
+  AIRBNB
+  UTILITY_RECOVERY
+  OTHER
+}
+
+enum Platform {
+  AIRBNB
+  BOOKING_COM
+  DIRECT
+  AGENT
+}
+
+enum ExpenseScope {
+  UNIT
+  PROPERTY
+  PORTFOLIO
+}
+
+enum ExpenseCategory {
+  SERVICE_CHARGE
+  MANAGEMENT_FEE
+  WIFI
+  WATER
+  ELECTRICITY
+  CLEANER
+  CONSUMABLES
+  MAINTENANCE
+  REINSTATEMENT
+  CAPITAL
+  OTHER
+}
+
+enum PettyCashType {
+  IN
+  OUT
+}
+
+enum MaintenanceCategory {
+  PLUMBING
+  ELECTRICAL
+  STRUCTURAL
+  APPLIANCE
+  PAINTING
+  CLEANING
+  SECURITY
+  PEST_CONTROL
+  OTHER
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_PARTS
+  DONE
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ─── Property Access Control ──────────────────────────────────────────────────
+
+model PropertyAccess {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  grantedAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+}
+
+// ─── Core Models ─────────────────────────────────────────────────────────────
+
+model Property {
+  id                   String           @id @default(cuid())
+  name                 String
+  type                 PropertyType
+  address              String?
+  city                 String?          @default("Nairobi")
+  description          String?
+  ownerId              String?
+  owner                User?            @relation("PropertyOwner", fields: [ownerId], references: [id])
+  managementFeeRate    Float?
+  managementFeeFlat    Float?
+  serviceChargeDefault Float?
+  units                Unit[]
+  expenses             ExpenseEntry[]
+  propertyAccess       PropertyAccess[]
+  pettyCash            PettyCash[]
+  maintenanceJobs      MaintenanceJob[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model Unit {
+  id            String                @id @default(cuid())
+  unitNumber    String
+  propertyId    String
+  type          UnitType
+  floor         Int?
+  sizeSqm       Float?
+  monthlyRent   Float?
+  status        UnitStatus            @default(ACTIVE)
+  description   String?
+  amenities     String[]
+  property      Property              @relation(fields: [propertyId], references: [id])
+  tenants         Tenant[]
+  incomeEntries   IncomeEntry[]
+  expenses        ExpenseEntry[]
+  feeConfigs      ManagementFeeConfig[]
+  maintenanceJobs MaintenanceJob[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([propertyId, unitNumber])
+}
+
+model Tenant {
+  id               String        @id @default(cuid())
+  name             String
+  email            String?
+  phone            String?
+  nationalId       String?
+  kraPinNumber     String?
+  unitId           String
+  depositAmount    Float
+  depositPaidDate  DateTime?
+  leaseStart       DateTime
+  leaseEnd         DateTime?
+  monthlyRent      Float
+  serviceCharge    Float         @default(0)
+  rentDueDay       Int           @default(1)
+  isActive         Boolean       @default(true)
+  vacatedDate      DateTime?
+  notes            String?
+  unit             Unit          @relation(fields: [unitId], references: [id])
+  incomeEntries    IncomeEntry[]
+  invoices         Invoice[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model IncomeEntry {
+  id              String     @id @default(cuid())
+  date            DateTime
+  checkIn         DateTime?
+  checkOut        DateTime?
+  unitId          String
+  tenantId        String?
+  invoiceId       String?
+  type            IncomeType
+  grossAmount     Float
+  agentCommission Float      @default(0)
+  platform        Platform?
+  agentName       String?
+  note            String?
+  unit            Unit       @relation(fields: [unitId], references: [id])
+  tenant          Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoice         Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdAt       DateTime   @default(now())
+
+  @@index([date])
+  @@index([unitId, date])
+  @@index([tenantId])
+  @@index([invoiceId])
+}
+
+model ExpenseEntry {
+  id                String          @id @default(cuid())
+  date              DateTime
+  unitId            String?
+  propertyId        String?
+  scope             ExpenseScope
+  category          ExpenseCategory
+  amount            Float
+  description       String?
+  isSunkCost        Boolean         @default(false)
+  paidFromPettyCash Boolean         @default(false)
+  unit              Unit?           @relation(fields: [unitId], references: [id])
+  property          Property?       @relation(fields: [propertyId], references: [id])
+  createdAt         DateTime        @default(now())
+
+  @@index([date])
+  @@index([propertyId, date])
+}
+
+model PettyCash {
+  id          String        @id @default(cuid())
+  date        DateTime
+  type        PettyCashType
+  amount      Float
+  description String
+  propertyId  String?
+  property    Property?     @relation(fields: [propertyId], references: [id])
+  createdAt   DateTime      @default(now())
+}
+
+model ManagementFeeConfig {
+  id            String    @id @default(cuid())
+  unitId        String
+  ratePercent   Float     @default(0)
+  flatAmount    Float?
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  unit          Unit      @relation(fields: [unitId], references: [id])
+}
+
+model MaintenanceJob {
+  id            String              @id @default(cuid())
+  propertyId    String
+  unitId        String?
+  title         String
+  description   String?
+  category      MaintenanceCategory @default(OTHER)
+  priority      MaintenancePriority @default(MEDIUM)
+  status        MaintenanceStatus   @default(OPEN)
+  reportedBy    String?
+  assignedTo    String?
+  reportedDate  DateTime            @default(now())
+  scheduledDate DateTime?
+  completedDate DateTime?
+  cost          Float?
+  notes         String?
+  expenseId     String?             // ID of the linked ExpenseEntry (once logged)
+  property      Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit          Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([propertyId, status])
+  @@index([status])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  tenantId      String
+  periodYear    Int
+  periodMonth   Int
+  rentAmount    Float
+  serviceCharge Float         @default(0)
+  otherCharges  Float         @default(0)
+  totalAmount   Float
+  dueDate       DateTime
+  status        InvoiceStatus @default(DRAFT)
+  paidAt        DateTime?
+  paidAmount    Float?
+  notes         String?
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incomeEntries IncomeEntry[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([tenantId, periodYear, periodMonth])
+  @@index([tenantId])
+  @@index([status])
+}

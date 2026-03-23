@@ -138,6 +138,23 @@ enum PettyCashType {
   OUT
 }
 
+enum DocumentCategory {
+  LEASE_AGREEMENT
+  ID_COPY
+  KRA_PIN
+  PAYMENT_RECEIPT
+  RENEWAL_NOTICE
+  CORRESPONDENCE
+  OTHER
+}
+
+enum RenewalStage {
+  NONE
+  NOTICE_SENT
+  TERMS_AGREED
+  RENEWED
+}
+
 enum MaintenanceCategory {
   PLUMBING
   ELECTRICAL
@@ -247,14 +264,19 @@ model Tenant {
   monthlyRent      Float
   serviceCharge    Float         @default(0)
   rentDueDay       Int           @default(1)
-  isActive         Boolean       @default(true)
+  isActive         Boolean          @default(true)
   vacatedDate      DateTime?
   notes            String?
-  unit             Unit          @relation(fields: [unitId], references: [id])
+  renewalStage     RenewalStage     @default(NONE)
+  proposedRent     Float?
+  proposedLeaseEnd DateTime?
+  renewalNotes     String?
+  unit             Unit             @relation(fields: [unitId], references: [id])
   incomeEntries    IncomeEntry[]
   invoices         Invoice[]
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  documents        TenantDocument[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 }
 
 model IncomeEntry {
@@ -371,4 +393,19 @@ model Invoice {
   @@unique([tenantId, periodYear, periodMonth])
   @@index([tenantId])
   @@index([status])
+}
+
+model TenantDocument {
+  id          String           @id @default(cuid())
+  tenantId    String
+  category    DocumentCategory @default(OTHER)
+  label       String
+  fileName    String
+  storagePath String
+  fileSize    Int?
+  mimeType    String?
+  uploadedAt  DateTime         @default(now())
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }

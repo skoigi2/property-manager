@@ -25,8 +25,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Property Manager — Alba Gardens & Riara One",
-  description: "Property management for Alba Gardens and Riara One, Nairobi",
+  title: "Property Manager",
+  description: "Smart property management, simplified",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

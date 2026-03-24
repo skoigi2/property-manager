@@ -1,7 +1,7 @@
 {
   "name": "Property Manager",
   "short_name": "PropMgr",
-  "description": "Alba Gardens & Riara One property management",
+  "description": "Smart property management, simplified",
   "theme_color": "#1A1A2E",
   "background_color": "#FAF7F2",
   "display": "standalone",

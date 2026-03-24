@@ -46,7 +46,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="font-display text-2xl text-white">Property Manager</h1>
-          <p className="text-white/60 text-sm mt-1 font-sans">Alba Gardens · Riara One</p>
+          <p className="text-white/60 text-sm mt-1 font-sans">Smart property management, simplified</p>
         </div>
 
         {/* Form Card */}

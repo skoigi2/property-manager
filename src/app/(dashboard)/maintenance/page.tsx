@@ -4,9 +4,11 @@ import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,9 +16,10 @@ import toast from "react-hot-toast";
 import {
   Plus, Wrench, Trash2, PencilLine, ChevronRight,
   CalendarDays, User, Receipt, CheckCircle2, ExternalLink,
-  Loader2, X,
+  Loader2, X, AlertTriangle,
 } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
+import { formatKSh } from "@/lib/currency";
 import { format } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,6 +45,24 @@ interface Job {
   expenseId?:     string | null;   // set once expense has been logged
   property:      { id: string; name: string };
   unit?:         { id: string; unitNumber: string } | null;
+}
+
+interface MaintenanceSchedule {
+  id: string;
+  taskName: string;
+  description: string | null;
+  frequency: string;
+  lastDone: string | null;
+  nextDue: string | null;
+  isActive: boolean;
+  asset: {
+    id: string;
+    name: string;
+    category: string;
+    categoryOther: string | null;
+    property: { id: string; name: string };
+    unit: { unitNumber: string } | null;
+  };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -94,6 +115,47 @@ const EXPENSE_CATEGORIES = [
   { value: "CAPITAL",        label: "Capital"        },
   { value: "OTHER",          label: "Other"          },
 ];
+
+const FREQ_LABELS: Record<string, string> = {
+  WEEKLY: "Weekly", MONTHLY: "Monthly", QUARTERLY: "Quarterly",
+  BIANNUALLY: "Bi-annually", ANNUALLY: "Annually",
+};
+
+const CAT_LABELS: Record<string, string> = {
+  GENERATOR: "Generator", LIFT: "Lift/Elevator", HVAC: "HVAC",
+  ELECTRICAL: "Electrical", PLUMBING: "Plumbing", SECURITY: "Security",
+  APPLIANCE: "Appliance", FURNITURE: "Furniture", IT_EQUIPMENT: "IT Equipment",
+  VEHICLE: "Vehicle", OTHER: "Other",
+};
+
+const CAT_BADGE: Record<string, "amber" | "blue" | "gold" | "red" | "green" | "gray"> = {
+  GENERATOR: "amber", LIFT: "blue", HVAC: "gold", ELECTRICAL: "amber",
+  PLUMBING: "blue", SECURITY: "red", APPLIANCE: "green", FURNITURE: "gray",
+  IT_EQUIPMENT: "blue", VEHICLE: "gray", OTHER: "gray",
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function daysUntil(dateStr: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - today.getTime()) / 86400000);
+}
+
+type TaskStatus = {
+  label: string;
+  variant: "red" | "amber" | "blue" | "green" | "gray";
+  group: "overdue" | "week" | "month" | "upcoming" | "unscheduled";
+};
+
+function taskStatus(nextDue: string | null): TaskStatus {
+  if (!nextDue) return { label: "Unscheduled", variant: "gray", group: "unscheduled" };
+  const days = daysUntil(nextDue);
+  if (days < 0) return { label: `Overdue ${Math.abs(days)}d`, variant: "red", group: "overdue" };
+  if (days <= 7) return { label: `Due in ${days}d`, variant: "amber", group: "week" };
+  if (days <= 30) return { label: `Due in ${days}d`, variant: "blue", group: "month" };
+  return { label: `Due in ${days}d`, variant: "green", group: "upcoming" };
+}
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -435,6 +497,10 @@ export default function MaintenancePage() {
   const { data: session } = useSession();
   const isManager = session?.user?.role === "MANAGER";
 
+  // ── Tab state ──────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"jobs" | "schedules">("jobs");
+
+  // ── Jobs state ─────────────────────────────────────────────────────────────
   const [jobs, setJobs]             = useState<Job[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -448,6 +514,19 @@ export default function MaintenancePage() {
   const [showDone, setShowDone]     = useState(false);
   const [logExpenseTarget, setLogExpenseTarget] = useState<Job | null>(null);
 
+  // ── Schedules state ────────────────────────────────────────────────────────
+  const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
+  const [ytdCost, setYtdCost] = useState(0);
+  const [filterScheduleProperty, setFilterScheduleProperty] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [scheduleSearch, setScheduleSearch] = useState("");
+  const [logModal, setLogModal] = useState<MaintenanceSchedule | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [logForm, setLogForm] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    description: "", cost: "", technician: "", notes: "",
+  });
+
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<JobForm>({
     resolver: zodResolver(jobSchema),
     defaultValues: { category: "OTHER", priority: "MEDIUM" },
@@ -455,6 +534,7 @@ export default function MaintenancePage() {
   const selectedPropertyId = watch("propertyId");
   const availableUnits = properties.find((p) => p.id === selectedPropertyId)?.units ?? [];
 
+  // ── Jobs loader ────────────────────────────────────────────────────────────
   const load = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -470,6 +550,23 @@ export default function MaintenancePage() {
     fetch("/api/properties").then((r) => r.json()).then((d) => setProperties(Array.isArray(d) ? d : []));
   }, []);
 
+  // ── Schedules loader ───────────────────────────────────────────────────────
+  const loadSchedules = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (filterScheduleProperty) params.set("propertyId", filterScheduleProperty);
+    const res = await fetch(`/api/maintenance/schedules?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setSchedules(data.schedules);
+      setYtdCost(data.ytdCost);
+    }
+  }, [filterScheduleProperty]);
+
+  useEffect(() => {
+    if (activeTab === "schedules") loadSchedules();
+  }, [activeTab, loadSchedules]);
+
+  // ── Jobs handlers ──────────────────────────────────────────────────────────
   const openAdd = () => {
     setEditJob(null);
     reset({ category: "OTHER", priority: "MEDIUM" });
@@ -560,6 +657,33 @@ export default function MaintenancePage() {
     setJobs((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
   };
 
+  // ── Schedules log handler ──────────────────────────────────────────────────
+  async function handleLog() {
+    if (!logModal) return;
+    if (!logForm.date || !logForm.description) { toast.error("Date and description required"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/assets/${logModal.asset.id}/schedules/${logModal.id}/log`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: logForm.date,
+          description: logForm.description,
+          cost: logForm.cost ? parseFloat(logForm.cost) : null,
+          technician: logForm.technician || null,
+          notes: logForm.notes || null,
+        }),
+      });
+      if (!res.ok) { const e = await res.json(); toast.error(e.error || "Failed"); return; }
+      toast.success("Maintenance logged — next due date updated");
+      setLogModal(null);
+      await loadSchedules();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Derived values ─────────────────────────────────────────────────────────
   const visibleColumns = showDone ? COLUMNS : COLUMNS.filter((c) => c.status !== "DONE");
   const jobsByStatus   = (status: Status) => jobs.filter((j) => j.status === status);
 
@@ -567,124 +691,343 @@ export default function MaintenancePage() {
   const urgentCount = jobs.filter((j) => j.priority === "URGENT" && j.status !== "DONE" && j.status !== "CANCELLED").length;
   const doneUnlogged = jobs.filter((j) => j.status === "DONE" && j.cost && j.cost > 0 && !j.expenseId).length;
 
+  const schedulesFiltered = schedules.filter((s) => {
+    const st = taskStatus(s.nextDue);
+    if (filterStatus && st.group !== filterStatus) return false;
+    if (scheduleSearch) {
+      const q = scheduleSearch.toLowerCase();
+      if (!s.taskName.toLowerCase().includes(q) &&
+        !s.asset.name.toLowerCase().includes(q) &&
+        !s.asset.property.name.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const scheduleGroups: { key: string; label: string; color: string; items: MaintenanceSchedule[] }[] = [
+    { key: "overdue", label: "Overdue", color: "text-expense", items: schedulesFiltered.filter(s => taskStatus(s.nextDue).group === "overdue") },
+    { key: "week", label: "Due This Week", color: "text-amber-600", items: schedulesFiltered.filter(s => taskStatus(s.nextDue).group === "week") },
+    { key: "month", label: "Due This Month", color: "text-blue-600", items: schedulesFiltered.filter(s => taskStatus(s.nextDue).group === "month") },
+    { key: "upcoming", label: "Upcoming", color: "text-income", items: schedulesFiltered.filter(s => taskStatus(s.nextDue).group === "upcoming") },
+    { key: "unscheduled", label: "Unscheduled", color: "text-gray-500", items: schedulesFiltered.filter(s => taskStatus(s.nextDue).group === "unscheduled") },
+  ].filter(g => g.items.length > 0);
+
+  const overdueCount = schedules.filter(s => taskStatus(s.nextDue).group === "overdue").length;
+  const weekCount = schedules.filter(s => taskStatus(s.nextDue).group === "week").length;
+  const monthCount = schedules.filter(s => taskStatus(s.nextDue).group === "month").length;
+
   return (
     <div>
       <Header title="Maintenance" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role}>
-        {isManager && (
+        {isManager && activeTab === "jobs" && (
           <Button size="sm" onClick={openAdd}>
             <Plus size={14} className="mr-1" /> Log Job
           </Button>
         )}
       </Header>
 
+      {/* Tab switcher */}
+      <div className="border-b border-gray-200 bg-white px-6">
+        <nav className="flex gap-1">
+          {[
+            { key: "jobs", label: "Jobs" },
+            { key: "schedules", label: "Schedules" },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as "jobs" | "schedules")}
+              className={`px-4 py-3 text-sm font-sans font-medium border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? "border-gold text-gold"
+                  : "border-transparent text-gray-500 hover:text-header hover:border-gray-300"
+              }`}
+            >
+              {tab.label}
+              {tab.key === "jobs" && openCount > 0 && (
+                <span className="ml-2 bg-red-100 text-expense rounded-full px-1.5 py-0.5 text-xs font-mono">
+                  {openCount}
+                </span>
+              )}
+              {tab.key === "schedules" && overdueCount > 0 && (
+                <span className="ml-2 bg-red-100 text-expense rounded-full px-1.5 py-0.5 text-xs font-mono">
+                  {overdueCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       <div className="page-container space-y-4 pb-24 lg:pb-8">
 
-        {/* Summary strip */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-red-50 text-expense rounded-xl px-4 py-2 text-sm font-sans">
-            <Wrench size={14} />
-            <span><strong>{openCount}</strong> open job{openCount !== 1 ? "s" : ""}</span>
-          </div>
-          {urgentCount > 0 && (
-            <div className="flex items-center gap-2 bg-red-100 text-red-700 rounded-xl px-4 py-2 text-sm font-sans font-medium">
-              ⚡ {urgentCount} urgent
-            </div>
-          )}
-          {doneUnlogged > 0 && (
-            <div className="flex items-center gap-2 bg-amber-50 text-amber-700 rounded-xl px-4 py-2 text-sm font-sans">
-              <Receipt size={14} />
-              <span><strong>{doneUnlogged}</strong> done job{doneUnlogged !== 1 ? "s" : ""} with unlogged cost</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
-            <select
-              value={filterProperty}
-              onChange={(e) => setFilterProperty(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-gold/30"
-            >
-              <option value="">All properties</option>
-              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <button
-              onClick={() => setShowDone(!showDone)}
-              className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
-            >
-              {showDone ? "Hide done" : "Show done"}
-            </button>
-          </div>
-        </div>
-
-        {/* Workflow guide — only shown when there's content */}
-        {!loading && jobs.length > 0 && (
-          <div className="hidden lg:flex items-center gap-2 text-xs text-gray-400 font-sans bg-gray-50 rounded-xl px-4 py-2">
-            <span className="font-medium text-gray-500">Workflow:</span>
-            {["Open", "In Progress", "Awaiting Parts", "Done"].map((s, i, arr) => (
-              <span key={s} className="flex items-center gap-2">
-                <span className={i === 0 ? "text-expense font-medium" : i === arr.length - 1 ? "text-income font-medium" : ""}>{s}</span>
-                {i < arr.length - 1 && <ChevronRight size={12} className="text-gray-300" />}
-              </span>
-            ))}
-            <span className="ml-2 text-gray-300">·</span>
-            <span className="ml-2">Mark done → <span className="text-green-600 font-medium">Log as Expense</span> to record cost in P&amp;L</span>
-          </div>
-        )}
-
-        {/* Kanban board */}
-        {loading ? (
-          <div className="flex justify-center py-24"><Spinner size="lg" /></div>
-        ) : (
-          <div
-            className="grid gap-4"
-            style={{ gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))` }}
-          >
-            {visibleColumns.map((col) => {
-              const colJobs = jobsByStatus(col.status);
-              return (
-                <div key={col.status}>
-                  {/* Column header */}
-                  <div className={`flex items-center justify-between px-3 py-2 rounded-xl mb-3 ${col.bg}`}>
-                    <span className={`text-xs font-bold font-sans uppercase tracking-wide ${col.color}`}>
-                      {col.label}
-                    </span>
-                    <span className={`text-xs font-mono font-bold ${col.color} bg-white rounded-full w-5 h-5 flex items-center justify-center`}>
-                      {colJobs.length}
-                    </span>
-                  </div>
-
-                  {/* Cards */}
-                  <div className="space-y-2 min-h-[120px]">
-                    {colJobs.length === 0 ? (
-                      <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 text-center text-xs text-gray-300 font-sans">
-                        No jobs
-                      </div>
-                    ) : (
-                      colJobs.map((job) => (
-                        <JobCard
-                          key={job.id}
-                          job={job}
-                          isManager={isManager}
-                          onEdit={openEdit}
-                          onDelete={setDeleteTarget}
-                          onAdvance={handleAdvance}
-                          onLogExpense={setLogExpenseTarget}
-                          advancing={advancing === job.id}
-                        />
-                      ))
-                    )}
-                    {isManager && col.status === "OPEN" && (
-                      <button
-                        onClick={openAdd}
-                        className="w-full border-2 border-dashed border-gray-200 hover:border-gold/40 rounded-xl p-3 text-xs text-gray-300 hover:text-gold font-sans transition-colors flex items-center justify-center gap-1"
-                      >
-                        <Plus size={12} /> Add job
-                      </button>
-                    )}
-                  </div>
+        {/* ── Jobs tab ──────────────────────────────────────────────────────── */}
+        {activeTab === "jobs" && (
+          <>
+            {/* Summary strip */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 bg-red-50 text-expense rounded-xl px-4 py-2 text-sm font-sans">
+                <Wrench size={14} />
+                <span><strong>{openCount}</strong> open job{openCount !== 1 ? "s" : ""}</span>
+              </div>
+              {urgentCount > 0 && (
+                <div className="flex items-center gap-2 bg-red-100 text-red-700 rounded-xl px-4 py-2 text-sm font-sans font-medium">
+                  ⚡ {urgentCount} urgent
                 </div>
-              );
-            })}
+              )}
+              {doneUnlogged > 0 && (
+                <div className="flex items-center gap-2 bg-amber-50 text-amber-700 rounded-xl px-4 py-2 text-sm font-sans">
+                  <Receipt size={14} />
+                  <span><strong>{doneUnlogged}</strong> done job{doneUnlogged !== 1 ? "s" : ""} with unlogged cost</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 ml-auto flex-wrap">
+                <select
+                  value={filterProperty}
+                  onChange={(e) => setFilterProperty(e.target.value)}
+                  className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-gold/30"
+                >
+                  <option value="">All properties</option>
+                  {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <button
+                  onClick={() => setShowDone(!showDone)}
+                  className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
+                >
+                  {showDone ? "Hide done" : "Show done"}
+                </button>
+              </div>
+            </div>
+
+            {/* Workflow guide — only shown when there's content */}
+            {!loading && jobs.length > 0 && (
+              <div className="hidden lg:flex items-center gap-2 text-xs text-gray-400 font-sans bg-gray-50 rounded-xl px-4 py-2">
+                <span className="font-medium text-gray-500">Workflow:</span>
+                {["Open", "In Progress", "Awaiting Parts", "Done"].map((s, i, arr) => (
+                  <span key={s} className="flex items-center gap-2">
+                    <span className={i === 0 ? "text-expense font-medium" : i === arr.length - 1 ? "text-income font-medium" : ""}>{s}</span>
+                    {i < arr.length - 1 && <ChevronRight size={12} className="text-gray-300" />}
+                  </span>
+                ))}
+                <span className="ml-2 text-gray-300">·</span>
+                <span className="ml-2">Mark done → <span className="text-green-600 font-medium">Log as Expense</span> to record cost in P&amp;L</span>
+              </div>
+            )}
+
+            {/* Kanban board */}
+            {loading ? (
+              <div className="flex justify-center py-24"><Spinner size="lg" /></div>
+            ) : (
+              <div
+                className="grid gap-4"
+                style={{ gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))` }}
+              >
+                {visibleColumns.map((col) => {
+                  const colJobs = jobsByStatus(col.status);
+                  return (
+                    <div key={col.status}>
+                      {/* Column header */}
+                      <div className={`flex items-center justify-between px-3 py-2 rounded-xl mb-3 ${col.bg}`}>
+                        <span className={`text-xs font-bold font-sans uppercase tracking-wide ${col.color}`}>
+                          {col.label}
+                        </span>
+                        <span className={`text-xs font-mono font-bold ${col.color} bg-white rounded-full w-5 h-5 flex items-center justify-center`}>
+                          {colJobs.length}
+                        </span>
+                      </div>
+
+                      {/* Cards */}
+                      <div className="space-y-2 min-h-[120px]">
+                        {colJobs.length === 0 ? (
+                          <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 text-center text-xs text-gray-300 font-sans">
+                            No jobs
+                          </div>
+                        ) : (
+                          colJobs.map((job) => (
+                            <JobCard
+                              key={job.id}
+                              job={job}
+                              isManager={isManager}
+                              onEdit={openEdit}
+                              onDelete={setDeleteTarget}
+                              onAdvance={handleAdvance}
+                              onLogExpense={setLogExpenseTarget}
+                              advancing={advancing === job.id}
+                            />
+                          ))
+                        )}
+                        {isManager && col.status === "OPEN" && (
+                          <button
+                            onClick={openAdd}
+                            className="w-full border-2 border-dashed border-gray-200 hover:border-gold/40 rounded-xl p-3 text-xs text-gray-300 hover:text-gold font-sans transition-colors flex items-center justify-center gap-1"
+                          >
+                            <Plus size={12} /> Add job
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Schedules tab ─────────────────────────────────────────────────── */}
+        {activeTab === "schedules" && (
+          <div className="space-y-5">
+
+            {/* Overdue alert banner */}
+            {overdueCount > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex gap-3">
+                <AlertTriangle size={18} className="text-expense shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-sans font-semibold text-red-800">
+                    {overdueCount} maintenance {overdueCount === 1 ? "task is" : "tasks are"} overdue
+                  </p>
+                  <p className="text-xs font-sans text-red-600 mt-0.5">
+                    {schedules
+                      .filter(s => taskStatus(s.nextDue).group === "overdue")
+                      .map(s => `${s.asset.name} — ${s.taskName}`)
+                      .join(" · ")}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* KPI cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="p-4">
+                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Overdue</p>
+                <p className="text-2xl font-display text-expense mt-1">{overdueCount}</p>
+                <p className="text-xs font-sans text-gray-400 mt-0.5">tasks past due</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Due This Week</p>
+                <p className="text-2xl font-display text-amber-600 mt-1">{weekCount}</p>
+                <p className="text-xs font-sans text-gray-400 mt-0.5">within 7 days</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Due This Month</p>
+                <p className="text-2xl font-display text-blue-600 mt-1">{monthCount}</p>
+                <p className="text-xs font-sans text-gray-400 mt-0.5">within 30 days</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">YTD Maintenance Cost</p>
+                <p className="text-lg font-display text-header mt-1">{formatKSh(ytdCost)}</p>
+                <p className="text-xs font-sans text-gray-400 mt-0.5">{new Date().getFullYear()} total</p>
+              </Card>
+            </div>
+
+            {/* Filter bar */}
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={filterScheduleProperty}
+                onChange={(e) => setFilterScheduleProperty(e.target.value)}
+                className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+              >
+                <option value="">All properties</option>
+                {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+              >
+                <option value="">All statuses</option>
+                <option value="overdue">Overdue</option>
+                <option value="week">Due this week</option>
+                <option value="month">Due this month</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="unscheduled">Unscheduled</option>
+              </select>
+              <input
+                type="text"
+                value={scheduleSearch}
+                onChange={(e) => setScheduleSearch(e.target.value)}
+                placeholder="Search asset, task, property..."
+                className="flex-1 min-w-[200px] text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+
+            {/* Task list grouped by status */}
+            {schedulesFiltered.length === 0 ? (
+              <EmptyState
+                title="No maintenance tasks"
+                description="Define maintenance schedules on your assets to track upcoming work here."
+              />
+            ) : (
+              <div className="space-y-6">
+                {scheduleGroups.map(group => (
+                  <div key={group.key}>
+                    <h3 className={`text-sm font-sans font-semibold mb-3 flex items-center gap-2 ${group.color}`}>
+                      <span className="w-2 h-2 rounded-full bg-current inline-block" />
+                      {group.label}
+                      <span className="font-normal text-gray-400">({group.items.length})</span>
+                    </h3>
+                    <div className="space-y-2">
+                      {group.items.map(s => {
+                        const st = taskStatus(s.nextDue);
+                        return (
+                          <Card key={s.id} className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                {/* Row 1: category badge + asset name + property */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant={CAT_BADGE[s.asset.category] ?? "gray"}>
+                                    {CAT_LABELS[s.asset.category] ?? s.asset.category}
+                                  </Badge>
+                                  <span className="font-sans font-semibold text-header">{s.asset.name}</span>
+                                  <span className="text-xs font-sans text-gray-400">
+                                    {s.asset.property.name}
+                                    {s.asset.unit && ` · Unit ${s.asset.unit.unitNumber}`}
+                                  </span>
+                                </div>
+                                {/* Row 2: task name + frequency + status */}
+                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                  <span className="text-sm font-sans text-header font-medium">{s.taskName}</span>
+                                  <Badge variant="blue">{FREQ_LABELS[s.frequency] ?? s.frequency}</Badge>
+                                  <Badge variant={st.variant}>{st.label}</Badge>
+                                </div>
+                                {/* Row 3: last done / next due dates */}
+                                <div className="flex gap-4 mt-1.5 text-xs font-sans text-gray-400">
+                                  <span>
+                                    Last done:{" "}
+                                    {s.lastDone
+                                      ? formatDate(new Date(s.lastDone))
+                                      : <span className="text-gray-300">Never</span>
+                                    }
+                                  </span>
+                                  {s.nextDue && <span>Next due: {formatDate(new Date(s.nextDue))}</span>}
+                                </div>
+                                {s.description && (
+                                  <p className="text-xs font-sans text-gray-500 mt-1">{s.description}</p>
+                                )}
+                              </div>
+                              {/* Log button */}
+                              <Button
+                                onClick={() => {
+                                  setLogModal(s);
+                                  setLogForm({
+                                    date: new Date().toISOString().slice(0, 10),
+                                    description: `${s.taskName} completed`,
+                                    cost: "", technician: "", notes: "",
+                                  });
+                                }}
+                                className="shrink-0 flex items-center gap-1.5 text-sm"
+                              >
+                                <CheckCircle2 size={14} /> Log
+                              </Button>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
+
       </div>
 
       {/* ── Add / Edit Modal ─────────────────────────────────────────────── */}
@@ -792,6 +1135,93 @@ export default function MaintenancePage() {
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />
+
+      {/* ── Schedule Log Modal ───────────────────────────────────────────── */}
+      <Modal
+        open={!!logModal}
+        onClose={() => setLogModal(null)}
+        title={logModal ? `Log: ${logModal.taskName}` : "Log Maintenance"}
+        size="md"
+      >
+        {logModal && (
+          <div className="space-y-4">
+            {/* Context line */}
+            <div className="bg-cream rounded-lg px-3 py-2 text-xs font-sans text-gray-600 flex items-center gap-2">
+              <span className="font-medium">{logModal.asset.name}</span>
+              <span className="text-gray-400">·</span>
+              <span>{logModal.asset.property.name}</span>
+              {logModal.asset.unit && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span>Unit {logModal.asset.unit.unitNumber}</span>
+                </>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+                  Date <span className="text-expense">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={logForm.date}
+                  onChange={(e) => setLogForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Cost (KSh)</label>
+                <input
+                  type="number"
+                  value={logForm.cost}
+                  min="0"
+                  onChange={(e) => setLogForm(f => ({ ...f, cost: e.target.value }))}
+                  placeholder="0"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+                Description <span className="text-expense">*</span>
+              </label>
+              <input
+                type="text"
+                value={logForm.description}
+                onChange={(e) => setLogForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="What was done?"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Technician</label>
+              <input
+                type="text"
+                value={logForm.technician}
+                onChange={(e) => setLogForm(f => ({ ...f, technician: e.target.value }))}
+                placeholder="Name or company"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Notes</label>
+              <textarea
+                value={logForm.notes}
+                rows={2}
+                onChange={(e) => setLogForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Additional notes..."
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setLogModal(null)} disabled={saving}>Cancel</Button>
+              <Button onClick={handleLog} disabled={saving}>
+                {saving ? <Spinner size="sm" /> : "Log maintenance"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

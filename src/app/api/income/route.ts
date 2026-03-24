@@ -1,6 +1,7 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: Request) {
   const { error } = await requireAuth();
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
 
   const body = await req.json();
@@ -106,6 +107,15 @@ export async function POST(req: Request) {
     }
 
     return newEntry;
+  });
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "CREATE",
+    resource: "IncomeEntry",
+    resourceId: entry.id,
+    after: { type: entry.type, grossAmount: entry.grossAmount, date: entry.date },
   });
 
   return Response.json(entry, { status: 201 });

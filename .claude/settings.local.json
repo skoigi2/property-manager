@@ -94,7 +94,12 @@
       "Read(//c/Users/STEVE KOIGI/AppData/Local/Temp/**)",
       "Bash(powershell -Command \"netstat -ano | Select-String ''\\(:300[0-9]|:301[0-9]|:4000\\)''\")",
       "Bash(powershell -Command \"2720,30780,43888,2972,51612,5936,52744,33312,58872,48492,35416 | ForEach-Object { Stop-Process -Id $_-Force -ErrorAction SilentlyContinue; Write-Host \"\"Killed PID $_\" }\")",
-      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\STEVE KOIGI\\\\AppData\\\\Local\\\\Temp\\\\killports.ps1\")"
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\STEVE KOIGI\\\\AppData\\\\Local\\\\Temp\\\\killports.ps1\")",
+      "Bash(DIRECT_URL=\"postgresql://postgres:EF%26A4%40i%2Cb9TgP%25c@db.owlqiuyomhuarcgvvrvk.supabase.co:5432/postgres\" npx prisma migrate deploy)",
+      "Bash(DIRECT_URL=\"postgresql://postgres.owlqiuyomhuarcgvvrvk:EF%26A4%40i%2Cb9TgP%25c@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres\" npx prisma migrate deploy)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.owlqiuyomhuarcgvvrvk:EF%26A4%40i%2Cb9TgP%25c@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" npm run db:seed)",
+      "Bash(openssl rand:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres.owlqiuyomhuarcgvvrvk:EF%26A4%40i%2Cb9TgP%25c@aws-1-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1\" node -e \":*)"
     ]
   }
 }

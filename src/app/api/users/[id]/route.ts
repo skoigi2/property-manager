@@ -8,7 +8,7 @@ const updateSchema = z.object({
   phone: z.string().optional(),
   isActive: z.boolean().optional(),
   password: z.string().min(6).optional(),
-  role: z.enum(["OWNER", "MANAGER", "ACCOUNTANT"]).optional(),
+  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]).optional(),
 });
 
 const accessSchema = z.object({
@@ -19,13 +19,21 @@ const accessSchema = z.object({
 async function requireManagerSession() {
   const session = await auth();
   if (!session) return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
-  if (session.user.role !== "MANAGER") return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+    return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  }
   return { session, error: null };
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManagerSession();
+  const { session, error } = await requireManagerSession();
   if (error) return error;
+
+  // Only ADMIN can modify another ADMIN user
+  const target = await prisma.user.findUnique({ where: { id: params.id }, select: { role: true } });
+  if (target?.role === "ADMIN" && session!.user.role !== "ADMIN") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = await req.json();
 
@@ -70,9 +78,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
   // Prevent self-deletion
   if (session.user.id === params.id) return Response.json({ error: "Cannot delete yourself" }, { status: 400 });
+
+  // Only ADMIN can delete another ADMIN
+  const target = await prisma.user.findUnique({ where: { id: params.id }, select: { role: true } });
+  if (target?.role === "ADMIN" && session.user.role !== "ADMIN") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   await prisma.user.delete({ where: { id: params.id } });
   return new Response(null, { status: 204 });

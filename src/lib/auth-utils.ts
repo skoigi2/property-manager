@@ -13,13 +13,25 @@ export async function requireAuth() {
   return { session, error: null };
 }
 
-/** MANAGER or ACCOUNTANT or OWNER — any authenticated user */
+/** ADMIN only */
+export async function requireAdmin() {
+  const session = await auth();
+  if (!session) {
+    return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  if (session.user.role !== "ADMIN") {
+    return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+  return { session, error: null };
+}
+
+/** ADMIN, MANAGER, or ACCOUNTANT (not OWNER) */
 export async function requireManager() {
   const session = await auth();
   if (!session) {
     return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  if (session.user.role !== "MANAGER" && session.user.role !== "ACCOUNTANT") {
+  if (session.user.role === "OWNER") {
     return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { session, error: null };
@@ -38,6 +50,11 @@ export async function getAccessiblePropertyIds(): Promise<string[] | null> {
 
   const userId = session.user.id;
   const role = session.user.role;
+
+  if (role === "ADMIN") {
+    const all = await prisma.property.findMany({ select: { id: true } });
+    return all.map((p) => p.id);
+  }
 
   if (role === "OWNER") {
     const owned = await prisma.property.findMany({

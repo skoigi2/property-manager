@@ -31,13 +31,23 @@ const createSchema = z.object({
   name: z.string().min(1, "Name required"),
   email: z.string().email("Valid email required"),
   password: z.string().min(6, "Min 6 characters"),
-  role: z.enum(["OWNER", "MANAGER", "ACCOUNTANT"]),
+  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
   phone: z.string().optional(),
   propertyIds: z.array(z.string()).optional(),
 });
 type CreateForm = z.infer<typeof createSchema>;
 
-const roleBadge: Record<string, "green" | "blue" | "amber"> = {
+const resetSchema = z.object({
+  password: z.string().min(6, "Min 6 characters"),
+  confirmPassword: z.string().min(6, "Min 6 characters"),
+}).refine((d) => d.password === d.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
+type ResetForm = z.infer<typeof resetSchema>;
+
+const roleBadge: Record<string, "green" | "blue" | "amber" | "gold"> = {
+  ADMIN: "gold",
   MANAGER: "green",
   OWNER: "blue",
   ACCOUNTANT: "amber",
@@ -45,6 +55,7 @@ const roleBadge: Record<string, "green" | "blue" | "amber"> = {
 
 export default function UsersPage() {
   const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
 
   const [users, setUsers] = useState<UserItem[]>([]);
   const [allProps, setAllProps] = useState<PropertyInfo[]>([]);
@@ -53,10 +64,21 @@ export default function UsersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [togglingAccess, setTogglingAccess] = useState<string | null>(null);
 
+  // Reset password state
+  const [resetTarget, setResetTarget] = useState<UserItem | null>(null);
+  const [resetting, setResetting] = useState(false);
+
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
     defaultValues: { role: "MANAGER", propertyIds: [] },
   });
+
+  const {
+    register: registerReset,
+    handleSubmit: handleSubmitReset,
+    reset: resetResetForm,
+    formState: { errors: resetErrors },
+  } = useForm<ResetForm>({ resolver: zodResolver(resetSchema) });
 
   const selectedRole = watch("role");
 
@@ -88,10 +110,30 @@ export default function UsersPage() {
       setModalOpen(false);
       reset();
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to create user");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to create user");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onResetPassword = async (values: ResetForm) => {
+    if (!resetTarget) return;
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/users/${resetTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: values.password }),
+      });
+      if (!res.ok) throw new Error("Failed to reset password");
+      toast.success(`Password updated for ${resetTarget.name ?? resetTarget.email}`);
+      setResetTarget(null);
+      resetResetForm();
+    } catch {
+      toast.error("Failed to reset password");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -156,6 +198,10 @@ export default function UsersPage() {
         ) : (
           users.map((user) => {
             const grantedIds = new Set(user.propertyAccess.map((a) => a.property.id));
+            const canModify = session?.user?.id !== user.id;
+            // MANAGER cannot touch ADMIN users
+            const canEdit = isAdmin || user.role !== "ADMIN";
+
             return (
               <Card key={user.id}>
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -164,7 +210,7 @@ export default function UsersPage() {
                       <UserCog size={18} className="text-gold" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-header font-sans text-sm">{user.name ?? "—"}</p>
                         <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
                         {!user.isActive && <Badge variant="red">Inactive</Badge>}
@@ -174,19 +220,33 @@ export default function UsersPage() {
                     </div>
                   </div>
 
-                  {/* Activate/deactivate */}
-                  {session?.user?.id !== user.id && (
-                    <button
-                      onClick={() => toggleActive(user.id, user.isActive)}
-                      className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
-                    >
-                      {user.isActive ? "Deactivate" : "Activate"}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {/* Reset password — ADMIN only, not self */}
+                    {isAdmin && canModify && (
+                      <button
+                        onClick={() => { setResetTarget(user); resetResetForm(); }}
+                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-gold transition-colors"
+                        title="Reset password"
+                      >
+                        <KeyRound size={13} />
+                        <span>Reset pwd</span>
+                      </button>
+                    )}
+
+                    {/* Activate/deactivate */}
+                    {canModify && canEdit && (
+                      <button
+                        onClick={() => toggleActive(user.id, user.isActive)}
+                        className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
+                      >
+                        {user.isActive ? "Deactivate" : "Activate"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Property access (not for OWNER — they're linked via ownerId) */}
-                {user.role !== "OWNER" && allProps.length > 0 && (
+                {user.role !== "OWNER" && user.role !== "ADMIN" && allProps.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-gray-50">
                     <p className="text-xs text-gray-400 font-sans font-medium uppercase tracking-wide mb-2">Property Access</p>
                     <div className="space-y-1.5">
@@ -199,12 +259,12 @@ export default function UsersPage() {
                             <span className="text-sm font-sans text-gray-600">{prop.name}</span>
                             <button
                               onClick={() => toggleAccess(user.id, prop.id, hasAccess)}
-                              disabled={busy}
+                              disabled={busy || !canEdit}
                               className={`flex items-center gap-1.5 text-xs font-sans px-2.5 py-1 rounded-lg transition-colors ${
                                 hasAccess
                                   ? "bg-green-50 text-income hover:bg-red-50 hover:text-expense"
                                   : "bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-income"
-                              }`}
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                               {busy ? (
                                 <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
@@ -219,6 +279,13 @@ export default function UsersPage() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {/* ADMIN note */}
+                {user.role === "ADMIN" && (
+                  <div className="mt-3 pt-3 border-t border-gray-50">
+                    <p className="text-xs text-gray-400 font-sans italic">Full access to all properties and settings</p>
                   </div>
                 )}
 
@@ -264,6 +331,7 @@ export default function UsersPage() {
             <div>
               <label className="form-label">Role *</label>
               <select className="form-input" {...register("role")}>
+                {isAdmin && <option value="ADMIN">Admin</option>}
                 <option value="MANAGER">Manager</option>
                 <option value="ACCOUNTANT">Accountant</option>
                 <option value="OWNER">Owner</option>
@@ -279,8 +347,8 @@ export default function UsersPage() {
             </div>
           </div>
 
-          {/* Property access for non-owners */}
-          {selectedRole !== "OWNER" && allProps.length > 0 && (
+          {/* Property access for non-owners and non-admins */}
+          {selectedRole !== "OWNER" && selectedRole !== "ADMIN" && allProps.length > 0 && (
             <div>
               <label className="form-label">Property Access</label>
               <div className="space-y-2 mt-1">
@@ -304,6 +372,57 @@ export default function UsersPage() {
             <Button type="submit" loading={submitting}>Create User</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Reset password modal */}
+      <Modal
+        open={!!resetTarget}
+        onClose={() => { setResetTarget(null); resetResetForm(); }}
+        title="Reset Password"
+      >
+        {resetTarget && (
+          <form onSubmit={handleSubmitReset(onResetPassword)} className="space-y-4">
+            <p className="text-sm font-sans text-gray-500">
+              Set a new password for <span className="font-medium text-header">{resetTarget.name ?? resetTarget.email}</span>.
+            </p>
+
+            <div>
+              <label className="form-label">New Password *</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  className="form-input pr-8"
+                  {...registerReset("password")}
+                  placeholder="Min 6 characters"
+                />
+                <KeyRound size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
+              </div>
+              {resetErrors.password && <p className="form-error">{resetErrors.password.message}</p>}
+            </div>
+
+            <div>
+              <label className="form-label">Confirm Password *</label>
+              <input
+                type="password"
+                className="form-input"
+                {...registerReset("confirmPassword")}
+                placeholder="Repeat password"
+              />
+              {resetErrors.confirmPassword && <p className="form-error">{resetErrors.confirmPassword.message}</p>}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => { setResetTarget(null); resetResetForm(); }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={resetting}>Update Password</Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

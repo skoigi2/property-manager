@@ -13,6 +13,7 @@ datasource db {
 // ─── Auth (NextAuth / Auth.js) ────────────────────────────────────────────────
 
 enum UserRole {
+  ADMIN
   OWNER
   MANAGER
   ACCOUNTANT

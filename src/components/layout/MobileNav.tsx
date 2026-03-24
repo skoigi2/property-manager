@@ -87,6 +87,7 @@ export function MobileNav({ role }: MobileNavProps) {
   const drawerItems = role === "ACCOUNTANT"
     ? accountantDrawer
     : allMgrItems.filter((item) => !mgrPrimary.some((p) => p.href === item.href));
+  // ADMIN gets same full access as MANAGER (already handled by falling through to mgrPrimary above)
 
   return (
     <>

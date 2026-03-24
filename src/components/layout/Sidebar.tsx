@@ -61,7 +61,7 @@ export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
 
   const visibleItems = navItems.filter(
-    (item) => !role || item.roles.includes(role)
+    (item) => !role || role === "ADMIN" || item.roles.includes(role)
   );
 
   return (

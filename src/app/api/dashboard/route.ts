@@ -5,6 +5,7 @@ import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { getDaysInMonth } from "date-fns";
 
 export async function GET(req: Request) {
+  try {
   const { error } = await requireAuth();
   if (error) return error;
 
@@ -324,4 +325,9 @@ export async function GET(req: Request) {
     },
     trend,
   });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[dashboard] 500:", message);
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

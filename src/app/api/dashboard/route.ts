@@ -238,36 +238,35 @@ export async function GET(req: Request) {
     return { year: d.getFullYear(), month: d.getMonth() + 1 };
   }).reverse();
 
-  const trend = await Promise.all(
-    trendMonths.map(async ({ year: y, month: m }) => {
-      const { from: f, to: t } = getMonthRange(y, m);
-      const [inc, exp] = await Promise.all([
-        prisma.incomeEntry.aggregate({
-          where: { date: { gte: f, lte: t }, unit: { propertyId: { in: propertyIds } } },
-          _sum: { grossAmount: true, agentCommission: true },
-        }),
-        prisma.expenseEntry.aggregate({
-          where: {
-            date: { gte: f, lte: t },
-            isSunkCost: false,
-            OR: [
-              { propertyId: { in: propertyIds } },
-              { unit: { propertyId: { in: propertyIds } } },
-            ],
-          },
-          _sum: { amount: true },
-        }),
-      ]);
-      const gross = inc._sum.grossAmount ?? 0;
-      const comm = inc._sum.agentCommission ?? 0;
-      const expenses = exp._sum.amount ?? 0;
-      return {
-        label: `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m - 1]} ${y}`,
-        gross,
-        net: gross - comm - expenses,
-      };
-    })
-  );
+  const trend = [];
+  for (const { year: y, month: m } of trendMonths) {
+    const { from: f, to: t } = getMonthRange(y, m);
+    const [inc, exp] = await Promise.all([
+      prisma.incomeEntry.aggregate({
+        where: { date: { gte: f, lte: t }, unit: { propertyId: { in: propertyIds } } },
+        _sum: { grossAmount: true, agentCommission: true },
+      }),
+      prisma.expenseEntry.aggregate({
+        where: {
+          date: { gte: f, lte: t },
+          isSunkCost: false,
+          OR: [
+            { propertyId: { in: propertyIds } },
+            { unit: { propertyId: { in: propertyIds } } },
+          ],
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+    const gross = inc._sum.grossAmount ?? 0;
+    const comm = inc._sum.agentCommission ?? 0;
+    const expenses = exp._sum.amount ?? 0;
+    trend.push({
+      label: `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m - 1]} ${y}`,
+      gross,
+      net: gross - comm - expenses,
+    });
+  }
 
   // Expense summary by category
   const expenseSummary = expenseEntries

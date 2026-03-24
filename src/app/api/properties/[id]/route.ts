@@ -42,7 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const access = await requirePropertyAccess(params.id);
   if (!access.ok) return access.error!;
 
-  if (session.user.role !== "MANAGER") {
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -61,7 +61,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "MANAGER") {
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

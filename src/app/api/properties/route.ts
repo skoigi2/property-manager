@@ -40,8 +40,8 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "MANAGER") {
-    return Response.json({ error: "Forbidden — only managers can create properties" }, { status: 403 });
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();

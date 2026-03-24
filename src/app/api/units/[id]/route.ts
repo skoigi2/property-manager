@@ -24,7 +24,7 @@ async function getUnitWithAccess(id: string) {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { unit, accessError } = await getUnitWithAccess(params.id);
   if (accessError) return accessError;
@@ -48,7 +48,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { unit, accessError } = await getUnitWithAccess(params.id);
   if (accessError) return accessError;

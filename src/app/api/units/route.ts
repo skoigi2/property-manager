@@ -36,7 +36,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

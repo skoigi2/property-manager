@@ -11,8 +11,9 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Badge } from "@/components/ui/Badge";
 import {
   FileText, Download, TrendingUp, Receipt, DollarSign,
-  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp,
+  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown,
 } from "lucide-react";
+import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
 
@@ -52,7 +53,7 @@ interface MonthSummary {
   netProfit: number;
 }
 
-type Tab = "preview" | "annual" | "download";
+type Tab = "preview" | "annual" | "owner" | "download";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -477,6 +478,18 @@ function AnnualSummary({ year }: { year: string }) {
 
   return (
     <div className="space-y-5">
+      {/* Export button */}
+      {months.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => exportAnnualSummary(months, year)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+          >
+            <FileDown size={13} /> Export to Excel
+          </button>
+        </div>
+      )}
+
       {/* Year KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
@@ -671,6 +684,136 @@ function DownloadPDF({ year, month, setYear, setMonth }: {
   );
 }
 
+// ── Owner Statement Tab ────────────────────────────────────────────────────────
+
+interface StatementLine {
+  tenantName: string; unit: string; unitType: string;
+  rentExpected: number; rentReceived: number; serviceCharge: number; otherIncome: number; grossTotal: number;
+}
+interface StatementData {
+  propertyId: string; propertyName: string; propertyType: string; period: string; generatedAt: string;
+  lines: StatementLine[];
+  grossIncome: number; managementFee: number;
+  expenses: { category: string; description: string; amount: number }[];
+  totalExpenses: number; netPayable: number; notes: string;
+}
+
+function OwnerStatementTab({ year, month }: { year: string; month: string }) {
+  const [data, setData]       = useState<StatementData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/report/owner-statement?year=${year}&month=${month}`)
+      .then(r => r.json())
+      .then(d => { setData(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [year, month]);
+
+  if (loading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
+  if (!data.length) return <p className="text-center text-gray-400 text-sm py-16">No data for this period.</p>;
+
+  const periodLabel = `${MONTHS[Number(month) - 1]} ${year}`;
+
+  return (
+    <div className="space-y-6">
+      {/* Export button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => exportOwnerStatement(data, periodLabel)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+        >
+          <FileDown size={13} /> Export to Excel
+        </button>
+      </div>
+      {data.map(stmt => (
+        <Card key={stmt.propertyId}>
+          {/* Header */}
+          <div className="flex items-start justify-between mb-5 pb-4 border-b border-gray-100">
+            <div>
+              <h3 className="font-display text-lg text-header">{stmt.propertyName}</h3>
+              <p className="text-xs text-gray-400 font-sans mt-0.5">Owner Remittance Statement · {stmt.period}</p>
+              <p className="text-xs text-gray-400 font-sans">Generated {stmt.generatedAt}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net Payable to Owner</p>
+              <CurrencyDisplay
+                amount={stmt.netPayable}
+                size="xl"
+                className={stmt.netPayable >= 0 ? "text-income font-medium" : "text-expense font-medium"}
+              />
+            </div>
+          </div>
+
+          {/* Per-tenant income lines */}
+          <SectionTitle><TrendingUp size={16} className="text-gold" /> Rent Collections</SectionTitle>
+          <div className="overflow-x-auto mb-5">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-cream-dark">
+                  {["Tenant", "Unit", "Expected", "Received", "Svc Charge", "Other", "Gross Total"].map(h => (
+                    <th key={h} className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {stmt.lines.map((line, i) => (
+                  <tr key={i} className="border-t border-gray-50 hover:bg-cream/50">
+                    <td className="px-3 py-2.5 font-sans text-header whitespace-nowrap">{line.tenantName}</td>
+                    <td className="px-3 py-2.5 font-sans text-gray-500">{line.unit}</td>
+                    <td className="px-3 py-2.5 font-mono text-gray-400">{line.rentExpected > 0 ? line.rentExpected.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}</td>
+                    <td className={clsx("px-3 py-2.5 font-mono", line.rentReceived >= line.rentExpected ? "text-income" : "text-expense")}>
+                      {line.rentReceived.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-gray-500">{line.serviceCharge > 0 ? line.serviceCharge.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-gray-500">{line.otherIncome > 0 ? line.otherIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}</td>
+                    <td className="px-3 py-2.5 font-mono font-medium text-income">{line.grossTotal.toLocaleString("en-KE", { maximumFractionDigits: 0 })}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-200 bg-cream font-medium">
+                  <td colSpan={6} className="px-3 py-2 text-xs font-sans text-gray-500 uppercase">Total Gross Income</td>
+                  <td className="px-3 py-2 font-mono text-income">{stmt.grossIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 })}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Deductions */}
+          <SectionTitle><Receipt size={16} className="text-gold" /> Deductions</SectionTitle>
+          <div className="space-y-2 max-w-md mb-5">
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
+              <span className="text-sm font-sans text-gray-600">Gross Income</span>
+              <span className="font-mono text-sm text-income">{stmt.grossIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 })}</span>
+            </div>
+            <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
+              <span className="text-sm font-sans text-gray-600 pl-4">Less: Management Fee</span>
+              <span className="font-mono text-sm text-expense">({stmt.managementFee.toLocaleString("en-KE", { maximumFractionDigits: 0 })})</span>
+            </div>
+            {stmt.expenses.map((e, i) => (
+              <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50">
+                <span className="text-sm font-sans text-gray-600 pl-4">Less: {CAT_LABELS[e.category] ?? e.category}</span>
+                <span className="font-mono text-sm text-expense">({e.amount.toLocaleString("en-KE", { maximumFractionDigits: 0 })})</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-3 border-t-2 border-gray-200">
+              <span className="text-sm font-semibold font-sans text-header">Net Payable to Owner</span>
+              <span className={clsx("font-mono text-base font-bold", stmt.netPayable >= 0 ? "text-income" : "text-expense")}>
+                KSh {Math.abs(stmt.netPayable).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                {stmt.netPayable < 0 && " (deficit)"}
+              </span>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <p className="text-xs text-gray-400 font-sans italic">{stmt.notes}</p>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function ReportPage() {
@@ -682,6 +825,7 @@ export default function ReportPage() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "preview",  label: "P&L Preview",    icon: <TrendingUp size={15} /> },
     { id: "annual",   label: "Annual Summary",  icon: <Receipt size={15} /> },
+    { id: "owner",    label: "Owner Statement", icon: <DollarSign size={15} /> },
     { id: "download", label: "Download PDF",    icon: <Download size={15} /> },
   ];
 
@@ -729,7 +873,7 @@ export default function ReportPage() {
                 >
                   {t.icon}
                   <span className="hidden sm:inline">{t.label}</span>
-                  <span className="sm:hidden">{t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : "PDF"}</span>
+                  <span className="sm:hidden">{t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : t.id === "owner" ? "Owner" : "PDF"}</span>
                 </button>
               ))}
             </div>
@@ -739,6 +883,7 @@ export default function ReportPage() {
         {/* Tab content */}
         {activeTab === "preview"  && <PLPreview year={year} month={month} />}
         {activeTab === "annual"   && <AnnualSummary year={year} />}
+        {activeTab === "owner"    && <OwnerStatementTab year={year} month={month} />}
         {activeTab === "download" && <DownloadPDF year={year} month={month} setYear={setYear} setMonth={setMonth} />}
       </div>
     </div>

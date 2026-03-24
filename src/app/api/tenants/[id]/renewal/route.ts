@@ -47,17 +47,27 @@ export async function PATCH(
         }
       : {};
 
-  const updated = await prisma.tenant.update({
-    where: { id: params.id },
-    data: {
-      renewalStage:     renewalStage as RenewalStage,
-      proposedRent:     proposedRent     ?? null,
-      proposedLeaseEnd: proposedLeaseEnd ? new Date(proposedLeaseEnd) : null,
-      renewalNotes:     renewalNotes     ?? null,
-      ...extraUpdates,
-    },
-    include: { unit: { include: { property: true } } },
-  });
+  // Determine unit status sync
+  const unitStatusSync =
+    renewalStage === "NOTICE_SENT" ? "UNDER_NOTICE" :
+    renewalStage === "RENEWED"     ? "ACTIVE"       : null;
+
+  const [updated] = await prisma.$transaction([
+    prisma.tenant.update({
+      where: { id: params.id },
+      data: {
+        renewalStage:     renewalStage as RenewalStage,
+        proposedRent:     proposedRent     ?? null,
+        proposedLeaseEnd: proposedLeaseEnd ? new Date(proposedLeaseEnd) : null,
+        renewalNotes:     renewalNotes     ?? null,
+        ...extraUpdates,
+      },
+      include: { unit: { include: { property: true } } },
+    }),
+    ...(unitStatusSync
+      ? [prisma.unit.update({ where: { id: tenant.unitId }, data: { status: unitStatusSync } })]
+      : []),
+  ]);
 
   return Response.json(updated);
 }

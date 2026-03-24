@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Spinner } from "@/components/ui/Spinner";
 import { getLeaseStatus, formatDate } from "@/lib/date-utils";
@@ -12,11 +13,210 @@ import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
+import toast from "react-hot-toast";
 import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
   Download, FileText, Loader2, ScrollText, FolderOpen, RefreshCw, Mail,
+  ShieldCheck, Plus, X, Banknote,
 } from "lucide-react";
 import { differenceInMonths, startOfMonth, addMonths, format } from "date-fns";
+
+// ── Deposit Settlement Types ───────────────────────────────────────────────────
+
+interface Deduction { reason: string; amount: string }
+
+interface DepositSettlement {
+  id:              string;
+  tenantId:        string;
+  depositHeld:     number;
+  deductions:      { reason: string; amount: number }[];
+  totalDeductions: number;
+  netRefunded:     number;
+  settledDate:     string;
+  notes?:          string | null;
+  createdAt:       string;
+}
+
+// ── Settle Deposit Modal ───────────────────────────────────────────────────────
+
+function SettleDepositModal({
+  tenantId,
+  tenantName,
+  depositAmount,
+  onSettled,
+  onClose,
+}: {
+  tenantId:      string;
+  tenantName:    string;
+  depositAmount: number;
+  onSettled:     (s: DepositSettlement) => void;
+  onClose:       () => void;
+}) {
+  const [settledDate,  setSettledDate]  = useState(format(new Date(), "yyyy-MM-dd"));
+  const [deductions,   setDeductions]   = useState<Deduction[]>([]);
+  const [notes,        setNotes]        = useState("");
+  const [submitting,   setSubmitting]   = useState(false);
+
+  const totalDeductions = deductions.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
+  const netRefunded     = depositAmount - totalDeductions;
+
+  function addDeduction()          { setDeductions((p) => [...p, { reason: "", amount: "" }]); }
+  function removeDeduction(i: number) { setDeductions((p) => p.filter((_, idx) => idx !== i)); }
+  function updateDeduction(i: number, field: keyof Deduction, value: string) {
+    setDeductions((p) => p.map((d, idx) => idx === i ? { ...d, [field]: value } : d));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanDeductions = deductions
+      .filter((d) => d.reason.trim() && parseFloat(d.amount) > 0)
+      .map((d) => ({ reason: d.reason.trim(), amount: parseFloat(d.amount) }));
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/settle-deposit`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          depositHeld:     depositAmount,
+          deductions:      cleanDeductions,
+          totalDeductions: cleanDeductions.reduce((s, d) => s + d.amount, 0),
+          netRefunded,
+          settledDate,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to save");
+      }
+      const settlement: DepositSettlement = await res.json();
+      toast.success("Deposit settlement recorded");
+      onSettled(settlement);
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to record settlement");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+          <div>
+            <h2 className="font-display text-lg text-header">Settle Deposit</h2>
+            <p className="text-xs text-gray-400 font-sans mt-0.5">{tenantName}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Deposit held */}
+          <div className="bg-cream-dark rounded-xl p-4 flex items-center justify-between">
+            <p className="text-sm font-sans text-gray-500">Deposit held</p>
+            <CurrencyDisplay amount={depositAmount} size="lg" className="text-header font-medium" />
+          </div>
+
+          {/* Settlement date */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">Settlement Date</label>
+            <input
+              type="date"
+              value={settledDate}
+              onChange={(e) => setSettledDate(e.target.value)}
+              required
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans text-header focus:outline-none focus:ring-2 focus:ring-gold/40"
+            />
+          </div>
+
+          {/* Deductions */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide font-sans">Deductions</label>
+              <button type="button" onClick={addDeduction} className="flex items-center gap-1 text-xs text-gold hover:text-gold-dark font-sans font-medium transition-colors">
+                <Plus size={12} /> Add deduction
+              </button>
+            </div>
+            {deductions.length === 0 && (
+              <p className="text-xs text-gray-400 font-sans italic py-2">No deductions — full deposit will be refunded</p>
+            )}
+            <div className="space-y-2">
+              {deductions.map((d, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    placeholder="Reason (e.g. damage, cleaning)"
+                    value={d.reason}
+                    onChange={(e) => updateDeduction(i, "reason", e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Amount"
+                    min="0"
+                    step="100"
+                    value={d.amount}
+                    onChange={(e) => updateDeduction(i, "amount", e.target.value)}
+                    className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  />
+                  <button type="button" onClick={() => removeDeduction(i)} className="p-2 text-gray-400 hover:text-expense transition-colors">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="bg-cream-dark rounded-xl p-4 space-y-2 text-sm font-sans">
+            <div className="flex justify-between text-gray-500">
+              <span>Deposit held</span>
+              <span className="font-mono">KSh {depositAmount.toLocaleString("en-KE")}</span>
+            </div>
+            {totalDeductions > 0 && (
+              <div className="flex justify-between text-expense">
+                <span>Total deductions</span>
+                <span className="font-mono">− KSh {totalDeductions.toLocaleString("en-KE")}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-medium text-header border-t border-gray-200 pt-2 mt-1">
+              <span>Net refunded to tenant</span>
+              <CurrencyDisplay amount={netRefunded} size="md" className={netRefunded >= 0 ? "text-income" : "text-expense"} />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">Notes (optional)</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Any additional notes about the settlement..."
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2.5 bg-gold text-white rounded-xl text-sm font-sans font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : "Record Settlement"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -59,7 +259,7 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
   return rows.reverse();
 }
 
-type Tab = "ledger" | "invoices" | "documents" | "renewal";
+type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit";
 
 export default function TenantDetailPage() {
   const { data: session } = useSession();
@@ -74,6 +274,9 @@ export default function TenantDetailPage() {
   const [tab,       setTab]       = useState<Tab>("ledger");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
+  const [settlement, setSettlement] = useState<DepositSettlement | null>(null);
+  const [settlementLoading, setSettlementLoading] = useState(false);
+  const [showSettleModal, setShowSettleModal] = useState(false);
 
   const tenantId = params.id as string;
 
@@ -107,6 +310,15 @@ export default function TenantDetailPage() {
     if (tab === "documents") fetchDocuments();
   }, [tab, fetchDocuments]);
 
+  useEffect(() => {
+    if (tab !== "deposit") return;
+    setSettlementLoading(true);
+    fetch(`/api/tenants/${tenantId}/settle-deposit`)
+      .then((r) => r.json())
+      .then((d) => { setSettlement(d ?? null); setSettlementLoading(false); })
+      .catch(() => setSettlementLoading(false));
+  }, [tab, tenantId]);
+
   async function downloadPdf(inv: Invoice) {
     setDownloadingId(inv.id);
     try {
@@ -135,6 +347,7 @@ export default function TenantDetailPage() {
     { id: "invoices",  label: "Invoices",  icon: <ScrollText size={14} />, badge: invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").length || undefined },
     { id: "documents", label: "Documents", icon: <FolderOpen size={14} />, badge: documents.length || undefined },
     { id: "renewal",   label: "Renewal",   icon: <RefreshCw size={14} /> },
+    { id: "deposit",   label: "Deposit",   icon: <Banknote size={14} /> },
   ];
 
   return (
@@ -443,6 +656,112 @@ export default function TenantDetailPage() {
                   </>
                 )}
 
+                {/* ── DEPOSIT TAB ────────────────────────────────────────────── */}
+                {tab === "deposit" && (
+                  <>
+                    <div className="flex items-center justify-between mb-5">
+                      <h2 className="section-header">Deposit Management</h2>
+                      {!settlement && !settlementLoading && tenant?.depositAmount > 0 && (
+                        <Button size="sm" onClick={() => setShowSettleModal(true)}>
+                          <ShieldCheck size={14} className="mr-1.5" /> Settle Deposit
+                        </Button>
+                      )}
+                    </div>
+
+                    {settlementLoading ? (
+                      <div className="flex justify-center py-10"><Spinner /></div>
+                    ) : !settlement ? (
+                      /* ── No settlement yet ── */
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="bg-cream-dark rounded-xl p-4">
+                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Deposit Held</p>
+                            <CurrencyDisplay amount={tenant?.depositAmount ?? 0} size="lg" className="text-header font-medium" />
+                          </div>
+                          <div className="bg-cream-dark rounded-xl p-4">
+                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Date Received</p>
+                            <p className="text-sm font-sans text-header font-medium mt-1">
+                              {tenant?.depositPaidDate ? formatDate(tenant.depositPaidDate) : "Not recorded"}
+                            </p>
+                          </div>
+                          <div className="bg-cream-dark rounded-xl p-4">
+                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Status</p>
+                            <div className="mt-1">
+                              <Badge variant={tenant?.isActive ? "green" : "amber"}>
+                                {tenant?.isActive ? "Held — tenant active" : "Pending settlement"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {!tenant?.isActive && (
+                          <div className="border border-amber-100 bg-amber-50/60 rounded-xl p-4 flex items-start gap-3">
+                            <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium font-sans text-amber-800">Tenant has vacated — deposit needs settlement</p>
+                              <p className="text-xs text-amber-600 font-sans mt-0.5">Record deductions and the net amount refunded to close this out.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {tenant?.isActive && (
+                          <p className="text-sm text-gray-400 font-sans text-center py-4">
+                            Settlement is recorded when the tenant vacates and the deposit is returned (or partially withheld).
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      /* ── Settlement recorded ── */
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-income mb-1">
+                          <CheckCircle2 size={16} />
+                          <p className="text-sm font-medium font-sans">
+                            Settled on {formatDate(settlement.settledDate)}
+                          </p>
+                        </div>
+
+                        <div className="border border-gray-100 rounded-xl overflow-hidden">
+                          <table className="w-full text-sm">
+                            <tbody>
+                              <tr className="bg-cream-dark">
+                                <td className="px-4 py-3 font-sans text-gray-500">Deposit held</td>
+                                <td className="px-4 py-3 text-right font-mono text-header">KSh {settlement.depositHeld.toLocaleString("en-KE")}</td>
+                              </tr>
+                              {(settlement.deductions as { reason: string; amount: number }[]).map((d, i) => (
+                                <tr key={i} className="border-t border-gray-50">
+                                  <td className="px-4 py-3 font-sans text-gray-500 pl-6">
+                                    <span className="text-expense mr-1">−</span>{d.reason}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-mono text-expense">KSh {d.amount.toLocaleString("en-KE")}</td>
+                                </tr>
+                              ))}
+                              {settlement.totalDeductions > 0 && (
+                                <tr className="border-t border-gray-100 bg-cream-dark/50">
+                                  <td className="px-4 py-3 font-sans text-gray-500">Total deductions</td>
+                                  <td className="px-4 py-3 text-right font-mono text-expense">− KSh {settlement.totalDeductions.toLocaleString("en-KE")}</td>
+                                </tr>
+                              )}
+                              <tr className="border-t-2 border-gray-200 bg-cream-dark">
+                                <td className="px-4 py-3 font-sans font-medium text-header">Net refunded to tenant</td>
+                                <td className="px-4 py-3 text-right">
+                                  <CurrencyDisplay amount={settlement.netRefunded} size="md" className={settlement.netRefunded >= 0 ? "text-income font-medium" : "text-expense font-medium"} />
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {settlement.notes && (
+                          <div className="bg-cream-dark rounded-xl p-4">
+                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Notes</p>
+                            <p className="text-sm font-sans text-gray-600">{settlement.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {/* ── RENEWAL TAB ────────────────────────────────────────────── */}
                 {tab === "renewal" && (
                   <>
@@ -472,6 +791,17 @@ export default function TenantDetailPage() {
           </>
         )}
       </div>
+
+      {/* Settle Deposit Modal */}
+      {showSettleModal && tenant && (
+        <SettleDepositModal
+          tenantId={tenantId}
+          tenantName={tenant.name}
+          depositAmount={tenant.depositAmount}
+          onSettled={(s) => { setSettlement(s); setShowSettleModal(false); }}
+          onClose={() => setShowSettleModal(false)}
+        />
+      )}
 
       {/* Email Draft Modal */}
       {showEmail && tenant && (

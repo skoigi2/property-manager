@@ -15,10 +15,22 @@ export const incomeEntrySchema = z.object({
   note: z.string().optional(),
 });
 
+export const expenseLineItemSchema = z.object({
+  id: z.string().optional(),
+  category: z.enum(["LABOUR", "MATERIAL", "QUOTE"]),
+  description: z.string().optional(),
+  amount: z.coerce.number().min(0),
+  isVatable: z.boolean().default(false),
+  paymentStatus: z.enum(["UNPAID", "PARTIAL", "PAID"]).default("UNPAID"),
+  amountPaid: z.coerce.number().min(0).default(0),
+  paymentReference: z.string().optional(),
+});
+
 export const expenseEntrySchema = z.object({
   date: z.string().min(1, "Date is required"),
   scope: z.enum(["UNIT", "PROPERTY", "PORTFOLIO"]),
   unitId: z.string().optional(),
+  unitIds: z.array(z.string()).optional(),
   propertyId: z.string().optional(),
   category: z.enum([
     "SERVICE_CHARGE",
@@ -33,10 +45,11 @@ export const expenseEntrySchema = z.object({
     "CAPITAL",
     "OTHER",
   ]),
-  amount: z.coerce.number().positive("Amount must be positive"),
+  amount: z.coerce.number().min(0),
   description: z.string().optional(),
   isSunkCost: z.boolean().optional(),
   paidFromPettyCash: z.boolean().optional(),
+  lineItems: z.array(expenseLineItemSchema).optional(),
 });
 
 export const pettyCashSchema = z.object({
@@ -67,5 +80,6 @@ export const managementFeeConfigSchema = z.object({
 
 export type IncomeEntryInput = z.infer<typeof incomeEntrySchema>;
 export type ExpenseEntryInput = z.infer<typeof expenseEntrySchema>;
+export type ExpenseLineItemInput = z.infer<typeof expenseLineItemSchema>;
 export type PettyCashInput = z.infer<typeof pettyCashSchema>;
 export type TenantInput = z.infer<typeof tenantSchema>;

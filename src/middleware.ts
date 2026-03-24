@@ -17,7 +17,7 @@ export default auth((req) => {
   }
 
   // Manager-only routes
-  const managerOnlyPaths = ["/income", "/expenses", "/petty-cash", "/tenants", "/settings"];
+  const managerOnlyPaths = ["/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
     const role = req.auth?.user?.role;
     if (role === "OWNER") {

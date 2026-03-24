@@ -6,6 +6,8 @@ import { z } from "zod";
 const createSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["AIRBNB", "LONGTERM"]),
+  category: z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "OTHER"]).optional(),
+  categoryOther: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),

@@ -17,6 +17,12 @@ import {
   UserCog,
   Wrench,
   ScrollText,
+  AlertTriangle,
+  RepeatIcon,
+  ShieldCheck,
+  Upload,
+  ShieldPlus,
+  Package,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -35,10 +41,16 @@ const navItems: NavItem[] = [
   { href: "/petty-cash",      label: "Petty Cash",  icon: Wallet,          roles: ["MANAGER"] },
   { href: "/tenants",         label: "Tenants",     icon: Users,           roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/invoices",        label: "Invoices",    icon: ScrollText,      roles: ["MANAGER", "ACCOUNTANT"] },
-  { href: "/maintenance",     label: "Maintenance", icon: Wrench,          roles: ["MANAGER", "ACCOUNTANT"] },
-  { href: "/report",          label: "Report",      icon: FileText,        roles: ["MANAGER", "ACCOUNTANT", "OWNER"] },
-  { href: "/settings",        label: "Settings",    icon: Settings,        roles: ["MANAGER"] },
-  { href: "/settings/users",  label: "Users",       icon: UserCog,         roles: ["MANAGER"] },
+  { href: "/maintenance",          label: "Maintenance",  icon: Wrench,          roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/arrears",              label: "Arrears",      icon: AlertTriangle,   roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/insurance",            label: "Insurance",    icon: ShieldPlus,      roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/assets",               label: "Assets",       icon: Package,         roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/recurring-expenses",   label: "Recurring",    icon: RepeatIcon,      roles: ["MANAGER"] },
+  { href: "/import",               label: "Import",       icon: Upload,          roles: ["MANAGER"] },
+  { href: "/report",               label: "Report",       icon: FileText,        roles: ["MANAGER", "ACCOUNTANT", "OWNER"] },
+  { href: "/settings",             label: "Settings",     icon: Settings,        roles: ["MANAGER"] },
+  { href: "/settings/users",       label: "Users",        icon: UserCog,         roles: ["MANAGER"] },
+  { href: "/settings/audit",       label: "Audit Log",    icon: ShieldCheck,     roles: ["MANAGER"] },
 ];
 
 interface SidebarProps {

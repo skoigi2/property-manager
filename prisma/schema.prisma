@@ -77,6 +77,51 @@ enum PropertyType {
   LONGTERM
 }
 
+enum PropertyCategory {
+  RESIDENTIAL
+  OFFICE
+  INDUSTRIAL
+  RETAIL
+  MIXED_USE
+  OTHER
+}
+
+enum InsuranceType {
+  BUILDING
+  PUBLIC_LIABILITY
+  CONTENTS
+  OTHER
+}
+
+enum PremiumFrequency {
+  MONTHLY
+  QUARTERLY
+  BIANNUALLY
+  ANNUALLY
+}
+
+enum MaintenanceFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  BIANNUALLY
+  ANNUALLY
+}
+
+enum AssetCategory {
+  GENERATOR
+  LIFT
+  HVAC
+  ELECTRICAL
+  PLUMBING
+  SECURITY
+  APPLIANCE
+  FURNITURE
+  IT_EQUIPMENT
+  VEHICLE
+  OTHER
+}
+
 enum UnitType {
   BEDSITTER
   ONE_BED
@@ -190,6 +235,38 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+enum ArrearsStage {
+  INFORMAL_REMINDER
+  DEMAND_LETTER
+  LEGAL_NOTICE
+  EVICTION
+  RESOLVED
+}
+
+enum RecurringFrequency {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum LineItemCategory {
+  LABOUR
+  MATERIAL
+  QUOTE
+}
+
+enum LineItemPaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
 // ─── Property Access Control ──────────────────────────────────────────────────
 
 model PropertyAccess {
@@ -206,14 +283,16 @@ model PropertyAccess {
 // ─── Core Models ─────────────────────────────────────────────────────────────
 
 model Property {
-  id                   String           @id @default(cuid())
+  id                   String            @id @default(cuid())
   name                 String
   type                 PropertyType
+  category             PropertyCategory?
+  categoryOther        String?
   address              String?
-  city                 String?          @default("Nairobi")
+  city                 String?           @default("Nairobi")
   description          String?
   ownerId              String?
-  owner                User?            @relation("PropertyOwner", fields: [ownerId], references: [id])
+  owner                User?             @relation("PropertyOwner", fields: [ownerId], references: [id])
   managementFeeRate    Float?
   managementFeeFlat    Float?
   serviceChargeDefault Float?
@@ -222,6 +301,10 @@ model Property {
   propertyAccess       PropertyAccess[]
   pettyCash            PettyCash[]
   maintenanceJobs      MaintenanceJob[]
+  arrearsCases         ArrearsCase[]
+  recurringExpenses    RecurringExpense[]
+  insurancePolicies    InsurancePolicy[]
+  assets               Asset[]
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 }
@@ -238,13 +321,16 @@ model Unit {
   description   String?
   amenities     String[]
   property      Property              @relation(fields: [propertyId], references: [id])
-  tenants         Tenant[]
-  incomeEntries   IncomeEntry[]
-  expenses        ExpenseEntry[]
-  feeConfigs      ManagementFeeConfig[]
-  maintenanceJobs MaintenanceJob[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  tenants           Tenant[]
+  incomeEntries     IncomeEntry[]
+  expenses          ExpenseEntry[]
+  feeConfigs        ManagementFeeConfig[]
+  maintenanceJobs   MaintenanceJob[]
+  recurringExpenses  RecurringExpense[]
+  expenseAllocations ExpenseUnitAllocation[]
+  assets             Asset[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   @@unique([propertyId, unitNumber])
 }
@@ -272,31 +358,34 @@ model Tenant {
   proposedLeaseEnd DateTime?
   renewalNotes     String?
   unit             Unit             @relation(fields: [unitId], references: [id])
-  incomeEntries    IncomeEntry[]
-  invoices         Invoice[]
-  documents        TenantDocument[]
+  incomeEntries     IncomeEntry[]
+  invoices          Invoice[]
+  documents         TenantDocument[]
+  arrearsCases      ArrearsCase[]
+  depositSettlement DepositSettlement?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 }
 
 model IncomeEntry {
-  id              String     @id @default(cuid())
-  date            DateTime
-  checkIn         DateTime?
-  checkOut        DateTime?
-  unitId          String
-  tenantId        String?
-  invoiceId       String?
-  type            IncomeType
-  grossAmount     Float
-  agentCommission Float      @default(0)
-  platform        Platform?
-  agentName       String?
-  note            String?
-  unit            Unit       @relation(fields: [unitId], references: [id])
-  tenant          Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  invoice         Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  createdAt       DateTime   @default(now())
+  id                String     @id @default(cuid())
+  date              DateTime
+  checkIn           DateTime?
+  checkOut          DateTime?
+  unitId            String
+  tenantId          String?
+  invoiceId         String?
+  type              IncomeType
+  grossAmount       Float
+  agentCommission   Float      @default(0)
+  commissionPaidAt  DateTime?
+  platform          Platform?
+  agentName         String?
+  note              String?
+  unit              Unit       @relation(fields: [unitId], references: [id])
+  tenant            Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoice           Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdAt         DateTime   @default(now())
 
   @@index([date])
   @@index([unitId, date])
@@ -315,12 +404,40 @@ model ExpenseEntry {
   description       String?
   isSunkCost        Boolean         @default(false)
   paidFromPettyCash Boolean         @default(false)
-  unit              Unit?           @relation(fields: [unitId], references: [id])
-  property          Property?       @relation(fields: [propertyId], references: [id])
-  createdAt         DateTime        @default(now())
+  unit              Unit?                    @relation(fields: [unitId], references: [id])
+  property          Property?                @relation(fields: [propertyId], references: [id])
+  lineItems         ExpenseLineItem[]
+  unitAllocations   ExpenseUnitAllocation[]
+  createdAt         DateTime                 @default(now())
 
   @@index([date])
   @@index([propertyId, date])
+}
+
+model ExpenseLineItem {
+  id               String               @id @default(cuid())
+  expenseId        String
+  category         LineItemCategory
+  description      String?
+  amount           Float
+  isVatable        Boolean              @default(false)
+  paymentStatus    LineItemPaymentStatus @default(UNPAID)
+  amountPaid       Float                @default(0)
+  paymentReference String?
+  expense          ExpenseEntry         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model ExpenseUnitAllocation {
+  id          String       @id @default(cuid())
+  expenseId   String
+  unitId      String
+  shareAmount Float
+  expense     ExpenseEntry @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  unit        Unit         @relation(fields: [unitId], references: [id])
+
+  @@unique([expenseId, unitId])
 }
 
 model PettyCash {
@@ -395,6 +512,68 @@ model Invoice {
   @@index([status])
 }
 
+model ArrearsCase {
+  id          String              @id @default(cuid())
+  tenantId    String
+  propertyId  String
+  stage       ArrearsStage        @default(INFORMAL_REMINDER)
+  amountOwed  Float
+  notes       String?
+  resolvedAt  DateTime?
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  property    Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  escalations ArrearsEscalation[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@index([stage])
+}
+
+model ArrearsEscalation {
+  id        String       @id @default(cuid())
+  caseId    String
+  stage     ArrearsStage
+  notes     String?
+  createdAt DateTime     @default(now())
+  case      ArrearsCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model RecurringExpense {
+  id          String             @id @default(cuid())
+  description String
+  category    ExpenseCategory
+  amount      Float
+  scope       ExpenseScope
+  propertyId  String?
+  unitId      String?
+  frequency   RecurringFrequency @default(MONTHLY)
+  nextDueDate DateTime
+  isActive    Boolean            @default(true)
+  property    Property?          @relation(fields: [propertyId], references: [id])
+  unit        Unit?              @relation(fields: [unitId], references: [id])
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([nextDueDate])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String
+  userEmail  String?
+  action     AuditAction
+  resource   String
+  resourceId String
+  before     Json?
+  after      Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([resource, resourceId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
 model TenantDocument {
   id          String           @id @default(cuid())
   tenantId    String
@@ -408,4 +587,137 @@ model TenantDocument {
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+}
+
+model DepositSettlement {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  depositHeld     Float
+  deductions      Json     @default("[]")
+  totalDeductions Float    @default(0)
+  netRefunded     Float
+  settledDate     DateTime
+  notes           String?
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+// ─── Insurance ───────────────────────────────────────────────────────────────
+
+model InsurancePolicy {
+  id               String            @id @default(cuid())
+  propertyId       String
+  property         Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  type             InsuranceType
+  typeOther        String?
+  insurer          String
+  policyNumber     String
+  startDate        DateTime
+  endDate          DateTime
+  premiumAmount    Float?
+  premiumFrequency PremiumFrequency?
+  coverageAmount   Float?
+  brokerName       String?
+  brokerContact    String?
+  notes            String?
+  documents        InsurancePolicyDocument[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([propertyId])
+  @@index([endDate])
+}
+
+model InsurancePolicyDocument {
+  id         String          @id @default(cuid())
+  policyId   String
+  policy     InsurancePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  label      String
+  fileName   String
+  fileUrl    String
+  fileSize   Int?
+  mimeType   String?
+  uploadedAt DateTime        @default(now())
+
+  @@index([policyId])
+}
+
+// ─── Asset Register ───────────────────────────────────────────────────────────
+
+model Asset {
+  id              String        @id @default(cuid())
+  propertyId      String
+  property        Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId          String?
+  unit            Unit?         @relation(fields: [unitId], references: [id])
+  name            String
+  category        AssetCategory
+  categoryOther   String?
+  serialNumber    String?
+  modelNumber     String?
+  purchaseDate    DateTime?
+  purchaseCost    Float?
+  warrantyExpiry  DateTime?
+  serviceProvider String?
+  serviceContact  String?
+  notes           String?
+  documents            AssetDocument[]
+  maintenanceSchedules AssetMaintenanceSchedule[]
+  maintenanceLogs      AssetMaintenanceLog[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([propertyId])
+  @@index([warrantyExpiry])
+}
+
+model AssetDocument {
+  id         String   @id @default(cuid())
+  assetId    String
+  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  label      String
+  fileName   String
+  fileUrl    String
+  fileSize   Int?
+  mimeType   String?
+  uploadedAt DateTime @default(now())
+
+  @@index([assetId])
+}
+
+model AssetMaintenanceSchedule {
+  id          String               @id @default(cuid())
+  assetId     String
+  asset       Asset                @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  taskName    String
+  description String?
+  frequency   MaintenanceFrequency
+  lastDone    DateTime?
+  nextDue     DateTime?
+  isActive    Boolean              @default(true)
+  logs        AssetMaintenanceLog[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([assetId])
+  @@index([nextDue])
+}
+
+model AssetMaintenanceLog {
+  id          String                    @id @default(cuid())
+  assetId     String
+  asset       Asset                     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  scheduleId  String?
+  schedule    AssetMaintenanceSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  date        DateTime
+  description String
+  cost        Float?
+  technician  String?
+  notes       String?
+  createdAt   DateTime                  @default(now())
+
+  @@index([assetId])
+  @@index([scheduleId])
 }

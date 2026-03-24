@@ -19,8 +19,9 @@ import { getLeaseStatus, daysUntilExpiry, formatDate } from "@/lib/date-utils";
 import {
   Plus, AlertTriangle, ChevronRight, Pencil,
   LayoutGrid, List, Search, ArrowUpDown,
-  ArrowUp, ArrowDown, X,
+  ArrowUp, ArrowDown, X, LogOut, FileDown,
 } from "lucide-react";
+import { exportTenants } from "@/lib/excel-export";
 import { clsx } from "clsx";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -68,6 +69,12 @@ export default function TenantsPage() {
   const [editingTenant, setEditingTenant] = useState<any>(null);
   const [submitting, setSubmitting]     = useState(false);
 
+  // Vacate modal
+  const [vacateTarget, setVacateTarget] = useState<any>(null);
+  const [vacatedDate, setVacatedDate]   = useState("");
+  const [vacateNotes, setVacateNotes]   = useState("");
+  const [vacating, setVacating]         = useState(false);
+
   // Layout (persisted)
   const [layout, setLayout] = useState<LayoutMode>("grid");
 
@@ -87,6 +94,11 @@ export default function TenantsPage() {
   const allUnits = properties.flatMap((p: any) =>
     (p.units ?? []).map((u: any) => ({ ...u, propertyName: p.name }))
   );
+
+  // When adding a new tenant, only show units that are vacant or listed
+  const availableUnits = editingTenant
+    ? allUnits
+    : allUnits.filter((u: any) => u.status === "VACANT" || u.status === "LISTED");
 
   // Load from localStorage
   useEffect(() => {
@@ -230,6 +242,33 @@ export default function TenantsPage() {
     }
   }
 
+  function openVacate(tenant: any) {
+    setVacateTarget(tenant);
+    setVacatedDate(new Date().toISOString().split("T")[0]);
+    setVacateNotes("");
+  }
+
+  async function confirmVacate() {
+    if (!vacateTarget) return;
+    setVacating(true);
+    try {
+      const res = await fetch(`/api/tenants/${vacateTarget.id}/vacate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vacatedDate, notes: vacateNotes || null }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setTenants((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setVacateTarget(null);
+      toast.success(`${vacateTarget.name} vacated — unit set to Vacant`);
+    } catch {
+      toast.error("Failed to vacate tenant");
+    } finally {
+      setVacating(false);
+    }
+  }
+
   // Urgent lease alerts
   const urgentTenants = tenants.filter((t) => {
     const s = getLeaseStatus(toDate(t.leaseEnd));
@@ -325,6 +364,18 @@ export default function TenantsPage() {
                 <List size={16} />
               </button>
             </div>
+
+            {/* Export */}
+            {filtered.length > 0 && (
+              <button
+                onClick={() => exportTenants(filtered)}
+                title="Export to Excel"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors shrink-0"
+              >
+                <FileDown size={13} />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            )}
 
             {/* Add tenant */}
             <Button onClick={openAdd} size="sm" variant="gold" className="shrink-0">
@@ -465,7 +516,7 @@ export default function TenantsPage() {
                   </div>
 
                   {/* Footer actions */}
-                  <div className="flex gap-2 pt-2 border-t border-gray-50">
+                  <div className="flex gap-2 pt-2 border-t border-gray-50 items-center">
                     {!tenant.isActive && (
                       <span className="text-xs text-gray-400 font-sans italic self-center">Vacated</span>
                     )}
@@ -475,6 +526,14 @@ export default function TenantsPage() {
                     >
                       <Pencil size={13} /> Edit
                     </button>
+                    {tenant.isActive && (
+                      <button
+                        onClick={() => openVacate(tenant)}
+                        className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-expense transition-colors"
+                      >
+                        <LogOut size={13} /> Vacate
+                      </button>
+                    )}
                     <Link
                       href={`/tenants/${tenant.id}`}
                       className="flex items-center gap-1 text-xs font-sans text-gold hover:text-gold-dark transition-colors ml-auto"
@@ -613,6 +672,15 @@ export default function TenantsPage() {
                             >
                               <Pencil size={14} />
                             </button>
+                            {tenant.isActive && (
+                              <button
+                                onClick={() => openVacate(tenant)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-expense hover:bg-red-50 transition-colors"
+                                title="Vacate tenant"
+                              >
+                                <LogOut size={14} />
+                              </button>
+                            )}
                             <Link
                               href={`/tenants/${tenant.id}`}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors"
@@ -649,6 +717,49 @@ export default function TenantsPage() {
         )}
       </div>
 
+      {/* ── Vacate Modal ─────────────────────────────────────────────────── */}
+      <Modal
+        open={!!vacateTarget}
+        onClose={() => setVacateTarget(null)}
+        title="Vacate Tenant"
+        size="sm"
+      >
+        {vacateTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 font-sans">
+              Marking <strong>{vacateTarget.name}</strong> as vacated will set their unit{" "}
+              <span className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">{vacateTarget.unit?.unitNumber}</span>{" "}
+              to <strong>Vacant</strong>.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-sans">Vacated Date</label>
+              <input
+                type="date"
+                value={vacatedDate}
+                onChange={(e) => setVacatedDate(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 font-sans">Notes (optional)</label>
+              <textarea
+                value={vacateNotes}
+                onChange={(e) => setVacateNotes(e.target.value)}
+                rows={2}
+                placeholder="Reason for vacating, condition notes…"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="secondary" type="button" onClick={() => setVacateTarget(null)}>Cancel</Button>
+              <Button variant="gold" type="button" loading={vacating} onClick={confirmVacate}>
+                Confirm Vacate
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* ── Add / Edit Modal ─────────────────────────────────────────────── */}
       <Modal
         open={modalOpen}
@@ -659,10 +770,10 @@ export default function TenantsPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input label="Tenant Name" {...register("name")} error={errors.name?.message} />
           <Select
-            label="Unit"
+            label={editingTenant ? "Unit" : "Unit (vacant/listed only)"}
             placeholder="Select unit..."
             {...register("unitId")}
-            options={allUnits.map((u: any) => ({
+            options={availableUnits.map((u: any) => ({
               value: u.id,
               label: `${u.unitNumber} (${u.propertyName})`,
             }))}

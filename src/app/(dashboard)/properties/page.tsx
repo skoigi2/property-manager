@@ -9,7 +9,9 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home } from "lucide-react";
+import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight } from "lucide-react";
+import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
+import { formatDate } from "@/lib/date-utils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,10 +30,14 @@ interface Unit {
   description: string | null;
 }
 
+type PropertyCategory = "RESIDENTIAL" | "OFFICE" | "INDUSTRIAL" | "RETAIL" | "MIXED_USE" | "OTHER";
+
 interface Property {
   id: string;
   name: string;
   type: "AIRBNB" | "LONGTERM";
+  category: PropertyCategory | null;
+  categoryOther: string | null;
   address: string | null;
   city: string | null;
   description: string | null;
@@ -45,12 +51,33 @@ interface Property {
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
+const CATEGORY_LABELS: Record<string, string> = {
+  RESIDENTIAL: "Residential",
+  OFFICE:      "Office",
+  INDUSTRIAL:  "Industrial",
+  RETAIL:      "Retail",
+  MIXED_USE:   "Mixed Use",
+  OTHER:       "Other",
+};
+
+const CATEGORY_BADGE: Record<string, "blue"|"amber"|"gray"|"green"|"gold"|"red"> = {
+  RESIDENTIAL: "blue",
+  OFFICE:      "gold",
+  INDUSTRIAL:  "gray",
+  RETAIL:      "green",
+  MIXED_USE:   "amber",
+  OTHER:       "gray",
+};
+
 const propertySchema = z.object({
   name: z.string().min(1, "Name required"),
   type: z.enum(["AIRBNB", "LONGTERM"]),
+  category: z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "OTHER"]).optional(),
+  categoryOther: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
+  ownerId: z.string().optional(),
   managementFeeRate: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).max(100).optional()
@@ -134,7 +161,11 @@ function StatusDot({ status }: { status: string }) {
   );
 }
 
-function PropertyFormFields({ register, errors }: { register: any; errors: any }) {
+interface OwnerUser { id: string; name: string | null; email: string | null; }
+
+function PropertyFormFields({ register, errors, owners, watchedCategory }: {
+  register: any; errors: any; owners: OwnerUser[]; watchedCategory?: string;
+}) {
   return (
     <div className="space-y-4">
       <div>
@@ -142,13 +173,37 @@ function PropertyFormFields({ register, errors }: { register: any; errors: any }
         <input className="form-input" {...register("name")} placeholder="e.g. Riara One" />
         {errors.name && <p className="form-error">{errors.name.message}</p>}
       </div>
-      <div>
-        <label className="form-label">Type *</label>
-        <select className="form-input" {...register("type")}>
-          <option value="LONGTERM">Long-term Rental</option>
-          <option value="AIRBNB">Airbnb / Short-let</option>
-        </select>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="form-label">Billing Type *</label>
+          <select className="form-input" {...register("type")}>
+            <option value="LONGTERM">Long-term Rental</option>
+            <option value="AIRBNB">Airbnb / Short-let</option>
+          </select>
+        </div>
+        <div>
+          <label className="form-label">Property Category</label>
+          <select className="form-input" {...register("category")}>
+            <option value="">— Select category —</option>
+            <option value="RESIDENTIAL">Residential</option>
+            <option value="OFFICE">Office</option>
+            <option value="INDUSTRIAL">Industrial</option>
+            <option value="RETAIL">Retail</option>
+            <option value="MIXED_USE">Mixed Use</option>
+            <option value="OTHER">Other (specify)</option>
+          </select>
+        </div>
       </div>
+      {watchedCategory === "OTHER" && (
+        <div>
+          <label className="form-label">Specify Category</label>
+          <input
+            className="form-input"
+            {...register("categoryOther")}
+            placeholder="e.g. Warehouse, Hotel, Student Housing…"
+          />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="form-label">Address</label>
@@ -177,6 +232,17 @@ function PropertyFormFields({ register, errors }: { register: any; errors: any }
         <label className="form-label">Default Service Charge (KSh)</label>
         <input type="number" className="form-input" {...register("serviceChargeDefault")} placeholder="5000" />
       </div>
+      {owners.length > 0 && (
+        <div>
+          <label className="form-label">Property Owner</label>
+          <select className="form-input" {...register("ownerId")}>
+            <option value="">— Unassigned —</option>
+            {owners.map((o) => (
+              <option key={o.id} value={o.id}>{o.name ?? o.email}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
@@ -214,12 +280,12 @@ function UnitFormFields({ register, errors, propertyType }: { register: any; err
           <label className="form-label">Status *</label>
           <select className="form-input" {...register("status")}>
             <option value="VACANT">Vacant</option>
-            <option value="ACTIVE">Occupied</option>
             <option value="LISTED">Listed</option>
             <option value="UNDER_NOTICE">Under Notice</option>
             <option value="MAINTENANCE">Maintenance</option>
             <option value="OWNER_OCCUPIED">Owner Occupied</option>
           </select>
+          <p className="text-xs text-gray-400 mt-1">&quot;Occupied&quot; is set automatically when a tenant is assigned.</p>
         </div>
       </div>
 
@@ -334,6 +400,208 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
   );
 }
 
+// ─── Property Summary Panel ───────────────────────────────────────────────────
+
+const LEASE_STATUS_BADGE: Record<string, { label: string; color: string }> = {
+  OK:       { label: "Active",       color: "text-income" },
+  WARNING:  { label: "Expiring",     color: "text-amber-600" },
+  CRITICAL: { label: "Expired",      color: "text-expense" },
+  TBC:      { label: "TBC",          color: "text-gray-400" },
+};
+
+function PropertySummaryPanel({ property, onClose }: { property: Property | null; onClose: () => void }) {
+  const now = new Date();
+  const [stmt, setStmt]         = useState<any | null>(null);
+  const [tenants, setTenants]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(false);
+
+  useEffect(() => {
+    if (!property) return;
+    setLoading(true);
+    setStmt(null);
+    setTenants([]);
+    Promise.all([
+      fetch(`/api/report/owner-statement?propertyId=${property.id}&year=${now.getFullYear()}&month=${now.getMonth() + 1}`)
+        .then((r) => r.json()),
+      fetch("/api/tenants").then((r) => r.json()),
+    ]).then(([stmtArr, allTenants]) => {
+      setStmt(Array.isArray(stmtArr) ? (stmtArr[0] ?? null) : null);
+      const unitIds = new Set(property.units.map((u) => u.id));
+      setTenants((Array.isArray(allTenants) ? allTenants : []).filter((t: any) => unitIds.has(t.unitId) && t.isActive));
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [property?.id]);
+
+  const isOpen = !!property;
+
+  return (
+    <>
+      {/* Backdrop */}
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/20 z-30 lg:hidden" onClick={onClose} />
+      )}
+
+      {/* Panel */}
+      <div className={`fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-40 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
+        {!property ? null : (
+          <>
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-header shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gold/20 flex items-center justify-center">
+                  <Building2 size={16} className="text-gold" />
+                </div>
+                <div>
+                  <p className="font-display text-white text-sm leading-tight">{property.name}</p>
+                  <p className="text-white/50 text-xs font-sans mt-0.5">
+                    {property.category
+                      ? `${property.category === "OTHER" && property.categoryOther ? property.categoryOther : CATEGORY_LABELS[property.category]} · `
+                      : ""}
+                    {property.type === "AIRBNB" ? "Airbnb / Short-let" : "Long-term Rental"}
+                    {property.owner && ` · ${property.owner.name ?? property.owner.email}`}
+                  </p>
+                </div>
+              </div>
+              <button onClick={onClose} className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Panel body */}
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex justify-center items-center py-20"><Spinner size="lg" /></div>
+              ) : (
+                <div className="p-5 space-y-5">
+
+                  {/* ── 1. Occupancy ─────────────────────────────────────── */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                      <Building2 size={12} /> Unit Status
+                    </p>
+                    {property.units.length === 0 ? (
+                      <p className="text-xs text-gray-400 font-sans">No units added yet.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {/* Status bar */}
+                        <div className="flex h-2 rounded-full overflow-hidden gap-0.5 mb-3">
+                          {property.units.map((u) => (
+                            <div key={u.id} className={`flex-1 rounded-sm ${STATUS_COLORS[u.status] ?? "bg-gray-200"}`} title={u.unitNumber} />
+                          ))}
+                        </div>
+                        {/* Unit rows */}
+                        {property.units.map((u) => (
+                          <div key={u.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50 last:border-0">
+                            <div className="flex items-center gap-2">
+                              <StatusDot status={u.status} />
+                              <span className="text-sm font-mono font-medium text-header">{u.unitNumber}</span>
+                              <span className="text-xs text-gray-400 font-sans">{UNIT_TYPE_LABELS[u.type] ?? u.type}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {u.monthlyRent != null && (
+                                <span className="text-xs font-mono text-gray-500">KSh {u.monthlyRent.toLocaleString("en-KE")}</span>
+                              )}
+                              <Badge variant={STATUS_BADGE[u.status] ?? "gray"}>
+                                {UNIT_STATUS_LABELS[u.status] ?? u.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                        {/* Summary counts */}
+                        <div className="flex gap-3 pt-2 text-xs font-sans text-gray-500">
+                          <span className="text-income font-medium">{property.units.filter(u => u.status === "ACTIVE").length} occupied</span>
+                          <span>·</span>
+                          <span className="text-amber-500 font-medium">{property.units.filter(u => u.status === "VACANT" || u.status === "LISTED").length} vacant</span>
+                          <span>·</span>
+                          <span>{property.units.length} total</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── 2. Current Month Financials ──────────────────────── */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                      <TrendingUp size={12} /> {now.toLocaleString("en-KE", { month: "long" })} {now.getFullYear()} Financials
+                    </p>
+                    {!stmt ? (
+                      <p className="text-xs text-gray-400 font-sans">No financial data for this month.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {[
+                          { label: "Gross Income",    value: stmt.grossIncome,    color: "text-income",  icon: <TrendingUp size={13} /> },
+                          { label: "Management Fee",  value: -stmt.managementFee, color: "text-expense", icon: <Receipt size={13} /> },
+                          { label: "Expenses",        value: -stmt.totalExpenses, color: "text-expense", icon: <Receipt size={13} /> },
+                        ].map((row) => (
+                          <div key={row.label} className="flex items-center justify-between py-1.5 border-b border-gray-50">
+                            <div className="flex items-center gap-2 text-xs text-gray-500 font-sans">
+                              <span className={row.color}>{row.icon}</span>
+                              {row.label}
+                            </div>
+                            <span className={`font-mono text-sm font-medium ${row.color}`}>
+                              {row.value < 0 ? "-" : ""}KSh {Math.abs(row.value).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                          <span className="text-xs font-semibold font-sans text-header flex items-center gap-1.5">
+                            <DollarSign size={13} className="text-gold" /> Net Payable to Owner
+                          </span>
+                          <CurrencyDisplay
+                            amount={stmt.netPayable}
+                            size="md"
+                            className={`font-bold ${stmt.netPayable >= 0 ? "text-income" : "text-expense"}`}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── 3. Active Tenants ────────────────────────────────── */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                      <Users size={12} /> Active Tenants ({tenants.length})
+                    </p>
+                    {tenants.length === 0 ? (
+                      <p className="text-xs text-gray-400 font-sans">No active tenants.</p>
+                    ) : (
+                      <div className="space-y-0">
+                        {tenants.map((t: any) => {
+                          const leaseEnd = t.leaseEnd ? new Date(t.leaseEnd) : null;
+                          const daysLeft = leaseEnd ? Math.ceil((leaseEnd.getTime() - Date.now()) / 86400000) : null;
+                          const statusKey = !leaseEnd ? "TBC" : daysLeft! < 0 ? "CRITICAL" : daysLeft! <= 60 ? "WARNING" : "OK";
+                          const ls = LEASE_STATUS_BADGE[statusKey];
+                          return (
+                            <div key={t.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-gray-50 last:border-0">
+                              <div className="min-w-0">
+                                <p className="text-sm font-sans font-medium text-header truncate">{t.name}</p>
+                                <p className="text-xs text-gray-400 font-sans">
+                                  Unit {t.unit?.unitNumber} · KSh {t.monthlyRent.toLocaleString("en-KE")}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className={`text-xs font-medium ${ls.color}`}>{ls.label}</p>
+                                {leaseEnd && (
+                                  <p className="text-xs text-gray-400 font-sans">{formatDate(leaseEnd)}</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PropertiesPage() {
@@ -341,7 +609,9 @@ export default function PropertiesPage() {
   const isManager = session?.user?.role === "MANAGER";
 
   const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [owners, setOwners]         = useState<OwnerUser[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
   // Property modal
   const [propModalOpen, setPropModalOpen] = useState(false);
@@ -377,7 +647,14 @@ export default function PropertiesPage() {
       .catch(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Fetch OWNER-role users for the owner dropdown
+    fetch("/api/users")
+      .then((r) => r.json())
+      .then((d: any[]) => setOwners(d.filter((u) => u.role === "OWNER")))
+      .catch(() => {});
+  }, []);
 
   // ── Property handlers ────────────────────────────────────────────────────────
 
@@ -392,9 +669,12 @@ export default function PropertiesPage() {
     propForm.reset({
       name: p.name,
       type: p.type,
+      category: p.category ?? undefined,
+      categoryOther: p.categoryOther ?? "",
       address: p.address ?? "",
       city: p.city ?? "Nairobi",
       description: p.description ?? "",
+      ownerId: p.owner?.id ?? "",
       managementFeeRate: p.managementFeeRate ?? undefined,
       managementFeeFlat: p.managementFeeFlat ?? undefined,
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
@@ -527,7 +807,8 @@ export default function PropertiesPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {properties.map((p) => (
-              <Card key={p.id}>
+              <div key={p.id} className="cursor-pointer" onClick={() => setSelectedProperty(p)}>
+              <Card className="hover:shadow-md transition-shadow h-full">
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
@@ -543,13 +824,23 @@ export default function PropertiesPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    {p.category && (
+                      <Badge variant={CATEGORY_BADGE[p.category]}>
+                        {p.category === "OTHER" && p.categoryOther
+                          ? p.categoryOther
+                          : CATEGORY_LABELS[p.category]}
+                      </Badge>
+                    )}
                     <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
                       {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
                     </Badge>
+                    <button onClick={(e) => { e.stopPropagation(); setSelectedProperty(p); }} className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors" title="View summary">
+                      <ChevronRight size={15} />
+                    </button>
                     {isManager && (
                       <button
-                        onClick={() => openEditProperty(p)}
+                        onClick={(e) => { e.stopPropagation(); openEditProperty(p); }}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
                         title="Edit property"
                       >
@@ -593,14 +884,17 @@ export default function PropertiesPage() {
                 )}
 
                 {/* Units panel — expandable */}
-                <UnitPanel
-                  property={p}
-                  isManager={isManager}
-                  onAddUnit={openAddUnit}
-                  onEditUnit={openEditUnit}
-                  onDeleteUnit={(u) => setDeleteUnit(u)}
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <UnitPanel
+                    property={p}
+                    isManager={isManager}
+                    onAddUnit={openAddUnit}
+                    onEditUnit={openEditUnit}
+                    onDeleteUnit={(u) => setDeleteUnit(u)}
+                  />
+                </div>
               </Card>
+              </div>
             ))}
           </div>
         )}
@@ -613,7 +907,7 @@ export default function PropertiesPage() {
         title={editProp ? "Edit Property" : "Add Property"}
       >
         <form onSubmit={propForm.handleSubmit(onSaveProperty)} className="space-y-4">
-          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} />
+          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} watchedCategory={propForm.watch("category")} />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setPropModalOpen(false)}>
               Cancel
@@ -662,6 +956,8 @@ export default function PropertiesPage() {
         onConfirm={confirmDeleteUnit}
         onClose={() => setDeleteUnit(null)}
       />
+
+      <PropertySummaryPanel property={selectedProperty} onClose={() => setSelectedProperty(null)} />
     </div>
   );
 }

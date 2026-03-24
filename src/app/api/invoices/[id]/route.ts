@@ -1,6 +1,7 @@
 import { requireManager, requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
 
 const updateSchema = z.object({
   status: z.enum(["DRAFT","SENT","PAID","OVERDUE","CANCELLED"]).optional(),
@@ -51,7 +52,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
 
   const { invoice, accessError } = await getInvoiceWithAccess(params.id);
@@ -121,6 +122,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     return updatedInvoice;
   });
+
+  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "Invoice", resourceId: params.id, after: { status: updated.status, totalAmount: updated.totalAmount } });
 
   return Response.json(updated);
 }

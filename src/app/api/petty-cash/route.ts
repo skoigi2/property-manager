@@ -2,6 +2,7 @@ import { requireAuth, requireManager } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { pettyCashSchema } from "@/lib/validations";
 import { calcPettyCashBalance } from "@/lib/calculations";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   const { error } = await requireAuth();
@@ -14,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
 
   const body = await req.json();
@@ -27,6 +28,8 @@ export async function POST(req: Request) {
   const entry = await prisma.pettyCash.create({
     data: { ...rest, date: new Date(date) },
   });
+
+  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "CREATE", resource: "PettyCash", resourceId: entry.id, after: { type: entry.type, amount: entry.amount, date: entry.date } });
 
   return Response.json(entry, { status: 201 });
 }

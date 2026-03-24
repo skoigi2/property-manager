@@ -40,18 +40,25 @@ export async function POST(req: Request) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { leaseStart, leaseEnd, ...rest } = parsed.data;
+  const { leaseStart, leaseEnd, unitId, ...rest } = parsed.data;
 
-  const tenant = await prisma.tenant.create({
-    data: {
-      ...rest,
-      leaseStart: new Date(leaseStart),
-      leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
-    },
-    include: {
-      unit: { include: { property: { select: { name: true, type: true } } } },
-    },
-  });
+  const [tenant] = await prisma.$transaction([
+    prisma.tenant.create({
+      data: {
+        ...rest,
+        unitId,
+        leaseStart: new Date(leaseStart),
+        leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
+      },
+      include: {
+        unit: { include: { property: { select: { name: true, type: true } } } },
+      },
+    }),
+    prisma.unit.update({
+      where: { id: unitId },
+      data: { status: "ACTIVE" },
+    }),
+  ]);
 
   return Response.json(tenant, { status: 201 });
 }

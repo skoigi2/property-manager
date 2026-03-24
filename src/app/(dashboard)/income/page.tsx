@@ -20,8 +20,11 @@ import { formatDate } from "@/lib/date-utils";
 import {
   Trash2, Plus, TrendingUp, User, CheckCircle2, AlertCircle,
   LayoutList, TableProperties, Receipt, ChevronDown, ChevronRight,
-  RefreshCw, AlertTriangle, Loader2, Zap,
+  RefreshCw, AlertTriangle, Loader2, Zap, FolderOpen,
+  DollarSign, CheckCheck, Clock, FileDown,
 } from "lucide-react";
+import { exportIncome } from "@/lib/excel-export";
+import Link from "next/link";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -48,7 +51,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 const EXCLUDED_FROM_PL = ["DEPOSIT"];
 
-type Tab = "collection" | "entries";
+type Tab = "collection" | "entries" | "commissions";
 type CollectionMode = "monthly" | "arrears";
 
 interface MonthRow {
@@ -151,6 +154,8 @@ export default function IncomePage() {
   const [tenantsLoading, setTenantsLoading]   = useState(true);
   const [arrearsLoading, setArrearsLoading]   = useState(false);
   const [arrearsSeq, setArrearsSeq]           = useState(0); // increment to re-fetch
+  const [openCases, setOpenCases]             = useState<Record<string, string>>({}); // tenantId → caseId
+  const [openingCaseFor, setOpeningCaseFor]   = useState<string | null>(null); // tenantId being submitted
 
   // Form
   const [submitting, setSubmitting]           = useState(false);
@@ -202,9 +207,22 @@ export default function IncomePage() {
   useEffect(() => {
     if (collectionMode !== "arrears") return;
     setArrearsLoading(true);
-    fetch("/api/income")
-      .then((r) => r.json())
-      .then((d) => { setAllIncomeEntries(d); setArrearsLoading(false); })
+    Promise.all([
+      fetch("/api/income").then((r) => r.json()),
+      fetch("/api/arrears").then((r) => r.json()),
+    ])
+      .then(([income, cases]) => {
+        setAllIncomeEntries(income);
+        // Build tenantId → caseId map for open cases
+        const caseMap: Record<string, string> = {};
+        if (Array.isArray(cases)) {
+          cases.filter((c: any) => c.stage !== "RESOLVED").forEach((c: any) => {
+            caseMap[c.tenantId] = c.id;
+          });
+        }
+        setOpenCases(caseMap);
+        setArrearsLoading(false);
+      })
       .catch(() => setArrearsLoading(false));
   }, [collectionMode, arrearsSeq]);
 
@@ -388,6 +406,71 @@ export default function IncomePage() {
     }
   }
 
+  // ── Mark commission paid / unpaid ─────────────────────────────────────────
+  const [markingCommission, setMarkingCommission] = useState<string | null>(null);
+
+  async function handleMarkCommission(entryId: string, paid: boolean) {
+    setMarkingCommission(entryId);
+    try {
+      const res = await fetch(`/api/income/${entryId}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionPaidAt: paid ? new Date().toISOString() : null }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setEntries((prev) => prev.map((e) => e.id === entryId ? { ...e, commissionPaidAt: updated.commissionPaidAt } : e));
+      toast.success(paid ? "Commission marked as paid" : "Commission marked as unpaid");
+    } catch {
+      toast.error("Failed to update commission status");
+    } finally {
+      setMarkingCommission(null);
+    }
+  }
+
+  // ── Commission stats (derived from current month entries) ─────────────────
+  const commissionEntries  = entries.filter((e: any) => e.agentCommission > 0);
+  const totalCommission    = commissionEntries.reduce((s: number, e: any) => s + e.agentCommission, 0);
+  const paidCommission     = commissionEntries.filter((e: any) => e.commissionPaidAt).reduce((s: number, e: any) => s + e.agentCommission, 0);
+  const outstandingComm    = totalCommission - paidCommission;
+
+  // Per-agent breakdown
+  const agentBreakdown = commissionEntries.reduce((acc: Record<string, { count: number; total: number; paid: number }>, e: any) => {
+    const name = e.agentName ?? "Unknown";
+    if (!acc[name]) acc[name] = { count: 0, total: 0, paid: 0 };
+    acc[name].count++;
+    acc[name].total += e.agentCommission;
+    if (e.commissionPaidAt) acc[name].paid += e.agentCommission;
+    return acc;
+  }, {});
+
+  // ── Open arrears case from income page ────────────────────────────────────
+  async function handleOpenCase(tenant: any, amountOwed: number) {
+    const propertyId = tenant.unit?.property?.id ?? tenant.unit?.propertyId;
+    if (!propertyId) { toast.error("Could not determine property"); return; }
+    setOpeningCaseFor(tenant.id);
+    const res = await fetch("/api/arrears", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId: tenant.id, propertyId, amountOwed }),
+    });
+    setOpeningCaseFor(null);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error ?? "Failed to open case");
+      return;
+    }
+    const newCase = await res.json();
+    setOpenCases((prev) => ({ ...prev, [tenant.id]: newCase.id }));
+    toast.success(
+      <span>
+        Arrears case opened for {tenant.name}.{" "}
+        <a href="/arrears" className="underline font-medium">View in Arrears →</a>
+      </span>,
+      { duration: 5000 }
+    );
+  }
+
   // ── P&L totals ─────────────────────────────────────────────────────────────
   const plEntries      = entries.filter((e: any) => !EXCLUDED_FROM_PL.includes(e.type));
   const depositEntries = entries.filter((e: any) => e.type === "DEPOSIT");
@@ -519,6 +602,20 @@ export default function IncomePage() {
             <LayoutList size={15} />
             All Entries
             <span className="text-xs text-gray-400">({entries.length})</span>
+          </button>
+          <button
+            onClick={() => setTab("commissions")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
+              tab === "commissions" ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-header"
+            }`}
+          >
+            <DollarSign size={15} />
+            Commissions
+            {outstandingComm > 0 && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+                {commissionEntries.filter((e: any) => !e.commissionPaidAt).length} unpaid
+              </span>
+            )}
           </button>
         </div>
 
@@ -778,15 +875,39 @@ export default function IncomePage() {
                                       : <span className="text-xs text-gray-400 italic">Never</span>}
                                   </td>
                                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                                    {summary.hasArrears && (
-                                      <Button
-                                        size="sm"
-                                        variant="gold"
-                                        onClick={() => handleQuickRecord(tenant)}
-                                      >
-                                        <Plus size={12} /> Record
-                                      </Button>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                      {summary.hasArrears && (
+                                        <Button
+                                          size="sm"
+                                          variant="gold"
+                                          onClick={() => handleQuickRecord(tenant)}
+                                        >
+                                          <Plus size={12} /> Record
+                                        </Button>
+                                      )}
+                                      {summary.hasArrears && (
+                                        openCases[tenant.id] ? (
+                                          <Link
+                                            href="/arrears"
+                                            className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded-lg hover:bg-amber-100 transition-colors whitespace-nowrap"
+                                          >
+                                            <FolderOpen size={11} />
+                                            Case Open
+                                          </Link>
+                                        ) : (
+                                          <button
+                                            disabled={openingCaseFor === tenant.id}
+                                            onClick={() => handleOpenCase(tenant, summary.totalArrears)}
+                                            className="flex items-center gap-1 text-xs font-medium text-gray-500 border border-gray-200 px-2 py-1.5 rounded-lg hover:border-gray-300 hover:text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50"
+                                          >
+                                            {openingCaseFor === tenant.id
+                                              ? <Loader2 size={11} className="animate-spin" />
+                                              : <FolderOpen size={11} />}
+                                            Open Case
+                                          </button>
+                                        )
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
 
@@ -867,12 +988,23 @@ export default function IncomePage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="section-header">Entries</h2>
-              <Button
-                onClick={() => { reset({ type: "LONGTERM_RENT", agentCommission: 0 }); setActiveTenant(null); setShowForm(!showForm); }}
-                size="sm" variant="gold"
-              >
-                <Plus size={15} /> Add Entry
-              </Button>
+              <div className="flex items-center gap-2">
+                {entries.length > 0 && (
+                  <button
+                    onClick={() => exportIncome(entries, month)}
+                    title="Export to Excel"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+                  >
+                    <FileDown size={13} /> Export
+                  </button>
+                )}
+                <Button
+                  onClick={() => { reset({ type: "LONGTERM_RENT", agentCommission: 0 }); setActiveTenant(null); setShowForm(!showForm); }}
+                  size="sm" variant="gold"
+                >
+                  <Plus size={15} /> Add Entry
+                </Button>
+              </div>
             </div>
 
             {/* Form */}
@@ -1032,6 +1164,146 @@ export default function IncomePage() {
             </Card>
           </div>
         )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            COMMISSIONS TAB
+        ════════════════════════════════════════════════════════════════ */}
+        {tab === "commissions" && (
+          <div className="space-y-4">
+
+            {/* KPI cards */}
+            <div className="grid grid-cols-3 gap-3">
+              <Card padding="sm">
+                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Commission</p>
+                <CurrencyDisplay amount={totalCommission} className="block mt-1 text-header" size="lg" />
+                <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.length} entr{commissionEntries.length === 1 ? "y" : "ies"}</p>
+              </Card>
+              <Card padding="sm">
+                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Paid to Agent</p>
+                <CurrencyDisplay amount={paidCommission} className="block mt-1 text-income" size="lg" />
+                <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.filter((e: any) => e.commissionPaidAt).length} settled</p>
+              </Card>
+              <Card padding="sm">
+                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Outstanding</p>
+                <CurrencyDisplay amount={outstandingComm} className={`block mt-1 ${outstandingComm > 0 ? "text-expense" : "text-income"}`} size="lg" />
+                <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.filter((e: any) => !e.commissionPaidAt).length} unpaid</p>
+              </Card>
+            </div>
+
+            {commissionEntries.length === 0 ? (
+              <Card>
+                <div className="flex flex-col items-center py-10 gap-2 text-gray-400">
+                  <DollarSign size={28} className="opacity-30" />
+                  <p className="text-sm font-sans">No commission entries for {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}</p>
+                  <p className="text-xs font-sans">Commissions are recorded on Airbnb / agent income entries</p>
+                </div>
+              </Card>
+            ) : (
+              <>
+                {/* Per-agent breakdown */}
+                {Object.keys(agentBreakdown).length > 0 && (
+                  <Card>
+                    <h3 className="section-header mb-4">Per-Agent Summary</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[500px]">
+                        <thead className="bg-cream-dark">
+                          <tr>
+                            {["Agent", "Bookings", "Total Commission", "Paid", "Outstanding", "Status"].map((h) => (
+                              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(agentBreakdown).sort(([, a], [, b]) => b.total - a.total).map(([agent, stats]) => {
+                            const outstanding = stats.total - stats.paid;
+                            const allPaid = outstanding === 0;
+                            return (
+                              <tr key={agent} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
+                                <td className="px-4 py-3 text-sm font-medium font-sans text-header">{agent}</td>
+                                <td className="px-4 py-3 text-sm font-sans text-gray-500 text-center">{stats.count}</td>
+                                <td className="px-4 py-3 text-right"><CurrencyDisplay amount={stats.total} size="sm" className="text-header" /></td>
+                                <td className="px-4 py-3 text-right"><CurrencyDisplay amount={stats.paid} size="sm" className="text-income" /></td>
+                                <td className="px-4 py-3 text-right">
+                                  <CurrencyDisplay amount={outstanding} size="sm" className={outstanding > 0 ? "text-expense" : "text-income"} />
+                                </td>
+                                <td className="px-4 py-3">
+                                  {allPaid
+                                    ? <span className="flex items-center gap-1 text-xs text-income font-sans"><CheckCheck size={12} /> All paid</span>
+                                    : <span className="flex items-center gap-1 text-xs text-amber-600 font-sans"><Clock size={12} /> Outstanding</span>
+                                  }
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Entry-level breakdown */}
+                <Card>
+                  <h3 className="section-header mb-4">Commission Entries — {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                      <thead className="bg-cream-dark">
+                        <tr>
+                          {["Date", "Unit", "Agent", "Gross Income", "Commission", "Status", "Action"].map((h) => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {commissionEntries.map((entry: any) => {
+                          const isPaid = !!entry.commissionPaidAt;
+                          const isMarking = markingCommission === entry.id;
+                          return (
+                            <tr key={entry.id} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
+                              <td className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(entry.date)}</td>
+                              <td className="px-4 py-3 text-xs font-mono text-gray-500">
+                                {entry.unit?.unitNumber}
+                                <span className="block text-gray-400">{entry.unit?.property?.name}</span>
+                              </td>
+                              <td className="px-4 py-3 text-sm font-sans text-header">{entry.agentName ?? "—"}</td>
+                              <td className="px-4 py-3 text-right"><CurrencyDisplay amount={entry.grossAmount} size="sm" className="text-gray-600" /></td>
+                              <td className="px-4 py-3 text-right"><CurrencyDisplay amount={entry.agentCommission} size="sm" className="text-expense" /></td>
+                              <td className="px-4 py-3">
+                                {isPaid ? (
+                                  <span className="flex items-center gap-1 text-xs text-income font-sans">
+                                    <CheckCheck size={12} />
+                                    {entry.commissionPaidAt ? `Paid ${formatDate(entry.commissionPaidAt)}` : "Paid"}
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-xs text-amber-600 font-sans">
+                                    <Clock size={12} /> Unpaid
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <button
+                                  disabled={isMarking}
+                                  onClick={() => handleMarkCommission(entry.id, !isPaid)}
+                                  className={`text-xs px-2.5 py-1 rounded-lg font-sans font-medium transition-colors disabled:opacity-40 ${
+                                    isPaid
+                                      ? "border border-gray-200 text-gray-500 hover:bg-gray-50"
+                                      : "bg-income/10 text-income hover:bg-income/20"
+                                  }`}
+                                >
+                                  {isMarking ? <Loader2 size={12} className="animate-spin inline" /> : isPaid ? "Mark Unpaid" : "Mark Paid"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </>
+            )}
+          </div>
+        )}
+
       </div>
 
       <ConfirmDialog

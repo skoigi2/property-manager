@@ -53,6 +53,19 @@ async function main() {
 
   console.log("✓ Properties seeded");
 
+  // ─── PROPERTY ACCESS ────────────────────────────────────────────────────────
+  await prisma.propertyAccess.upsert({
+    where: { userId_propertyId: { userId: manager.id, propertyId: riaraOne.id } },
+    create: { userId: manager.id, propertyId: riaraOne.id },
+    update: {},
+  });
+  await prisma.propertyAccess.upsert({
+    where: { userId_propertyId: { userId: manager.id, propertyId: albaGardens.id } },
+    create: { userId: manager.id, propertyId: albaGardens.id },
+    update: {},
+  });
+  console.log("✓ Property access seeded");
+
   // ─── UNITS ──────────────────────────────────────────────────────────────────
   // Riara One units
   const unitA141C = await prisma.unit.create({

@@ -22,6 +22,7 @@ import {
   CheckCircle2, Clock, AlertCircle, FileDown, Search, AlertTriangle, X,
 } from "lucide-react";
 import { exportExpenses } from "@/lib/excel-export";
+import { clsx } from "clsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -245,6 +246,12 @@ export default function ExpensesPage() {
   const [filterPayment, setFilterPayment] = useState("");
   const [filterSunk, setFilterSunk] = useState("");
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
   const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ExpenseEntryInput>({
     resolver: zodResolver(expenseEntrySchema),
     defaultValues: { scope: "UNIT", isSunkCost: false, paidFromPettyCash: false, amount: 0 },
@@ -280,6 +287,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setLoading(true);
+    setSelectedIds(new Set());
     fetch(`/api/expenses?year=${month.getFullYear()}&month=${month.getMonth() + 1}`)
       .then((r) => r.json())
       .then((d) => { setEntries(d); setLoading(false); })
@@ -411,6 +419,46 @@ export default function ExpensesPage() {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === displayEntries.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(displayEntries.map((e: any) => e.id)));
+    }
+  }
+
+  async function bulkAction(action: "delete" | "retype" | "mark_sunk" | "mark_operating") {
+    if (selectedIds.size === 0) return;
+    setBulkSubmitting(true);
+    try {
+      const body: any = { action, ids: Array.from(selectedIds) };
+      if (action === "retype") body.category = bulkCategory;
+      const res = await fetch("/api/expenses/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      setSelectedIds(new Set());
+      setBulkDeleteConfirm(false);
+      // Reload entries for the month
+      setLoading(true);
+      const updated = await fetch(`/api/expenses?year=${month.getFullYear()}&month=${month.getMonth() + 1}`).then((r) => r.json());
+      setEntries(updated);
+      setLoading(false);
+      toast.success(action === "delete" ? "Entries deleted" : "Entries updated");
+    } catch { toast.error("Bulk action failed"); }
+    finally { setBulkSubmitting(false); }
+  }
+
   const totalOp = entries.filter((e: any) => !e.isSunkCost).reduce((s: number, e: any) => s + e.amount, 0);
   const totalSunk = entries.filter((e: any) => e.isSunkCost).reduce((s: number, e: any) => s + e.amount, 0);
   const today = new Date();
@@ -435,13 +483,21 @@ export default function ExpensesPage() {
   // Filtered entries for table display (KPI cards always use full `entries`)
   const displayEntries = useMemo(() => {
     return entries
-      .filter((e: any) => !filterSearch || e.description?.toLowerCase().includes(filterSearch.toLowerCase()))
+      .filter((e: any) => {
+        if (!filterSearch) return true;
+        const term = filterSearch.toLowerCase();
+        const inDesc  = (e.description ?? "").toLowerCase().includes(term);
+        const inItems = e.lineItems?.some((i: any) => (i.description ?? "").toLowerCase().includes(term));
+        return inDesc || inItems;
+      })
       .filter((e: any) => !filterCategory || e.category === filterCategory)
       .filter((e: any) => !filterScope || e.scope === filterScope)
       .filter((e: any) => !filterSunk || (filterSunk === "op" ? !e.isSunkCost : e.isSunkCost))
       .filter((e: any) => {
         if (!filterPayment) return true;
-        return aggregatePayment(e.lineItems) === filterPayment;
+        const status = aggregatePayment(e.lineItems);
+        if (status === null) return true; // no line items → always show
+        return status === filterPayment;
       });
   }, [entries, filterSearch, filterCategory, filterScope, filterSunk, filterPayment]);
 
@@ -569,6 +625,42 @@ export default function ExpensesPage() {
               {" "}totalling KSh {unpaidTotal.toLocaleString("en-KE")} — click to filter
             </span>
           </button>
+        )}
+
+        {/* Bulk action toolbar */}
+        {selectedIds.size > 0 && (
+          <Card padding="sm" className="border border-gold/40 bg-cream-dark">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-sans font-medium text-header">{selectedIds.size} selected</span>
+              <button onClick={() => setSelectedIds(new Set())} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={14} /></button>
+
+              <div className="w-px h-5 bg-gray-200" />
+
+              {/* Change category */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={bulkCategory}
+                  onChange={(e) => setBulkCategory(e.target.value)}
+                  className="text-sm font-sans border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                >
+                  <option value="">Select category</option>
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
+                </select>
+                <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkCategory && bulkAction("retype")}>Change category</Button>
+              </div>
+
+              <div className="w-px h-5 bg-gray-200" />
+
+              <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("mark_sunk")}>Mark as Capital</Button>
+              <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("mark_operating")}>Mark as Operating</Button>
+
+              <div className="w-px h-5 bg-gray-200" />
+
+              <Button size="sm" variant="secondary" className="text-expense border-expense/30 hover:bg-expense/5" loading={bulkSubmitting} onClick={() => setBulkDeleteConfirm(true)}>
+                <Trash2 size={13} /> Delete selected
+              </Button>
+            </div>
+          </Card>
         )}
 
         {/* Header row */}
@@ -734,10 +826,18 @@ export default function ExpensesPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px]">
+              <table className="w-full min-w-[860px]">
                 <thead className="bg-cream-dark">
                   <tr>
-                    {["", "Date", "Unit/Scope", "Property", "Category", "Amount", "Payment", ""].map((h, i) => (
+                    <th className="px-3 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={displayEntries.length > 0 && selectedIds.size === displayEntries.length}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-gray-300 accent-gold"
+                      />
+                    </th>
+                    {["", "Date", "Unit/Scope", "Property", "Category", "Description", "Amount", "Payment", ""].map((h, i) => (
                       <th key={i} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
                     ))}
                   </tr>
@@ -751,7 +851,15 @@ export default function ExpensesPage() {
 
                     return (
                       <>
-                        <tr key={e.id} className="border-t border-gray-50 hover:bg-cream/50 transition-colors">
+                        <tr key={e.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", selectedIds.has(e.id) && "bg-gold/5")}>
+                          <td className="px-3 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(e.id)}
+                              onChange={() => toggleSelect(e.id)}
+                              className="w-4 h-4 rounded border-gray-300 accent-gold"
+                            />
+                          </td>
                           {/* Expand toggle */}
                           <td className="px-2 py-3 w-6">
                             {hasItems ? (
@@ -772,6 +880,11 @@ export default function ExpensesPage() {
                                 <span title="Paid from petty cash"><Wallet size={12} className="text-amber-500" /></span>
                               )}
                             </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-sans text-gray-500 max-w-[160px]">
+                            <span title={e.description ?? ""}>
+                              {e.description ? (e.description.length > 30 ? e.description.slice(0, 30) + "…" : e.description) : "—"}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <CurrencyDisplay amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
@@ -799,7 +912,7 @@ export default function ExpensesPage() {
                         {/* Expanded line items */}
                         {isExpanded && hasItems && (
                           <tr key={`${e.id}-expanded`} className="border-t border-gray-50 bg-cream/40">
-                            <td colSpan={8} className="px-6 pb-4 pt-2">
+                            <td colSpan={10} className="px-6 pb-4 pt-2">
                               <table className="w-full text-xs font-sans">
                                 <thead>
                                   <tr className="text-gray-400 uppercase tracking-wide">
@@ -869,6 +982,14 @@ export default function ExpensesPage() {
         title="Delete expense?"
         message="This expense entry will be permanently deleted. Note: any petty cash OUT entry created with it will NOT be automatically reversed."
         loading={deleting}
+      />
+      <ConfirmDialog
+        open={bulkDeleteConfirm}
+        onClose={() => setBulkDeleteConfirm(false)}
+        onConfirm={() => bulkAction("delete")}
+        title={`Delete ${selectedIds.size} expenses?`}
+        message="These expense entries will be permanently deleted."
+        loading={bulkSubmitting}
       />
     </div>
   );

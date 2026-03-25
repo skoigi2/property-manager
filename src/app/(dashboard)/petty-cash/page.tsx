@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useProperty } from "@/lib/property-context";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -16,13 +15,15 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { pettyCashSchema, type PettyCashInput } from "@/lib/validations";
 import { formatDate } from "@/lib/date-utils";
-import { Trash2, Plus, Wallet, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { Trash2, Plus, Wallet, ArrowUpCircle, ArrowDownCircle, Pencil, X } from "lucide-react";
 import { clsx } from "clsx";
 import { MonthPicker } from "@/components/ui/MonthPicker";
+import { useProperty } from "@/lib/property-context";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, properties } = useProperty();
+
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -30,6 +31,20 @@ export default function PettyCashPage() {
   const [deleting, setDeleting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+
+  // Inline edit
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editValues, setEditValues] = useState<{ type: string; date: string; amount: string; description: string; propertyId: string }>({
+    type: "IN", date: "", amount: "", description: "", propertyId: "",
+  });
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPropertyId, setBulkPropertyId] = useState<string>("");
+  const [bulkType, setBulkType] = useState<string>("IN");
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<PettyCashInput>({
     resolver: zodResolver(pettyCashSchema),
@@ -45,7 +60,11 @@ export default function PettyCashPage() {
       .catch(() => setLoading(false));
   }, [selectedId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setEditId(null);
+    load();
+  }, [load]);
 
   async function onSubmit(data: PettyCashInput) {
     setSubmitting(true);
@@ -53,7 +72,7 @@ export default function PettyCashPage() {
       const res = await fetch("/api/petty-cash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, propertyId: selectedId }),
+        body: JSON.stringify({ ...data, propertyId: data.propertyId || selectedId }),
       });
       if (!res.ok) throw new Error();
       load();
@@ -75,20 +94,93 @@ export default function PettyCashPage() {
     finally { setDeleting(false); setDeleteId(null); }
   }
 
-  // All-time totals (real running balance)
-  const allIn      = entries.filter((e: any) => e.type === "IN").reduce((s: number, e: any) => s + e.amount, 0);
-  const allOut     = entries.filter((e: any) => e.type === "OUT").reduce((s: number, e: any) => s + e.amount, 0);
-  const balance    = allIn - allOut;
+  function openEdit(e: any) {
+    const d = new Date(e.date);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setEditId(e.id);
+    setEditValues({ type: e.type, date: dateStr, amount: String(e.amount), description: e.description, propertyId: e.propertyId ?? "" });
+  }
 
-  // Month-filtered entries for display
-  const today         = new Date();
+  async function saveEdit() {
+    if (!editId) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/petty-cash/${editId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: editValues.type,
+          date: editValues.date,
+          amount: parseFloat(editValues.amount),
+          description: editValues.description,
+          propertyId: editValues.propertyId || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setEditId(null);
+      load();
+      toast.success("Entry updated");
+    } catch { toast.error("Failed to update"); }
+    finally { setEditSaving(false); }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((e: any) => e.id)));
+    }
+  }
+
+  async function bulkAction(action: "reassign" | "retype" | "delete") {
+    if (selectedIds.size === 0) return;
+    setBulkSubmitting(true);
+    try {
+      const body: any = { action, ids: Array.from(selectedIds) };
+      if (action === "reassign") body.propertyId = bulkPropertyId || null;
+      if (action === "retype")   body.type = bulkType;
+      const res = await fetch("/api/petty-cash/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      setSelectedIds(new Set());
+      setBulkDeleteConfirm(false);
+      load();
+      toast.success(action === "delete" ? "Entries deleted" : "Entries updated");
+    } catch { toast.error("Bulk action failed"); }
+    finally { setBulkSubmitting(false); }
+  }
+
+  // Summaries
+  const allIn   = entries.filter((e: any) => e.type === "IN").reduce((s: number, e: any) => s + e.amount, 0);
+  const allOut  = entries.filter((e: any) => e.type === "OUT").reduce((s: number, e: any) => s + e.amount, 0);
+  const balance = allIn - allOut;
+
+  const today          = new Date();
   const isCurrentMonth = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
-  const filtered      = entries.filter((e: any) => {
+  const filtered       = entries.filter((e: any) => {
     const d = new Date(e.date);
     return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
   });
   const periodIn  = filtered.filter((e: any) => e.type === "IN").reduce((s: number, e: any) => s + e.amount, 0);
   const periodOut = filtered.filter((e: any) => e.type === "OUT").reduce((s: number, e: any) => s + e.amount, 0);
+
+  const propertyOptions = [
+    { value: "", label: "No property (portfolio)" },
+    ...properties.map((p) => ({ value: p.id, label: p.name })),
+  ];
+
+  const allFilteredSelected = filtered.length > 0 && selectedIds.size === filtered.length;
 
   return (
     <div>
@@ -149,11 +241,58 @@ export default function PettyCashPage() {
                 <Input label="Amount (KSh)" type="number" step="0.01" prefix="KSh" {...register("amount")} error={errors.amount?.message} />
               </div>
               <Input label="Description" {...register("description")} error={errors.description?.message} placeholder="What is this for?" />
+              <Select label="Property" {...register("propertyId")} options={propertyOptions} />
               <div className="flex gap-3">
                 <Button type="submit" loading={submitting}>Save</Button>
                 <Button type="button" variant="secondary" onClick={() => { reset({ type: "IN" }); setShowForm(false); }}>Cancel</Button>
               </div>
             </form>
+          </Card>
+        )}
+
+        {/* Bulk action toolbar */}
+        {selectedIds.size > 0 && (
+          <Card padding="sm" className="border border-gold/40 bg-cream-dark">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-sans font-medium text-header">{selectedIds.size} selected</span>
+              <button onClick={() => setSelectedIds(new Set())} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={14} /></button>
+
+              <div className="w-px h-5 bg-gray-200" />
+
+              {/* Reassign property */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={bulkPropertyId}
+                  onChange={(e) => setBulkPropertyId(e.target.value)}
+                  className="text-sm font-sans border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                >
+                  <option value="">No property</option>
+                  {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("reassign")}>Assign property</Button>
+              </div>
+
+              <div className="w-px h-5 bg-gray-200" />
+
+              {/* Change type */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={bulkType}
+                  onChange={(e) => setBulkType(e.target.value)}
+                  className="text-sm font-sans border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                >
+                  <option value="IN">Cash In</option>
+                  <option value="OUT">Cash Out</option>
+                </select>
+                <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("retype")}>Change type</Button>
+              </div>
+
+              <div className="w-px h-5 bg-gray-200" />
+
+              <Button size="sm" variant="secondary" className="text-expense border-expense/30 hover:bg-expense/5" loading={bulkSubmitting} onClick={() => setBulkDeleteConfirm(true)}>
+                <Trash2 size={13} /> Delete selected
+              </Button>
+            </div>
           </Card>
         )}
 
@@ -167,22 +306,112 @@ export default function PettyCashPage() {
             />
            ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px]">
+              <table className="w-full min-w-[520px]">
                 <thead className="bg-cream-dark">
-                  <tr>{["Date", "Description", "In", "Out", "Balance", ""].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
-                  ))}</tr>
+                  <tr>
+                    <th className="px-3 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-gray-300 accent-gold"
+                      />
+                    </th>
+                    {["Date", "Description", "In", "Out", "Balance", ""].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
                   {filtered.map((e: any) => (
-                    <tr key={e.id} className="border-t border-gray-50 hover:bg-cream/50 transition-colors">
-                      <td className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(e.date)}</td>
-                      <td className="px-4 py-3 text-sm font-sans text-header">{e.description}</td>
-                      <td className="px-4 py-3 text-right font-mono text-sm text-income">{e.type === "IN" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
-                      <td className="px-4 py-3 text-right font-mono text-sm text-expense">{e.type === "OUT" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
-                      <td className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", e.balance >= 0 ? "text-income" : "text-expense")}>KSh {e.balance.toLocaleString()}</td>
-                      <td className="px-4 py-3"><button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1"><Trash2 size={15} /></button></td>
-                    </tr>
+                    <>
+                      <tr key={e.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", selectedIds.has(e.id) && "bg-gold/5")}>
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(e.id)}
+                            onChange={() => toggleSelect(e.id)}
+                            className="w-4 h-4 rounded border-gray-300 accent-gold"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(e.date)}</td>
+                        <td className="px-4 py-3 text-sm font-sans text-header">{e.description}</td>
+                        <td className="px-4 py-3 text-right font-mono text-sm text-income">{e.type === "IN" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
+                        <td className="px-4 py-3 text-right font-mono text-sm text-expense">{e.type === "OUT" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
+                        <td className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", e.balance >= 0 ? "text-income" : "text-expense")}>KSh {e.balance.toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => editId === e.id ? setEditId(null) : openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1"><Pencil size={14} /></button>
+                            <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1"><Trash2 size={15} /></button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {editId === e.id && (
+                        <tr key={`edit-${e.id}`} className="border-t border-gold/20 bg-cream-dark">
+                          <td colSpan={7} className="px-4 py-4">
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Type</label>
+                                  <select
+                                    value={editValues.type}
+                                    onChange={(e) => setEditValues((v) => ({ ...v, type: e.target.value }))}
+                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                  >
+                                    <option value="IN">Cash In</option>
+                                    <option value="OUT">Cash Out</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Date</label>
+                                  <input
+                                    type="date"
+                                    value={editValues.date}
+                                    onChange={(ev) => setEditValues((v) => ({ ...v, date: ev.target.value }))}
+                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Amount (KSh)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={editValues.amount}
+                                    onChange={(ev) => setEditValues((v) => ({ ...v, amount: ev.target.value }))}
+                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description</label>
+                                <input
+                                  type="text"
+                                  value={editValues.description}
+                                  onChange={(ev) => setEditValues((v) => ({ ...v, description: ev.target.value }))}
+                                  className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Property</label>
+                                <select
+                                  value={editValues.propertyId}
+                                  onChange={(ev) => setEditValues((v) => ({ ...v, propertyId: ev.target.value }))}
+                                  className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                >
+                                  <option value="">No property (portfolio)</option>
+                                  {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" loading={editSaving} onClick={saveEdit}>Save</Button>
+                                <Button size="sm" variant="secondary" onClick={() => setEditId(null)}>Cancel</Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
@@ -190,7 +419,9 @@ export default function PettyCashPage() {
           )}
         </Card>
       </div>
+
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete entry?" message="This petty cash entry will be permanently deleted." loading={deleting} />
+      <ConfirmDialog open={bulkDeleteConfirm} onClose={() => setBulkDeleteConfirm(false)} onConfirm={() => bulkAction("delete")} title={`Delete ${selectedIds.size} entries?`} message="These petty cash entries will be permanently deleted." loading={bulkSubmitting} />
     </div>
   );
 }

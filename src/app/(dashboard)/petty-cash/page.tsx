@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useProperty } from "@/lib/property-context";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -21,6 +22,7 @@ import { MonthPicker } from "@/components/ui/MonthPicker";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
+  const { selectedId } = useProperty();
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -34,18 +36,27 @@ export default function PettyCashPage() {
     defaultValues: { type: "IN" },
   });
 
-  useEffect(() => {
-    fetch("/api/petty-cash").then((r) => r.json()).then((d) => { setEntries(d); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
+  const load = useCallback(() => {
+    const params = new URLSearchParams();
+    if (selectedId) params.set("propertyId", selectedId);
+    fetch(`/api/petty-cash?${params}`)
+      .then((r) => r.json())
+      .then((d) => { setEntries(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [selectedId]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function onSubmit(data: PettyCashInput) {
     setSubmitting(true);
     try {
-      const res = await fetch("/api/petty-cash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await fetch("/api/petty-cash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, propertyId: selectedId }),
+      });
       if (!res.ok) throw new Error();
-      // Refetch to get updated balances
-      const updated = await fetch("/api/petty-cash").then((r) => r.json());
-      setEntries(updated);
+      load();
       reset({ type: "IN" });
       setShowForm(false);
       toast.success("Entry added");
@@ -58,8 +69,7 @@ export default function PettyCashPage() {
     setDeleting(true);
     try {
       await fetch(`/api/petty-cash/${deleteId}`, { method: "DELETE" });
-      const updated = await fetch("/api/petty-cash").then((r) => r.json());
-      setEntries(updated);
+      load();
       toast.success("Deleted");
     } catch { toast.error("Failed to delete"); }
     finally { setDeleting(false); setDeleteId(null); }

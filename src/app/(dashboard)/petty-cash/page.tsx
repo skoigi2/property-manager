@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,13 +9,17 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Badge } from "@/components/ui/Badge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { pettyCashSchema, type PettyCashInput } from "@/lib/validations";
 import { formatDate } from "@/lib/date-utils";
-import { Trash2, Plus, Wallet, ArrowUpCircle, ArrowDownCircle, Pencil, X } from "lucide-react";
+import {
+  Trash2, Plus, Wallet, ArrowUpCircle, ArrowDownCircle,
+  Pencil, X, TrendingUp, TrendingDown, Download, Search,
+} from "lucide-react";
 import { clsx } from "clsx";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { useProperty } from "@/lib/property-context";
@@ -31,6 +35,11 @@ export default function PettyCashPage() {
   const [deleting, setDeleting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+
+  // Filters
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [filterProperty, setFilterProperty] = useState("");
 
   // Inline edit
   const [editId, setEditId] = useState<string | null>(null);
@@ -133,10 +142,10 @@ export default function PettyCashPage() {
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === filtered.length) {
+    if (selectedIds.size === displayEntries.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filtered.map((e: any) => e.id)));
+      setSelectedIds(new Set(displayEntries.map((e: any) => e.id)));
     }
   }
 
@@ -161,26 +170,70 @@ export default function PettyCashPage() {
     finally { setBulkSubmitting(false); }
   }
 
-  // Summaries
+  function exportCsv() {
+    const rows = [["Date", "Description", "Property", "Type", "In (KSh)", "Out (KSh)", "Balance (KSh)"]];
+    displayEntries.forEach((e: any) => {
+      const propName = e.propertyId ? (properties.find((p) => p.id === e.propertyId)?.name ?? "") : "Portfolio";
+      rows.push([
+        formatDate(e.date),
+        `"${e.description.replace(/"/g, '""')}"`,
+        propName,
+        e.type,
+        e.type === "IN" ? e.amount : "",
+        e.type === "OUT" ? e.amount : "",
+        e.balance,
+      ]);
+    });
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `petty-cash-${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}.csv`;
+    a.click();
+  }
+
+  // Summaries (all entries loaded for this property view)
   const allIn   = entries.filter((e: any) => e.type === "IN").reduce((s: number, e: any) => s + e.amount, 0);
   const allOut  = entries.filter((e: any) => e.type === "OUT").reduce((s: number, e: any) => s + e.amount, 0);
   const balance = allIn - allOut;
 
   const today          = new Date();
   const isCurrentMonth = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
-  const filtered       = entries.filter((e: any) => {
+
+  // Month-filtered entries
+  const filtered = entries.filter((e: any) => {
     const d = new Date(e.date);
     return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
   });
+
   const periodIn  = filtered.filter((e: any) => e.type === "IN").reduce((s: number, e: any) => s + e.amount, 0);
   const periodOut = filtered.filter((e: any) => e.type === "OUT").reduce((s: number, e: any) => s + e.amount, 0);
+  const periodNet = periodIn - periodOut;
+
+  // Further filtered for display (search + type + property filters)
+  const displayEntries = useMemo(() => {
+    return filtered
+      .filter((e: any) => !filterSearch || e.description.toLowerCase().includes(filterSearch.toLowerCase()))
+      .filter((e: any) => !filterType || e.type === filterType)
+      .filter((e: any) => {
+        if (!filterProperty) return true;
+        if (filterProperty === "null") return !e.propertyId;
+        return e.propertyId === filterProperty;
+      });
+  }, [filtered, filterSearch, filterType, filterProperty]);
+
+  const hasFilters = !!(filterSearch || filterType || filterProperty);
+  const allDisplaySelected = displayEntries.length > 0 && selectedIds.size === displayEntries.length;
 
   const propertyOptions = [
     { value: "", label: "No property (portfolio)" },
     ...properties.map((p) => ({ value: p.id, label: p.name })),
   ];
 
-  const allFilteredSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+  function getPropertyBadge(propertyId: string | null) {
+    if (!propertyId) return <Badge variant="gray">Portfolio</Badge>;
+    const prop = properties.find((p) => p.id === propertyId);
+    return <Badge variant="blue">{prop?.name ?? "Unknown"}</Badge>;
+  }
 
   return (
     <div>
@@ -200,8 +253,55 @@ export default function PettyCashPage() {
           )}
         </div>
 
+        {/* Filter bar */}
+        <Card padding="sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search description..."
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-sm font-sans border border-gray-200 rounded-lg bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+            </div>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              <option value="">All types</option>
+              <option value="IN">Cash In</option>
+              <option value="OUT">Cash Out</option>
+            </select>
+            <select
+              value={filterProperty}
+              onChange={(e) => setFilterProperty(e.target.value)}
+              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              <option value="">All properties</option>
+              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="null">Portfolio (no property)</option>
+            </select>
+            {hasFilters && (
+              <button
+                onClick={() => { setFilterSearch(""); setFilterType(""); setFilterProperty(""); }}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-sans transition-colors"
+              >
+                <X size={12} /> Clear filters
+              </button>
+            )}
+            {hasFilters && (
+              <span className="text-xs text-gray-400 font-sans ml-auto">
+                {displayEntries.length} of {filtered.length} entries
+              </span>
+            )}
+          </div>
+        </Card>
+
         {/* Summary */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card padding="sm" className="border-l-4 border-income">
             <div className="flex items-center gap-2 mb-1">
               <ArrowUpCircle size={16} className="text-income" />
@@ -216,6 +316,15 @@ export default function PettyCashPage() {
             </div>
             <CurrencyDisplay amount={periodOut} className="text-expense" size="lg" />
           </Card>
+          <Card padding="sm" className={clsx("border-l-4", periodNet >= 0 ? "border-income" : "border-expense")}>
+            <div className="flex items-center gap-2 mb-1">
+              {periodNet >= 0
+                ? <TrendingUp size={16} className="text-income" />
+                : <TrendingDown size={16} className="text-expense" />}
+              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net This Month</p>
+            </div>
+            <CurrencyDisplay amount={periodNet} className={periodNet >= 0 ? "text-income" : "text-expense"} size="lg" />
+          </Card>
           <Card padding="sm" className={clsx("border-l-4", balance >= 0 ? "border-gold" : "border-expense")}>
             <div className="flex items-center gap-2 mb-1">
               <Wallet size={16} className={balance >= 0 ? "text-gold" : "text-expense"} />
@@ -228,7 +337,14 @@ export default function PettyCashPage() {
 
         <div className="flex items-center justify-between">
           <h2 className="section-header">Ledger</h2>
-          <Button onClick={() => setShowForm(!showForm)} size="sm" variant="gold"><Plus size={15} /> Add Entry</Button>
+          <div className="flex items-center gap-2">
+            {displayEntries.length > 0 && (
+              <Button onClick={exportCsv} size="sm" variant="secondary">
+                <Download size={14} /> Export CSV
+              </Button>
+            )}
+            <Button onClick={() => setShowForm(!showForm)} size="sm" variant="gold"><Plus size={15} /> Add Entry</Button>
+          </div>
         </div>
 
         {showForm && (
@@ -259,7 +375,6 @@ export default function PettyCashPage() {
 
               <div className="w-px h-5 bg-gray-200" />
 
-              {/* Reassign property */}
               <div className="flex items-center gap-2">
                 <select
                   value={bulkPropertyId}
@@ -274,7 +389,6 @@ export default function PettyCashPage() {
 
               <div className="w-px h-5 bg-gray-200" />
 
-              {/* Change type */}
               <div className="flex items-center gap-2">
                 <select
                   value={bulkType}
@@ -298,32 +412,32 @@ export default function PettyCashPage() {
 
         <Card padding="none">
           {loading ? <div className="flex justify-center py-12"><Spinner /></div> :
-           filtered.length === 0 ? (
+           displayEntries.length === 0 ? (
             <EmptyState
               title="No entries"
-              description={entries.length === 0 ? "No petty cash entries yet" : "No entries for this month"}
+              description={entries.length === 0 ? "No petty cash entries yet" : hasFilters ? "No entries match the current filters" : "No entries for this month"}
               icon={<Wallet size={40} />}
             />
            ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px]">
+              <table className="w-full min-w-[620px]">
                 <thead className="bg-cream-dark">
                   <tr>
                     <th className="px-3 py-3 w-8">
                       <input
                         type="checkbox"
-                        checked={allFilteredSelected}
+                        checked={allDisplaySelected}
                         onChange={toggleSelectAll}
                         className="w-4 h-4 rounded border-gray-300 accent-gold"
                       />
                     </th>
-                    {["Date", "Description", "In", "Out", "Balance", ""].map((h) => (
+                    {["Date", "Description", "Property", "In", "Out", "Balance", ""].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((e: any) => (
+                  {displayEntries.map((e: any) => (
                     <>
                       <tr key={e.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", selectedIds.has(e.id) && "bg-gold/5")}>
                         <td className="px-3 py-3">
@@ -334,8 +448,9 @@ export default function PettyCashPage() {
                             className="w-4 h-4 rounded border-gray-300 accent-gold"
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(e.date)}</td>
+                        <td className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
                         <td className="px-4 py-3 text-sm font-sans text-header">{e.description}</td>
+                        <td className="px-4 py-3">{getPropertyBadge(e.propertyId)}</td>
                         <td className="px-4 py-3 text-right font-mono text-sm text-income">{e.type === "IN" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
                         <td className="px-4 py-3 text-right font-mono text-sm text-expense">{e.type === "OUT" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
                         <td className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", e.balance >= 0 ? "text-income" : "text-expense")}>KSh {e.balance.toLocaleString()}</td>
@@ -349,7 +464,7 @@ export default function PettyCashPage() {
 
                       {editId === e.id && (
                         <tr key={`edit-${e.id}`} className="border-t border-gold/20 bg-cream-dark">
-                          <td colSpan={7} className="px-4 py-4">
+                          <td colSpan={8} className="px-4 py-4">
                             <div className="space-y-3">
                               <div className="grid grid-cols-3 gap-3">
                                 <div>

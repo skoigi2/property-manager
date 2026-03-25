@@ -18,11 +18,13 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { expenseEntrySchema, type ExpenseEntryInput } from "@/lib/validations";
 import { formatDate } from "@/lib/date-utils";
 import {
-  Trash2, Plus, Receipt, Wallet, Pencil, ChevronDown, ChevronRight,
+  Trash2, Plus, Receipt, Wallet, Pencil, ChevronDown, ChevronRight, ChevronUp,
   CheckCircle2, Clock, AlertCircle, FileDown, Search, AlertTriangle, X,
+  ChevronsUpDown, GripVertical,
 } from "lucide-react";
 import { exportExpenses } from "@/lib/excel-export";
 import { clsx } from "clsx";
+import { useProperty } from "@/lib/property-context";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -225,7 +227,7 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
 
 export default function ExpensesPage() {
   const { data: session } = useSession();
-  const [properties, setProperties] = useState<any[]>([]);
+  const { selectedId, properties } = useProperty();
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -251,6 +253,23 @@ export default function ExpensesPage() {
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+  // Sort
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // Column order (draggable), persisted to localStorage
+  const DEFAULT_COL_ORDER = ["date", "unit", "property", "category", "description", "amount", "payment"];
+  const [colOrder, setColOrder] = useState<string[]>(() => {
+    if (typeof window === "undefined") return DEFAULT_COL_ORDER;
+    try {
+      const saved = localStorage.getItem("expenses-col-order");
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return DEFAULT_COL_ORDER;
+  });
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ExpenseEntryInput>({
     resolver: zodResolver(expenseEntrySchema),
@@ -283,16 +302,19 @@ export default function ExpensesPage() {
       .catch(() => setPettyCashBalance(null));
   }, [showForm]);
 
-  useEffect(() => { fetch("/api/properties").then((r) => r.json()).then(setProperties); }, []);
-
   useEffect(() => {
     setLoading(true);
     setSelectedIds(new Set());
-    fetch(`/api/expenses?year=${month.getFullYear()}&month=${month.getMonth() + 1}`)
+    const params = new URLSearchParams({
+      year: String(month.getFullYear()),
+      month: String(month.getMonth() + 1),
+    });
+    if (selectedId) params.set("propertyId", selectedId);
+    fetch(`/api/expenses?${params}`)
       .then((r) => r.json())
       .then((d) => { setEntries(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [month]);
+  }, [month, selectedId]);
 
   const resetForm = useCallback(() => {
     reset({ scope: "UNIT", isSunkCost: false, paidFromPettyCash: false, amount: 0 });
@@ -451,7 +473,9 @@ export default function ExpensesPage() {
       setBulkDeleteConfirm(false);
       // Reload entries for the month
       setLoading(true);
-      const updated = await fetch(`/api/expenses?year=${month.getFullYear()}&month=${month.getMonth() + 1}`).then((r) => r.json());
+      const reloadParams = new URLSearchParams({ year: String(month.getFullYear()), month: String(month.getMonth() + 1) });
+      if (selectedId) reloadParams.set("propertyId", selectedId);
+      const updated = await fetch(`/api/expenses?${reloadParams}`).then((r) => r.json());
       setEntries(updated);
       setLoading(false);
       toast.success(action === "delete" ? "Entries deleted" : "Entries updated");
@@ -472,6 +496,16 @@ export default function ExpensesPage() {
     return e.unit?.unitNumber ?? e.property?.name ?? e.scope;
   }
 
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      if (sortDir === "asc") setSortDir("desc");
+      else { setSortCol(null); setSortDir("asc"); }
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
+
   // Property name for new column
   function propertyLabel(e: any): string {
     if (e.scope === "PORTFOLIO") return "All Properties";
@@ -480,9 +514,9 @@ export default function ExpensesPage() {
     return "—";
   }
 
-  // Filtered entries for table display (KPI cards always use full `entries`)
+  // Filtered + sorted entries for table display (KPI cards always use full `entries`)
   const displayEntries = useMemo(() => {
-    return entries
+    let result = entries
       .filter((e: any) => {
         if (!filterSearch) return true;
         const term = filterSearch.toLowerCase();
@@ -499,7 +533,32 @@ export default function ExpensesPage() {
         if (status === null) return true; // no line items → always show
         return status === filterPayment;
       });
-  }, [entries, filterSearch, filterCategory, filterScope, filterSunk, filterPayment]);
+
+    if (sortCol) {
+      result = [...result].sort((a: any, b: any) => {
+        let cmp = 0;
+        if (sortCol === "date") {
+          cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+        } else if (sortCol === "amount") {
+          cmp = a.amount - b.amount;
+        } else if (sortCol === "property") {
+          cmp = propertyLabel(a).localeCompare(propertyLabel(b));
+        } else if (sortCol === "category") {
+          cmp = (CAT_LABELS[a.category] ?? "").localeCompare(CAT_LABELS[b.category] ?? "");
+        } else if (sortCol === "description") {
+          cmp = (a.description ?? "").localeCompare(b.description ?? "");
+        } else if (sortCol === "payment") {
+          const order = { PAID: 0, PARTIAL: 1, UNPAID: 2 };
+          const sa = aggregatePayment(a.lineItems);
+          const sb = aggregatePayment(b.lineItems);
+          cmp = (order[sa as keyof typeof order] ?? 3) - (order[sb as keyof typeof order] ?? 3);
+        }
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [entries, filterSearch, filterCategory, filterScope, filterSunk, filterPayment, sortCol, sortDir]);
 
   const hasFilters = !!(filterSearch || filterCategory || filterScope || filterPayment || filterSunk);
 
@@ -514,6 +573,124 @@ export default function ExpensesPage() {
   const computedTotal = hasLineItems
     ? lineItems.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
     : null;
+
+  const SORTABLE_COLS = new Set(["date", "property", "category", "description", "amount", "payment"]);
+  const COL_LABELS: Record<string, string> = {
+    date: "Date", unit: "Unit/Scope", property: "Property",
+    category: "Category", description: "Description", amount: "Amount", payment: "Payment",
+  };
+
+  function renderColHeader(key: string) {
+    const sortable = SORTABLE_COLS.has(key);
+    const isActive = sortCol === key;
+    return (
+      <th
+        key={key}
+        onDragOver={(ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; setDragOverCol(key); }}
+        onDrop={(ev) => {
+          ev.preventDefault();
+          const fromKey = ev.dataTransfer.getData("text/plain");
+          if (!fromKey || fromKey === key) { setDragOverCol(null); return; }
+          const next = [...colOrder];
+          const from = next.indexOf(fromKey);
+          const to = next.indexOf(key);
+          if (from === -1 || to === -1) return;
+          next.splice(from, 1);
+          next.splice(to, 0, fromKey);
+          setColOrder(next);
+          localStorage.setItem("expenses-col-order", JSON.stringify(next));
+          setDragOverCol(null);
+        }}
+        onDragLeave={(ev) => {
+          if (!ev.currentTarget.contains(ev.relatedTarget as Node)) setDragOverCol(null);
+        }}
+        className={clsx(
+          "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans select-none",
+          dragOverCol === key && "border-l-2 border-gold bg-gold/5"
+        )}
+      >
+        <span className="flex items-center gap-1">
+          {/* Drag handle */}
+          <span
+            draggable
+            onDragStart={(ev) => {
+              ev.dataTransfer.setData("text/plain", key);
+              ev.dataTransfer.effectAllowed = "move";
+              // Use the parent <th> as the drag image for better UX
+              const th = ev.currentTarget.closest("th");
+              if (th) ev.dataTransfer.setDragImage(th, th.offsetWidth / 2, th.offsetHeight / 2);
+              setDragCol(key);
+            }}
+            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+            className="cursor-grab text-gray-300 hover:text-gray-500 flex-shrink-0 pr-0.5"
+          >
+            <GripVertical size={11} />
+          </span>
+          {/* Sort button */}
+          {sortable ? (
+            <button
+              type="button"
+              onClick={() => handleSort(key)}
+              className="flex items-center gap-1 hover:text-header transition-colors cursor-pointer"
+            >
+              {COL_LABELS[key]}
+              {isActive
+                ? sortDir === "asc"
+                  ? <ChevronUp size={12} className="text-gold flex-shrink-0" />
+                  : <ChevronDown size={12} className="text-gold flex-shrink-0" />
+                : <ChevronsUpDown size={12} className="text-gray-300 flex-shrink-0" />
+              }
+            </button>
+          ) : (
+            <span>{COL_LABELS[key]}</span>
+          )}
+        </span>
+      </th>
+    );
+  }
+
+  function renderColCell(key: string, e: any) {
+    const payStatus = aggregatePayment(e.lineItems);
+    const propName = propertyLabel(e);
+    switch (key) {
+      case "date":
+        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>;
+      case "unit":
+        return <td key={key} className="px-4 py-3 text-sm font-mono text-gray-500">{unitLabel(e)}</td>;
+      case "property":
+        return <td key={key} className="px-4 py-3"><Badge variant={propName === "All Properties" ? "gray" : "blue"}>{propName}</Badge></td>;
+      case "category":
+        return (
+          <td key={key} className="px-4 py-3">
+            <div className="flex items-center gap-1.5">
+              <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
+              {e.paidFromPettyCash && <span title="Paid from petty cash"><Wallet size={12} className="text-amber-500" /></span>}
+            </div>
+          </td>
+        );
+      case "description":
+        return (
+          <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500 max-w-[160px]">
+            <span title={e.description ?? ""}>{e.description ? (e.description.length > 30 ? e.description.slice(0, 30) + "…" : e.description) : "—"}</span>
+          </td>
+        );
+      case "amount":
+        return (
+          <td key={key} className="px-4 py-3 text-right">
+            <CurrencyDisplay amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
+            {e.unitAllocations?.length > 1 && (
+              <p className="text-xs text-gray-400 font-sans mt-0.5">
+                KSh {(e.amount / e.unitAllocations.length).toLocaleString("en-KE", { maximumFractionDigits: 0 })} / unit
+              </p>
+            )}
+          </td>
+        );
+      case "payment":
+        return <td key={key} className="px-4 py-3"><PayBadge status={payStatus} /></td>;
+      default:
+        return <td key={key} />;
+    }
+  }
 
   return (
     <div>
@@ -837,17 +1014,15 @@ export default function ExpensesPage() {
                         className="w-4 h-4 rounded border-gray-300 accent-gold"
                       />
                     </th>
-                    {["", "Date", "Unit/Scope", "Property", "Category", "Description", "Amount", "Payment", ""].map((h, i) => (
-                      <th key={i} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
-                    ))}
+                    <th className="px-2 py-3 w-6" />
+                    {colOrder.map((key) => renderColHeader(key))}
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans" />
                   </tr>
                 </thead>
                 <tbody>
                   {displayEntries.map((e: any) => {
-                    const payStatus = aggregatePayment(e.lineItems);
                     const isExpanded = expandedRows.has(e.id);
                     const hasItems = e.lineItems?.length > 0;
-                    const propName = propertyLabel(e);
 
                     return (
                       <>
@@ -868,35 +1043,7 @@ export default function ExpensesPage() {
                               </button>
                             ) : <span className="w-6 inline-block" />}
                           </td>
-                          <td className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
-                          <td className="px-4 py-3 text-sm font-mono text-gray-500">{unitLabel(e)}</td>
-                          <td className="px-4 py-3">
-                            <Badge variant={propName === "All Properties" ? "gray" : "blue"}>{propName}</Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-1.5">
-                              <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
-                              {e.paidFromPettyCash && (
-                                <span title="Paid from petty cash"><Wallet size={12} className="text-amber-500" /></span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm font-sans text-gray-500 max-w-[160px]">
-                            <span title={e.description ?? ""}>
-                              {e.description ? (e.description.length > 30 ? e.description.slice(0, 30) + "…" : e.description) : "—"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <CurrencyDisplay amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
-                            {e.unitAllocations?.length > 1 && (
-                              <p className="text-xs text-gray-400 font-sans mt-0.5">
-                                KSh {(e.amount / e.unitAllocations.length).toLocaleString("en-KE", { maximumFractionDigits: 0 })} / unit
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <PayBadge status={payStatus} />
-                          </td>
+                          {colOrder.map((key) => renderColCell(key, e))}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
                               <button onClick={() => openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Edit">
@@ -912,7 +1059,7 @@ export default function ExpensesPage() {
                         {/* Expanded line items */}
                         {isExpanded && hasItems && (
                           <tr key={`${e.id}-expanded`} className="border-t border-gray-50 bg-cream/40">
-                            <td colSpan={10} className="px-6 pb-4 pt-2">
+                            <td colSpan={colOrder.length + 3} className="px-6 pb-4 pt-2">
                               <table className="w-full text-xs font-sans">
                                 <thead>
                                   <tr className="text-gray-400 uppercase tracking-wide">

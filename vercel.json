@@ -1,6 +1,6 @@
 {
   "functions": {
-    "src/app/api/report/route.ts": {
+    "app/api/report/route.ts": {
       "maxDuration": 30
     }
   }

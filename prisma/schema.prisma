@@ -366,6 +366,10 @@ model Tenant {
   depositSettlement DepositSettlement?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+
+  @@index([unitId])
+  @@index([isActive])
+  @@index([unitId, isActive])
 }
 
 model IncomeEntry {
@@ -413,6 +417,7 @@ model ExpenseEntry {
 
   @@index([date])
   @@index([propertyId, date])
+  @@index([unitId])
 }
 
 model ExpenseLineItem {

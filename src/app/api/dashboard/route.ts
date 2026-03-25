@@ -101,11 +101,13 @@ export async function GET(req: Request) {
       propertyName: t.unit.property.name,
     }));
 
-  // Multi-month arrears — fetch all-time LONGTERM_RENT entries for accessible properties
+  // Multi-month arrears — fetch last 12 months of LONGTERM_RENT entries
+  const arrearsCutoff = new Date(year, month - 13, 1);
   const allRentEntries = await prisma.incomeEntry.findMany({
     where: {
       type:   "LONGTERM_RENT",
       unit:   { propertyId: { in: propertyIds } },
+      date:   { gte: arrearsCutoff },
     },
     select: { unitId: true, tenantId: true, grossAmount: true, date: true },
   });
@@ -238,35 +240,37 @@ export async function GET(req: Request) {
     return { year: d.getFullYear(), month: d.getMonth() + 1 };
   }).reverse();
 
-  const trend = [];
-  for (const { year: y, month: m } of trendMonths) {
+  const trendFrom = getMonthRange(trendMonths[0].year, trendMonths[0].month).from;
+  const trendTo   = getMonthRange(trendMonths[trendMonths.length - 1].year, trendMonths[trendMonths.length - 1].month).to;
+
+  const [trendIncome, trendExpenses] = await Promise.all([
+    prisma.incomeEntry.findMany({
+      where: { date: { gte: trendFrom, lte: trendTo }, unit: { propertyId: { in: propertyIds } } },
+      select: { date: true, grossAmount: true, agentCommission: true },
+    }),
+    prisma.expenseEntry.findMany({
+      where: {
+        date: { gte: trendFrom, lte: trendTo },
+        isSunkCost: false,
+        OR: [
+          { propertyId: { in: propertyIds } },
+          { unit: { propertyId: { in: propertyIds } } },
+        ],
+      },
+      select: { date: true, amount: true },
+    }),
+  ]);
+
+  const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const trend = trendMonths.map(({ year: y, month: m }) => {
     const { from: f, to: t } = getMonthRange(y, m);
-    const [inc, exp] = await Promise.all([
-      prisma.incomeEntry.aggregate({
-        where: { date: { gte: f, lte: t }, unit: { propertyId: { in: propertyIds } } },
-        _sum: { grossAmount: true, agentCommission: true },
-      }),
-      prisma.expenseEntry.aggregate({
-        where: {
-          date: { gte: f, lte: t },
-          isSunkCost: false,
-          OR: [
-            { propertyId: { in: propertyIds } },
-            { unit: { propertyId: { in: propertyIds } } },
-          ],
-        },
-        _sum: { amount: true },
-      }),
-    ]);
-    const gross = inc._sum.grossAmount ?? 0;
-    const comm = inc._sum.agentCommission ?? 0;
-    const expenses = exp._sum.amount ?? 0;
-    trend.push({
-      label: `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m - 1]} ${y}`,
-      gross,
-      net: gross - comm - expenses,
-    });
-  }
+    const monthIncome   = trendIncome.filter(e => e.date >= f && e.date <= t);
+    const monthExpenses = trendExpenses.filter(e => e.date >= f && e.date <= t);
+    const gross    = monthIncome.reduce((s, e) => s + e.grossAmount, 0);
+    const comm     = monthIncome.reduce((s, e) => s + e.agentCommission, 0);
+    const expenses = monthExpenses.reduce((s, e) => s + e.amount, 0);
+    return { label: `${MONTH_LABELS[m - 1]} ${y}`, gross, net: gross - comm - expenses };
+  });
 
   // Expense summary by category
   const expenseSummary = expenseEntries

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,7 +19,7 @@ import { expenseEntrySchema, type ExpenseEntryInput } from "@/lib/validations";
 import { formatDate } from "@/lib/date-utils";
 import {
   Trash2, Plus, Receipt, Wallet, Pencil, ChevronDown, ChevronRight,
-  CheckCircle2, Clock, AlertCircle, FileDown,
+  CheckCircle2, Clock, AlertCircle, FileDown, Search, AlertTriangle, X,
 } from "lucide-react";
 import { exportExpenses } from "@/lib/excel-export";
 
@@ -238,6 +238,13 @@ export default function ExpensesPage() {
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([]);
 
+  // Filters
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterScope, setFilterScope] = useState("");
+  const [filterPayment, setFilterPayment] = useState("");
+  const [filterSunk, setFilterSunk] = useState("");
+
   const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ExpenseEntryInput>({
     resolver: zodResolver(expenseEntrySchema),
     defaultValues: { scope: "UNIT", isSunkCost: false, paidFromPettyCash: false, amount: 0 },
@@ -409,13 +416,43 @@ export default function ExpensesPage() {
   const today = new Date();
   const isCurrentMonth = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
 
-  // Label for multi-unit column
+  // Label for unit/scope column
   function unitLabel(e: any): string {
     if (e.unitAllocations?.length > 1) {
       return `${e.unitAllocations.length} units (split)`;
     }
     return e.unit?.unitNumber ?? e.property?.name ?? e.scope;
   }
+
+  // Property name for new column
+  function propertyLabel(e: any): string {
+    if (e.scope === "PORTFOLIO") return "All Properties";
+    if (e.property?.name) return e.property.name;
+    if (e.unit?.property?.name) return e.unit.property.name;
+    return "—";
+  }
+
+  // Filtered entries for table display (KPI cards always use full `entries`)
+  const displayEntries = useMemo(() => {
+    return entries
+      .filter((e: any) => !filterSearch || e.description?.toLowerCase().includes(filterSearch.toLowerCase()))
+      .filter((e: any) => !filterCategory || e.category === filterCategory)
+      .filter((e: any) => !filterScope || e.scope === filterScope)
+      .filter((e: any) => !filterSunk || (filterSunk === "op" ? !e.isSunkCost : e.isSunkCost))
+      .filter((e: any) => {
+        if (!filterPayment) return true;
+        return aggregatePayment(e.lineItems) === filterPayment;
+      });
+  }, [entries, filterSearch, filterCategory, filterScope, filterSunk, filterPayment]);
+
+  const hasFilters = !!(filterSearch || filterCategory || filterScope || filterPayment || filterSunk);
+
+  // Outstanding payments
+  const unpaidEntries = entries.filter((e: any) => {
+    const s = aggregatePayment(e.lineItems);
+    return s === "UNPAID" || s === "PARTIAL";
+  });
+  const unpaidTotal = unpaidEntries.reduce((s: number, e: any) => s + e.amount, 0);
 
   const hasLineItems = lineItems.length > 0;
   const computedTotal = hasLineItems
@@ -440,6 +477,72 @@ export default function ExpensesPage() {
           )}
         </div>
 
+        {/* Filter bar */}
+        <Card padding="sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search description..."
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-sm font-sans border border-gray-200 rounded-lg bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              />
+            </div>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              <option value="">All categories</option>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
+            </select>
+            <select
+              value={filterScope}
+              onChange={(e) => setFilterScope(e.target.value)}
+              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              <option value="">All scopes</option>
+              <option value="UNIT">Unit</option>
+              <option value="PROPERTY">Property</option>
+              <option value="PORTFOLIO">Portfolio</option>
+            </select>
+            <select
+              value={filterPayment}
+              onChange={(e) => setFilterPayment(e.target.value)}
+              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              <option value="">All payments</option>
+              <option value="PAID">Paid</option>
+              <option value="PARTIAL">Partial</option>
+              <option value="UNPAID">Unpaid</option>
+            </select>
+            <select
+              value={filterSunk}
+              onChange={(e) => setFilterSunk(e.target.value)}
+              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              <option value="">All types</option>
+              <option value="op">Operating only</option>
+              <option value="sunk">Capital only</option>
+            </select>
+            {hasFilters && (
+              <button
+                onClick={() => { setFilterSearch(""); setFilterCategory(""); setFilterScope(""); setFilterPayment(""); setFilterSunk(""); }}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-sans transition-colors"
+              >
+                <X size={12} /> Clear filters
+              </button>
+            )}
+            {hasFilters && (
+              <span className="text-xs text-gray-400 font-sans ml-auto">
+                {displayEntries.length} of {entries.length} entries
+              </span>
+            )}
+          </div>
+        </Card>
+
         {/* KPI cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
@@ -453,6 +556,20 @@ export default function ExpensesPage() {
             </Card>
           ))}
         </div>
+
+        {/* Outstanding payments banner */}
+        {unpaidEntries.length > 0 && !filterPayment && (
+          <button
+            onClick={() => setFilterPayment("UNPAID")}
+            className="w-full flex items-center gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-left hover:bg-amber-100 transition-colors"
+          >
+            <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-sans text-amber-800">
+              <span className="font-semibold">{unpaidEntries.length} {unpaidEntries.length === 1 ? "expense has" : "expenses have"} outstanding payments</span>
+              {" "}totalling KSh {unpaidTotal.toLocaleString("en-KE")} — click to filter
+            </span>
+          </button>
+        )}
 
         {/* Header row */}
         <div className="flex items-center justify-between">
@@ -608,28 +725,29 @@ export default function ExpensesPage() {
         <Card padding="none">
           {loading ? (
             <div className="flex justify-center py-12"><Spinner /></div>
-          ) : entries.length === 0 ? (
+          ) : displayEntries.length === 0 ? (
             <EmptyState
               title="No expenses"
-              description="No expenses logged for this month"
+              description={entries.length === 0 ? "No expenses logged for this month" : "No entries match the current filters"}
               icon={<Receipt size={40} />}
-              action={<Button variant="gold" size="sm" onClick={() => { resetForm(); setShowForm(true); }}><Plus size={14} /> Add Expense</Button>}
+              action={entries.length === 0 ? <Button variant="gold" size="sm" onClick={() => { resetForm(); setShowForm(true); }}><Plus size={14} /> Add Expense</Button> : undefined}
             />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px]">
                 <thead className="bg-cream-dark">
                   <tr>
-                    {["", "Date", "Unit/Scope", "Category", "Amount", "Payment", ""].map((h, i) => (
+                    {["", "Date", "Unit/Scope", "Property", "Category", "Amount", "Payment", ""].map((h, i) => (
                       <th key={i} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((e: any) => {
+                  {displayEntries.map((e: any) => {
                     const payStatus = aggregatePayment(e.lineItems);
                     const isExpanded = expandedRows.has(e.id);
                     const hasItems = e.lineItems?.length > 0;
+                    const propName = propertyLabel(e);
 
                     return (
                       <>
@@ -642,8 +760,11 @@ export default function ExpensesPage() {
                               </button>
                             ) : <span className="w-6 inline-block" />}
                           </td>
-                          <td className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(e.date)}</td>
+                          <td className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
                           <td className="px-4 py-3 text-sm font-mono text-gray-500">{unitLabel(e)}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={propName === "All Properties" ? "gray" : "blue"}>{propName}</Badge>
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5">
                               <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
@@ -678,7 +799,7 @@ export default function ExpensesPage() {
                         {/* Expanded line items */}
                         {isExpanded && hasItems && (
                           <tr key={`${e.id}-expanded`} className="border-t border-gray-50 bg-cream/40">
-                            <td colSpan={7} className="px-6 pb-4 pt-2">
+                            <td colSpan={8} className="px-6 pb-4 pt-2">
                               <table className="w-full text-xs font-sans">
                                 <thead>
                                   <tr className="text-gray-400 uppercase tracking-wide">

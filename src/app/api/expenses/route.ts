@@ -4,7 +4,7 @@ import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 
 const EXPENSE_INCLUDE = {
-  unit: { select: { unitNumber: true } },
+  unit: { select: { unitNumber: true, property: { select: { name: true } } } },
   property: { select: { name: true } },
   lineItems: { orderBy: { createdAt: "asc" as const } },
   unitAllocations: {

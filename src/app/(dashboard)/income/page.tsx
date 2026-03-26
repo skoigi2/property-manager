@@ -207,11 +207,11 @@ export default function IncomePage() {
   useEffect(() => {
     fetch("/api/properties").then((r) => r.json()).then(setProperties);
     setTenantsLoading(true);
-    fetch("/api/tenants?activeOnly=true")
+    fetch(`/api/tenants?activeOnly=true${selectedId ? `&propertyId=${selectedId}` : ""}`)
       .then((r) => r.json())
       .then((d) => { setAllTenants(d); setTenantsLoading(false); })
       .catch(() => setTenantsLoading(false));
-  }, []);
+  }, [selectedId]);
 
   // ── Fetch: current-month entries ───────────────────────────────────────────
   const fetchEntries = useCallback(() => {

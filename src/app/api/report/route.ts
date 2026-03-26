@@ -10,24 +10,30 @@ import type { ReportData } from "@/types/report";
 
 // ── Shared data builder ────────────────────────────────────────────────────────
 
-async function buildReportData(y: number, m: number, session: any): Promise<ReportData> {
+async function buildReportData(y: number, m: number, session: any, propertyIds: string[]): Promise<ReportData> {
   const { from, to } = getMonthRange(y, m);
   const periodLabel = format(from, "MMMM yyyy");
 
   const [properties, tenants, incomeEntries, expenseEntries, pettyCash] = await Promise.all([
-    prisma.property.findMany({ include: { units: true } }),
+    prisma.property.findMany({ where: { id: { in: propertyIds } }, include: { units: true } }),
     prisma.tenant.findMany({
-      where: { isActive: true },
+      where: { isActive: true, unit: { propertyId: { in: propertyIds } } },
       include: { unit: { include: { property: true } } },
     }),
     prisma.incomeEntry.findMany({
-      where: { date: { gte: from, lte: to } },
+      where: { date: { gte: from, lte: to }, unit: { propertyId: { in: propertyIds } } },
       include: { unit: { include: { property: true } } },
     }),
     prisma.expenseEntry.findMany({
-      where: { date: { gte: from, lte: to } },
+      where: {
+        date: { gte: from, lte: to },
+        OR: [
+          { unit: { propertyId: { in: propertyIds } } },
+          { propertyId: { in: propertyIds } },
+        ],
+      },
     }),
-    prisma.pettyCash.findMany({ orderBy: { date: "asc" } }),
+    prisma.pettyCash.findMany({ where: { propertyId: { in: propertyIds } }, orderBy: { date: "asc" } }),
   ]);
 
   const grossIncome       = incomeEntries.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0);
@@ -35,6 +41,7 @@ async function buildReportData(y: number, m: number, session: any): Promise<Repo
   const totalExpenses     = expenseEntries.filter((e) => !e.isSunkCost).reduce((s, e) => s + e.amount, 0);
   const netProfit         = grossIncome - agentCommissions - totalExpenses;
 
+  const propertyNames = properties.map((p) => p.name).join(" & ");
   const riaraProperty = properties.find((p) => p.type === "LONGTERM");
   const albaProperty  = properties.find((p) => p.type === "AIRBNB");
   const riaraTenants  = tenants.filter((t) => t.unit.propertyId === riaraProperty?.id);
@@ -124,8 +131,8 @@ async function buildReportData(y: number, m: number, session: any): Promise<Repo
     alerts.push(`Management fee outstanding: KSh ${(mgmtOwing - mgmtPaid).toLocaleString()}`);
 
   return {
-    title:       `${riaraProperty?.name ?? "Property"} & ${albaProperty?.name ?? "Property"} — ${periodLabel}`,
-    property:    "Alba Gardens & Riara One",
+    title:       `${propertyNames} — ${periodLabel}`,
+    property:    propertyNames,
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",
@@ -161,7 +168,7 @@ export async function GET(req: Request) {
 
   if (month) {
     // Single month — return full ReportData as JSON
-    const data = await buildReportData(year, parseInt(month), session);
+    const data = await buildReportData(year, parseInt(month), session, propertyIds);
     return Response.json(data);
   } else {
     // Annual — return array of 12 monthly summaries (kpis only, fast)
@@ -206,10 +213,13 @@ export async function POST(req: Request) {
   const { session, error } = await requireAuth();
   if (error) return error;
 
+  const propertyIds = await getAccessiblePropertyIds();
+  if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
   const body        = await req.json();
   const y           = parseInt(body.year);
   const m           = parseInt(body.month);
-  const reportData  = await buildReportData(y, m, session);
+  const reportData  = await buildReportData(y, m, session, propertyIds);
   const pdfBuffer   = await generateReportPDF(reportData);
 
   return new Response(new Uint8Array(pdfBuffer), {

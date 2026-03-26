@@ -1,6 +1,8 @@
 export interface ReportData {
   title: string;
   property: string;
+  longTermPropertyName: string;
+  shortLetPropertyName: string;
   period: string;
   generatedAt: string;
   generatedBy: string;

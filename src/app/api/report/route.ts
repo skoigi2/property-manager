@@ -131,8 +131,10 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     alerts.push(`Management fee outstanding: KSh ${(mgmtOwing - mgmtPaid).toLocaleString()}`);
 
   return {
-    title:       `${propertyNames} — ${periodLabel}`,
-    property:    propertyNames,
+    title:                `${propertyNames} — ${periodLabel}`,
+    property:             propertyNames,
+    longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
+    shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",

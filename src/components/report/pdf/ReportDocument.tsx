@@ -63,7 +63,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
 
         {/* Section 2: Riara One Rent Collection */}
         <Text style={styles.sectionTitle}>
-          <Text style={styles.sectionNumber}>2. </Text>Riara One — Rent Collection
+          <Text style={styles.sectionNumber}>2. </Text>{data.longTermPropertyName} — Rent Collection
         </Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
@@ -99,7 +99,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
       <Page size="A4" style={styles.page}>
         {/* Section 3: Alba Gardens */}
         <Text style={styles.sectionTitle}>
-          <Text style={styles.sectionNumber}>3. </Text>Alba Gardens — Short-Let Performance
+          <Text style={styles.sectionNumber}>3. </Text>{data.shortLetPropertyName} — Short-Let Performance
         </Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>

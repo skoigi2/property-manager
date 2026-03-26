@@ -163,7 +163,7 @@ function PLPreview({ year, month }: { year: string; month: string }) {
       {/* Riara One Rent Collection */}
       {data.rentCollection.length > 0 && (
         <Card>
-          <SectionTitle><Receipt size={16} className="text-gold" /> Riara One — Rent Collection</SectionTitle>
+          <SectionTitle><Receipt size={16} className="text-gold" /> {data.longTermPropertyName} — Rent Collection</SectionTitle>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
@@ -230,7 +230,7 @@ function PLPreview({ year, month }: { year: string; month: string }) {
       {/* Alba Gardens Performance */}
       {data.albaPerformance.length > 0 && (
         <Card>
-          <SectionTitle><TrendingUp size={16} className="text-gold" /> Alba Gardens — Short-Let Performance</SectionTitle>
+          <SectionTitle><TrendingUp size={16} className="text-gold" /> {data.shortLetPropertyName} — Short-Let Performance</SectionTitle>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[580px] text-sm">
               <thead>
@@ -659,8 +659,8 @@ function DownloadPDF({ year, month, setYear, setMonth }: {
             <p className="text-xs font-medium font-sans text-header mb-2">Report includes:</p>
             {[
               "Executive summary (gross income, commissions, expenses, net profit)",
-              "Riara One rent collection table",
-              "Alba Gardens short-let performance",
+              "Long-term rent collection table",
+              "Short-let unit performance",
               "Expense breakdown by category",
               "Full P&L statement with margin",
               "Petty cash reconciliation",

@@ -5,6 +5,8 @@ import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -1033,86 +1035,105 @@ export default function MaintenancePage() {
       {/* ── Add / Edit Modal ─────────────────────────────────────────────── */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editJob ? "Edit Job" : "Log Maintenance Job"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="form-label">Title *</label>
-            <input className="form-input" {...register("title")} placeholder="e.g. Leaking tap in kitchen" />
-            {errors.title && <p className="form-error">{errors.title.message}</p>}
+
+          <Input
+            label="Title *"
+            placeholder="e.g. Leaking tap in kitchen"
+            {...register("title")}
+            error={errors.title?.message}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Property *"
+              placeholder="Select…"
+              {...register("propertyId")}
+              options={properties.map((p: any) => ({ value: p.id, label: p.name }))}
+              error={errors.propertyId?.message}
+            />
+            <Select
+              label="Unit (optional)"
+              placeholder="Whole property"
+              {...register("unitId")}
+              options={availableUnits.map((u: any) => ({ value: u.id, label: u.unitNumber }))}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="form-label">Property *</label>
-              <select className="form-input" {...register("propertyId")}>
-                <option value="">Select…</option>
-                {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              {errors.propertyId && <p className="form-error">{errors.propertyId.message}</p>}
-            </div>
-            <div>
-              <label className="form-label">Unit (optional)</label>
-              <select className="form-input" {...register("unitId")}>
-                <option value="">Whole property</option>
-                {availableUnits.map((u: any) => <option key={u.id} value={u.id}>{u.unitNumber}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Category"
+              {...register("category")}
+              options={Object.entries(CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l as string }))}
+            />
+            <Select
+              label="Priority"
+              {...register("priority")}
+              options={[
+                { value: "LOW",    label: "Low" },
+                { value: "MEDIUM", label: "Medium" },
+                { value: "HIGH",   label: "High" },
+                { value: "URGENT", label: "Urgent" },
+              ]}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="form-label">Category</label>
-              <select className="form-input" {...register("category")}>
-                {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-label">Priority</label>
-              <select className="form-input" {...register("priority")}>
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
-              </select>
-            </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-600 font-sans">Description</label>
+            <textarea
+              rows={2}
+              placeholder="Details about the issue…"
+              className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+              {...register("description")}
+            />
           </div>
 
-          <div>
-            <label className="form-label">Description</label>
-            <textarea className="form-input" rows={2} {...register("description")} placeholder="Details about the issue…" />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Assigned To"
+              placeholder="Contractor / plumber"
+              {...register("assignedTo")}
+            />
+            <Input
+              label="Reported By"
+              placeholder="Tenant / manager"
+              {...register("reportedBy")}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="form-label">Assigned To</label>
-              <input className="form-input" {...register("assignedTo")} placeholder="Contractor / plumber" />
-            </div>
-            <div>
-              <label className="form-label">Reported By</label>
-              <input className="form-input" {...register("reportedBy")} placeholder="Tenant / manager" />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Scheduled Date"
+              type="date"
+              {...register("scheduledDate")}
+            />
+            <Input
+              label={editJob?.status === "DONE" ? "Actual Cost (KSh)" : "Estimated Cost (KSh)"}
+              type="number"
+              prefix="KSh"
+              placeholder="0"
+              {...register("cost")}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="form-label">Scheduled Date</label>
-              <input type="date" className="form-input" {...register("scheduledDate")} />
-            </div>
-            <div>
-              <label className="form-label">
-                {editJob?.status === "DONE" ? "Actual Cost (KSh)" : "Estimated Cost (KSh)"}
-              </label>
-              <input type="number" className="form-input" {...register("cost")} placeholder="0" />
-            </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-600 font-sans">Notes</label>
+            <textarea
+              rows={2}
+              placeholder="Any extra notes…"
+              className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+              {...register("notes")}
+            />
           </div>
 
-          <div>
-            <label className="form-label">Notes</label>
-            <textarea className="form-input" rows={2} {...register("notes")} placeholder="Any extra notes…" />
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" loading={submitting}>
+              {editJob ? "Save Changes" : "Log Job"}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" loading={submitting}>{editJob ? "Save Changes" : "Log Job"}</Button>
-          </div>
         </form>
       </Modal>
 

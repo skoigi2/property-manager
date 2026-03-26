@@ -19,6 +19,7 @@ import { formatDate } from "@/lib/date-utils";
 import {
   Trash2, Plus, Wallet, ArrowUpCircle, ArrowDownCircle,
   Pencil, X, TrendingUp, TrendingDown, Download, Search,
+  ChevronsUpDown, GripVertical, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { MonthPicker } from "@/components/ui/MonthPicker";
@@ -47,6 +48,19 @@ export default function PettyCashPage() {
   const [editValues, setEditValues] = useState<{ type: string; date: string; amount: string; description: string; propertyId: string }>({
     type: "IN", date: "", amount: "", description: "", propertyId: "",
   });
+
+  // Sort
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // Column order (draggable), persisted to localStorage
+  const DEFAULT_COL_ORDER = ["date", "description", "property", "in", "out", "balance"];
+  const [colOrder, setColOrder] = useState<string[]>(() => {
+    try { const s = localStorage.getItem("petty-cash-col-order"); if (s) return JSON.parse(s); } catch {}
+    return DEFAULT_COL_ORDER;
+  });
+  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -209,9 +223,19 @@ export default function PettyCashPage() {
   const periodOut = filtered.filter((e: any) => e.type === "OUT").reduce((s: number, e: any) => s + e.amount, 0);
   const periodNet = periodIn - periodOut;
 
-  // Further filtered for display (search + type + property filters)
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      if (sortDir === "asc") setSortDir("desc");
+      else { setSortCol(null); setSortDir("asc"); }
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
+
+  // Further filtered + sorted for display (search + type + property filters)
   const displayEntries = useMemo(() => {
-    return filtered
+    let result = filtered
       .filter((e: any) => !filterSearch || e.description.toLowerCase().includes(filterSearch.toLowerCase()))
       .filter((e: any) => !filterType || e.type === filterType)
       .filter((e: any) => {
@@ -219,7 +243,25 @@ export default function PettyCashPage() {
         if (filterProperty === "null") return !e.propertyId;
         return e.propertyId === filterProperty;
       });
-  }, [filtered, filterSearch, filterType, filterProperty]);
+
+    if (sortCol) {
+      result = [...result].sort((a: any, b: any) => {
+        let cmp = 0;
+        if (sortCol === "date") cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+        else if (sortCol === "in")  cmp = (a.type === "IN"  ? a.amount : 0) - (b.type === "IN"  ? b.amount : 0);
+        else if (sortCol === "out") cmp = (a.type === "OUT" ? a.amount : 0) - (b.type === "OUT" ? b.amount : 0);
+        else if (sortCol === "description") cmp = (a.description ?? "").localeCompare(b.description ?? "");
+        else if (sortCol === "property") {
+          const nameA = properties.find((p: any) => p.id === a.propertyId)?.name ?? "";
+          const nameB = properties.find((p: any) => p.id === b.propertyId)?.name ?? "";
+          cmp = nameA.localeCompare(nameB);
+        }
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [filtered, filterSearch, filterType, filterProperty, sortCol, sortDir]);
 
   const hasFilters = !!(filterSearch || filterType || filterProperty);
   const allDisplaySelected = displayEntries.length > 0 && selectedIds.size === displayEntries.length;
@@ -233,6 +275,88 @@ export default function PettyCashPage() {
     if (!propertyId) return <Badge variant="gray">Portfolio</Badge>;
     const prop = properties.find((p) => p.id === propertyId);
     return <Badge variant="blue">{prop?.name ?? "Unknown"}</Badge>;
+  }
+
+  const SORTABLE_COLS = new Set(["date", "description", "property", "in", "out"]);
+  const COL_LABELS: Record<string, string> = {
+    date: "Date", description: "Description", property: "Property",
+    in: "In", out: "Out", balance: "Balance",
+  };
+
+  function renderColHeader(key: string) {
+    const sortable = SORTABLE_COLS.has(key);
+    const isActive = sortCol === key;
+    return (
+      <th
+        key={key}
+        onDragOver={(ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; setDragOverCol(key); }}
+        onDrop={(ev) => {
+          ev.preventDefault();
+          const fromKey = ev.dataTransfer.getData("text/plain");
+          if (!fromKey || fromKey === key) { setDragOverCol(null); return; }
+          const next = [...colOrder];
+          const from = next.indexOf(fromKey);
+          const to = next.indexOf(key);
+          if (from === -1 || to === -1) return;
+          next.splice(from, 1);
+          next.splice(to, 0, fromKey);
+          setColOrder(next);
+          localStorage.setItem("petty-cash-col-order", JSON.stringify(next));
+          setDragOverCol(null);
+        }}
+        onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node)) setDragOverCol(null); }}
+        className={clsx(
+          "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans select-none",
+          dragOverCol === key && "border-l-2 border-gold bg-gold/5"
+        )}
+      >
+        <span className="flex items-center gap-1">
+          <span
+            draggable
+            onDragStart={(ev) => {
+              ev.dataTransfer.setData("text/plain", key);
+              ev.dataTransfer.effectAllowed = "move";
+              const th = ev.currentTarget.closest("th");
+              if (th) ev.dataTransfer.setDragImage(th, th.offsetWidth / 2, th.offsetHeight / 2);
+              setDragCol(key);
+            }}
+            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+            className="cursor-grab text-gray-300 hover:text-gray-500 flex-shrink-0 pr-0.5"
+          >
+            <GripVertical size={11} />
+          </span>
+          {sortable ? (
+            <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-1 hover:text-header transition-colors cursor-pointer">
+              {COL_LABELS[key]}
+              {isActive
+                ? sortDir === "asc" ? <ChevronUp size={12} className="text-gold flex-shrink-0" /> : <ChevronDown size={12} className="text-gold flex-shrink-0" />
+                : <ChevronsUpDown size={12} className="text-gray-300 flex-shrink-0" />}
+            </button>
+          ) : (
+            <span>{COL_LABELS[key]}</span>
+          )}
+        </span>
+      </th>
+    );
+  }
+
+  function renderColCell(key: string, e: any, runningBalance: number) {
+    switch (key) {
+      case "date":
+        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>;
+      case "description":
+        return <td key={key} className="px-4 py-3 text-sm font-sans text-header">{e.description}</td>;
+      case "property":
+        return <td key={key} className="px-4 py-3">{getPropertyBadge(e.propertyId)}</td>;
+      case "in":
+        return <td key={key} className="px-4 py-3 text-right font-mono text-sm text-income">{e.type === "IN" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>;
+      case "out":
+        return <td key={key} className="px-4 py-3 text-right font-mono text-sm text-expense">{e.type === "OUT" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>;
+      case "balance":
+        return <td key={key} className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", runningBalance >= 0 ? "text-income" : "text-expense")}>KSh {runningBalance.toLocaleString()}</td>;
+      default:
+        return <td key={key} />;
+    }
   }
 
   return (
@@ -431,13 +555,17 @@ export default function PettyCashPage() {
                         className="w-4 h-4 rounded border-gray-300 accent-gold"
                       />
                     </th>
-                    {["Date", "Description", "Property", "In", "Out", "Balance", ""].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
-                    ))}
+                    {colOrder.map((key) => renderColHeader(key))}
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>
-                  {displayEntries.map((e: any) => (
+                  {(() => {
+                    let runningBalance = 0;
+                    return displayEntries.map((e: any) => {
+                      runningBalance += e.type === "IN" ? e.amount : -e.amount;
+                      const rowBalance = runningBalance;
+                      return (
                     <>
                       <tr key={e.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", selectedIds.has(e.id) && "bg-gold/5")}>
                         <td className="px-3 py-3">
@@ -448,12 +576,7 @@ export default function PettyCashPage() {
                             className="w-4 h-4 rounded border-gray-300 accent-gold"
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>
-                        <td className="px-4 py-3 text-sm font-sans text-header">{e.description}</td>
-                        <td className="px-4 py-3">{getPropertyBadge(e.propertyId)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-sm text-income">{e.type === "IN" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
-                        <td className="px-4 py-3 text-right font-mono text-sm text-expense">{e.type === "OUT" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
-                        <td className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", e.balance >= 0 ? "text-income" : "text-expense")}>KSh {e.balance.toLocaleString()}</td>
+                        {colOrder.map((key) => renderColCell(key, e, rowBalance))}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             <button onClick={() => editId === e.id ? setEditId(null) : openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1"><Pencil size={14} /></button>
@@ -464,7 +587,7 @@ export default function PettyCashPage() {
 
                       {editId === e.id && (
                         <tr key={`edit-${e.id}`} className="border-t border-gold/20 bg-cream-dark">
-                          <td colSpan={8} className="px-4 py-4">
+                          <td colSpan={colOrder.length + 2} className="px-4 py-4">
                             <div className="space-y-3">
                               <div className="grid grid-cols-3 gap-3">
                                 <div>
@@ -527,7 +650,9 @@ export default function PettyCashPage() {
                         </tr>
                       )}
                     </>
-                  ))}
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>

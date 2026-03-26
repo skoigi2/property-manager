@@ -19,12 +19,13 @@ import { incomeEntrySchema, type IncomeEntryInput } from "@/lib/validations";
 import { formatDate } from "@/lib/date-utils";
 import {
   Trash2, Plus, TrendingUp, User, CheckCircle2, AlertCircle,
-  LayoutList, TableProperties, Receipt, ChevronDown, ChevronRight,
+  LayoutList, TableProperties, Receipt, ChevronDown, ChevronRight, ChevronUp,
   RefreshCw, AlertTriangle, Loader2, Zap, FolderOpen,
-  DollarSign, CheckCheck, Clock, FileDown,
+  DollarSign, CheckCheck, Clock, FileDown, ChevronsUpDown, GripVertical,
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
 import Link from "next/link";
+import { clsx } from "clsx";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,24 @@ export default function IncomePage() {
   const [tab, setTab]                         = useState<Tab>("collection");
   const [collectionMode, setCollectionMode]   = useState<CollectionMode>("monthly");
   const [expandedRows, setExpandedRows]       = useState<Set<string>>(new Set());
+
+  // Sort (shared, reset on tab change)
+  const [sortCol, setSortCol]   = useState<string | null>(null);
+  const [sortDir, setSortDir]   = useState<"asc" | "desc">("asc");
+  const [dragCol, setDragCol]   = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
+  // Column orders (persisted to localStorage)
+  const DEFAULT_ENTRIES_COL = ["date","unit","tenant","type","platform","invoice","gross","commission","net"];
+  const DEFAULT_COLL_COL    = ["unit","tenant","property","expected","received","status"];
+  const [entriesColOrder, setEntriesColOrder] = useState<string[]>(() => {
+    try { const s = localStorage.getItem("income-entries-col-order"); if (s) return JSON.parse(s); } catch {}
+    return DEFAULT_ENTRIES_COL;
+  });
+  const [collColOrder, setCollColOrder] = useState<string[]>(() => {
+    try { const s = localStorage.getItem("income-coll-col-order"); if (s) return JSON.parse(s); } catch {}
+    return DEFAULT_COLL_COL;
+  });
 
   // Data
   const [properties, setProperties]           = useState<any[]>([]);
@@ -283,6 +302,48 @@ export default function IncomePage() {
     totalMonthsOwed: arrearsRows.reduce((s, r) => s + r.summary.totalMonthsOwed, 0),
   }), [arrearsRows]);
 
+  // ── Sort helpers ────────────────────────────────────────────────────────────
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      if (sortDir === "asc") setSortDir("desc");
+      else { setSortCol(null); setSortDir("asc"); }
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
+
+  const sortedEntries = useMemo(() => {
+    if (!sortCol || tab !== "entries") return entries;
+    return [...entries].sort((a: any, b: any) => {
+      let cmp = 0;
+      if (sortCol === "date")       cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+      else if (sortCol === "gross") cmp = a.grossAmount - b.grossAmount;
+      else if (sortCol === "commission") cmp = a.agentCommission - b.agentCommission;
+      else if (sortCol === "net")   cmp = (a.grossAmount - a.agentCommission) - (b.grossAmount - b.agentCommission);
+      else if (sortCol === "unit")  cmp = (a.unit?.unitNumber ?? "").localeCompare(b.unit?.unitNumber ?? "");
+      else if (sortCol === "tenant") cmp = (a.tenant?.name ?? "").localeCompare(b.tenant?.name ?? "");
+      else if (sortCol === "type")  cmp = a.type.localeCompare(b.type);
+      else if (sortCol === "platform") cmp = (a.platform ?? "").localeCompare(b.platform ?? "");
+      else if (sortCol === "invoice") cmp = (a.invoice?.invoiceNumber ?? "").localeCompare(b.invoice?.invoiceNumber ?? "");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [entries, sortCol, sortDir, tab]);
+
+  const sortedCollectionRows = useMemo(() => {
+    if (!sortCol || tab !== "collection") return collectionRows;
+    return [...collectionRows].sort((a: any, b: any) => {
+      let cmp = 0;
+      if (sortCol === "unit")     cmp = (a.tenant.unit?.unitNumber ?? "").localeCompare(b.tenant.unit?.unitNumber ?? "");
+      else if (sortCol === "tenant")   cmp = a.tenant.name.localeCompare(b.tenant.name);
+      else if (sortCol === "property") cmp = (a.tenant.unit?.property?.name ?? "").localeCompare(b.tenant.unit?.property?.name ?? "");
+      else if (sortCol === "expected") cmp = a.expected - b.expected;
+      else if (sortCol === "received") cmp = a.totalPaid - b.totalPaid;
+      else if (sortCol === "status")   cmp = (a.isPaid ? 0 : a.totalPaid > 0 ? 1 : 2) - (b.isPaid ? 0 : b.totalPaid > 0 ? 1 : 2);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [collectionRows, sortCol, sortDir, tab]);
+
   // ── Toggle expanded row ────────────────────────────────────────────────────
   function toggleRow(tenantId: string) {
     setExpandedRows((prev) => {
@@ -290,6 +351,170 @@ export default function IncomePage() {
       if (next.has(tenantId)) { next.delete(tenantId); } else { next.add(tenantId); }
       return next;
     });
+  }
+
+  // ── Column render helpers ──────────────────────────────────────────────────
+  const ENTRIES_SORTABLE = new Set(["date","unit","tenant","type","platform","invoice","gross","commission","net"]);
+  const COLL_SORTABLE    = new Set(["unit","tenant","property","expected","received","status"]);
+  const INCOME_COL_LABELS: Record<string, string> = {
+    date:"Date", unit:"Unit", tenant:"Tenant", type:"Type", platform:"Platform/Agent",
+    invoice:"Invoice", gross:"Gross", commission:"Comm.", net:"Net",
+    property:"Property", expected:"Expected", received:"Received", status:"Status",
+  };
+
+  function renderColHeader(
+    key: string,
+    colOrder: string[],
+    setOrder: (o: string[]) => void,
+    lsKey: string,
+    sortableSet: Set<string>,
+  ) {
+    const sortable = sortableSet.has(key);
+    const isActive = sortCol === key;
+    return (
+      <th
+        key={key}
+        onDragOver={(ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; setDragOverCol(key); }}
+        onDrop={(ev) => {
+          ev.preventDefault();
+          const fromKey = ev.dataTransfer.getData("text/plain");
+          if (!fromKey || fromKey === key) { setDragOverCol(null); return; }
+          const next = [...colOrder];
+          const from = next.indexOf(fromKey);
+          const to = next.indexOf(key);
+          if (from === -1 || to === -1) return;
+          next.splice(from, 1);
+          next.splice(to, 0, fromKey);
+          setOrder(next);
+          localStorage.setItem(lsKey, JSON.stringify(next));
+          setDragOverCol(null);
+        }}
+        onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node)) setDragOverCol(null); }}
+        className={clsx(
+          "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans select-none",
+          dragOverCol === key && "border-l-2 border-gold bg-gold/5"
+        )}
+      >
+        <span className="flex items-center gap-1">
+          <span
+            draggable
+            onDragStart={(ev) => {
+              ev.dataTransfer.setData("text/plain", key);
+              ev.dataTransfer.effectAllowed = "move";
+              const th = ev.currentTarget.closest("th");
+              if (th) ev.dataTransfer.setDragImage(th, th.offsetWidth / 2, th.offsetHeight / 2);
+              setDragCol(key);
+            }}
+            onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
+            className="cursor-grab text-gray-300 hover:text-gray-500 flex-shrink-0 pr-0.5"
+          >
+            <GripVertical size={11} />
+          </span>
+          {sortable ? (
+            <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-1 hover:text-header transition-colors cursor-pointer">
+              {INCOME_COL_LABELS[key]}
+              {isActive
+                ? sortDir === "asc" ? <ChevronUp size={12} className="text-gold flex-shrink-0" /> : <ChevronDown size={12} className="text-gold flex-shrink-0" />
+                : <ChevronsUpDown size={12} className="text-gray-300 flex-shrink-0" />}
+            </button>
+          ) : (
+            <span>{INCOME_COL_LABELS[key]}</span>
+          )}
+        </span>
+      </th>
+    );
+  }
+
+  function renderEntriesCell(key: string, entry: any) {
+    const typeInfo = INCOME_TYPE_LABELS[entry.type] ?? { label: entry.type, badge: "gray" as const };
+    const isDeposit = entry.type === "DEPOSIT";
+    switch (key) {
+      case "date":
+        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(entry.date)}</td>;
+      case "unit":
+        return <td key={key} className="px-4 py-3 text-sm font-mono text-header">{entry.unit?.unitNumber}</td>;
+      case "tenant":
+        return (
+          <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500">
+            {entry.tenant ? <span className="flex items-center gap-1 text-gray-600"><User size={11} className="text-gray-400" />{entry.tenant.name}</span> : "—"}
+          </td>
+        );
+      case "type":
+        return <td key={key} className="px-4 py-3"><Badge variant={typeInfo.badge}>{typeInfo.label}</Badge></td>;
+      case "platform":
+        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500">{entry.platform ? PLATFORM_LABELS[entry.platform] : "—"}{entry.agentName ? ` · ${entry.agentName}` : ""}</td>;
+      case "invoice":
+        return (
+          <td key={key} className="px-4 py-3">
+            {entry.invoice ? (
+              <span className="flex items-center gap-1 text-xs text-green-700 font-sans bg-green-50 px-1.5 py-0.5 rounded">
+                <Receipt size={10} />{entry.invoice.invoiceNumber}
+              </span>
+            ) : "—"}
+          </td>
+        );
+      case "gross":
+        return (
+          <td key={key} className="px-4 py-3 text-right">
+            <CurrencyDisplay amount={entry.grossAmount} size="sm" colorize />
+            {isDeposit && <p className="text-xs text-purple-500 font-sans">deposit</p>}
+          </td>
+        );
+      case "commission":
+        return <td key={key} className="px-4 py-3 text-right"><CurrencyDisplay amount={entry.agentCommission} size="sm" className={entry.agentCommission > 0 ? "text-expense" : "text-gray-400"} /></td>;
+      case "net":
+        return (
+          <td key={key} className="px-4 py-3 text-right">
+            {isDeposit ? <span className="text-xs text-gray-400 font-sans italic">excluded</span> : <CurrencyDisplay amount={entry.grossAmount - entry.agentCommission} size="sm" colorize />}
+          </td>
+        );
+      default:
+        return <td key={key} />;
+    }
+  }
+
+  function renderCollCell(key: string, row: { tenant: any; totalPaid: number; expected: number; isPaid: boolean; paid: any[] }) {
+    const { tenant, totalPaid, expected, isPaid, paid } = row;
+    switch (key) {
+      case "unit":
+        return <td key={key} className="px-4 py-3 text-sm font-mono text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>;
+      case "tenant":
+        return (
+          <td key={key} className="px-4 py-3">
+            <p className="text-sm font-sans text-gray-700 font-medium">{tenant.name}</p>
+            {tenant.phone && <p className="text-xs text-gray-400 font-sans">{tenant.phone}</p>}
+          </td>
+        );
+      case "property":
+        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500">{tenant.unit?.property?.name ?? "—"}</td>;
+      case "expected":
+        return (
+          <td key={key} className="px-4 py-3">
+            <CurrencyDisplay amount={expected} size="sm" className="text-gray-700" />
+            {tenant.serviceCharge > 0 && <p className="text-xs text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+          </td>
+        );
+      case "received":
+        return (
+          <td key={key} className="px-4 py-3">
+            {totalPaid > 0 ? <CurrencyDisplay amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+          </td>
+        );
+      case "status":
+        return (
+          <td key={key} className="px-4 py-3">
+            {isPaid ? (
+              <span className="flex items-center gap-1.5 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg w-fit"><CheckCircle2 size={12} /> Paid</span>
+            ) : totalPaid > 0 ? (
+              <span className="flex items-center gap-1.5 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg w-fit"><AlertCircle size={12} /> Partial</span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs font-sans text-red-600 bg-red-50 px-2 py-1 rounded-lg w-fit"><AlertCircle size={12} /> Pending</span>
+            )}
+          </td>
+        );
+      default:
+        return <td key={key} />;
+    }
   }
 
   // ── Form helpers ───────────────────────────────────────────────────────────
@@ -571,7 +796,7 @@ export default function IncomePage() {
         {/* ── Tab bar ────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1 bg-cream-dark rounded-xl p-1 w-fit">
           <button
-            onClick={() => setTab("collection")}
+            onClick={() => { setTab("collection"); setSortCol(null); setSortDir("asc"); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
               tab === "collection" ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-header"
             }`}
@@ -594,7 +819,7 @@ export default function IncomePage() {
             )}
           </button>
           <button
-            onClick={() => setTab("entries")}
+            onClick={() => { setTab("entries"); setSortCol(null); setSortDir("asc"); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
               tab === "entries" ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-header"
             }`}
@@ -604,7 +829,7 @@ export default function IncomePage() {
             <span className="text-xs text-gray-400">({entries.length})</span>
           </button>
           <button
-            onClick={() => setTab("commissions")}
+            onClick={() => { setTab("commissions"); setSortCol(null); setSortDir("asc"); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
               tab === "commissions" ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-header"
             }`}
@@ -720,53 +945,21 @@ export default function IncomePage() {
                       <table className="w-full min-w-[580px]">
                         <thead className="bg-cream-dark">
                           <tr>
-                            {["Unit","Tenant","Property","Expected","Received","Status",""].map((h) => (
-                              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
-                            ))}
+                            {collColOrder.map((key) => renderColHeader(key, collColOrder, setCollColOrder, "income-coll-col-order", COLL_SORTABLE))}
+                            <th className="px-4 py-3" />
                           </tr>
                         </thead>
                         <tbody>
-                          {collectionRows.map(({ tenant, totalPaid, expected, isPaid, paid }) => (
-                            <tr key={tenant.id} className="border-t border-gray-50 hover:bg-cream/50 transition-colors">
-                              <td className="px-4 py-3 text-sm font-mono text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>
+                          {sortedCollectionRows.map((row) => (
+                            <tr key={row.tenant.id} className="border-t border-gray-50 hover:bg-cream/50 transition-colors">
+                              {collColOrder.map((key) => renderCollCell(key, row))}
                               <td className="px-4 py-3">
-                                <p className="text-sm font-sans text-gray-700 font-medium">{tenant.name}</p>
-                                {tenant.phone && <p className="text-xs text-gray-400 font-sans">{tenant.phone}</p>}
-                              </td>
-                              <td className="px-4 py-3 text-sm font-sans text-gray-500">{tenant.unit?.property?.name ?? "—"}</td>
-                              <td className="px-4 py-3">
-                                <CurrencyDisplay amount={expected} size="sm" className="text-gray-700" />
-                                {tenant.serviceCharge > 0 && (
-                                  <p className="text-xs text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {totalPaid > 0
-                                  ? <CurrencyDisplay amount={totalPaid} size="sm" className="text-income" />
-                                  : <span className="text-xs text-gray-400 font-sans">—</span>}
-                              </td>
-                              <td className="px-4 py-3">
-                                {isPaid ? (
-                                  <span className="flex items-center gap-1.5 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg w-fit">
-                                    <CheckCircle2 size={12} /> Paid
-                                  </span>
-                                ) : totalPaid > 0 ? (
-                                  <span className="flex items-center gap-1.5 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg w-fit">
-                                    <AlertCircle size={12} /> Partial
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center gap-1.5 text-xs font-sans text-red-600 bg-red-50 px-2 py-1 rounded-lg w-fit">
-                                    <AlertCircle size={12} /> Pending
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {isPaid ? (
+                                {row.isPaid ? (
                                   <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
-                                    {paid.length} {paid.length === 1 ? "entry" : "entries"}
+                                    {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
                                   </button>
                                 ) : (
-                                  <Button size="sm" variant="gold" onClick={() => handleQuickRecord(tenant)}>
+                                  <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant)}>
                                     <Plus size={12} /> Record
                                   </Button>
                                 )}
@@ -1108,55 +1301,21 @@ export default function IncomePage() {
                   <table className="w-full min-w-[700px]">
                     <thead className="bg-cream-dark">
                       <tr>
-                        {["Date","Unit","Tenant","Type","Platform/Agent","Invoice","Gross","Comm.","Net",""].map((h) => (
-                          <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
-                        ))}
+                        {entriesColOrder.map((key) => renderColHeader(key, entriesColOrder, setEntriesColOrder, "income-entries-col-order", ENTRIES_SORTABLE))}
+                        <th className="px-4 py-3" />
                       </tr>
                     </thead>
                     <tbody>
-                      {entries.map((entry: any) => {
-                        const typeInfo = INCOME_TYPE_LABELS[entry.type] ?? { label: entry.type, badge: "gray" as const };
-                        const isDeposit = entry.type === "DEPOSIT";
-                        return (
-                          <tr key={entry.id} className={`border-t border-gray-50 hover:bg-cream/50 transition-colors ${isDeposit ? "opacity-75" : ""}`}>
-                            <td className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(entry.date)}</td>
-                            <td className="px-4 py-3 text-sm font-mono text-header">{entry.unit?.unitNumber}</td>
-                            <td className="px-4 py-3 text-sm font-sans text-gray-500">
-                              {entry.tenant
-                                ? <span className="flex items-center gap-1 text-gray-600"><User size={11} className="text-gray-400" />{entry.tenant.name}</span>
-                                : "—"}
-                            </td>
-                            <td className="px-4 py-3"><Badge variant={typeInfo.badge}>{typeInfo.label}</Badge></td>
-                            <td className="px-4 py-3 text-sm font-sans text-gray-500">
-                              {entry.platform ? PLATFORM_LABELS[entry.platform] : "—"}{entry.agentName ? ` · ${entry.agentName}` : ""}
-                            </td>
-                            <td className="px-4 py-3">
-                              {entry.invoice ? (
-                                <span className="flex items-center gap-1 text-xs text-green-700 font-sans bg-green-50 px-1.5 py-0.5 rounded">
-                                  <Receipt size={10} />{entry.invoice.invoiceNumber}
-                                </span>
-                              ) : "—"}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <CurrencyDisplay amount={entry.grossAmount} size="sm" colorize />
-                              {isDeposit && <p className="text-xs text-purple-500 font-sans">deposit</p>}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <CurrencyDisplay amount={entry.agentCommission} size="sm" className={entry.agentCommission > 0 ? "text-expense" : "text-gray-400"} />
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {isDeposit
-                                ? <span className="text-xs text-gray-400 font-sans italic">excluded</span>
-                                : <CurrencyDisplay amount={entry.grossAmount - entry.agentCommission} size="sm" colorize />}
-                            </td>
-                            <td className="px-4 py-3">
-                              <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
-                                <Trash2 size={15} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {sortedEntries.map((entry: any) => (
+                        <tr key={entry.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", entry.type === "DEPOSIT" && "opacity-75")}>
+                          {entriesColOrder.map((key) => renderEntriesCell(key, entry))}
+                          <td className="px-4 py-3">
+                            <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

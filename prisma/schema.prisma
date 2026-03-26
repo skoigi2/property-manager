@@ -195,6 +195,15 @@ enum DocumentCategory {
   OTHER
 }
 
+enum ExpenseDocumentCategory {
+  INVOICE
+  RECEIPT
+  QUOTE
+  CONTRACT
+  PHOTO
+  OTHER
+}
+
 enum RenewalStage {
   NONE
   NOTICE_SENT
@@ -416,6 +425,7 @@ model ExpenseEntry {
   property          Property?                @relation(fields: [propertyId], references: [id])
   lineItems         ExpenseLineItem[]
   unitAllocations   ExpenseUnitAllocation[]
+  documents         ExpenseDocument[]
   createdAt         DateTime                 @default(now())
 
   @@index([date])
@@ -596,6 +606,21 @@ model TenantDocument {
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+}
+
+model ExpenseDocument {
+  id          String                  @id @default(cuid())
+  expenseId   String
+  category    ExpenseDocumentCategory @default(OTHER)
+  label       String
+  fileName    String
+  storagePath String
+  fileSize    Int?
+  mimeType    String?
+  uploadedAt  DateTime                @default(now())
+  expense     ExpenseEntry            @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
 }
 
 model DepositSettlement {

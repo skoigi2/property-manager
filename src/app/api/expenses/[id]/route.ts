@@ -2,6 +2,7 @@ import { requireManager } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
+import { deleteFromStorage } from "@/lib/supabase-storage";
 
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true } },
@@ -129,6 +130,15 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     where: { id: params.id },
     select: { category: true, amount: true, date: true },
   });
+
+  // Clean up any attached documents from Supabase Storage before cascade delete
+  const expenseDocs = await prisma.expenseDocument.findMany({
+    where: { expenseId: params.id },
+    select: { storagePath: true },
+  });
+  for (const doc of expenseDocs) {
+    try { await deleteFromStorage(doc.storagePath); } catch { /* best effort */ }
+  }
 
   await prisma.expenseEntry.delete({ where: { id: params.id } });
 

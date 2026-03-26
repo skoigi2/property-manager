@@ -20,8 +20,10 @@ import { formatDate } from "@/lib/date-utils";
 import {
   Trash2, Plus, Receipt, Wallet, Pencil, ChevronDown, ChevronRight, ChevronUp,
   CheckCircle2, Clock, AlertCircle, FileDown, Search, AlertTriangle, X,
-  ChevronsUpDown, GripVertical,
+  ChevronsUpDown, GripVertical, Paperclip,
 } from "lucide-react";
+import { ExpenseDocumentUpload } from "@/components/expenses/ExpenseDocumentUpload";
+import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
 import { exportExpenses } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
@@ -238,6 +240,9 @@ export default function ExpensesPage() {
   const [pettyCashBalance, setPettyCashBalance] = useState<number | null>(null);
   const [editEntry, setEditEntry] = useState<any | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [docPanelRows, setDocPanelRows] = useState<Set<string>>(new Set());
+  const [expenseDocs, setExpenseDocs]   = useState<Record<string, any[]>>({});
+  const [docLoading, setDocLoading]     = useState<Set<string>>(new Set());
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([]);
 
@@ -373,6 +378,26 @@ export default function ExpensesPage() {
     setExpandedRows((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function loadDocs(expenseId: string) {
+    setDocLoading((prev) => { const next = new Set(prev); next.add(expenseId); return next; });
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}/documents`);
+      const docs = await res.json();
+      setExpenseDocs((prev) => ({ ...prev, [expenseId]: docs }));
+    } finally {
+      setDocLoading((prev) => { const next = new Set(prev); next.delete(expenseId); return next; });
+    }
+  }
+
+  function toggleDocPanel(id: string) {
+    setDocPanelRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); }
+      else { next.add(id); if (!expenseDocs[id]) loadDocs(id); }
       return next;
     });
   }
@@ -1049,12 +1074,52 @@ export default function ExpensesPage() {
                               <button onClick={() => openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Edit">
                                 <Pencil size={14} />
                               </button>
+                              <button
+                                onClick={() => toggleDocPanel(e.id)}
+                                className={clsx("relative text-gray-300 hover:text-gold transition-colors p-1", docPanelRows.has(e.id) && "text-gold")}
+                                title="Documents"
+                              >
+                                <Paperclip size={14} />
+                                {expenseDocs[e.id]?.length > 0 && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-[9px] font-sans font-bold leading-none">
+                                    {expenseDocs[e.id].length > 9 ? "9+" : expenseDocs[e.id].length}
+                                  </span>
+                                )}
+                              </button>
                               <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
                                 <Trash2 size={14} />
                               </button>
                             </div>
                           </td>
                         </tr>
+
+                        {/* Document panel */}
+                        {docPanelRows.has(e.id) && (
+                          <tr key={`${e.id}-docs`} className="border-t border-gray-50 bg-cream/20">
+                            <td colSpan={colOrder.length + 3} className="px-6 py-4">
+                              <div className="space-y-4">
+                                <h5 className="text-xs font-sans font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                                  <Paperclip size={11} /> Attached Documents
+                                </h5>
+                                {docLoading.has(e.id) ? (
+                                  <div className="flex justify-center py-4"><Spinner /></div>
+                                ) : (
+                                  <>
+                                    <ExpenseDocumentList
+                                      expenseId={e.id}
+                                      documents={expenseDocs[e.id] ?? []}
+                                      onDeleted={() => loadDocs(e.id)}
+                                    />
+                                    <ExpenseDocumentUpload
+                                      expenseId={e.id}
+                                      onUploaded={() => loadDocs(e.id)}
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
 
                         {/* Expanded line items */}
                         {isExpanded && hasItems && (

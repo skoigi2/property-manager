@@ -34,7 +34,13 @@ async function main() {
       phone: "+254 712 345 678",
       isActive: true,
     },
-    update: { name: "James Kariuki", phone: "+254 712 345 678" },
+    update: {
+      name: "James Kariuki",
+      phone: "+254 712 345 678",
+      password: ownerPassword,
+      role: UserRole.OWNER,
+      isActive: true,
+    },
   });
   console.log("✓ Owner user: demo@owner.co.ke / demo123");
 

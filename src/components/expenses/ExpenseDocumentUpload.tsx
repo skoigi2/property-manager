@@ -51,8 +51,9 @@ export function ExpenseDocumentUpload({ expenseId, onUploaded }: Props) {
     try {
       const res = await fetch(`/api/expenses/${expenseId}/documents`, { method: "POST", body: fd });
       if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? "Upload failed");
+        let msg = `Upload failed (${res.status})`;
+        try { const d = await res.json(); msg = d.error ?? msg; } catch { /* non-JSON error body */ }
+        throw new Error(msg);
       }
       setFile(null);
       setLabel("");

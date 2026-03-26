@@ -386,6 +386,7 @@ export default function ExpensesPage() {
     setDocLoading((prev) => { const next = new Set(prev); next.add(expenseId); return next; });
     try {
       const res = await fetch(`/api/expenses/${expenseId}/documents`);
+      if (!res.ok) return;
       const docs = await res.json();
       setExpenseDocs((prev) => ({ ...prev, [expenseId]: docs }));
     } finally {

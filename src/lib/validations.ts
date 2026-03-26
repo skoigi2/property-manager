@@ -61,14 +61,16 @@ export const pettyCashSchema = z.object({
 });
 
 export const tenantSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  unitId: z.string().min(1, "Unit is required"),
+  name:          z.string().min(1, "Name is required"),
+  email:         z.string().email("Invalid email").optional().or(z.literal("")),
+  phone:         z.string().optional(),
+  unitId:        z.string().min(1, "Unit is required"),
   depositAmount: z.coerce.number().min(0),
-  leaseStart: z.string().min(1, "Lease start date is required"),
-  leaseEnd: z.string().optional(),
-  monthlyRent: z.coerce.number().positive("Rent must be positive"),
+  leaseStart:    z.string().min(1, "Lease start date is required"),
+  leaseEnd:      z.string().optional(),
+  monthlyRent:   z.coerce.number().positive("Rent must be positive"),
   serviceCharge: z.coerce.number().min(0).default(0),
-  isActive: z.boolean().default(true),
+  isActive:      z.boolean().default(true),
 });
 
 export const managementFeeConfigSchema = z.object({

@@ -88,7 +88,7 @@ export default function TenantsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } =
+  const { register, handleSubmit, reset, formState: { errors } } =
     useForm<TenantInput>({ resolver: zodResolver(tenantSchema) });
 
   const allUnits = properties.flatMap((p: any) =>
@@ -198,14 +198,18 @@ export default function TenantsPage() {
 
   function openEdit(tenant: any) {
     setEditingTenant(tenant);
-    setValue("name", tenant.name);
-    setValue("unitId", tenant.unitId);
-    setValue("depositAmount", tenant.depositAmount);
-    setValue("leaseStart", tenant.leaseStart?.split("T")[0] ?? "");
-    setValue("leaseEnd", tenant.leaseEnd?.split("T")[0] ?? "");
-    setValue("monthlyRent", tenant.monthlyRent);
-    setValue("serviceCharge", tenant.serviceCharge);
-    setValue("isActive", tenant.isActive);
+    reset({
+      name:          tenant.name,
+      email:         tenant.email ?? "",
+      phone:         tenant.phone ?? "",
+      unitId:        tenant.unitId,
+      depositAmount: tenant.depositAmount,
+      leaseStart:    tenant.leaseStart?.split("T")[0] ?? "",
+      leaseEnd:      tenant.leaseEnd?.split("T")[0] ?? "",
+      monthlyRent:   tenant.monthlyRent,
+      serviceCharge: tenant.serviceCharge,
+      isActive:      tenant.isActive,
+    });
     setModalOpen(true);
   }
 
@@ -769,6 +773,10 @@ export default function TenantsPage() {
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input label="Tenant Name" {...register("name")} error={errors.name?.message} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Email" type="email" placeholder="tenant@example.com" {...register("email")} error={errors.email?.message} />
+            <Input label="Phone" type="tel" placeholder="+254 7XX XXX XXX" {...register("phone")} />
+          </div>
           <Select
             label={editingTenant ? "Unit" : "Unit (vacant/listed only)"}
             placeholder="Select unit..."

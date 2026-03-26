@@ -11,9 +11,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const propertyId = searchParams.get("propertyId");
 
-  // Build asset filter
+  const effectiveIds = propertyId && ids.includes(propertyId) ? [propertyId] : ids;
   const assetWhere = {
-    propertyId: propertyId ? propertyId : { in: ids },
+    propertyId: { in: effectiveIds },
   };
 
   // Fetch all active maintenance schedules across accessible assets

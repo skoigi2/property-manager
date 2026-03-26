@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useProperty } from "@/lib/property-context";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -497,6 +498,7 @@ function JobCard({ job, isManager, onEdit, onDelete, onAdvance, onLogExpense, ad
 
 export default function MaintenancePage() {
   const { data: session } = useSession();
+  const { selectedId } = useProperty();
   const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
 
   // ── Tab state ──────────────────────────────────────────────────────────────
@@ -540,12 +542,13 @@ export default function MaintenancePage() {
   const load = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (filterProperty) params.set("propertyId", filterProperty);
+    const effectiveProp = filterProperty || selectedId || "";
+    if (effectiveProp) params.set("propertyId", effectiveProp);
     fetch(`/api/maintenance?${params}`)
       .then((r) => r.json())
       .then((d) => { setJobs(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [filterProperty]);
+  }, [filterProperty, selectedId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -555,14 +558,15 @@ export default function MaintenancePage() {
   // ── Schedules loader ───────────────────────────────────────────────────────
   const loadSchedules = useCallback(async () => {
     const params = new URLSearchParams();
-    if (filterScheduleProperty) params.set("propertyId", filterScheduleProperty);
+    const effectiveProp = filterScheduleProperty || selectedId || "";
+    if (effectiveProp) params.set("propertyId", effectiveProp);
     const res = await fetch(`/api/maintenance/schedules?${params}`);
     if (res.ok) {
       const data = await res.json();
       setSchedules(data.schedules);
       setYtdCost(data.ytdCost);
     }
-  }, [filterScheduleProperty]);
+  }, [filterScheduleProperty, selectedId]);
 
   useEffect(() => {
     if (activeTab === "schedules") loadSchedules();

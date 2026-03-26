@@ -108,17 +108,20 @@ export async function POST(
     return Response.json({ error: `Storage upload failed: ${e.message}` }, { status: 500 });
   }
 
-  const doc = await prisma.expenseDocument.create({
-    data: {
-      expenseId: params.id,
-      category: category as ExpenseDocumentCategory,
-      label: label || file.name,
-      fileName: file.name,
-      storagePath,
-      fileSize: file.size,
-      mimeType: file.type,
-    },
-  });
-
-  return Response.json(doc, { status: 201 });
+  try {
+    const doc = await prisma.expenseDocument.create({
+      data: {
+        expenseId: params.id,
+        category: category as ExpenseDocumentCategory,
+        label: label || file.name,
+        fileName: file.name,
+        storagePath,
+        fileSize: file.size,
+        mimeType: file.type,
+      },
+    });
+    return Response.json(doc, { status: 201 });
+  } catch (e: any) {
+    return Response.json({ error: `Database error: ${e.message}` }, { status: 500 });
+  }
 }

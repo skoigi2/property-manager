@@ -25,7 +25,7 @@ export async function POST(
 
   const asset = await prisma.asset.findUnique({
     where: { id: params.id },
-    select: { propertyId: true },
+    select: { propertyId: true, unitId: true, name: true },
   });
   if (!asset) return Response.json({ error: "Asset not found" }, { status: 404 });
   if (!propertyIds.includes(asset.propertyId)) {
@@ -34,7 +34,7 @@ export async function POST(
 
   const existing = await prisma.assetMaintenanceSchedule.findUnique({
     where: { id: params.scheduleId },
-    select: { assetId: true },
+    select: { assetId: true, taskName: true },
   });
   if (!existing || existing.assetId !== params.id) {
     return Response.json({ error: "Schedule not found" }, { status: 404 });
@@ -61,10 +61,30 @@ export async function POST(
 
   try {
     const [log] = await prisma.$transaction(async (tx) => {
+      // Auto-create an ExpenseEntry when a cost is provided
+      let expenseId: string | null = null;
+      if (cost && cost > 0) {
+        const hasUnit = !!asset.unitId;
+        const expenseDesc = `${asset.name} — ${existing.taskName}: ${description}`;
+        const expense = await tx.expenseEntry.create({
+          data: {
+            date: new Date(date),
+            amount: cost,
+            category: "MAINTENANCE",
+            scope: hasUnit ? "UNIT" : "PROPERTY",
+            propertyId: asset.propertyId,
+            ...(hasUnit ? { unitId: asset.unitId! } : {}),
+            description: expenseDesc,
+          },
+        });
+        expenseId = expense.id;
+      }
+
       const createdLog = await tx.assetMaintenanceLog.create({
         data: {
           assetId: params.id,
           scheduleId: params.scheduleId,
+          expenseId,
           date: new Date(date),
           description,
           cost: cost ?? null,

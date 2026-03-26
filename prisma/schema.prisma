@@ -426,6 +426,7 @@ model ExpenseEntry {
   lineItems         ExpenseLineItem[]
   unitAllocations   ExpenseUnitAllocation[]
   documents         ExpenseDocument[]
+  maintenanceLogs   AssetMaintenanceLog[]
   createdAt         DateTime                 @default(now())
 
   @@index([date])
@@ -745,6 +746,8 @@ model AssetMaintenanceLog {
   asset       Asset                     @relation(fields: [assetId], references: [id], onDelete: Cascade)
   scheduleId  String?
   schedule    AssetMaintenanceSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  expenseId   String?
+  expense     ExpenseEntry?             @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   date        DateTime
   description String
   cost        Float?
@@ -754,4 +757,5 @@ model AssetMaintenanceLog {
 
   @@index([assetId])
   @@index([scheduleId])
+  @@index([expenseId])
 }

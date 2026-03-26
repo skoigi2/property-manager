@@ -11,7 +11,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Badge } from "@/components/ui/Badge";
 import {
   FileText, Download, TrendingUp, Receipt, DollarSign,
-  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown,
+  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2,
 } from "lucide-react";
 import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
 import { clsx } from "clsx";
@@ -129,7 +129,7 @@ function PLPreview({ year, month }: { year: string; month: string }) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: "Gross Income",    value: data.kpis.grossIncome,       icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
           { label: "Commissions",     value: data.kpis.agentCommissions,  icon: <DollarSign size={16} />,  color: "text-expense", border: "border-expense" },
@@ -144,6 +144,15 @@ function PLPreview({ year, month }: { year: string; month: string }) {
             <CurrencyDisplay amount={k.value} className={`${k.color} font-medium`} size="lg" />
           </Card>
         ))}
+        <Card padding="sm" className={`border-l-4 ${data.kpis.occupancyRate >= 80 ? "border-income" : "border-amber-400"}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={data.kpis.occupancyRate >= 80 ? "text-income" : "text-amber-500"}><Building2 size={16} /></span>
+            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Occupancy</p>
+          </div>
+          <p className={`text-2xl font-mono font-semibold ${data.kpis.occupancyRate >= 80 ? "text-income" : "text-amber-500"}`}>
+            {data.kpis.occupancyRate}%
+          </p>
+        </Card>
       </div>
 
       {/* Alerts */}

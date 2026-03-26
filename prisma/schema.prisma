@@ -29,8 +29,9 @@ model User {
   role             UserRole         @default(MANAGER)
   phone            String?
   isActive         Boolean          @default(true)
-  propertyAccess   PropertyAccess[]
-  ownedProperties  Property[]       @relation("PropertyOwner")
+  propertyAccess    PropertyAccess[]
+  ownedProperties   Property[]       @relation("PropertyOwner")
+  managedProperties Property[]       @relation("PropertyManager")
   accounts         Account[]
   sessions         Session[]
   createdAt        DateTime         @default(now())
@@ -294,6 +295,8 @@ model Property {
   description          String?
   ownerId              String?
   owner                User?             @relation("PropertyOwner", fields: [ownerId], references: [id])
+  managerId            String?
+  manager              User?             @relation("PropertyManager", fields: [managerId], references: [id])
   managementFeeRate    Float?
   managementFeeFlat    Float?
   serviceChargeDefault Float?

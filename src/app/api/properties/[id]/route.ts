@@ -10,7 +10,8 @@ const updateSchema = z.object({
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
-  ownerId: z.string().nullable().optional(),
+  ownerId:   z.string().nullable().optional(),
+  managerId: z.string().nullable().optional(),
   managementFeeRate: z.number().nullable().optional(),
   managementFeeFlat: z.number().nullable().optional(),
   serviceChargeDefault: z.number().nullable().optional(),
@@ -24,7 +25,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     where: { id: params.id },
     include: {
       units: { orderBy: { unitNumber: "asc" } },
-      owner: { select: { id: true, name: true, email: true } },
+      owner:   { select: { id: true, name: true, email: true } },
+      manager: { select: { id: true, name: true, email: true } },
       propertyAccess: {
         include: { user: { select: { id: true, name: true, email: true, role: true } } },
       },

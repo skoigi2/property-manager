@@ -45,7 +45,8 @@ interface Property {
   managementFeeFlat: number | null;
   serviceChargeDefault: number | null;
   units: Unit[];
-  owner: { id: string; name: string | null; email: string | null } | null;
+  owner:   { id: string; name: string | null; email: string | null } | null;
+  manager: { id: string; name: string | null; email: string | null } | null;
   _count: { units: number };
 }
 
@@ -77,7 +78,8 @@ const propertySchema = z.object({
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
-  ownerId: z.string().optional(),
+  ownerId:   z.string().optional(),
+  managerId: z.string().optional(),
   managementFeeRate: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).max(100).optional()
@@ -163,8 +165,8 @@ function StatusDot({ status }: { status: string }) {
 
 interface OwnerUser { id: string; name: string | null; email: string | null; }
 
-function PropertyFormFields({ register, errors, owners, watchedCategory }: {
-  register: any; errors: any; owners: OwnerUser[]; watchedCategory?: string;
+function PropertyFormFields({ register, errors, owners, managers, watchedCategory }: {
+  register: any; errors: any; owners: OwnerUser[]; managers: OwnerUser[]; watchedCategory?: string;
 }) {
   return (
     <div className="space-y-4">
@@ -239,6 +241,17 @@ function PropertyFormFields({ register, errors, owners, watchedCategory }: {
             <option value="">— Unassigned —</option>
             {owners.map((o) => (
               <option key={o.id} value={o.id}>{o.name ?? o.email}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {managers.length > 0 && (
+        <div>
+          <label className="form-label">Lead Manager</label>
+          <select className="form-input" {...register("managerId")}>
+            <option value="">— Unassigned —</option>
+            {managers.map((m) => (
+              <option key={m.id} value={m.id}>{m.name ?? m.email}</option>
             ))}
           </select>
         </div>
@@ -610,6 +623,7 @@ export default function PropertiesPage() {
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [owners, setOwners]         = useState<OwnerUser[]>([]);
+  const [managers, setManagers]     = useState<OwnerUser[]>([]);
   const [loading, setLoading]       = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
@@ -652,7 +666,10 @@ export default function PropertiesPage() {
     // Fetch OWNER-role users for the owner dropdown
     fetch("/api/users")
       .then((r) => r.json())
-      .then((d: any[]) => setOwners(d.filter((u) => u.role === "OWNER")))
+      .then((d: any[]) => {
+        setOwners(d.filter((u) => u.role === "OWNER"));
+        setManagers(d.filter((u) => u.role === "MANAGER" || u.role === "ACCOUNTANT"));
+      })
       .catch(() => {});
   }, []);
 
@@ -674,7 +691,8 @@ export default function PropertiesPage() {
       address: p.address ?? "",
       city: p.city ?? "Nairobi",
       description: p.description ?? "",
-      ownerId: p.owner?.id ?? "",
+      ownerId:   p.owner?.id   ?? "",
+      managerId: p.manager?.id ?? "",
       managementFeeRate: p.managementFeeRate ?? undefined,
       managementFeeFlat: p.managementFeeFlat ?? undefined,
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
@@ -882,6 +900,13 @@ export default function PropertiesPage() {
                     <span>Owner: {p.owner.name ?? p.owner.email}</span>
                   </div>
                 )}
+                {/* Lead Manager */}
+                {p.manager && (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 font-sans mb-1">
+                    <Users size={12} />
+                    <span>Manager: {p.manager.name ?? p.manager.email}</span>
+                  </div>
+                )}
 
                 {/* Units panel — expandable */}
                 <div onClick={(e) => e.stopPropagation()}>
@@ -907,7 +932,7 @@ export default function PropertiesPage() {
         title={editProp ? "Edit Property" : "Add Property"}
       >
         <form onSubmit={propForm.handleSubmit(onSaveProperty)} className="space-y-4">
-          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} watchedCategory={propForm.watch("category")} />
+          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} managers={managers} watchedCategory={propForm.watch("category")} />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setPropModalOpen(false)}>
               Cancel

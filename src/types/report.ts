@@ -3,6 +3,8 @@ export interface ReportData {
   property: string;
   longTermPropertyName: string;
   shortLetPropertyName: string;
+  ownerName: string;
+  managerName: string;
   period: string;
   generatedAt: string;
   generatedBy: string;
@@ -12,6 +14,7 @@ export interface ReportData {
     agentCommissions: number;
     totalExpenses: number;
     netProfit: number;
+    occupancyRate: number;
   };
 
   rentCollection: {

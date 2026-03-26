@@ -380,6 +380,11 @@ export default function TenantDetailPage() {
                   <p className="text-sm text-gray-400 font-mono mt-1">
                     {tenant.unit?.unitNumber} · {tenant.unit?.property?.name}
                   </p>
+                  {tenant.unit?.property?.manager && (
+                    <p className="text-xs text-gray-400 font-sans mt-0.5">
+                      Manager: {tenant.unit.property.manager.name ?? tenant.unit.property.manager.email}
+                    </p>
+                  )}
                   {(tenant.email || tenant.phone) && (
                     <p className="text-xs text-gray-400 font-sans mt-1">
                       {[tenant.email, tenant.phone].filter(Boolean).join(" · ")}

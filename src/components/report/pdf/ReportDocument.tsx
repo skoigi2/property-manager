@@ -36,8 +36,9 @@ export function ReportDocument({ data }: { data: ReportData }) {
         <Text style={styles.coverSub}>PROPERTY MANAGEMENT REPORT</Text>
         <Text style={styles.coverTitle}>{data.property}</Text>
         <Text style={[styles.coverMeta, { marginTop: 8 }]}>Period: {data.period}</Text>
+        <Text style={styles.coverMeta}>Owner: {data.ownerName}</Text>
+        <Text style={styles.coverMeta}>Manager: {data.managerName}</Text>
         <Text style={styles.coverMeta}>Prepared: {data.generatedAt}</Text>
-        <Text style={styles.coverMeta}>Manager: {data.generatedBy}</Text>
         <Text style={styles.confidential}>CONFIDENTIAL · FOR OWNER USE ONLY</Text>
       </Page>
 
@@ -49,14 +50,15 @@ export function ReportDocument({ data }: { data: ReportData }) {
         </Text>
         <View style={styles.kpiRow}>
           {[
-            { label: "Gross Income", value: data.kpis.grossIncome, color: "#16A34A" },
-            { label: "Agent Commissions", value: data.kpis.agentCommissions, color: "#DC2626" },
-            { label: "Total Expenses", value: data.kpis.totalExpenses, color: "#DC2626" },
-            { label: "Net Profit to Owner", value: data.kpis.netProfit, color: data.kpis.netProfit >= 0 ? "#16A34A" : "#DC2626" },
+            { label: "Gross Income",       value: formatKSh(data.kpis.grossIncome),       color: "#16A34A" },
+            { label: "Agent Commissions",  value: formatKSh(data.kpis.agentCommissions),  color: "#DC2626" },
+            { label: "Total Expenses",     value: formatKSh(data.kpis.totalExpenses),     color: "#DC2626" },
+            { label: "Net Profit to Owner", value: formatKSh(data.kpis.netProfit),        color: data.kpis.netProfit >= 0 ? "#16A34A" : "#DC2626" },
+            { label: "Occupancy Rate",     value: `${data.kpis.occupancyRate}%`,          color: data.kpis.occupancyRate >= 80 ? "#16A34A" : "#D97706" },
           ].map((kpi) => (
             <View key={kpi.label} style={styles.kpiBox}>
               <Text style={styles.kpiLabel}>{kpi.label}</Text>
-              <Text style={[styles.kpiValue, { color: kpi.color }]}>{formatKSh(kpi.value)}</Text>
+              <Text style={[styles.kpiValue, { color: kpi.color }]}>{kpi.value}</Text>
             </View>
           ))}
         </View>
@@ -75,7 +77,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
             <View key={t.unit} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
               <Text style={[styles.tableCell, { flex: 3 }]}>{t.tenantName}</Text>
               <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.unit}</Text>
-              <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</Text>
+              <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.type === "ONE_BED" ? "1 Bed" : t.type === "TWO_BED" ? "2 Bed" : "3 Bed"}</Text>
               <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{formatKSh(t.expectedRent + t.serviceCharge)}</Text>
               <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{formatKSh(t.received)}</Text>
               <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }, t.variance < 0 ? styles.negative : t.variance > 0 ? styles.positive : {}]}>{formatKSh(t.variance)}</Text>
@@ -93,7 +95,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
           </View>
         </View>
 
-        <PageFooter period={data.period} manager={data.generatedBy} pageNum={1} />
+        <PageFooter period={data.period} manager={data.managerName} pageNum={1} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -113,7 +115,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
             return (
               <View key={u.unitNumber} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{u.unitNumber}</Text>
-                <Text style={[styles.tableCell, { flex: 1.5 }]}>{u.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</Text>
+                <Text style={[styles.tableCell, { flex: 1.5 }]}>{u.type === "ONE_BED" ? "1 Bed" : u.type === "TWO_BED" ? "2 Bed" : "3 Bed"}</Text>
                 <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{formatKSh(u.grossRevenue)}</Text>
                 <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{formatKSh(u.commissions)}</Text>
                 <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{formatKSh(u.fixedCosts)}</Text>
@@ -178,7 +180,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
           </>
         )}
 
-        <PageFooter period={data.period} manager={data.generatedBy} pageNum={2} />
+        <PageFooter period={data.period} manager={data.managerName} pageNum={2} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -213,7 +215,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
         </Text>
         <View>
           {[
-            { label: "Cash received (from Pauline)", value: data.pettyCash.totalIn },
+            { label: "Petty cash received", value: data.pettyCash.totalIn },
             { label: "Cash spent", value: -data.pettyCash.totalOut },
           ].map((row, i) => (
             <View key={i} style={styles.plRow}>
@@ -261,7 +263,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
           </>
         )}
 
-        <PageFooter period={data.period} manager={data.generatedBy} pageNum={3} />
+        <PageFooter period={data.period} manager={data.managerName} pageNum={3} />
       </Page>
     </Document>
   );

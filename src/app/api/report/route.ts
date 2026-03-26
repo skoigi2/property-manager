@@ -15,7 +15,14 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const periodLabel = format(from, "MMMM yyyy");
 
   const [properties, tenants, incomeEntries, expenseEntries, pettyCash] = await Promise.all([
-    prisma.property.findMany({ where: { id: { in: propertyIds } }, include: { units: true } }),
+    prisma.property.findMany({
+      where: { id: { in: propertyIds } },
+      include: {
+        units: true,
+        owner:   { select: { name: true, email: true } },
+        manager: { select: { name: true, email: true } },
+      },
+    }),
     prisma.tenant.findMany({
       where: { isActive: true, unit: { propertyId: { in: propertyIds } } },
       include: { unit: { include: { property: true } } },
@@ -42,6 +49,11 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const netProfit         = grossIncome - agentCommissions - totalExpenses;
 
   const propertyNames = properties.map((p) => p.name).join(" & ");
+  const ownerName     = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
+  const managerName   = properties[0]?.manager?.name ?? properties[0]?.manager?.email ?? session?.user?.name ?? "Manager";
+  const totalUnits    = properties.reduce((s, p) => s + p.units.length, 0);
+  const occupancyRate = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
+
   const riaraProperty = properties.find((p) => p.type === "LONGTERM");
   const albaProperty  = properties.find((p) => p.type === "AIRBNB");
   const riaraTenants  = tenants.filter((t) => t.unit.propertyId === riaraProperty?.id);
@@ -135,10 +147,12 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     property:             propertyNames,
     longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
     shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
+    ownerName,
+    managerName,
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",
-    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit },
+    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate },
     rentCollection,
     albaPerformance,
     expenses,

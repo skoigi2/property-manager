@@ -12,6 +12,7 @@ const createSchema = z.object({
   city: z.string().optional(),
   description: z.string().optional(),
   ownerId: z.string().optional(),
+  managerId: z.string().optional(),
   managementFeeRate: z.number().optional(),
   managementFeeFlat: z.number().optional(),
   serviceChargeDefault: z.number().optional(),
@@ -28,7 +29,8 @@ export async function GET() {
     where: { id: { in: ids } },
     include: {
       units: { select: { id: true, unitNumber: true, type: true, status: true, monthlyRent: true } },
-      owner: { select: { id: true, name: true, email: true } },
+      owner:   { select: { id: true, name: true, email: true } },
+      manager: { select: { id: true, name: true, email: true } },
       _count: { select: { units: true } },
     },
     orderBy: { name: "asc" },

@@ -11,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       unit: {
         include: {
-          property: { select: { name: true, type: true } },
+          property: { select: { name: true, type: true, manager: { select: { name: true, email: true } } } },
           // Include all income entries for the unit (tenantId filter applied in UI)
           incomeEntries: {
             select: {

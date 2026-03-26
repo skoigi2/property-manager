@@ -619,7 +619,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
 
 export default function PropertiesPage() {
   const { data: session } = useSession();
-  const isManager = session?.user?.role === "MANAGER";
+  const isManager = session?.user?.role === "MANAGER" || session?.user?.role === "ADMIN";
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [owners, setOwners]         = useState<OwnerUser[]>([]);

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "db:seed": "ts-node -P tsconfig.seed.json prisma/seed.ts",
+    "db:seed:demo": "ts-node -P tsconfig.seed.json prisma/seed-demo.ts",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio"
   },

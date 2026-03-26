@@ -495,7 +495,7 @@ function JobCard({ job, isManager, onEdit, onDelete, onAdvance, onLogExpense, ad
 
 export default function MaintenancePage() {
   const { data: session } = useSession();
-  const isManager = session?.user?.role === "MANAGER";
+  const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"jobs" | "schedules">("jobs");

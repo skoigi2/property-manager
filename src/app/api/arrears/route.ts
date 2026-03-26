@@ -9,15 +9,22 @@ const createSchema = z.object({
   notes: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   const { error } = await requireAuth();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
+  const filterPropertyId = searchParams.get("propertyId");
+  const effectivePropertyIds =
+    filterPropertyId && propertyIds.includes(filterPropertyId)
+      ? [filterPropertyId]
+      : propertyIds;
+
   const cases = await prisma.arrearsCase.findMany({
-    where: { propertyId: { in: propertyIds } },
+    where: { propertyId: { in: effectivePropertyIds } },
     include: {
       tenant: { select: { id: true, name: true, phone: true, email: true, unit: { select: { unitNumber: true } } } },
       property: { select: { name: true } },

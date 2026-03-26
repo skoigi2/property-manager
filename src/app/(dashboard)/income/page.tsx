@@ -26,6 +26,7 @@ import {
 import { exportIncome } from "@/lib/excel-export";
 import Link from "next/link";
 import { clsx } from "clsx";
+import { useProperty } from "@/lib/property-context";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,7 @@ function computeArrears(tenant: any, allEntries: any[]): ArrearsSummary {
 
 export default function IncomePage() {
   const { data: session } = useSession();
+  const { selectedId } = useProperty();
 
   // Tab & collection mode
   const [tab, setTab]                         = useState<Tab>("collection");
@@ -214,11 +216,12 @@ export default function IncomePage() {
   // ── Fetch: current-month entries ───────────────────────────────────────────
   const fetchEntries = useCallback(() => {
     setLoading(true);
-    fetch(`/api/income?year=${month.getFullYear()}&month=${month.getMonth() + 1}`)
+    const propParam = selectedId ? `&propertyId=${selectedId}` : "";
+    fetch(`/api/income?year=${month.getFullYear()}&month=${month.getMonth() + 1}${propParam}`)
       .then((r) => r.json())
       .then((d) => { setEntries(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [month]);
+  }, [month, selectedId]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
@@ -226,9 +229,10 @@ export default function IncomePage() {
   useEffect(() => {
     if (collectionMode !== "arrears") return;
     setArrearsLoading(true);
+    const propParam = selectedId ? `?propertyId=${selectedId}` : "";
     Promise.all([
-      fetch("/api/income").then((r) => r.json()),
-      fetch("/api/arrears").then((r) => r.json()),
+      fetch(`/api/income${propParam}`).then((r) => r.json()),
+      fetch(`/api/arrears${propParam}`).then((r) => r.json()),
     ])
       .then(([income, cases]) => {
         setAllIncomeEntries(income);
@@ -243,7 +247,7 @@ export default function IncomePage() {
         setArrearsLoading(false);
       })
       .catch(() => setArrearsLoading(false));
-  }, [collectionMode, arrearsSeq]);
+  }, [collectionMode, arrearsSeq, selectedId]);
 
   // ── Tenant auto-lookup when unit changes in form ───────────────────────────
   useEffect(() => {

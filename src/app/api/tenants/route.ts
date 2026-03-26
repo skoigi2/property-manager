@@ -12,10 +12,15 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const unitId = searchParams.get("unitId");
   const activeOnly = searchParams.get("activeOnly") === "true";
+  const filterPropertyId = searchParams.get("propertyId");
+  const effectivePropertyIds =
+    filterPropertyId && propertyIds.includes(filterPropertyId)
+      ? [filterPropertyId]
+      : propertyIds;
 
   const tenants = await prisma.tenant.findMany({
     where: {
-      unit: { propertyId: { in: propertyIds } },
+      unit: { propertyId: { in: effectivePropertyIds } },
       ...(unitId ? { unitId } : {}),
       ...(activeOnly ? { isActive: true } : {}),
     },

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -271,6 +272,7 @@ function DocumentPanel({ policyId }: { policyId: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function InsurancePage() {
+  const { selectedId } = useProperty();
   const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -287,8 +289,9 @@ export default function InsurancePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const propParam = selectedId ? `?propertyId=${selectedId}` : "";
       const [polRes, propRes] = await Promise.all([
-        fetch("/api/insurance"),
+        fetch(`/api/insurance${propParam}`),
         fetch("/api/properties"),
       ]);
       if (polRes.ok) setPolicies(await polRes.json());
@@ -296,7 +299,7 @@ export default function InsurancePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedId]);
 
   useEffect(() => { load(); }, [load]);
 

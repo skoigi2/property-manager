@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { useProperty } from "@/lib/property-context";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -58,6 +59,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 
 export default function TenantsPage() {
   const { data: session } = useSession();
+  const { selectedId } = useProperty();
 
   // Data
   const [tenants, setTenants]       = useState<any[]>([]);
@@ -107,15 +109,16 @@ export default function TenantsPage() {
   }, []);
 
   useEffect(() => {
+    const propParam = selectedId ? `?propertyId=${selectedId}` : "";
     Promise.all([
-      fetch("/api/tenants").then((r) => r.json()),
+      fetch(`/api/tenants${propParam}`).then((r) => r.json()),
       fetch("/api/properties").then((r) => r.json()),
     ]).then(([t, p]) => {
       setTenants(Array.isArray(t) ? t : []);
       setProperties(Array.isArray(p) ? p : []);
       setLoading(false);
     });
-  }, []);
+  }, [selectedId]);
 
   function switchLayout(mode: LayoutMode) {
     setLayout(mode);

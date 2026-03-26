@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -687,6 +688,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
+  const { selectedId } = useProperty();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -704,8 +706,9 @@ export default function AssetsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const propParam = selectedId ? `?propertyId=${selectedId}` : "";
       const [assetRes, propRes] = await Promise.all([
-        fetch("/api/assets"),
+        fetch(`/api/assets${propParam}`),
         fetch("/api/properties"),
       ]);
       if (assetRes.ok) setAssets(await assetRes.json());
@@ -713,7 +716,7 @@ export default function AssetsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedId]);
 
   useEffect(() => { load(); }, [load]);
 

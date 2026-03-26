@@ -14,6 +14,11 @@ export async function GET(req: Request) {
   const unitId = searchParams.get("unitId");
   const year = searchParams.get("year");
   const month = searchParams.get("month");
+  const filterPropertyId = searchParams.get("propertyId");
+  const effectivePropertyIds =
+    filterPropertyId && propertyIds.includes(filterPropertyId)
+      ? [filterPropertyId]
+      : propertyIds;
 
   let dateFilter = {};
   if (year && month) {
@@ -24,7 +29,7 @@ export async function GET(req: Request) {
 
   const entries = await prisma.incomeEntry.findMany({
     where: {
-      unit: { propertyId: { in: propertyIds } },
+      unit: { propertyId: { in: effectivePropertyIds } },
       ...(unitId ? { unitId } : {}),
       ...dateFilter,
     },

@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -321,6 +322,7 @@ function OpenCaseModal({ open, onClose, onCreated }: {
 
 export default function ArrearsPage() {
   const { data: session } = useSession();
+  const { selectedId } = useProperty();
   const [cases, setCases]       = useState<ArrearsCase[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showOpen, setShowOpen] = useState(false);
@@ -329,12 +331,13 @@ export default function ArrearsPage() {
   const [showResolved, setShowResolved] = useState(false);
   const isManager = session?.user?.role === "MANAGER";
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
-    fetch("/api/arrears").then(r=>r.json()).then(d => setCases(Array.isArray(d) ? d : [])).finally(()=>setLoading(false));
-  };
+    const propParam = selectedId ? `?propertyId=${selectedId}` : "";
+    fetch(`/api/arrears${propParam}`).then(r=>r.json()).then(d => setCases(Array.isArray(d) ? d : [])).finally(()=>setLoading(false));
+  }, [selectedId]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const escalate = async (arrearsCase: ArrearsCase, stage: Stage, notes?: string) => {
     const res = await fetch(`/api/arrears/${arrearsCase.id}`, {

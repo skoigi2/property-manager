@@ -28,10 +28,15 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const tenantId = searchParams.get("tenantId");
   const status = searchParams.get("status");
+  const filterPropertyId = searchParams.get("propertyId");
+  const effectivePropertyIds =
+    filterPropertyId && propertyIds.includes(filterPropertyId)
+      ? [filterPropertyId]
+      : propertyIds;
 
   const invoices = await prisma.invoice.findMany({
     where: {
-      tenant: { unit: { propertyId: { in: propertyIds } } },
+      tenant: { unit: { propertyId: { in: effectivePropertyIds } } },
       ...(tenantId ? { tenantId } : {}),
       ...(status ? { status: status as never } : {}),
     },

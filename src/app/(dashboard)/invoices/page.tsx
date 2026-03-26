@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
+import { Header } from "@/components/layout/Header";
+import { useProperty } from "@/lib/property-context";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -806,6 +808,7 @@ function BulkGenerateModal({ onClose, onGenerated }: { onClose: () => void; onGe
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function InvoicesPage() {
+  const { selectedId } = useProperty();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -822,7 +825,8 @@ export default function InvoicesPage() {
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/invoices");
+      const propParam = selectedId ? `?propertyId=${selectedId}` : "";
+      const res = await fetch(`/api/invoices${propParam}`);
       const data = await res.json();
       setInvoices(Array.isArray(data) ? data : []);
     } catch {
@@ -830,7 +834,7 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedId]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
@@ -899,30 +903,26 @@ export default function InvoicesPage() {
   });
 
   return (
-    <div className="p-4 lg:p-8 max-w-6xl mx-auto space-y-6 pb-24 lg:pb-8">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl text-header">Invoices</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Generate and track rent invoices</p>
-        </div>
+    <>
+      <Header title="Invoices">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowBulkGenerate(true)}
-            className="flex items-center gap-2 bg-cream border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-cream-dark transition-colors"
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-3 py-1.5 rounded-lg text-sm font-sans transition-colors"
           >
-            <Zap size={15} className="text-gold" />
+            <Zap size={14} className="text-gold" />
             <span className="hidden sm:inline">Generate All</span>
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-gold text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gold-dark transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-gold hover:bg-gold-dark text-white px-3 py-1.5 rounded-lg text-sm font-sans font-medium transition-colors shadow-sm"
           >
-            <Plus size={16} />
+            <Plus size={15} />
             <span className="hidden sm:inline">New Invoice</span>
           </button>
         </div>
-      </div>
+      </Header>
+      <div className="page-container space-y-6">
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1100,6 +1100,7 @@ export default function InvoicesPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

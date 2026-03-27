@@ -178,40 +178,42 @@ export default function CompliancePage() {
         title="Compliance"
         userName={session?.user?.name ?? session?.user?.email}
         role={session?.user?.role}
-      >
-        {/* Month / Year picker */}
-        <div className="flex items-center gap-2">
-          <select
-            className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 font-sans bg-white"
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-          >
-            {MONTHS.map((m, i) => (
-              <option key={m} value={i + 1}>{m}</option>
-            ))}
-          </select>
-          <select
-            className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 font-sans bg-white"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-          >
-            {[2024, 2025, 2026, 2027].map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
-        {propertyIdForAgreement && (
-          <Link
-            href={`/properties/${propertyIdForAgreement}/agreement`}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-header font-sans border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
-          >
-            <Settings size={13} />
-            Configure Agreement
-          </Link>
-        )}
-      </Header>
+      />
 
       <div className="page-container space-y-6">
+        {/* ── Period selector + Configure Agreement ── */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <select
+              className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 font-sans bg-white"
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+            >
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <select
+              className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 font-sans bg-white"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+            >
+              {[2024, 2025, 2026, 2027].map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          {propertyIdForAgreement && (
+            <Link
+              href={`/properties/${propertyIdForAgreement}/agreement`}
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-header font-sans border border-gray-200 rounded-lg px-3 py-1.5 transition-colors bg-white"
+            >
+              <Settings size={13} />
+              Configure Agreement
+            </Link>
+          )}
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-24"><Spinner size="lg" /></div>
         ) : !data ? (

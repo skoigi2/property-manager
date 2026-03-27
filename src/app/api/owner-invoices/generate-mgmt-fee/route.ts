@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }),
     prisma.tenant.findMany({
       where: { isActive: true, unit: { propertyId } },
-      select: { unitId: true, monthlyRent: true },
+      select: { unitId: true, monthlyRent: true, unit: { select: { unitNumber: true } } },
     }),
     prisma.managementFeeConfig.findMany({
       where: {
@@ -81,17 +81,32 @@ export async function POST(req: Request) {
 
   const grossIncome = incomeAgg._sum.grossAmount ?? 0;
 
-  let mgmtFeeOwing = 0;
+  const label = `${MONTH_NAMES[periodMonth - 1]} ${periodYear}`;
+  const lineItems: { description: string; amount: number; unitId: null; tenantId: null; incomeType: string }[] = [];
+
   if (property.type === "LONGTERM") {
-    mgmtFeeOwing = activeTenants.reduce((sum, t) => {
+    for (const t of activeTenants) {
       const cfg = feeConfigs.find((c) => c.unitId === t.unitId);
-      if (!cfg) return sum;
-      return sum + (cfg.flatAmount ?? (cfg.ratePercent / 100) * t.monthlyRent);
-    }, 0);
+      if (!cfg) continue;
+      const amount = cfg.flatAmount ?? (cfg.ratePercent / 100) * t.monthlyRent;
+      const desc = cfg.flatAmount != null
+        ? `Unit ${t.unit.unitNumber} — Management Fee (flat)`
+        : `Unit ${t.unit.unitNumber} — Management Fee (${cfg.ratePercent}% \u00d7 KSh ${t.monthlyRent.toLocaleString("en-KE")})`;
+      lineItems.push({ description: desc, amount, unitId: null, tenantId: null, incomeType: "OTHER" });
+    }
   } else {
     // AIRBNB — 10% of gross income
-    mgmtFeeOwing = grossIncome * 0.1;
+    const amount = grossIncome * 0.1;
+    lineItems.push({
+      description: `Management Fee — ${label} (10% \u00d7 KSh ${grossIncome.toLocaleString("en-KE")} gross income)`,
+      amount,
+      unitId: null,
+      tenantId: null,
+      incomeType: "OTHER",
+    });
   }
+
+  const mgmtFeeOwing = lineItems.reduce((s, i) => s + i.amount, 0);
 
   if (mgmtFeeOwing <= 0) {
     return Response.json(
@@ -105,17 +120,6 @@ export async function POST(req: Request) {
 
   const existingCount = await prisma.ownerInvoice.count({ where: { periodYear, periodMonth } });
   const invoiceNumber = generateOwnerInvoiceNumber(periodYear, periodMonth, existingCount + 1);
-
-  const label = `${MONTH_NAMES[periodMonth - 1]} ${periodYear}`;
-  const lineItems = [
-    {
-      description: `Management Fee — ${label}`,
-      amount: mgmtFeeOwing,
-      unitId: null,
-      tenantId: null,
-      incomeType: "OTHER",
-    },
-  ];
 
   const invoice = await prisma.ownerInvoice.create({
     data: {

@@ -81,8 +81,40 @@ export const managementFeeConfigSchema = z.object({
   effectiveTo: z.string().optional(),
 });
 
+const INCOME_TYPE_VALUES = ["LONGTERM_RENT","SERVICE_CHARGE","DEPOSIT","AIRBNB","UTILITY_RECOVERY","OTHER","LETTING_FEE","RENEWAL_FEE","VACANCY_FEE","SETUP_FEE_INSTALMENT","CONSULTANCY_FEE"] as const;
+const OWNER_INVOICE_TYPE_VALUES = ["LETTING_FEE","PERIODIC_LETTING_FEE","RENEWAL_FEE","MANAGEMENT_FEE","VACANCY_FEE","SETUP_FEE_INSTALMENT","CONSULTANCY_FEE"] as const;
+
+export const ownerInvoiceLineItemSchema = z.object({
+  description: z.string().min(1),
+  amount:      z.coerce.number().positive(),
+  unitId:      z.string().optional().nullable(),
+  tenantId:    z.string().optional().nullable(),
+  incomeType:  z.enum(INCOME_TYPE_VALUES),
+});
+
+export const ownerInvoiceCreateSchema = z.object({
+  propertyId:  z.string().min(1),
+  type:        z.enum(OWNER_INVOICE_TYPE_VALUES),
+  periodYear:  z.number().int().min(2020),
+  periodMonth: z.number().int().min(1).max(12),
+  lineItems:   z.array(ownerInvoiceLineItemSchema).min(1),
+  dueDate:     z.string().min(1),
+  notes:       z.string().optional(),
+});
+
+export const ownerInvoiceUpdateSchema = z.object({
+  status:     z.enum(["DRAFT","SENT","PAID","OVERDUE","CANCELLED"]).optional(),
+  paidAt:     z.string().nullable().optional(),
+  paidAmount: z.number().nullable().optional(),
+  notes:      z.string().optional(),
+  dueDate:    z.string().optional(),
+  lineItems:  z.array(ownerInvoiceLineItemSchema).optional(),
+});
+
 export type IncomeEntryInput = z.infer<typeof incomeEntrySchema>;
 export type ExpenseEntryInput = z.infer<typeof expenseEntrySchema>;
 export type ExpenseLineItemInput = z.infer<typeof expenseLineItemSchema>;
 export type PettyCashInput = z.infer<typeof pettyCashSchema>;
 export type TenantInput = z.infer<typeof tenantSchema>;
+export type OwnerInvoiceLineItem = z.infer<typeof ownerInvoiceLineItemSchema>;
+export type OwnerInvoiceCreateInput = z.infer<typeof ownerInvoiceCreateSchema>;

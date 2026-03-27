@@ -110,7 +110,8 @@
       "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\properties\\\\[id]\\\\agreement\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\properties\\\\[id]\\\\condition-reports\")",
       "Bash(wc -l \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\tenants\\\\page.tsx\")",
-      "Bash(wc -l \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\tenants\\\\[id]\\\\page.tsx\")"
+      "Bash(wc -l \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\tenants\\\\[id]\\\\page.tsx\")",
+      "Bash(npx eslint:*)"
     ]
   }
 }

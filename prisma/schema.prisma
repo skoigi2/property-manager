@@ -32,6 +32,7 @@ model User {
   propertyAccess    PropertyAccess[]
   ownedProperties   Property[]       @relation("PropertyOwner")
   managedProperties Property[]       @relation("PropertyManager")
+  ownerInvoices     OwnerInvoice[]   @relation("OwnerInvoices")
   accounts         Account[]
   sessions         Session[]
   createdAt        DateTime         @default(now())
@@ -251,6 +252,16 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+enum OwnerInvoiceType {
+  LETTING_FEE
+  PERIODIC_LETTING_FEE
+  RENEWAL_FEE
+  MANAGEMENT_FEE
+  VACANCY_FEE
+  SETUP_FEE_INSTALMENT
+  CONSULTANCY_FEE
+}
+
 enum ArrearsStage {
   INFORMAL_REMINDER
   DEMAND_LETTER
@@ -325,6 +336,7 @@ model Property {
   assets               Asset[]
   agreement            ManagementAgreement?
   conditionReports     BuildingConditionReport[]
+  ownerInvoices        OwnerInvoice[]
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 }
@@ -400,6 +412,7 @@ model IncomeEntry {
   unitId            String
   tenantId          String?
   invoiceId         String?
+  ownerInvoiceId    String?
   type              IncomeType
   grossAmount       Float
   agentCommission   Float      @default(0)
@@ -407,15 +420,17 @@ model IncomeEntry {
   platform          Platform?
   agentName         String?
   note              String?
-  unit              Unit       @relation(fields: [unitId], references: [id])
-  tenant            Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  invoice           Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  unit              Unit         @relation(fields: [unitId], references: [id])
+  tenant            Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  ownerInvoice      OwnerInvoice? @relation(fields: [ownerInvoiceId], references: [id], onDelete: SetNull)
   createdAt         DateTime   @default(now())
 
   @@index([date])
   @@index([unitId, date])
   @@index([tenantId])
   @@index([invoiceId])
+  @@index([ownerInvoiceId])
 }
 
 model ExpenseEntry {
@@ -543,6 +558,32 @@ model Invoice {
   @@unique([tenantId, periodYear, periodMonth])
   @@index([tenantId])
   @@index([status])
+}
+
+model OwnerInvoice {
+  id            String           @id @default(cuid())
+  invoiceNumber String           @unique
+  propertyId    String
+  ownerId       String?
+  type          OwnerInvoiceType
+  periodYear    Int
+  periodMonth   Int
+  lineItems     Json
+  totalAmount   Float
+  dueDate       DateTime
+  status        InvoiceStatus    @default(DRAFT)
+  paidAt        DateTime?
+  paidAmount    Float?
+  notes         String?
+  property      Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  owner         User?            @relation("OwnerInvoices", fields: [ownerId], references: [id], onDelete: SetNull)
+  incomeEntries IncomeEntry[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+  @@index([periodYear, periodMonth])
 }
 
 model ArrearsCase {

@@ -24,6 +24,7 @@ import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { Header } from "@/components/layout/Header";
 import { useProperty } from "@/lib/property-context";
+import OwnerInvoicesTab from "./OwnerInvoicesTab";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -809,6 +810,7 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 
 export default function InvoicesPage() {
   const { selectedId } = useProperty();
+  const [activeTab, setActiveTab] = useState<"tenant" | "owner">("tenant");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -923,6 +925,24 @@ export default function InvoicesPage() {
         </div>
       </Header>
       <div className="page-container space-y-6">
+
+      {/* Tab strip */}
+      <div className="flex border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("tenant")}
+          className={`px-4 py-2.5 text-sm font-medium font-sans border-b-2 transition-colors ${activeTab === "tenant" ? "border-gold text-gold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+        >
+          Tenant Invoices
+        </button>
+        <button
+          onClick={() => setActiveTab("owner")}
+          className={`px-4 py-2.5 text-sm font-medium font-sans border-b-2 transition-colors ${activeTab === "owner" ? "border-gold text-gold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+        >
+          Owner Invoices
+        </button>
+      </div>
+
+      {activeTab === "owner" ? <OwnerInvoicesTab /> : (<>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1101,6 +1121,7 @@ export default function InvoicesPage() {
           </div>
         </div>
       )}
+      </>)}
       </div>
     </>
   );

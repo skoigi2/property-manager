@@ -72,7 +72,7 @@ export default function TenantsPage() {
   const [submitting, setSubmitting]     = useState(false);
 
   // Letting fee prompt (shown after new tenant created)
-  const [lettingFeePrompt, setLettingFeePrompt] = useState<{ tenantName: string; unitId: string; amount: number; propertyId: string } | null>(null);
+  const [lettingFeePrompt, setLettingFeePrompt] = useState<{ tenantName: string; tenantId: string; unitId: string; amount: number; propertyId: string } | null>(null);
   const [lettingFeeLogging, setLettingFeeLogging] = useState(false);
 
   // Vacate modal
@@ -253,8 +253,9 @@ export default function TenantsPage() {
         if (prop) {
           setLettingFeePrompt({
             tenantName: updated.name,
-            unitId: updated.unitId,
-            amount: Math.round(updated.monthlyRent * 0.5),
+            tenantId:   updated.id,
+            unitId:     updated.unitId,
+            amount:     Math.round(updated.monthlyRent * 0.5),
             propertyId: prop.id,
           });
         }
@@ -843,13 +844,12 @@ export default function TenantsPage() {
                 <span className="text-gold font-mono font-bold text-sm">KSh</span>
               </div>
               <div>
-                <h3 className="font-display text-header text-base">Log Letting Fee?</h3>
+                <h3 className="font-display text-header text-base">Generate Letting Fee Invoice?</h3>
                 <p className="text-xs text-gray-400 font-sans mt-0.5">New tenancy created for {lettingFeePrompt.tenantName}</p>
               </div>
             </div>
             <p className="text-sm font-sans text-gray-600">
-              A letting fee of <span className="font-semibold text-header">KSh {lettingFeePrompt.amount.toLocaleString("en-KE")}</span> (50% of first month&apos;s rent) may be due.
-              Log this as income now?
+              A letting fee of <span className="font-semibold text-header">KSh {lettingFeePrompt.amount.toLocaleString("en-KE")}</span> (50% of first month&apos;s rent) will be invoiced to the owner. Mark it paid once settled.
             </p>
             <div className="flex gap-3 pt-1">
               <Button
@@ -858,19 +858,28 @@ export default function TenantsPage() {
                 onClick={async () => {
                   setLettingFeeLogging(true);
                   try {
-                    await fetch("/api/income", {
+                    const now   = new Date();
+                    const due   = new Date(now); due.setDate(due.getDate() + 7);
+                    await fetch("/api/owner-invoices", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        date: new Date().toISOString().split("T")[0],
-                        unitId: lettingFeePrompt.unitId,
-                        type: "LETTING_FEE",
-                        grossAmount: lettingFeePrompt.amount,
-                        agentCommission: 0,
-                        note: `Letting fee — ${lettingFeePrompt.tenantName}`,
+                        propertyId:  lettingFeePrompt.propertyId,
+                        type:        "LETTING_FEE",
+                        periodYear:  now.getFullYear(),
+                        periodMonth: now.getMonth() + 1,
+                        lineItems: [{
+                          description: `Letting fee — ${lettingFeePrompt.tenantName} (50% of first month\u2019s rent)`,
+                          amount:      lettingFeePrompt.amount,
+                          unitId:      lettingFeePrompt.unitId,
+                          tenantId:    lettingFeePrompt.tenantId,
+                          incomeType:  "LETTING_FEE",
+                        }],
+                        dueDate: due.toISOString().split("T")[0],
+                        notes: `New tenant: ${lettingFeePrompt.tenantName}`,
                       }),
                     });
-                    toast.success(`Letting fee of KSh ${lettingFeePrompt.amount.toLocaleString("en-KE")} logged`);
+                    toast.success(`Letting fee invoice of KSh ${lettingFeePrompt.amount.toLocaleString("en-KE")} generated (DRAFT)`);
                   } catch {
                     toast.error("Failed to log letting fee");
                   } finally {
@@ -879,7 +888,7 @@ export default function TenantsPage() {
                   }
                 }}
               >
-                Yes, log it
+                Generate Invoice
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setLettingFeePrompt(null)}>
                 Skip

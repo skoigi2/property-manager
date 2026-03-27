@@ -274,7 +274,7 @@ export default function TenantDetailPage() {
   const [tab,       setTab]       = useState<Tab>("ledger");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
-  const [renewalFeePrompt, setRenewalFeePrompt] = useState<{ unitId: string; amount: number } | null>(null);
+  const [renewalFeePrompt, setRenewalFeePrompt] = useState<{ unitId: string; tenantId: string; propertyId: string; amount: number } | null>(null);
   const [renewalFeeLogging, setRenewalFeeLogging] = useState(false);
   const [settlement, setSettlement] = useState<DepositSettlement | null>(null);
   const [settlementLoading, setSettlementLoading] = useState(false);
@@ -792,7 +792,12 @@ export default function TenantDetailPage() {
                       onUpdated={fetchTenant}
                       onRenewed={() => {
                         if (tenant?.unitId) {
-                          setRenewalFeePrompt({ unitId: tenant.unitId, amount: 3000 });
+                          setRenewalFeePrompt({
+                            unitId:     tenant.unitId,
+                            tenantId:   tenant.id,
+                            propertyId: tenant.unit?.property?.id ?? "",
+                            amount:     3000,
+                          });
                         }
                       }}
                     />
@@ -824,13 +829,12 @@ export default function TenantDetailPage() {
                 <span className="text-gold font-mono font-bold text-sm">KSh</span>
               </div>
               <div>
-                <h3 className="font-display text-header text-base">Log Renewal Fee?</h3>
+                <h3 className="font-display text-header text-base">Generate Renewal Fee Invoice?</h3>
                 <p className="text-xs text-gray-400 font-sans mt-0.5">Lease marked as Renewed</p>
               </div>
             </div>
             <p className="text-sm font-sans text-gray-600">
-              A lease renewal fee of <span className="font-semibold text-header">KSh 3,000</span> may be due.
-              Log this as income now?
+              A lease renewal fee of <span className="font-semibold text-header">KSh 3,000</span> will be invoiced to the owner. Mark it paid once settled.
             </p>
             <div className="flex gap-3 pt-1">
               <button
@@ -838,24 +842,33 @@ export default function TenantDetailPage() {
                 onClick={async () => {
                   setRenewalFeeLogging(true);
                   try {
-                    await fetch("/api/income", {
+                    const now = new Date();
+                    const due = new Date(now); due.setDate(due.getDate() + 7);
+                    await fetch("/api/owner-invoices", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        date: new Date().toISOString().split("T")[0],
-                        unitId: renewalFeePrompt.unitId,
-                        type: "RENEWAL_FEE",
-                        grossAmount: renewalFeePrompt.amount,
-                        agentCommission: 0,
-                        note: `Lease renewal fee — ${tenant?.name}`,
+                        propertyId:  renewalFeePrompt.propertyId,
+                        type:        "RENEWAL_FEE",
+                        periodYear:  now.getFullYear(),
+                        periodMonth: now.getMonth() + 1,
+                        lineItems: [{
+                          description: `Lease renewal fee \u2014 ${tenant?.name}`,
+                          amount:      renewalFeePrompt.amount,
+                          unitId:      renewalFeePrompt.unitId,
+                          tenantId:    renewalFeePrompt.tenantId,
+                          incomeType:  "RENEWAL_FEE",
+                        }],
+                        dueDate: due.toISOString().split("T")[0],
+                        notes: `Lease renewal: ${tenant?.name}`,
                       }),
                     });
                     import("react-hot-toast").then(({ default: toast }) =>
-                      toast.success("Renewal fee of KSh 3,000 logged")
+                      toast.success("Renewal fee invoice of KSh 3,000 generated (DRAFT)")
                     );
                   } catch {
                     import("react-hot-toast").then(({ default: toast }) =>
-                      toast.error("Failed to log renewal fee")
+                      toast.error("Failed to generate renewal fee invoice")
                     );
                   } finally {
                     setRenewalFeeLogging(false);
@@ -864,7 +877,7 @@ export default function TenantDetailPage() {
                 }}
                 className="px-4 py-2 bg-navy text-white text-sm font-sans rounded-lg hover:bg-navy/90 disabled:opacity-60"
               >
-                {renewalFeeLogging ? "Logging…" : "Yes, log it"}
+                {renewalFeeLogging ? "Generating…" : "Generate Invoice"}
               </button>
               <button
                 onClick={() => setRenewalFeePrompt(null)}

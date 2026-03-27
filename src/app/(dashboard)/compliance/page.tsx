@@ -165,6 +165,11 @@ function KpiCard({
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+const DEADLINE_HREFS: Record<string, string> = {
+  "Rent Remittance":        "/invoices",
+  "Management Fee Invoice": "/invoices",
+};
+
 export default function CompliancePage() {
   const { data: session } = useSession();
   const { selectedId } = useProperty();
@@ -278,24 +283,37 @@ export default function CompliancePage() {
             {/* ── Deadline Alerts ── */}
             {data.deadlines.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {data.deadlines.map((d) => (
-                  <div key={d.label} className={`rounded-xl border p-4 flex items-center gap-3 ${
-                    d.overdue ? "border-red-200 bg-red-50" : d.daysUntil <= 3 ? "border-yellow-200 bg-yellow-50" : "border-gray-100 bg-white"
-                  }`}>
-                    <Calendar size={18} className={d.overdue ? "text-red-500" : d.daysUntil <= 3 ? "text-yellow-500" : "text-gray-400"} />
-                    <div>
-                      <p className="text-sm font-semibold font-sans text-header">{d.label}</p>
-                      <p className="text-xs text-gray-500 font-sans">
-                        Due {d.dayOfMonth}{d.dayOfMonth === 1 ? "st" : d.dayOfMonth === 2 ? "nd" : d.dayOfMonth === 3 ? "rd" : "th"} of the month
-                        {" — "}
-                        {d.overdue
-                          ? <span className="text-red-600 font-semibold">OVERDUE by {Math.abs(d.daysUntil)} day{Math.abs(d.daysUntil) !== 1 ? "s" : ""}</span>
-                          : <span className={d.daysUntil <= 3 ? "text-yellow-600 font-semibold" : "text-gray-500"}>{d.daysUntil} day{d.daysUntil !== 1 ? "s" : ""} away</span>
-                        }
-                      </p>
+                {data.deadlines.map((d) => {
+                  const href = DEADLINE_HREFS[d.label];
+                  const colorClass = d.overdue ? "border-red-200 bg-red-50" : d.daysUntil <= 3 ? "border-yellow-200 bg-yellow-50" : "border-gray-100 bg-white";
+                  const chevronClass = d.overdue ? "text-red-300" : d.daysUntil <= 3 ? "text-yellow-300" : "text-gray-300";
+                  const inner = (
+                    <>
+                      <Calendar size={18} className={d.overdue ? "text-red-500 shrink-0" : d.daysUntil <= 3 ? "text-yellow-500 shrink-0" : "text-gray-400 shrink-0"} />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold font-sans text-header">{d.label}</p>
+                        <p className="text-xs text-gray-500 font-sans">
+                          Due {d.dayOfMonth}{d.dayOfMonth === 1 ? "st" : d.dayOfMonth === 2 ? "nd" : d.dayOfMonth === 3 ? "rd" : "th"} of the month
+                          {" — "}
+                          {d.overdue
+                            ? <span className="text-red-600 font-semibold">OVERDUE by {Math.abs(d.daysUntil)} day{Math.abs(d.daysUntil) !== 1 ? "s" : ""}</span>
+                            : <span className={d.daysUntil <= 3 ? "text-yellow-600 font-semibold" : "text-gray-500"}>{d.daysUntil} day{d.daysUntil !== 1 ? "s" : ""} away</span>
+                          }
+                        </p>
+                      </div>
+                      {href && <ChevronRight size={14} className={`${chevronClass} shrink-0`} />}
+                    </>
+                  );
+                  return href ? (
+                    <Link key={d.label} href={href} className={`rounded-xl border p-4 flex items-center gap-3 hover:shadow-sm transition-all ${colorClass}`}>
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div key={d.label} className={`rounded-xl border p-4 flex items-center gap-3 ${colorClass}`}>
+                      {inner}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

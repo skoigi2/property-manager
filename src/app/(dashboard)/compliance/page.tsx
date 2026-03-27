@@ -114,20 +114,23 @@ const RAG_BADGE: Record<RAG, "green"|"amber"|"red"|"gray"> = {
 // ── KPI Card ──────────────────────────────────────────────────────────────────
 
 function KpiCard({
-  label, value, target, unit = "%", higherIsBetter = true, tolerance, suffix = "",
+  label, value, target, unit = "%", higherIsBetter = true, tolerance, suffix = "", href,
 }: {
   label: string; value: number | null; target: number; unit?: string;
-  higherIsBetter?: boolean; tolerance?: number; suffix?: string;
+  higherIsBetter?: boolean; tolerance?: number; suffix?: string; href?: string;
 }) {
   const rag = getRag(value, target, higherIsBetter, tolerance);
   const display = value !== null ? `${value.toFixed(1)}${unit}` : "—";
   const targetDisplay = `${higherIsBetter ? ">" : "<"}${target}${unit}`;
 
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col gap-2">
+  const inner = (
+    <>
       <div className="flex items-start justify-between">
         <p className="text-xs font-sans text-gray-500 leading-tight pr-2">{label}</p>
-        <RagIcon rag={rag} />
+        <div className="flex items-center gap-1 shrink-0">
+          <RagIcon rag={rag} />
+          {href && <ChevronRight size={12} className="text-gray-300" />}
+        </div>
       </div>
       <p className={`font-mono text-2xl font-semibold ${
         rag === "green" ? "text-income" : rag === "amber" ? "text-yellow-500" : rag === "red" ? "text-red-500" : "text-gray-300"
@@ -140,6 +143,20 @@ function KpiCard({
           {rag === "green" ? "On Track" : rag === "amber" ? "At Risk" : rag === "red" ? "Breached" : "No Data"}
         </Badge>
       </div>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col gap-2 hover:shadow-sm hover:border-gray-200 transition-all">
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4 flex flex-col gap-2">
+      {inner}
     </div>
   );
 }
@@ -290,11 +307,13 @@ export default function CompliancePage() {
                   label="Occupancy Rate"
                   value={data.kpis.occupancyRate}
                   target={data.targets.occupancy}
+                  href="/properties"
                 />
                 <KpiCard
                   label="Rent Collection Rate"
                   value={data.kpis.rentCollectionRate}
                   target={data.targets.rentCollection}
+                  href="/income"
                 />
                 <KpiCard
                   label="Expense Ratio"
@@ -302,11 +321,13 @@ export default function CompliancePage() {
                   target={data.targets.expenseRatio}
                   higherIsBetter={false}
                   tolerance={5}
+                  href="/expenses"
                 />
                 <KpiCard
                   label="Lease Renewal Rate"
                   value={data.kpis.renewalRate}
                   target={data.targets.renewalRate}
+                  href="/tenants"
                 />
                 <KpiCard
                   label="Avg Days to Lease"
@@ -315,21 +336,25 @@ export default function CompliancePage() {
                   target={data.targets.daysToLease}
                   higherIsBetter={false}
                   tolerance={10}
+                  href="/properties"
                 />
                 <KpiCard
                   label={`Emergency SLA (< ${data.targets.emergencyHrs}hrs)`}
                   value={data.kpis.emergencySlaRate}
                   target={data.targets.maintenanceCompletion}
+                  href="/maintenance"
                 />
                 <KpiCard
                   label={`Standard SLA (< ${data.targets.standardHrs}hrs)`}
                   value={data.kpis.standardSlaRate}
                   target={data.targets.maintenanceCompletion}
+                  href="/maintenance"
                 />
                 <KpiCard
                   label="Maintenance Completion"
                   value={data.kpis.maintenanceCompletionRate}
                   target={data.targets.maintenanceCompletion}
+                  href="/maintenance"
                 />
               </div>
               {/* Counts context */}
@@ -355,13 +380,16 @@ export default function CompliancePage() {
                 </div>
                 <div className="space-y-2">
                   {data.longVacant.map((u) => (
-                    <div key={u.id} className="flex items-center justify-between p-3 rounded-lg bg-yellow-50/60 border border-yellow-100">
+                    <Link key={u.id} href="/properties" className="flex items-center justify-between p-3 rounded-lg bg-yellow-50/60 border border-yellow-100 hover:bg-yellow-50 hover:border-yellow-200 transition-colors">
                       <div>
                         <p className="text-sm font-semibold font-sans text-header">Unit {u.unitNumber} — {u.propertyName}</p>
                         <p className="text-xs text-gray-500 font-sans">Vacant since {formatDate(new Date(u.vacantSince))} · {u.daysVacant} days</p>
                       </div>
-                      <Badge variant="amber">{Math.floor(u.daysVacant / 30)} months</Badge>
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="amber">{Math.floor(u.daysVacant / 30)} months</Badge>
+                        <ChevronRight size={14} className="text-yellow-400 shrink-0" />
+                      </div>
+                    </Link>
                   ))}
                 </div>
               </Card>

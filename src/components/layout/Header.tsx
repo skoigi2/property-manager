@@ -32,7 +32,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
               className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-sm font-sans transition-colors"
             >
               <Building2 size={13} className="text-gold shrink-0" />
-              <span className="hidden sm:block truncate max-w-[140px]">
+              <span className="truncate max-w-[90px] sm:max-w-[140px]">
                 {selected?.name ?? "All properties"}
               </span>
               <ChevronDown size={13} />
@@ -65,8 +65,8 @@ export function Header({ title, userName, role, children }: HeaderProps) {
 
         {/* Single property badge when only one */}
         {!loading && properties.length === 1 && (
-          <span className="hidden sm:flex items-center gap-1.5 bg-white/10 text-white/60 px-2.5 py-1 rounded-lg text-sm font-sans">
-            <Building2 size={13} className="text-gold" />
+          <span className="flex items-center gap-1.5 bg-white/10 text-white/60 px-2.5 py-1 rounded-lg text-sm font-sans truncate max-w-[120px] sm:max-w-none">
+            <Building2 size={13} className="text-gold shrink-0" />
             {properties[0].name}
           </span>
         )}

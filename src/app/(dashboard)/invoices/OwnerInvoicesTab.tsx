@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Plus, Download, CheckCircle, Clock, AlertTriangle, XCircle,
-  FileText, Loader2, Package, X, Pencil,
+  FileText, Loader2, Package, X, Pencil, ChevronDown, Zap,
+  Home, RefreshCw, Building2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
@@ -299,6 +300,136 @@ function BundleAirbnbModal({
           ) : null}
           <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
             {result?.bundled ? "Done" : "Cancel"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Generate Draft Modal (shared for auto-generation types) ──────────────────
+
+type GenerateType = "MANAGEMENT_FEE" | "LETTING_FEE" | "RENEWAL_FEE" | "VACANCY_FEE";
+
+const GENERATE_CONFIG: Record<GenerateType, { label: string; endpoint: string; description: string }> = {
+  MANAGEMENT_FEE: {
+    label:       "Management Fee",
+    endpoint:    "/api/owner-invoices/generate-mgmt-fee",
+    description: "Auto-calculates from management fee config per unit",
+  },
+  LETTING_FEE: {
+    label:       "Letting Fee",
+    endpoint:    "/api/owner-invoices/generate-letting-fee",
+    description: "New tenants who started a lease in the selected month",
+  },
+  RENEWAL_FEE: {
+    label:       "Renewal Fee",
+    endpoint:    "/api/owner-invoices/generate-renewal-fee",
+    description: "Tenants with RENEWED stage and lease end in the selected month",
+  },
+  VACANCY_FEE: {
+    label:       "Vacancy Fee",
+    endpoint:    "/api/owner-invoices/generate-vacancy-fee",
+    description: "Units vacant beyond the vacancy fee threshold",
+  },
+};
+
+function GenerateModal({
+  type,
+  properties,
+  defaultPropertyId,
+  onClose,
+  onGenerated,
+}: {
+  type: GenerateType;
+  properties: { id: string; name: string }[];
+  defaultPropertyId?: string;
+  onClose: () => void;
+  onGenerated: () => void;
+}) {
+  const cfg = GENERATE_CONFIG[type];
+  const now = new Date();
+  const [propertyId, setPropertyId] = useState(defaultPropertyId ?? properties[0]?.id ?? "");
+  const [year,       setYear]       = useState(now.getFullYear());
+  const [month,      setMonth]      = useState(now.getMonth() + 1);
+  const [loading,    setLoading]    = useState(false);
+
+  async function submit() {
+    if (!propertyId) { toast.error("Select a property"); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(cfg.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId, periodYear: year, periodMonth: month }),
+      });
+      const data = await res.json();
+      if (res.status === 409) { toast.error(data.error ?? "Invoice already exists for this period"); return; }
+      if (!res.ok)            { toast.error(data.error ?? "Failed to generate invoice"); return; }
+      toast.success(`${cfg.label} draft created — ${data.invoiceNumber}`);
+      onGenerated();
+      onClose();
+    } catch {
+      toast.error("Failed to generate invoice");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-display text-header text-base">Generate {cfg.label}</h3>
+            <p className="text-xs text-gray-400 font-sans mt-0.5">{cfg.description}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 font-sans">Property</label>
+            <select
+              value={propertyId}
+              onChange={(e) => setPropertyId(e.target.value)}
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+            >
+              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 font-sans">Month</label>
+              <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+              >
+                {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-sans">Year</label>
+              <input
+                type="number"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={submit}
+            disabled={loading || !propertyId}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+            Generate Draft
+          </button>
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+            Cancel
           </button>
         </div>
       </div>
@@ -647,6 +778,19 @@ export default function OwnerInvoicesTab() {
   const [showBundle,     setShowBundle]     = useState(false);
   const [markPaidTarget, setMarkPaidTarget] = useState<OwnerInvoice | null>(null);
   const [editTarget,     setEditTarget]     = useState<OwnerInvoice | null>(null);
+  const [generateType,   setGenerateType]   = useState<GenerateType | null>(null);
+  const [dropdownOpen,   setDropdownOpen]   = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter,   setTypeFilter]   = useState("ALL");
@@ -711,15 +855,75 @@ export default function OwnerInvoicesTab() {
 
   return (
     <>
-      {/* Action buttons for header — rendered via parent */}
+      {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
-        <button
-          onClick={() => setShowBundle(true)}
-          className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-sans text-gray-600 hover:bg-gray-50"
-        >
-          <Package size={14} className="text-gold" />
-          Bundle Airbnb Fees
-        </button>
+        {/* Generate Draft dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen((v) => !v)}
+            className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-sans text-gray-600 hover:bg-gray-50"
+          >
+            <Zap size={14} className="text-gold" />
+            Generate Draft
+            <ChevronDown size={13} className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+          </button>
+          {dropdownOpen && (
+            <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl border border-gray-100 shadow-lg z-20 py-1 overflow-hidden">
+              <button
+                onClick={() => { setGenerateType("MANAGEMENT_FEE"); setDropdownOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+              >
+                <Zap size={14} className="text-gold shrink-0" />
+                <div>
+                  <div className="font-medium">Management Fee</div>
+                  <div className="text-xs text-gray-400">Per unit fee config</div>
+                </div>
+              </button>
+              <button
+                onClick={() => { setGenerateType("LETTING_FEE"); setDropdownOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+              >
+                <Home size={14} className="text-amber-500 shrink-0" />
+                <div>
+                  <div className="font-medium">Letting Fee</div>
+                  <div className="text-xs text-gray-400">New tenants this period</div>
+                </div>
+              </button>
+              <button
+                onClick={() => { setGenerateType("RENEWAL_FEE"); setDropdownOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+              >
+                <RefreshCw size={14} className="text-blue-500 shrink-0" />
+                <div>
+                  <div className="font-medium">Renewal Fee</div>
+                  <div className="text-xs text-gray-400">Renewed leases this period</div>
+                </div>
+              </button>
+              <button
+                onClick={() => { setGenerateType("VACANCY_FEE"); setDropdownOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+              >
+                <Building2 size={14} className="text-gray-400 shrink-0" />
+                <div>
+                  <div className="font-medium">Vacancy Fee</div>
+                  <div className="text-xs text-gray-400">Long-vacant units</div>
+                </div>
+              </button>
+              <div className="border-t border-gray-100 my-1" />
+              <button
+                onClick={() => { setShowBundle(true); setDropdownOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+              >
+                <Package size={14} className="text-blue-400 shrink-0" />
+                <div>
+                  <div className="font-medium">Airbnb Periodic</div>
+                  <div className="text-xs text-gray-400">Bundle short-let letting fees</div>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 bg-gold hover:bg-gold-dark text-white px-3 py-1.5 rounded-lg text-sm font-sans font-medium"
@@ -910,6 +1114,15 @@ export default function OwnerInvoicesTab() {
           invoice={editTarget}
           onClose={() => setEditTarget(null)}
           onSaved={fetchInvoices}
+        />
+      )}
+      {generateType && (
+        <GenerateModal
+          type={generateType}
+          properties={properties}
+          defaultPropertyId={selectedId ?? undefined}
+          onClose={() => setGenerateType(null)}
+          onGenerated={fetchInvoices}
         />
       )}
     </>

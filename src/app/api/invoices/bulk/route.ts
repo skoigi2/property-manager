@@ -8,6 +8,8 @@ const bulkSchema = z.object({
   month: z.number().int().min(1).max(12),
   /** Due date offset in days from start of month (default 5) */
   dueDayOfMonth: z.number().int().min(1).max(28).default(5),
+  /** Optional: restrict generation to a single property */
+  propertyId: z.string().optional(),
 });
 
 function generateInvoiceNumber(year: number, month: number, sequence: number) {
@@ -25,15 +27,20 @@ export async function POST(req: Request) {
   const parsed = bulkSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { year, month, dueDayOfMonth } = parsed.data;
+  const { year, month, dueDayOfMonth, propertyId: filterPropertyId } = parsed.data;
 
-  // Fetch all active long-term tenants accessible to this user
+  const effectivePropertyIds =
+    filterPropertyId && propertyIds.includes(filterPropertyId)
+      ? [filterPropertyId]
+      : propertyIds;
+
+  // Fetch active long-term tenants accessible to this user (optionally scoped to one property)
   const tenants = await prisma.tenant.findMany({
     where: {
       isActive: true,
       unit: {
         property: {
-          id:   { in: propertyIds },
+          id:   { in: effectivePropertyIds },
           type: "LONGTERM",
         },
       },

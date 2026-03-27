@@ -16,18 +16,25 @@ const schema = z.object({
   nextDueDate: z.string(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   const { error } = await requireAuth();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
+  const filterPropertyId = searchParams.get("propertyId");
+  const effectivePropertyIds =
+    filterPropertyId && propertyIds.includes(filterPropertyId)
+      ? [filterPropertyId]
+      : propertyIds;
+
   const items = await prisma.recurringExpense.findMany({
     where: {
       OR: [
-        { propertyId: { in: propertyIds } },
-        { unit: { propertyId: { in: propertyIds } } },
+        { propertyId: { in: effectivePropertyIds } },
+        { unit: { propertyId: { in: effectivePropertyIds } } },
         { scope: "PORTFOLIO" },
       ],
     },

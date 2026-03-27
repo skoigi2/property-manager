@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useProperty } from "@/lib/property-context";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -60,6 +61,7 @@ const now = new Date();
 
 export default function RecurringExpensesPage() {
   const { data: session } = useSession();
+  const { selectedId } = useProperty();
   const [items, setItems]           = useState<RecurringItem[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -78,14 +80,15 @@ export default function RecurringExpensesPage() {
   const scope = watch("scope");
   const allUnits = properties.flatMap((p:any) => (p.units ?? []).map((u:any) => ({ ...u, propertyName: p.name })));
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
-    Promise.all([fetch("/api/recurring-expenses").then(r=>r.json()), fetch("/api/properties").then(r=>r.json())])
+    const propParam = selectedId ? `?propertyId=${selectedId}` : "";
+    Promise.all([fetch(`/api/recurring-expenses${propParam}`).then(r=>r.json()), fetch("/api/properties").then(r=>r.json())])
       .then(([rec, props]) => { setItems(rec); setProperties(props); })
       .finally(() => setLoading(false));
-  };
+  }, [selectedId]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const onSubmit = async (data: FormValues) => {
     setSubmitting(true);

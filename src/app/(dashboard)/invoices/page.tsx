@@ -638,7 +638,7 @@ function InvoiceRow({
 
 // ── BulkGenerateModal ──────────────────────────────────────────────────────────
 
-function BulkGenerateModal({ onClose, onGenerated }: { onClose: () => void; onGenerated: () => void }) {
+function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () => void; onGenerated: () => void; propertyId?: string | null }) {
   const now = new Date();
   const [year,  setYear]  = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
@@ -654,7 +654,7 @@ function BulkGenerateModal({ onClose, onGenerated }: { onClose: () => void; onGe
       const res = await fetch("/api/invoices/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year: Number(year), month: Number(month) }),
+        body: JSON.stringify({ year: Number(year), month: Number(month), ...(propertyId ? { propertyId } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1059,6 +1059,7 @@ export default function InvoicesPage() {
         <BulkGenerateModal
           onClose={() => setShowBulkGenerate(false)}
           onGenerated={fetchInvoices}
+          propertyId={selectedId}
         />
       )}
       {showCreate && (

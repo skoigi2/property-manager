@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight } from "lucide-react";
+import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List } from "lucide-react";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { useForm } from "react-hook-form";
@@ -615,6 +615,141 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
   );
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type LayoutMode = "grid" | "table";
+
+// ─── Properties Table ─────────────────────────────────────────────────────────
+
+function PropertiesTable({
+  properties,
+  isManager,
+  onSelect,
+  onEdit,
+  activeUnits,
+  vacantUnits,
+}: {
+  properties: Property[];
+  isManager: boolean;
+  onSelect: (p: Property) => void;
+  onEdit: (p: Property) => void;
+  activeUnits: (units: Property["units"]) => number;
+  vacantUnits: (units: Property["units"]) => number;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-gray-100">
+      <table className="min-w-full divide-y divide-gray-100">
+        <thead className="bg-gray-50/60">
+          <tr>
+            {["Property", "Category", "Type", "Units", "Mgmt Fee", "Owner", "Manager", ""].map((h) => (
+              <th
+                key={h}
+                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans whitespace-nowrap"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50 bg-white">
+          {properties.map((p, i) => {
+            const occupied = activeUnits(p.units);
+            const vacant   = vacantUnits(p.units);
+            const total    = p._count.units;
+            const feeText  = p.managementFeeRate
+              ? `${p.managementFeeRate}%`
+              : p.managementFeeFlat
+              ? `KSh ${p.managementFeeFlat.toLocaleString("en-KE")}`
+              : "—";
+
+            return (
+              <tr
+                key={p.id}
+                onClick={() => onSelect(p)}
+                className={`cursor-pointer hover:bg-gray-50/60 transition-colors ${i % 2 === 1 ? "bg-gray-50/30" : ""}`}
+              >
+                {/* Property name + address */}
+                <td className="px-4 py-3 min-w-[160px]">
+                  <p className="font-sans font-semibold text-header text-sm">{p.name}</p>
+                  {(p.address || p.city) && (
+                    <p className="text-xs text-gray-400 font-sans mt-0.5 truncate max-w-[200px]">
+                      {[p.address, p.city].filter(Boolean).join(", ")}
+                    </p>
+                  )}
+                </td>
+
+                {/* Category */}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {p.category ? (
+                    <Badge variant={CATEGORY_BADGE[p.category]}>
+                      {p.category === "OTHER" && p.categoryOther ? p.categoryOther : CATEGORY_LABELS[p.category]}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
+
+                {/* Type */}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
+                    {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
+                  </Badge>
+                </td>
+
+                {/* Units: total / occupied / vacant */}
+                <td className="px-4 py-3 whitespace-nowrap font-mono text-sm">
+                  <span className="text-header">{total}</span>
+                  <span className="text-gray-300 mx-1">/</span>
+                  <span className="text-income">{occupied}</span>
+                  <span className="text-gray-300 mx-1">/</span>
+                  <span className="text-yellow-500">{vacant}</span>
+                </td>
+
+                {/* Mgmt fee */}
+                <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-500">
+                  {feeText}
+                </td>
+
+                {/* Owner */}
+                <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-600">
+                  {p.owner ? (p.owner.name ?? p.owner.email) : <span className="text-gray-300">—</span>}
+                </td>
+
+                {/* Manager */}
+                <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-600">
+                  {p.manager ? (p.manager.name ?? p.manager.email) : <span className="text-gray-300">—</span>}
+                </td>
+
+                {/* Actions */}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                    {isManager && (
+                      <button
+                        onClick={() => onEdit(p)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                        title="Edit property"
+                      >
+                        <PencilLine size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onSelect(p)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                      title="View summary"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PropertiesPage() {
@@ -626,6 +761,12 @@ export default function PropertiesPage() {
   const [managers, setManagers]     = useState<OwnerUser[]>([]);
   const [loading, setLoading]       = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [layout, setLayout] = useState<LayoutMode>("grid");
+
+  function setLayoutMode(mode: LayoutMode) {
+    setLayout(mode);
+    localStorage.setItem("properties-layout", mode);
+  }
 
   // Property modal
   const [propModalOpen, setPropModalOpen] = useState(false);
@@ -660,6 +801,11 @@ export default function PropertiesPage() {
       .then((d) => { setProperties(d); setLoading(false); })
       .catch(() => setLoading(false));
   };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("properties-layout");
+    if (saved === "grid" || saved === "table") setLayout(saved);
+  }, []);
 
   useEffect(() => {
     load();
@@ -805,6 +951,24 @@ export default function PropertiesPage() {
         userName={session?.user?.name ?? session?.user?.email}
         role={session?.user?.role}
       >
+        {properties.length > 0 && (
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setLayoutMode("grid")}
+              className={`p-1.5 rounded-md transition-all ${layout === "grid" ? "bg-white shadow-sm text-header" : "text-gray-400 hover:text-gray-600"}`}
+              title="Grid view"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              onClick={() => setLayoutMode("table")}
+              className={`p-1.5 rounded-md transition-all ${layout === "table" ? "bg-white shadow-sm text-header" : "text-gray-400 hover:text-gray-600"}`}
+              title="Table view"
+            >
+              <List size={15} />
+            </button>
+          </div>
+        )}
         {isManager && (
           <Button size="sm" onClick={openAddProperty}>
             <Plus size={14} className="mr-1" /> Add Property
@@ -822,6 +986,15 @@ export default function PropertiesPage() {
             <Building2 size={40} className="mx-auto mb-3 opacity-30" />
             No properties yet. Add your first property.
           </div>
+        ) : layout === "table" ? (
+          <PropertiesTable
+            properties={properties}
+            isManager={isManager}
+            onSelect={setSelectedProperty}
+            onEdit={openEditProperty}
+            activeUnits={activeUnits}
+            vacantUnits={vacantUnits}
+          />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {properties.map((p) => (

@@ -11,11 +11,12 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Badge } from "@/components/ui/Badge";
 import {
   FileText, Download, TrendingUp, Receipt, DollarSign,
-  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2,
+  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2, Calendar,
 } from "lucide-react";
 import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
+import { useProperty } from "@/lib/property-context";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ interface MonthSummary {
   netProfit: number;
 }
 
-type Tab = "preview" | "annual" | "owner" | "download";
+type Tab = "preview" | "annual" | "owner" | "download" | "quarterly";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ function AmountCell({ value, strikethrough = false }: { value: number; strikethr
 
 // ── P&L Preview Tab ────────────────────────────────────────────────────────────
 
-function PLPreview({ year, month }: { year: string; month: string }) {
+function PLPreview({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
   const [data, setData]       = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pcExpanded, setPcExpanded] = useState(false);
@@ -96,11 +97,12 @@ function PLPreview({ year, month }: { year: string; month: string }) {
   useEffect(() => {
     setLoading(true);
     setData(null);
-    fetch(`/api/report?year=${year}&month=${month}`)
+    const qs = selectedId ? `&propertyId=${selectedId}` : "";
+    fetch(`/api/report?year=${year}&month=${month}${qs}`)
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [year, month]);
+  }, [year, month, selectedId]);
 
   if (loading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
   if (!data)   return <p className="text-center text-gray-400 text-sm py-16">Failed to load report data.</p>;
@@ -459,17 +461,18 @@ function PLPreview({ year, month }: { year: string; month: string }) {
 
 // ── Annual Summary Tab ─────────────────────────────────────────────────────────
 
-function AnnualSummary({ year }: { year: string }) {
+function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string | null }) {
   const [months, setMonths]   = useState<MonthSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/report?year=${year}`)
+    const qs = selectedId ? `&propertyId=${selectedId}` : "";
+    fetch(`/api/report?year=${year}${qs}`)
       .then((r) => r.json())
       .then((d) => { setMonths(d.months ?? []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [year]);
+  }, [year, selectedId]);
 
   if (loading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
 
@@ -604,10 +607,11 @@ function AnnualSummary({ year }: { year: string }) {
 
 // ── Download PDF Tab ───────────────────────────────────────────────────────────
 
-function DownloadPDF({ year, month, setYear, setMonth }: {
+function DownloadPDF({ year, month, setYear, setMonth, selectedId }: {
   year: string; month: string;
   setYear: (y: string) => void;
   setMonth: (m: string) => void;
+  selectedId?: string | null;
 }) {
   const [generating, setGenerating] = useState(false);
 
@@ -617,7 +621,7 @@ function DownloadPDF({ year, month, setYear, setMonth }: {
       const res = await fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year, month }),
+        body: JSON.stringify({ year, month, ...(selectedId ? { propertyId: selectedId } : {}) }),
       });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
@@ -707,17 +711,18 @@ interface StatementData {
   totalExpenses: number; netPayable: number; notes: string;
 }
 
-function OwnerStatementTab({ year, month }: { year: string; month: string }) {
+function OwnerStatementTab({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
   const [data, setData]       = useState<StatementData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/report/owner-statement?year=${year}&month=${month}`)
+    const qs = selectedId ? `&propertyId=${selectedId}` : "";
+    fetch(`/api/report/owner-statement?year=${year}&month=${month}${qs}`)
       .then(r => r.json())
       .then(d => { setData(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [year, month]);
+  }, [year, month, selectedId]);
 
   if (loading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
   if (!data.length) return <p className="text-center text-gray-400 text-sm py-16">No data for this period.</p>;
@@ -823,19 +828,133 @@ function OwnerStatementTab({ year, month }: { year: string; month: string }) {
   );
 }
 
+// ── Quarterly Download Tab ─────────────────────────────────────────────────────
+
+function QuarterlyDownload({ quarter, setQuarter, quarterYear, setQuarterYear, selectedId }: {
+  quarter: number; setQuarter: (q: number) => void;
+  quarterYear: string; setQuarterYear: (y: string) => void;
+  selectedId?: string | null;
+}) {
+  const [generating, setGenerating] = useState(false);
+
+  async function handleDownload() {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "quarterly",
+          quarter,
+          year: quarterYear,
+          ...(selectedId ? { propertyId: selectedId } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `property-report-Q${quarter}-${quarterYear}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Quarterly report downloaded!");
+    } catch {
+      toast.error("Failed to generate quarterly report. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  const QUARTER_MONTHS: Record<number, string> = { 1: "Jan–Mar", 2: "Apr–Jun", 3: "Jul–Sep", 4: "Oct–Dec" };
+
+  return (
+    <div className="max-w-md">
+      <Card>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center">
+            <Calendar size={20} className="text-gold" />
+          </div>
+          <div>
+            <h3 className="font-display text-base text-header">Download Quarterly Report</h3>
+            <p className="text-xs text-gray-400 font-sans mt-0.5">3-month aggregated P&L, rent & Airbnb performance</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Quarter selector */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 font-sans uppercase tracking-wide mb-2">Quarter</p>
+            <div className="flex gap-2">
+              {([1, 2, 3, 4] as const).map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setQuarter(q)}
+                  className={clsx(
+                    "flex-1 py-2 rounded-lg text-sm font-medium font-sans transition-all border",
+                    quarter === q
+                      ? "bg-gold text-white border-gold"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gold/50 hover:text-gold-dark",
+                  )}
+                >
+                  Q{q}
+                  <span className="block text-xs font-normal opacity-80">{QUARTER_MONTHS[q]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Year selector */}
+          <Select
+            label="Year"
+            value={quarterYear}
+            onChange={(e) => setQuarterYear(e.target.value)}
+            options={YEARS}
+          />
+
+          <div className="bg-cream rounded-xl p-4 space-y-1.5">
+            <p className="text-xs font-medium font-sans text-header mb-2">Report includes:</p>
+            {[
+              "3-month aggregated gross income & expenses",
+              "Long-term rent collection (all 3 months combined)",
+              "Short-let unit performance (quarterly)",
+              "Net profit & margin for the quarter",
+              "Management fee reconciliation",
+            ].map((item) => (
+              <div key={item} className="flex items-start gap-2 text-xs text-gray-500 font-sans">
+                <CheckCircle size={12} className="text-gold shrink-0 mt-0.5" />
+                {item}
+              </div>
+            ))}
+          </div>
+
+          <Button onClick={handleDownload} loading={generating} size="lg" className="w-full" variant="primary">
+            <Download size={18} />
+            {generating ? "Generating PDF…" : `Download Q${quarter} ${quarterYear} PDF`}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function ReportPage() {
-  const { data: session }         = useSession();
-  const [activeTab, setActiveTab] = useState<Tab>("preview");
-  const [year, setYear]           = useState(String(currentYear));
-  const [month, setMonth]         = useState(String(currentMonth));
+  const { data: session }               = useSession();
+  const { selectedId }                  = useProperty();
+  const [activeTab, setActiveTab]       = useState<Tab>("preview");
+  const [year, setYear]                 = useState(String(currentYear));
+  const [month, setMonth]               = useState(String(currentMonth));
+  const [quarter, setQuarter]           = useState(Math.ceil(currentMonth / 3));
+  const [quarterYear, setQuarterYear]   = useState(String(currentYear));
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "preview",  label: "P&L Preview",    icon: <TrendingUp size={15} /> },
-    { id: "annual",   label: "Annual Summary",  icon: <Receipt size={15} /> },
-    { id: "owner",    label: "Owner Statement", icon: <DollarSign size={15} /> },
-    { id: "download", label: "Download PDF",    icon: <Download size={15} /> },
+    { id: "preview",   label: "P&L Preview",       icon: <TrendingUp size={15} /> },
+    { id: "annual",    label: "Annual Summary",     icon: <Receipt size={15} /> },
+    { id: "owner",     label: "Owner Statement",    icon: <DollarSign size={15} /> },
+    { id: "download",  label: "Download PDF",       icon: <Download size={15} /> },
+    { id: "quarterly", label: "Quarterly Report",   icon: <Calendar size={15} /> },
   ];
 
   return (
@@ -851,24 +970,48 @@ export default function ReportPage() {
         <Card padding="sm">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             {/* Period pickers */}
-            <div className="flex items-center gap-2">
-              <Select
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
-              />
-              <Select
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                options={YEARS}
-              />
-            </div>
+            {activeTab === "quarterly" ? (
+              <div className="flex items-center gap-2">
+                {([1, 2, 3, 4] as const).map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => setQuarter(q)}
+                    className={clsx(
+                      "px-3 py-1.5 rounded-lg text-sm font-medium font-sans transition-all border",
+                      quarter === q
+                        ? "bg-gold text-white border-gold"
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gold/50 hover:text-gold-dark",
+                    )}
+                  >
+                    Q{q}
+                  </button>
+                ))}
+                <Select
+                  value={quarterYear}
+                  onChange={(e) => setQuarterYear(e.target.value)}
+                  options={YEARS}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Select
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
+                />
+                <Select
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  options={YEARS}
+                />
+              </div>
+            )}
 
             {/* Divider */}
             <div className="hidden sm:block w-px h-8 bg-gray-200" />
 
             {/* Tabs */}
-            <div className="flex gap-1 bg-cream rounded-xl p-1">
+            <div className="flex gap-1 bg-cream rounded-xl p-1 flex-wrap">
               {tabs.map((t) => (
                 <button
                   key={t.id}
@@ -882,7 +1025,9 @@ export default function ReportPage() {
                 >
                   {t.icon}
                   <span className="hidden sm:inline">{t.label}</span>
-                  <span className="sm:hidden">{t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : t.id === "owner" ? "Owner" : "PDF"}</span>
+                  <span className="sm:hidden">
+                    {t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : t.id === "owner" ? "Owner" : t.id === "quarterly" ? "Qtrly" : "PDF"}
+                  </span>
                 </button>
               ))}
             </div>
@@ -890,10 +1035,17 @@ export default function ReportPage() {
         </Card>
 
         {/* Tab content */}
-        {activeTab === "preview"  && <PLPreview year={year} month={month} />}
-        {activeTab === "annual"   && <AnnualSummary year={year} />}
-        {activeTab === "owner"    && <OwnerStatementTab year={year} month={month} />}
-        {activeTab === "download" && <DownloadPDF year={year} month={month} setYear={setYear} setMonth={setMonth} />}
+        {activeTab === "preview"   && <PLPreview year={year} month={month} selectedId={selectedId} />}
+        {activeTab === "annual"    && <AnnualSummary year={year} selectedId={selectedId} />}
+        {activeTab === "owner"     && <OwnerStatementTab year={year} month={month} selectedId={selectedId} />}
+        {activeTab === "download"  && <DownloadPDF year={year} month={month} setYear={setYear} setMonth={setMonth} selectedId={selectedId} />}
+        {activeTab === "quarterly" && (
+          <QuarterlyDownload
+            quarter={quarter} setQuarter={setQuarter}
+            quarterYear={quarterYear} setQuarterYear={setQuarterYear}
+            selectedId={selectedId}
+          />
+        )}
       </div>
     </div>
   );

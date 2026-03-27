@@ -402,6 +402,7 @@ model Tenant {
   @@index([unitId])
   @@index([isActive])
   @@index([unitId, isActive])
+  @@index([leaseEnd])
 }
 
 model IncomeEntry {
@@ -431,6 +432,8 @@ model IncomeEntry {
   @@index([tenantId])
   @@index([invoiceId])
   @@index([ownerInvoiceId])
+  @@index([type])
+  @@index([unitId, type])
 }
 
 model ExpenseEntry {
@@ -455,6 +458,7 @@ model ExpenseEntry {
   @@index([date])
   @@index([propertyId, date])
   @@index([unitId])
+  @@index([isSunkCost, date])
 }
 
 model ExpenseLineItem {
@@ -492,6 +496,8 @@ model PettyCash {
   propertyId  String?
   property    Property?     @relation(fields: [propertyId], references: [id])
   createdAt   DateTime      @default(now())
+
+  @@index([propertyId])
 }
 
 model ManagementFeeConfig {

@@ -59,16 +59,20 @@ export default function DashboardPage() {
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [opsData, setOpsData] = useState<any>(null);
+  const [opsLoading, setOpsLoading] = useState(true);
   const [tab, setTab] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setOpsLoading(true);
     const params = new URLSearchParams({
       year: String(month.getFullYear()),
       month: String(month.getMonth() + 1),
     });
     if (selectedId) params.set("propertyId", selectedId);
 
+    // Fire both fetches concurrently — critical data controls the main spinner
     fetch(`/api/dashboard?${params}`)
       .then((r) => r.json())
       .then((d) => {
@@ -79,6 +83,14 @@ export default function DashboardPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    fetch(`/api/dashboard/ops?${params}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setOpsData(d);
+        setOpsLoading(false);
+      })
+      .catch(() => setOpsLoading(false));
   }, [month, selectedId]);
 
   // Reset tab when properties change
@@ -100,9 +112,9 @@ export default function DashboardPage() {
   const warningLeases  = (data?.alerts?.leaseAlerts ?? []).filter((a: any) => a.status === "WARNING").length;
   const tbcLeases      = (data?.alerts?.leaseAlerts ?? []).filter((a: any) => a.status === "TBC").length;
   const noRentCount    = data?.alerts?.noRentAlerts?.length ?? 0;
-  const maint          = data?.maintenanceSummary ?? { urgent: 0, high: 0, open: 0 };
-  const arrears        = data?.arrearsSummary     ?? { openCases: 0, totalOwed: 0, escalated: 0 };
-  const invSum         = data?.invoiceSummary     ?? { count: 0, amount: 0 };
+  const maint          = opsData?.maintenanceSummary ?? { urgent: 0, high: 0, open: 0 };
+  const arrears        = opsData?.arrearsSummary     ?? { openCases: 0, totalOwed: 0, escalated: 0 };
+  const invSum         = opsData?.invoiceSummary     ?? { count: 0, amount: 0 };
 
   const leaseSev   = criticalLeases > 0 ? "red" : (warningLeases > 0 || tbcLeases > 0) ? "amber" : "green";
   const rentSev    = (noRentCount > 0 || invSum.count > 0) ? "amber" : "green";
@@ -283,7 +295,11 @@ export default function DashboardPage() {
             {/* ── 6-Month Revenue Trend ─────────────────────────────────────── */}
             <Card>
               <h2 className="section-header mb-4">6-Month Revenue Trend</h2>
-              <RevenueChart data={data.trend} />
+              {opsLoading ? (
+                <div className="flex items-center justify-center py-12"><Spinner size="md" /></div>
+              ) : (
+                <RevenueChart data={opsData?.trend ?? []} />
+              )}
             </Card>
 
             {/* ── Operations Strip ──────────────────────────────────────────── */}
@@ -294,12 +310,16 @@ export default function DashboardPage() {
                 className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 hover:shadow-md transition-shadow text-center"
               >
                 <RepeatIcon size={18} className="text-gold mb-1" />
-                <p className={clsx(
-                  "font-mono text-2xl font-semibold",
-                  data.renewalPipeline > 0 ? "text-amber-600" : "text-gray-300"
-                )}>
-                  {data.renewalPipeline}
-                </p>
+                {opsLoading ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <p className={clsx(
+                    "font-mono text-2xl font-semibold",
+                    (opsData?.renewalPipeline ?? 0) > 0 ? "text-amber-600" : "text-gray-300"
+                  )}>
+                    {opsData?.renewalPipeline ?? 0}
+                  </p>
+                )}
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Renewals</p>
                 <p className="text-xs text-gray-400 font-sans">in pipeline</p>
               </Link>
@@ -327,15 +347,19 @@ export default function DashboardPage() {
               {/* Vacant Units */}
               <div className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 text-center">
                 <Building2 size={18} className="text-gold mb-1" />
-                <p className={clsx(
-                  "font-mono text-2xl font-semibold",
-                  data.vacantUnits > 0 ? "text-amber-600" : "text-income"
-                )}>
-                  {data.vacantUnits}
-                </p>
+                {opsLoading ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <p className={clsx(
+                    "font-mono text-2xl font-semibold",
+                    (opsData?.vacantUnits ?? 0) > 0 ? "text-amber-600" : "text-income"
+                  )}>
+                    {opsData?.vacantUnits ?? 0}
+                  </p>
+                )}
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Vacant Units</p>
                 <p className="text-xs text-gray-400 font-sans">
-                  {data.vacantUnits === 0 ? "fully occupied" : "need tenants"}
+                  {(opsData?.vacantUnits ?? 0) === 0 ? "fully occupied" : "need tenants"}
                 </p>
               </div>
             </div>

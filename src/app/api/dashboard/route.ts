@@ -280,6 +280,48 @@ export async function GET(req: Request) {
       return acc;
     }, {});
 
+  // Operational summaries (maintenance, arrears, invoices, renewals, vacancies)
+  const [openJobs, activeCases, invoiceStats, activeRenewals, vacantUnitCount] = await Promise.all([
+    prisma.maintenanceJob.findMany({
+      where: { propertyId: { in: propertyIds }, status: { in: ["OPEN", "IN_PROGRESS", "AWAITING_PARTS"] } },
+      select: { priority: true },
+    }),
+    prisma.arrearsCase.findMany({
+      where: { propertyId: { in: propertyIds }, stage: { not: "RESOLVED" } },
+      select: { stage: true, amountOwed: true },
+    }),
+    prisma.invoice.aggregate({
+      where: { tenant: { unit: { propertyId: { in: propertyIds } } }, status: { in: ["SENT", "OVERDUE"] } },
+      _sum: { totalAmount: true },
+      _count: { id: true },
+    }),
+    prisma.tenant.count({
+      where: {
+        unit: { propertyId: { in: propertyIds } },
+        isActive: true,
+        renewalStage: { in: ["NOTICE_SENT", "TERMS_AGREED"] },
+      },
+    }),
+    prisma.unit.count({
+      where: { propertyId: { in: propertyIds }, status: "VACANT" },
+    }),
+  ]);
+
+  const maintenanceSummary = {
+    urgent: openJobs.filter((j) => j.priority === "URGENT").length,
+    high:   openJobs.filter((j) => j.priority === "HIGH").length,
+    open:   openJobs.length,
+  };
+  const arrearsSummary = {
+    openCases: activeCases.length,
+    totalOwed: activeCases.reduce((s, c) => s + c.amountOwed, 0),
+    escalated: activeCases.filter((c) => c.stage === "LEGAL_NOTICE" || c.stage === "EVICTION").length,
+  };
+  const invoiceSummary = {
+    count:  invoiceStats._count.id,
+    amount: invoiceStats._sum.totalAmount ?? 0,
+  };
+
   // Management fee reconciliation — use DB configs
   const feeConfigs = await prisma.managementFeeConfig.findMany({
     where: {
@@ -327,6 +369,11 @@ export async function GET(req: Request) {
       balance: mgmtFeePaid - mgmtFeeOwing,
     },
     trend,
+    maintenanceSummary,
+    arrearsSummary,
+    invoiceSummary,
+    renewalPipeline: activeRenewals,
+    vacantUnits: vacantUnitCount,
   });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);

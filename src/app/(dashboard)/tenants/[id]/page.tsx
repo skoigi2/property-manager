@@ -274,6 +274,8 @@ export default function TenantDetailPage() {
   const [tab,       setTab]       = useState<Tab>("ledger");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
+  const [renewalFeePrompt, setRenewalFeePrompt] = useState<{ unitId: string; amount: number } | null>(null);
+  const [renewalFeeLogging, setRenewalFeeLogging] = useState(false);
   const [settlement, setSettlement] = useState<DepositSettlement | null>(null);
   const [settlementLoading, setSettlementLoading] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
@@ -788,6 +790,11 @@ export default function TenantDetailPage() {
                       currentRent={tenant.monthlyRent}
                       currentLeaseEnd={tenant.leaseEnd ?? null}
                       onUpdated={fetchTenant}
+                      onRenewed={() => {
+                        if (tenant?.unitId) {
+                          setRenewalFeePrompt({ unitId: tenant.unitId, amount: 3000 });
+                        }
+                      }}
                     />
                   </>
                 )}
@@ -806,6 +813,68 @@ export default function TenantDetailPage() {
           onSettled={(s) => { setSettlement(s); setShowSettleModal(false); }}
           onClose={() => setShowSettleModal(false)}
         />
+      )}
+
+      {/* Renewal Fee Prompt */}
+      {renewalFeePrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                <span className="text-gold font-mono font-bold text-sm">KSh</span>
+              </div>
+              <div>
+                <h3 className="font-display text-header text-base">Log Renewal Fee?</h3>
+                <p className="text-xs text-gray-400 font-sans mt-0.5">Lease marked as Renewed</p>
+              </div>
+            </div>
+            <p className="text-sm font-sans text-gray-600">
+              A lease renewal fee of <span className="font-semibold text-header">KSh 3,000</span> may be due.
+              Log this as income now?
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button
+                disabled={renewalFeeLogging}
+                onClick={async () => {
+                  setRenewalFeeLogging(true);
+                  try {
+                    await fetch("/api/income", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        date: new Date().toISOString().split("T")[0],
+                        unitId: renewalFeePrompt.unitId,
+                        type: "RENEWAL_FEE",
+                        grossAmount: renewalFeePrompt.amount,
+                        agentCommission: 0,
+                        note: `Lease renewal fee — ${tenant?.name}`,
+                      }),
+                    });
+                    import("react-hot-toast").then(({ default: toast }) =>
+                      toast.success("Renewal fee of KSh 3,000 logged")
+                    );
+                  } catch {
+                    import("react-hot-toast").then(({ default: toast }) =>
+                      toast.error("Failed to log renewal fee")
+                    );
+                  } finally {
+                    setRenewalFeeLogging(false);
+                    setRenewalFeePrompt(null);
+                  }
+                }}
+                className="px-4 py-2 bg-navy text-white text-sm font-sans rounded-lg hover:bg-navy/90 disabled:opacity-60"
+              >
+                {renewalFeeLogging ? "Logging…" : "Yes, log it"}
+              </button>
+              <button
+                onClick={() => setRenewalFeePrompt(null)}
+                className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Email Draft Modal */}

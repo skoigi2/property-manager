@@ -4,18 +4,19 @@ import { auth } from "@/lib/auth";
 import { z } from "zod";
 
 const createSchema = z.object({
-  propertyId: z.string().min(1),
-  unitId: z.string().optional(),
-  title: z.string().min(1, "Title required"),
+  propertyId:  z.string().min(1),
+  unitId:      z.string().optional(),
+  title:       z.string().min(1, "Title required"),
   description: z.string().optional(),
-  category: z.enum(["PLUMBING","ELECTRICAL","STRUCTURAL","APPLIANCE","PAINTING","CLEANING","SECURITY","PEST_CONTROL","OTHER"]).default("OTHER"),
-  priority: z.enum(["LOW","MEDIUM","HIGH","URGENT"]).default("MEDIUM"),
-  reportedBy: z.string().optional(),
-  assignedTo: z.string().optional(),
-  reportedDate: z.string().optional(),
+  category:    z.enum(["PLUMBING","ELECTRICAL","STRUCTURAL","APPLIANCE","PAINTING","CLEANING","SECURITY","PEST_CONTROL","OTHER"]).default("OTHER"),
+  priority:    z.enum(["LOW","MEDIUM","HIGH","URGENT"]).default("MEDIUM"),
+  reportedBy:  z.string().optional(),
+  assignedTo:  z.string().optional(),
+  reportedDate:  z.string().optional(),
   scheduledDate: z.string().optional(),
-  cost: z.coerce.number().min(0).optional(),
-  notes: z.string().optional(),
+  cost:          z.coerce.number().min(0).optional(),
+  notes:         z.string().optional(),
+  isEmergency:   z.boolean().default(false),
 });
 
 export async function GET(req: Request) {

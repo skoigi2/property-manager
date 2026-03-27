@@ -41,7 +41,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (dup) return Response.json({ error: "Unit number already exists in this property" }, { status: 409 });
   }
 
-  const updated = await prisma.unit.update({ where: { id: params.id }, data: parsed.data });
+  // Track vacancy start date
+  const updateData: any = { ...parsed.data };
+  if (parsed.data.status) {
+    const wasVacant = unit!.status === "VACANT" || unit!.status === "LISTED";
+    const becomingVacant = parsed.data.status === "VACANT" || parsed.data.status === "LISTED";
+    const becomingActive = parsed.data.status === "ACTIVE";
+    if (becomingVacant && !wasVacant) {
+      updateData.vacantSince = new Date();
+    } else if (becomingActive && wasVacant) {
+      updateData.vacantSince = null;
+    }
+  }
+
+  const updated = await prisma.unit.update({ where: { id: params.id }, data: updateData });
   return Response.json(updated);
 }
 

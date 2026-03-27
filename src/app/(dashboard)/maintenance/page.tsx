@@ -174,6 +174,7 @@ const jobSchema = z.object({
   scheduledDate: z.string().optional(),
   cost:          z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),
   notes:         z.string().optional(),
+  isEmergency:   z.boolean().default(false),
 });
 type JobForm = z.infer<typeof jobSchema>;
 
@@ -536,7 +537,9 @@ export default function MaintenancePage() {
     defaultValues: { category: "OTHER", priority: "MEDIUM" },
   });
   const selectedPropertyId = watch("propertyId");
+  const watchedCost        = watch("cost");
   const availableUnits = properties.find((p) => p.id === selectedPropertyId)?.units ?? [];
+  const REPAIR_AUTHORITY_LIMIT = 100_000; // Default; ideally fetched from property agreement
 
   // ── Jobs loader ────────────────────────────────────────────────────────────
   const load = useCallback(() => {
@@ -1081,6 +1084,14 @@ export default function MaintenancePage() {
             />
           </div>
 
+          {/* Emergency toggle */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input type="checkbox" className="w-4 h-4 rounded" {...register("isEmergency")} />
+            <span className="text-sm font-sans text-gray-700">
+              <span className="font-semibold text-red-600">Emergency</span> — requires acknowledgement within 24 hrs
+            </span>
+          </label>
+
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600 font-sans">Description</label>
             <textarea
@@ -1118,6 +1129,17 @@ export default function MaintenancePage() {
               {...register("cost")}
             />
           </div>
+
+          {/* Repair authority limit warning */}
+          {watchedCost && Number(watchedCost) > REPAIR_AUTHORITY_LIMIT && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-sm font-sans text-red-700">
+              <span className="mt-0.5 shrink-0">⚠️</span>
+              <span>
+                Cost exceeds repair authority limit (KSh {REPAIR_AUTHORITY_LIMIT.toLocaleString("en-KE")}).{" "}
+                <strong>Landlord written approval required</strong> before proceeding.
+              </span>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600 font-sans">Notes</label>

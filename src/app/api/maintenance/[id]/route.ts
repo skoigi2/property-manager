@@ -3,18 +3,23 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 const updateSchema = z.object({
-  title:         z.string().min(1).optional(),
-  description:   z.string().optional(),
-  category:      z.enum(["PLUMBING","ELECTRICAL","STRUCTURAL","APPLIANCE","PAINTING","CLEANING","SECURITY","PEST_CONTROL","OTHER"]).optional(),
-  priority:      z.enum(["LOW","MEDIUM","HIGH","URGENT"]).optional(),
-  status:        z.enum(["OPEN","IN_PROGRESS","AWAITING_PARTS","DONE","CANCELLED"]).optional(),
-  unitId:        z.string().nullable().optional(),
-  reportedBy:    z.string().optional(),
-  assignedTo:    z.string().optional(),
-  scheduledDate: z.string().nullable().optional(),
-  completedDate: z.string().nullable().optional(),
-  cost:          z.coerce.number().min(0).nullable().optional(),
-  notes:         z.string().optional(),
+  title:            z.string().min(1).optional(),
+  description:      z.string().optional(),
+  category:         z.enum(["PLUMBING","ELECTRICAL","STRUCTURAL","APPLIANCE","PAINTING","CLEANING","SECURITY","PEST_CONTROL","OTHER"]).optional(),
+  priority:         z.enum(["LOW","MEDIUM","HIGH","URGENT"]).optional(),
+  status:           z.enum(["OPEN","IN_PROGRESS","AWAITING_PARTS","DONE","CANCELLED"]).optional(),
+  unitId:           z.string().nullable().optional(),
+  reportedBy:       z.string().optional(),
+  assignedTo:       z.string().optional(),
+  scheduledDate:    z.string().nullable().optional(),
+  completedDate:    z.string().nullable().optional(),
+  cost:             z.coerce.number().min(0).nullable().optional(),
+  notes:            z.string().optional(),
+  isEmergency:      z.boolean().optional(),
+  acknowledgedAt:   z.string().nullable().optional(),
+  requiresApproval: z.boolean().optional(),
+  approvedAt:       z.string().nullable().optional(),
+  approvalNotes:    z.string().optional(),
 });
 
 // Schema for the "log as expense" action
@@ -105,7 +110,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { scheduledDate, completedDate, ...rest } = parsed.data;
+  const { scheduledDate, completedDate, acknowledgedAt, approvedAt, ...rest } = parsed.data;
 
   // Auto-set completedDate when marking DONE
   const autoCompletedDate =
@@ -115,12 +120,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ? completedDate ? new Date(completedDate) : null
       : undefined;
 
+  // Auto-set acknowledgedAt if not already set and now being acknowledged
+  const autoAcknowledgedAt =
+    acknowledgedAt !== undefined
+      ? acknowledgedAt ? new Date(acknowledgedAt) : null
+      : rest.status === "IN_PROGRESS" && !job!.acknowledgedAt
+      ? new Date()
+      : undefined;
+
   const updated = await prisma.maintenanceJob.update({
     where: { id: params.id },
     data: {
       ...rest,
       ...(scheduledDate !== undefined ? { scheduledDate: scheduledDate ? new Date(scheduledDate) : null } : {}),
       ...(autoCompletedDate !== undefined ? { completedDate: autoCompletedDate } : {}),
+      ...(autoAcknowledgedAt !== undefined ? { acknowledgedAt: autoAcknowledgedAt } : {}),
+      ...(approvedAt !== undefined ? { approvedAt: approvedAt ? new Date(approvedAt) : null } : {}),
     },
     include: {
       property: { select: { id: true, name: true } },

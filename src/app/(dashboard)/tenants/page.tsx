@@ -71,6 +71,10 @@ export default function TenantsPage() {
   const [editingTenant, setEditingTenant] = useState<any>(null);
   const [submitting, setSubmitting]     = useState(false);
 
+  // Letting fee prompt (shown after new tenant created)
+  const [lettingFeePrompt, setLettingFeePrompt] = useState<{ tenantName: string; unitId: string; amount: number; propertyId: string } | null>(null);
+  const [lettingFeeLogging, setLettingFeeLogging] = useState(false);
+
   // Vacate modal
   const [vacateTarget, setVacateTarget] = useState<any>(null);
   const [vacatedDate, setVacatedDate]   = useState("");
@@ -242,6 +246,19 @@ export default function TenantsPage() {
       setModalOpen(false);
       reset();
       toast.success(editingTenant ? "Tenant updated" : "Tenant added");
+      // Prompt to log letting fee when a new tenant is created
+      if (!editingTenant && updated.monthlyRent) {
+        const unit = allUnits.find((u: any) => u.id === updated.unitId);
+        const prop = properties.find((p: any) => p.units?.some((u: any) => u.id === updated.unitId));
+        if (prop) {
+          setLettingFeePrompt({
+            tenantName: updated.name,
+            unitId: updated.unitId,
+            amount: Math.round(updated.monthlyRent * 0.5),
+            propertyId: prop.id,
+          });
+        }
+      }
     } catch {
       toast.error("Failed to save");
     } finally {
@@ -816,6 +833,61 @@ export default function TenantsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* ── Letting Fee Prompt ── */}
+      {lettingFeePrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                <span className="text-gold font-mono font-bold text-sm">KSh</span>
+              </div>
+              <div>
+                <h3 className="font-display text-header text-base">Log Letting Fee?</h3>
+                <p className="text-xs text-gray-400 font-sans mt-0.5">New tenancy created for {lettingFeePrompt.tenantName}</p>
+              </div>
+            </div>
+            <p className="text-sm font-sans text-gray-600">
+              A letting fee of <span className="font-semibold text-header">KSh {lettingFeePrompt.amount.toLocaleString("en-KE")}</span> (50% of first month's rent) may be due.
+              Log this as income now?
+            </p>
+            <div className="flex gap-3 pt-1">
+              <Button
+                size="sm"
+                loading={lettingFeeLogging}
+                onClick={async () => {
+                  setLettingFeeLogging(true);
+                  try {
+                    await fetch("/api/income", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        date: new Date().toISOString().split("T")[0],
+                        unitId: lettingFeePrompt.unitId,
+                        type: "LETTING_FEE",
+                        grossAmount: lettingFeePrompt.amount,
+                        agentCommission: 0,
+                        note: `Letting fee — ${lettingFeePrompt.tenantName}`,
+                      }),
+                    });
+                    toast.success(`Letting fee of KSh ${lettingFeePrompt.amount.toLocaleString("en-KE")} logged`);
+                  } catch {
+                    toast.error("Failed to log letting fee");
+                  } finally {
+                    setLettingFeeLogging(false);
+                    setLettingFeePrompt(null);
+                  }
+                }}
+              >
+                Yes, log it
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setLettingFeePrompt(null)}>
+                Skip
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

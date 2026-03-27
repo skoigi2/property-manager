@@ -151,6 +151,11 @@ enum IncomeType {
   AIRBNB
   UTILITY_RECOVERY
   OTHER
+  LETTING_FEE
+  RENEWAL_FEE
+  VACANCY_FEE
+  SETUP_FEE_INSTALMENT
+  CONSULTANCY_FEE
 }
 
 enum Platform {
@@ -318,6 +323,8 @@ model Property {
   recurringExpenses    RecurringExpense[]
   insurancePolicies    InsurancePolicy[]
   assets               Asset[]
+  agreement            ManagementAgreement?
+  conditionReports     BuildingConditionReport[]
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 }
@@ -331,6 +338,7 @@ model Unit {
   sizeSqm       Float?
   monthlyRent   Float?
   status        UnitStatus            @default(ACTIVE)
+  vacantSince   DateTime?
   description   String?
   amenities     String[]
   property      Property              @relation(fields: [propertyId], references: [id])
@@ -482,26 +490,31 @@ model ManagementFeeConfig {
 }
 
 model MaintenanceJob {
-  id            String              @id @default(cuid())
-  propertyId    String
-  unitId        String?
-  title         String
-  description   String?
-  category      MaintenanceCategory @default(OTHER)
-  priority      MaintenancePriority @default(MEDIUM)
-  status        MaintenanceStatus   @default(OPEN)
-  reportedBy    String?
-  assignedTo    String?
-  reportedDate  DateTime            @default(now())
-  scheduledDate DateTime?
-  completedDate DateTime?
-  cost          Float?
-  notes         String?
-  expenseId     String?             // ID of the linked ExpenseEntry (once logged)
-  property      Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit          Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id               String              @id @default(cuid())
+  propertyId       String
+  unitId           String?
+  title            String
+  description      String?
+  category         MaintenanceCategory @default(OTHER)
+  priority         MaintenancePriority @default(MEDIUM)
+  status           MaintenanceStatus   @default(OPEN)
+  reportedBy       String?
+  assignedTo       String?
+  reportedDate     DateTime            @default(now())
+  scheduledDate    DateTime?
+  completedDate    DateTime?
+  cost             Float?
+  notes            String?
+  expenseId        String?             // ID of the linked ExpenseEntry (once logged)
+  isEmergency      Boolean             @default(false)
+  acknowledgedAt   DateTime?
+  requiresApproval Boolean             @default(false)
+  approvedAt       DateTime?
+  approvalNotes    String?
+  property         Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([propertyId, status])
   @@index([status])
@@ -758,4 +771,63 @@ model AssetMaintenanceLog {
   @@index([assetId])
   @@index([scheduleId])
   @@index([expenseId])
+}
+
+// ─── Management Agreement ─────────────────────────────────────────────────────
+
+model ManagementAgreement {
+  id                             String   @id @default(cuid())
+  propertyId                     String   @unique
+  property                       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // Fee rates
+  managementFeeRate              Float    @default(8.5)
+  vacancyFeeRate                 Float    @default(5.0)
+  vacancyFeeThresholdMonths      Int      @default(9)
+  newLettingFeeRate              Float    @default(50.0)
+  leaseRenewalFeeFlat            Float    @default(3000)
+  shortTermLettingFeeRate        Float    @default(10.0)
+  repairAuthorityLimit           Float    @default(100000)
+  setupFeeTotal                  Float?
+  setupFeeInstalments            Int      @default(3)
+
+  // Deadlines
+  rentRemittanceDay              Int      @default(5)
+  mgmtFeeInvoiceDay              Int      @default(7)
+  landlordPaymentDays            Int      @default(2)
+
+  // KPI targets
+  kpiStartDate                   DateTime?
+  kpiOccupancyTarget             Float    @default(90)
+  kpiRentCollectionTarget        Float    @default(90)
+  kpiExpenseRatioTarget          Float    @default(85)
+  kpiTenantTurnoverTarget        Float    @default(90)
+  kpiDaysToLeaseTarget           Int      @default(60)
+  kpiRenewalRateTarget           Float    @default(90)
+  kpiMaintenanceCompletionTarget Float    @default(95)
+  kpiEmergencyResponseHrs        Int      @default(24)
+  kpiStandardResponseHrs         Int      @default(96)
+
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  @@index([propertyId])
+}
+
+// ─── Building Condition Reports ───────────────────────────────────────────────
+
+model BuildingConditionReport {
+  id               String   @id @default(cuid())
+  propertyId       String
+  property         Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reportDate       DateTime
+  inspector        String?
+  overallCondition String
+  summary          String?
+  items            Json?
+  nextReviewDate   DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([reportDate])
 }

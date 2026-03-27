@@ -23,6 +23,7 @@ import {
   Upload,
   ShieldPlus,
   Package,
+  BarChart3,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { href: "/tenants",         label: "Tenants",     icon: Users,           roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/invoices",        label: "Invoices",    icon: ScrollText,      roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/maintenance",          label: "Maintenance",  icon: Wrench,          roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/compliance",           label: "Compliance",   icon: BarChart3,        roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/arrears",              label: "Arrears",      icon: AlertTriangle,   roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/insurance",            label: "Insurance",    icon: ShieldPlus,      roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/assets",               label: "Assets",       icon: Package,         roles: ["MANAGER", "ACCOUNTANT"] },

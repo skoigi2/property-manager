@@ -15,6 +15,7 @@ interface Props {
   currentRent:     number;
   currentLeaseEnd: string | null;
   onUpdated:       () => void;
+  onRenewed?:      () => void;
 }
 
 const STAGES: { value: Stage; label: string; description: string }[] = [
@@ -32,6 +33,7 @@ export function RenewalPipeline({
   currentRent,
   currentLeaseEnd,
   onUpdated,
+  onRenewed,
 }: Props) {
   const [saving, setSaving]             = useState(false);
   const [editProposedRent, setEditProposedRent] = useState(String(proposedRent ?? currentRent));
@@ -60,6 +62,7 @@ export function RenewalPipeline({
         }),
       });
       onUpdated();
+      if (toStage === "RENEWED" && onRenewed) onRenewed();
     } finally {
       setSaving(false);
     }

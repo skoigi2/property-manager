@@ -7,7 +7,7 @@ export const incomeEntrySchema = z.object({
   unitId: z.string().min(1, "Unit is required"),
   tenantId: z.string().optional(),
   invoiceId: z.string().optional(),
-  type: z.enum(["LONGTERM_RENT", "SERVICE_CHARGE", "DEPOSIT", "AIRBNB", "UTILITY_RECOVERY", "OTHER"]),
+  type: z.enum(["LONGTERM_RENT", "SERVICE_CHARGE", "DEPOSIT", "AIRBNB", "UTILITY_RECOVERY", "OTHER", "LETTING_FEE", "RENEWAL_FEE", "VACANCY_FEE", "SETUP_FEE_INSTALMENT", "CONSULTANCY_FEE"]),
   grossAmount: z.coerce.number().positive("Amount must be positive"),
   agentCommission: z.coerce.number().min(0).default(0),
   platform: z.enum(["AIRBNB", "BOOKING_COM", "DIRECT", "AGENT"]).optional(),

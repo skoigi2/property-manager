@@ -9,7 +9,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List } from "lucide-react";
+import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText } from "lucide-react";
+import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { useForm } from "react-hook-form";
@@ -724,13 +725,22 @@ function PropertiesTable({
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {isManager && (
-                      <button
-                        onClick={() => onEdit(p)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
-                        title="Edit property"
-                      >
-                        <PencilLine size={14} />
-                      </button>
+                      <>
+                        <Link
+                          href={`/properties/${p.id}/agreement`}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                          title="Configure agreement"
+                        >
+                          <FileText size={14} />
+                        </Link>
+                        <button
+                          onClick={() => onEdit(p)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                          title="Edit property"
+                        >
+                          <PencilLine size={14} />
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => onSelect(p)}
@@ -1030,13 +1040,23 @@ export default function PropertiesPage() {
                       <ChevronRight size={15} />
                     </button>
                     {isManager && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEditProperty(p); }}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
-                        title="Edit property"
-                      >
-                        <PencilLine size={15} />
-                      </button>
+                      <>
+                        <Link
+                          href={`/properties/${p.id}/agreement`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
+                          title="Configure agreement"
+                        >
+                          <FileText size={15} />
+                        </Link>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditProperty(p); }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
+                          title="Edit property"
+                        >
+                          <PencilLine size={15} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

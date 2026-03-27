@@ -39,12 +39,17 @@ const MONTH_NAMES = [
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const INCOME_TYPE_LABELS: Record<string, { label: string; badge: "blue"|"gold"|"green"|"amber"|"gray" }> = {
-  LONGTERM_RENT:    { label: "Rent",           badge: "blue" },
-  SERVICE_CHARGE:   { label: "Service Charge", badge: "amber" },
-  DEPOSIT:          { label: "Deposit",        badge: "gray" },
-  AIRBNB:           { label: "Airbnb",         badge: "gold" },
-  UTILITY_RECOVERY: { label: "Utility Rec.",   badge: "green" },
-  OTHER:            { label: "Other",          badge: "gray" },
+  LONGTERM_RENT:       { label: "Rent",              badge: "blue" },
+  SERVICE_CHARGE:      { label: "Service Charge",    badge: "amber" },
+  DEPOSIT:             { label: "Deposit",           badge: "gray" },
+  AIRBNB:              { label: "Airbnb",            badge: "gold" },
+  UTILITY_RECOVERY:    { label: "Utility Rec.",      badge: "green" },
+  OTHER:               { label: "Other",             badge: "gray" },
+  LETTING_FEE:         { label: "Letting Fee",       badge: "green" },
+  RENEWAL_FEE:         { label: "Renewal Fee",       badge: "blue" },
+  VACANCY_FEE:         { label: "Vacancy Fee",       badge: "amber" },
+  SETUP_FEE_INSTALMENT:{ label: "Setup Fee",         badge: "gold" },
+  CONSULTANCY_FEE:     { label: "Consultancy Fee",   badge: "gray" },
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -1214,12 +1219,17 @@ export default function IncomePage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <Select label="Type" {...register("type")} options={[
-                      { value: "LONGTERM_RENT",    label: "Long-term Rent" },
-                      { value: "SERVICE_CHARGE",   label: "Service Charge" },
-                      { value: "DEPOSIT",          label: "Deposit (not P&L income)" },
-                      { value: "AIRBNB",           label: "Airbnb / Short-let" },
-                      { value: "UTILITY_RECOVERY", label: "Utility Recovery" },
-                      { value: "OTHER",            label: "Other" },
+                      { value: "LONGTERM_RENT",       label: "Long-term Rent" },
+                      { value: "SERVICE_CHARGE",      label: "Service Charge" },
+                      { value: "DEPOSIT",             label: "Deposit (not P&L income)" },
+                      { value: "AIRBNB",              label: "Airbnb / Short-let" },
+                      { value: "UTILITY_RECOVERY",    label: "Utility Recovery" },
+                      { value: "OTHER",               label: "Other" },
+                      { value: "LETTING_FEE",         label: "Letting Fee" },
+                      { value: "RENEWAL_FEE",         label: "Renewal Fee" },
+                      { value: "VACANCY_FEE",         label: "Vacancy Fee" },
+                      { value: "SETUP_FEE_INSTALMENT",label: "Setup Fee (Instalment)" },
+                      { value: "CONSULTANCY_FEE",     label: "Consultancy Fee" },
                     ]} error={errors.type?.message} />
                     <Input label="Date" type="date" {...register("date")} error={errors.date?.message} />
                   </div>

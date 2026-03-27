@@ -1,6 +1,7 @@
 import { requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -70,6 +71,47 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const access = await requirePropertyAccess(params.id);
   if (!access.ok) return access.error!;
 
-  await prisma.property.delete({ where: { id: params.id } });
+  // Guard: block if any active tenants exist
+  const activeTenantCount = await prisma.tenant.count({
+    where: { isActive: true, unit: { propertyId: params.id } },
+  });
+  if (activeTenantCount > 0) {
+    return Response.json(
+      { error: `Cannot delete — ${activeTenantCount} active tenant(s) are still linked to this property. End or vacate all tenancies first.` },
+      { status: 409 }
+    );
+  }
+
+  // Fetch property name for audit log before deletion
+  const property = await prisma.property.findUnique({
+    where: { id: params.id },
+    select: { name: true },
+  });
+
+  // Transaction: delete orphaned chains in FK-safe order, then the property itself.
+  // Note: TenantDocument/Invoice/DepositSettlement cascade when Tenant is deleted.
+  //       ExpenseLineItem/ExpenseUnitAllocation/ExpenseDocument cascade when ExpenseEntry is deleted.
+  //       MaintenanceJob/OwnerInvoice/ArrearsCase/InsurancePolicy/Asset/ManagementAgreement/
+  //       BuildingConditionReport/PropertyAccess all have onDelete:Cascade on the Property relation.
+  await prisma.$transaction([
+    prisma.incomeEntry.deleteMany({ where: { unit: { propertyId: params.id } } }),
+    prisma.managementFeeConfig.deleteMany({ where: { unit: { propertyId: params.id } } }),
+    prisma.tenant.deleteMany({ where: { unit: { propertyId: params.id } } }),
+    prisma.unit.deleteMany({ where: { propertyId: params.id } }),
+    prisma.expenseEntry.deleteMany({ where: { propertyId: params.id } }),
+    prisma.pettyCash.deleteMany({ where: { propertyId: params.id } }),
+    prisma.recurringExpense.deleteMany({ where: { propertyId: params.id } }),
+    prisma.property.delete({ where: { id: params.id } }),
+  ]);
+
+  await logAudit({
+    userId:     session.user.id,
+    userEmail:  session.user.email,
+    action:     "DELETE",
+    resource:   "Property",
+    resourceId: params.id,
+    before:     { name: property?.name ?? params.id },
+  });
+
   return new Response(null, { status: 204 });
 }

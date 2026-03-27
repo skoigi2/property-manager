@@ -11,7 +11,7 @@ import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { ArrowLeft, FileText, DollarSign, Clock, Target } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2 } from "lucide-react";
 
 const schema = z.object({
   managementFeeRate:              z.coerce.number().min(0).max(100),
@@ -71,6 +71,11 @@ export default function AgreementPage() {
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
   const [propertyName, setPropertyName] = useState("");
+  const [unitCount,   setUnitCount]   = useState(0);
+  const [exporting,   setExporting]   = useState(false);
+  const [showDelete,  setShowDelete]  = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleting,    setDeleting]    = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -91,7 +96,7 @@ export default function AgreementPage() {
       fetch(`/api/properties`).then((r) => r.json()),
     ]).then(([agr, props]) => {
       const prop = (props as any[]).find((p) => p.id === params.id);
-      if (prop) setPropertyName(prop.name);
+      if (prop) { setPropertyName(prop.name); setUnitCount(prop.units?.length ?? 0); }
       if (agr && agr.propertyId) {
         reset({
           ...agr,
@@ -102,6 +107,48 @@ export default function AgreementPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [params.id, reset]);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/properties/${params.id}/export`);
+      if (!res.ok) { toast.error("Export failed"); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      const cd   = res.headers.get("Content-Disposition") ?? "";
+      const match = cd.match(/filename="(.+?)"/);
+      a.href     = url;
+      a.download = match?.[1] ?? `PropertyHandover_${propertyName}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Handover package downloaded");
+    } catch {
+      toast.error("Export failed");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/properties/${params.id}`, { method: "DELETE" });
+      if (res.status === 409) {
+        const data = await res.json();
+        toast.error(data.error ?? "Cannot delete — active tenants exist");
+        setShowDelete(false);
+        return;
+      }
+      if (!res.ok) { toast.error("Delete failed"); return; }
+      toast.success(`${propertyName} has been deleted`);
+      router.push("/properties");
+    } catch {
+      toast.error("Delete failed");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
@@ -239,7 +286,129 @@ export default function AgreementPage() {
           </div>
 
         </form>
+
+        {/* ── Danger Zone ── */}
+        <div className="border border-red-200 rounded-2xl p-6 mt-2 mb-8 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle size={15} className="text-expense" />
+            <h3 className="font-display text-expense text-sm">Danger Zone</h3>
+          </div>
+
+          {/* Export */}
+          <div className="flex items-start justify-between gap-4 py-3 border-b border-red-100">
+            <div>
+              <p className="text-sm font-sans font-medium text-header">Download Handover Package</p>
+              <p className="text-xs text-gray-400 font-sans mt-0.5">
+                ZIP containing full financial history (XLSX) and all tenant documents
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-2 shrink-0 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-sans text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              {exporting ? "Exporting…" : "Download"}
+            </button>
+          </div>
+
+          {/* Delete */}
+          <div className="flex items-start justify-between gap-4 py-3">
+            <div>
+              <p className="text-sm font-sans font-medium text-header">Delete this property</p>
+              <p className="text-xs text-gray-400 font-sans mt-0.5">
+                Permanently removes all units, tenants, and financial records. Cannot be undone.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setDeleteInput(""); setShowDelete(true); }}
+              className="flex items-center gap-2 shrink-0 px-3 py-1.5 border border-red-200 rounded-lg text-sm font-sans text-expense hover:bg-red-50"
+            >
+              <Trash2 size={13} />
+              Delete Property
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* ── Delete Confirmation Modal ── */}
+      {showDelete && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={18} className="text-expense shrink-0" />
+                <h3 className="font-display text-header text-base">Delete {propertyName}?</h3>
+              </div>
+              <button onClick={() => setShowDelete(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Summary */}
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm font-sans space-y-1">
+              <p className="font-medium text-expense">This will permanently delete:</p>
+              <ul className="text-gray-600 text-xs space-y-0.5 mt-1 list-disc list-inside">
+                <li>{unitCount} unit{unitCount !== 1 ? "s" : ""} and all tenant records</li>
+                <li>All income, expense, and petty cash entries</li>
+                <li>All owner invoices and management agreements</li>
+                <li>All maintenance jobs, insurance policies, and assets</li>
+                <li>All tenant documents (files will remain in storage)</li>
+              </ul>
+            </div>
+
+            {/* Export reminder */}
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-start gap-2 text-xs font-sans text-amber-800">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              <span>
+                Have you downloaded the handover package?{" "}
+                <button
+                  type="button"
+                  onClick={() => { setShowDelete(false); handleExport(); }}
+                  className="underline font-medium hover:text-amber-900"
+                >
+                  Download now
+                </button>
+              </span>
+            </div>
+
+            {/* Name confirmation */}
+            <div>
+              <label className="text-xs text-gray-500 font-sans">
+                Type <span className="font-semibold text-header">{propertyName}</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteInput}
+                onChange={(e) => setDeleteInput(e.target.value)}
+                placeholder={propertyName}
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-red-300"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || deleteInput !== propertyName}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-expense text-white text-sm font-sans rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                Delete permanently
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDelete(false)}
+                className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -167,7 +167,7 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 
 const DEADLINE_HREFS: Record<string, string> = {
   "Rent Remittance":        "/invoices",
-  "Management Fee Invoice": "/invoices",
+  "Management Fee Invoice": "/invoices?tab=owner",
 };
 
 export default function CompliancePage() {

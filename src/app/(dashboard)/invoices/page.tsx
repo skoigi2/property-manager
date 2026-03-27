@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -810,7 +811,10 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 
 export default function InvoicesPage() {
   const { selectedId } = useProperty();
-  const [activeTab, setActiveTab] = useState<"tenant" | "owner">("tenant");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"tenant" | "owner">(
+    searchParams.get("tab") === "owner" ? "owner" : "tenant"
+  );
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);

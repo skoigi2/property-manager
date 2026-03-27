@@ -8,7 +8,7 @@ import {
   LayoutDashboard, TrendingUp, Receipt, FileText,
   Users, Wallet, ScrollText, Wrench, AlertTriangle,
   ShieldPlus, Package, RepeatIcon, Upload, Settings,
-  UserCog, ShieldCheck, Building2, MoreHorizontal, X,
+  UserCog, ShieldCheck, Building2, MoreHorizontal, X, BarChart3,
 } from "lucide-react";
 
 const allMgrItems = [
@@ -20,6 +20,7 @@ const allMgrItems = [
   { href: "/tenants",            label: "Tenants",     icon: Users },
   { href: "/invoices",           label: "Invoices",    icon: ScrollText },
   { href: "/maintenance",        label: "Maintenance", icon: Wrench },
+  { href: "/compliance",         label: "Compliance",  icon: BarChart3 },
   { href: "/arrears",            label: "Arrears",     icon: AlertTriangle },
   { href: "/insurance",          label: "Insurance",   icon: ShieldPlus },
   { href: "/assets",             label: "Assets",      icon: Package },
@@ -48,6 +49,7 @@ const accountantPrimary = [
 const accountantDrawer = [
   { href: "/invoices",    label: "Invoices",    icon: ScrollText },
   { href: "/maintenance", label: "Maintenance", icon: Wrench },
+  { href: "/compliance",  label: "Compliance",  icon: BarChart3 },
   { href: "/report",      label: "Report",      icon: FileText },
 ];
 

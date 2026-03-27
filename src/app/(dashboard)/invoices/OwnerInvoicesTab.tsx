@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Plus, Download, CheckCircle, Clock, AlertTriangle, XCircle,
-  FileText, Loader2, Package, X,
+  FileText, Loader2, Package, X, Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
@@ -306,6 +306,167 @@ function BundleAirbnbModal({
   );
 }
 
+// ── Edit Owner Invoice Modal ──────────────────────────────────────────────────
+
+function EditOwnerInvoiceModal({
+  invoice,
+  onClose,
+  onSaved,
+}: {
+  invoice: OwnerInvoice;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const typeCfg = TYPE_CONFIG[invoice.type];
+
+  const [dueDate, setDueDate] = useState(invoice.dueDate.slice(0, 10));
+  const [notes,   setNotes]   = useState(invoice.notes ?? "");
+  const [items,   setItems]   = useState(
+    invoice.lineItems.map((li) => ({ description: li.description, amount: String(li.amount) }))
+  );
+  const [saving, setSaving] = useState(false);
+
+  function addItem()       { setItems((p) => [...p, { description: "", amount: "" }]); }
+  function removeItem(i: number) { setItems((p) => p.filter((_, idx) => idx !== i)); }
+  function updateItem(i: number, field: "description" | "amount", val: string) {
+    setItems((p) => p.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
+  }
+
+  const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+
+  async function submit() {
+    const lineItems = items
+      .filter((i) => i.description && parseFloat(i.amount) > 0)
+      .map((i) => ({
+        description: i.description,
+        amount:      parseFloat(i.amount),
+        unitId:      null,
+        tenantId:    null,
+        incomeType:
+          invoice.type === "LETTING_FEE" || invoice.type === "PERIODIC_LETTING_FEE" ? "LETTING_FEE"
+          : invoice.type === "RENEWAL_FEE"          ? "RENEWAL_FEE"
+          : invoice.type === "VACANCY_FEE"           ? "VACANCY_FEE"
+          : invoice.type === "SETUP_FEE_INSTALMENT"  ? "SETUP_FEE_INSTALMENT"
+          : invoice.type === "CONSULTANCY_FEE"       ? "CONSULTANCY_FEE"
+          : "OTHER",
+      }));
+
+    if (lineItems.length === 0) { toast.error("Add at least one line item"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/owner-invoices/${invoice.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate, notes: notes || undefined, lineItems }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Invoice updated");
+      onSaved();
+      onClose();
+    } catch {
+      toast.error("Failed to update invoice");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 my-8">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-display text-header text-lg">Edit Owner Invoice</h3>
+            <p className="text-xs text-gray-400 font-sans mt-0.5">Changes are saved as a new draft</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+        </div>
+
+        {/* Read-only identity strip */}
+        <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-xs font-sans text-gray-500">
+          <span className="font-mono font-semibold text-header">{invoice.invoiceNumber}</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${typeCfg.badge}`}>
+            {typeCfg.label}
+          </span>
+          <span>{invoice.property.name}</span>
+          <span>{MONTH_NAMES[invoice.periodMonth - 1]} {invoice.periodYear}</span>
+        </div>
+
+        {/* Editable fields */}
+        <div>
+          <label className="text-xs text-gray-500 font-sans">Due Date</label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+          />
+        </div>
+
+        {/* Line items */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-gray-500 font-sans uppercase tracking-wide font-medium">Line Items</label>
+            <button onClick={addItem} className="text-xs text-gold font-sans hover:text-gold-dark flex items-center gap-1">
+              <Plus size={12} /> Add row
+            </button>
+          </div>
+          <div className="space-y-2">
+            {items.map((item, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Description"
+                  value={item.description}
+                  onChange={(e) => updateItem(i, "description", e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                />
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={item.amount}
+                  onChange={(e) => updateItem(i, "amount", e.target.value)}
+                  className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                />
+                {items.length > 1 && (
+                  <button onClick={() => removeItem(i)} className="text-gray-400 hover:text-expense"><X size={14} /></button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end mt-2">
+            <span className="text-xs text-gray-500 font-sans">Total: <span className="font-mono font-semibold text-header">{formatKsh(total)}</span></span>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-gray-500 font-sans">Notes (optional)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-gold/40"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={submit}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
+            Save Changes
+          </button>
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── New Owner Invoice Modal ───────────────────────────────────────────────────
 
 function NewOwnerInvoiceModal({
@@ -485,6 +646,7 @@ export default function OwnerInvoicesTab() {
   const [showCreate,     setShowCreate]     = useState(false);
   const [showBundle,     setShowBundle]     = useState(false);
   const [markPaidTarget, setMarkPaidTarget] = useState<OwnerInvoice | null>(null);
+  const [editTarget,     setEditTarget]     = useState<OwnerInvoice | null>(null);
 
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter,   setTypeFilter]   = useState("ALL");
@@ -658,6 +820,17 @@ export default function OwnerInvoicesTab() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
+                          {/* Edit */}
+                          {(invoice.status === "DRAFT" || invoice.status === "SENT") && (
+                            <button
+                              onClick={() => setEditTarget(invoice)}
+                              title="Edit invoice"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-amber-50"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                          )}
+
                           {/* Download PDF */}
                           <button
                             onClick={() => downloadPdf(invoice.id, invoice.invoiceNumber)}
@@ -730,6 +903,13 @@ export default function OwnerInvoicesTab() {
           properties={properties}
           onClose={() => setShowCreate(false)}
           onCreated={fetchInvoices}
+        />
+      )}
+      {editTarget && (
+        <EditOwnerInvoiceModal
+          invoice={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={fetchInvoices}
         />
       )}
     </>

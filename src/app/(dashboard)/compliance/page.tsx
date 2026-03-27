@@ -15,6 +15,7 @@ import {
   Calendar, Building2, Wrench, ChevronRight, Settings,
 } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -180,6 +181,7 @@ export default function CompliancePage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [data,  setData]  = useState<ComplianceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -194,6 +196,33 @@ export default function CompliancePage() {
   useEffect(() => { load(); }, [load]);
 
   const propertyIdForAgreement = selectedId || "";
+
+  async function generateMgmtFeeInvoice() {
+    if (!data?.agreement?.propertyId) return;
+    setGeneratingInvoice(true);
+    try {
+      const res = await fetch("/api/owner-invoices/generate-mgmt-fee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId:  data.agreement.propertyId,
+          periodYear:  data.period.year,
+          periodMonth: data.period.month,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Draft management fee invoice created");
+        load();
+      } else {
+        const { error } = await res.json();
+        toast.error(error ?? "Failed to generate invoice");
+      }
+    } catch {
+      toast.error("Failed to generate invoice");
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  }
 
   return (
     <div>
@@ -285,13 +314,15 @@ export default function CompliancePage() {
             {data.deadlines.filter((d) => !d.done).length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {data.deadlines.filter((d) => !d.done).map((d) => {
-                  const href = DEADLINE_HREFS[d.label];
+                  const isMgmtFee = d.label === "Management Fee Invoice";
+                  const href = isMgmtFee ? undefined : DEADLINE_HREFS[d.label];
                   const colorClass = d.overdue ? "border-red-200 bg-red-50" : d.daysUntil <= 3 ? "border-yellow-200 bg-yellow-50" : "border-gray-100 bg-white";
                   const chevronClass = d.overdue ? "text-red-300" : d.daysUntil <= 3 ? "text-yellow-300" : "text-gray-300";
+                  const calendarClass = d.overdue ? "text-red-500 shrink-0" : d.daysUntil <= 3 ? "text-yellow-500 shrink-0" : "text-gray-400 shrink-0";
                   const inner = (
                     <>
-                      <Calendar size={18} className={d.overdue ? "text-red-500 shrink-0" : d.daysUntil <= 3 ? "text-yellow-500 shrink-0" : "text-gray-400 shrink-0"} />
-                      <div className="flex-1">
+                      <Calendar size={18} className={calendarClass} />
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold font-sans text-header">{d.label}</p>
                         <p className="text-xs text-gray-500 font-sans">
                           Due {d.dayOfMonth}{d.dayOfMonth === 1 ? "st" : d.dayOfMonth === 2 ? "nd" : d.dayOfMonth === 3 ? "rd" : "th"} of the month
@@ -302,6 +333,15 @@ export default function CompliancePage() {
                           }
                         </p>
                       </div>
+                      {isMgmtFee && data.agreement && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); generateMgmtFeeInvoice(); }}
+                          disabled={generatingInvoice}
+                          className="shrink-0 text-xs font-sans font-medium text-white bg-gold hover:bg-gold-dark disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors"
+                        >
+                          {generatingInvoice ? "Generating…" : "Generate Draft"}
+                        </button>
+                      )}
                       {href && <ChevronRight size={14} className={`${chevronClass} shrink-0`} />}
                     </>
                   );

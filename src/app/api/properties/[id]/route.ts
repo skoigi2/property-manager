@@ -71,17 +71,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const access = await requirePropertyAccess(params.id);
   if (!access.ok) return access.error!;
 
-  // Guard: block if any active tenants exist
-  const activeTenantCount = await prisma.tenant.count({
-    where: { isActive: true, unit: { propertyId: params.id } },
-  });
-  if (activeTenantCount > 0) {
-    return Response.json(
-      { error: `Cannot delete — ${activeTenantCount} active tenant(s) are still linked to this property. End or vacate all tenancies first.` },
-      { status: 409 }
-    );
-  }
-
   // Fetch property name for audit log before deletion
   const property = await prisma.property.findUnique({
     where: { id: params.id },

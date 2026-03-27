@@ -134,12 +134,6 @@ export default function AgreementPage() {
     setDeleting(true);
     try {
       const res = await fetch(`/api/properties/${params.id}`, { method: "DELETE" });
-      if (res.status === 409) {
-        const data = await res.json();
-        toast.error(data.error ?? "Cannot delete — active tenants exist");
-        setShowDelete(false);
-        return;
-      }
       if (!res.ok) { toast.error("Delete failed"); return; }
       toast.success(`${propertyName} has been deleted`);
       router.push("/properties");
@@ -351,7 +345,7 @@ export default function AgreementPage() {
             <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm font-sans space-y-1">
               <p className="font-medium text-expense">This will permanently delete:</p>
               <ul className="text-gray-600 text-xs space-y-0.5 mt-1 list-disc list-inside">
-                <li>{unitCount} unit{unitCount !== 1 ? "s" : ""} and all tenant records</li>
+                <li>All units and all tenant records — including any currently active tenants</li>
                 <li>All income, expense, and petty cash entries</li>
                 <li>All owner invoices and management agreements</li>
                 <li>All maintenance jobs, insurance policies, and assets</li>

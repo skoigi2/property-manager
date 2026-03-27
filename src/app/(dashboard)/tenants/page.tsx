@@ -848,7 +848,7 @@ export default function TenantsPage() {
               </div>
             </div>
             <p className="text-sm font-sans text-gray-600">
-              A letting fee of <span className="font-semibold text-header">KSh {lettingFeePrompt.amount.toLocaleString("en-KE")}</span> (50% of first month's rent) may be due.
+              A letting fee of <span className="font-semibold text-header">KSh {lettingFeePrompt.amount.toLocaleString("en-KE")}</span> (50% of first month&apos;s rent) may be due.
               Log this as income now?
             </p>
             <div className="flex gap-3 pt-1">

@@ -190,20 +190,33 @@ export async function GET(req: Request) {
   // ── Deadline alerts ──────────────────────────────────────────────────────────
   const remittanceDate = new Date(year, month - 1, targets.rentRemittanceDay);
   const invoiceDate    = new Date(year, month - 1, targets.mgmtFeeInvoiceDay);
+
+  const mgmtFeeInvoice = await prisma.ownerInvoice.findFirst({
+    where: {
+      propertyId: { in: propertyIds },
+      type: "MANAGEMENT_FEE",
+      periodYear: year,
+      periodMonth: month,
+    },
+    select: { id: true },
+  });
+
   const deadlines = [
     {
-      label:   "Rent Remittance",
-      dueDate: remittanceDate.toISOString(),
+      label:      "Rent Remittance",
+      dueDate:    remittanceDate.toISOString(),
       dayOfMonth: targets.rentRemittanceDay,
-      overdue: now > remittanceDate,
-      daysUntil: Math.ceil((remittanceDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+      done:       false,
+      overdue:    now > remittanceDate,
+      daysUntil:  Math.ceil((remittanceDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
     },
     {
-      label:   "Management Fee Invoice",
-      dueDate: invoiceDate.toISOString(),
+      label:      "Management Fee Invoice",
+      dueDate:    invoiceDate.toISOString(),
       dayOfMonth: targets.mgmtFeeInvoiceDay,
-      overdue: now > invoiceDate,
-      daysUntil: Math.ceil((invoiceDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+      done:       !!mgmtFeeInvoice,
+      overdue:    !mgmtFeeInvoice && now > invoiceDate,
+      daysUntil:  Math.ceil((invoiceDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
     },
   ];
 

@@ -67,6 +67,7 @@ interface Deadline {
   label: string;
   dueDate: string;
   dayOfMonth: number;
+  done: boolean;
   overdue: boolean;
   daysUntil: number;
 }
@@ -281,9 +282,9 @@ export default function CompliancePage() {
             )}
 
             {/* ── Deadline Alerts ── */}
-            {data.deadlines.length > 0 && (
+            {data.deadlines.filter((d) => !d.done).length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {data.deadlines.map((d) => {
+                {data.deadlines.filter((d) => !d.done).map((d) => {
                   const href = DEADLINE_HREFS[d.label];
                   const colorClass = d.overdue ? "border-red-200 bg-red-50" : d.daysUntil <= 3 ? "border-yellow-200 bg-yellow-50" : "border-gray-100 bg-white";
                   const chevronClass = d.overdue ? "text-red-300" : d.daysUntil <= 3 ? "text-yellow-300" : "text-gray-300";

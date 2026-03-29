@@ -390,6 +390,7 @@ model Tenant {
   proposedRent     Float?
   proposedLeaseEnd DateTime?
   renewalNotes     String?
+  chargeLatePenalty Boolean         @default(false)
   unit             Unit             @relation(fields: [unitId], references: [id])
   incomeEntries     IncomeEntry[]
   invoices          Invoice[]
@@ -854,6 +855,7 @@ model ManagementAgreement {
   kpiMaintenanceCompletionTarget Float    @default(95)
   kpiEmergencyResponseHrs        Int      @default(24)
   kpiStandardResponseHrs         Int      @default(96)
+  latePaymentInterestRate        Float    @default(0)   // annual %, e.g. 5.0
 
   createdAt                      DateTime @default(now())
   updatedAt                      DateTime @updatedAt

@@ -36,6 +36,7 @@ const schema = z.object({
   kpiMaintenanceCompletionTarget: z.coerce.number().min(0).max(100),
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1),
+  latePaymentInterestRate:        z.coerce.number().min(0).max(100),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -87,6 +88,7 @@ export default function AgreementPage() {
       kpiOccupancyTarget: 90, kpiRentCollectionTarget: 90, kpiExpenseRatioTarget: 85,
       kpiTenantTurnoverTarget: 90, kpiDaysToLeaseTarget: 60, kpiRenewalRateTarget: 90,
       kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
+      latePaymentInterestRate: 0,
     },
   });
 
@@ -209,6 +211,9 @@ export default function AgreementPage() {
               </Field>
               <Field label="Repair Authority Limit (KSh)" help="Maximum repair cost without landlord written approval" error={errors.repairAuthorityLimit?.message}>
                 <input type="number" className="form-input" {...register("repairAuthorityLimit")} placeholder="100000" />
+              </Field>
+              <Field label="Late Payment Interest (% p.a.)" help="Annual interest rate applied to overdue rent. Set to 0 to disable." error={errors.latePaymentInterestRate?.message}>
+                <input type="number" step="0.1" className="form-input" {...register("latePaymentInterestRate")} placeholder="0" />
               </Field>
               <Field label="Setup Fee Total (KSh)" help="One-off setup fee (leave blank if none)" error={errors.setupFeeTotal?.message}>
                 <input type="number" className="form-input" {...register("setupFeeTotal")} placeholder="600000" />

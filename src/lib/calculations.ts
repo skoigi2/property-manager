@@ -74,6 +74,21 @@ export function calcOccupancyRate(
   return Math.min(bookedDays / daysInPeriod, 1);
 }
 
+/**
+ * Calculate interest on an overdue rent amount.
+ * @param unpaidAmount  - KSh shortfall (expected − paid)
+ * @param annualRatePct - annual interest rate as a percentage (e.g. 12 for 12%)
+ * @param daysOverdue   - days elapsed since the due date
+ */
+export function calcLateInterest(
+  unpaidAmount: number,
+  annualRatePct: number,
+  daysOverdue: number,
+): number {
+  if (annualRatePct <= 0 || daysOverdue <= 0 || unpaidAmount <= 0) return 0;
+  return unpaidAmount * (annualRatePct / 100 / 365) * daysOverdue;
+}
+
 /** Summary stats for a unit in a given period */
 export function calcUnitSummary(
   incomeEntries: IncomeEntry[],

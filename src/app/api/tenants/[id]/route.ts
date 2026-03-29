@@ -1,6 +1,7 @@
 import { requireAuth, requireManager } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
+import { z } from "zod";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const { error } = await requireAuth();
@@ -51,6 +52,29 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     include: {
       unit: { include: { property: { select: { name: true, type: true } } } },
     },
+  });
+
+  return Response.json(tenant);
+}
+
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const { error } = await requireManager();
+  if (error) return error;
+
+  let body: unknown;
+  try { body = await req.json(); } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const parsed = z.object({ chargeLatePenalty: z.boolean() }).safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const tenant = await prisma.tenant.update({
+    where: { id: params.id },
+    data:  { chargeLatePenalty: parsed.data.chargeLatePenalty },
+    select: { id: true, chargeLatePenalty: true },
   });
 
   return Response.json(tenant);

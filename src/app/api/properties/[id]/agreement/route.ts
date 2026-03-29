@@ -25,6 +25,7 @@ const agreementSchema = z.object({
   kpiMaintenanceCompletionTarget: z.coerce.number().min(0).max(100).default(95),
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1).default(24),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1).default(96),
+  latePaymentInterestRate:        z.coerce.number().min(0).max(100).default(0),
 });
 
 export async function GET(

@@ -24,6 +24,7 @@ import {
   DollarSign, CheckCheck, Clock, FileDown, ChevronsUpDown, GripVertical,
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
+import { calcLateInterest } from "@/lib/calculations";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
@@ -75,6 +76,7 @@ interface ArrearsSummary {
   months: MonthRow[];
   unpaidMonths: MonthRow[];
   totalArrears: number;
+  totalInterest: number;
   totalMonthsOwed: number;
   lastPaymentDate: string | null;
   hasArrears: boolean;
@@ -82,7 +84,7 @@ interface ArrearsSummary {
 
 // ── Arrears computation ────────────────────────────────────────────────────────
 
-function computeArrears(tenant: any, allEntries: any[]): ArrearsSummary {
+function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0): ArrearsSummary {
   const leaseStart = new Date(tenant.leaseStart);
   const today = new Date();
 
@@ -126,6 +128,15 @@ function computeArrears(tenant: any, allEntries: any[]): ArrearsSummary {
   const unpaidMonths = months.filter((m) => !m.isPaid);
   const totalArrears = unpaidMonths.reduce((s, m) => s + Math.max(0, m.expected - m.totalPaid), 0);
 
+  // Interest: accrues from the 1st of the month following the due month
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  const totalInterest = unpaidMonths.reduce((s, m) => {
+    const shortfall = Math.max(0, m.expected - m.totalPaid);
+    const dueDate = new Date(m.year, m.month + 1, 1); // 1st of next month
+    const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / MS_PER_DAY));
+    return s + calcLateInterest(shortfall, annualInterestRate, daysOverdue);
+  }, 0);
+
   const sorted = [...tenantEntries].sort(
     (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
@@ -134,6 +145,7 @@ function computeArrears(tenant: any, allEntries: any[]): ArrearsSummary {
     months,
     unpaidMonths,
     totalArrears,
+    totalInterest,
     totalMonthsOwed: unpaidMonths.length,
     lastPaymentDate: sorted[0]?.date ?? null,
     hasArrears: totalArrears > 0,
@@ -182,6 +194,7 @@ export default function IncomePage() {
   const [arrearsSeq, setArrearsSeq]           = useState(0); // increment to re-fetch
   const [openCases, setOpenCases]             = useState<Record<string, string>>({}); // tenantId → caseId
   const [openingCaseFor, setOpeningCaseFor]   = useState<string | null>(null); // tenantId being submitted
+  const [togglingInterest, setTogglingInterest] = useState<string | null>(null); // tenantId
 
   // Form
   const [submitting, setSubmitting]           = useState(false);
@@ -294,16 +307,26 @@ export default function IncomePage() {
     totalReceived: collectionRows.reduce((s, r) => s + r.totalPaid, 0),
   }), [collectionRows]);
 
+  // ── Interest rate lookup by property ID ───────────────────────────────────
+  const interestRateByPropertyId = useMemo(() =>
+    Object.fromEntries(
+      properties.map((p: any) => [p.id, p.agreement?.latePaymentInterestRate ?? 0])
+    ), [properties]);
+
   // ── Arrears rows ──────────────────────────────────────────────────────────
   const arrearsRows = useMemo(() => {
     if (arrearsLoading || allIncomeEntries.length === 0 && collectionMode !== "arrears") return [];
     return allTenants
-      .map((tenant: any) => ({
-        tenant,
-        summary: computeArrears(tenant, allIncomeEntries),
-      }))
+      .map((tenant: any) => {
+        const annualRate = interestRateByPropertyId[tenant.unit?.property?.id] ?? 0;
+        return {
+          tenant,
+          summary: computeArrears(tenant, allIncomeEntries, annualRate),
+          annualRate,
+        };
+      })
       .sort((a, b) => b.summary.totalArrears - a.summary.totalArrears);
-  }, [allTenants, allIncomeEntries, arrearsLoading, collectionMode]);
+  }, [allTenants, allIncomeEntries, arrearsLoading, collectionMode, interestRateByPropertyId]);
 
   const arrearsSummary = useMemo(() => ({
     totalOutstanding: arrearsRows.reduce((s, r) => s + r.summary.totalArrears, 0),
@@ -705,6 +728,25 @@ export default function IncomePage() {
     );
   }
 
+  // ── Toggle late payment interest per tenant ───────────────────────────────
+  async function toggleInterest(tenantId: string, current: boolean) {
+    setTogglingInterest(tenantId);
+    try {
+      await fetch(`/api/tenants/${tenantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chargeLatePenalty: !current }),
+      });
+      setAllTenants((prev: any[]) =>
+        prev.map((t: any) => t.id === tenantId ? { ...t, chargeLatePenalty: !current } : t)
+      );
+    } catch {
+      toast.error("Failed to update interest setting");
+    } finally {
+      setTogglingInterest(null);
+    }
+  }
+
   // ── P&L totals ─────────────────────────────────────────────────────────────
   const plEntries      = entries.filter((e: any) => !EXCLUDED_FROM_PL.includes(e.type));
   const depositEntries = entries.filter((e: any) => e.type === "DEPOSIT");
@@ -1026,13 +1068,13 @@ export default function IncomePage() {
                         <thead className="bg-cream-dark">
                           <tr>
                             <th className="w-8 px-4 py-3" />
-                            {["Unit","Tenant","Months Unpaid","Total Arrears","Last Payment",""].map((h) => (
+                            {["Unit","Tenant","Months Unpaid","Total Arrears","Interest","Last Payment",""].map((h) => (
                               <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {arrearsRows.map(({ tenant, summary }) => {
+                          {arrearsRows.map(({ tenant, summary, annualRate }) => {
                             const isExpanded = expandedRows.has(tenant.id);
                             const severity = summary.totalArrears > tenant.monthlyRent * 2
                               ? "bg-red-50 border-l-4 border-red-300"
@@ -1069,6 +1111,33 @@ export default function IncomePage() {
                                       <CurrencyDisplay amount={summary.totalArrears} size="sm" className="text-red-600 font-semibold" />
                                     ) : (
                                       <span className="text-xs text-green-600 font-sans">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                    {annualRate > 0 && summary.totalArrears > 0 ? (
+                                      <div className="flex flex-col gap-1">
+                                        <CurrencyDisplay
+                                          amount={summary.totalInterest}
+                                          size="sm"
+                                          className={tenant.chargeLatePenalty ? "text-expense font-semibold" : "text-gray-400"}
+                                        />
+                                        <button
+                                          disabled={togglingInterest === tenant.id}
+                                          onClick={() => toggleInterest(tenant.id, tenant.chargeLatePenalty)}
+                                          className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors font-sans whitespace-nowrap disabled:opacity-50 ${
+                                            tenant.chargeLatePenalty
+                                              ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                              : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                                          }`}
+                                        >
+                                          {togglingInterest === tenant.id
+                                            ? <Loader2 size={10} className="animate-spin" />
+                                            : null}
+                                          {tenant.chargeLatePenalty ? "Applied" : "Apply"}
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-gray-300 font-sans">—</span>
                                     )}
                                   </td>
                                   <td className="px-4 py-3 text-sm font-sans text-gray-500">
@@ -1116,7 +1185,7 @@ export default function IncomePage() {
                                 {/* Expanded: per-month breakdown */}
                                 {isExpanded && (
                                   <tr key={`${tenant.id}-expanded`} className="border-t border-gray-50">
-                                    <td colSpan={7} className="px-0 py-0">
+                                    <td colSpan={8} className="px-0 py-0">
                                       <div className="bg-gray-50 border-t border-gray-100 px-8 py-3">
                                         <table className="w-full text-xs font-sans">
                                           <thead>

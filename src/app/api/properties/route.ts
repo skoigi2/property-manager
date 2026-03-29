@@ -31,6 +31,7 @@ export async function GET() {
       units: { select: { id: true, unitNumber: true, type: true, status: true, monthlyRent: true } },
       owner:   { select: { id: true, name: true, email: true } },
       manager: { select: { id: true, name: true, email: true } },
+      agreement: { select: { latePaymentInterestRate: true } },
       _count: { select: { units: true } },
     },
     orderBy: { name: "asc" },

@@ -1406,10 +1406,16 @@ export default function IncomePage() {
                   </div>
 
                   {incomeType === "AIRBNB" && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input label="Check-in" type="date" {...register("checkIn")} />
-                      <Input label="Check-out" type="date" {...register("checkOut")} />
-                    </div>
+                    <>
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-sans flex items-start gap-2">
+                        <span>💡</span>
+                        <span>Tip: Use the <a href="/airbnb" className="font-semibold underline hover:text-amber-900">Airbnb page</a> to create bookings with the visual calendar.</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input label="Check-in" type="date" {...register("checkIn")} />
+                        <Input label="Check-out" type="date" {...register("checkOut")} />
+                      </div>
+                    </>
                   )}
 
                   {incomeType === "DEPOSIT" && (

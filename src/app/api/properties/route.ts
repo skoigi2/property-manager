@@ -25,10 +25,22 @@ export async function GET() {
   const ids = await getAccessiblePropertyIds();
   if (ids === null) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd   = new Date(todayStart.getTime() + 86400000);
+
   const properties = await prisma.property.findMany({
     where: { id: { in: ids } },
     include: {
-      units: { select: { id: true, unitNumber: true, type: true, status: true, monthlyRent: true } },
+      units: {
+        select: {
+          id: true, unitNumber: true, type: true, status: true, monthlyRent: true,
+          _count: { select: { tenants: { where: { isActive: true } } } },
+          incomeEntries: {
+            where: { type: "AIRBNB", checkIn: { lte: todayEnd }, checkOut: { gt: todayStart } },
+            select: { id: true, checkIn: true, checkOut: true },
+          },
+        },
+      },
       owner:   { select: { id: true, name: true, email: true } },
       manager: { select: { id: true, name: true, email: true } },
       agreement: { select: { latePaymentInterestRate: true } },

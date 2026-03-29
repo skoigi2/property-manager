@@ -29,6 +29,8 @@ interface Unit {
   floor: number | null;
   sizeSqm: number | null;
   description: string | null;
+  _count?: { tenants: number };
+  incomeEntries?: { id: string; checkIn: string; checkOut: string }[];
 }
 
 type PropertyCategory = "RESIDENTIAL" | "OFFICE" | "INDUSTRIAL" | "RETAIL" | "MIXED_USE" | "OTHER";
@@ -131,6 +133,8 @@ const UNIT_TYPE_LABELS: Record<string, string> = {
 
 const UNIT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Occupied",
+  BOOKED: "Booked",
+  AVAILABLE: "Available",
   VACANT: "Vacant",
   LISTED: "Listed",
   UNDER_NOTICE: "Under Notice",
@@ -147,14 +151,39 @@ const STATUS_COLORS: Record<string, string> = {
   OWNER_OCCUPIED: "bg-purple-400",
 };
 
-const STATUS_BADGE: Record<string, "green" | "amber" | "blue" | "red" | "gray"> = {
+const STATUS_BADGE: Record<string, "green" | "amber" | "blue" | "red" | "gray" | "gold"> = {
   ACTIVE: "green",
+  BOOKED: "gold",
+  AVAILABLE: "green",
   VACANT: "amber",
   LISTED: "blue",
   UNDER_NOTICE: "amber",
   MAINTENANCE: "gray",
   OWNER_OCCUPIED: "gray",
 };
+
+// ─── Unit status helpers ──────────────────────────────────────────────────────
+
+function unitDisplayStatus(u: Unit, propertyType: string): string {
+  if (u.status === "MAINTENANCE") return "MAINTENANCE";
+  if (u.status === "VACANT" || u.status === "LISTED") return u.status;
+  if (u.status === "UNDER_NOTICE") return "UNDER_NOTICE";
+  if (u.status === "OWNER_OCCUPIED") return "OWNER_OCCUPIED";
+  if (propertyType === "AIRBNB") {
+    return (u.incomeEntries?.length ?? 0) > 0 ? "BOOKED" : "AVAILABLE";
+  }
+  return (u._count?.tenants ?? 0) > 0 ? "ACTIVE" : "VACANT";
+}
+
+function activeUnits(units: Unit[], propertyType: string): number {
+  return propertyType === "AIRBNB"
+    ? units.filter((u) => (u.incomeEntries?.length ?? 0) > 0).length
+    : units.filter((u) => (u._count?.tenants ?? 0) > 0).length;
+}
+
+function vacantUnits(units: Unit[]): number {
+  return units.filter((u) => u.status === "VACANT" || u.status === "LISTED").length;
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -366,9 +395,11 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
                   <span className="text-xs text-gray-400 hidden sm:block">
                     {UNIT_TYPE_LABELS[u.type] ?? u.type}
                   </span>
-                  <Badge variant={STATUS_BADGE[u.status] ?? "gray"} className="hidden sm:inline-flex text-xs">
-                    {UNIT_STATUS_LABELS[u.status] ?? u.status}
-                  </Badge>
+                  {(() => { const ds = unitDisplayStatus(u, property.type); return (
+                    <Badge variant={(STATUS_BADGE as any)[ds] ?? "gray"} className="hidden sm:inline-flex text-xs">
+                      {UNIT_STATUS_LABELS[ds] ?? ds}
+                    </Badge>
+                  ); })()}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   {u.monthlyRent != null && (
@@ -515,17 +546,29 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                               {u.monthlyRent != null && (
                                 <span className="text-xs font-mono text-gray-500">KSh {u.monthlyRent.toLocaleString("en-KE")}</span>
                               )}
-                              <Badge variant={STATUS_BADGE[u.status] ?? "gray"}>
-                                {UNIT_STATUS_LABELS[u.status] ?? u.status}
-                              </Badge>
+                              {(() => { const ds = unitDisplayStatus(u, property!.type); return (
+                                <Badge variant={(STATUS_BADGE as any)[ds] ?? "gray"}>
+                                  {UNIT_STATUS_LABELS[ds] ?? ds}
+                                </Badge>
+                              ); })()}
                             </div>
                           </div>
                         ))}
                         {/* Summary counts */}
                         <div className="flex gap-3 pt-2 text-xs font-sans text-gray-500">
-                          <span className="text-income font-medium">{property.units.filter(u => u.status === "ACTIVE").length} occupied</span>
-                          <span>·</span>
-                          <span className="text-amber-500 font-medium">{property.units.filter(u => u.status === "VACANT" || u.status === "LISTED").length} vacant</span>
+                          {property.type === "AIRBNB" ? (
+                            <>
+                              <span className="text-gold font-medium">{activeUnits(property.units, "AIRBNB")} booked</span>
+                              <span>·</span>
+                              <span className="text-income font-medium">{property.units.length - activeUnits(property.units, "AIRBNB")} available</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-income font-medium">{activeUnits(property.units, "LONGTERM")} occupied</span>
+                              <span>·</span>
+                              <span className="text-amber-500 font-medium">{vacantUnits(property.units)} vacant</span>
+                            </>
+                          )}
                           <span>·</span>
                           <span>{property.units.length} total</span>
                         </div>
@@ -634,7 +677,7 @@ function PropertiesTable({
   isManager: boolean;
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
-  activeUnits: (units: Property["units"]) => number;
+  activeUnits: (units: Property["units"], propertyType: string) => number;
   vacantUnits: (units: Property["units"]) => number;
 }) {
   return (
@@ -654,7 +697,7 @@ function PropertiesTable({
         </thead>
         <tbody className="divide-y divide-gray-50 bg-white">
           {properties.map((p, i) => {
-            const occupied = activeUnits(p.units);
+            const occupied = activeUnits(p.units, p.type);
             const vacant   = vacantUnits(p.units);
             const total    = p._count.units;
             const feeText  = p.managementFeeRate
@@ -1100,12 +1143,6 @@ export default function PropertiesPage() {
     }
   };
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-
-  const activeUnits = (units: Unit[]) => units.filter((u) => u.status === "ACTIVE").length;
-  const vacantUnits = (units: Unit[]) =>
-    units.filter((u) => u.status === "VACANT" || u.status === "LISTED").length;
-
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -1227,12 +1264,12 @@ export default function PropertiesPage() {
                     <p className="text-xs text-gray-400 font-sans">Total units</p>
                   </div>
                   <div className="bg-cream rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-mono font-semibold text-income">{activeUnits(p.units)}</p>
-                    <p className="text-xs text-gray-400 font-sans">Occupied</p>
+                    <p className={`text-lg font-mono font-semibold ${p.type === "AIRBNB" ? "text-gold" : "text-income"}`}>{activeUnits(p.units, p.type)}</p>
+                    <p className="text-xs text-gray-400 font-sans">{p.type === "AIRBNB" ? "Booked" : "Occupied"}</p>
                   </div>
                   <div className="bg-cream rounded-lg p-2.5 text-center">
                     <p className="text-lg font-mono font-semibold text-yellow-500">{vacantUnits(p.units)}</p>
-                    <p className="text-xs text-gray-400 font-sans">Vacant</p>
+                    <p className="text-xs text-gray-400 font-sans">{p.type === "AIRBNB" ? "Maintenance/Vacant" : "Vacant"}</p>
                   </div>
                 </div>
 

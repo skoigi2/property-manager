@@ -426,6 +426,7 @@ model IncomeEntry {
   tenant            Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   ownerInvoice      OwnerInvoice? @relation(fields: [ownerInvoiceId], references: [id], onDelete: SetNull)
+  bookingGuests     BookingGuest[]
   createdAt         DateTime   @default(now())
 
   @@index([date])
@@ -879,4 +880,51 @@ model BuildingConditionReport {
 
   @@index([propertyId])
   @@index([reportDate])
+}
+
+// ─── Airbnb Guest Management ──────────────────────────────────────────────────
+
+model AirbnbGuest {
+  id             String          @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  nationality    String?
+  passportNumber String?
+  preferences    String?
+  bookings       BookingGuest[]
+  documents      GuestDocument[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([name])
+  @@index([email])
+}
+
+model BookingGuest {
+  id            String      @id @default(cuid())
+  guestId       String
+  incomeEntryId String
+  isPrimary     Boolean     @default(false)
+  guest         AirbnbGuest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  incomeEntry   IncomeEntry @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([guestId, incomeEntryId])
+  @@index([incomeEntryId])
+  @@index([guestId])
+}
+
+model GuestDocument {
+  id          String      @id @default(cuid())
+  guestId     String
+  label       String
+  fileName    String
+  storagePath String
+  fileSize    Int?
+  mimeType    String?
+  uploadedAt  DateTime    @default(now())
+  guest       AirbnbGuest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([guestId])
 }

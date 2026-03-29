@@ -111,7 +111,13 @@
       "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\properties\\\\[id]\\\\condition-reports\")",
       "Bash(wc -l \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\tenants\\\\page.tsx\")",
       "Bash(wc -l \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\tenants\\\\[id]\\\\page.tsx\")",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(python3 -c \"import reportlab; print\\(''reportlab ok''\\)\")",
+      "Bash(python3 \"C:\\\\Users\\\\STEVE KOIGI\\\\AppData\\\\Local\\\\Temp\\\\gen_workflow_pdf.py\")",
+      "Bash(node -e \"const JSZip = require\\(''jszip''\\); console.log\\(''jszip ok'', typeof JSZip\\)\")",
+      "Bash(tail -20 \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\properties\\\\page.tsx\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\guests\\\\[id]\\\\documents\\\\[docId]\")",
+      "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\bookings\\\\[entryId]\\\\guests\\\\[guestId]\")"
     ]
   }
 }

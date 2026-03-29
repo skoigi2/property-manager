@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
 import { calcLateInterest } from "@/lib/calculations";
+import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
@@ -161,6 +162,7 @@ export default function IncomePage() {
   const [tab, setTab]                         = useState<Tab>("collection");
   const [collectionMode, setCollectionMode]   = useState<CollectionMode>("monthly");
   const [expandedRows, setExpandedRows]       = useState<Set<string>>(new Set());
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
   // Sort (shared, reset on tab change)
   const [sortCol, setSortCol]   = useState<string | null>(null);
@@ -374,6 +376,15 @@ export default function IncomePage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [collectionRows, sortCol, sortDir, tab]);
+
+  // ── Toggle expanded entry (Airbnb guest panel) ────────────────────────────
+  function toggleEntry(entryId: string) {
+    setExpandedEntries((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryId)) { next.delete(entryId); } else { next.add(entryId); }
+      return next;
+    });
+  }
 
   // ── Toggle expanded row ────────────────────────────────────────────────────
   function toggleRow(tenantId: string) {
@@ -1394,16 +1405,40 @@ export default function IncomePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedEntries.map((entry: any) => (
-                        <tr key={entry.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", entry.type === "DEPOSIT" && "opacity-75")}>
-                          {entriesColOrder.map((key) => renderEntriesCell(key, entry))}
-                          <td className="px-4 py-3">
-                            <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {sortedEntries.map((entry: any) => {
+                        const isAirbnb = entry.type === "AIRBNB";
+                        const isExpanded = expandedEntries.has(entry.id);
+                        return (
+                          <>
+                            <tr key={entry.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", entry.type === "DEPOSIT" && "opacity-75", isExpanded && "bg-cream/50")}>
+                              {entriesColOrder.map((key) => renderEntriesCell(key, entry))}
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1">
+                                  {isAirbnb && (
+                                    <button
+                                      onClick={() => toggleEntry(entry.id)}
+                                      className="text-gray-400 hover:text-gold transition-colors p-1"
+                                      title={isExpanded ? "Hide guests" : "View guests"}
+                                    >
+                                      {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                                    </button>
+                                  )}
+                                  <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
+                                    <Trash2 size={15} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {isAirbnb && isExpanded && (
+                              <tr key={`${entry.id}-guests`} className="border-t border-gold/20 bg-amber-50/30">
+                                <td colSpan={entriesColOrder.length + 1} className="px-6 py-4">
+                                  <GuestPanel incomeEntryId={entry.id} />
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

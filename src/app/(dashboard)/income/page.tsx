@@ -22,6 +22,7 @@ import {
   LayoutList, TableProperties, Receipt, ChevronDown, ChevronRight, ChevronUp,
   RefreshCw, AlertTriangle, Loader2, Zap, FolderOpen,
   DollarSign, CheckCheck, Clock, FileDown, ChevronsUpDown, GripVertical,
+  Phone, Mail, Building2, BookUser, Pencil,
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
 import { calcLateInterest } from "@/lib/calculations";
@@ -197,6 +198,16 @@ export default function IncomePage() {
   const [openingCaseFor, setOpeningCaseFor]   = useState<string | null>(null); // tenantId being submitted
   const [togglingInterest, setTogglingInterest] = useState<string | null>(null); // tenantId
 
+  // Agent directory
+  const [agents, setAgents]                     = useState<any[]>([]);
+  const [agentsLoading, setAgentsLoading]       = useState(false);
+  const [showAgentDir, setShowAgentDir]         = useState(true);
+  const [showAgentForm, setShowAgentForm]       = useState(false);
+  const [editingAgent, setEditingAgent]         = useState<any | null>(null);
+  const [deletingAgentId, setDeletingAgentId]   = useState<string | null>(null);
+  const [savingAgent, setSavingAgent]           = useState(false);
+  const [agentFormData, setAgentFormData]       = useState({ name: "", phone: "", email: "", agency: "", notes: "" });
+
   // Form
   const [submitting, setSubmitting]           = useState(false);
   const [deleteId, setDeleteId]               = useState<string | null>(null);
@@ -286,6 +297,71 @@ export default function IncomePage() {
       .catch(() => setActiveTenant(null))
       .finally(() => setTenantLookupLoading(false));
   }, [selectedUnitId, incomeType, setValue]);
+
+  // ── Fetch: agent directory ────────────────────────────────────────────────
+  const fetchAgents = useCallback(() => {
+    setAgentsLoading(true);
+    fetch("/api/agents")
+      .then((r) => r.json())
+      .then((d) => { setAgents(d); setAgentsLoading(false); })
+      .catch(() => setAgentsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (tab === "commissions") fetchAgents();
+  }, [tab, fetchAgents]);
+
+  // ── Agent handlers ────────────────────────────────────────────────────────
+  async function handleSaveAgent() {
+    if (!agentFormData.name.trim()) return;
+    setSavingAgent(true);
+    try {
+      if (editingAgent) {
+        const res = await fetch(`/api/agents/${editingAgent.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(agentFormData),
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setAgents((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+          setEditingAgent(null);
+        }
+      } else {
+        const res = await fetch("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(agentFormData),
+        });
+        if (res.ok) {
+          const created = await res.json();
+          setAgents((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+          setShowAgentForm(false);
+        }
+      }
+      setAgentFormData({ name: "", phone: "", email: "", agency: "", notes: "" });
+    } finally {
+      setSavingAgent(false);
+    }
+  }
+
+  async function handleDeleteAgent(id: string) {
+    await fetch(`/api/agents/${id}`, { method: "DELETE" });
+    setAgents((prev) => prev.filter((a) => a.id !== id));
+    setDeletingAgentId(null);
+  }
+
+  function startEditAgent(agent: any) {
+    setEditingAgent(agent);
+    setAgentFormData({ name: agent.name, phone: agent.phone ?? "", email: agent.email ?? "", agency: agent.agency ?? "", notes: agent.notes ?? "" });
+    setShowAgentForm(false);
+  }
+
+  function cancelAgentForm() {
+    setEditingAgent(null);
+    setShowAgentForm(false);
+    setAgentFormData({ name: "", phone: "", email: "", agency: "", notes: "" });
+  }
 
   // ── Monthly collection rows ────────────────────────────────────────────────
   const collectionRows = useMemo(() =>
@@ -1472,6 +1548,148 @@ export default function IncomePage() {
               </Card>
             </div>
 
+            {/* ── Agent Directory ────────────────────────────────────────── */}
+            <Card padding="none">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <button
+                  onClick={() => setShowAgentDir((v) => !v)}
+                  className="flex items-center gap-2 text-sm font-display text-header hover:text-gold transition-colors"
+                >
+                  <BookUser size={15} className="text-gold" />
+                  Agent Directory
+                  <span className="text-xs text-gray-400 font-sans">({agents.length})</span>
+                  {showAgentDir ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                </button>
+                <button
+                  onClick={() => { setShowAgentForm(true); setEditingAgent(null); setAgentFormData({ name: "", phone: "", email: "", agency: "", notes: "" }); }}
+                  className="flex items-center gap-1.5 text-xs font-sans font-medium text-gold hover:text-gold-dark transition-colors"
+                >
+                  <Plus size={13} /> Add Agent
+                </button>
+              </div>
+
+              {showAgentDir && (
+                <div className="p-4 space-y-3">
+                  {/* Add / inline form */}
+                  {(showAgentForm || editingAgent) && (
+                    <div className="border border-gold/30 rounded-xl p-4 bg-amber-50/30 space-y-3">
+                      <p className="text-xs font-medium font-sans text-header">{editingAgent ? "Edit Agent" : "New Agent"}</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 font-sans mb-1">Name *</label>
+                          <input
+                            value={agentFormData.name}
+                            onChange={(e) => setAgentFormData((p) => ({ ...p, name: e.target.value }))}
+                            placeholder="Agent name"
+                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 font-sans mb-1">Agency / Company</label>
+                          <input
+                            value={agentFormData.agency}
+                            onChange={(e) => setAgentFormData((p) => ({ ...p, agency: e.target.value }))}
+                            placeholder="e.g. Prime Lets Ltd"
+                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 font-sans mb-1">Phone</label>
+                          <input
+                            value={agentFormData.phone}
+                            onChange={(e) => setAgentFormData((p) => ({ ...p, phone: e.target.value }))}
+                            placeholder="+254 7xx xxx xxx"
+                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 font-sans mb-1">Email</label>
+                          <input
+                            value={agentFormData.email}
+                            onChange={(e) => setAgentFormData((p) => ({ ...p, email: e.target.value }))}
+                            placeholder="agent@example.com"
+                            type="email"
+                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 font-sans mb-1">Notes</label>
+                        <textarea
+                          value={agentFormData.notes}
+                          onChange={(e) => setAgentFormData((p) => ({ ...p, notes: e.target.value }))}
+                          rows={2}
+                          placeholder="Any notes about this agent..."
+                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSaveAgent}
+                          disabled={savingAgent || !agentFormData.name.trim()}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gold text-white rounded-lg font-sans font-medium hover:bg-gold-dark transition-colors disabled:opacity-40"
+                        >
+                          {savingAgent ? <Loader2 size={12} className="animate-spin" /> : null}
+                          {editingAgent ? "Save Changes" : "Add Agent"}
+                        </button>
+                        <button onClick={cancelAgentForm} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg font-sans text-gray-500 hover:bg-gray-50 transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {agentsLoading ? (
+                    <div className="flex justify-center py-6"><Spinner /></div>
+                  ) : agents.length === 0 && !showAgentForm ? (
+                    <p className="text-xs text-gray-400 font-sans text-center py-4">No agents saved yet. Add one above.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {agents.map((agent) => (
+                        editingAgent?.id === agent.id ? null : (
+                          <div key={agent.id} className="border border-gray-100 rounded-xl p-3 bg-white hover:border-gray-200 transition-colors">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium font-sans text-header truncate">{agent.name}</p>
+                                {agent.agency && (
+                                  <p className="flex items-center gap-1 text-xs text-gray-500 font-sans mt-0.5">
+                                    <Building2 size={10} className="shrink-0 text-gray-400" /> {agent.agency}
+                                  </p>
+                                )}
+                                {agent.phone && (
+                                  <p className="flex items-center gap-1 text-xs text-gray-600 font-sans mt-0.5">
+                                    <Phone size={10} className="shrink-0 text-gray-400" />
+                                    <a href={`tel:${agent.phone}`} className="hover:text-gold transition-colors">{agent.phone}</a>
+                                  </p>
+                                )}
+                                {agent.email && (
+                                  <p className="flex items-center gap-1 text-xs text-gray-600 font-sans mt-0.5">
+                                    <Mail size={10} className="shrink-0 text-gray-400" />
+                                    <a href={`mailto:${agent.email}`} className="hover:text-gold transition-colors truncate">{agent.email}</a>
+                                  </p>
+                                )}
+                                {agent.notes && (
+                                  <p className="text-xs text-gray-400 font-sans mt-1 italic line-clamp-2">{agent.notes}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button onClick={() => startEditAgent(agent)} className="p-1.5 text-gray-300 hover:text-gold transition-colors rounded-md hover:bg-amber-50" title="Edit">
+                                  <Pencil size={13} />
+                                </button>
+                                <button onClick={() => setDeletingAgentId(agent.id)} className="p-1.5 text-gray-300 hover:text-expense transition-colors rounded-md hover:bg-red-50" title="Delete">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+
             {commissionEntries.length === 0 ? (
               <Card>
                 <div className="flex flex-col items-center py-10 gap-2 text-gray-400">
@@ -1490,7 +1708,7 @@ export default function IncomePage() {
                       <table className="w-full min-w-[500px]">
                         <thead className="bg-cream-dark">
                           <tr>
-                            {["Agent", "Bookings", "Total Commission", "Paid", "Outstanding", "Status"].map((h) => (
+                            {["Agent", "Contact", "Bookings", "Total Commission", "Paid", "Outstanding", "Status"].map((h) => (
                               <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
                             ))}
                           </tr>
@@ -1502,6 +1720,19 @@ export default function IncomePage() {
                             return (
                               <tr key={agent} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
                                 <td className="px-4 py-3 text-sm font-medium font-sans text-header">{agent}</td>
+                                <td className="px-4 py-3">
+                                  {(() => {
+                                    const dir = agents.find((a) => a.name.toLowerCase() === agent.toLowerCase());
+                                    if (!dir) return <span className="text-xs text-gray-400 font-sans">—</span>;
+                                    return (
+                                      <div className="space-y-0.5">
+                                        {dir.phone && <p className="flex items-center gap-1 text-xs text-gray-600 font-sans"><Phone size={10} className="text-gray-400 shrink-0" />{dir.phone}</p>}
+                                        {dir.email && <p className="flex items-center gap-1 text-xs text-gray-600 font-sans"><Mail size={10} className="text-gray-400 shrink-0" />{dir.email}</p>}
+                                        {!dir.phone && !dir.email && <span className="text-xs text-gray-400 font-sans">—</span>}
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
                                 <td className="px-4 py-3 text-sm font-sans text-gray-500 text-center">{stats.count}</td>
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay amount={stats.total} size="sm" className="text-header" /></td>
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay amount={stats.paid} size="sm" className="text-income" /></td>
@@ -1595,6 +1826,13 @@ export default function IncomePage() {
         title="Delete entry?"
         message="This income entry will be permanently deleted."
         loading={deleting}
+      />
+      <ConfirmDialog
+        open={!!deletingAgentId}
+        onClose={() => setDeletingAgentId(null)}
+        onConfirm={() => deletingAgentId && handleDeleteAgent(deletingAgentId)}
+        title="Remove agent?"
+        message="This agent will be removed from the directory. Commission entries that reference their name are not affected."
       />
     </div>
   );

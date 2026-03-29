@@ -928,3 +928,16 @@ model GuestDocument {
 
   @@index([guestId])
 }
+
+model Agent {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  agency    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}

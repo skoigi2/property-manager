@@ -23,6 +23,7 @@ import {
   ArrowUp, ArrowDown, X, LogOut, FileDown,
 } from "lucide-react";
 import { exportTenants } from "@/lib/excel-export";
+import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { clsx } from "clsx";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -70,6 +71,11 @@ export default function TenantsPage() {
   const [modalOpen, setModalOpen]       = useState(false);
   const [editingTenant, setEditingTenant] = useState<any>(null);
   const [submitting, setSubmitting]     = useState(false);
+
+  // Step 2: document uploads during onboarding
+  const [onboardingTenantId, setOnboardingTenantId]     = useState<string | null>(null);
+  const [onboardingTenantName, setOnboardingTenantName] = useState("");
+  const [onboardingDocCount, setOnboardingDocCount]     = useState(0);
 
   // Letting fee prompt (shown after new tenant created)
   const [lettingFeePrompt, setLettingFeePrompt] = useState<{ tenantName: string; tenantId: string; unitId: string; amount: number; propertyId: string } | null>(null);
@@ -243,21 +249,28 @@ export default function TenantsPage() {
           ? prev.map((t) => (t.id === updated.id ? updated : t))
           : [updated, ...prev]
       );
-      setModalOpen(false);
-      reset();
       toast.success(editingTenant ? "Tenant updated" : "Tenant added");
-      // Prompt to log letting fee when a new tenant is created
-      if (!editingTenant && updated.monthlyRent) {
-        const unit = allUnits.find((u: any) => u.id === updated.unitId);
-        const prop = properties.find((p: any) => p.units?.some((u: any) => u.id === updated.unitId));
-        if (prop) {
-          setLettingFeePrompt({
-            tenantName: updated.name,
-            tenantId:   updated.id,
-            unitId:     updated.unitId,
-            amount:     Math.round(updated.monthlyRent * 0.5),
-            propertyId: prop.id,
-          });
+      if (editingTenant) {
+        // Edit: close immediately
+        setModalOpen(false);
+        reset();
+      } else {
+        // New tenant: transition to document upload step
+        setOnboardingTenantId(updated.id);
+        setOnboardingTenantName(updated.name);
+        setOnboardingDocCount(0);
+        // Pre-load letting fee prompt so it appears when onboarding is finished
+        if (updated.monthlyRent) {
+          const prop = properties.find((p: any) => p.units?.some((u: any) => u.id === updated.unitId));
+          if (prop) {
+            setLettingFeePrompt({
+              tenantName: updated.name,
+              tenantId:   updated.id,
+              unitId:     updated.unitId,
+              amount:     Math.round(updated.monthlyRent * 0.5),
+              propertyId: prop.id,
+            });
+          }
         }
       }
     } catch {
@@ -265,6 +278,15 @@ export default function TenantsPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function finishOnboarding() {
+    setModalOpen(false);
+    reset();
+    setOnboardingTenantId(null);
+    setOnboardingTenantName("");
+    setOnboardingDocCount(0);
+    // lettingFeePrompt was already set in onSubmit — it will now appear
   }
 
   function openVacate(tenant: any) {
@@ -788,51 +810,81 @@ export default function TenantsPage() {
       {/* ── Add / Edit Modal ─────────────────────────────────────────────── */}
       <Modal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); reset(); }}
-        title={editingTenant ? "Edit Tenant" : "Add Tenant"}
+        onClose={() => {
+          setModalOpen(false);
+          reset();
+          setOnboardingTenantId(null);
+          setOnboardingTenantName("");
+          setOnboardingDocCount(0);
+        }}
+        title={onboardingTenantId ? "Upload Documents" : editingTenant ? "Edit Tenant" : "Add Tenant"}
         size="lg"
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input label="Tenant Name" {...register("name")} error={errors.name?.message} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Email" type="email" placeholder="tenant@example.com" {...register("email")} error={errors.email?.message} />
-            <Input label="Phone" type="tel" placeholder="+254 7XX XXX XXX" {...register("phone")} />
+        {onboardingTenantId ? (
+          /* ── Step 2: document uploads ── */
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500 font-sans">
+              Optionally attach signed documents for <strong>{onboardingTenantName}</strong>.
+              You can always add more from the tenant&apos;s profile.
+            </p>
+            <DocumentUpload
+              tenantId={onboardingTenantId}
+              onUploaded={() => setOnboardingDocCount((n) => n + 1)}
+            />
+            {onboardingDocCount > 0 && (
+              <p className="text-xs text-income font-sans">
+                {onboardingDocCount} document{onboardingDocCount !== 1 ? "s" : ""} uploaded
+              </p>
+            )}
+            <div className="flex gap-3 pt-2">
+              <Button type="button" onClick={finishOnboarding}>Done</Button>
+              <Button type="button" variant="secondary" onClick={finishOnboarding}>Skip</Button>
+            </div>
           </div>
-          <Select
-            label={editingTenant ? "Unit" : "Unit (vacant/listed only)"}
-            placeholder="Select unit..."
-            {...register("unitId")}
-            options={availableUnits.map((u: any) => ({
-              value: u.id,
-              label: `${u.unitNumber} (${u.propertyName})`,
-            }))}
-            error={errors.unitId?.message}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Monthly Rent (KSh)"    type="number" prefix="KSh" {...register("monthlyRent")}   error={errors.monthlyRent?.message} />
-            <Input label="Service Charge (KSh)"  type="number" prefix="KSh" {...register("serviceCharge")} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Deposit (KSh)" type="number" prefix="KSh" {...register("depositAmount")} error={errors.depositAmount?.message} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
-            <Input label="Lease End"   type="date" {...register("leaseEnd")} />
-          </div>
-          <p className="text-xs text-gray-400 font-sans">Leave Lease End blank to mark as TBC</p>
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" loading={submitting}>
-              {editingTenant ? "Update" : "Add Tenant"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => { setModalOpen(false); reset(); }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+        ) : (
+          /* ── Step 1: tenant details form ── */
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <Input label="Tenant Name" {...register("name")} error={errors.name?.message} />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Email" type="email" placeholder="tenant@example.com" {...register("email")} error={errors.email?.message} />
+              <Input label="Phone" type="tel" placeholder="+254 7XX XXX XXX" {...register("phone")} />
+            </div>
+            <Select
+              label={editingTenant ? "Unit" : "Unit (vacant/listed only)"}
+              placeholder="Select unit..."
+              {...register("unitId")}
+              options={availableUnits.map((u: any) => ({
+                value: u.id,
+                label: `${u.unitNumber} (${u.propertyName})`,
+              }))}
+              error={errors.unitId?.message}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Monthly Rent (KSh)"    type="number" prefix="KSh" {...register("monthlyRent")}   error={errors.monthlyRent?.message} />
+              <Input label="Service Charge (KSh)"  type="number" prefix="KSh" {...register("serviceCharge")} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Deposit (KSh)" type="number" prefix="KSh" {...register("depositAmount")} error={errors.depositAmount?.message} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
+              <Input label="Lease End"   type="date" {...register("leaseEnd")} />
+            </div>
+            <p className="text-xs text-gray-400 font-sans">Leave Lease End blank to mark as TBC</p>
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" loading={submitting}>
+                {editingTenant ? "Update" : "Add Tenant"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => { setModalOpen(false); reset(); }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* ── Letting Fee Prompt ── */}

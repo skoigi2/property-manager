@@ -30,15 +30,21 @@ Next.js 14 App Router app. All source code lives in `src/`.
 ### Auth & access control
 Auth is **NextAuth v5 with JWT strategy** (`src/lib/auth.ts`). The JWT callback adds `role` to the token; the session callback exposes it as `session.user.role`.
 
+Roles: `ADMIN` (superuser), `MANAGER`, `ACCOUNTANT`, `OWNER`.
+
 Middleware (`src/middleware.ts`) enforces:
 - Unauthenticated → `/login`
-- OWNER role → `/report` only (all other routes redirect back to `/report`)
-- MANAGER / ACCOUNTANT → full access
+- OWNER role → `/report` only; accessing any manager-only route redirects back to `/report`
+- ADMIN / MANAGER / ACCOUNTANT → full access
+
+Manager-only routes (OWNER is blocked): `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`.
 
 Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
-- `requireManager()` — MANAGER or ACCOUNTANT only
-- `getAccessiblePropertyIds()` — returns property IDs the current user may see (OWNER = their owned properties; MANAGER/ACCOUNTANT = `PropertyAccess` records)
+- `requireManager()` — ADMIN, MANAGER, or ACCOUNTANT (blocks OWNER)
+- `requireAdmin()` — ADMIN only
+- `requirePropertyAccess(propertyId)` — verifies current user may access a specific property
+- `getAccessiblePropertyIds()` — returns property IDs the current user may see (ADMIN = all; OWNER = their owned properties; MANAGER/ACCOUNTANT = `PropertyAccess` records)
 
 ### Data access pattern
 All database access is through the Prisma singleton at `src/lib/prisma.ts`. API routes filter every query by `getAccessiblePropertyIds()` — never query without this guard.
@@ -52,7 +58,12 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `calculations.ts` | `calcUnitSummary`, `calcPettyCashBalance`, `calcPettyCashTotal`, `calcManagementFee`, `calcOccupancyRate`. Constants: `RIARA_MGMT_FEE` (flat per unit type), `ALBA_MGMT_FEE_RATE` (10%) |
 | `date-utils.ts` | `getLeaseStatus` (OK/WARNING/CRITICAL/TBC), `daysUntilExpiry`, `getMonthRange` |
 | `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema`, `pettyCashSchema`, `tenantSchema` |
-| `pdf-generator.ts` | Server-only. Calls `@react-pdf/renderer`'s `renderToBuffer`. Used only in `POST /api/report` |
+| `pdf-generator.ts` | Server-only. Property report PDF via `@react-pdf/renderer`. Used only in `POST /api/report` |
+| `invoice-pdf.tsx` | Server-only. Tenant rent invoice PDF |
+| `owner-invoice-pdf.tsx` | Server-only. Owner fee invoice PDF (letting, mgmt, renewal fees, etc.) |
+| `excel-export.ts` | SheetJS multi-sheet Excel export for income/expenses |
+| `import-templates.ts` | XLSX download template generators for bulk import |
+| `audit.ts` | `logAudit(action, resource, resourceId, before?, after?)` — logs CREATE/UPDATE/DELETE with JSON snapshots |
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
 
 ### Income ↔ Invoice link
@@ -66,7 +77,7 @@ When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route
 - Expenses with `isSunkCost: true` appear in reports as "capital items" and are excluded from the P&L
 
 ### PDF generation
-`@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route function has `maxDuration: 30` in `vercel.json` to handle slow PDF renders.
+`@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route function has `maxDuration: 30` in `vercel.json` to handle slow PDF renders. Three separate generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices).
 
 ### PWA
 `next-pwa` wraps the Next.js config. Service worker is disabled in development. `/api/dashboard` uses `StaleWhileRevalidate`; all other API routes use `NetworkFirst`.
@@ -104,6 +115,40 @@ API routes: `POST/GET /api/documents/[tenantId]` and `DELETE /api/documents/[ten
 ### Email Draft Generator
 
 `EmailDraftModal` is a pure client-side component with no API calls. It generates pre-filled templates (rent reminder, payment receipt, renewal offer, expiry notice) from tenant data, with copy-to-clipboard and `mailto:` deep link. Available from the tenant detail page header and the Renewal tab.
+
+### Owner Invoice System
+
+Owner invoices bill the landlord for management services. Types: `LETTING_FEE`, `PERIODIC_LETTING_FEE`, `RENEWAL_FEE`, `MANAGEMENT_FEE`, `VACANCY_FEE`, `SETUP_FEE_INSTALMENT`, `CONSULTANCY_FEE`.
+
+Auto-generation endpoints (all `POST`, return 409 if invoice already exists for the period):
+- `/api/owner-invoices/generate-mgmt-fee` — creates invoice with per-unit line items
+- `/api/owner-invoices/generate-letting-fee` — new tenancy letting fee
+- `/api/owner-invoices/generate-renewal-fee` — lease renewal fee
+- `/api/owner-invoices/generate-vacancy-fee` — vacancy penalty invoice
+- `/api/owner-invoices/bundle-airbnb` — bundles multiple Airbnb income entries into one invoice
+
+PDF: `GET /api/owner-invoices/[id]/pdf` (uses `owner-invoice-pdf.tsx`).
+
+### Import / Export (Handover)
+
+- `GET /api/properties/[id]/export` — exports full property data as a ZIP containing an XLSX workbook (sheets: summary, units, tenants, income, expenses, petty-cash, owner-invoices, documents)
+- `POST /api/import/handover` — imports a property from a handover ZIP; validates and upserts all sheets, creates an audit log entry on completion
+
+### Management Agreement & KPIs
+
+Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/agreement`) storing:
+- KPI targets: occupancy rate, rent collection rate, expense ratio, tenant turnover, days to lease, renewal rate, maintenance completion
+- SLA response hours (emergency vs. standard)
+- Operational config: repair authority limit, vacancy fee threshold (months), rent remittance day, management fee invoice day, landlord payment days
+- Setup fee instalment tracking
+
+### Additional Models
+
+**InsurancePolicy** — per-property insurance records (types: `BUILDING`, `PUBLIC_LIABILITY`, `CONTENTS`, `OTHER`) with premium frequency, coverage amounts, broker details, and document uploads. API: `GET/POST /api/insurance`, `GET/POST/DELETE /api/insurance/[id]/documents`.
+
+**Asset Register** — asset inventory with serial numbers, warranty dates, and replacement value. Linked to maintenance schedules (frequency-based) and maintenance logs (which can be tied to expense entries). API: `/api/assets`, `/api/assets/[id]/schedules`, `/api/assets/[id]/schedules/[scheduleId]/log`.
+
+**BuildingConditionReport** — property inspection records with a JSON `items` array. API: `GET/POST /api/properties/[id]/condition-reports`.
 
 ## Environment Variables
 

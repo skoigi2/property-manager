@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     },
     include: {
       unit: {
-        include: { property: { select: { name: true, type: true } } },
+        include: { property: { select: { id: true, name: true, type: true } } },
       },
     },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
       },
       include: {
-        unit: { include: { property: { select: { name: true, type: true } } } },
+        unit: { include: { property: { select: { id: true, name: true, type: true } } } },
       },
     }),
     prisma.unit.update({

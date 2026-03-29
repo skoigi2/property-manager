@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       unit: {
         include: {
-          property: { select: { name: true, type: true, manager: { select: { name: true, email: true } } } },
+          property: { select: { id: true, name: true, type: true, manager: { select: { name: true, email: true } } } },
           // Include all income entries for the unit (tenantId filter applied in UI)
           incomeEntries: {
             select: {
@@ -50,7 +50,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
     },
     include: {
-      unit: { include: { property: { select: { name: true, type: true } } } },
+      unit: { include: { property: { select: { id: true, name: true, type: true } } } },
     },
   });
 

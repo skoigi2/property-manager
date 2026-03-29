@@ -70,6 +70,7 @@ interface MonthRow {
   balance: number; // negative = short
   isPaid: boolean;
   isPartial: boolean;
+  interest: number;
 }
 
 interface ArrearsSummary {
@@ -112,14 +113,20 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
       .reduce((s: number, e: any) => s + e.grossAmount, 0);
 
     const expected = tenant.monthlyRent ?? 0;
+    const shortfall = Math.max(0, expected - paid);
+    const isPaid = paid >= expected * 0.99;
+    const dueDate = new Date(yr, mo + 1, 1); // 1st of next month
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+    const daysOverdue = isPaid ? 0 : Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / MS_PER_DAY));
     months.push({
       year: yr,
       month: mo,
       expected,
       totalPaid: paid,
       balance: paid - expected,
-      isPaid: paid >= expected * 0.99,
-      isPartial: paid > 0 && paid < expected * 0.99,
+      isPaid,
+      isPartial: paid > 0 && !isPaid,
+      interest: calcLateInterest(shortfall, annualInterestRate, daysOverdue),
     });
 
     cursor = new Date(yr, mo + 1, 1);
@@ -127,15 +134,7 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
 
   const unpaidMonths = months.filter((m) => !m.isPaid);
   const totalArrears = unpaidMonths.reduce((s, m) => s + Math.max(0, m.expected - m.totalPaid), 0);
-
-  // Interest: accrues from the 1st of the month following the due month
-  const MS_PER_DAY = 1000 * 60 * 60 * 24;
-  const totalInterest = unpaidMonths.reduce((s, m) => {
-    const shortfall = Math.max(0, m.expected - m.totalPaid);
-    const dueDate = new Date(m.year, m.month + 1, 1); // 1st of next month
-    const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / MS_PER_DAY));
-    return s + calcLateInterest(shortfall, annualInterestRate, daysOverdue);
-  }, 0);
+  const totalInterest = unpaidMonths.reduce((s, m) => s + m.interest, 0);
 
   const sorted = [...tenantEntries].sort(
     (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -1194,6 +1193,7 @@ export default function IncomePage() {
                                               <th className="pb-2 text-right font-medium">Expected</th>
                                               <th className="pb-2 text-right font-medium">Paid</th>
                                               <th className="pb-2 text-right font-medium">Balance</th>
+                                              {annualRate > 0 && <th className="pb-2 text-right font-medium">Interest</th>}
                                               <th className="pb-2 text-center font-medium">Status</th>
                                               <th className="pb-2" />
                                             </tr>
@@ -1209,6 +1209,11 @@ export default function IncomePage() {
                                                 <td className={`py-1.5 text-right font-semibold ${m.balance < 0 ? "text-red-500" : "text-green-600"}`}>
                                                   {m.balance >= 0 ? "+" : ""}{fmt(m.balance)}
                                                 </td>
+                                                {annualRate > 0 && (
+                                                  <td className={`py-1.5 text-right ${m.interest > 0 ? "text-expense" : "text-gray-300"}`}>
+                                                    {m.interest > 0 ? fmt(m.interest) : "—"}
+                                                  </td>
+                                                )}
                                                 <td className="py-1.5 text-center">
                                                   {m.isPaid ? (
                                                     <span className="text-green-600">✓ Paid</span>

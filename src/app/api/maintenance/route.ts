@@ -29,6 +29,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const propertyId = searchParams.get("propertyId");
+  const category = searchParams.get("category");
 
   const effectivePropertyIds = propertyId && propertyIds.includes(propertyId)
     ? [propertyId]
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
     where: {
       propertyId: { in: effectivePropertyIds },
       ...(status ? { status: status as never } : {}),
+      ...(category ? { category: category as never } : {}),
     },
     include: {
       property: { select: { id: true, name: true } },

@@ -118,7 +118,8 @@
       "Bash(tail -20 \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\properties\\\\page.tsx\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\guests\\\\[id]\\\\documents\\\\[docId]\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\bookings\\\\[entryId]\\\\guests\\\\[guestId]\")",
-      "Bash(\"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\prisma\\\\schema.prisma\")"
+      "Bash(\"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\prisma\\\\schema.prisma\")",
+      "Bash(ls 'C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\airbnb')"
     ]
   }
 }

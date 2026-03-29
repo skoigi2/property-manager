@@ -24,6 +24,7 @@ import {
   ShieldPlus,
   Package,
   BarChart3,
+  CalendarDays,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard",       label: "Dashboard",   icon: LayoutDashboard, roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/properties",      label: "Properties",  icon: Building2,       roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/income",          label: "Income",      icon: TrendingUp,      roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/airbnb",          label: "Airbnb",      icon: CalendarDays,    roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/expenses",        label: "Expenses",    icon: Receipt,         roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/petty-cash",      label: "Petty Cash",  icon: Wallet,          roles: ["MANAGER"] },
   { href: "/tenants",         label: "Tenants",     icon: Users,           roles: ["MANAGER", "ACCOUNTANT"] },

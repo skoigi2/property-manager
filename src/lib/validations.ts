@@ -12,6 +12,7 @@ export const incomeEntrySchema = z.object({
   agentCommission: z.coerce.number().min(0).default(0),
   platform: z.enum(["AIRBNB", "BOOKING_COM", "DIRECT", "AGENT"]).optional(),
   agentName: z.string().optional(),
+  nightlyRate: z.coerce.number().min(0).optional(),
   note: z.string().optional(),
 });
 

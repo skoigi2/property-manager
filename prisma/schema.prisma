@@ -421,6 +421,7 @@ model IncomeEntry {
   commissionPaidAt  DateTime?
   platform          Platform?
   agentName         String?
+  nightlyRate       Float?
   note              String?
   unit              Unit         @relation(fields: [unitId], references: [id])
   tenant            Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)

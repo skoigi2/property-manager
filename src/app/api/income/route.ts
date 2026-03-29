@@ -15,6 +15,7 @@ export async function GET(req: Request) {
   const year = searchParams.get("year");
   const month = searchParams.get("month");
   const filterPropertyId = searchParams.get("propertyId");
+  const typeFilter = searchParams.get("type");
   const effectivePropertyIds =
     filterPropertyId && propertyIds.includes(filterPropertyId)
       ? [filterPropertyId]
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
     where: {
       unit: { propertyId: { in: effectivePropertyIds } },
       ...(unitId ? { unitId } : {}),
+      ...(typeFilter ? { type: typeFilter as never } : {}),
       ...dateFilter,
     },
     include: {

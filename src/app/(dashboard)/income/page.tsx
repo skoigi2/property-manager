@@ -228,6 +228,16 @@ export default function IncomePage() {
   const incomeType     = watch("type");
   const platform       = watch("platform");
   const selectedUnitId = watch("unitId");
+  const watchedCheckIn  = watch("checkIn");
+  const watchedCheckOut = watch("checkOut");
+  const watchedGross    = watch("grossAmount");
+
+  const suggestedNightlyRate = useMemo(() => {
+    if (!watchedCheckIn || !watchedCheckOut || !watchedGross) return null;
+    const nights = Math.round((new Date(watchedCheckOut).getTime() - new Date(watchedCheckIn).getTime()) / 86400000);
+    if (nights <= 0) return null;
+    return Math.round(Number(watchedGross) / nights);
+  }, [watchedCheckIn, watchedCheckOut, watchedGross]);
 
   const allUnits = properties.flatMap((p: any) =>
     (p.units ?? []).map((u: any) => ({ ...u, propertyName: p.name })),
@@ -1438,17 +1448,29 @@ export default function IncomePage() {
                   </div>
 
                   {incomeType === "AIRBNB" && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Select label="Platform" placeholder="Select..." {...register("platform")} options={[
-                        { value: "AIRBNB",      label: "Airbnb" },
-                        { value: "BOOKING_COM", label: "Booking.com" },
-                        { value: "DIRECT",      label: "Direct" },
-                        { value: "AGENT",       label: "Agent" },
-                      ]} />
-                      {platform === "AGENT" && (
-                        <Select label="Agent" placeholder="Select..." {...register("agentName")} options={AGENTS.map((a) => ({ value: a, label: a }))} />
-                      )}
-                    </div>
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Select label="Platform" placeholder="Select..." {...register("platform")} options={[
+                          { value: "AIRBNB",      label: "Airbnb" },
+                          { value: "BOOKING_COM", label: "Booking.com" },
+                          { value: "DIRECT",      label: "Direct" },
+                          { value: "AGENT",       label: "Agent" },
+                        ]} />
+                        {platform === "AGENT" && (
+                          <Select label="Agent" placeholder="Select..." {...register("agentName")} options={AGENTS.map((a) => ({ value: a, label: a }))} />
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Input label="Nightly Rate (KSh)" type="number" step="1" prefix="KSh" {...register("nightlyRate")} placeholder={suggestedNightlyRate ? String(suggestedNightlyRate) : "Optional"} />
+                          {suggestedNightlyRate && (
+                            <button type="button" onClick={() => setValue("nightlyRate", suggestedNightlyRate)} className="mt-1 text-xs text-gold hover:text-gold-dark font-sans transition-colors">
+                              Use suggested: KSh {suggestedNightlyRate.toLocaleString()}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   <Input label="Note" {...register("note")} placeholder="Optional note..." />

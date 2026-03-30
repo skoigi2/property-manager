@@ -25,7 +25,14 @@ export async function GET(req: Request) {
   if (year && month) {
     const from = new Date(parseInt(year), parseInt(month) - 1, 1);
     const to = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-    dateFilter = { date: { gte: from, lte: to } };
+    // For Airbnb entries filter by booking overlap (checkIn ≤ monthEnd AND checkOut ≥ monthStart)
+    // so cross-month bookings appear in every month they span.
+    // For all other types filter by the record's date field.
+    if (typeFilter === "AIRBNB") {
+      dateFilter = { checkIn: { lte: to }, checkOut: { gte: from } };
+    } else {
+      dateFilter = { date: { gte: from, lte: to } };
+    }
   }
 
   const entries = await prisma.incomeEntry.findMany({

@@ -100,7 +100,7 @@ export default function OrganizationsPage() {
   function toggleExpand(orgId: string) {
     setExpandedOrgs((prev) => {
       const next = new Set(prev);
-      next.has(orgId) ? next.delete(orgId) : next.add(orgId);
+      if (next.has(orgId)) { next.delete(orgId); } else { next.add(orgId); }
       return next;
     });
   }

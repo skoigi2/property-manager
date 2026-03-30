@@ -31,12 +31,15 @@ export async function GET() {
 
   let whereClause: Record<string, unknown> = {};
 
+  // Never expose super-admin accounts to non-super-admins
+  const excludeSuperAdmins = { NOT: { role: "ADMIN", organizationId: null } };
+
   if (isSuperAdmin) {
     // Super-admin sees all users across all orgs
     whereClause = {};
   } else if (session!.user.role === "ADMIN") {
-    // Org admin sees all users in their org
-    whereClause = { organizationId: orgId };
+    // Org admin sees all users in their org (super-admins excluded)
+    whereClause = { organizationId: orgId, ...excludeSuperAdmins };
   } else {
     // MANAGER sees users sharing at least one property within their org
     const managerAccess = await prisma.propertyAccess.findMany({
@@ -54,7 +57,7 @@ export async function GET() {
       });
       const shared = new Set(sharedAccess.map((a) => a.userId));
       shared.add(session!.user.id);
-      whereClause = { id: { in: Array.from(shared) } };
+      whereClause = { id: { in: Array.from(shared) }, ...excludeSuperAdmins };
     }
   }
 

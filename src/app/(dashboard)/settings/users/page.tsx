@@ -61,7 +61,9 @@ const roleBadge: Record<string, "green" | "blue" | "amber" | "gold"> = {
 export default function UsersPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
-  const isSuperAdmin = isAdmin && (session?.user as any)?.organizationId === null;
+  // Super-admin: role=ADMIN with no organizationId. Treat undefined/empty string same as null.
+  const sessionOrgId = (session?.user as any)?.organizationId;
+  const isSuperAdmin = isAdmin && (sessionOrgId === null || sessionOrgId === undefined || sessionOrgId === "");
 
   const [users, setUsers] = useState<UserItem[]>([]);
   const [allProps, setAllProps] = useState<PropertyInfo[]>([]);

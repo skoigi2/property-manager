@@ -18,11 +18,30 @@ export async function GET() {
 
   const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
+  const include = {
+    _count: { select: { users: true, properties: true } },
+    properties: {
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        propertyAccess: {
+          select: {
+            user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+          },
+        },
+      },
+      orderBy: { name: "asc" as const },
+    },
+    users: {
+      select: { id: true, name: true, email: true, role: true, isActive: true },
+      orderBy: { name: "asc" as const },
+    },
+  };
+
   if (isSuperAdmin) {
     const orgs = await prisma.organization.findMany({
-      include: {
-        _count: { select: { users: true, properties: true } },
-      },
+      include,
       orderBy: { name: "asc" },
     });
     return Response.json(orgs);
@@ -34,7 +53,7 @@ export async function GET() {
 
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    include: { _count: { select: { users: true, properties: true } } },
+    include,
   });
   return Response.json(org ? [org] : []);
 }

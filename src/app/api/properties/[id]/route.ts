@@ -72,50 +72,68 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const sourceOrgId = existing?.organizationId ?? null;
     const accessUserIds = existing?.propertyAccess.map((a) => a.user.id) ?? [];
 
-    // Determine cascade: for each user with PropertyAccess, check other source-org properties
-    const usersToProcess = sourceOrgId && targetOrgId
-      ? await Promise.all(
-          accessUserIds.map(async (uid) => {
-            const isMember = await prisma.userOrganizationMembership.findUnique({
-              where: { userId_organizationId: { userId: uid, organizationId: sourceOrgId } },
-            });
-            if (!isMember) return null;
-            const otherProps = await prisma.propertyAccess.count({
-              where: { userId: uid, propertyId: { not: params.id }, property: { organizationId: sourceOrgId } },
-            });
-            return { uid, leavesSource: otherProps === 0 };
-          })
-        )
-      : [];
+    // Determine cascade for each PropertyAccess user
+    type EligibleUser = { uid: string; removeSourceMembership: boolean; updateActiveOrg: boolean };
+    const eligible: EligibleUser[] = [];
 
-    const eligible = usersToProcess.filter(Boolean) as { uid: string; leavesSource: boolean }[];
+    if (targetOrgId && accessUserIds.length > 0) {
+      for (const uid of accessUserIds) {
+        if (sourceOrgId) {
+          const isMember = await prisma.userOrganizationMembership.findUnique({
+            where: { userId_organizationId: { userId: uid, organizationId: sourceOrgId } },
+          });
+          const otherProps = await prisma.propertyAccess.count({
+            where: { userId: uid, propertyId: { not: params.id }, property: { organizationId: sourceOrgId } },
+          });
+          const isOnlySourceProp = otherProps === 0;
+          eligible.push({
+            uid,
+            removeSourceMembership: !!isMember && isOnlySourceProp,
+            updateActiveOrg: isOnlySourceProp,
+          });
+        } else {
+          // Property had no org — just add user to target org and set as active if they have none
+          const user = await prisma.user.findUnique({ where: { id: uid }, select: { organizationId: true } });
+          eligible.push({
+            uid,
+            removeSourceMembership: false,
+            updateActiveOrg: !user?.organizationId,
+          });
+        }
+      }
+    }
 
-    // Run everything in a transaction
-    await prisma.$transaction(async (tx) => {
-      // Move property
-      await tx.property.update({ where: { id: params.id }, data: parsed.data });
+    // Build array-form transaction (required for pgBouncer compatibility)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const txOps: any[] = [
+      prisma.property.update({ where: { id: params.id }, data: parsed.data }),
+    ];
 
-      if (targetOrgId) {
-        for (const { uid, leavesSource } of eligible) {
-          // Add membership in target org
-          await tx.userOrganizationMembership.upsert({
+    if (targetOrgId) {
+      for (const { uid, removeSourceMembership, updateActiveOrg } of eligible) {
+        txOps.push(
+          prisma.userOrganizationMembership.upsert({
             where: { userId_organizationId: { userId: uid, organizationId: targetOrgId } },
             create: { userId: uid, organizationId: targetOrgId },
             update: {},
-          });
-          if (leavesSource && sourceOrgId) {
-            // Remove membership from source org and update active org
-            await tx.userOrganizationMembership.deleteMany({
+          })
+        );
+        if (removeSourceMembership && sourceOrgId) {
+          txOps.push(
+            prisma.userOrganizationMembership.deleteMany({
               where: { userId: uid, organizationId: sourceOrgId },
-            });
-            await tx.user.update({
-              where: { id: uid },
-              data: { organizationId: targetOrgId },
-            });
-          }
+            })
+          );
+        }
+        if (updateActiveOrg) {
+          txOps.push(
+            prisma.user.update({ where: { id: uid }, data: { organizationId: targetOrgId } })
+          );
         }
       }
-    });
+    }
+
+    await prisma.$transaction(txOps);
 
     const property = await prisma.property.findUnique({ where: { id: params.id } });
     return Response.json(property);

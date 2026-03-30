@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 /**
  * GET /api/properties/[id]/reassign-preview?targetOrgId=xxx
  *
- * Returns a dry-run preview of what would happen if this property were moved
- * to the target org — which users would gain membership in the target org,
- * and which would keep their source org membership (because they have other properties there).
+ * Dry-run: which users will gain target-org membership, and which will also
+ * lose their source-org membership (because this is their only source-org property).
+ *
+ * Works even when the property currently has no org (organizationId = null).
  */
 export async function GET(
   req: Request,
@@ -19,42 +20,45 @@ export async function GET(
   const targetOrgId = searchParams.get("targetOrgId");
   if (!targetOrgId) return Response.json({ error: "targetOrgId required" }, { status: 400 });
 
-  // Load the property and its current org
   const property = await prisma.property.findUnique({
     where: { id: params.id },
     select: {
       organizationId: true,
       propertyAccess: {
         select: {
-          user: {
-            select: { id: true, name: true, email: true, role: true },
-          },
+          user: { select: { id: true, name: true, email: true, role: true } },
         },
       },
     },
   });
 
   if (!property) return Response.json({ error: "Not found" }, { status: 404 });
+  if (property.organizationId === targetOrgId) {
+    return Response.json({ willLeaveSource: [], willRemainInSource: [] });
+  }
 
-  const sourceOrgId = property.organizationId;
-  if (!sourceOrgId) return Response.json({ willLeaveSource: [], willRemainInSource: [] });
-  if (sourceOrgId === targetOrgId) return Response.json({ willLeaveSource: [], willRemainInSource: [] });
-
-  // Users with access to this property who belong to the source org
+  const sourceOrgId = property.organizationId; // may be null
   const accessUsers = property.propertyAccess.map((a) => a.user);
-  const sourceMembers = await Promise.all(
+
+  if (accessUsers.length === 0) {
+    return Response.json({ willLeaveSource: [], willRemainInSource: [] });
+  }
+
+  if (!sourceOrgId) {
+    // Property has no current org — all PropertyAccess users will simply gain
+    // membership in the target org (nothing to "leave").
+    return Response.json({ willLeaveSource: accessUsers, willRemainInSource: [] });
+  }
+
+  // Source org exists: categorise by whether user has other properties there
+  const categorised = await Promise.all(
     accessUsers.map(async (u) => {
       const isMember = await prisma.userOrganizationMembership.findUnique({
         where: { userId_organizationId: { userId: u.id, organizationId: sourceOrgId } },
       });
-      return isMember ? u : null;
-    })
-  );
-  const eligibleUsers = sourceMembers.filter(Boolean) as typeof accessUsers;
+      // If they're not even a member of the source org, treat as "leaves" (they just gain target)
+      if (!isMember) return { user: u, otherSourceProperties: 0 };
 
-  // For each eligible user, count their OTHER PropertyAccess records still in the source org
-  const categorised = await Promise.all(
-    eligibleUsers.map(async (u) => {
       const otherSourceProperties = await prisma.propertyAccess.count({
         where: {
           userId: u.id,

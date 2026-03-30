@@ -380,7 +380,7 @@ export default function UsersPage() {
             <div>
               <label className="form-label">Role *</label>
               <select className="form-input" {...register("role")}>
-                {isAdmin && <option value="ADMIN">Admin</option>}
+                {isSuperAdmin && <option value="ADMIN">Admin</option>}
                 <option value="MANAGER">Manager</option>
                 <option value="ACCOUNTANT">Accountant</option>
                 <option value="OWNER">Owner</option>

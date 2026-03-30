@@ -91,9 +91,11 @@ export async function POST(req: Request) {
 
   const { name, email, password, role, phone, propertyIds, organizationId: bodyOrgId } = parsed.data;
 
-  // Only ADMIN can create other ADMIN users
-  if (role === "ADMIN" && session!.user.role !== "ADMIN") {
-    return Response.json({ error: "Only admins can create admin users" }, { status: 403 });
+  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+
+  // Only super-admins can create ADMIN-role users
+  if (role === "ADMIN" && !isSuperAdmin) {
+    return Response.json({ error: "Only super-admins can create admin users" }, { status: 403 });
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -101,7 +103,6 @@ export async function POST(req: Request) {
 
   const hashed = await bcrypt.hash(password, 10);
 
-  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
   // Super-admin can specify which org the user belongs to; otherwise inherit creator's org
   const newUserOrgId = isSuperAdmin
     ? (bodyOrgId ?? null)

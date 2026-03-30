@@ -32,6 +32,12 @@ Auth is **NextAuth v5 with JWT strategy** (`src/lib/auth.ts`). The JWT callback 
 
 Roles: `ADMIN` (superuser), `MANAGER`, `ACCOUNTANT`, `OWNER`.
 
+**Super-admin vs org-admin**: Both have `role = "ADMIN"` but differ by `organizationId`:
+- Super-admin: `organizationId = null` — platform-level, sees all orgs and all data
+- Org-admin: `organizationId = <id>` — scoped to one organisation
+
+Use `requireSuperAdmin()` from `src/lib/auth-utils.ts` for super-admin-only routes. Never use `role === "ADMIN"` alone as a super-admin check — org-admins share that role.
+
 Middleware (`src/middleware.ts`) enforces:
 - Unauthenticated → `/login`
 - OWNER role → `/report` only; accessing any manager-only route redirects back to `/report`
@@ -42,9 +48,36 @@ Manager-only routes (OWNER is blocked): `/income`, `/expenses`, `/petty-cash`, `
 Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
 - `requireManager()` — ADMIN, MANAGER, or ACCOUNTANT (blocks OWNER)
-- `requireAdmin()` — ADMIN only
+- `requireAdmin()` — ADMIN only (org-admin or super-admin)
+- `requireSuperAdmin()` — ADMIN role **and** `organizationId === null` (platform super-admin only)
 - `requirePropertyAccess(propertyId)` — verifies current user may access a specific property
 - `getAccessiblePropertyIds()` — returns property IDs the current user may see (ADMIN = all; OWNER = their owned properties; MANAGER/ACCOUNTANT = `PropertyAccess` records)
+
+### Multi-tenancy & Organisations
+
+Users belong to organisations via the `UserOrganizationMembership` join table (unique on `[userId, organizationId]`). `User.organizationId` is the **currently active org** stored in the JWT — it is not the authoritative membership list; `UserOrganizationMembership` is the source of truth.
+
+**JWT extras** (populated in `src/lib/auth.ts` `authorize()`):
+- `session.user.organizationId` — active org ID (null for super-admin)
+- `session.user.membershipCount` — count of org memberships (gates the org-switcher UI)
+
+**Org-switching flow** (users who belong to multiple orgs):
+1. Middleware redirects to `/select-org` after login when `membershipCount > 1` and no active org is set
+2. `GET /api/auth/orgs` — returns the user's org memberships
+3. `POST /api/auth/switch-org` — validates membership, updates `User.organizationId` in DB; client calls `session.update({ organizationId })` to refresh the JWT without a full re-login
+4. Sidebar org-switcher (`src/components/layout/Sidebar.tsx`) exposes this inline for already-logged-in users
+
+**Membership API routes**:
+- `DELETE /api/organizations/[id]/members/[userId]` — removes user from org; if their active org was this one, switches them to another membership or nulls it
+- `POST /api/organizations` — optionally creates a first ADMIN user and upserts their membership
+- `POST /api/users` — always upserts a `UserOrganizationMembership` for the assigned org
+
+**Property → org reassignment cascade** (`PATCH /api/properties/[id]` with `organizationId`, super-admin only):
+- All `PropertyAccess` users gain membership in the target org
+- Users whose only source-org property was this one lose their source-org membership and have their active org updated
+- Must use array-form `prisma.$transaction([...])` — callback-form is incompatible with pgBouncer
+
+**User list scoping**: `GET /api/users` explicitly excludes super-admin accounts (`role=ADMIN, organizationId=null`) from results returned to org-admins and managers.
 
 ### Data access pattern
 All database access is through the Prisma singleton at `src/lib/prisma.ts`. API routes filter every query by `getAccessiblePropertyIds()` — never query without this guard.

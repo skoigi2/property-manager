@@ -9,6 +9,7 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   password: z.string().min(6).optional(),
   role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]).optional(),
+  organizationId: z.string().nullable().optional(),
 });
 
 const accessSchema = z.object({
@@ -59,6 +60,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // Handle user field updates
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // Only super-admin can reassign a user to a different org
+  const isSuperAdmin = session!.user.role === "ADMIN" && (session!.user as any).organizationId === null;
+  if (parsed.data.organizationId !== undefined && !isSuperAdmin) {
+    return Response.json({ error: "Only super-admins can reassign users" }, { status: 403 });
+  }
 
   const { password, ...rest } = parsed.data;
   const updateData: Record<string, unknown> = { ...rest };

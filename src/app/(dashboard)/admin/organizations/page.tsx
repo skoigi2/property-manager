@@ -11,8 +11,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Badge } from "@/components/ui/Badge";
 import {
   Building2, Plus, Users, Home, X, Eye, EyeOff,
-  Globe, Mail, Phone, MapPin, ChevronDown, ChevronRight,
-  Pencil, UserCog, CalendarDays,
+  Mail, Phone, MapPin, ChevronDown, ChevronRight,
+  Pencil, UserCog, CalendarDays, MoveRight,
 } from "lucide-react";
 
 interface OrgUser {
@@ -71,6 +71,9 @@ export default function OrganizationsPage() {
   const [editOrg, setEditOrg] = useState<Org | null>(null);
   const [editForm, setEditForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+
+  // Reassign
+  const [reassigning, setReassigning] = useState<string | null>(null); // "prop-{id}" or "user-{id}"
 
   // Guard: only super-admin
   useEffect(() => {
@@ -151,6 +154,40 @@ export default function OrganizationsPage() {
       email: org.email ?? "",
       website: org.website ?? "",
     });
+  }
+
+  async function reassignProperty(propertyId: string, targetOrgId: string) {
+    const key = `prop-${propertyId}`;
+    setReassigning(key);
+    try {
+      const res = await fetch(`/api/properties/${propertyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: targetOrgId }),
+      });
+      if (!res.ok) throw new Error("Failed to reassign property");
+      toast.success("Property moved");
+      fetchOrgs();
+    } catch {
+      toast.error("Failed to reassign property");
+    } finally { setReassigning(null); }
+  }
+
+  async function reassignUser(userId: string, targetOrgId: string | null) {
+    const key = `user-${userId}`;
+    setReassigning(key);
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: targetOrgId }),
+      });
+      if (!res.ok) throw new Error("Failed to reassign user");
+      toast.success("User moved");
+      fetchOrgs();
+    } catch {
+      toast.error("Failed to reassign user");
+    } finally { setReassigning(null); }
   }
 
   async function toggleActive(org: Org) {
@@ -281,7 +318,7 @@ export default function OrganizationsPage() {
                             {org.properties.map((prop) => (
                               <div key={prop.id} className="rounded-xl border border-gray-100 bg-gray-50/50 p-3">
                                 {/* Property header */}
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
                                   {prop.type === "AIRBNB" ? (
                                     <CalendarDays size={14} className="text-gold shrink-0" />
                                   ) : (
@@ -291,19 +328,47 @@ export default function OrganizationsPage() {
                                   <Badge variant={prop.type === "AIRBNB" ? "gold" : "blue"}>
                                     {prop.type === "AIRBNB" ? "Airbnb" : "Long-term"}
                                   </Badge>
+                                  <div className="ml-auto flex items-center gap-1.5">
+                                    <MoveRight size={12} className="text-gray-300" />
+                                    <select
+                                      className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
+                                      defaultValue=""
+                                      disabled={reassigning === `prop-${prop.id}`}
+                                      onChange={(e) => { if (e.target.value) reassignProperty(prop.id, e.target.value); }}
+                                    >
+                                      <option value="" disabled>Move to…</option>
+                                      {orgs.filter((o) => o.id !== org.id).map((o) => (
+                                        <option key={o.id} value={o.id}>{o.name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
                                 </div>
 
                                 {/* Users with access */}
                                 {prop.propertyAccess.length > 0 ? (
                                   <div className="space-y-1.5 ml-5">
                                     {prop.propertyAccess.map(({ user }) => (
-                                      <div key={user.id} className="flex items-center gap-2">
+                                      <div key={user.id} className="flex items-center gap-2 flex-wrap">
                                         <div className="w-5 h-5 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
                                           <UserCog size={10} className="text-gold" />
                                         </div>
                                         <span className="text-xs font-sans text-gray-700">{user.name ?? user.email}</span>
                                         <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
                                         {!user.isActive && <Badge variant="red">Inactive</Badge>}
+                                        <div className="ml-auto flex items-center gap-1.5">
+                                          <MoveRight size={11} className="text-gray-300" />
+                                          <select
+                                            className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
+                                            defaultValue=""
+                                            disabled={reassigning === `user-${user.id}`}
+                                            onChange={(e) => { if (e.target.value) reassignUser(user.id, e.target.value); }}
+                                          >
+                                            <option value="" disabled>Move to…</option>
+                                            {orgs.filter((o) => o.id !== org.id).map((o) => (
+                                              <option key={o.id} value={o.id}>{o.name}</option>
+                                            ))}
+                                          </select>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -324,7 +389,7 @@ export default function OrganizationsPage() {
                           <p className="text-xs font-sans font-medium text-gray-400 uppercase tracking-wide mb-2">Org-level Users</p>
                           <div className="space-y-1.5">
                             {directUsers.map((user) => (
-                              <div key={user.id} className="flex items-center gap-2">
+                              <div key={user.id} className="flex items-center gap-2 flex-wrap">
                                 <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                                   <UserCog size={10} className="text-gray-400" />
                                 </div>
@@ -332,6 +397,24 @@ export default function OrganizationsPage() {
                                 <span className="text-xs text-gray-400 font-sans">{user.email}</span>
                                 <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
                                 {!user.isActive && <Badge variant="red">Inactive</Badge>}
+                                <div className="ml-auto flex items-center gap-1.5">
+                                  <MoveRight size={11} className="text-gray-300" />
+                                  <select
+                                    className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
+                                    defaultValue=""
+                                    disabled={reassigning === `user-${user.id}`}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      reassignUser(user.id, val === "__none__" ? null : val);
+                                    }}
+                                  >
+                                    <option value="" disabled>Move to…</option>
+                                    {orgs.filter((o) => o.id !== org.id).map((o) => (
+                                      <option key={o.id} value={o.id}>{o.name}</option>
+                                    ))}
+                                    <option value="__none__">— No organisation (super-admin)</option>
+                                  </select>
+                                </div>
                               </div>
                             ))}
                           </div>

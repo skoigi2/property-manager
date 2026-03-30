@@ -16,6 +16,7 @@ const updateSchema = z.object({
   managementFeeRate: z.number().nullable().optional(),
   managementFeeFlat: z.number().nullable().optional(),
   serviceChargeDefault: z.number().nullable().optional(),
+  organizationId: z.string().nullable().optional(),
 });
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -52,6 +53,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // Only super-admin can reassign a property to a different org
+  const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
+  if (parsed.data.organizationId !== undefined && !isSuperAdmin) {
+    return Response.json({ error: "Only super-admins can reassign properties" }, { status: 403 });
+  }
 
   const property = await prisma.property.update({
     where: { id: params.id },

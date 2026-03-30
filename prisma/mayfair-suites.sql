@@ -37,8 +37,8 @@ BEGIN
   END IF;
 
   -- ── 3. Grant PropertyAccess to all members of the default organisation ──
-  INSERT INTO "PropertyAccess" ("userId", "propertyId", "createdAt")
-  SELECT m."userId", v_mayfair_id, NOW()
+  INSERT INTO "PropertyAccess" (id, "userId", "propertyId", "grantedAt")
+  SELECT gen_random_uuid()::text, m."userId", v_mayfair_id, NOW()
   FROM   "UserOrganizationMembership" m
   WHERE  m."organizationId" = v_org_id
   ON CONFLICT ("userId", "propertyId") DO NOTHING;

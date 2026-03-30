@@ -628,9 +628,8 @@ export default function AirbnbPage() {
                                 const span = getBookingSpan(entry);
                                 if (!span) return null;
                                 const colour = PLATFORM_COLOURS[entry.platform ?? ""] ?? "bg-gold";
-                                const colW  = 100 / daysInMonth;
-                                const left  = `calc(120px + ${(span.startDay - 1) * colW}%)`;
-                                const width = `${span.nights * colW}%`;
+                                const left  = `calc(120px + ${span.startDay - 1} * (100% - 120px) / ${daysInMonth})`;
+                                const width = `calc(${span.nights} * (100% - 120px) / ${daysInMonth})`;
                                 const guests = entry.bookingGuests ?? [];
                                 const primaryGuest = guests.find((g: any) => g.isPrimary)?.guest ?? guests[0]?.guest;
                                 return (
@@ -643,7 +642,7 @@ export default function AirbnbPage() {
                                       colour,
                                       selectedEntry?.id === entry.id && "ring-2 ring-white ring-offset-1",
                                     )}
-                                    style={{ left, width, maxWidth: width }}
+                                    style={{ left, width }}
                                   >
                                     {span.nights > 1 && (primaryGuest?.name ?? PLATFORM_LABELS[entry.platform ?? ""] ?? "")}
                                   </div>

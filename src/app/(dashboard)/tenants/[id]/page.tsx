@@ -789,6 +789,7 @@ export default function TenantDetailPage() {
                       renewalNotes={tenant.renewalNotes ?? null}
                       currentRent={tenant.monthlyRent}
                       currentLeaseEnd={tenant.leaseEnd ?? null}
+                      escalationRate={tenant.escalationRate ?? null}
                       onUpdated={fetchTenant}
                       onRenewed={() => {
                         if (tenant?.unitId) {

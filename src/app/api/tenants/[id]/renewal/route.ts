@@ -8,6 +8,8 @@ const renewalSchema = z.object({
   proposedRent:     z.number().positive().optional().nullable(),
   proposedLeaseEnd: z.string().optional().nullable(),   // ISO date string
   renewalNotes:     z.string().max(1000).optional().nullable(),
+  escalationRate:   z.number().min(0).max(100).optional().nullable(),
+  rentHistoryReason: z.string().max(200).optional().nullable(),
 });
 
 // ── PATCH /api/tenants/[id]/renewal ──────────────────────────────────────────
@@ -36,14 +38,16 @@ export async function PATCH(
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { renewalStage, proposedRent, proposedLeaseEnd, renewalNotes } = parsed.data;
+  const { renewalStage, proposedRent, proposedLeaseEnd, renewalNotes, escalationRate, rentHistoryReason } = parsed.data;
+
+  const newRent = proposedRent ?? tenant.monthlyRent;
 
   // When marking RENEWED: apply proposed values to actual lease fields
   const extraUpdates =
     renewalStage === "RENEWED"
       ? {
           leaseEnd:    proposedLeaseEnd ? new Date(proposedLeaseEnd) : tenant.leaseEnd,
-          monthlyRent: proposedRent     ?? tenant.monthlyRent,
+          monthlyRent: newRent,
         }
       : {};
 
@@ -52,22 +56,37 @@ export async function PATCH(
     renewalStage === "NOTICE_SENT" ? "UNDER_NOTICE" :
     renewalStage === "RENEWED"     ? "ACTIVE"       : null;
 
-  const [updated] = await prisma.$transaction([
-    prisma.tenant.update({
+  const updated = await prisma.$transaction(async (tx) => {
+    const tenant_updated = await tx.tenant.update({
       where: { id: params.id },
       data: {
         renewalStage:     renewalStage as RenewalStage,
         proposedRent:     proposedRent     ?? null,
         proposedLeaseEnd: proposedLeaseEnd ? new Date(proposedLeaseEnd) : null,
         renewalNotes:     renewalNotes     ?? null,
+        ...(escalationRate !== undefined && escalationRate !== null ? { escalationRate } : {}),
         ...extraUpdates,
       },
       include: { unit: { include: { property: true } } },
-    }),
-    ...(unitStatusSync
-      ? [prisma.unit.update({ where: { id: tenant.unitId }, data: { status: unitStatusSync } })]
-      : []),
-  ]);
+    });
+
+    if (unitStatusSync) {
+      await tx.unit.update({ where: { id: tenant.unitId }, data: { status: unitStatusSync } });
+    }
+
+    if (renewalStage === "RENEWED" && newRent !== tenant.monthlyRent) {
+      await tx.rentHistory.create({
+        data: {
+          tenantId:      params.id,
+          monthlyRent:   newRent,
+          effectiveDate: proposedLeaseEnd ? new Date(proposedLeaseEnd) : new Date(),
+          reason:        rentHistoryReason ?? "Annual escalation",
+        },
+      });
+    }
+
+    return tenant_updated;
+  });
 
   return Response.json(updated);
 }

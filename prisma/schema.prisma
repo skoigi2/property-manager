@@ -10,6 +10,23 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ─── Organisation (multi-tenancy) ────────────────────────────────────────────
+
+model Organization {
+  id         String     @id @default(cuid())
+  name       String
+  logoUrl    String?
+  address    String?
+  phone      String?
+  email      String?
+  website    String?
+  isActive   Boolean    @default(true)
+  users      User[]
+  properties Property[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
 // ─── Auth (NextAuth / Auth.js) ────────────────────────────────────────────────
 
 enum UserRole {
@@ -29,6 +46,8 @@ model User {
   role             UserRole         @default(MANAGER)
   phone            String?
   isActive         Boolean          @default(true)
+  organizationId   String?
+  organization     Organization?    @relation(fields: [organizationId], references: [id])
   propertyAccess    PropertyAccess[]
   ownedProperties   Property[]       @relation("PropertyOwner")
   managedProperties Property[]       @relation("PropertyManager")
@@ -37,6 +56,8 @@ model User {
   sessions         Session[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+
+  @@index([organizationId])
 }
 
 model Account {
@@ -318,6 +339,9 @@ model Property {
   address              String?
   city                 String?           @default("Nairobi")
   description          String?
+  logoUrl              String?
+  organizationId       String?
+  organization         Organization?     @relation(fields: [organizationId], references: [id])
   ownerId              String?
   owner                User?             @relation("PropertyOwner", fields: [ownerId], references: [id])
   managerId            String?

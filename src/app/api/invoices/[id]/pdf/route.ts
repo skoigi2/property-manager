@@ -19,7 +19,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
           unit: {
             select: {
               unitNumber: true, type: true,
-              property: { select: { id: true, name: true, address: true, city: true } },
+              property: {
+                select: {
+                  id: true, name: true, address: true, city: true, logoUrl: true,
+                  organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true } },
+                },
+              },
             },
           },
         },
@@ -32,7 +37,21 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const pdfBuffer = await generateInvoicePdf(invoice);
+  const org = invoice.tenant.unit.property.organization;
+  const pdfBuffer = await generateInvoicePdf({
+    ...invoice,
+    org: org ?? null,
+    tenant: {
+      ...invoice.tenant,
+      unit: {
+        ...invoice.tenant.unit,
+        property: {
+          ...invoice.tenant.unit.property,
+          logoUrl: invoice.tenant.unit.property.logoUrl ?? null,
+        },
+      },
+    },
+  });
 
   return new Response(new Uint8Array(pdfBuffer), {
     headers: {

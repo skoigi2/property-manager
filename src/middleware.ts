@@ -19,12 +19,22 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(dest, req.url));
   }
 
-  // Manager-only routes
+  // Manager-only routes (OWNER is blocked)
   const managerOnlyPaths = ["/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
     const role = req.auth?.user?.role;
     if (role === "OWNER") {
       return NextResponse.redirect(new URL("/report", req.url));
+    }
+  }
+
+  // Super-admin only routes
+  if (isLoggedIn && pathname.startsWith("/admin")) {
+    const role = req.auth?.user?.role;
+    const orgId = (req.auth?.user as any)?.organizationId;
+    const isSuperAdmin = role === "ADMIN" && (orgId === null || orgId === undefined);
+    if (!isSuperAdmin) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }
 

@@ -8,10 +8,12 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       role: string;
+      organizationId: string | null;
     };
   }
   interface User {
     role: string;
+    organizationId?: string | null;
   }
 }
 
@@ -22,6 +24,7 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         token.id = user.id;
         token.role = (user as { role: string }).role;
+        token.organizationId = (user as { organizationId?: string | null }).organizationId ?? null;
       }
       return token;
     },
@@ -29,6 +32,7 @@ export const authConfig: NextAuthConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.organizationId = (token.organizationId as string | null) ?? null;
       }
       return session;
     },

@@ -63,7 +63,9 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const property = await prisma.property.create({ data: parsed.data });
+  const property = await prisma.property.create({
+    data: { ...parsed.data, organizationId: session.user.organizationId ?? null },
+  });
 
   // Automatically grant the creating manager access
   await prisma.propertyAccess.create({

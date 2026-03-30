@@ -9,10 +9,9 @@ const createSchema = z.object({
   password: z.string().min(6),
   role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
   phone: z.string().optional(),
-  propertyIds: z.array(z.string()).optional(), // initial property access grants
+  propertyIds: z.array(z.string()).optional(),
 });
 
-/** ADMIN or MANAGER may list/create users */
 async function requireManagerSession() {
   const session = await auth();
   if (!session) return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
@@ -26,11 +25,19 @@ export async function GET() {
   const { session, error } = await requireManagerSession();
   if (error) return error;
 
-  const isAdmin = session!.user.role === "ADMIN";
+  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  const orgId = session!.user.organizationId;
 
-  // ADMIN sees all users; MANAGER sees only users sharing at least one property
-  let userIds: string[] | undefined;
-  if (!isAdmin) {
+  let whereClause: Record<string, unknown> = {};
+
+  if (isSuperAdmin) {
+    // Super-admin sees all users across all orgs
+    whereClause = {};
+  } else if (session!.user.role === "ADMIN") {
+    // Org admin sees all users in their org
+    whereClause = { organizationId: orgId };
+  } else {
+    // MANAGER sees users sharing at least one property within their org
     const managerAccess = await prisma.propertyAccess.findMany({
       where: { userId: session!.user.id },
       select: { propertyId: true },
@@ -38,8 +45,7 @@ export async function GET() {
     const myPropertyIds = managerAccess.map((a) => a.propertyId);
 
     if (myPropertyIds.length === 0) {
-      // Manager with no properties can only see themselves
-      userIds = [session!.user.id];
+      whereClause = { id: session!.user.id };
     } else {
       const sharedAccess = await prisma.propertyAccess.findMany({
         where: { propertyId: { in: myPropertyIds } },
@@ -47,12 +53,12 @@ export async function GET() {
       });
       const shared = new Set(sharedAccess.map((a) => a.userId));
       shared.add(session!.user.id);
-      userIds = Array.from(shared);
+      whereClause = { id: { in: Array.from(shared) } };
     }
   }
 
   const users = await prisma.user.findMany({
-    where: isAdmin ? undefined : { id: { in: userIds } },
+    where: whereClause,
     select: {
       id: true,
       name: true,
@@ -60,6 +66,8 @@ export async function GET() {
       role: true,
       phone: true,
       isActive: true,
+      organizationId: true,
+      organization: { select: { id: true, name: true } },
       createdAt: true,
       propertyAccess: {
         include: { property: { select: { id: true, name: true } } },
@@ -92,6 +100,9 @@ export async function POST(req: Request) {
 
   const hashed = await bcrypt.hash(password, 10);
 
+  // New users inherit the creator's org (super-admin creates users without org = new super-admins)
+  const newUserOrgId = session!.user.organizationId ?? null;
+
   const user = await prisma.user.create({
     data: {
       name,
@@ -99,6 +110,7 @@ export async function POST(req: Request) {
       password: hashed,
       role,
       phone,
+      organizationId: newUserOrgId,
       propertyAccess: propertyIds?.length
         ? { create: propertyIds.map((propertyId) => ({ propertyId })) }
         : undefined,

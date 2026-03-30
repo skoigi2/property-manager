@@ -13,8 +13,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const invoice = await prisma.ownerInvoice.findUnique({
     where: { id: params.id },
     include: {
-      property: { select: { id: true, name: true, address: true, city: true } },
-      owner:    { select: { name: true, email: true, phone: true } },
+      property: {
+        select: {
+          id: true, name: true, address: true, city: true, logoUrl: true,
+          organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true } },
+        },
+      },
+      owner: { select: { name: true, email: true, phone: true } },
     },
   });
 
@@ -23,9 +28,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const org = invoice.property.organization;
   const data: OwnerInvoiceData = {
     ...invoice,
     lineItems: invoice.lineItems as OwnerInvoiceLineItem[],
+    org: org ?? null,
+    property: {
+      ...invoice.property,
+      logoUrl: invoice.property.logoUrl ?? null,
+    },
   };
 
   const buffer = await generateOwnerInvoicePdf(data);

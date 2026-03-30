@@ -1,6 +1,6 @@
 import "server-only";
 import React from "react";
-import { renderToBuffer, Document, Page, Text, View, StyleSheet, DocumentProps } from "@react-pdf/renderer";
+import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
 import { format } from "date-fns";
 import type { OwnerInvoiceLineItem } from "@/lib/validations";
@@ -59,6 +59,14 @@ const styles = StyleSheet.create({
   footerText:      { fontSize: 8, color: "#9ca3af", textAlign: "center" },
 });
 
+export type OrgBranding = {
+  name: string;
+  logoUrl?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+};
+
 export type OwnerInvoiceData = {
   id: string;
   invoiceNumber: string;
@@ -72,10 +80,12 @@ export type OwnerInvoiceData = {
   paidAt?: Date | string | null;
   paidAmount?: number | null;
   notes?: string | null;
+  org?: OrgBranding | null;
   property: {
     name: string;
     address?: string | null;
     city?: string | null;
+    logoUrl?: string | null;
   };
   owner?: {
     name?: string | null;
@@ -128,8 +138,25 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.brandBlock}>
-            <Text style={styles.brandName}>PKH Property Management</Text>
-            <Text style={styles.brandSub}>Nairobi, Kenya</Text>
+            {(() => {
+              const logoUrl = data.property.logoUrl ?? data.org?.logoUrl;
+              const brandName = data.org?.name ?? data.property.name;
+              const brandAddr = data.org?.address
+                ?? [data.property.address, data.property.city].filter(Boolean).join(", ")
+                ?? "Nairobi, Kenya";
+              return logoUrl ? (
+                <>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image src={logoUrl} style={{ height: 40, marginBottom: 4, objectFit: "contain", objectPositionX: 0 }} />
+                  <Text style={styles.brandSub}>{brandAddr}</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.brandName}>{brandName}</Text>
+                  <Text style={styles.brandSub}>{brandAddr}</Text>
+                </>
+              );
+            })()}
           </View>
           <View>
             <Text style={styles.invoiceLabel}>OWNER INVOICE</Text>

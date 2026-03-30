@@ -13,11 +13,12 @@ export default async function DashboardLayout({
   if (!session) redirect("/login");
 
   const role = session.user.role;
+  const organizationId = session.user.organizationId ?? null;
 
   return (
     <PropertyProvider>
       <div className="flex min-h-screen bg-cream">
-        <Sidebar role={role} />
+        <Sidebar role={role} organizationId={organizationId} />
         <div className="flex-1 flex flex-col min-w-0">
           <main className="flex-1 pb-20 lg:pb-0">
             {children}

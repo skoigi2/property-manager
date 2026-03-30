@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
@@ -8,30 +8,57 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
-import { formatDate } from "@/lib/date-utils";
-import { Settings, Save } from "lucide-react";
+import { Settings, Save, Upload, Trash2, Building2, Globe, Phone, Mail, MapPin } from "lucide-react";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"fees" | "info">("fees");
+  const [tab, setTab] = useState<"fees" | "info" | "branding">("fees");
   const [feeForm, setFeeForm] = useState<Record<string, { ratePercent: string; flatAmount: string }>>({});
+
+  // Branding state
+  const [org, setOrg] = useState<any>(null);
+  const [orgForm, setOrgForm] = useState({ name: "", address: "", phone: "", email: "", website: "" });
+  const [brandingSaving, setBrandingSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Property logo state
+  const [propLogoUploading, setPropLogoUploading] = useState<string | null>(null);
+  const propLogoInputRef = useRef<HTMLInputElement>(null);
+  const [propLogoTarget, setPropLogoTarget] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then((d) => {
       setData(d);
       setLoading(false);
-      // Pre-fill fee form with latest config per unit
       const form: Record<string, any> = {};
       d.units?.forEach((unit: any) => {
-        const latest = d.feeConfigs?.filter((c: any) => c.unitId === unit.id).sort((a: any, b: any) => new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime())[0];
+        const latest = d.feeConfigs?.filter((c: any) => c.unitId === unit.id)
+          .sort((a: any, b: any) => new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime())[0];
         form[unit.id] = { ratePercent: String(latest?.ratePercent ?? 0), flatAmount: String(latest?.flatAmount ?? "") };
       });
       setFeeForm(form);
     }).catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (tab === "branding") fetchOrg();
+  }, [tab]);
+
+  async function fetchOrg() {
+    try {
+      const res = await fetch("/api/organizations");
+      if (res.ok) {
+        const orgs = await res.json();
+        const o = orgs[0] ?? null;
+        setOrg(o);
+        if (o) setOrgForm({ name: o.name ?? "", address: o.address ?? "", phone: o.phone ?? "", email: o.email ?? "", website: o.website ?? "" });
+      }
+    } catch { /* ignore */ }
+  }
 
   async function saveFeeConfig(unitId: string) {
     setSaving(true);
@@ -48,18 +75,95 @@ export default function SettingsPage() {
     finally { setSaving(false); }
   }
 
+  async function saveBranding() {
+    if (!org) return;
+    setBrandingSaving(true);
+    try {
+      const res = await fetch(`/api/organizations/${org.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orgForm),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Branding updated");
+      fetchOrg();
+    } catch { toast.error("Failed to save branding"); }
+    finally { setBrandingSaving(false); }
+  }
+
+  async function uploadOrgLogo(file: File) {
+    if (!org) return;
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const res = await fetch(`/api/organizations/${org.id}/logo`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error();
+      toast.success("Logo uploaded");
+      fetchOrg();
+    } catch { toast.error("Failed to upload logo"); }
+    finally { setLogoUploading(false); }
+  }
+
+  async function removeOrgLogo() {
+    if (!org) return;
+    setLogoUploading(true);
+    try {
+      await fetch(`/api/organizations/${org.id}/logo`, { method: "DELETE" });
+      toast.success("Logo removed");
+      fetchOrg();
+    } catch { toast.error("Failed to remove logo"); }
+    finally { setLogoUploading(false); }
+  }
+
+  async function uploadPropertyLogo(propertyId: string, file: File) {
+    setPropLogoUploading(propertyId);
+    try {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const res = await fetch(`/api/properties/${propertyId}/logo`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error();
+      toast.success("Property logo uploaded");
+      // Refresh data to show new logo
+      const d = await fetch("/api/settings").then((r) => r.json());
+      setData(d);
+    } catch { toast.error("Failed to upload property logo"); }
+    finally { setPropLogoUploading(null); }
+  }
+
+  async function removePropertyLogo(propertyId: string) {
+    setPropLogoUploading(propertyId);
+    try {
+      await fetch(`/api/properties/${propertyId}/logo`, { method: "DELETE" });
+      toast.success("Property logo removed");
+      const d = await fetch("/api/settings").then((r) => r.json());
+      setData(d);
+    } catch { toast.error("Failed to remove logo"); }
+    finally { setPropLogoUploading(null); }
+  }
+
+  const tabs = [
+    { key: "fees", label: "Management Fees" },
+    { key: "branding", label: "Branding" },
+    { key: "info", label: "Property Info" },
+  ];
+
   return (
     <div>
       <Header title="Settings" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
         <div className="flex gap-2 border-b border-gray-200">
-          {[{ key: "fees", label: "Management Fees" }, { key: "info", label: "Property Info" }].map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key as any)} className={`px-4 py-2.5 text-sm font-sans font-medium border-b-2 -mb-px transition-colors ${tab === t.key ? "border-gold text-header" : "border-transparent text-gray-400 hover:text-gray-600"}`}>{t.label}</button>
+          {tabs.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key as any)}
+              className={`px-4 py-2.5 text-sm font-sans font-medium border-b-2 -mb-px transition-colors ${tab === t.key ? "border-gold text-header" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+              {t.label}
+            </button>
           ))}
         </div>
 
         {loading ? <div className="flex justify-center py-12"><Spinner /></div> : !data ? <p className="text-gray-400 text-center py-8 font-sans">Failed to load settings</p> : (
           <>
+            {/* ── Management Fees ── */}
             {tab === "fees" && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-500 font-sans">Update management fee rates per unit. Changes take effect immediately for future calculations.</p>
@@ -89,6 +193,128 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* ── Branding ── */}
+            {tab === "branding" && (
+              <div className="space-y-6">
+                <p className="text-sm text-gray-500 font-sans">
+                  Your company branding appears on all invoices and reports. Upload a logo and fill in your contact details.
+                </p>
+
+                {!org ? (
+                  <p className="text-sm text-gray-400 font-sans text-center py-8">No organisation found.</p>
+                ) : (
+                  <>
+                    {/* Company logo */}
+                    <Card>
+                      <h3 className="font-sans font-semibold text-header mb-4 flex items-center gap-2">
+                        <Building2 size={16} className="text-gold" /> Company Logo
+                      </h3>
+                      <div className="flex items-start gap-6">
+                        {/* Logo preview */}
+                        <div className="w-32 h-20 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
+                          {org.logoUrl ? (
+                            <img src={org.logoUrl} alt="Company logo" className="w-full h-full object-contain p-2" />
+                          ) : (
+                            <p className="text-xs text-gray-400 font-sans text-center px-2">No logo yet</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-500 font-sans">Recommended: PNG or SVG, max 2 MB. Logo appears in PDF invoice headers. If no property logo is set, this is used as the fallback.</p>
+                          <div className="flex gap-2 flex-wrap">
+                            <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                              className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadOrgLogo(f); e.target.value = ""; }} />
+                            <button onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors">
+                              {logoUploading ? <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" /> : <Upload size={12} />}
+                              {org.logoUrl ? "Replace" : "Upload"} logo
+                            </button>
+                            {org.logoUrl && (
+                              <button onClick={removeOrgLogo} disabled={logoUploading}
+                                className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-expense hover:border-expense text-xs font-sans rounded-lg disabled:opacity-50 transition-colors">
+                                <Trash2 size={12} /> Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Company details */}
+                    <Card>
+                      <h3 className="font-sans font-semibold text-header mb-4 flex items-center gap-2">
+                        <Settings size={16} className="text-gold" /> Company Details
+                      </h3>
+                      <div className="space-y-4">
+                        <Input label="Company Name" value={orgForm.name}
+                          onChange={(e) => setOrgForm((p) => ({ ...p, name: e.target.value }))} />
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input label="Phone" value={orgForm.phone}
+                            onChange={(e) => setOrgForm((p) => ({ ...p, phone: e.target.value }))} />
+                          <Input label="Email" type="email" value={orgForm.email}
+                            onChange={(e) => setOrgForm((p) => ({ ...p, email: e.target.value }))} />
+                        </div>
+                        <Input label="Address" value={orgForm.address}
+                          onChange={(e) => setOrgForm((p) => ({ ...p, address: e.target.value }))} />
+                        <Input label="Website" value={orgForm.website}
+                          onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
+                        <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>
+                      </div>
+                    </Card>
+
+                    {/* Per-property logos */}
+                    <Card>
+                      <h3 className="font-sans font-semibold text-header mb-1 flex items-center gap-2">
+                        <Building2 size={16} className="text-gold" /> Property Logos
+                      </h3>
+                      <p className="text-xs text-gray-500 font-sans mb-4">
+                        Optional — overrides the company logo on invoices for that specific property.
+                      </p>
+                      <input ref={propLogoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        className="hidden" onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f && propLogoTarget) uploadPropertyLogo(propLogoTarget, f);
+                          e.target.value = "";
+                        }} />
+                      <div className="space-y-3">
+                        {data.properties?.map((property: any) => (
+                          <div key={property.id} className="flex items-center gap-4 p-3 bg-cream rounded-xl">
+                            <div className="w-20 h-14 border border-gray-200 rounded-lg flex items-center justify-center bg-white overflow-hidden shrink-0">
+                              {property.logoUrl ? (
+                                <img src={property.logoUrl} alt={property.name} className="w-full h-full object-contain p-1.5" />
+                              ) : (
+                                <p className="text-xs text-gray-300 font-sans">None</p>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-sans font-medium text-sm text-header">{property.name}</p>
+                              <p className="text-xs text-gray-400 font-sans">{property.type === "AIRBNB" ? "Short-let" : "Long-term"}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => { setPropLogoTarget(property.id); propLogoInputRef.current?.click(); }}
+                                disabled={propLogoUploading === property.id}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-gold text-white text-xs font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors">
+                                {propLogoUploading === property.id ? <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" /> : <Upload size={11} />}
+                                {property.logoUrl ? "Replace" : "Upload"}
+                              </button>
+                              {property.logoUrl && (
+                                <button onClick={() => removePropertyLogo(property.id)}
+                                  disabled={propLogoUploading === property.id}
+                                  className="p-1.5 text-gray-400 hover:text-expense border border-gray-200 rounded-lg disabled:opacity-50 transition-colors">
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── Property Info ── */}
             {tab === "info" && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-500 font-sans">Property and unit overview</p>

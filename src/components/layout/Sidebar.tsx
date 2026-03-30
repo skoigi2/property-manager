@@ -113,9 +113,11 @@ function groupContainsPath(group: NavGroup, pathname: string): boolean {
 
 interface SidebarProps {
   role?: string;
+  organizationId?: string | null;
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, organizationId }: SidebarProps) {
+  const isSuperAdmin = role === "ADMIN" && organizationId === null;
   const pathname = usePathname();
 
   // Determine which groups should start open (those containing the active route)
@@ -160,6 +162,22 @@ export function Sidebar({ role }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {/* Super-admin: Organisations link */}
+        {isSuperAdmin && (() => {
+          const isActive = pathname === "/admin/organizations" || pathname.startsWith("/admin/organizations/");
+          return (
+            <Link
+              href="/admin/organizations"
+              className={clsx(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans transition-colors mb-1",
+                isActive ? "bg-gold text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+              )}
+            >
+              <Building2 size={18} />
+              Organisations
+            </Link>
+          );
+        })()}
         {sidebarEntries.map((entry) => {
           if (isGroup(entry)) {
             if (!canSee(entry.roles)) return null;

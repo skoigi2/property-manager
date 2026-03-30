@@ -293,8 +293,16 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
                   <div className="mt-0.5 ml-3 pl-3 border-l border-white/10 space-y-0.5">
                     {visibleItems.map((item) => {
                       const SubIcon = item.icon;
+                      // A sibling with a longer href may be a more precise match —
+                      // e.g. /settings/users is more precise than /settings for the
+                      // path /settings/users, so General (/settings) should not highlight.
+                      const siblingIsMorePrecise = visibleItems.some(
+                        (s) => s.href !== item.href &&
+                          (pathname === s.href || pathname.startsWith(s.href + "/"))
+                      );
                       const isActive =
-                        pathname === item.href || pathname.startsWith(item.href + "/");
+                        !siblingIsMorePrecise &&
+                        (pathname === item.href || pathname.startsWith(item.href + "/"));
                       return (
                         <Link
                           key={item.href}

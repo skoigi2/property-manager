@@ -8,13 +8,15 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
-import { UserCog, Plus, Check, X, KeyRound } from "lucide-react";
+import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 
 interface PropertyInfo { id: string; name: string; }
+interface OrgInfo { id: string; name: string; }
 interface UserItem {
   id: string;
   name: string | null;
@@ -23,6 +25,8 @@ interface UserItem {
   phone: string | null;
   isActive: boolean;
   createdAt: string;
+  organizationId: string | null;
+  organization: OrgInfo | null;
   propertyAccess: { property: PropertyInfo }[];
   ownedProperties: PropertyInfo[];
 }
@@ -34,6 +38,7 @@ const createSchema = z.object({
   role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
   phone: z.string().optional(),
   propertyIds: z.array(z.string()).optional(),
+  organizationId: z.string().optional().nullable(),
 });
 type CreateForm = z.infer<typeof createSchema>;
 
@@ -56,9 +61,11 @@ const roleBadge: Record<string, "green" | "blue" | "amber" | "gold"> = {
 export default function UsersPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
+  const isSuperAdmin = isAdmin && (session?.user as any)?.organizationId === null;
 
   const [users, setUsers] = useState<UserItem[]>([]);
   const [allProps, setAllProps] = useState<PropertyInfo[]>([]);
+  const [allOrgs, setAllOrgs] = useState<OrgInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -92,7 +99,13 @@ export default function UsersPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadOrgs = async () => {
+    if (!isSuperAdmin) return;
+    const res = await fetch("/api/organizations");
+    if (res.ok) setAllOrgs(await res.json());
+  };
+
+  useEffect(() => { load(); loadOrgs(); }, [isSuperAdmin]);
 
   const onSubmit = async (values: CreateForm) => {
     setSubmitting(true);
@@ -193,6 +206,18 @@ export default function UsersPage() {
       </Header>
 
       <div className="page-container space-y-4">
+        {isSuperAdmin && (
+          <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-100 rounded-xl">
+            <p className="text-xs font-sans text-amber-700 flex items-center gap-1.5">
+              <Building2 size={13} />
+              You are viewing users across all organisations.
+            </p>
+            <Link href="/admin/organizations" className="flex items-center gap-1 text-xs font-sans text-amber-700 hover:text-amber-900 font-medium underline underline-offset-2 transition-colors">
+              Manage Organisations <ExternalLink size={11} />
+            </Link>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-24"><Spinner size="lg" /></div>
         ) : (
@@ -217,6 +242,12 @@ export default function UsersPage() {
                       </div>
                       <p className="text-xs text-gray-400 font-sans">{user.email}</p>
                       {user.phone && <p className="text-xs text-gray-400 font-sans">{user.phone}</p>}
+                      {isSuperAdmin && (
+                        <p className="text-xs text-gray-400 font-sans flex items-center gap-1 mt-0.5">
+                          <Building2 size={10} />
+                          {user.organization?.name ?? <span className="italic">Super-admin</span>}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -326,6 +357,24 @@ export default function UsersPage() {
             <input type="email" className="form-input" {...register("email")} placeholder="user@example.com" />
             {errors.email && <p className="form-error">{errors.email.message}</p>}
           </div>
+
+          {isSuperAdmin && (
+            <div>
+              <label className="form-label">Organisation</label>
+              <select className="form-input" {...register("organizationId")}>
+                <option value="">— None (super-admin) —</option>
+                {allOrgs.map((org) => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+              {allOrgs.length === 0 && (
+                <p className="text-xs text-gray-400 font-sans mt-1">
+                  No organisations yet.{" "}
+                  <Link href="/admin/organizations" className="text-gold underline underline-offset-2">Create one first →</Link>
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

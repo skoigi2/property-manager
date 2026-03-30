@@ -10,6 +10,7 @@ const createSchema = z.object({
   role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
   phone: z.string().optional(),
   propertyIds: z.array(z.string()).optional(),
+  organizationId: z.string().optional().nullable(),
 });
 
 async function requireManagerSession() {
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { name, email, password, role, phone, propertyIds } = parsed.data;
+  const { name, email, password, role, phone, propertyIds, organizationId: bodyOrgId } = parsed.data;
 
   // Only ADMIN can create other ADMIN users
   if (role === "ADMIN" && session!.user.role !== "ADMIN") {
@@ -100,8 +101,11 @@ export async function POST(req: Request) {
 
   const hashed = await bcrypt.hash(password, 10);
 
-  // New users inherit the creator's org (super-admin creates users without org = new super-admins)
-  const newUserOrgId = session!.user.organizationId ?? null;
+  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  // Super-admin can specify which org the user belongs to; otherwise inherit creator's org
+  const newUserOrgId = isSuperAdmin
+    ? (bodyOrgId ?? null)
+    : session!.user.organizationId ?? null;
 
   const user = await prisma.user.create({
     data: {

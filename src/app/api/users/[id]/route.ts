@@ -31,8 +31,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { session, error } = await requireManagerSession();
   if (error) return error;
 
+  // Fetch target to check if they are a super-admin
+  const target = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: { role: true, organizationId: true },
+  });
+  const targetIsSuperAdmin = target?.role === "ADMIN" && target?.organizationId === null;
+  const callerIsSuperAdmin =
+    session!.user.role === "ADMIN" && (session!.user as any).organizationId === null;
+
+  // Only super-admin can modify a super-admin
+  if (targetIsSuperAdmin && !callerIsSuperAdmin) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
   // Only ADMIN can modify another ADMIN user
-  const target = await prisma.user.findUnique({ where: { id: params.id }, select: { role: true } });
   if (target?.role === "ADMIN" && session!.user.role !== "ADMIN") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -104,8 +116,18 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   // Prevent self-deletion
   if (session.user.id === params.id) return Response.json({ error: "Cannot delete yourself" }, { status: 400 });
 
-  // Only ADMIN can delete another ADMIN
-  const target = await prisma.user.findUnique({ where: { id: params.id }, select: { role: true } });
+  // Only ADMIN can delete another ADMIN; only super-admin can delete a super-admin
+  const target = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: { role: true, organizationId: true },
+  });
+  const targetIsSuperAdmin = target?.role === "ADMIN" && target?.organizationId === null;
+  const callerIsSuperAdmin =
+    session.user.role === "ADMIN" && (session.user as any).organizationId === null;
+
+  if (targetIsSuperAdmin && !callerIsSuperAdmin) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
   if (target?.role === "ADMIN" && session.user.role !== "ADMIN") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }

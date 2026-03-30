@@ -224,8 +224,10 @@ export default function UsersPage() {
           users.map((user) => {
             const grantedIds = new Set(user.propertyAccess.map((a) => a.property.id));
             const canModify = session?.user?.id !== user.id;
-            // MANAGER cannot touch ADMIN users
-            const canEdit = isAdmin || user.role !== "ADMIN";
+            // Super-admin users can only be modified by other super-admins
+            const userIsSuperAdmin = user.role === "ADMIN" && user.organizationId === null;
+            // MANAGER cannot touch ADMIN users; org-admin cannot touch super-admin users
+            const canEdit = (isAdmin || user.role !== "ADMIN") && (!userIsSuperAdmin || isSuperAdmin);
 
             return (
               <Card key={user.id}>

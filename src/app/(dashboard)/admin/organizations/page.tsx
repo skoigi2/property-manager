@@ -27,6 +27,7 @@ interface OrgProperty {
   id: string;
   name: string;
   type: string;
+  owner: OrgUser | null;
   propertyAccess: { user: OrgUser }[];
 }
 
@@ -268,9 +269,10 @@ export default function OrganizationsPage() {
             {orgs.map((org) => {
               const isExpanded = expandedOrgs.has(org.id);
               // Users not attached to any property (admins, owners, etc.)
-              const propertyUserIds = new Set(
-                org.properties.flatMap((p) => p.propertyAccess.map((a) => a.user.id))
-              );
+              const propertyUserIds = new Set([
+                ...org.properties.flatMap((p) => p.propertyAccess.map((a) => a.user.id)),
+                ...org.properties.flatMap((p) => p.owner ? [p.owner.id] : []),
+              ]);
               const memberUsers = org.memberships.map((m) => m.user);
               const directUsers = memberUsers.filter((u) => !propertyUserIds.has(u.id));
 
@@ -385,9 +387,35 @@ export default function OrganizationsPage() {
                                   </div>
                                 </div>
 
-                                {/* Users with access */}
-                                {prop.propertyAccess.length > 0 ? (
+                                {/* Users with access (owner + property access) */}
+                                {(prop.owner || prop.propertyAccess.length > 0) ? (
                                   <div className="space-y-1.5 ml-5">
+                                    {/* Owner row */}
+                                    {prop.owner && (
+                                      <div key={prop.owner.id} className="flex items-center gap-2 flex-wrap">
+                                        <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                                          <UserCog size={10} className="text-blue-400" />
+                                        </div>
+                                        <span className="text-xs font-sans text-gray-700">{prop.owner.name ?? prop.owner.email}</span>
+                                        <Badge variant="blue">OWNER</Badge>
+                                        {!prop.owner.isActive && <Badge variant="red">Inactive</Badge>}
+                                        <div className="ml-auto flex items-center gap-1.5">
+                                          <MoveRight size={11} className="text-gray-300" />
+                                          <select
+                                            className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
+                                            defaultValue=""
+                                            disabled={reassigning === `user-${prop.owner.id}`}
+                                            onChange={(e) => { if (e.target.value) reassignUser(prop.owner!.id, e.target.value); }}
+                                          >
+                                            <option value="" disabled>Move to…</option>
+                                            {orgs.filter((o) => o.id !== org.id).map((o) => (
+                                              <option key={o.id} value={o.id}>{o.name}</option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* PropertyAccess users */}
                                     {prop.propertyAccess.map(({ user }) => (
                                       <div key={user.id} className="flex items-center gap-2 flex-wrap">
                                         <div className="w-5 h-5 rounded-full bg-gold/10 flex items-center justify-center shrink-0">

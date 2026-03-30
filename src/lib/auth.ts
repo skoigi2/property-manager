@@ -31,12 +31,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
+        const membershipCount = await prisma.userOrganizationMembership.count({
+          where: { userId: user.id },
+        });
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
           organizationId: user.organizationId ?? null,
+          membershipCount,
         };
       },
     }),

@@ -72,8 +72,22 @@ export default function OrganizationsPage() {
   const [editForm, setEditForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  // Reassign
-  const [reassigning, setReassigning] = useState<string | null>(null); // "prop-{id}" or "user-{id}"
+  // Reassign users directly
+  const [reassigning, setReassigning] = useState<string | null>(null); // "user-{id}"
+
+  // Property move confirmation flow
+  interface PendingMove {
+    propertyId: string;
+    propertyName: string;
+    sourceOrgName: string;
+    targetOrgId: string;
+    targetOrgName: string;
+    willLeaveSource: OrgUser[];
+    willRemainInSource: OrgUser[];
+    loadingPreview: boolean;
+  }
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   // Guard: only super-admin
   useEffect(() => {
@@ -156,21 +170,43 @@ export default function OrganizationsPage() {
     });
   }
 
-  async function reassignProperty(propertyId: string, targetOrgId: string) {
-    const key = `prop-${propertyId}`;
-    setReassigning(key);
+  async function openMoveConfirmation(
+    propertyId: string, propertyName: string, sourceOrgName: string,
+    targetOrgId: string, targetOrgName: string
+  ) {
+    setPendingMove({
+      propertyId, propertyName, sourceOrgName, targetOrgId, targetOrgName,
+      willLeaveSource: [], willRemainInSource: [], loadingPreview: true,
+    });
     try {
-      const res = await fetch(`/api/properties/${propertyId}`, {
+      const res = await fetch(`/api/properties/${propertyId}/reassign-preview?targetOrgId=${targetOrgId}`);
+      if (res.ok) {
+        const preview = await res.json();
+        setPendingMove((p) => p ? { ...p, ...preview, loadingPreview: false } : null);
+      } else {
+        setPendingMove((p) => p ? { ...p, loadingPreview: false } : null);
+      }
+    } catch {
+      setPendingMove((p) => p ? { ...p, loadingPreview: false } : null);
+    }
+  }
+
+  async function confirmMove() {
+    if (!pendingMove) return;
+    setConfirming(true);
+    try {
+      const res = await fetch(`/api/properties/${pendingMove.propertyId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId: targetOrgId }),
+        body: JSON.stringify({ organizationId: pendingMove.targetOrgId }),
       });
-      if (!res.ok) throw new Error("Failed to reassign property");
-      toast.success("Property moved");
+      if (!res.ok) throw new Error("Failed to move property");
+      toast.success(`"${pendingMove.propertyName}" moved to ${pendingMove.targetOrgName}`);
+      setPendingMove(null);
       fetchOrgs();
     } catch {
-      toast.error("Failed to reassign property");
-    } finally { setReassigning(null); }
+      toast.error("Failed to move property");
+    } finally { setConfirming(false); }
   }
 
   async function reassignUser(userId: string, targetOrgId: string | null) {
@@ -332,9 +368,13 @@ export default function OrganizationsPage() {
                                     <MoveRight size={12} className="text-gray-300" />
                                     <select
                                       className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
-                                      defaultValue=""
-                                      disabled={reassigning === `prop-${prop.id}`}
-                                      onChange={(e) => { if (e.target.value) reassignProperty(prop.id, e.target.value); }}
+                                      value=""
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          const targetOrg = orgs.find((o) => o.id === e.target.value);
+                                          openMoveConfirmation(prop.id, prop.name, org.name, e.target.value, targetOrg?.name ?? "");
+                                        }
+                                      }}
                                     >
                                       <option value="" disabled>Move to…</option>
                                       {orgs.filter((o) => o.id !== org.id).map((o) => (
@@ -428,6 +468,88 @@ export default function OrganizationsPage() {
           </div>
         )}
       </div>
+
+      {/* Property Move Confirmation Modal */}
+      {pendingMove && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => !confirming && setPendingMove(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+                <h2 className="font-display text-lg text-header">Confirm Property Move</h2>
+                {!confirming && (
+                  <button onClick={() => setPendingMove(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <X size={20} />
+                  </button>
+                )}
+              </div>
+              <div className="px-6 py-5 space-y-4">
+                <p className="text-sm font-sans text-gray-600">
+                  Move <span className="font-medium text-header">{pendingMove.propertyName}</span> from{" "}
+                  <span className="font-medium text-header">{pendingMove.sourceOrgName}</span> to{" "}
+                  <span className="font-medium text-header">{pendingMove.targetOrgName}</span>?
+                </p>
+
+                {pendingMove.loadingPreview ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400 font-sans">
+                    <span className="w-3.5 h-3.5 rounded-full border-2 border-gold border-t-transparent animate-spin" />
+                    Checking affected users…
+                  </div>
+                ) : (
+                  <>
+                    {pendingMove.willLeaveSource.length > 0 && (
+                      <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
+                        <p className="text-xs font-sans font-medium text-blue-700 mb-2">
+                          Moving to {pendingMove.targetOrgName}
+                        </p>
+                        <div className="space-y-1">
+                          {pendingMove.willLeaveSource.map((u) => (
+                            <div key={u.id} className="flex items-center gap-2">
+                              <UserCog size={11} className="text-blue-400 shrink-0" />
+                              <span className="text-xs font-sans text-blue-700">{u.name ?? u.email}</span>
+                              <Badge variant={roleBadge[u.role] ?? "gray"}>{u.role}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {pendingMove.willRemainInSource.length > 0 && (
+                      <div className="rounded-xl bg-amber-50 border border-amber-100 p-3">
+                        <p className="text-xs font-sans font-medium text-amber-700 mb-1">
+                          Staying in {pendingMove.sourceOrgName}
+                        </p>
+                        <p className="text-xs font-sans text-amber-600 mb-2">
+                          These users have other properties in {pendingMove.sourceOrgName} and will also gain access to {pendingMove.targetOrgName}.
+                        </p>
+                        <div className="space-y-1">
+                          {pendingMove.willRemainInSource.map((u) => (
+                            <div key={u.id} className="flex items-center gap-2">
+                              <UserCog size={11} className="text-amber-400 shrink-0" />
+                              <span className="text-xs font-sans text-amber-700">{u.name ?? u.email}</span>
+                              <Badge variant={roleBadge[u.role] ?? "gray"}>{u.role}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {pendingMove.willLeaveSource.length === 0 && pendingMove.willRemainInSource.length === 0 && (
+                      <p className="text-xs text-gray-400 font-sans italic">No users will be affected.</p>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="flex gap-3 px-6 pb-6">
+                <Button onClick={confirmMove} loading={confirming} className="flex-1" disabled={pendingMove.loadingPreview}>
+                  Confirm Move
+                </Button>
+                <Button variant="secondary" onClick={() => setPendingMove(null)} disabled={confirming}>Cancel</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Edit Organisation Modal */}
       {editOrg && (

@@ -13,18 +13,32 @@ datasource db {
 // ─── Organisation (multi-tenancy) ────────────────────────────────────────────
 
 model Organization {
-  id         String     @id @default(cuid())
-  name       String
-  logoUrl    String?
-  address    String?
-  phone      String?
-  email      String?
-  website    String?
-  isActive   Boolean    @default(true)
-  users      User[]
-  properties Property[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          String                       @id @default(cuid())
+  name        String
+  logoUrl     String?
+  address     String?
+  phone       String?
+  email       String?
+  website     String?
+  isActive    Boolean                      @default(true)
+  users       User[]
+  properties  Property[]
+  memberships UserOrganizationMembership[]
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+}
+
+model UserOrganizationMembership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
 }
 
 // ─── Auth (NextAuth / Auth.js) ────────────────────────────────────────────────
@@ -46,9 +60,10 @@ model User {
   role             UserRole         @default(MANAGER)
   phone            String?
   isActive         Boolean          @default(true)
-  organizationId   String?
-  organization     Organization?    @relation(fields: [organizationId], references: [id])
-  propertyAccess    PropertyAccess[]
+  organizationId          String?
+  organization            Organization?                @relation(fields: [organizationId], references: [id])
+  organizationMemberships UserOrganizationMembership[]
+  propertyAccess          PropertyAccess[]
   ownedProperties   Property[]       @relation("PropertyOwner")
   managedProperties Property[]       @relation("PropertyManager")
   ownerInvoices     OwnerInvoice[]   @relation("OwnerInvoices")

@@ -89,7 +89,7 @@ export async function POST(req: Request) {
   if (adminEmail && adminPassword) {
     const bcrypt = (await import("bcryptjs")).default;
     const hashed = await bcrypt.hash(adminPassword, 10);
-    await prisma.user.create({
+    const newUser = await prisma.user.create({
       data: {
         name:           adminName ?? adminEmail,
         email:          adminEmail,
@@ -97,6 +97,9 @@ export async function POST(req: Request) {
         role:           "ADMIN",
         organizationId: org.id,
       },
+    });
+    await prisma.userOrganizationMembership.create({
+      data: { userId: newUser.id, organizationId: org.id },
     });
   }
 

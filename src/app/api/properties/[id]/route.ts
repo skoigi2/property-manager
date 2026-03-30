@@ -1,4 +1,4 @@
-import { requirePropertyAccess } from "@/lib/auth-utils";
+import { requirePropertyAccess, requireSuperAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
@@ -54,10 +54,71 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  // Only super-admin can reassign a property to a different org
-  const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
-  if (parsed.data.organizationId !== undefined && !isSuperAdmin) {
-    return Response.json({ error: "Only super-admins can reassign properties" }, { status: 403 });
+  // Org reassignment: super-admin only, with user cascade
+  if (parsed.data.organizationId !== undefined) {
+    const { error: saError } = await requireSuperAdmin();
+    if (saError) return saError;
+
+    const targetOrgId = parsed.data.organizationId;
+
+    // Load current property org and all users with access
+    const existing = await prisma.property.findUnique({
+      where: { id: params.id },
+      select: {
+        organizationId: true,
+        propertyAccess: { select: { user: { select: { id: true } } } },
+      },
+    });
+    const sourceOrgId = existing?.organizationId ?? null;
+    const accessUserIds = existing?.propertyAccess.map((a) => a.user.id) ?? [];
+
+    // Determine cascade: for each user with PropertyAccess, check other source-org properties
+    const usersToProcess = sourceOrgId && targetOrgId
+      ? await Promise.all(
+          accessUserIds.map(async (uid) => {
+            const isMember = await prisma.userOrganizationMembership.findUnique({
+              where: { userId_organizationId: { userId: uid, organizationId: sourceOrgId } },
+            });
+            if (!isMember) return null;
+            const otherProps = await prisma.propertyAccess.count({
+              where: { userId: uid, propertyId: { not: params.id }, property: { organizationId: sourceOrgId } },
+            });
+            return { uid, leavesSource: otherProps === 0 };
+          })
+        )
+      : [];
+
+    const eligible = usersToProcess.filter(Boolean) as { uid: string; leavesSource: boolean }[];
+
+    // Run everything in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Move property
+      await tx.property.update({ where: { id: params.id }, data: parsed.data });
+
+      if (targetOrgId) {
+        for (const { uid, leavesSource } of eligible) {
+          // Add membership in target org
+          await tx.userOrganizationMembership.upsert({
+            where: { userId_organizationId: { userId: uid, organizationId: targetOrgId } },
+            create: { userId: uid, organizationId: targetOrgId },
+            update: {},
+          });
+          if (leavesSource && sourceOrgId) {
+            // Remove membership from source org and update active org
+            await tx.userOrganizationMembership.deleteMany({
+              where: { userId: uid, organizationId: sourceOrgId },
+            });
+            await tx.user.update({
+              where: { id: uid },
+              data: { organizationId: targetOrgId },
+            });
+          }
+        }
+      }
+    });
+
+    const property = await prisma.property.findUnique({ where: { id: params.id } });
+    return Response.json(property);
   }
 
   const property = await prisma.property.update({

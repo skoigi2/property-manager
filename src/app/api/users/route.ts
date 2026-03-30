@@ -123,5 +123,14 @@ export async function POST(req: Request) {
     select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
   });
 
+  // Create org membership record
+  if (newUserOrgId) {
+    await prisma.userOrganizationMembership.upsert({
+      where: { userId_organizationId: { userId: user.id, organizationId: newUserOrgId } },
+      create: { userId: user.id, organizationId: newUserOrgId },
+      update: {},
+    });
+  }
+
   return Response.json(user, { status: 201 });
 }

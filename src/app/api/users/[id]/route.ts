@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireSuperAdmin } from "@/lib/auth-utils";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -62,15 +63,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
   // Only super-admin can reassign a user to a different org
-  const isSuperAdmin = session!.user.role === "ADMIN" && (session!.user as any).organizationId === null;
-  if (parsed.data.organizationId !== undefined && !isSuperAdmin) {
-    return Response.json({ error: "Only super-admins can reassign users" }, { status: 403 });
+  if (parsed.data.organizationId !== undefined) {
+    const { error: saError } = await requireSuperAdmin();
+    if (saError) return saError;
   }
 
-  const { password, ...rest } = parsed.data;
+  const { password, organizationId: newOrgId, ...rest } = parsed.data;
   const updateData: Record<string, unknown> = { ...rest };
   if (password) {
     updateData.password = await bcrypt.hash(password, 10);
+  }
+  if (newOrgId !== undefined) {
+    updateData.organizationId = newOrgId;
   }
 
   const user = await prisma.user.update({
@@ -78,6 +82,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     data: updateData,
     select: { id: true, name: true, email: true, role: true, phone: true, isActive: true },
   });
+
+  // Sync membership table when org changes
+  if (newOrgId) {
+    await prisma.userOrganizationMembership.upsert({
+      where: { userId_organizationId: { userId: params.id, organizationId: newOrgId } },
+      create: { userId: params.id, organizationId: newOrgId },
+      update: {},
+    });
+  }
 
   return Response.json(user);
 }

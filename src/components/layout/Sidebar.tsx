@@ -27,9 +27,12 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  ArrowLeftRight,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 interface NavItem {
   href: string;
@@ -111,6 +114,8 @@ function groupContainsPath(group: NavGroup, pathname: string): boolean {
   );
 }
 
+interface OrgOption { id: string; name: string; logoUrl: string | null; }
+
 interface SidebarProps {
   role?: string;
   organizationId?: string | null;
@@ -119,6 +124,36 @@ interface SidebarProps {
 export function Sidebar({ role, organizationId }: SidebarProps) {
   const isSuperAdmin = role === "ADMIN" && organizationId === null;
   const pathname = usePathname();
+  const { data: session, update } = useSession();
+  const router = useRouter();
+  const membershipCount = (session?.user as any)?.membershipCount ?? 1;
+
+  const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
+  const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
+  const [switching, setSwitching] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (membershipCount > 1 && !isSuperAdmin) {
+      fetch("/api/auth/orgs").then((r) => r.json()).then(setOrgOptions).catch(() => {});
+    }
+  }, [membershipCount, isSuperAdmin]);
+
+  async function switchOrg(orgId: string) {
+    if (orgId === organizationId) { setOrgSwitcherOpen(false); return; }
+    setSwitching(orgId);
+    try {
+      const res = await fetch("/api/auth/switch-org", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: orgId }),
+      });
+      if (!res.ok) throw new Error();
+      await update({ organizationId: orgId });
+      setOrgSwitcherOpen(false);
+      router.refresh();
+    } catch {
+      toast.error("Failed to switch organisation");
+    } finally { setSwitching(null); }
+  }
 
   // Determine which groups should start open (those containing the active route)
   const defaultOpen = sidebarEntries
@@ -150,14 +185,59 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   return (
     <aside className="hidden lg:flex flex-col w-60 bg-header min-h-screen">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-        <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center shrink-0">
-          <Home size={16} className="text-white" />
+      <div className="px-5 py-5 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center shrink-0">
+            <Home size={16} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-display text-white text-sm leading-none">Property Manager</p>
+            <p className="text-white/40 text-xs font-sans mt-0.5">Nairobi</p>
+          </div>
         </div>
-        <div>
-          <p className="font-display text-white text-sm leading-none">Property Manager</p>
-          <p className="text-white/40 text-xs font-sans mt-0.5">Nairobi</p>
-        </div>
+
+        {/* Org switcher — only for multi-org non-super-admin users */}
+        {!isSuperAdmin && membershipCount > 1 && orgOptions.length > 0 && (
+          <div className="mt-3 relative">
+            <button
+              onClick={() => setOrgSwitcherOpen((v) => !v)}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
+            >
+              <Building2 size={13} className="text-white/40 shrink-0" />
+              <span className="text-xs font-sans text-white/60 flex-1 truncate">
+                {orgOptions.find((o) => o.id === organizationId)?.name ?? "Select org"}
+              </span>
+              <ArrowLeftRight size={11} className="text-white/30 shrink-0" />
+            </button>
+
+            {orgSwitcherOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                {orgOptions.map((org) => {
+                  const isActive = org.id === organizationId;
+                  const busy = switching === org.id;
+                  return (
+                    <button
+                      key={org.id}
+                      onClick={() => switchOrg(org.id)}
+                      disabled={busy || isActive}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm font-sans transition-colors ${
+                        isActive ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"
+                      } disabled:opacity-60`}
+                    >
+                      {busy ? (
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-gold border-t-transparent animate-spin shrink-0" />
+                      ) : (
+                        <Building2 size={13} className={isActive ? "text-gold" : "text-gray-400"} />
+                      )}
+                      <span className="truncate">{org.name}</span>
+                      {isActive && <span className="ml-auto text-xs text-gold">Active</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Nav */}

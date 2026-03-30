@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import {
   Building2, Plus, Users, Home, X, Eye, EyeOff,
   Mail, Phone, MapPin, ChevronDown, ChevronRight,
-  Pencil, UserCog, CalendarDays, MoveRight,
+  Pencil, UserCog, CalendarDays, MoveRight, UserPlus, Trash2,
 } from "lucide-react";
 
 interface OrgUser {
@@ -51,6 +51,7 @@ const roleBadge: Record<string, "green" | "blue" | "amber" | "gold" | "gray"> = 
 };
 
 const emptyForm = { name: "", address: "", phone: "", email: "", website: "" };
+const emptyAddUser = { name: "", email: "", password: "", role: "MANAGER", phone: "" };
 
 export default function OrganizationsPage() {
   const { data: session, status } = useSession();
@@ -71,7 +72,15 @@ export default function OrganizationsPage() {
   // Edit modal
   const [editOrg, setEditOrg] = useState<Org | null>(null);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [editTab, setEditTab] = useState<"details" | "users">("details");
   const [saving, setSaving] = useState(false);
+
+  // Users tab state (within edit modal)
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [showAddUserPassword, setShowAddUserPassword] = useState(false);
+  const [addUserForm, setAddUserForm] = useState(emptyAddUser);
+  const [addingUser, setAddingUser] = useState(false);
+  const [removingUser, setRemovingUser] = useState<string | null>(null);
 
   // Reassign users directly
   const [reassigning, setReassigning] = useState<string | null>(null); // "user-{id}"
@@ -99,16 +108,17 @@ export default function OrganizationsPage() {
 
   useEffect(() => { fetchOrgs(); }, []);
 
-  async function fetchOrgs() {
+  async function fetchOrgs(): Promise<Org[]> {
     setLoading(true);
     try {
       const res = await fetch("/api/organizations");
       if (res.ok) {
         const data: Org[] = await res.json();
         setOrgs(data);
-        // Auto-expand all orgs on first load
         setExpandedOrgs(new Set(data.map((o) => o.id)));
+        return data;
       }
+      return [];
     } finally { setLoading(false); }
   }
 
@@ -162,6 +172,10 @@ export default function OrganizationsPage() {
 
   function openEdit(org: Org) {
     setEditOrg(org);
+    setEditTab("details");
+    setShowAddUser(false);
+    setShowAddUserPassword(false);
+    setAddUserForm(emptyAddUser);
     setEditForm({
       name: org.name,
       address: org.address ?? "",
@@ -169,6 +183,49 @@ export default function OrganizationsPage() {
       email: org.email ?? "",
       website: org.website ?? "",
     });
+  }
+
+  async function addUserToOrg() {
+    if (!editOrg) return;
+    setAddingUser(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...addUserForm, organizationId: editOrg.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to add user");
+      }
+      toast.success(`${addUserForm.name || addUserForm.email} added`);
+      setShowAddUser(false);
+      setAddUserForm(emptyAddUser);
+      const fresh = await fetchOrgs();
+      const updated = fresh.find((o) => o.id === editOrg.id);
+      if (updated) setEditOrg(updated);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to add user");
+    } finally { setAddingUser(false); }
+  }
+
+  async function removeFromOrg(orgId: string, userId: string) {
+    setRemovingUser(userId);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/members/${userId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to remove user");
+      }
+      toast.success("User removed from organisation");
+      const fresh = await fetchOrgs();
+      const updated = fresh.find((o) => o.id === orgId);
+      if (updated) setEditOrg(updated);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to remove user");
+    } finally { setRemovingUser(null); }
   }
 
   async function openMoveConfirmation(
@@ -580,33 +637,226 @@ export default function OrganizationsPage() {
         </>
       )}
 
-      {/* Edit Organisation Modal */}
+      {/* Edit Organisation Modal — tabbed: Details | Users */}
       {editOrg && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setEditOrg(null)} />
+          <div
+            className="fixed inset-0 bg-black/40 z-40"
+            onClick={() => { if (!saving && !addingUser && !removingUser) setEditOrg(null); }}
+          />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
                 <h2 className="font-display text-lg text-header">Edit Organisation</h2>
-                <button onClick={() => setEditOrg(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <button
+                  onClick={() => setEditOrg(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
                   <X size={20} />
                 </button>
               </div>
-              <div className="px-6 py-5 space-y-3">
-                <Input label="Company Name *" value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="Phone" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
-                  <Input label="Email" type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+
+              {/* Tabs */}
+              <div className="flex border-b border-gray-100 shrink-0">
+                <button
+                  onClick={() => setEditTab("details")}
+                  className={`flex-1 py-2.5 text-sm font-sans font-medium transition-colors ${
+                    editTab === "details"
+                      ? "text-gold border-b-2 border-gold"
+                      : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => setEditTab("users")}
+                  className={`flex-1 py-2.5 text-sm font-sans font-medium transition-colors ${
+                    editTab === "users"
+                      ? "text-gold border-b-2 border-gold"
+                      : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  Users ({editOrg.memberships.length})
+                </button>
+              </div>
+
+              {/* Scrollable tab content */}
+              <div className="overflow-y-auto flex-1">
+
+                {/* ── Details tab ── */}
+                {editTab === "details" && (
+                  <div className="px-6 py-5 space-y-3">
+                    <Input
+                      label="Company Name *"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Phone"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                      />
+                      <Input
+                        label="Email"
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                      />
+                    </div>
+                    <Input
+                      label="Address"
+                      value={editForm.address}
+                      onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))}
+                    />
+                    <Input
+                      label="Website"
+                      value={editForm.website}
+                      onChange={(e) => setEditForm((p) => ({ ...p, website: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                {/* ── Users tab ── */}
+                {editTab === "users" && (
+                  <div className="px-6 py-5 space-y-4">
+
+                    {/* Add user button / inline form */}
+                    {!showAddUser ? (
+                      <button
+                        onClick={() => setShowAddUser(true)}
+                        className="flex items-center gap-2 text-sm font-sans text-gold hover:text-gold-dark transition-colors"
+                      >
+                        <UserPlus size={15} /> Add User
+                      </button>
+                    ) : (
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-3">
+                        <p className="text-xs font-sans font-medium text-gray-500 uppercase tracking-wide">New User</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input
+                            label="Full Name *"
+                            value={addUserForm.name}
+                            onChange={(e) => setAddUserForm((p) => ({ ...p, name: e.target.value }))}
+                          />
+                          <Input
+                            label="Phone"
+                            value={addUserForm.phone}
+                            onChange={(e) => setAddUserForm((p) => ({ ...p, phone: e.target.value }))}
+                          />
+                        </div>
+                        <Input
+                          label="Email *"
+                          type="email"
+                          value={addUserForm.email}
+                          onChange={(e) => setAddUserForm((p) => ({ ...p, email: e.target.value }))}
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-sans text-gray-500 mb-1">Role *</label>
+                            <select
+                              value={addUserForm.role}
+                              onChange={(e) => setAddUserForm((p) => ({ ...p, role: e.target.value }))}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                            >
+                              <option value="MANAGER">Manager</option>
+                              <option value="ACCOUNTANT">Accountant</option>
+                              <option value="OWNER">Owner</option>
+                            </select>
+                          </div>
+                          <div className="relative">
+                            <Input
+                              label="Password *"
+                              type={showAddUserPassword ? "text" : "password"}
+                              value={addUserForm.password}
+                              onChange={(e) => setAddUserForm((p) => ({ ...p, password: e.target.value }))}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowAddUserPassword((v) => !v)}
+                              className="absolute right-3 top-7 text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              {showAddUserPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <Button
+                            onClick={addUserToOrg}
+                            loading={addingUser}
+                            disabled={!addUserForm.name || !addUserForm.email || addUserForm.password.length < 6}
+                          >
+                            Add User
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setShowAddUser(false);
+                              setAddUserForm(emptyAddUser);
+                              setShowAddUserPassword(false);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Members list */}
+                    {editOrg.memberships.length === 0 ? (
+                      <p className="text-sm text-gray-400 font-sans italic">No users in this organisation yet.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {editOrg.memberships.map(({ user }) => (
+                          <div
+                            key={user.id}
+                            className="flex items-center gap-2.5 py-2.5 border-b border-gray-100 last:border-0"
+                          >
+                            {/* Avatar */}
+                            <div className="w-7 h-7 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+                              <span className="text-xs font-sans font-medium text-gold">
+                                {(user.name ?? user.email ?? "?")[0].toUpperCase()}
+                              </span>
+                            </div>
+                            {/* Name + email */}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-sans text-header truncate">{user.name ?? "—"}</p>
+                              <p className="text-xs text-gray-400 font-sans truncate">{user.email}</p>
+                            </div>
+                            {/* Role badge */}
+                            <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
+                            {!user.isActive && <Badge variant="red">Inactive</Badge>}
+                            {/* Remove button */}
+                            <button
+                              onClick={() => removeFromOrg(editOrg.id, user.id)}
+                              disabled={removingUser === user.id}
+                              className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 ml-1 shrink-0"
+                              title="Remove from organisation"
+                            >
+                              {removingUser === user.id ? (
+                                <span className="w-3.5 h-3.5 rounded-full border-2 border-red-300 border-t-transparent animate-spin inline-block" />
+                              ) : (
+                                <Trash2 size={14} />
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer — only shown on Details tab */}
+              {editTab === "details" && (
+                <div className="flex gap-3 px-6 pb-6 pt-4 border-t border-gray-100 shrink-0">
+                  <Button onClick={saveEdit} loading={saving} className="flex-1" disabled={!editForm.name}>
+                    Save Changes
+                  </Button>
+                  <Button variant="secondary" onClick={() => setEditOrg(null)}>Cancel</Button>
                 </div>
-                <Input label="Address" value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
-                <Input label="Website" value={editForm.website} onChange={(e) => setEditForm((p) => ({ ...p, website: e.target.value }))} />
-              </div>
-              <div className="flex gap-3 px-6 pb-6">
-                <Button onClick={saveEdit} loading={saving} className="flex-1" disabled={!editForm.name}>
-                  Save Changes
-                </Button>
-                <Button variant="secondary" onClick={() => setEditOrg(null)}>Cancel</Button>
-              </div>
+              )}
             </div>
           </div>
         </>

@@ -92,12 +92,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             updateActiveOrg: isOnlySourceProp,
           });
         } else {
-          // Property had no org — just add user to target org and set as active if they have none
-          const user = await prisma.user.findUnique({ where: { id: uid }, select: { organizationId: true } });
+          // Property had no org — add user to target org and always update their active org
           eligible.push({
             uid,
             removeSourceMembership: false,
-            updateActiveOrg: !user?.organizationId,
+            updateActiveOrg: true,
           });
         }
       }

@@ -19,7 +19,7 @@ export async function GET() {
   const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
   const include = {
-    _count: { select: { users: true, properties: true } },
+    _count: { select: { memberships: true, properties: true } },
     properties: {
       select: {
         id: true,
@@ -33,9 +33,11 @@ export async function GET() {
       },
       orderBy: { name: "asc" as const },
     },
-    users: {
-      select: { id: true, name: true, email: true, role: true, isActive: true },
-      orderBy: { name: "asc" as const },
+    memberships: {
+      select: {
+        user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+      },
+      orderBy: { user: { name: "asc" as const } },
     },
   };
 

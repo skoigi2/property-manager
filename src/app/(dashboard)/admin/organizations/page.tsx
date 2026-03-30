@@ -40,9 +40,9 @@ interface Org {
   website: string | null;
   isActive: boolean;
   createdAt: string;
-  _count: { users: number; properties: number };
+  _count: { memberships: number; properties: number };
   properties: OrgProperty[];
-  users: OrgUser[];
+  memberships: { user: OrgUser }[];
 }
 
 const roleBadge: Record<string, "green" | "blue" | "amber" | "gold" | "gray"> = {
@@ -271,7 +271,8 @@ export default function OrganizationsPage() {
               const propertyUserIds = new Set(
                 org.properties.flatMap((p) => p.propertyAccess.map((a) => a.user.id))
               );
-              const directUsers = org.users.filter((u) => !propertyUserIds.has(u.id));
+              const memberUsers = org.memberships.map((m) => m.user);
+              const directUsers = memberUsers.filter((u) => !propertyUserIds.has(u.id));
 
               return (
                 <Card key={org.id} className="overflow-hidden">
@@ -294,7 +295,7 @@ export default function OrganizationsPage() {
                       </div>
                       <div className="flex items-center gap-4 mt-1 flex-wrap">
                         <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
-                          <Users size={11} /> {org._count.users} user{org._count.users !== 1 ? "s" : ""}
+                          <Users size={11} /> {org._count.memberships} user{org._count.memberships !== 1 ? "s" : ""}
                         </span>
                         <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
                           <Home size={11} /> {org._count.properties} propert{org._count.properties !== 1 ? "ies" : "y"}

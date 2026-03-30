@@ -254,8 +254,8 @@ export default function UsersPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Reset password — ADMIN only, not self */}
-                    {isAdmin && canModify && (
+                    {/* Reset password — ADMIN only, not self, not super-admin target */}
+                    {isAdmin && canModify && canEdit && (
                       <button
                         onClick={() => { setResetTarget(user); resetResetForm(); }}
                         className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-gold transition-colors"

@@ -12,13 +12,12 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Seeding Mayfair Suites...");
 
-  // ── Find Alba Gardens to copy organisationId and existing user access ──────
-  const albaGardens = await prisma.property.findFirst({ where: { name: "Alba Gardens" } });
-  if (!albaGardens) {
-    throw new Error("Alba Gardens not found. Make sure you are connected to the correct database.");
+  // ── Find the default organisation ─────────────────────────────────────────
+  const defaultOrg = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!defaultOrg) {
+    throw new Error("No organisation found. Make sure you are connected to the correct database.");
   }
-  const orgId = albaGardens.organizationId;
-  console.log(`✓ Found Alba Gardens (orgId: ${orgId ?? "null — super-admin context"})`);
+  console.log(`✓ Using organisation: ${defaultOrg.name} (${defaultOrg.id})`);
 
   // ── Property (upsert by name) ──────────────────────────────────────────────
   const mayfairSuites = await prisma.property.upsert({
@@ -26,25 +25,25 @@ async function main() {
     create: {
       name: "Mayfair Suites",
       type: PropertyType.AIRBNB,
-      ...(orgId ? { organizationId: orgId } : {}),
+      organizationId: defaultOrg.id,
     },
     update: {},
   });
   console.log(`✓ Property: ${mayfairSuites.name} (${mayfairSuites.id})`);
 
-  // ── Copy PropertyAccess from Alba Gardens to Mayfair Suites ───────────────
-  const albaAccess = await prisma.propertyAccess.findMany({
-    where: { propertyId: albaGardens.id },
+  // ── Grant PropertyAccess to all members of the default organisation ────────
+  const members = await prisma.userOrganizationMembership.findMany({
+    where: { organizationId: defaultOrg.id },
     select: { userId: true },
   });
-  for (const { userId } of albaAccess) {
+  for (const { userId } of members) {
     await prisma.propertyAccess.upsert({
       where: { userId_propertyId: { userId, propertyId: mayfairSuites.id } },
       create: { userId, propertyId: mayfairSuites.id },
       update: {},
     });
   }
-  console.log(`✓ PropertyAccess copied for ${albaAccess.length} user(s)`);
+  console.log(`✓ PropertyAccess granted to ${members.length} org member(s)`);
 
   // ── Units (upsert by propertyId + unitNumber) ─────────────────────────────
   async function upsertUnit(unitNumber: string, type: UnitType) {

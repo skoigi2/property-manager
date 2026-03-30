@@ -6,7 +6,7 @@
 
 DO $$
 DECLARE
-  v_alba_org_id   text;
+  v_org_id        text;
   v_mayfair_id    text;
   v_m101_id       text;
   v_m102_id       text;
@@ -15,14 +15,13 @@ DECLARE
   v_m301_id       text;
 BEGIN
 
-  -- ── 1. Get Alba Gardens' organisation ──────────────────────────────────
-  SELECT "organizationId" INTO v_alba_org_id
-  FROM "Property" WHERE name = 'Alba Gardens' LIMIT 1;
+  -- ── 1. Get the default organisation ────────────────────────────────────
+  SELECT id INTO v_org_id FROM "Organization" ORDER BY "createdAt" ASC LIMIT 1;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Alba Gardens not found — check you are on the correct database';
+  IF v_org_id IS NULL THEN
+    RAISE EXCEPTION 'No organisation found — check you are on the correct database';
   END IF;
-  RAISE NOTICE 'Alba Gardens orgId: %', COALESCE(v_alba_org_id, '(null — super-admin context)');
+  RAISE NOTICE 'Using organisation: %', v_org_id;
 
   -- ── 2. Create Mayfair Suites property ──────────────────────────────────
   SELECT id INTO v_mayfair_id FROM "Property" WHERE name = 'Mayfair Suites' LIMIT 1;
@@ -31,18 +30,17 @@ BEGIN
     v_mayfair_id := gen_random_uuid()::text;
     INSERT INTO "Property" (id, name, type, "organizationId", city, "createdAt", "updatedAt")
     VALUES (v_mayfair_id, 'Mayfair Suites', 'AIRBNB'::"PropertyType",
-            v_alba_org_id, 'Nairobi', NOW(), NOW());
+            v_org_id, 'Nairobi', NOW(), NOW());
     RAISE NOTICE 'Created property Mayfair Suites (%)', v_mayfair_id;
   ELSE
     RAISE NOTICE 'Property already exists (%)', v_mayfair_id;
   END IF;
 
-  -- ── 3. Copy PropertyAccess from Alba Gardens ────────────────────────────
+  -- ── 3. Grant PropertyAccess to all members of the default organisation ──
   INSERT INTO "PropertyAccess" ("userId", "propertyId", "createdAt")
-  SELECT pa."userId", v_mayfair_id, NOW()
-  FROM   "PropertyAccess" pa
-  JOIN   "Property" p ON pa."propertyId" = p.id
-  WHERE  p.name = 'Alba Gardens'
+  SELECT m."userId", v_mayfair_id, NOW()
+  FROM   "UserOrganizationMembership" m
+  WHERE  m."organizationId" = v_org_id
   ON CONFLICT ("userId", "propertyId") DO NOTHING;
   RAISE NOTICE 'PropertyAccess copied';
 

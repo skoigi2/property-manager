@@ -28,6 +28,7 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowLeftRight,
+  LineChart,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -64,6 +65,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/expenses",           label: "Expenses",  icon: Receipt,     roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/petty-cash",         label: "Petty Cash",icon: Wallet,      roles: ["MANAGER"] },
       { href: "/recurring-expenses", label: "Recurring", icon: RepeatIcon,  roles: ["MANAGER"] },
+      { href: "/forecast",           label: "Forecast",  icon: LineChart,   roles: ["MANAGER", "ACCOUNTANT"] },
     ],
   },
   {

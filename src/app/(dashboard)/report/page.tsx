@@ -11,8 +11,9 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Badge } from "@/components/ui/Badge";
 import {
   FileText, Download, TrendingUp, Receipt, DollarSign,
-  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2, Calendar,
+  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2, Calendar, Mail,
 } from "lucide-react";
+import { OwnerEmailDraftModal } from "@/components/report/OwnerEmailDraftModal";
 import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
@@ -709,11 +710,13 @@ interface StatementData {
   grossIncome: number; managementFee: number;
   expenses: { category: string; description: string; amount: number }[];
   totalExpenses: number; netPayable: number; notes: string;
+  ownerName: string | null; ownerEmail: string | null;
 }
 
 function OwnerStatementTab({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
-  const [data, setData]       = useState<StatementData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData]           = useState<StatementData[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [emailStmt, setEmailStmt] = useState<StatementData | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -749,13 +752,21 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
               <p className="text-xs text-gray-400 font-sans mt-0.5">Owner Remittance Statement · {stmt.period}</p>
               <p className="text-xs text-gray-400 font-sans">Generated {stmt.generatedAt}</p>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net Payable to Owner</p>
-              <CurrencyDisplay
-                amount={stmt.netPayable}
-                size="xl"
-                className={stmt.netPayable >= 0 ? "text-income font-medium" : "text-expense font-medium"}
-              />
+            <div className="flex flex-col items-end gap-2">
+              <div className="text-right">
+                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net Payable to Owner</p>
+                <CurrencyDisplay
+                  amount={stmt.netPayable}
+                  size="xl"
+                  className={stmt.netPayable >= 0 ? "text-income font-medium" : "text-expense font-medium"}
+                />
+              </div>
+              <button
+                onClick={() => setEmailStmt(stmt)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/5 transition-colors"
+              >
+                <Mail size={13} /> Email Owner
+              </button>
             </div>
           </div>
 
@@ -824,6 +835,9 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
           <p className="text-xs text-gray-400 font-sans italic">{stmt.notes}</p>
         </Card>
       ))}
+      {emailStmt && (
+        <OwnerEmailDraftModal statement={emailStmt} onClose={() => setEmailStmt(null)} />
+      )}
     </div>
   );
 }

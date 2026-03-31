@@ -28,6 +28,8 @@ export interface OwnerStatement {
   totalExpenses: number;
   netPayable:    number;
   notes:         string;
+  ownerName:     string | null;
+  ownerEmail:    string | null;
 }
 
 export async function GET(req: Request) {
@@ -51,7 +53,7 @@ export async function GET(req: Request) {
 
   const properties = await prisma.property.findMany({
     where: { id: { in: targetPropertyIds } },
-    include: { units: true },
+    include: { units: true, owner: { select: { name: true, email: true } } },
   });
 
   const [tenants, incomeEntries, expenseEntries] = await Promise.all([
@@ -155,7 +157,9 @@ export async function GET(req: Request) {
       expenses,
       totalExpenses,
       netPayable,
-      notes: `Net payable to owner for ${periodLabel}. Management fee deducted per agreement.`,
+      notes:      `Net payable to owner for ${periodLabel}. Management fee deducted per agreement.`,
+      ownerName:  property.owner?.name  ?? null,
+      ownerEmail: property.owner?.email ?? null,
     };
   });
 

@@ -8,9 +8,10 @@ interface KPICardProps {
   type?: "income" | "expense" | "neutral" | "balance";
   icon?: React.ReactNode;
   subtext?: string;
+  currency?: string;
 }
 
-export function KPICard({ label, amount, type = "neutral", icon, subtext }: KPICardProps) {
+export function KPICard({ label, amount, type = "neutral", icon, subtext, currency = "KES" }: KPICardProps) {
   const colors = {
     income: "border-income/30 bg-green-50",
     expense: "border-expense/30 bg-red-50",
@@ -30,7 +31,7 @@ export function KPICard({ label, amount, type = "neutral", icon, subtext }: KPIC
         <p className="text-xs font-medium text-gray-500 font-sans uppercase tracking-wide leading-tight">{label}</p>
         {icon && <span className="text-gray-300 shrink-0">{icon}</span>}
       </div>
-      <CurrencyDisplay amount={amount} className={clsx("block mt-2", textColors[type])} size="xl" />
+      <CurrencyDisplay currency={currency} amount={amount} className={clsx("block mt-2", textColors[type])} size="xl" />
       {subtext && <p className="text-xs text-gray-400 font-sans mt-1">{subtext}</p>}
     </div>
   );

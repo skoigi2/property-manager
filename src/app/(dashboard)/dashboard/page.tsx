@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useProperty } from "@/lib/property-context";
+import { formatCurrency } from "@/lib/currency";
 import { clsx } from "clsx";
 
 // ── Action Card ────────────────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ export default function DashboardPage() {
     ? ["All rent collected this month"]
     : [
         ...(noRentCount > 0  ? [`${noRentCount} tenant${noRentCount > 1 ? "s" : ""} not yet paid`] : []),
-        ...(invSum.count > 0 ? [`${invSum.count} overdue invoice${invSum.count > 1 ? "s" : ""} — KSh ${invSum.amount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}`] : []),
+        ...(invSum.count > 0 ? [`${invSum.count} overdue invoice${invSum.count > 1 ? "s" : ""} — ${formatCurrency(invSum.amount, currency)}`] : []),
       ];
 
   const maintLines = maint.open === 0
@@ -150,7 +151,7 @@ export default function DashboardPage() {
     : [
         `${arrears.openCases} active case${arrears.openCases > 1 ? "s" : ""}`,
         ...(arrears.escalated > 0 ? [`${arrears.escalated} escalated to legal/eviction`] : []),
-        ...(arrears.totalOwed > 0 ? [`KSh ${arrears.totalOwed.toLocaleString("en-KE", { maximumFractionDigits: 0 })} total owed`] : []),
+        ...(arrears.totalOwed > 0 ? [`${formatCurrency(arrears.totalOwed, currency)} total owed`] : []),
       ];
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -183,12 +184,14 @@ export default function DashboardPage() {
             {/* ── KPI Cards ─────────────────────────────────────────────────── */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               <KPICard
+                currency={currency}
                 label="Gross Income"
                 amount={data.kpis.totalGrossIncome}
                 type="income"
                 icon={<TrendingUp size={18} />}
               />
               <KPICard
+                currency={currency}
                 label="Net Profit"
                 amount={data.kpis.netProfit}
                 type="balance"
@@ -198,6 +201,7 @@ export default function DashboardPage() {
                   : undefined}
               />
               <KPICard
+                currency={currency}
                 label="Outstanding"
                 amount={invSum.amount}
                 type={invSum.amount > 0 ? "neutral" : "income"}
@@ -205,6 +209,7 @@ export default function DashboardPage() {
                 subtext={invSum.count > 0 ? `${invSum.count} invoice${invSum.count > 1 ? "s" : ""}` : "All invoices paid"}
               />
               <KPICard
+                currency={currency}
                 label="Arrears Owed"
                 amount={arrears.totalOwed}
                 type={arrears.totalOwed > 0 ? "expense" : "income"}
@@ -212,6 +217,7 @@ export default function DashboardPage() {
                 subtext={arrears.openCases > 0 ? `${arrears.openCases} open case${arrears.openCases > 1 ? "s" : ""}` : "No active cases"}
               />
               <KPICard
+                currency={currency}
                 label="Petty Cash"
                 amount={data.kpis.pettyCashBalance}
                 type="balance"
@@ -285,9 +291,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="p-5">
                   {activeProperty?.type === "LONGTERM" ? (
-                    <RentStatusTable rows={data.rentStatus.filter((r: any) => r.propertyId === tab)} />
+                    <RentStatusTable currency={currency} rows={data.rentStatus.filter((r: any) => r.propertyId === tab)} />
                   ) : (
-                    <AlbaRevenueTable rows={data.airbnbRevenue.filter((r: any) => r.propertyId === tab)} />
+                    <AlbaRevenueTable currency={currency} rows={data.airbnbRevenue.filter((r: any) => r.propertyId === tab)} />
                   )}
                 </div>
               </Card>
@@ -329,6 +335,7 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 text-center">
                 <DollarSign size={18} className="text-gold mb-1" />
                 <CurrencyDisplay
+                  currency={currency}
                   amount={Math.abs(data.mgmtFeeReconciliation.balance)}
                   size="md"
                   className={clsx(

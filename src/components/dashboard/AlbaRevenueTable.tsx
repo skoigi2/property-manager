@@ -16,7 +16,7 @@ interface AlbaRow {
   daysInMonth: number;
 }
 
-export function AlbaRevenueTable({ rows }: { rows: AlbaRow[] }) {
+export function AlbaRevenueTable({ rows, currency = "KES" }: { rows: AlbaRow[]; currency?: string }) {
   const totalGross = rows.reduce((s, r) => s + r.grossIncome, 0);
   const totalNet = rows.reduce((s, r) => s + r.netProfit, 0);
 
@@ -37,11 +37,11 @@ export function AlbaRevenueTable({ rows }: { rows: AlbaRow[] }) {
               <tr key={row.unitId} className="border-t border-gray-100">
                 <td className="py-3 pr-3 text-sm font-mono text-header font-medium">{row.unitNumber}</td>
                 <td className="py-3 pr-3 text-sm font-sans text-gray-500">{row.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</td>
-                <td className="py-3 pr-3 text-right"><CurrencyDisplay amount={row.grossIncome} size="sm" colorize /></td>
-                <td className="py-3 pr-3 text-right"><CurrencyDisplay amount={-row.totalCommissions} size="sm" colorize /></td>
-                <td className="py-3 pr-3 text-right"><CurrencyDisplay amount={-row.fixedExpenses} size="sm" colorize /></td>
-                <td className="py-3 pr-3 text-right"><CurrencyDisplay amount={-row.variableExpenses} size="sm" colorize /></td>
-                <td className="py-3 pr-3 text-right"><CurrencyDisplay amount={row.netProfit} size="sm" colorize /></td>
+                <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.grossIncome} size="sm" colorize /></td>
+                <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={-row.totalCommissions} size="sm" colorize /></td>
+                <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={-row.fixedExpenses} size="sm" colorize /></td>
+                <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={-row.variableExpenses} size="sm" colorize /></td>
+                <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.netProfit} size="sm" colorize /></td>
                 <td className="py-3 text-center">
                   {row.grossIncome === 0 ? (
                     <Badge variant={row.status === "OWNER_OCCUPIED" ? "gold" : "gray"}>
@@ -58,9 +58,9 @@ export function AlbaRevenueTable({ rows }: { rows: AlbaRow[] }) {
         <tfoot>
           <tr className="border-t-2 border-gold/30">
             <td colSpan={2} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
-            <td className="pt-3 text-right"><CurrencyDisplay amount={totalGross} size="sm" colorize /></td>
+            <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalGross} size="sm" colorize /></td>
             <td colSpan={3} />
-            <td className="pt-3 text-right"><CurrencyDisplay amount={totalNet} size="sm" colorize /></td>
+            <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalNet} size="sm" colorize /></td>
             <td />
           </tr>
         </tfoot>

@@ -19,6 +19,7 @@ interface RentRow {
 
 interface RentStatusTableProps {
   rows: RentRow[];
+  currency?: string;
 }
 
 function statusBadge(status: string) {
@@ -28,7 +29,7 @@ function statusBadge(status: string) {
   return <Badge variant="green">Active</Badge>;
 }
 
-export function RentStatusTable({ rows }: RentStatusTableProps) {
+export function RentStatusTable({ rows, currency = "KES" }: RentStatusTableProps) {
   const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
   const totalReceived = rows.reduce((s, r) => s + r.received, 0);
 
@@ -52,10 +53,10 @@ export function RentStatusTable({ rows }: RentStatusTableProps) {
               <td className="py-3 pr-3 text-sm font-sans text-header font-medium">{row.tenantName}</td>
               <td className="py-3 pr-3 text-sm font-mono text-gray-500">{row.unitNumber}</td>
               <td className="py-3 pr-3 text-sm font-sans text-gray-500">{row.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</td>
-              <td className="py-3 pr-3 text-right"><CurrencyDisplay amount={row.expected} size="sm" /></td>
-              <td className="py-3 pr-3 text-right"><CurrencyDisplay amount={row.received} size="sm" colorize /></td>
+              <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.expected} size="sm" /></td>
+              <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize /></td>
               <td className={clsx("py-3 pr-3 text-right font-mono text-sm", row.variance < 0 ? "text-expense" : row.variance > 0 ? "text-income" : "text-gray-400")}>
-                {row.variance >= 0 ? "+" : ""}<CurrencyDisplay amount={row.variance} size="sm" colorize />
+                {row.variance >= 0 ? "+" : ""}<CurrencyDisplay currency={currency} amount={row.variance} size="sm" colorize />
               </td>
               <td className="py-3">{statusBadge(row.leaseStatus)}</td>
             </tr>
@@ -64,10 +65,10 @@ export function RentStatusTable({ rows }: RentStatusTableProps) {
         <tfoot>
           <tr className="border-t-2 border-gold/30">
             <td colSpan={3} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
-            <td className="pt-3 text-right"><CurrencyDisplay amount={totalExpected} size="sm" /></td>
-            <td className="pt-3 text-right"><CurrencyDisplay amount={totalReceived} size="sm" colorize /></td>
+            <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalExpected} size="sm" /></td>
+            <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalReceived} size="sm" colorize /></td>
             <td className={clsx("pt-3 text-right font-mono text-sm", totalReceived - totalExpected < 0 ? "text-expense" : "text-income")}>
-              <CurrencyDisplay amount={totalReceived - totalExpected} size="sm" colorize />
+              <CurrencyDisplay currency={currency} amount={totalReceived - totalExpected} size="sm" colorize />
             </td>
             <td />
           </tr>

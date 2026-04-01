@@ -11,6 +11,7 @@ const updateSchema = z.object({
   unitId:           z.string().nullable().optional(),
   reportedBy:       z.string().optional(),
   assignedTo:       z.string().optional(),
+  vendorId:         z.string().nullable().optional(),
   scheduledDate:    z.string().nullable().optional(),
   completedDate:    z.string().nullable().optional(),
   cost:             z.coerce.number().min(0).nullable().optional(),
@@ -41,6 +42,7 @@ async function getJobWithAccess(id: string) {
     include: {
       property: { select: { id: true, name: true } },
       unit:     { select: { id: true, unitNumber: true } },
+      vendor:   { select: { id: true, name: true, category: true, phone: true } },
     },
   });
   if (!job) return { job: null, accessError: Response.json({ error: "Not found" }, { status: 404 }) };
@@ -100,6 +102,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       include: {
         property: { select: { id: true, name: true } },
         unit:     { select: { id: true, unitNumber: true } },
+        vendor:   { select: { id: true, name: true, category: true, phone: true } },
       },
     });
 
@@ -140,6 +143,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     include: {
       property: { select: { id: true, name: true } },
       unit:     { select: { id: true, unitNumber: true } },
+      vendor:   { select: { id: true, name: true, category: true, phone: true } },
     },
   });
 

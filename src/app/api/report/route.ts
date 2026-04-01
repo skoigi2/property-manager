@@ -39,6 +39,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
           { propertyId: { in: propertyIds } },
         ],
       },
+      include: { vendor: { select: { id: true, name: true, category: true } } },
     }),
     prisma.pettyCash.findMany({ where: { propertyId: { in: propertyIds } }, orderBy: { date: "asc" } }),
   ]);
@@ -125,6 +126,21 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     .filter((e) => e.category === "MANAGEMENT_FEE")
     .reduce((s, e) => s + e.amount, 0);
 
+  // Vendor spend
+  const vendorSpendMap: Record<string, { name: string; category: string; totalSpend: number; expenseCount: number }> = {};
+  for (const e of expenseEntries) {
+    if (!(e as any).vendor) continue;
+    const v = (e as any).vendor;
+    if (!vendorSpendMap[v.id]) {
+      vendorSpendMap[v.id] = { name: v.name, category: v.category, totalSpend: 0, expenseCount: 0 };
+    }
+    vendorSpendMap[v.id].totalSpend += e.amount;
+    vendorSpendMap[v.id].expenseCount += 1;
+  }
+  const vendorSpend = Object.entries(vendorSpendMap)
+    .map(([vendorId, data]) => ({ vendorId, ...data }))
+    .sort((a, b) => b.totalSpend - a.totalSpend);
+
   // Alerts
   const alerts: string[] = [];
   const leaseAlerts = tenants.filter((t) => {
@@ -157,6 +173,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     rentCollection,
     albaPerformance,
     expenses,
+    vendorSpend,
     pettyCash: {
       totalIn:  pcIn,
       totalOut: pcOut,

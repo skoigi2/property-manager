@@ -87,7 +87,7 @@ export function exportExpenses(entries: any[], month: Date) {
 
   // ── Sheet 1: Summary (one row per expense) ──────────────────────────────
   const summaryHeaders = [
-    "Date", "Category", "Description", "Property", "Scope", "Units",
+    "Date", "Category", "Description", "Vendor", "Property", "Scope", "Units",
     "Amount (KSh)", "Sunk Cost", "Petty Cash",
     "Overall Payment Status", "VATable Amount (KSh)",
   ];
@@ -114,6 +114,7 @@ export function exportExpenses(entries: any[], month: Date) {
       fmtDate(e.date),
       CAT_LABEL[e.category] ?? e.category,
       e.description ?? "",
+      e.vendor?.name ?? "",
       e.property?.name ?? "",
       e.scope ?? "",
       units,
@@ -126,12 +127,12 @@ export function exportExpenses(entries: any[], month: Date) {
   });
 
   const ws1 = buildSheet(summaryHeaders, summaryRows);
-  setColWidths(ws1, [14, 18, 30, 20, 12, 18, 18, 10, 10, 20, 20]);
+  setColWidths(ws1, [14, 18, 30, 22, 20, 12, 18, 18, 10, 10, 20, 20]);
   XLSX.utils.book_append_sheet(wb, ws1, "Expenses Summary");
 
   // ── Sheet 2: Line Items (one row per line item) ─────────────────────────
   const lineHeaders = [
-    "Date", "Expense Category", "Expense Description", "Property", "Units",
+    "Date", "Expense Category", "Expense Description", "Vendor", "Property", "Units",
     "Line Type", "Line Description", "Amount (KSh)", "VATable",
     "Payment Status", "Amount Paid (KSh)", "Payment Reference",
   ];
@@ -149,6 +150,7 @@ export function exportExpenses(entries: any[], month: Date) {
         fmtDate(e.date),
         CAT_LABEL[e.category] ?? e.category,
         e.description ?? "",
+        e.vendor?.name ?? "",
         e.property?.name ?? "",
         units,
         item.category[0] + item.category.slice(1).toLowerCase(),
@@ -168,7 +170,7 @@ export function exportExpenses(entries: any[], month: Date) {
 
   if (lineRows.length > 0) {
     const ws2 = buildSheet(lineHeaders, lineRows);
-    setColWidths(ws2, [14, 18, 28, 20, 16, 12, 28, 16, 10, 14, 18, 24]);
+    setColWidths(ws2, [14, 18, 28, 22, 20, 16, 12, 28, 16, 10, 14, 18, 24]);
     XLSX.utils.book_append_sheet(wb, ws2, "Line Items");
   }
 

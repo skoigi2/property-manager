@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true, property: { select: { name: true } } } },
   property: { select: { name: true } },
+  vendor: { select: { id: true, name: true, category: true, phone: true } },
   lineItems: { orderBy: { createdAt: "asc" as const } },
   unitAllocations: {
     include: { unit: { select: { unitNumber: true, propertyId: true } } },
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const vendorId = body.vendorId as string | undefined | null;
   const { date, paidFromPettyCash, unitIds, lineItems, ...rest } = parsed.data;
   const parsedDate = new Date(date);
 
@@ -118,6 +120,7 @@ export async function POST(req: Request) {
         description: rest.description,
         isSunkCost: rest.isSunkCost ?? false,
         paidFromPettyCash: paidFromPettyCash ?? false,
+        vendorId: vendorId || null,
         unitId: resolvedUnitId,
         propertyId: resolvedPropertyId,
       },

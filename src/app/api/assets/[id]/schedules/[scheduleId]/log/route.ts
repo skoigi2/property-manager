@@ -47,11 +47,12 @@ export async function POST(
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { date, description, cost, technician, notes } = body as {
+  const { date, description, cost, technician, vendorId, notes } = body as {
     date?: string;
     description?: string;
     cost?: number;
     technician?: string;
+    vendorId?: string | null;
     notes?: string;
   };
 
@@ -89,6 +90,7 @@ export async function POST(
           description,
           cost: cost ?? null,
           technician: technician ?? null,
+          vendorId: vendorId ?? null,
           notes: notes ?? null,
         },
       });

@@ -21,6 +21,7 @@ import {
   CalendarDays, User, Receipt, CheckCircle2, ExternalLink,
   Loader2, X, AlertTriangle,
 } from "lucide-react";
+import { VendorSelect } from "@/components/ui/VendorSelect";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
@@ -519,6 +520,7 @@ export default function MaintenancePage() {
   const [filterProperty, setFilterProperty] = useState("");
   const [showDone, setShowDone]     = useState(false);
   const [logExpenseTarget, setLogExpenseTarget] = useState<Job | null>(null);
+  const [jobVendorId, setJobVendorId] = useState<string | null>(null);
 
   // ── Schedules state ────────────────────────────────────────────────────────
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
@@ -580,6 +582,7 @@ export default function MaintenancePage() {
   const openAdd = () => {
     setEditJob(null);
     reset({ category: "OTHER", priority: "MEDIUM" });
+    setJobVendorId(null);
     setModalOpen(true);
   };
 
@@ -598,6 +601,7 @@ export default function MaintenancePage() {
       cost:          job.cost ?? undefined,
       notes:         job.notes ?? "",
     });
+    setJobVendorId((job as any).vendorId ?? null);
     setModalOpen(true);
   };
 
@@ -609,7 +613,7 @@ export default function MaintenancePage() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, vendorId: jobVendorId || null }),
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success(editJob ? "Job updated" : "Job created");
@@ -1104,10 +1108,10 @@ export default function MaintenancePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Assigned To"
-              placeholder="Contractor / plumber"
-              {...register("assignedTo")}
+            <VendorSelect
+              label="Assigned To (Vendor)"
+              value={jobVendorId}
+              onChange={setJobVendorId}
             />
             <Input
               label="Reported By"

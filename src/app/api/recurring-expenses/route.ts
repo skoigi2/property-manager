@@ -14,6 +14,7 @@ const schema = z.object({
   unitId: z.string().optional().nullable(),
   frequency: z.enum(["MONTHLY","QUARTERLY","ANNUAL"]).default("MONTHLY"),
   nextDueDate: z.string(),
+  vendorId: z.string().optional().nullable(),
 });
 
 export async function GET(req: Request) {
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
     include: {
       property: { select: { name: true } },
       unit: { select: { unitNumber: true } },
+      vendor: { select: { id: true, name: true, category: true } },
     },
     orderBy: { nextDueDate: "asc" },
   });
@@ -62,6 +64,7 @@ export async function POST(req: Request) {
     include: {
       property: { select: { name: true } },
       unit: { select: { unitNumber: true } },
+      vendor: { select: { id: true, name: true, category: true } },
     },
   });
 

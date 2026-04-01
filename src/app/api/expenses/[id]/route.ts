@@ -7,6 +7,7 @@ import { deleteFromStorage } from "@/lib/supabase-storage";
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true } },
   property: { select: { name: true } },
+  vendor: { select: { id: true, name: true, category: true, phone: true } },
   lineItems: { orderBy: { createdAt: "asc" as const } },
   unitAllocations: {
     include: { unit: { select: { unitNumber: true, propertyId: true } } },
@@ -24,6 +25,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const vendorId = body.vendorId as string | undefined | null;
   const { date, paidFromPettyCash, unitIds, lineItems, ...rest } = parsed.data;
   const parsedDate = new Date(date);
 
@@ -69,6 +71,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         description: rest.description,
         isSunkCost: rest.isSunkCost ?? false,
         paidFromPettyCash: paidFromPettyCash ?? false,
+        vendorId: vendorId !== undefined ? (vendorId || null) : undefined,
         unitId: resolvedUnitId ?? null,
         propertyId: resolvedPropertyId ?? null,
       },

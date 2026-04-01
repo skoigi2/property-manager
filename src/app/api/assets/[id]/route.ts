@@ -17,6 +17,7 @@ const updateSchema = z.object({
   warrantyExpiry: z.string().optional().nullable(),
   serviceProvider: z.string().optional().nullable(),
   serviceContact: z.string().optional().nullable(),
+  vendorId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -36,6 +37,7 @@ export async function GET(
       include: {
         property: { select: { name: true } },
         unit: { select: { unitNumber: true } },
+        vendor: { select: { id: true, name: true, category: true, phone: true } },
         documents: { orderBy: { uploadedAt: "desc" } },
       },
     });
@@ -105,11 +107,13 @@ export async function PATCH(
         }),
         ...(data.serviceProvider !== undefined && { serviceProvider: data.serviceProvider }),
         ...(data.serviceContact !== undefined && { serviceContact: data.serviceContact }),
+        ...(data.vendorId !== undefined && { vendorId: data.vendorId }),
         ...(data.notes !== undefined && { notes: data.notes }),
       },
       include: {
         property: { select: { name: true } },
         unit: { select: { unitNumber: true } },
+        vendor: { select: { id: true, name: true, category: true, phone: true } },
         documents: { orderBy: { uploadedAt: "desc" } },
       },
     });

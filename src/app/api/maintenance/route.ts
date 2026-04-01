@@ -12,6 +12,7 @@ const createSchema = z.object({
   priority:    z.enum(["LOW","MEDIUM","HIGH","URGENT"]).default("MEDIUM"),
   reportedBy:  z.string().optional(),
   assignedTo:  z.string().optional(),
+  vendorId:    z.string().optional().nullable(),
   reportedDate:  z.string().optional(),
   scheduledDate: z.string().optional(),
   cost:          z.coerce.number().min(0).optional(),
@@ -44,6 +45,7 @@ export async function GET(req: Request) {
     include: {
       property: { select: { id: true, name: true } },
       unit: { select: { id: true, unitNumber: true } },
+      vendor: { select: { id: true, name: true, category: true, phone: true } },
     },
     orderBy: [
       { status: "asc" },
@@ -74,6 +76,7 @@ export async function POST(req: Request) {
     include: {
       property: { select: { id: true, name: true } },
       unit: { select: { id: true, unitNumber: true } },
+      vendor: { select: { id: true, name: true, category: true, phone: true } },
     },
   });
 

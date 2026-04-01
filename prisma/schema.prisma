@@ -24,6 +24,7 @@ model Organization {
   users       User[]
   properties  Property[]
   memberships UserOrganizationMembership[]
+  vendors     Vendor[]
   createdAt   DateTime                     @default(now())
   updatedAt   DateTime                     @updatedAt
 }
@@ -318,6 +319,15 @@ enum AuditAction {
   DELETE
 }
 
+enum VendorCategory {
+  CONTRACTOR
+  SUPPLIER
+  UTILITY_PROVIDER
+  SERVICE_PROVIDER
+  CONSULTANT
+  OTHER
+}
+
 enum LineItemCategory {
   LABOUR
   MATERIAL
@@ -505,8 +515,10 @@ model ExpenseEntry {
   description       String?
   isSunkCost        Boolean         @default(false)
   paidFromPettyCash Boolean         @default(false)
+  vendorId          String?
   unit              Unit?                    @relation(fields: [unitId], references: [id])
   property          Property?                @relation(fields: [propertyId], references: [id])
+  vendor            Vendor?                  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   lineItems         ExpenseLineItem[]
   unitAllocations   ExpenseUnitAllocation[]
   documents         ExpenseDocument[]
@@ -585,6 +597,7 @@ model MaintenanceJob {
   cost             Float?
   notes            String?
   expenseId        String?             // ID of the linked ExpenseEntry (once logged)
+  vendorId         String?
   isEmergency      Boolean             @default(false)
   acknowledgedAt   DateTime?
   requiresApproval Boolean             @default(false)
@@ -592,6 +605,7 @@ model MaintenanceJob {
   approvalNotes    String?
   property         Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  vendor           Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
@@ -688,8 +702,10 @@ model RecurringExpense {
   frequency   RecurringFrequency @default(MONTHLY)
   nextDueDate DateTime
   isActive    Boolean            @default(true)
+  vendorId    String?
   property    Property?          @relation(fields: [propertyId], references: [id])
   unit        Unit?              @relation(fields: [unitId], references: [id])
+  vendor      Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -815,7 +831,9 @@ model Asset {
   warrantyExpiry  DateTime?
   serviceProvider String?
   serviceContact  String?
+  vendorId        String?
   notes           String?
+  vendor               Vendor?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   documents            AssetDocument[]
   maintenanceSchedules AssetMaintenanceSchedule[]
   maintenanceLogs      AssetMaintenanceLog[]
@@ -870,12 +888,15 @@ model AssetMaintenanceLog {
   description String
   cost        Float?
   technician  String?
+  vendorId    String?
   notes       String?
+  vendor      Vendor?                   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   createdAt   DateTime                  @default(now())
 
   @@index([assetId])
   @@index([scheduleId])
   @@index([expenseId])
+  @@index([vendorId])
 }
 
 // ─── Management Agreement ─────────────────────────────────────────────────────
@@ -995,5 +1016,31 @@ model Agent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([name])
+}
+
+// ─── Vendor Registry ──────────────────────────────────────────────────────────
+
+model Vendor {
+  id             String         @id @default(cuid())
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id])
+  name           String
+  category       VendorCategory @default(OTHER)
+  phone          String?
+  email          String?
+  kraPin         String?
+  bankDetails    String?
+  notes          String?
+  isActive       Boolean        @default(true)
+  expenses        ExpenseEntry[]
+  maintenanceJobs MaintenanceJob[]
+  assetLogs       AssetMaintenanceLog[]
+  recurringExpenses RecurringExpense[]
+  assets          Asset[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([organizationId])
   @@index([name])
 }

@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
+import { VendorSelect } from "@/components/ui/VendorSelect";
 import {
   Package,
   Plus,
@@ -188,6 +189,7 @@ function blankForm() {
     warrantyExpiry: "",
     serviceProvider: "",
     serviceContact: "",
+    vendorId: "" as string,
     notes: "",
   };
 }
@@ -338,6 +340,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
   const [schedForm, setSchedForm] = useState({
     taskName: "", description: "", frequency: "MONTHLY", lastDone: "",
   });
+  const [logVendorId, setLogVendorId] = useState<string | null>(null);
   const [logForm, setLogForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     description: "", cost: "", technician: "", notes: "",
@@ -416,6 +419,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 
   function openLogModal(s: MaintenanceSchedule) {
     setLogModal(s);
+    setLogVendorId(null);
     setLogForm({ date: new Date().toISOString().slice(0, 10), description: `${s.taskName} completed`, cost: "", technician: "", notes: "" });
   }
 
@@ -431,6 +435,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
           description: logForm.description,
           cost: logForm.cost ? parseFloat(logForm.cost) : null,
           technician: logForm.technician || null,
+          vendorId: logVendorId || null,
           notes: logForm.notes || null,
         }),
       });
@@ -637,16 +642,11 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
-          <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Technician</label>
-            <input
-              type="text"
-              value={logForm.technician}
-              onChange={(e) => setLogForm((f) => ({ ...f, technician: e.target.value }))}
-              placeholder="Name or company"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
-          </div>
+          <VendorSelect
+            label="Technician / Vendor"
+            value={logVendorId}
+            onChange={setLogVendorId}
+          />
           <div>
             <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Notes</label>
             <textarea
@@ -754,6 +754,7 @@ export default function AssetsPage() {
       warrantyExpiry: a.warrantyExpiry ? a.warrantyExpiry.slice(0, 10) : "",
       serviceProvider: a.serviceProvider ?? "",
       serviceContact: a.serviceContact ?? "",
+      vendorId: (a as any).vendorId ?? "",
       notes: a.notes ?? "",
     });
     setModalOpen(true);
@@ -779,6 +780,7 @@ export default function AssetsPage() {
         warrantyExpiry: form.warrantyExpiry || null,
         serviceProvider: form.serviceProvider || null,
         serviceContact: form.serviceContact || null,
+        vendorId: form.vendorId || null,
         notes: form.notes || null,
       };
 
@@ -1267,33 +1269,12 @@ export default function AssetsPage() {
             />
           </div>
 
-          {/* Service Provider / Contact */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
-                Service Provider
-              </label>
-              <input
-                type="text"
-                value={form.serviceProvider}
-                onChange={(e) => setForm((f) => ({ ...f, serviceProvider: e.target.value }))}
-                placeholder="Provider name"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
-                Service Contact
-              </label>
-              <input
-                type="text"
-                value={form.serviceContact}
-                onChange={(e) => setForm((f) => ({ ...f, serviceContact: e.target.value }))}
-                placeholder="+254 7xx xxx xxx"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
-            </div>
-          </div>
+          {/* Service Provider */}
+          <VendorSelect
+            label="Service Provider"
+            value={form.vendorId || null}
+            onChange={(v) => setForm((f) => ({ ...f, vendorId: v ?? "" }))}
+          />
 
           {/* Notes */}
           <div>

@@ -87,6 +87,7 @@ const sidebarEntries: SidebarEntry[] = [
     items: [
       { href: "/maintenance", label: "Maintenance", icon: Wrench,    roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/assets",      label: "Assets",      icon: Package,   roles: ["MANAGER", "ACCOUNTANT"] },
+      { href: "/vendors",     label: "Vendors",     icon: Building2, roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/insurance",   label: "Insurance",   icon: ShieldPlus,roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/compliance",  label: "Compliance",  icon: BarChart3, roles: ["MANAGER", "ACCOUNTANT"] },
     ],

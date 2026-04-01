@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { ExpenseDocumentUpload } from "@/components/expenses/ExpenseDocumentUpload";
 import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
+import { VendorSelect } from "@/components/ui/VendorSelect";
 import { exportExpenses } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
@@ -246,6 +247,7 @@ export default function ExpensesPage() {
   const [docLoading, setDocLoading]     = useState<Set<string>>(new Set());
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([]);
+  const [vendorId, setVendorId] = useState<string | null>(null);
 
   // Filters
   const [filterSearch, setFilterSearch] = useState("");
@@ -327,6 +329,7 @@ export default function ExpensesPage() {
     setEditEntry(null);
     setSelectedUnitIds([]);
     setLineItems([]);
+    setVendorId(null);
     setShowForm(false);
   }, [reset]);
 
@@ -366,6 +369,7 @@ export default function ExpensesPage() {
         paymentReference: item.paymentReference ?? "",
       }))
     );
+    setVendorId(e.vendorId ?? null);
     setShowForm(true);
   }
 
@@ -415,6 +419,7 @@ export default function ExpensesPage() {
         ...data,
         unitId,
         unitIds,
+        vendorId: vendorId || null,
         lineItems: lineItems.map((item) => ({
           id: item.id,
           category: item.category,
@@ -699,6 +704,7 @@ export default function ExpensesPage() {
         return (
           <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500 max-w-[160px]">
             <span title={e.description ?? ""}>{e.description ? (e.description.length > 30 ? e.description.slice(0, 30) + "…" : e.description) : "—"}</span>
+            {e.vendor && <p className="text-xs text-gray-400 mt-0.5 truncate">{e.vendor.name}</p>}
           </td>
         );
       case "amount":
@@ -969,6 +975,8 @@ export default function ExpensesPage() {
                   <Input label="Amount (KSh)" type="number" step="0.01" min="0" prefix="KSh" {...register("amount")} error={errors.amount?.message} />
                 )}
               </div>
+
+              <VendorSelect label="Vendor" value={vendorId} onChange={setVendorId} />
 
               <Input label="Description" {...register("description")} placeholder="Optional description..." />
 

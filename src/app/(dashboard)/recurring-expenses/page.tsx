@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { RepeatIcon, Plus, Trash2, Play, ToggleLeft, ToggleRight, CalendarClock } from "lucide-react";
+import { VendorSelect } from "@/components/ui/VendorSelect";
 
 const CATEGORIES = [
   "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY",
@@ -72,6 +73,7 @@ export default function RecurringExpensesPage() {
   const [deleting, setDeleting]     = useState(false);
   const [applying, setApplying]     = useState(false);
   const [applyMonth, setApplyMonth] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
+  const [recurVendorId, setRecurVendorId] = useState<string | null>(null);
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -97,12 +99,14 @@ export default function RecurringExpensesPage() {
       ...data,
       propertyId: scope === "PROPERTY" ? data.propertyId : null,
       unitId: scope === "UNIT" ? data.unitId : null,
+      vendorId: recurVendorId || null,
     };
     const res = await fetch("/api/recurring-expenses", { method: "POST", headers: { "Content-Type":"application/json" }, body: JSON.stringify(payload) });
     setSubmitting(false);
     if (!res.ok) { toast.error("Failed to add recurring expense"); return; }
     toast.success("Recurring expense added");
     reset();
+    setRecurVendorId(null);
     setShowForm(false);
     load();
   };
@@ -243,7 +247,7 @@ export default function RecurringExpensesPage() {
       </div>
 
       {/* Add modal */}
-      <Modal open={showForm} onClose={() => { setShowForm(false); reset(); }} title="Add Recurring Expense" size="md">
+      <Modal open={showForm} onClose={() => { setShowForm(false); reset(); setRecurVendorId(null); }} title="Add Recurring Expense" size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input label="Description" {...register("description")} error={errors.description?.message} placeholder="e.g. Monthly internet bill" />
           <div className="grid grid-cols-2 gap-3">
@@ -266,8 +270,9 @@ export default function RecurringExpensesPage() {
             <Select label="Unit" {...register("unitId")} error={errors.unitId?.message}
               options={allUnits.map((u:any) => ({ value: u.id, label: `${u.propertyName} — Unit ${u.unitNumber}` }))} />
           )}
+          <VendorSelect label="Vendor" value={recurVendorId} onChange={setRecurVendorId} />
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" type="button" onClick={() => { setShowForm(false); reset(); }}>Cancel</Button>
+            <Button variant="secondary" type="button" onClick={() => { setShowForm(false); reset(); setRecurVendorId(null); }}>Cancel</Button>
             <Button variant="gold" type="submit" loading={submitting}>Add Recurring</Button>
           </div>
         </form>

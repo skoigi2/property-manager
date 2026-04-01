@@ -350,6 +350,24 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
         </div>
       </Card>
 
+      {/* Vendor Spend */}
+      {data.vendorSpend && data.vendorSpend.length > 0 && (
+        <Card>
+          <SectionTitle><Building2 size={16} className="text-gold" /> Vendor Spend</SectionTitle>
+          <div className="space-y-1">
+            {data.vendorSpend.map((v) => (
+              <div key={v.vendorId} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                <div className="min-w-0">
+                  <span className="text-sm font-sans text-gray-700 font-medium">{v.name}</span>
+                  <span className="ml-2 text-xs text-gray-400">{v.expenseCount} expense{v.expenseCount !== 1 ? "s" : ""}</span>
+                </div>
+                <span className="font-mono text-sm font-medium text-expense shrink-0">{fmt(v.totalSpend)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* P&L Statement */}
       <Card>
         <SectionTitle><TrendingUp size={16} className="text-gold" /> Profit & Loss Statement</SectionTitle>

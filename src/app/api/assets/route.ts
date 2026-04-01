@@ -17,6 +17,7 @@ const assetSchema = z.object({
   warrantyExpiry: z.string().optional().nullable(),
   serviceProvider: z.string().optional().nullable(),
   serviceContact: z.string().optional().nullable(),
+  vendorId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -45,6 +46,7 @@ export async function GET(req: Request) {
       include: {
         property: { select: { name: true } },
         unit: { select: { unitNumber: true } },
+        vendor: { select: { id: true, name: true, category: true, phone: true } },
         documents: { select: { id: true } },
         maintenanceSchedules: {
           where: { isActive: true },
@@ -105,11 +107,13 @@ export async function POST(req: Request) {
         warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
         serviceProvider: data.serviceProvider ?? null,
         serviceContact: data.serviceContact ?? null,
+        vendorId: data.vendorId ?? null,
         notes: data.notes ?? null,
       },
       include: {
         property: { select: { name: true } },
         unit: { select: { unitNumber: true } },
+        vendor: { select: { id: true, name: true, category: true, phone: true } },
         documents: true,
       },
     });

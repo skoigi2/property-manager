@@ -62,4 +62,12 @@ export interface ReportData {
   };
 
   alerts: string[];
+
+  vendorSpend?: {
+    vendorId: string;
+    name: string;
+    category: string;
+    totalSpend: number;
+    expenseCount: number;
+  }[];
 }

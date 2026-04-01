@@ -7,6 +7,7 @@ const patchSchema = z.object({
   amount: z.number().positive().optional(),
   nextDueDate: z.string().optional(),
   isActive: z.boolean().optional(),
+  vendorId: z.string().nullable().optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -24,6 +25,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     include: {
       property: { select: { name: true } },
       unit: { select: { unitNumber: true } },
+      vendor: { select: { id: true, name: true, category: true } },
     },
   });
 

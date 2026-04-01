@@ -60,7 +60,8 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 
 export default function TenantsPage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
 
   // Data
   const [tenants, setTenants]       = useState<any[]>([]);
@@ -539,15 +540,15 @@ export default function TenantsPage() {
                   <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                     <div>
                       <p className="text-xs text-gray-400 font-sans">Rent</p>
-                      <CurrencyDisplay amount={tenant.monthlyRent} size="sm" />
+                      <CurrencyDisplay currency={currency} amount={tenant.monthlyRent} size="sm" />
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 font-sans">Svc Charge</p>
-                      <CurrencyDisplay amount={tenant.serviceCharge} size="sm" />
+                      <CurrencyDisplay currency={currency} amount={tenant.serviceCharge} size="sm" />
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 font-sans">Monthly Total</p>
-                      <CurrencyDisplay amount={monthlyTotal} size="sm" className="text-header font-medium" />
+                      <CurrencyDisplay currency={currency} amount={monthlyTotal} size="sm" className="text-header font-medium" />
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 font-sans">Lease End</p>

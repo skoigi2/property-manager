@@ -229,7 +229,8 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
 
 export default function ExpensesPage() {
   const { data: session } = useSession();
-  const { selectedId, properties } = useProperty();
+  const { selectedId, selected, properties } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -703,7 +704,7 @@ export default function ExpensesPage() {
       case "amount":
         return (
           <td key={key} className="px-4 py-3 text-right">
-            <CurrencyDisplay amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
+            <CurrencyDisplay currency={currency} amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
             {e.unitAllocations?.length > 1 && (
               <p className="text-xs text-gray-400 font-sans mt-0.5">
                 KSh {(e.amount / e.unitAllocations.length).toLocaleString("en-KE", { maximumFractionDigits: 0 })} / unit
@@ -811,7 +812,7 @@ export default function ExpensesPage() {
           ].map((s) => (
             <Card key={s.label} padding="sm">
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{s.label}</p>
-              <CurrencyDisplay amount={s.value} className={`block mt-1 ${s.color}`} size="lg" />
+              <CurrencyDisplay currency={currency} amount={s.value} className={`block mt-1 ${s.color}`} size="lg" />
             </Card>
           ))}
         </div>

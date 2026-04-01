@@ -322,7 +322,8 @@ function OpenCaseModal({ open, onClose, onCreated }: {
 
 export default function ArrearsPage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [cases, setCases]       = useState<ArrearsCase[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showOpen, setShowOpen] = useState(false);
@@ -386,7 +387,7 @@ export default function ArrearsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Card padding="sm" className="border-l-4 border-expense">
             <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Total Owed</p>
-            <CurrencyDisplay amount={totalOwed} size="lg" className="text-expense font-medium mt-1" />
+            <CurrencyDisplay currency={currency} amount={totalOwed} size="lg" className="text-expense font-medium mt-1" />
           </Card>
           <Card padding="sm" className="border-l-4 border-amber-400">
             <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Open Cases</p>

@@ -27,7 +27,8 @@ import { useProperty } from "@/lib/property-context";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
-  const { selectedId, properties } = useProperty();
+  const { selectedId, selected, properties } = useProperty();
+  const currency = selected?.currency ?? "KES";
 
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -431,14 +432,14 @@ export default function PettyCashPage() {
               <ArrowUpCircle size={16} className="text-income" />
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">In This Month</p>
             </div>
-            <CurrencyDisplay amount={periodIn} className="text-income" size="lg" />
+            <CurrencyDisplay currency={currency} amount={periodIn} className="text-income" size="lg" />
           </Card>
           <Card padding="sm" className="border-l-4 border-expense">
             <div className="flex items-center gap-2 mb-1">
               <ArrowDownCircle size={16} className="text-expense" />
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Out This Month</p>
             </div>
-            <CurrencyDisplay amount={periodOut} className="text-expense" size="lg" />
+            <CurrencyDisplay currency={currency} amount={periodOut} className="text-expense" size="lg" />
           </Card>
           <Card padding="sm" className={clsx("border-l-4", periodNet >= 0 ? "border-income" : "border-expense")}>
             <div className="flex items-center gap-2 mb-1">
@@ -447,14 +448,14 @@ export default function PettyCashPage() {
                 : <TrendingDown size={16} className="text-expense" />}
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net This Month</p>
             </div>
-            <CurrencyDisplay amount={periodNet} className={periodNet >= 0 ? "text-income" : "text-expense"} size="lg" />
+            <CurrencyDisplay currency={currency} amount={periodNet} className={periodNet >= 0 ? "text-income" : "text-expense"} size="lg" />
           </Card>
           <Card padding="sm" className={clsx("border-l-4", balance >= 0 ? "border-gold" : "border-expense")}>
             <div className="flex items-center gap-2 mb-1">
               <Wallet size={16} className={balance >= 0 ? "text-gold" : "text-expense"} />
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{balance >= 0 ? "Running Balance" : "DEFICIT"}</p>
             </div>
-            <CurrencyDisplay amount={balance} className={balance >= 0 ? "text-gold-dark" : "text-expense"} size="lg" />
+            <CurrencyDisplay currency={currency} amount={balance} className={balance >= 0 ? "text-gold-dark" : "text-expense"} size="lg" />
             <p className="text-xs text-gray-400 font-sans mt-0.5">all time</p>
           </Card>
         </div>

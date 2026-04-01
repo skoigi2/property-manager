@@ -18,6 +18,7 @@ import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
 import { useProperty } from "@/lib/property-context";
+import { formatCurrency } from "@/lib/currency";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -59,11 +60,11 @@ type Tab = "preview" | "annual" | "owner" | "download" | "quarterly";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function Stat({ label, value, color }: { label: string; value: number; color: string }) {
+function Stat({ label, value, color, currency = "KES" }: { label: string; value: number; color: string; currency?: string }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-gray-400 font-sans uppercase tracking-wide">{label}</span>
-      <CurrencyDisplay amount={value} className={`font-medium ${color}`} size="md" />
+      <CurrencyDisplay currency={currency} amount={value} className={`font-medium ${color}`} size="md" />
     </div>
   );
 }
@@ -76,14 +77,14 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AmountCell({ value, strikethrough = false }: { value: number; strikethrough?: boolean }) {
+function AmountCell({ value, strikethrough = false, currency = "KES" }: { value: number; strikethrough?: boolean; currency?: string }) {
   return (
     <span className={clsx(
       "font-mono text-sm",
       value < 0 ? "text-expense" : value > 0 ? "text-income" : "text-gray-400",
       strikethrough && "line-through text-gray-400",
     )}>
-      KSh {Math.abs(value).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+      {formatCurrency(Math.abs(value), currency)}
     </span>
   );
 }
@@ -91,6 +92,9 @@ function AmountCell({ value, strikethrough = false }: { value: number; strikethr
 // ── P&L Preview Tab ────────────────────────────────────────────────────────────
 
 function PLPreview({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
+  const { selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
+  const fmt = (n: number) => formatCurrency(n, currency);
   const [data, setData]       = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pcExpanded, setPcExpanded] = useState(false);
@@ -144,7 +148,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
               <span className={k.color}>{k.icon}</span>
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{k.label}</p>
             </div>
-            <CurrencyDisplay amount={k.value} className={`${k.color} font-medium`} size="lg" />
+            <CurrencyDisplay currency={currency} amount={k.value} className={`${k.color} font-medium`} size="lg" />
           </Card>
         ))}
         <Card padding="sm" className={`border-l-4 ${data.kpis.occupancyRate >= 80 ? "border-income" : "border-amber-400"}`}>
@@ -195,16 +199,16 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                       <td className="py-2.5 pr-4 font-sans text-header">{row.tenantName}</td>
                       <td className="py-2.5 pr-4 font-mono text-gray-500">{row.unit}</td>
                       <td className="py-2.5 pr-4 font-mono text-gray-600">
-                        {row.expectedRent.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.expectedRent.toLocaleString()}
                       </td>
                       <td className="py-2.5 pr-4 font-mono text-gray-500">
-                        {row.serviceCharge.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.serviceCharge.toLocaleString()}
                       </td>
                       <td className={clsx("py-2.5 pr-4 font-mono font-medium", isPaid ? "text-income" : row.received > 0 ? "text-amber-600" : "text-expense")}>
-                        {row.received.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.received.toLocaleString()}
                       </td>
                       <td className={clsx("py-2.5 pr-4 font-mono", variance >= 0 ? "text-income" : "text-expense")}>
-                        {variance >= 0 ? "+" : ""}{variance.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {variance >= 0 ? "+" : ""}{variance.toLocaleString()}
                       </td>
                       <td className="py-2.5">
                         <Badge variant={
@@ -223,13 +227,13 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                 <tr className="border-t border-gray-200 bg-cream">
                   <td colSpan={2} className="py-2 pr-4 text-xs font-medium font-sans text-gray-500 uppercase">Total</td>
                   <td className="py-2 pr-4 font-mono text-sm font-medium text-header">
-                    {data.rentCollection.reduce((s, r) => s + r.expectedRent, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.rentCollection.reduce((s, r) => s + r.expectedRent, 0).toLocaleString()}
                   </td>
                   <td className="py-2 pr-4 font-mono text-sm text-gray-500">
-                    {data.rentCollection.reduce((s, r) => s + r.serviceCharge, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.rentCollection.reduce((s, r) => s + r.serviceCharge, 0).toLocaleString()}
                   </td>
                   <td className="py-2 pr-4 font-mono text-sm font-medium text-income">
-                    {data.rentCollection.reduce((s, r) => s + r.received, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.rentCollection.reduce((s, r) => s + r.received, 0).toLocaleString()}
                   </td>
                   <td colSpan={2} />
                 </tr>
@@ -264,19 +268,19 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                         <Badge variant="blue">{row.type.replace("_", " ")}</Badge>
                       </td>
                       <td className="py-2.5 pr-4 font-mono text-income">
-                        {row.grossRevenue.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.grossRevenue.toLocaleString()}
                       </td>
                       <td className="py-2.5 pr-4 font-mono text-expense">
-                        {row.commissions.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.commissions.toLocaleString()}
                       </td>
                       <td className="py-2.5 pr-4 font-mono text-gray-500">
-                        {row.fixedCosts.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.fixedCosts.toLocaleString()}
                       </td>
                       <td className="py-2.5 pr-4 font-mono text-gray-500">
-                        {row.variableCosts.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.variableCosts.toLocaleString()}
                       </td>
                       <td className={clsx("py-2.5 pr-4 font-mono font-medium", row.netRevenue >= 0 ? "text-income" : "text-expense")}>
-                        {row.netRevenue.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                        {row.netRevenue.toLocaleString()}
                       </td>
                       <td className="py-2.5">
                         <span className={clsx("font-mono text-sm font-medium",
@@ -294,19 +298,19 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                 <tr className="border-t border-gray-200 bg-cream">
                   <td colSpan={2} className="py-2 pr-4 text-xs font-medium font-sans text-gray-500 uppercase">Total</td>
                   <td className="py-2 pr-4 font-mono text-sm text-income font-medium">
-                    {data.albaPerformance.reduce((s, r) => s + r.grossRevenue, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.albaPerformance.reduce((s, r) => s + r.grossRevenue, 0).toLocaleString()}
                   </td>
                   <td className="py-2 pr-4 font-mono text-sm text-expense">
-                    {data.albaPerformance.reduce((s, r) => s + r.commissions, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.albaPerformance.reduce((s, r) => s + r.commissions, 0).toLocaleString()}
                   </td>
                   <td className="py-2 pr-4 font-mono text-sm text-gray-500">
-                    {data.albaPerformance.reduce((s, r) => s + r.fixedCosts, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.albaPerformance.reduce((s, r) => s + r.fixedCosts, 0).toLocaleString()}
                   </td>
                   <td className="py-2 pr-4 font-mono text-sm text-gray-500">
-                    {data.albaPerformance.reduce((s, r) => s + r.variableCosts, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.albaPerformance.reduce((s, r) => s + r.variableCosts, 0).toLocaleString()}
                   </td>
                   <td className="py-2 font-mono text-sm font-medium text-income">
-                    {data.albaPerformance.reduce((s, r) => s + r.netRevenue, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                    {data.albaPerformance.reduce((s, r) => s + r.netRevenue, 0).toLocaleString()}
                   </td>
                   <td />
                 </tr>
@@ -323,7 +327,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           {opExpenses.map((e) => (
             <div key={e.category} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
               <span className="text-sm font-sans text-gray-600">{CAT_LABELS[e.category] ?? e.category}</span>
-              <AmountCell value={-e.amount} />
+              <AmountCell value={-e.amount} currency={currency} />
             </div>
           ))}
           {sunkExpenses.length > 0 && (
@@ -332,7 +336,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
               {sunkExpenses.map((e) => (
                 <div key={e.category} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 opacity-60">
                   <span className="text-sm font-sans text-gray-500">{CAT_LABELS[e.category] ?? e.category}</span>
-                  <AmountCell value={-e.amount} strikethrough />
+                  <AmountCell value={-e.amount} strikethrough currency={currency} />
                 </div>
               ))}
             </>
@@ -340,7 +344,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           <div className="flex items-center justify-between pt-3 border-t border-gray-200">
             <span className="text-sm font-medium font-sans text-header">Total Operating Expenses</span>
             <span className="font-mono text-sm font-bold text-expense">
-              KSh {opExpenses.reduce((s, e) => s + e.amount, 0).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+              {fmt(opExpenses.reduce((s, e) => s + e.amount, 0))}
             </span>
           </div>
         </div>
@@ -369,7 +373,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                 row.bold ? "font-bold" : "font-medium",
                 row.value >= 0 ? "text-income" : "text-expense",
               )}>
-                {row.value < 0 ? "-" : ""}KSh {Math.abs(row.value).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                {row.value < 0 ? "-" : ""}{fmt(Math.abs(row.value))}
               </span>
             </div>
           ))}
@@ -393,7 +397,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           ].map((s) => (
             <div key={s.label} className="bg-cream rounded-lg p-3 text-center">
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">{s.label}</p>
-              <CurrencyDisplay amount={s.value} className={`font-medium ${s.color}`} size="md" />
+              <CurrencyDisplay currency={currency} amount={s.value} className={`font-medium ${s.color}`} size="md" />
             </div>
           ))}
         </div>
@@ -421,8 +425,8 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                   <tr key={i} className="border-t border-gray-50">
                     <td className="px-3 py-2 text-gray-500 font-sans">{e.date}</td>
                     <td className="px-3 py-2 text-header font-sans">{e.description}</td>
-                    <td className="px-3 py-2 text-right font-mono text-income">{e.type === "IN" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
-                    <td className="px-3 py-2 text-right font-mono text-expense">{e.type === "OUT" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>
+                    <td className="px-3 py-2 text-right font-mono text-income">{e.type === "IN" ? fmt(e.amount) : "—"}</td>
+                    <td className="px-3 py-2 text-right font-mono text-expense">{e.type === "OUT" ? fmt(e.amount) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -442,7 +446,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           ].map((s) => (
             <div key={s.label} className="bg-cream rounded-lg p-3 text-center">
               <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">{s.label}</p>
-              <CurrencyDisplay amount={s.value} className={`font-medium ${s.color}`} size="md" />
+              <CurrencyDisplay currency={currency} amount={s.value} className={`font-medium ${s.color}`} size="md" />
             </div>
           ))}
         </div>
@@ -452,7 +456,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           </div>
         ) : (
           <div className="flex items-center gap-2 mt-3 text-expense text-sm font-sans">
-            <AlertTriangle size={14} /> Outstanding: KSh {Math.abs(data.mgmtFee.balance).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+            <AlertTriangle size={14} /> Outstanding: {fmt(Math.abs(data.mgmtFee.balance))}
           </div>
         )}
       </Card>
@@ -463,6 +467,9 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
 // ── Annual Summary Tab ─────────────────────────────────────────────────────────
 
 function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string | null }) {
+  const { selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
+  const fmt = (n: number) => formatCurrency(n, currency);
   const [months, setMonths]   = useState<MonthSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -513,7 +520,7 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
         ].map((k) => (
           <Card key={k.label} padding="sm" className={`border-l-4 ${k.border}`}>
             <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">{k.label}</p>
-            <CurrencyDisplay amount={k.value} className={`${k.color} font-medium`} size="lg" />
+            <CurrencyDisplay currency={currency} amount={k.value} className={`${k.color} font-medium`} size="lg" />
           </Card>
         ))}
       </div>
@@ -522,7 +529,7 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
         <div className="flex items-center gap-2 text-sm font-sans text-gray-500 bg-cream rounded-xl px-4 py-2.5">
           <TrendingUp size={14} className="text-gold" />
           Best month: <span className="font-medium text-header">{bestMonth.label} {year}</span>
-          &nbsp;· KSh {bestMonth.netProfit.toLocaleString("en-KE", { maximumFractionDigits: 0 })} net profit
+          &nbsp;· {fmt(bestMonth.netProfit)} net profit
         </div>
       )}
 
@@ -555,16 +562,16 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
                       )}
                     </td>
                     <td className="px-4 py-3 font-mono text-income">
-                      {m.grossIncome > 0 ? m.grossIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}
+                      {m.grossIncome > 0 ? fmt(m.grossIncome) : "—"}
                     </td>
                     <td className="px-4 py-3 font-mono text-expense">
-                      {m.agentCommissions > 0 ? m.agentCommissions.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}
+                      {m.agentCommissions > 0 ? fmt(m.agentCommissions) : "—"}
                     </td>
                     <td className="px-4 py-3 font-mono text-expense">
-                      {m.totalExpenses > 0 ? m.totalExpenses.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}
+                      {m.totalExpenses > 0 ? fmt(m.totalExpenses) : "—"}
                     </td>
                     <td className={clsx("px-4 py-3 font-mono font-medium", m.netProfit >= 0 ? "text-income" : "text-expense")}>
-                      {isEmpty ? "—" : m.netProfit.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                      {isEmpty ? "—" : fmt(m.netProfit)}
                     </td>
                     <td className={clsx("px-4 py-3 font-mono text-sm", Number(margin) >= 50 ? "text-income" : Number(margin) >= 20 ? "text-amber-600" : isEmpty ? "text-gray-300" : "text-expense")}>
                       {margin !== "—" ? `${margin}%` : "—"}
@@ -577,16 +584,16 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
               <tr className="border-t-2 border-gray-200 bg-cream font-semibold">
                 <td className="px-4 py-3 text-xs font-medium font-sans text-gray-500 uppercase">Full Year</td>
                 <td className="px-4 py-3 font-mono text-income text-sm">
-                  {totals.grossIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                  {fmt(totals.grossIncome)}
                 </td>
                 <td className="px-4 py-3 font-mono text-expense text-sm">
-                  {totals.agentCommissions.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                  {fmt(totals.agentCommissions)}
                 </td>
                 <td className="px-4 py-3 font-mono text-expense text-sm">
-                  {totals.totalExpenses.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                  {fmt(totals.totalExpenses)}
                 </td>
                 <td className={clsx("px-4 py-3 font-mono text-sm font-bold", totals.netProfit >= 0 ? "text-income" : "text-expense")}>
-                  {totals.netProfit.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                  {fmt(totals.netProfit)}
                 </td>
                 <td className={clsx("px-4 py-3 font-mono text-sm font-bold",
                   totals.grossIncome > 0
@@ -757,6 +764,7 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
               <div className="text-right">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net Payable to Owner</p>
                 <CurrencyDisplay
+                  currency={stmt.currency}
                   amount={stmt.netPayable}
                   size="xl"
                   className={stmt.netPayable >= 0 ? "text-income font-medium" : "text-expense font-medium"}
@@ -787,20 +795,20 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
                   <tr key={i} className="border-t border-gray-50 hover:bg-cream/50">
                     <td className="px-3 py-2.5 font-sans text-header whitespace-nowrap">{line.tenantName}</td>
                     <td className="px-3 py-2.5 font-sans text-gray-500">{line.unit}</td>
-                    <td className="px-3 py-2.5 font-mono text-gray-400">{line.rentExpected > 0 ? line.rentExpected.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-gray-400">{line.rentExpected > 0 ? formatCurrency(line.rentExpected, stmt.currency) : "—"}</td>
                     <td className={clsx("px-3 py-2.5 font-mono", line.rentReceived >= line.rentExpected ? "text-income" : "text-expense")}>
-                      {line.rentReceived.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                      {formatCurrency(line.rentReceived, stmt.currency)}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-gray-500">{line.serviceCharge > 0 ? line.serviceCharge.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}</td>
-                    <td className="px-3 py-2.5 font-mono text-gray-500">{line.otherIncome > 0 ? line.otherIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 }) : "—"}</td>
-                    <td className="px-3 py-2.5 font-mono font-medium text-income">{line.grossTotal.toLocaleString("en-KE", { maximumFractionDigits: 0 })}</td>
+                    <td className="px-3 py-2.5 font-mono text-gray-500">{line.serviceCharge > 0 ? formatCurrency(line.serviceCharge, stmt.currency) : "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-gray-500">{line.otherIncome > 0 ? formatCurrency(line.otherIncome, stmt.currency) : "—"}</td>
+                    <td className="px-3 py-2.5 font-mono font-medium text-income">{formatCurrency(line.grossTotal, stmt.currency)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-gray-200 bg-cream font-medium">
                   <td colSpan={6} className="px-3 py-2 text-xs font-sans text-gray-500 uppercase">Total Gross Income</td>
-                  <td className="px-3 py-2 font-mono text-income">{stmt.grossIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 })}</td>
+                  <td className="px-3 py-2 font-mono text-income">{formatCurrency(stmt.grossIncome, stmt.currency)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -811,22 +819,22 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
           <div className="space-y-2 max-w-md mb-5">
             <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
               <span className="text-sm font-sans text-gray-600">Gross Income</span>
-              <span className="font-mono text-sm text-income">{stmt.grossIncome.toLocaleString("en-KE", { maximumFractionDigits: 0 })}</span>
+              <span className="font-mono text-sm text-income">{formatCurrency(stmt.grossIncome, stmt.currency)}</span>
             </div>
             <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
               <span className="text-sm font-sans text-gray-600 pl-4">Less: Management Fee</span>
-              <span className="font-mono text-sm text-expense">({stmt.managementFee.toLocaleString("en-KE", { maximumFractionDigits: 0 })})</span>
+              <span className="font-mono text-sm text-expense">({formatCurrency(stmt.managementFee, stmt.currency)})</span>
             </div>
             {stmt.expenses.map((e, i) => (
               <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50">
                 <span className="text-sm font-sans text-gray-600 pl-4">Less: {CAT_LABELS[e.category] ?? e.category}</span>
-                <span className="font-mono text-sm text-expense">({e.amount.toLocaleString("en-KE", { maximumFractionDigits: 0 })})</span>
+                <span className="font-mono text-sm text-expense">({formatCurrency(e.amount, stmt.currency)})</span>
               </div>
             ))}
             <div className="flex items-center justify-between pt-3 border-t-2 border-gray-200">
               <span className="text-sm font-semibold font-sans text-header">Net Payable to Owner</span>
               <span className={clsx("font-mono text-base font-bold", stmt.netPayable >= 0 ? "text-income" : "text-expense")}>
-                KSh {Math.abs(stmt.netPayable).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                {formatCurrency(Math.abs(stmt.netPayable), stmt.currency)}
                 {stmt.netPayable < 0 && " (deficit)"}
               </span>
             </div>

@@ -30,6 +30,7 @@ import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
+import { formatCurrency } from "@/lib/currency";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,8 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
 
 export default function IncomePage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
 
   // Tab & collection mode
   const [tab, setTab]                         = useState<Tab>("collection");
@@ -584,16 +586,16 @@ export default function IncomePage() {
       case "gross":
         return (
           <td key={key} className="px-4 py-3 text-right">
-            <CurrencyDisplay amount={entry.grossAmount} size="sm" colorize />
+            <CurrencyDisplay currency={currency} amount={entry.grossAmount} size="sm" colorize />
             {isDeposit && <p className="text-xs text-purple-500 font-sans">deposit</p>}
           </td>
         );
       case "commission":
-        return <td key={key} className="px-4 py-3 text-right"><CurrencyDisplay amount={entry.agentCommission} size="sm" className={entry.agentCommission > 0 ? "text-expense" : "text-gray-400"} /></td>;
+        return <td key={key} className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={entry.agentCommission} size="sm" className={entry.agentCommission > 0 ? "text-expense" : "text-gray-400"} /></td>;
       case "net":
         return (
           <td key={key} className="px-4 py-3 text-right">
-            {isDeposit ? <span className="text-xs text-gray-400 font-sans italic">excluded</span> : <CurrencyDisplay amount={entry.grossAmount - entry.agentCommission} size="sm" colorize />}
+            {isDeposit ? <span className="text-xs text-gray-400 font-sans italic">excluded</span> : <CurrencyDisplay currency={currency} amount={entry.grossAmount - entry.agentCommission} size="sm" colorize />}
           </td>
         );
       default:
@@ -618,14 +620,14 @@ export default function IncomePage() {
       case "expected":
         return (
           <td key={key} className="px-4 py-3">
-            <CurrencyDisplay amount={expected} size="sm" className="text-gray-700" />
+            <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
             {tenant.serviceCharge > 0 && <p className="text-xs text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
           </td>
         );
       case "received":
         return (
           <td key={key} className="px-4 py-3">
-            {totalPaid > 0 ? <CurrencyDisplay amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+            {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
           </td>
         );
       case "status":
@@ -850,8 +852,7 @@ export default function IncomePage() {
   const totalComm      = plEntries.reduce((s: number, e: any) => s + e.agentCommission, 0);
   const totalDeposits  = depositEntries.reduce((s: number, e: any) => s + e.grossAmount, 0);
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(n);
+  const fmt = (n: number) => formatCurrency(n, currency);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -885,7 +886,7 @@ export default function IncomePage() {
               {/* Collected */}
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Collected</p>
-                <CurrencyDisplay amount={totalGross} className="block mt-1 text-income" size="lg" />
+                <CurrencyDisplay currency={currency} amount={totalGross} className="block mt-1 text-income" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-0.5">
                   {MONTH_SHORT[month.getMonth()]} {month.getFullYear()} · excl. deposits
                 </p>
@@ -894,7 +895,7 @@ export default function IncomePage() {
               {/* Expected */}
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Expected</p>
-                <CurrencyDisplay amount={expected} className="block mt-1 text-header" size="lg" />
+                <CurrencyDisplay currency={currency} amount={expected} className="block mt-1 text-header" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-0.5">
                   {collectionSummary.total} active {collectionSummary.total === 1 ? "tenant" : "tenants"}
                 </p>
@@ -1047,7 +1048,7 @@ export default function IncomePage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <CurrencyDisplay amount={collectionSummary.totalReceived} size="md" className="text-income font-medium" />
+                      <CurrencyDisplay currency={currency} amount={collectionSummary.totalReceived} size="md" className="text-income font-medium" />
                       <p className="text-xs text-gray-400 font-sans">
                         of <span className="font-medium text-gray-500">{fmt(collectionSummary.totalExpected)}</span> expected
                       </p>
@@ -1131,7 +1132,7 @@ export default function IncomePage() {
                     <div className="flex-1 grid grid-cols-3 gap-4">
                       <div>
                         <p className="text-xs text-red-500 font-sans uppercase tracking-wide">Total Outstanding</p>
-                        <CurrencyDisplay amount={arrearsSummary.totalOutstanding} size="lg" className="text-red-700 font-bold" />
+                        <CurrencyDisplay currency={currency} amount={arrearsSummary.totalOutstanding} size="lg" className="text-red-700 font-bold" />
                       </div>
                       <div>
                         <p className="text-xs text-red-500 font-sans uppercase tracking-wide">Tenants in Arrears</p>
@@ -1204,7 +1205,7 @@ export default function IncomePage() {
                                   </td>
                                   <td className="px-4 py-3">
                                     {summary.totalArrears > 0 ? (
-                                      <CurrencyDisplay amount={summary.totalArrears} size="sm" className="text-red-600 font-semibold" />
+                                      <CurrencyDisplay currency={currency} amount={summary.totalArrears} size="sm" className="text-red-600 font-semibold" />
                                     ) : (
                                       <span className="text-xs text-green-600 font-sans">—</span>
                                     )}
@@ -1561,17 +1562,17 @@ export default function IncomePage() {
             <div className="grid grid-cols-3 gap-3">
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Commission</p>
-                <CurrencyDisplay amount={totalCommission} className="block mt-1 text-header" size="lg" />
+                <CurrencyDisplay currency={currency} amount={totalCommission} className="block mt-1 text-header" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.length} entr{commissionEntries.length === 1 ? "y" : "ies"}</p>
               </Card>
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Paid to Agent</p>
-                <CurrencyDisplay amount={paidCommission} className="block mt-1 text-income" size="lg" />
+                <CurrencyDisplay currency={currency} amount={paidCommission} className="block mt-1 text-income" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.filter((e: any) => e.commissionPaidAt).length} settled</p>
               </Card>
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Outstanding</p>
-                <CurrencyDisplay amount={outstandingComm} className={`block mt-1 ${outstandingComm > 0 ? "text-expense" : "text-income"}`} size="lg" />
+                <CurrencyDisplay currency={currency} amount={outstandingComm} className={`block mt-1 ${outstandingComm > 0 ? "text-expense" : "text-income"}`} size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.filter((e: any) => !e.commissionPaidAt).length} unpaid</p>
               </Card>
             </div>
@@ -1762,10 +1763,10 @@ export default function IncomePage() {
                                   })()}
                                 </td>
                                 <td className="px-4 py-3 text-sm font-sans text-gray-500 text-center">{stats.count}</td>
-                                <td className="px-4 py-3 text-right"><CurrencyDisplay amount={stats.total} size="sm" className="text-header" /></td>
-                                <td className="px-4 py-3 text-right"><CurrencyDisplay amount={stats.paid} size="sm" className="text-income" /></td>
+                                <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={stats.total} size="sm" className="text-header" /></td>
+                                <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={stats.paid} size="sm" className="text-income" /></td>
                                 <td className="px-4 py-3 text-right">
-                                  <CurrencyDisplay amount={outstanding} size="sm" className={outstanding > 0 ? "text-expense" : "text-income"} />
+                                  <CurrencyDisplay currency={currency} amount={outstanding} size="sm" className={outstanding > 0 ? "text-expense" : "text-income"} />
                                 </td>
                                 <td className="px-4 py-3">
                                   {allPaid
@@ -1806,8 +1807,8 @@ export default function IncomePage() {
                                 <span className="block text-gray-400">{entry.unit?.property?.name}</span>
                               </td>
                               <td className="px-4 py-3 text-sm font-sans text-header">{entry.agentName ?? "—"}</td>
-                              <td className="px-4 py-3 text-right"><CurrencyDisplay amount={entry.grossAmount} size="sm" className="text-gray-600" /></td>
-                              <td className="px-4 py-3 text-right"><CurrencyDisplay amount={entry.agentCommission} size="sm" className="text-expense" /></td>
+                              <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={entry.grossAmount} size="sm" className="text-gray-600" /></td>
+                              <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={entry.agentCommission} size="sm" className="text-expense" /></td>
                               <td className="px-4 py-3">
                                 {isPaid ? (
                                   <span className="flex items-center gap-1 text-xs text-income font-sans">

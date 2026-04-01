@@ -61,7 +61,8 @@ const now = new Date();
 
 export default function RecurringExpensesPage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [items, setItems]           = useState<RecurringItem[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -221,7 +222,7 @@ export default function RecurringExpensesPage() {
                       Next due: <span className={isDue ? "text-red-500 font-medium" : ""}>{formatDate(new Date(item.nextDueDate))}</span>
                     </p>
                   </div>
-                  <CurrencyDisplay amount={item.amount} size="md" className="font-medium text-expense shrink-0" />
+                  <CurrencyDisplay currency={currency} amount={item.amount} size="md" className="font-medium text-expense shrink-0" />
                   {isManager && (
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => toggleActive(item)} className="p-2 hover:bg-gray-50 rounded-lg transition-colors" title={item.isActive ? "Pause" : "Activate"}>

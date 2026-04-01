@@ -315,6 +315,7 @@ export default function ForecastPage() {
                   Forecasted Income
                 </p>
                 <CurrencyDisplay
+                  currency={currency}
                   amount={data.summary.totalForecastedRent}
                   size="xl"
                   className="text-income"
@@ -329,6 +330,7 @@ export default function ForecastPage() {
                   Projected Expenses
                 </p>
                 <CurrencyDisplay
+                  currency={currency}
                   amount={data.summary.totalProjectedExpenses}
                   size="xl"
                   className="text-expense"
@@ -343,6 +345,7 @@ export default function ForecastPage() {
                   Net Cashflow
                 </p>
                 <CurrencyDisplay
+                  currency={currency}
                   amount={data.summary.totalNetCashflow}
                   size="xl"
                   colorize

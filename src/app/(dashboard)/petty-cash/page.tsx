@@ -24,6 +24,7 @@ import {
 import { clsx } from "clsx";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { useProperty } from "@/lib/property-context";
+import { formatCurrency } from "@/lib/currency";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
@@ -350,11 +351,11 @@ export default function PettyCashPage() {
       case "property":
         return <td key={key} className="px-4 py-3">{getPropertyBadge(e.propertyId)}</td>;
       case "in":
-        return <td key={key} className="px-4 py-3 text-right font-mono text-sm text-income">{e.type === "IN" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>;
+        return <td key={key} className="px-4 py-3 text-right font-mono text-sm text-income">{e.type === "IN" ? formatCurrency(e.amount, currency) : "—"}</td>;
       case "out":
-        return <td key={key} className="px-4 py-3 text-right font-mono text-sm text-expense">{e.type === "OUT" ? `KSh ${e.amount.toLocaleString()}` : "—"}</td>;
+        return <td key={key} className="px-4 py-3 text-right font-mono text-sm text-expense">{e.type === "OUT" ? formatCurrency(e.amount, currency) : "—"}</td>;
       case "balance":
-        return <td key={key} className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", runningBalance >= 0 ? "text-income" : "text-expense")}>KSh {runningBalance.toLocaleString()}</td>;
+        return <td key={key} className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", runningBalance >= 0 ? "text-income" : "text-expense")}>{formatCurrency(runningBalance, currency)}</td>;
       default:
         return <td key={key} />;
     }

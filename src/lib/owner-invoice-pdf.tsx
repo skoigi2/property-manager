@@ -80,6 +80,7 @@ export type OwnerInvoiceData = {
   paidAt?: Date | string | null;
   paidAmount?: number | null;
   notes?: string | null;
+  currency?: string;
   org?: OrgBranding | null;
   property: {
     name: string;
@@ -94,11 +95,13 @@ export type OwnerInvoiceData = {
   } | null;
 };
 
-function formatKsh(amount: number) {
-  return `KSh ${amount.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatKsh(amount: number, currency = "KES") {
+  const symbols: Record<string, string> = { KES: "KSh", USD: "$", GBP: "£", EUR: "€", TZS: "TSh", UGX: "USh", ZAR: "R", AED: "AED", INR: "₹", CHF: "CHF" };
+  const symbol = symbols[currency] ?? currency;
+  return `${symbol} ${amount.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function LineItemsTable({ items }: { items: OwnerInvoiceLineItem[] }) {
+function LineItemsTable({ items, currency = "KES" }: { items: OwnerInvoiceLineItem[]; currency?: string }) {
   return (
     <View style={styles.table}>
       <View style={styles.tableHeader}>
@@ -108,7 +111,7 @@ function LineItemsTable({ items }: { items: OwnerInvoiceLineItem[] }) {
       {items.map((item, i) => (
         <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
           <Text style={[styles.bodyText, styles.colDesc]}>{item.description}</Text>
-          <Text style={[styles.bodyText, styles.colAmt]}>{formatKsh(item.amount)}</Text>
+          <Text style={[styles.bodyText, styles.colAmt]}>{formatKsh(item.amount, currency)}</Text>
         </View>
       ))}
     </View>
@@ -116,6 +119,8 @@ function LineItemsTable({ items }: { items: OwnerInvoiceLineItem[] }) {
 }
 
 function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
+  const currency = data.currency ?? "KES";
+  const fmt = (n: number) => formatKsh(n, currency);
   const periodLabel = `${MONTH_NAMES[data.periodMonth - 1]} ${data.periodYear}`;
   const dueDate  = format(new Date(data.dueDate), "d MMMM yyyy");
   const isPaid   = data.status === "PAID";
@@ -192,12 +197,12 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
         </View>
 
         {/* Line items (summary or full) */}
-        <LineItemsTable items={summaryItems} />
+        <LineItemsTable items={summaryItems} currency={currency} />
 
         {/* Total */}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total Due</Text>
-          <Text style={styles.totalAmt}>{formatKsh(data.totalAmount)}</Text>
+          <Text style={styles.totalAmt}>{fmt(data.totalAmount)}</Text>
         </View>
 
         {/* Breakdown note */}
@@ -250,11 +255,11 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
             </View>
           </View>
 
-          <LineItemsTable items={data.lineItems} />
+          <LineItemsTable items={data.lineItems} currency={currency} />
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total Management Fee</Text>
-            <Text style={styles.totalAmt}>{formatKsh(data.totalAmount)}</Text>
+            <Text style={styles.totalAmt}>{fmt(data.totalAmount)}</Text>
           </View>
 
           {/* Footer */}

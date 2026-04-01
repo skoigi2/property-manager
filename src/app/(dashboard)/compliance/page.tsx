@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import {
   CheckCircle2, AlertTriangle, XCircle, Clock, Target, DollarSign,
   Calendar, Building2, Wrench, ChevronRight, Settings,
@@ -174,7 +174,8 @@ const DEADLINE_HREFS: Record<string, string> = {
 
 export default function CompliancePage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
 
   const now = new Date();
   const [year,  setYear]  = useState(now.getFullYear());
@@ -286,8 +287,8 @@ export default function CompliancePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm font-sans">
                   <div><p className="text-gray-400 text-xs">Mgmt Fee</p><p className="font-semibold text-header">{data.agreement.managementFeeRate}%</p></div>
                   <div><p className="text-gray-400 text-xs">Letting Fee</p><p className="font-semibold text-header">{data.agreement.newLettingFeeRate}% of first month</p></div>
-                  <div><p className="text-gray-400 text-xs">Renewal Fee</p><p className="font-semibold text-header">{formatKSh(data.agreement.leaseRenewalFeeFlat)}</p></div>
-                  <div><p className="text-gray-400 text-xs">Repair Limit</p><p className="font-semibold text-header">{formatKSh(data.agreement.repairAuthorityLimit)}</p></div>
+                  <div><p className="text-gray-400 text-xs">Renewal Fee</p><p className="font-semibold text-header">{formatCurrency(data.agreement.leaseRenewalFeeFlat, currency)}</p></div>
+                  <div><p className="text-gray-400 text-xs">Repair Limit</p><p className="font-semibold text-header">{formatCurrency(data.agreement.repairAuthorityLimit, currency)}</p></div>
                   <div><p className="text-gray-400 text-xs">Vacancy Fee</p><p className="font-semibold text-header">{data.agreement.vacancyFeeRate}% after {data.agreement.vacancyFeeThresholdMonths} months</p></div>
                   <div><p className="text-gray-400 text-xs">Rent Remittance</p><p className="font-semibold text-header">{data.agreement.rentRemittanceDay}th of month</p></div>
                   <div><p className="text-gray-400 text-xs">Mgmt Invoice</p><p className="font-semibold text-header">{data.agreement.mgmtFeeInvoiceDay}th of month</p></div>
@@ -419,7 +420,7 @@ export default function CompliancePage() {
               {/* Counts context */}
               <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-400 font-sans">
                 <span>{data.counts.activeUnits}/{data.counts.totalUnits} units occupied</span>
-                <span>{formatKSh(data.counts.totalCollected)} / {formatKSh(data.counts.totalExpected)} collected</span>
+                <span>{formatCurrency(data.counts.totalCollected, currency)} / {formatCurrency(data.counts.totalExpected, currency)} collected</span>
                 <span>{data.counts.doneJobsCount}/{data.counts.totalJobsCount} jobs done</span>
                 <span>{data.counts.renewedCount}/{data.counts.renewalsDueCount} renewals completed</span>
               </div>
@@ -476,7 +477,7 @@ export default function CompliancePage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {job.cost && <span className="text-sm font-mono font-semibold text-red-600">{formatKSh(job.cost)}</span>}
+                        {job.cost && <span className="text-sm font-mono font-semibold text-red-600">{formatCurrency(job.cost, currency)}</span>}
                         <Link href="/maintenance" className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100">
                           <ChevronRight size={14} />
                         </Link>

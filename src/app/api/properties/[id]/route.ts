@@ -16,6 +16,7 @@ const updateSchema = z.object({
   managementFeeRate: z.number().nullable().optional(),
   managementFeeFlat: z.number().nullable().optional(),
   serviceChargeDefault: z.number().nullable().optional(),
+  currency: z.string().optional(),
   organizationId: z.string().nullable().optional(),
 });
 

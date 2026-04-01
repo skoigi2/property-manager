@@ -30,6 +30,7 @@ export interface OwnerStatement {
   notes:         string;
   ownerName:     string | null;
   ownerEmail:    string | null;
+  currency:      string;
 }
 
 export async function GET(req: Request) {
@@ -160,6 +161,7 @@ export async function GET(req: Request) {
       notes:      `Net payable to owner for ${periodLabel}. Management fee deducted per agreement.`,
       ownerName:  property.owner?.name  ?? null,
       ownerEmail: property.owner?.email ?? null,
+      currency:   property.currency ?? "KES",
     };
   });
 

@@ -1,8 +1,9 @@
 import { clsx } from "clsx";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 
 interface CurrencyDisplayProps {
   amount: number;
+  currency?: string;
   className?: string;
   colorize?: boolean;
   compact?: boolean;
@@ -12,6 +13,7 @@ interface CurrencyDisplayProps {
 
 export function CurrencyDisplay({
   amount,
+  currency = "KES",
   className,
   colorize = false,
   compact = false,
@@ -36,7 +38,7 @@ export function CurrencyDisplay({
         className
       )}
     >
-      {formatKSh(amount, { compact, showSign })}
+      {formatCurrency(amount, currency, { compact, showSign })}
     </span>
   );
 }

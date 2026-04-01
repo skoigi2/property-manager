@@ -13,6 +13,7 @@ export interface PropertyOption {
   id: string;
   name: string;
   type: "AIRBNB" | "LONGTERM";
+  currency: string;
 }
 
 interface PropertyContextValue {

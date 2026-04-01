@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       property: {
         select: {
-          id: true, name: true, address: true, city: true, logoUrl: true,
+          id: true, name: true, address: true, city: true, logoUrl: true, currency: true,
           organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true } },
         },
       },
@@ -32,6 +32,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const data: OwnerInvoiceData = {
     ...invoice,
     lineItems: invoice.lineItems as OwnerInvoiceLineItem[],
+    currency: invoice.property.currency,
     org: org ?? null,
     property: {
       ...invoice.property,

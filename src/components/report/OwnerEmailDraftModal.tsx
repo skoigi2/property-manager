@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { X, Copy, Check, Mail, ExternalLink } from "lucide-react";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 
 interface StatementLine {
   tenantName:   string;
@@ -24,6 +24,7 @@ interface Props {
     netPayable:    number;
     ownerName:     string | null;
     ownerEmail:    string | null;
+    currency:      string;
   };
   onClose: () => void;
 }
@@ -31,6 +32,7 @@ interface Props {
 function buildDraft(s: Props["statement"]): { subject: string; body: string } {
   const firstName = s.ownerName ? s.ownerName.split(" ")[0] : "Property Owner";
   const subject = `Owner Statement — ${s.propertyName} · ${s.period}`;
+  const fmt = (n: number) => formatCurrency(n, s.currency);
 
   const isAirbnb = s.propertyType === "AIRBNB";
 
@@ -38,23 +40,23 @@ function buildDraft(s: Props["statement"]): { subject: string; body: string } {
   let incomeBlock: string;
   if (isAirbnb) {
     const unitLines = s.lines
-      .map(l => `  • ${l.tenantName}:  ${formatKSh(l.grossTotal)}`)
+      .map(l => `  • ${l.tenantName}:  ${fmt(l.grossTotal)}`)
       .join("\n");
     incomeBlock = `Short-Let Revenue — ${s.lines.length} unit(s) recorded:\n${unitLines}`;
   } else {
     const paidCount = s.lines.filter(l => l.rentReceived >= l.rentExpected * 0.99).length;
     const tenantLines = s.lines
-      .map(l => `  • ${l.tenantName} (Unit ${l.unit}):  ${formatKSh(l.rentReceived)}`)
+      .map(l => `  • ${l.tenantName} (Unit ${l.unit}):  ${fmt(l.rentReceived)}`)
       .join("\n");
     incomeBlock = `Rent Collections — ${paidCount} of ${s.lines.length} tenant${s.lines.length !== 1 ? "s" : ""} paid:\n${tenantLines}`;
   }
 
   // Expenses block
-  let expensesBlock = `  Less: Management Fee:         (${formatKSh(s.managementFee)})`;
+  let expensesBlock = `  Less: Management Fee:         (${fmt(s.managementFee)})`;
   if (s.expenses.length > 0) {
     expensesBlock += `\n  Less: Operating Expenses:\n`;
     expensesBlock += s.expenses
-      .map(e => `    - ${e.description}:  (${formatKSh(e.amount)})`)
+      .map(e => `    - ${e.description}:  (${fmt(e.amount)})`)
       .join("\n");
   }
 
@@ -70,7 +72,7 @@ ${divider}
 
 ${incomeBlock}
 
-Gross Income:  ${formatKSh(s.grossIncome)}
+Gross Income:  ${fmt(s.grossIncome)}
 
 ${divider}
 DEDUCTIONS
@@ -79,7 +81,7 @@ ${divider}
 ${expensesBlock}
 
 ${divider}
-NET PAYABLE TO OWNER:  ${formatKSh(s.netPayable)}
+NET PAYABLE TO OWNER:  ${fmt(s.netPayable)}
 ${divider}
 
 Please confirm receipt of this statement. If the above amount has not yet been transferred, kindly advise your preferred remittance timeline.

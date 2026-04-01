@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import {
   ShieldPlus,
   Plus,
@@ -272,7 +272,8 @@ function DocumentPanel({ policyId }: { policyId: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function InsurancePage() {
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -472,7 +473,7 @@ export default function InsurancePage() {
           </Card>
           <Card className="p-4">
             <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Total Annual Premium</p>
-            <p className="text-lg font-display text-header mt-1">{formatKSh(totalAnnualPremium)}</p>
+            <p className="text-lg font-display text-header mt-1">{formatCurrency(totalAnnualPremium, currency)}</p>
           </Card>
         </div>
 
@@ -546,14 +547,14 @@ export default function InsurancePage() {
                     <div>
                       <span className="text-gray-400 text-xs">Coverage</span>
                       <p className="text-header font-medium">
-                        {policy.coverageAmount ? formatKSh(policy.coverageAmount) : "—"}
+                        {policy.coverageAmount ? formatCurrency(policy.coverageAmount, currency) : "—"}
                       </p>
                     </div>
                     <div>
                       <span className="text-gray-400 text-xs">Premium</span>
                       <p className="text-header font-medium">
                         {policy.premiumAmount
-                          ? `${formatKSh(policy.premiumAmount)} / ${FREQ_LABELS[policy.premiumFrequency ?? ""] ?? ""}`
+                          ? `${formatCurrency(policy.premiumAmount, currency)} / ${FREQ_LABELS[policy.premiumFrequency ?? ""] ?? ""}`
                           : "—"}
                       </p>
                     </div>

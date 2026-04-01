@@ -9,14 +9,15 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import type { ForecastMonth } from "@/types/forecast";
 
 interface Props {
   months: ForecastMonth[];
+  currency?: string;
 }
 
-export function ForecastChart({ months }: Props) {
+export function ForecastChart({ months, currency = "KES" }: Props) {
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
@@ -52,7 +53,7 @@ export function ForecastChart({ months }: Props) {
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
             }}
             formatter={(value, name) => [
-              typeof value === "number" ? formatKSh(value) : String(value ?? ""),
+              typeof value === "number" ? formatCurrency(value, currency) : String(value ?? ""),
               name === "forecastedRent"
                 ? "Forecasted Income"
                 : name === "projectedExpenses"

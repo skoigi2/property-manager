@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
-import { Settings, Save, Upload, Trash2, Building2, Globe, Phone, Mail, MapPin } from "lucide-react";
+import { Settings, Save, Upload, Trash2, Building2 } from "lucide-react";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -30,6 +31,10 @@ export default function SettingsPage() {
   const propLogoInputRef = useRef<HTMLInputElement>(null);
   const [propLogoTarget, setPropLogoTarget] = useState<string | null>(null);
 
+  // Per-property currency state: { [propertyId]: currencyCode }
+  const [currencyForm, setCurrencyForm] = useState<Record<string, string>>({});
+  const [currencySaving, setCurrencySaving] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/settings").then((r) => r.json()).then((d) => {
       setData(d);
@@ -41,6 +46,10 @@ export default function SettingsPage() {
         form[unit.id] = { ratePercent: String(latest?.ratePercent ?? 0), flatAmount: String(latest?.flatAmount ?? "") };
       });
       setFeeForm(form);
+      // Init currency form from property data
+      const cform: Record<string, string> = {};
+      d.properties?.forEach((p: any) => { cform[p.id] = p.currency ?? "KES"; });
+      setCurrencyForm(cform);
     }).catch(() => setLoading(false));
   }, []);
 
@@ -129,6 +138,20 @@ export default function SettingsPage() {
       setData(d);
     } catch { toast.error("Failed to upload property logo"); }
     finally { setPropLogoUploading(null); }
+  }
+
+  async function savePropertyCurrency(propertyId: string) {
+    setCurrencySaving(propertyId);
+    try {
+      const res = await fetch(`/api/properties/${propertyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency: currencyForm[propertyId] ?? "KES" }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Currency updated");
+    } catch { toast.error("Failed to save currency"); }
+    finally { setCurrencySaving(null); }
   }
 
   async function removePropertyLogo(propertyId: string) {
@@ -258,6 +281,43 @@ export default function SettingsPage() {
                         <Input label="Website" value={orgForm.website}
                           onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
                         <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>
+                      </div>
+                    </Card>
+
+                    {/* Per-property currency */}
+                    <Card>
+                      <h3 className="font-sans font-semibold text-header mb-1 flex items-center gap-2">
+                        <Building2 size={16} className="text-gold" /> Property Currency
+                      </h3>
+                      <p className="text-xs text-gray-500 font-sans mb-4">
+                        Set the display currency for each property. Used on all financial displays, reports, and invoices.
+                      </p>
+                      <div className="space-y-3">
+                        {data.properties?.map((property: any) => (
+                          <div key={property.id} className="flex items-center gap-4 p-3 bg-cream rounded-xl">
+                            <div className="flex-1">
+                              <p className="font-sans font-medium text-sm text-header">{property.name}</p>
+                              <p className="text-xs text-gray-400 font-sans">{property.type === "AIRBNB" ? "Short-let" : "Long-term"}</p>
+                            </div>
+                            <select
+                              value={currencyForm[property.id] ?? "KES"}
+                              onChange={(e) => setCurrencyForm((prev) => ({ ...prev, [property.id]: e.target.value }))}
+                              className="text-sm font-sans border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-header focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30"
+                            >
+                              {SUPPORTED_CURRENCIES.map((c) => (
+                                <option key={c.code} value={c.code}>{c.code} — {c.symbol}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => savePropertyCurrency(property.id)}
+                              disabled={currencySaving === property.id}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-gold text-white text-xs font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors"
+                            >
+                              {currencySaving === property.id ? <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" /> : <Save size={11} />}
+                              Save
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </Card>
 

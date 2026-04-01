@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
               unitNumber: true, type: true,
               property: {
                 select: {
-                  id: true, name: true, address: true, city: true, logoUrl: true,
+                  id: true, name: true, address: true, city: true, logoUrl: true, currency: true,
                   organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true } },
                 },
               },
@@ -40,6 +40,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const org = invoice.tenant.unit.property.organization;
   const pdfBuffer = await generateInvoicePdf({
     ...invoice,
+    currency: invoice.tenant.unit.property.currency,
     org: org ?? null,
     tenant: {
       ...invoice.tenant,

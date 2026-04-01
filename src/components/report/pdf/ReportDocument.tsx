@@ -1,10 +1,10 @@
 import { Document, Page, View, Text } from "@react-pdf/renderer";
 import { styles } from "./PdfStyles";
 import type { ReportData } from "@/types/report";
+import { formatCurrency } from "@/lib/currency";
 
-function formatKSh(n: number): string {
-  const sign = n < 0 ? "-" : "";
-  return `${sign}KSh ${Math.abs(n).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`;
+function fmt(n: number, currency = "KES"): string {
+  return formatCurrency(n, currency);
 }
 
 function PageFooter({ period, manager, pageNum: _pageNum }: { period: string; manager: string; pageNum: number }) {
@@ -18,6 +18,7 @@ function PageFooter({ period, manager, pageNum: _pageNum }: { period: string; ma
 }
 
 export function ReportDocument({ data }: { data: ReportData }) {
+  const fmt = (n: number) => formatCurrency(n, data.currency ?? "KES");
   const totalRentExpected = data.rentCollection.reduce((s, t) => s + t.expectedRent + t.serviceCharge, 0);
   const totalRentReceived = data.rentCollection.reduce((s, t) => s + t.received, 0);
   const totalAlbaGross = data.albaPerformance.reduce((s, u) => s + u.grossRevenue, 0);
@@ -50,10 +51,10 @@ export function ReportDocument({ data }: { data: ReportData }) {
         </Text>
         <View style={styles.kpiRow}>
           {[
-            { label: "Gross Income",       value: formatKSh(data.kpis.grossIncome),       color: "#16A34A" },
-            { label: "Agent Commissions",  value: formatKSh(data.kpis.agentCommissions),  color: "#DC2626" },
-            { label: "Total Expenses",     value: formatKSh(data.kpis.totalExpenses),     color: "#DC2626" },
-            { label: "Net Profit to Owner", value: formatKSh(data.kpis.netProfit),        color: data.kpis.netProfit >= 0 ? "#16A34A" : "#DC2626" },
+            { label: "Gross Income",       value: fmt(data.kpis.grossIncome),       color: "#16A34A" },
+            { label: "Agent Commissions",  value: fmt(data.kpis.agentCommissions),  color: "#DC2626" },
+            { label: "Total Expenses",     value: fmt(data.kpis.totalExpenses),     color: "#DC2626" },
+            { label: "Net Profit to Owner", value: fmt(data.kpis.netProfit),        color: data.kpis.netProfit >= 0 ? "#16A34A" : "#DC2626" },
             { label: "Occupancy Rate",     value: `${data.kpis.occupancyRate}%`,          color: data.kpis.occupancyRate >= 80 ? "#16A34A" : "#D97706" },
           ].map((kpi) => (
             <View key={kpi.label} style={styles.kpiBox}>
@@ -78,9 +79,9 @@ export function ReportDocument({ data }: { data: ReportData }) {
               <Text style={[styles.tableCell, { flex: 3 }]}>{t.tenantName}</Text>
               <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.unit}</Text>
               <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.type === "ONE_BED" ? "1 Bed" : t.type === "TWO_BED" ? "2 Bed" : "3 Bed"}</Text>
-              <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{formatKSh(t.expectedRent + t.serviceCharge)}</Text>
-              <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{formatKSh(t.received)}</Text>
-              <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }, t.variance < 0 ? styles.negative : t.variance > 0 ? styles.positive : {}]}>{formatKSh(t.variance)}</Text>
+              <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{fmt(t.expectedRent + t.serviceCharge)}</Text>
+              <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{fmt(t.received)}</Text>
+              <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }, t.variance < 0 ? styles.negative : t.variance > 0 ? styles.positive : {}]}>{fmt(t.variance)}</Text>
               <Text style={[styles.tableCell, { flex: 1.5 }, t.status === "CRITICAL" || t.variance < 0 ? styles.negative : styles.positive]}>{t.variance < 0 ? "OUTSTANDING" : t.status === "TBC" ? "TBC" : "PAID"}</Text>
             </View>
           ))}
@@ -88,9 +89,9 @@ export function ReportDocument({ data }: { data: ReportData }) {
             <Text style={[styles.tableCell, styles.tableCellBold, { flex: 3 }]}>TOTAL</Text>
             <Text style={[styles.tableCell, { flex: 1.2 }]} />
             <Text style={[styles.tableCell, { flex: 1.2 }]} />
-            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{formatKSh(totalRentExpected)}</Text>
-            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{formatKSh(totalRentReceived)}</Text>
-            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }, totalRentReceived - totalRentExpected < 0 ? styles.negative : styles.positive]}>{formatKSh(totalRentReceived - totalRentExpected)}</Text>
+            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{fmt(totalRentExpected)}</Text>
+            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{fmt(totalRentReceived)}</Text>
+            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }, totalRentReceived - totalRentExpected < 0 ? styles.negative : styles.positive]}>{fmt(totalRentReceived - totalRentExpected)}</Text>
             <Text style={[styles.tableCell, { flex: 1.5 }]} />
           </View>
         </View>
@@ -116,11 +117,11 @@ export function ReportDocument({ data }: { data: ReportData }) {
               <View key={u.unitNumber} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{u.unitNumber}</Text>
                 <Text style={[styles.tableCell, { flex: 1.5 }]}>{u.type === "ONE_BED" ? "1 Bed" : u.type === "TWO_BED" ? "2 Bed" : "3 Bed"}</Text>
-                <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{formatKSh(u.grossRevenue)}</Text>
-                <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{formatKSh(u.commissions)}</Text>
-                <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{formatKSh(u.fixedCosts)}</Text>
-                <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{formatKSh(u.variableCosts)}</Text>
-                <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }, net >= 0 ? styles.positive : styles.negative]}>{formatKSh(net)}</Text>
+                <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{fmt(u.grossRevenue)}</Text>
+                <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{fmt(u.commissions)}</Text>
+                <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{fmt(u.fixedCosts)}</Text>
+                <Text style={[styles.tableCellMono, styles.negative, { flex: 1.5, textAlign: "right" }]}>{fmt(u.variableCosts)}</Text>
+                <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }, net >= 0 ? styles.positive : styles.negative]}>{fmt(net)}</Text>
                 <Text style={[styles.tableCell, { flex: 1.5 }]}>{u.bookedNights > 0 ? `${u.bookedNights}n / ${occ}%` : "Vacant"}</Text>
               </View>
             );
@@ -128,11 +129,11 @@ export function ReportDocument({ data }: { data: ReportData }) {
           <View style={styles.tableRowTotal}>
             <Text style={[styles.tableCell, styles.tableCellBold, { flex: 1 }]}>TOTAL</Text>
             <Text style={[styles.tableCell, { flex: 1.5 }]} />
-            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{formatKSh(totalAlbaGross)}</Text>
+            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{fmt(totalAlbaGross)}</Text>
             <Text style={[styles.tableCell, { flex: 1.5 }]} />
             <Text style={[styles.tableCell, { flex: 1.5 }]} />
             <Text style={[styles.tableCell, { flex: 1.5 }]} />
-            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }, totalAlbaNet >= 0 ? styles.positive : styles.negative]}>{formatKSh(totalAlbaNet)}</Text>
+            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }, totalAlbaNet >= 0 ? styles.positive : styles.negative]}>{fmt(totalAlbaNet)}</Text>
             <Text style={[styles.tableCell, { flex: 1.5 }]} />
           </View>
         </View>
@@ -150,13 +151,13 @@ export function ReportDocument({ data }: { data: ReportData }) {
           {operatingExpenses.map((e, idx) => (
             <View key={idx} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
               <Text style={[styles.tableCell, { flex: 3 }]}>{e.category.replace(/_/g, " ")}</Text>
-              <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{formatKSh(e.amount)}</Text>
+              <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(e.amount)}</Text>
               <Text style={[styles.tableCellMono, styles.muted, { flex: 2, textAlign: "right" }]}>{grossIncome > 0 ? ((e.amount / grossIncome) * 100).toFixed(1) + "%" : "—"}</Text>
             </View>
           ))}
           <View style={styles.tableRowTotal}>
             <Text style={[styles.tableCell, styles.tableCellBold, { flex: 3 }]}>TOTAL OPERATING EXPENSES</Text>
-            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{formatKSh(totalOpex)}</Text>
+            <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(totalOpex)}</Text>
             <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{grossIncome > 0 ? ((totalOpex / grossIncome) * 100).toFixed(1) + "%" : "—"}</Text>
           </View>
         </View>
@@ -169,13 +170,13 @@ export function ReportDocument({ data }: { data: ReportData }) {
             {sunkCosts.map((e, idx) => (
               <View key={idx} style={styles.tableRow}>
                 <Text style={[styles.tableCell, styles.muted, { flex: 3 }]}>{e.category.replace(/_/g, " ")}</Text>
-                <Text style={[styles.tableCellMono, styles.muted, { flex: 2, textAlign: "right" }]}>{formatKSh(e.amount)}</Text>
+                <Text style={[styles.tableCellMono, styles.muted, { flex: 2, textAlign: "right" }]}>{fmt(e.amount)}</Text>
                 <Text style={[styles.tableCell, { flex: 2 }]}>excl.</Text>
               </View>
             ))}
             <View style={[styles.plRow, { backgroundColor: "#FEF2F2" }]}>
               <Text style={[styles.plLabel, styles.muted]}>Total capital items (not deducted)</Text>
-              <Text style={[styles.plValue, styles.muted]}>{formatKSh(totalSunk)}</Text>
+              <Text style={[styles.plValue, styles.muted]}>{fmt(totalSunk)}</Text>
             </View>
           </>
         )}
@@ -197,13 +198,13 @@ export function ReportDocument({ data }: { data: ReportData }) {
           ].map((row, i) => (
             <View key={i} style={styles.plRow}>
               <Text style={[styles.plLabel, row.bold ? styles.tableCellBold : {}, { paddingLeft: row.indent * 12 }]}>{row.label}</Text>
-              <Text style={[styles.plValue, row.value < 0 ? styles.negative : {}, row.bold ? styles.tableCellBold : {}]}>{formatKSh(row.value)}</Text>
+              <Text style={[styles.plValue, row.value < 0 ? styles.negative : {}, row.bold ? styles.tableCellBold : {}]}>{fmt(row.value)}</Text>
             </View>
           ))}
           <View style={styles.plRowTotal}>
             <Text style={styles.plLabelTotal}>Net Profit to Owner</Text>
             <View>
-              <Text style={styles.plValueTotal}>{formatKSh(data.kpis.netProfit)}</Text>
+              <Text style={styles.plValueTotal}>{fmt(data.kpis.netProfit)}</Text>
               <Text style={[styles.footerText, { color: "#C9A84C", textAlign: "right" }]}>Margin: {margin}%</Text>
             </View>
           </View>
@@ -220,12 +221,12 @@ export function ReportDocument({ data }: { data: ReportData }) {
           ].map((row, i) => (
             <View key={i} style={styles.plRow}>
               <Text style={styles.plLabel}>{row.label}</Text>
-              <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{formatKSh(row.value)}</Text>
+              <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{fmt(row.value)}</Text>
             </View>
           ))}
           <View style={[styles.plRowTotal, { backgroundColor: data.pettyCash.balance >= 0 ? "#1A1A2E" : "#7F1D1D" }]}>
             <Text style={styles.plLabelTotal}>{data.pettyCash.balance >= 0 ? "Petty Cash Surplus" : "Petty Cash DEFICIT"}</Text>
-            <Text style={[styles.plValueTotal, data.pettyCash.balance < 0 ? { color: "#FCA5A5" } : {}]}>{formatKSh(data.pettyCash.balance)}</Text>
+            <Text style={[styles.plValueTotal, data.pettyCash.balance < 0 ? { color: "#FCA5A5" } : {}]}>{fmt(data.pettyCash.balance)}</Text>
           </View>
         </View>
 
@@ -240,12 +241,12 @@ export function ReportDocument({ data }: { data: ReportData }) {
           ].map((row, i) => (
             <View key={i} style={styles.plRow}>
               <Text style={styles.plLabel}>{row.label}</Text>
-              <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{formatKSh(Math.abs(row.value))}</Text>
+              <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{fmt(Math.abs(row.value))}</Text>
             </View>
           ))}
           <View style={[styles.plRowTotal, { backgroundColor: data.mgmtFee.balance >= 0 ? "#1A1A2E" : "#7F1D1D" }]}>
             <Text style={styles.plLabelTotal}>{data.mgmtFee.balance >= 0 ? "Surplus / Overpaid" : "Outstanding Balance"}</Text>
-            <Text style={[styles.plValueTotal, data.mgmtFee.balance < 0 ? { color: "#FCA5A5" } : {}]}>{formatKSh(data.mgmtFee.balance)}</Text>
+            <Text style={[styles.plValueTotal, data.mgmtFee.balance < 0 ? { color: "#FCA5A5" } : {}]}>{fmt(data.mgmtFee.balance)}</Text>
           </View>
         </View>
 

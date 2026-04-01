@@ -5,7 +5,7 @@ import {
   Wallet, DollarSign, ArrowRight, TrendingDown,
 } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ interface AlertsPanelProps {
   pettyCashDeficit: boolean;
   pettyCashBalance: number;
   mgmtFeeBalance:   number;
+  currency?:        string;
 }
 
 // ── Internal alert shape ───────────────────────────────────────────────────────
@@ -172,7 +173,9 @@ export function AlertsPanel({
   pettyCashDeficit,
   pettyCashBalance,
   mgmtFeeBalance,
+  currency = "KES",
 }: AlertsPanelProps) {
+  const fmt = (n: number) => formatCurrency(n, currency);
 
   const critical: AlertItem[] = [];
   const warnings: AlertItem[] = [];
@@ -224,8 +227,8 @@ export function AlertsPanel({
       severity: "critical",
       icon:     <Wallet size={16} />,
       message:  `Petty cash deficit`,
-      sub:      `Balance: ${formatKSh(pettyCashBalance)}`,
-      pill:     { label: formatKSh(Math.abs(pettyCashBalance)), color: "bg-red-100 text-red-700" },
+      sub:      `Balance: ${fmt(pettyCashBalance)}`,
+      pill:     { label: fmt(Math.abs(pettyCashBalance)), color: "bg-red-100 text-red-700" },
       action:   { label: "Top up", href: `/petty-cash` },
     });
   }
@@ -237,7 +240,7 @@ export function AlertsPanel({
       severity: "critical",
       icon:     <TrendingDown size={16} />,
       message:  `${a.tenantName} (${a.unitNumber}) — ${a.monthsUnpaid} months in arrears`,
-      sub:      `Total outstanding: ${formatKSh(a.totalArrears)}`,
+      sub:      `Total outstanding: ${fmt(a.totalArrears)}`,
       pill:     { label: `${a.monthsUnpaid} mo`, color: "bg-red-100 text-red-700" },
       action:   { label: "View arrears", href: `/income` },
     });
@@ -277,8 +280,8 @@ export function AlertsPanel({
       severity: "warning",
       icon:     <DollarSign size={16} />,
       message:  "Management fee outstanding",
-      sub:      `Unpaid: ${formatKSh(Math.abs(mgmtFeeBalance))}`,
-      pill:     { label: formatKSh(Math.abs(mgmtFeeBalance)), color: "bg-amber-100 text-amber-700" },
+      sub:      `Unpaid: ${fmt(Math.abs(mgmtFeeBalance))}`,
+      pill:     { label: fmt(Math.abs(mgmtFeeBalance)), color: "bg-amber-100 text-amber-700" },
       action:   { label: "Log payment", href: `/expenses` },
     });
   }

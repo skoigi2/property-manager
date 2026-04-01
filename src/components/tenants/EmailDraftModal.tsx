@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { X, Copy, Check, Mail, ExternalLink } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 
 type Template = "rent_reminder" | "payment_receipt" | "renewal_offer" | "expiry_notice";
 
@@ -16,6 +16,7 @@ interface Props {
     proposedRent:     number | null;
     proposedLeaseEnd: string | null;
   };
+  currency?: string;
   onClose: () => void;
 }
 
@@ -26,9 +27,10 @@ const TEMPLATES: { value: Template; label: string }[] = [
   { value: "expiry_notice",  label: "Lease Expiry Notice" },
 ];
 
-function buildDraft(template: Template, tenant: Props["tenant"]): { subject: string; body: string } {
+function buildDraft(template: Template, tenant: Props["tenant"], currency: string): { subject: string; body: string } {
   const firstName = tenant.name.split(" ")[0];
   const total     = tenant.monthlyRent + tenant.serviceCharge;
+  const fmt = (n: number) => formatCurrency(n, currency);
   const today     = new Date();
   const monthName = today.toLocaleString("en-KE", { month: "long", year: "numeric" });
 
@@ -40,7 +42,7 @@ function buildDraft(template: Template, tenant: Props["tenant"]): { subject: str
 
 I hope this message finds you well.
 
-This is a friendly reminder that your monthly rent of ${formatKSh(tenant.monthlyRent)}${tenant.serviceCharge > 0 ? ` plus service charge of ${formatKSh(tenant.serviceCharge)} (total ${formatKSh(total)})` : ""} is due for ${monthName}.
+This is a friendly reminder that your monthly rent of ${fmt(tenant.monthlyRent)}${tenant.serviceCharge > 0 ? ` plus service charge of ${fmt(tenant.serviceCharge)} (total ${fmt(total)})` : ""} is due for ${monthName}.
 
 Please ensure payment is made to the usual account by the 5th of the month.
 
@@ -57,7 +59,7 @@ Property Management`,
 
 We acknowledge receipt of your rental payment for ${monthName}.
 
-Payment: ${formatKSh(total)}
+Payment: ${fmt(total)}
 Month: ${monthName}
 Status: Received ✓
 
@@ -80,9 +82,9 @@ Your current lease is approaching its end date${tenant.leaseEnd ? ` on ${formatD
 
 We are pleased to offer you a renewal on the following terms:
 
-  • New monthly rent:    ${formatKSh(proposedRent)}
-  • Service charge:     ${formatKSh(tenant.serviceCharge)}
-  • Total monthly:      ${formatKSh(proposedRent + tenant.serviceCharge)}
+  • New monthly rent:    ${fmt(proposedRent)}
+  • Service charge:     ${fmt(tenant.serviceCharge)}
+  • Total monthly:      ${fmt(proposedRent + tenant.serviceCharge)}
   • New lease end date: ${proposedLeaseEnd}
 
 Please confirm your acceptance of these terms or let us know if you wish to discuss.
@@ -114,10 +116,10 @@ Property Management`,
   }
 }
 
-export function EmailDraftModal({ tenant, onClose }: Props) {
+export function EmailDraftModal({ tenant, currency = "KES", onClose }: Props) {
   const [template, setTemplate]   = useState<Template>("rent_reminder");
   const [copied, setCopied]       = useState(false);
-  const draft = buildDraft(template, tenant);
+  const draft = buildDraft(template, tenant, currency);
 
   async function copyBody() {
     await navigator.clipboard.writeText(draft.body);

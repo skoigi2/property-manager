@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { CheckCircle2, Circle, Loader2, ChevronRight, RotateCcw, TrendingUp, Trash2, Plus } from "lucide-react";
 import { clsx } from "clsx";
 import { formatDate } from "@/lib/date-utils";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 
 type Stage = "NONE" | "NOTICE_SENT" | "TERMS_AGREED" | "RENEWED";
 
@@ -24,6 +24,7 @@ interface Props {
   currentRent:      number;
   currentLeaseEnd:  string | null;
   escalationRate:   number | null;
+  currency?:        string;
   onUpdated:        () => void;
   onRenewed?:       () => void;
 }
@@ -43,9 +44,11 @@ export function RenewalPipeline({
   currentRent,
   currentLeaseEnd,
   escalationRate: initialEscalationRate,
+  currency = "KES",
   onUpdated,
   onRenewed,
 }: Props) {
+  const fmt = (n: number) => formatCurrency(n, currency);
   const [saving, setSaving] = useState(false);
 
   // Escalation rate drives auto-suggest
@@ -226,9 +229,9 @@ export function RenewalPipeline({
             {suggestedRent && (
               <div className="text-right shrink-0">
                 <p className="text-xs text-gray-400 font-sans">Suggested rent</p>
-                <p className="text-sm font-mono font-semibold text-gold">{formatKSh(suggestedRent)}</p>
+                <p className="text-sm font-mono font-semibold text-gold">{fmt(suggestedRent)}</p>
                 <p className="text-xs text-gray-400 font-sans">
-                  +{formatKSh(suggestedRent - currentRent)} / mo
+                  +{fmt(suggestedRent - currentRent)} / mo
                 </p>
               </div>
             )}
@@ -275,7 +278,7 @@ export function RenewalPipeline({
           </p>
           {proposedRent && (
             <p className="text-xs text-gray-600 font-sans">
-              New rent: <span className="font-mono font-medium">{formatKSh(proposedRent)}</span>
+              New rent: <span className="font-mono font-medium">{fmt(proposedRent)}</span>
             </p>
           )}
           {proposedLeaseEnd && (
@@ -423,10 +426,10 @@ export function RenewalPipeline({
                 >
                   <div>
                     <p className="text-sm font-mono font-semibold text-header">
-                      {formatKSh(entry.monthlyRent)}
+                      {fmt(entry.monthlyRent)}
                       {delta !== null && (
                         <span className={clsx("ml-2 text-xs font-sans font-normal", delta >= 0 ? "text-income" : "text-expense")}>
-                          {delta >= 0 ? "+" : ""}{formatKSh(delta)} ({pct}%)
+                          {delta >= 0 ? "+" : ""}{fmt(delta)} ({pct}%)
                         </span>
                       )}
                     </p>

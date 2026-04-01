@@ -22,7 +22,7 @@ import {
   Loader2, X, AlertTriangle,
 } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -499,7 +499,8 @@ function JobCard({ job, isManager, onEdit, onDelete, onAdvance, onLogExpense, ad
 
 export default function MaintenancePage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
 
   // ── Tab state ──────────────────────────────────────────────────────────────
@@ -921,7 +922,7 @@ export default function MaintenancePage() {
               </Card>
               <Card className="p-4">
                 <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">YTD Maintenance Cost</p>
-                <p className="text-lg font-display text-header mt-1">{formatKSh(ytdCost)}</p>
+                <p className="text-lg font-display text-header mt-1">{formatCurrency(ytdCost, currency)}</p>
                 <p className="text-xs font-sans text-gray-400 mt-0.5">{new Date().getFullYear()} total</p>
               </Card>
             </div>

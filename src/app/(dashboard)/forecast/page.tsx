@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { ForecastChart } from "@/components/forecast/ForecastChart";
 import { useProperty } from "@/lib/property-context";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import type {
   ForecastResponse,
   ForecastMonth,
@@ -63,6 +63,8 @@ function MonthDetailRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const net = month.netCashflow;
   return (
     <>
@@ -71,10 +73,10 @@ function MonthDetailRow({
           {month.label}
         </td>
         <td className="px-4 py-3 text-right text-sm font-mono text-income">
-          {formatKSh(month.forecastedRent)}
+          {formatCurrency(month.forecastedRent, currency)}
         </td>
         <td className="px-4 py-3 text-right text-sm font-mono text-expense">
-          {formatKSh(month.projectedExpenses)}
+          {formatCurrency(month.projectedExpenses, currency)}
         </td>
         <td
           className={clsx(
@@ -82,7 +84,7 @@ function MonthDetailRow({
             net >= 0 ? "text-income" : "text-expense"
           )}
         >
-          {formatKSh(net)}
+          {formatCurrency(net, currency)}
         </td>
         <td className="px-4 py-3 text-right">
           <button
@@ -125,7 +127,7 @@ function MonthDetailRow({
                         {item.isRenewalProjection && " (renewal est.)"}
                       </span>
                       <span className="text-xs font-mono text-income shrink-0">
-                        {formatKSh(item.rent + item.serviceCharge)}
+                        {formatCurrency(item.rent + item.serviceCharge, currency)}
                       </span>
                     </div>
                   ))}
@@ -158,7 +160,7 @@ function MonthDetailRow({
                         )}
                       </span>
                       <span className="text-xs font-mono text-expense shrink-0">
-                        {formatKSh(item.amount)}
+                        {formatCurrency(item.amount, currency)}
                       </span>
                     </div>
                   ))}
@@ -263,7 +265,8 @@ export default function ForecastPage() {
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
 
   useEffect(() => {
     setLoading(true);
@@ -357,7 +360,7 @@ export default function ForecastPage() {
               <h2 className="text-sm font-sans font-semibold text-header mb-4">
                 Monthly Cashflow Projection
               </h2>
-              <ForecastChart months={data.months} />
+              <ForecastChart months={data.months} currency={currency} />
             </Card>
 
             {/* Month-by-month table */}
@@ -397,10 +400,10 @@ export default function ForecastPage() {
                         Total
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-mono font-semibold text-income">
-                        {formatKSh(data.summary.totalForecastedRent)}
+                        {formatCurrency(data.summary.totalForecastedRent, currency)}
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-mono font-semibold text-expense">
-                        {formatKSh(data.summary.totalProjectedExpenses)}
+                        {formatCurrency(data.summary.totalProjectedExpenses, currency)}
                       </td>
                       <td
                         className={clsx(
@@ -410,7 +413,7 @@ export default function ForecastPage() {
                             : "text-expense"
                         )}
                       >
-                        {formatKSh(data.summary.totalNetCashflow)}
+                        {formatCurrency(data.summary.totalNetCashflow, currency)}
                       </td>
                       <td />
                     </tr>

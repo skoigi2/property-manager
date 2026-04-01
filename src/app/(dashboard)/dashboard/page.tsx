@@ -55,7 +55,8 @@ function ActionCard({ icon, title, severity, lines, href }: {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -298,7 +299,7 @@ export default function DashboardPage() {
               {opsLoading ? (
                 <div className="flex items-center justify-center py-12"><Spinner size="md" /></div>
               ) : (
-                <RevenueChart data={opsData?.trend ?? []} />
+                <RevenueChart data={opsData?.trend ?? []} currency={currency} />
               )}
             </Card>
 

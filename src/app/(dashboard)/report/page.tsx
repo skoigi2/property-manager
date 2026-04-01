@@ -711,6 +711,7 @@ interface StatementData {
   expenses: { category: string; description: string; amount: number }[];
   totalExpenses: number; netPayable: number; notes: string;
   ownerName: string | null; ownerEmail: string | null;
+  currency: string;
 }
 
 function OwnerStatementTab({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {

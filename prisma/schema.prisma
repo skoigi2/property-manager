@@ -364,6 +364,7 @@ model Property {
   managementFeeRate    Float?
   managementFeeFlat    Float?
   serviceChargeDefault Float?
+  currency             String            @default("KES")
   units                Unit[]
   expenses             ExpenseEntry[]
   propertyAccess       PropertyAccess[]

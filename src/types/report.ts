@@ -1,6 +1,7 @@
 export interface ReportData {
   title: string;
   property: string;
+  currency: string;
   longTermPropertyName: string;
   shortLetPropertyName: string;
   ownerName: string;

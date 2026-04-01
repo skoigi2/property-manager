@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/date-utils";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import {
   Package,
   Plus,
@@ -323,6 +323,8 @@ function DocumentPanel({ assetId }: { assetId: string }) {
 // ── Maintenance Panel ─────────────────────────────────────────────────────────
 
 function MaintenancePanel({ assetId }: { assetId: string }) {
+  const { selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -521,7 +523,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
                   {log.schedule && <span className="mx-1 text-blue-500">[{log.schedule.taskName}]</span>}
                   <span className="text-header"> {log.description}</span>
                   {log.technician && <span className="text-gray-400"> · {log.technician}</span>}
-                  {log.cost != null && <span className="text-expense font-medium"> · {formatKSh(log.cost)}</span>}
+                  {log.cost != null && <span className="text-expense font-medium"> · {formatCurrency(log.cost, currency)}</span>}
                 </div>
                 <button
                   onClick={() => setDeleteLogId(log.id)}
@@ -688,7 +690,8 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [assets, setAssets] = useState<Asset[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -926,7 +929,7 @@ export default function AssetsPage() {
           </Card>
           <Card className="p-4">
             <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Total Purchase Value</p>
-            <p className="text-lg font-display text-header mt-1">{formatKSh(totalValue)}</p>
+            <p className="text-lg font-display text-header mt-1">{formatCurrency(totalValue, currency)}</p>
           </Card>
           <Card className="p-4">
             <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Warranties Expiring</p>
@@ -1020,7 +1023,7 @@ export default function AssetsPage() {
                     <div>
                       <span className="text-gray-400 text-xs">Purchase Cost</span>
                       <p className="text-header font-medium">
-                        {asset.purchaseCost ? formatKSh(asset.purchaseCost) : "—"}
+                        {asset.purchaseCost ? formatCurrency(asset.purchaseCost, currency) : "—"}
                       </p>
                     </div>
                     {asset.modelNumber && (

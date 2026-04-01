@@ -145,6 +145,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   return {
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
+    currency:             properties[0]?.currency ?? "KES",
     longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
     shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
     ownerName,
@@ -296,6 +297,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   return {
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
+    currency:             properties[0]?.currency ?? "KES",
     longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
     shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
     ownerName, managerName,

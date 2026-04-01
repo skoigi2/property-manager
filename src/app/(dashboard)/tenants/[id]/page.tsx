@@ -13,6 +13,7 @@ import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
+import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
@@ -265,6 +266,8 @@ export default function TenantDetailPage() {
   const { data: session } = useSession();
   const params  = useParams();
   const router  = useRouter();
+  const { selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
 
   const [tenant,    setTenant]    = useState<any>(null);
   const [loading,   setLoading]   = useState(true);
@@ -790,6 +793,7 @@ export default function TenantDetailPage() {
                       currentRent={tenant.monthlyRent}
                       currentLeaseEnd={tenant.leaseEnd ?? null}
                       escalationRate={tenant.escalationRate ?? null}
+                      currency={currency}
                       onUpdated={fetchTenant}
                       onRenewed={() => {
                         if (tenant?.unitId) {
@@ -903,6 +907,7 @@ export default function TenantDetailPage() {
             proposedRent:    tenant.proposedRent ?? null,
             proposedLeaseEnd: tenant.proposedLeaseEnd ?? null,
           }}
+          currency={currency}
           onClose={() => setShowEmail(false)}
         />
       )}

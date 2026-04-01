@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GuestPanel } from "@/components/guests/GuestPanel";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import { formatDate } from "@/lib/date-utils";
 import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
@@ -75,7 +75,8 @@ function avgNightlyRate(entries: any[]): number {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AirbnbPage() {
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "KES";
   const [tab, setTab]     = useState<Tab>("calendar");
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
@@ -635,7 +636,7 @@ export default function AirbnbPage() {
                                 return (
                                   <div
                                     key={entry.id}
-                                    title={`${primaryGuest?.name ?? "Guest"} · ${span.nights}n · ${formatKSh(entry.grossAmount)}`}
+                                    title={`${primaryGuest?.name ?? "Guest"} · ${span.nights}n · ${formatCurrency(entry.grossAmount, currency)}`}
                                     onClick={() => openDetail(entry)}
                                     className={clsx(
                                       "absolute top-1 h-6 rounded-md flex items-center px-2 cursor-pointer text-white text-xs font-sans font-medium truncate shadow-sm transition-opacity hover:opacity-80",

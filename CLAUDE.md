@@ -43,7 +43,7 @@ Middleware (`src/middleware.ts`) enforces:
 - OWNER role → `/report` only; accessing any manager-only route redirects back to `/report`
 - ADMIN / MANAGER / ACCOUNTANT → full access
 
-Manager-only routes (OWNER is blocked): `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`.
+Manager-only routes (OWNER is blocked): `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/vendors`.
 
 Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
@@ -134,6 +134,7 @@ Two properties are seeded:
 - **CurrencyDisplay sizes**: `"sm" | "md" | "lg" | "xl"` — no `"base"`
 - Pages use `<Header>` + `<div className="page-container">` shell from the dashboard layout
 - Month filtering uses `<MonthPicker>` component which has built-in prev/next arrows — do not add outer arrow buttons
+- Vendor fields use `<VendorSelect>` (controlled: `value: string | null`, `onChange: (id: string | null) => void`) — never a plain text input for contractor/supplier fields
 
 ### Document Storage
 
@@ -182,6 +183,8 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 **Asset Register** — asset inventory with serial numbers, warranty dates, and replacement value. Linked to maintenance schedules (frequency-based) and maintenance logs (which can be tied to expense entries). API: `/api/assets`, `/api/assets/[id]/schedules`, `/api/assets/[id]/schedules/[scheduleId]/log`.
 
 **BuildingConditionReport** — property inspection records with a JSON `items` array. API: `GET/POST /api/properties/[id]/condition-reports`.
+
+**Vendor Registry** — org-scoped vendor/contractor records (`VendorCategory`: `CONTRACTOR`, `SUPPLIER`, `UTILITY_PROVIDER`, `SERVICE_PROVIDER`, `CONSULTANT`, `OTHER`) with phone, email, KRA PIN, bank details, and `isActive` toggle. `vendorId` FK exists on `ExpenseEntry`, `MaintenanceJob`, `AssetMaintenanceLog`, `RecurringExpense`, and `Asset`. API: `GET/POST /api/vendors`, `GET/PATCH/DELETE /api/vendors/[id]` — DELETE returns 409 with `linkedCount` if records are linked (deactivate instead). The `VendorSelect` combobox component (`src/components/ui/VendorSelect.tsx`) uses a module-level cache (`vendorCache`) and supports inline quick-create; use it wherever a vendor field is needed rather than a plain text input.
 
 ## Environment Variables
 

@@ -71,6 +71,7 @@ const mgrDrawerSections: DrawerSection[] = [
     items: [
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/assets",      label: "Assets",      icon: Package },
+      { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/insurance",   label: "Insurance",   icon: ShieldPlus },
       { href: "/compliance",  label: "Compliance",  icon: BarChart3 },
     ],
@@ -111,6 +112,7 @@ const accountantDrawerSections: DrawerSection[] = [
     heading: "Operations",
     items: [
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
+      { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/compliance",  label: "Compliance",  icon: BarChart3 },
     ],
   },

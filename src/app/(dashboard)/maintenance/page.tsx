@@ -59,14 +59,20 @@ interface MaintenanceSchedule {
   lastDone: string | null;
   nextDue: string | null;
   isActive: boolean;
-  asset: {
+  assetId: string | null;
+  propertyId: string | null;
+  taskCategory: string | null;
+  estimatedCost: number | null;
+  recurringExpenseId: string | null;
+  asset?: {
     id: string;
     name: string;
     category: string;
     categoryOther: string | null;
     property: { id: string; name: string };
     unit: { unitNumber: string } | null;
-  };
+  } | null;
+  property?: { id: string; name: string } | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -535,6 +541,17 @@ export default function MaintenancePage() {
     description: "", cost: "", technician: "", notes: "",
   });
 
+  // ── Add/Edit/Delete schedule state ─────────────────────────────────────────
+  const [addSchedOpen, setAddSchedOpen] = useState(false);
+  const [addSchedForm, setAddSchedForm] = useState({ propertyId: "", assetId: "", taskName: "", description: "", taskCategory: "OTHER", frequency: "MONTHLY", lastDone: "", estimatedCost: "" });
+  const [addSchedSaving, setAddSchedSaving] = useState(false);
+  const [scheduleAssets, setScheduleAssets] = useState<any[]>([]);
+  const [editSchedTarget, setEditSchedTarget] = useState<MaintenanceSchedule | null>(null);
+  const [editSchedForm, setEditSchedForm] = useState({ taskName: "", description: "", frequency: "MONTHLY", lastDone: "", estimatedCost: "" });
+  const [editSchedSaving, setEditSchedSaving] = useState(false);
+  const [deleteSchedTarget, setDeleteSchedTarget] = useState<MaintenanceSchedule | null>(null);
+  const [deletingSchedule, setDeletingSchedule] = useState(false);
+
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<JobForm>({
     resolver: zodResolver(jobSchema),
     defaultValues: { category: "OTHER", priority: "MEDIUM" },
@@ -577,6 +594,95 @@ export default function MaintenancePage() {
   useEffect(() => {
     if (activeTab === "schedules") loadSchedules();
   }, [activeTab, loadSchedules]);
+
+  // ── Load assets for add schedule form ─────────────────────────────────────
+  useEffect(() => {
+    if (!addSchedForm.propertyId) { setScheduleAssets([]); return; }
+    fetch(`/api/assets?propertyId=${addSchedForm.propertyId}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setScheduleAssets)
+      .catch(() => setScheduleAssets([]));
+  }, [addSchedForm.propertyId]);
+
+  // ── Schedule handlers ──────────────────────────────────────────────────────
+  async function handleAddSchedule() {
+    if (!addSchedForm.propertyId || !addSchedForm.taskName.trim()) {
+      toast.error("Property and task name required");
+      return;
+    }
+    if (!addSchedForm.assetId && !addSchedForm.taskCategory) {
+      toast.error("Category required for property-wide tasks");
+      return;
+    }
+    setAddSchedSaving(true);
+    try {
+      const res = await fetch("/api/maintenance/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: addSchedForm.propertyId,
+          assetId: addSchedForm.assetId || null,
+          taskName: addSchedForm.taskName,
+          description: addSchedForm.description || null,
+          taskCategory: addSchedForm.assetId ? null : addSchedForm.taskCategory,
+          frequency: addSchedForm.frequency,
+          lastDone: addSchedForm.lastDone || null,
+          estimatedCost: parseFloat(addSchedForm.estimatedCost) || 0,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Maintenance schedule added");
+      setAddSchedOpen(false);
+      setAddSchedForm({ propertyId: "", assetId: "", taskName: "", description: "", taskCategory: "OTHER", frequency: "MONTHLY", lastDone: "", estimatedCost: "" });
+      loadSchedules();
+    } catch {
+      toast.error("Failed to add schedule");
+    } finally {
+      setAddSchedSaving(false);
+    }
+  }
+
+  async function handleEditSchedule() {
+    if (!editSchedTarget) return;
+    setEditSchedSaving(true);
+    try {
+      const res = await fetch(`/api/maintenance/schedules/${editSchedTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskName: editSchedForm.taskName,
+          description: editSchedForm.description || null,
+          frequency: editSchedForm.frequency,
+          lastDone: editSchedForm.lastDone || null,
+          estimatedCost: parseFloat(editSchedForm.estimatedCost) || 0,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Schedule updated");
+      setEditSchedTarget(null);
+      loadSchedules();
+    } catch {
+      toast.error("Failed to update schedule");
+    } finally {
+      setEditSchedSaving(false);
+    }
+  }
+
+  async function handleDeleteSchedule() {
+    if (!deleteSchedTarget) return;
+    setDeletingSchedule(true);
+    try {
+      const res = await fetch(`/api/maintenance/schedules/${deleteSchedTarget.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Schedule deleted");
+      setDeleteSchedTarget(null);
+      loadSchedules();
+    } catch {
+      toast.error("Failed to delete schedule");
+    } finally {
+      setDeletingSchedule(false);
+    }
+  }
 
   // ── Jobs handlers ──────────────────────────────────────────────────────────
   const openAdd = () => {
@@ -675,6 +781,7 @@ export default function MaintenancePage() {
   async function handleLog() {
     if (!logModal) return;
     if (!logForm.date || !logForm.description) { toast.error("Date and description required"); return; }
+    if (!logModal.asset) { toast.error("Logging is only available for asset-linked schedules"); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/assets/${logModal.asset.id}/schedules/${logModal.id}/log`, {
@@ -710,9 +817,11 @@ export default function MaintenancePage() {
     if (filterStatus && st.group !== filterStatus) return false;
     if (scheduleSearch) {
       const q = scheduleSearch.toLowerCase();
+      const assetName = s.asset?.name.toLowerCase() ?? "";
+      const propName = (s.asset?.property.name ?? s.property?.name ?? "").toLowerCase();
       if (!s.taskName.toLowerCase().includes(q) &&
-        !s.asset.name.toLowerCase().includes(q) &&
-        !s.asset.property.name.toLowerCase().includes(q)) return false;
+        !assetName.includes(q) &&
+        !propName.includes(q)) return false;
     }
     return true;
   });
@@ -900,7 +1009,7 @@ export default function MaintenancePage() {
                   <p className="text-xs font-sans text-red-600 mt-0.5">
                     {schedules
                       .filter(s => taskStatus(s.nextDue).group === "overdue")
-                      .map(s => `${s.asset.name} — ${s.taskName}`)
+                      .map(s => `${s.asset?.name ?? s.property?.name ?? "Task"} — ${s.taskName}`)
                       .join(" · ")}
                   </p>
                 </div>
@@ -933,6 +1042,11 @@ export default function MaintenancePage() {
 
             {/* Filter bar */}
             <div className="flex flex-wrap items-center gap-3">
+              {isManager && (
+                <Button size="sm" onClick={() => setAddSchedOpen(true)}>
+                  <Plus size={14} className="mr-1" /> Add Schedule
+                </Button>
+              )}
               <select
                 value={filterScheduleProperty}
                 onChange={(e) => setFilterScheduleProperty(e.target.value)}
@@ -984,22 +1098,37 @@ export default function MaintenancePage() {
                           <Card key={s.id} className="p-4">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
-                                {/* Row 1: category badge + asset name + property */}
+                                {/* Row 1: category badge + asset/property name */}
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant={CAT_BADGE[s.asset.category] ?? "gray"}>
-                                    {CAT_LABELS[s.asset.category] ?? s.asset.category}
-                                  </Badge>
-                                  <span className="font-sans font-semibold text-header">{s.asset.name}</span>
-                                  <span className="text-xs font-sans text-gray-400">
-                                    {s.asset.property.name}
-                                    {s.asset.unit && ` · Unit ${s.asset.unit.unitNumber}`}
-                                  </span>
+                                  {s.asset ? (
+                                    <>
+                                      <Badge variant={CAT_BADGE[s.asset.category] ?? "gray"}>
+                                        {CAT_LABELS[s.asset.category] ?? s.asset.category}
+                                      </Badge>
+                                      <span className="font-sans font-semibold text-header">{s.asset.name}</span>
+                                      <span className="text-xs font-sans text-gray-400">
+                                        {s.asset.property.name}
+                                        {s.asset.unit && ` · Unit ${s.asset.unit.unitNumber}`}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Badge variant="gray">{s.taskCategory ?? "Other"}</Badge>
+                                      <span className="font-sans font-semibold text-header">
+                                        {s.property?.name ?? "Property task"}
+                                      </span>
+                                    </>
+                                  )}
+                                  {s.recurringExpenseId && <Badge variant="green">Recurring</Badge>}
                                 </div>
                                 {/* Row 2: task name + frequency + status */}
                                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                   <span className="text-sm font-sans text-header font-medium">{s.taskName}</span>
                                   <Badge variant="blue">{FREQ_LABELS[s.frequency] ?? s.frequency}</Badge>
                                   <Badge variant={st.variant}>{st.label}</Badge>
+                                  {s.estimatedCost && s.estimatedCost > 0 && (
+                                    <span className="text-xs font-sans text-gray-400">Est. {formatCurrency(s.estimatedCost, currency)}</span>
+                                  )}
                                 </div>
                                 {/* Row 3: last done / next due dates */}
                                 <div className="flex gap-4 mt-1.5 text-xs font-sans text-gray-400">
@@ -1016,20 +1145,50 @@ export default function MaintenancePage() {
                                   <p className="text-xs font-sans text-gray-500 mt-1">{s.description}</p>
                                 )}
                               </div>
-                              {/* Log button */}
-                              <Button
-                                onClick={() => {
-                                  setLogModal(s);
-                                  setLogForm({
-                                    date: new Date().toISOString().slice(0, 10),
-                                    description: `${s.taskName} completed`,
-                                    cost: "", technician: "", notes: "",
-                                  });
-                                }}
-                                className="shrink-0 flex items-center gap-1.5 text-sm"
-                              >
-                                <CheckCircle2 size={14} /> Log
-                              </Button>
+                              {/* Action buttons */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  onClick={() => {
+                                    setLogModal(s);
+                                    setLogForm({
+                                      date: new Date().toISOString().slice(0, 10),
+                                      description: `${s.taskName} completed`,
+                                      cost: s.estimatedCost ? String(s.estimatedCost) : "",
+                                      technician: "", notes: "",
+                                    });
+                                  }}
+                                  className="flex items-center gap-1.5 text-sm"
+                                >
+                                  <CheckCircle2 size={14} /> Log
+                                </Button>
+                                {isManager && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setEditSchedTarget(s);
+                                        setEditSchedForm({
+                                          taskName: s.taskName,
+                                          description: s.description ?? "",
+                                          frequency: s.frequency,
+                                          lastDone: s.lastDone ? s.lastDone.slice(0, 10) : "",
+                                          estimatedCost: s.estimatedCost?.toString() ?? "",
+                                        });
+                                      }}
+                                      className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-header"
+                                      title="Edit schedule"
+                                    >
+                                      <PencilLine size={15} />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteSchedTarget(s)}
+                                      className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-expense"
+                                      title="Delete schedule"
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </Card>
                         );
@@ -1188,6 +1347,126 @@ export default function MaintenancePage() {
         onClose={() => setDeleteTarget(null)}
       />
 
+      {/* ── Add Schedule Modal ──────────────────────────────────────────── */}
+      <Modal open={addSchedOpen} onClose={() => setAddSchedOpen(false)} title="Add Maintenance Schedule" size="md">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Property <span className="text-expense">*</span></label>
+            <select value={addSchedForm.propertyId} onChange={e => setAddSchedForm(f => ({ ...f, propertyId: e.target.value, assetId: "" }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+              <option value="">Select property...</option>
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          {addSchedForm.propertyId && (
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Asset <span className="text-gray-400">(optional)</span></label>
+              <select value={addSchedForm.assetId} onChange={e => setAddSchedForm(f => ({ ...f, assetId: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+                <option value="">No specific asset (property-wide task)</option>
+                {scheduleAssets.map((a: any) => <option key={a.id} value={a.id}>{a.name} ({CAT_LABELS[a.category] ?? a.category})</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Task Name <span className="text-expense">*</span></label>
+            <input type="text" value={addSchedForm.taskName} onChange={e => setAddSchedForm(f => ({ ...f, taskName: e.target.value }))} placeholder="e.g. Quarterly pest control" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+          </div>
+          {!addSchedForm.assetId && (
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Category <span className="text-expense">*</span></label>
+              <select value={addSchedForm.taskCategory} onChange={e => setAddSchedForm(f => ({ ...f, taskCategory: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+                {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description</label>
+            <textarea value={addSchedForm.description} onChange={e => setAddSchedForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Optional notes..." className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Frequency</label>
+              <select value={addSchedForm.frequency} onChange={e => setAddSchedForm(f => ({ ...f, frequency: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+                <option value="QUARTERLY">Quarterly</option>
+                <option value="BIANNUALLY">Bi-annually</option>
+                <option value="ANNUALLY">Annually</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Last Done</label>
+              <input type="date" value={addSchedForm.lastDone} onChange={e => setAddSchedForm(f => ({ ...f, lastDone: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost (KSh)</label>
+            <input type="number" min="0" value={addSchedForm.estimatedCost} onChange={e => setAddSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            {parseFloat(addSchedForm.estimatedCost) > 0 && addSchedForm.frequency !== "WEEKLY" && (
+              <p className="text-xs text-gold mt-1">A recurring expense will be created for financial tracking</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setAddSchedOpen(false)} disabled={addSchedSaving}>Cancel</Button>
+            <Button onClick={handleAddSchedule} loading={addSchedSaving}>Add Schedule</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Edit Schedule Modal ──────────────────────────────────────────── */}
+      <Modal open={!!editSchedTarget} onClose={() => setEditSchedTarget(null)} title="Edit Schedule" size="md">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Task Name</label>
+            <input type="text" value={editSchedForm.taskName} onChange={e => setEditSchedForm(f => ({ ...f, taskName: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+          </div>
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description</label>
+            <textarea value={editSchedForm.description} onChange={e => setEditSchedForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Frequency</label>
+              <select value={editSchedForm.frequency} onChange={e => setEditSchedForm(f => ({ ...f, frequency: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+                <option value="QUARTERLY">Quarterly</option>
+                <option value="BIANNUALLY">Bi-annually</option>
+                <option value="ANNUALLY">Annually</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Last Done</label>
+              <input type="date" value={editSchedForm.lastDone} onChange={e => setEditSchedForm(f => ({ ...f, lastDone: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost (KSh)</label>
+            <input type="number" min="0" value={editSchedForm.estimatedCost} onChange={e => setEditSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            {parseFloat(editSchedForm.estimatedCost) > 0 && editSchedForm.frequency !== "WEEKLY" && (
+              <p className="text-xs text-gold mt-1">{editSchedTarget?.recurringExpenseId ? "Linked recurring expense will be updated" : "A recurring expense will be created"}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setEditSchedTarget(null)} disabled={editSchedSaving}>Cancel</Button>
+            <Button onClick={handleEditSchedule} loading={editSchedSaving}>Save Changes</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Delete Schedule confirm ──────────────────────────────────────── */}
+      <ConfirmDialog
+        open={!!deleteSchedTarget}
+        title="Delete schedule?"
+        message={deleteSchedTarget?.recurringExpenseId
+          ? "This schedule has a linked recurring expense — both will be permanently deleted."
+          : "This maintenance schedule and all its log history will be permanently deleted."
+        }
+        confirmLabel="Delete"
+        loading={deletingSchedule}
+        onConfirm={handleDeleteSchedule}
+        onClose={() => setDeleteSchedTarget(null)}
+      />
+
       {/* ── Schedule Log Modal ───────────────────────────────────────────── */}
       <Modal
         open={!!logModal}
@@ -1199,14 +1478,20 @@ export default function MaintenancePage() {
           <div className="space-y-4">
             {/* Context line */}
             <div className="bg-cream rounded-lg px-3 py-2 text-xs font-sans text-gray-600 flex items-center gap-2">
-              <span className="font-medium">{logModal.asset.name}</span>
-              <span className="text-gray-400">·</span>
-              <span>{logModal.asset.property.name}</span>
-              {logModal.asset.unit && (
+              {logModal.asset ? (
                 <>
+                  <span className="font-medium">{logModal.asset.name}</span>
                   <span className="text-gray-400">·</span>
-                  <span>Unit {logModal.asset.unit.unitNumber}</span>
+                  <span>{logModal.asset.property.name}</span>
+                  {logModal.asset.unit && (
+                    <>
+                      <span className="text-gray-400">·</span>
+                      <span>Unit {logModal.asset.unit.unitNumber}</span>
+                    </>
+                  )}
                 </>
+              ) : (
+                <span className="font-medium">{logModal.property?.name ?? "Property task"}</span>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">

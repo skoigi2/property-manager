@@ -14,6 +14,27 @@ function calcNextDue(lastDone: Date, frequency: string): Date {
   return d;
 }
 
+function toRecurringFrequency(f: string): string | null {
+  switch (f) {
+    case "MONTHLY": return "MONTHLY";
+    case "QUARTERLY": return "QUARTERLY";
+    case "BIANNUALLY": return "BIANNUAL";
+    case "ANNUALLY": return "ANNUAL";
+    default: return null;
+  }
+}
+
+function calcNextDueFromToday(frequency: string): Date {
+  const d = new Date();
+  switch (frequency) {
+    case "MONTHLY": d.setMonth(d.getMonth() + 1); break;
+    case "QUARTERLY": d.setMonth(d.getMonth() + 3); break;
+    case "BIANNUALLY": d.setMonth(d.getMonth() + 6); break;
+    case "ANNUALLY": d.setFullYear(d.getFullYear() + 1); break;
+  }
+  return d;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
@@ -58,7 +79,7 @@ export async function POST(
 
   const asset = await prisma.asset.findUnique({
     where: { id: params.id },
-    select: { propertyId: true },
+    select: { propertyId: true, unitId: true, name: true },
   });
   if (!asset) return Response.json({ error: "Not found" }, { status: 404 });
   if (!propertyIds.includes(asset.propertyId)) {
@@ -72,11 +93,12 @@ export async function POST(
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { taskName, description, frequency, lastDone } = body as {
+  const { taskName, description, frequency, lastDone, estimatedCost } = body as {
     taskName?: string;
     description?: string;
     frequency?: string;
     lastDone?: string;
+    estimatedCost?: number;
   };
 
   if (!taskName || typeof taskName !== "string" || !taskName.trim()) {
@@ -93,14 +115,46 @@ export async function POST(
     const schedule = await prisma.assetMaintenanceSchedule.create({
       data: {
         assetId: params.id,
+        propertyId: asset.propertyId,
         taskName: taskName.trim(),
         description: description || null,
         frequency: frequency as MaintenanceFrequency,
         lastDone: lastDoneDate,
         nextDue: nextDueDate,
+        estimatedCost: estimatedCost ?? null,
       },
       include: { _count: { select: { logs: true } } },
     });
+
+    const recurringFreq = toRecurringFrequency(frequency);
+    if (estimatedCost && estimatedCost > 0 && recurringFreq !== null) {
+      const nextDue = nextDueDate ?? calcNextDueFromToday(frequency);
+      const [recurringExpense] = await prisma.$transaction([
+        prisma.recurringExpense.create({
+          data: {
+            description: `${asset.name} — ${taskName.trim()}`,
+            amount: estimatedCost,
+            category: "MAINTENANCE",
+            scope: asset.unitId ? "UNIT" : "PROPERTY",
+            propertyId: asset.propertyId,
+            unitId: asset.unitId ?? null,
+            frequency: recurringFreq as any,
+            nextDueDate: nextDue,
+            isActive: true,
+          },
+        }),
+      ]);
+
+      await prisma.assetMaintenanceSchedule.update({
+        where: { id: schedule.id },
+        data: { recurringExpenseId: recurringExpense.id },
+      });
+
+      return Response.json(
+        { ...schedule, recurringExpenseId: recurringExpense.id, estimatedCost },
+        { status: 201 }
+      );
+    }
 
     return Response.json(schedule, { status: 201 });
   } catch (err: any) {

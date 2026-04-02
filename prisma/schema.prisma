@@ -311,6 +311,7 @@ enum RecurringFrequency {
   MONTHLY
   QUARTERLY
   ANNUAL
+  BIANNUAL
 }
 
 enum AuditAction {
@@ -387,6 +388,7 @@ model Property {
   agreement            ManagementAgreement?
   conditionReports     BuildingConditionReport[]
   ownerInvoices        OwnerInvoice[]
+  maintenanceSchedules AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 }
@@ -706,6 +708,7 @@ model RecurringExpense {
   property    Property?          @relation(fields: [propertyId], references: [id])
   unit        Unit?              @relation(fields: [unitId], references: [id])
   vendor      Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  schedule    AssetMaintenanceSchedule? @relation("ScheduleRecurringExpense")
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -859,20 +862,28 @@ model AssetDocument {
 }
 
 model AssetMaintenanceSchedule {
-  id          String               @id @default(cuid())
-  assetId     String
-  asset       Asset                @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  taskName    String
-  description String?
-  frequency   MaintenanceFrequency
-  lastDone    DateTime?
-  nextDue     DateTime?
-  isActive    Boolean              @default(true)
-  logs        AssetMaintenanceLog[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id                 String               @id @default(cuid())
+  assetId            String?
+  asset              Asset?               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  propertyId         String?
+  property           Property?            @relation("PropertyMaintenanceSchedules", fields: [propertyId], references: [id], onDelete: Cascade)
+  taskName           String
+  description        String?
+  frequency          MaintenanceFrequency
+  lastDone           DateTime?
+  nextDue            DateTime?
+  isActive           Boolean              @default(true)
+  taskCategory       String?
+  estimatedCost      Float?
+  recurringExpenseId String?              @unique
+  recurringExpense   RecurringExpense?    @relation("ScheduleRecurringExpense", fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  logs               AssetMaintenanceLog[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
   @@index([assetId])
+  @@index([propertyId])
+  @@index([recurringExpenseId])
   @@index([nextDue])
 }
 

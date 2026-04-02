@@ -36,6 +36,24 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   const { error } = await requireManager();
   if (error) return error;
 
-  await prisma.recurringExpense.delete({ where: { id: params.id } });
+  const item = await prisma.recurringExpense.findUnique({
+    where: { id: params.id },
+    include: { schedule: { select: { id: true } } },
+  });
+
+  if (!item) return Response.json({ error: "Not found" }, { status: 404 });
+
+  if (item.schedule) {
+    await prisma.$transaction([
+      prisma.assetMaintenanceSchedule.update({
+        where: { id: item.schedule.id },
+        data: { recurringExpenseId: null },
+      }),
+      prisma.recurringExpense.delete({ where: { id: params.id } }),
+    ]);
+  } else {
+    await prisma.recurringExpense.delete({ where: { id: params.id } });
+  }
+
   return Response.json({ success: true });
 }

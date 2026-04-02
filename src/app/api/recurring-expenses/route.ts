@@ -12,7 +12,7 @@ const schema = z.object({
   scope: z.enum(["UNIT","PROPERTY","PORTFOLIO"]),
   propertyId: z.string().optional().nullable(),
   unitId: z.string().optional().nullable(),
-  frequency: z.enum(["MONTHLY","QUARTERLY","ANNUAL"]).default("MONTHLY"),
+  frequency: z.enum(["MONTHLY","QUARTERLY","ANNUAL","BIANNUAL"]).default("MONTHLY"),
   nextDueDate: z.string(),
   vendorId: z.string().optional().nullable(),
 });
@@ -43,6 +43,14 @@ export async function GET(req: Request) {
       property: { select: { name: true } },
       unit: { select: { unitNumber: true } },
       vendor: { select: { id: true, name: true, category: true } },
+      schedule: {
+        select: {
+          id: true,
+          taskName: true,
+          asset: { select: { id: true, name: true, category: true } },
+          property: { select: { name: true } },
+        },
+      },
     },
     orderBy: { nextDueDate: "asc" },
   });

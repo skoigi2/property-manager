@@ -58,6 +58,7 @@ export async function POST(req: Request) {
     let next: Date;
     if (item.frequency === "MONTHLY")   next = addMonths(new Date(item.nextDueDate), 1);
     else if (item.frequency === "QUARTERLY") next = addQuarters(new Date(item.nextDueDate), 1);
+    else if (item.frequency === "BIANNUAL") next = addMonths(new Date(item.nextDueDate), 6);
     else                                next = addYears(new Date(item.nextDueDate), 1);
 
     await prisma.recurringExpense.update({

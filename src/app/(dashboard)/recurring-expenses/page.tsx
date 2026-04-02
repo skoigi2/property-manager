@@ -18,7 +18,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
-import { RepeatIcon, Plus, Trash2, Play, ToggleLeft, ToggleRight, CalendarClock } from "lucide-react";
+import { RepeatIcon, Plus, Trash2, Play, ToggleLeft, ToggleRight, CalendarClock, Wrench } from "lucide-react";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 
 const CATEGORIES = [
@@ -30,8 +30,8 @@ const CAT_LABELS: Record<string,string> = {
   WATER:"Water", ELECTRICITY:"Electricity", CLEANER:"Cleaner", CONSUMABLES:"Consumables",
   MAINTENANCE:"Maintenance", REINSTATEMENT:"Reinstatement", CAPITAL:"Capital Item", OTHER:"Other",
 };
-const FREQ_LABELS: Record<string,string> = { MONTHLY:"Monthly", QUARTERLY:"Quarterly", ANNUAL:"Annual" };
-const FREQ_BADGE: Record<string, "green"|"blue"|"amber"> = { MONTHLY:"green", QUARTERLY:"blue", ANNUAL:"amber" };
+const FREQ_LABELS: Record<string,string> = { MONTHLY:"Monthly", QUARTERLY:"Quarterly", ANNUAL:"Annual", BIANNUAL:"Bi-annually" };
+const FREQ_BADGE: Record<string, "green"|"blue"|"amber"> = { MONTHLY:"green", QUARTERLY:"blue", ANNUAL:"amber", BIANNUAL:"amber" };
 
 const schema = z.object({
   description: z.string().min(1, "Description required"),
@@ -56,6 +56,12 @@ interface RecurringItem {
   isActive: boolean;
   property: { name: string } | null;
   unit: { unitNumber: string } | null;
+  schedule?: {
+    id: string;
+    taskName: string;
+    asset?: { id: string; name: string; category: string } | null;
+    property?: { name: string } | null;
+  } | null;
 }
 
 const now = new Date();
@@ -225,6 +231,13 @@ export default function RecurringExpensesPage() {
                       {item.scope === "UNIT" && item.unit ? `Unit ${item.unit.unitNumber}` : item.scope === "PROPERTY" && item.property ? item.property.name : "Portfolio"} ·{" "}
                       Next due: <span className={isDue ? "text-red-500 font-medium" : ""}>{formatDate(new Date(item.nextDueDate))}</span>
                     </p>
+                    {item.schedule && (
+                      <p className="text-xs text-gray-400 font-sans flex items-center gap-1 mt-0.5">
+                        <Wrench size={10} />
+                        {item.schedule.asset?.name ?? item.schedule.taskName}
+                        {item.schedule.property?.name && ` · ${item.schedule.property.name}`}
+                      </p>
+                    )}
                   </div>
                   <CurrencyDisplay currency={currency} amount={item.amount} size="md" className="font-medium text-expense shrink-0" />
                   {isManager && (

@@ -90,6 +90,8 @@ interface MaintenanceSchedule {
   lastDone: string | null;
   nextDue: string | null;
   isActive: boolean;
+  estimatedCost?: number | null;
+  recurringExpenseId?: string | null;
   _count?: { logs: number };
 }
 
@@ -338,7 +340,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
   const [saving, setSaving] = useState(false);
 
   const [schedForm, setSchedForm] = useState({
-    taskName: "", description: "", frequency: "MONTHLY", lastDone: "",
+    taskName: "", description: "", frequency: "MONTHLY", lastDone: "", estimatedCost: "",
   });
   const [logVendorId, setLogVendorId] = useState<string | null>(null);
   const [logForm, setLogForm] = useState({
@@ -363,7 +365,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 
   function openAddSchedule() {
     setEditSchedule(null);
-    setSchedForm({ taskName: "", description: "", frequency: "MONTHLY", lastDone: "" });
+    setSchedForm({ taskName: "", description: "", frequency: "MONTHLY", lastDone: "", estimatedCost: "" });
     setScheduleModal(true);
   }
   function openEditSchedule(s: MaintenanceSchedule) {
@@ -373,6 +375,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
       description: s.description ?? "",
       frequency: s.frequency,
       lastDone: s.lastDone ? s.lastDone.slice(0, 10) : "",
+      estimatedCost: s.estimatedCost?.toString() ?? "",
     });
     setScheduleModal(true);
   }
@@ -386,6 +389,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
         description: schedForm.description || null,
         frequency: schedForm.frequency,
         lastDone: schedForm.lastDone || null,
+        estimatedCost: parseFloat(schedForm.estimatedCost) || 0,
       };
       let res: Response;
       if (editSchedule) {
@@ -483,6 +487,10 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
                 <span className="font-sans font-medium text-sm text-header">{s.taskName}</span>
                 <Badge variant="blue">{FREQ_LABELS[s.frequency] ?? s.frequency}</Badge>
                 <Badge variant={ms.variant}>{ms.label}</Badge>
+                {s.estimatedCost && s.estimatedCost > 0 && (
+                  <span className="text-xs text-gray-400">Est. {formatCurrency(s.estimatedCost, currency)}</span>
+                )}
+                {s.recurringExpenseId && <Badge variant="green">Recurring</Badge>}
               </div>
               {s.description && <p className="text-xs font-sans text-gray-500 mt-0.5">{s.description}</p>}
               <div className="flex gap-3 mt-1 text-xs font-sans text-gray-400">
@@ -592,6 +600,20 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost (KSh)</label>
+            <input
+              type="number"
+              min="0"
+              value={schedForm.estimatedCost}
+              onChange={(e) => setSchedForm((f) => ({ ...f, estimatedCost: e.target.value }))}
+              placeholder="0"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+            />
+            {parseFloat(schedForm.estimatedCost) > 0 && schedForm.frequency !== "WEEKLY" && (
+              <p className="text-xs text-gold mt-1">A recurring expense will be created for financial tracking</p>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setScheduleModal(false)} disabled={saving}>Cancel</Button>

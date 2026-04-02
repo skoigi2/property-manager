@@ -37,7 +37,7 @@ function calcNextDueFromToday(frequency: string): Date {
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string; scheduleId: string } }
+  { params }: { params: { scheduleId: string } }
 ) {
   const { error } = await requireManager();
   if (error) return error;
@@ -45,21 +45,25 @@ export async function PATCH(
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const asset = await prisma.asset.findUnique({
-    where: { id: params.id },
-    select: { propertyId: true, unitId: true, name: true },
-  });
-  if (!asset) return Response.json({ error: "Asset not found" }, { status: 404 });
-  if (!propertyIds.includes(asset.propertyId)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const existing = await prisma.assetMaintenanceSchedule.findUnique({
     where: { id: params.scheduleId },
-    select: { assetId: true, frequency: true, lastDone: true, recurringExpenseId: true, estimatedCost: true, isActive: true },
+    select: {
+      propertyId: true,
+      assetId: true,
+      recurringExpenseId: true,
+      estimatedCost: true,
+      isActive: true,
+      frequency: true,
+      lastDone: true,
+      taskName: true,
+      taskCategory: true,
+    },
   });
-  if (!existing || existing.assetId !== params.id) {
-    return Response.json({ error: "Schedule not found" }, { status: 404 });
+  if (!existing) return Response.json({ error: "Schedule not found" }, { status: 404 });
+
+  const schedulePropertyId = existing.propertyId;
+  if (!schedulePropertyId || !propertyIds.includes(schedulePropertyId)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body: unknown;
@@ -78,7 +82,6 @@ export async function PATCH(
     estimatedCost?: number | null;
   };
 
-  // Recalculate nextDue if lastDone or frequency changes
   const effectiveFrequency = (frequency as MaintenanceFrequency | undefined) ?? existing.frequency;
   const effectiveLastDone =
     lastDone !== undefined
@@ -87,8 +90,7 @@ export async function PATCH(
         : null
       : existing.lastDone;
 
-  const nextDue =
-    effectiveLastDone ? calcNextDue(effectiveLastDone, effectiveFrequency) : null;
+  const nextDue = effectiveLastDone ? calcNextDue(effectiveLastDone, effectiveFrequency) : null;
 
   try {
     const updated = await prisma.assetMaintenanceSchedule.update({
@@ -108,19 +110,19 @@ export async function PATCH(
     const effectiveEstimatedCost = estimatedCost !== undefined ? estimatedCost : existing.estimatedCost;
     const effectiveIsActive = isActive !== undefined ? isActive : existing.isActive;
     const recurringFreq = toRecurringFrequency(String(effectiveFrequency));
+    const taskLabel = taskName ?? existing.taskName;
+    const categoryLabel = existing.taskCategory ?? "Maintenance";
 
     if (effectiveEstimatedCost && effectiveEstimatedCost > 0 && recurringFreq !== null && !existing.recurringExpenseId) {
-      // Create new recurring expense
       const nextDueDate = nextDue ?? calcNextDueFromToday(String(effectiveFrequency));
       const [recurringExpense] = await prisma.$transaction([
         prisma.recurringExpense.create({
           data: {
-            description: `${asset.name} — ${updated.taskName}`,
+            description: `${categoryLabel} — ${taskLabel}`,
             amount: effectiveEstimatedCost,
             category: "MAINTENANCE",
-            scope: asset.unitId ? "UNIT" : "PROPERTY",
-            propertyId: asset.propertyId,
-            unitId: asset.unitId ?? null,
+            scope: "PROPERTY",
+            propertyId: schedulePropertyId,
             frequency: recurringFreq as any,
             nextDueDate,
             isActive: effectiveIsActive,
@@ -133,7 +135,6 @@ export async function PATCH(
       });
       return Response.json({ ...updated, recurringExpenseId: recurringExpense.id });
     } else if (effectiveEstimatedCost && effectiveEstimatedCost > 0 && existing.recurringExpenseId) {
-      // Update existing recurring expense
       await prisma.$transaction([
         prisma.recurringExpense.update({
           where: { id: existing.recurringExpenseId },
@@ -145,7 +146,6 @@ export async function PATCH(
         }),
       ]);
     } else if ((!effectiveEstimatedCost || effectiveEstimatedCost <= 0) && existing.recurringExpenseId) {
-      // Delete recurring expense and unlink
       await prisma.$transaction([
         prisma.recurringExpense.delete({ where: { id: existing.recurringExpenseId } }),
         prisma.assetMaintenanceSchedule.update({
@@ -155,7 +155,6 @@ export async function PATCH(
       ]);
       return Response.json({ ...updated, recurringExpenseId: null });
     } else if (isActive !== undefined && existing.recurringExpenseId) {
-      // Update isActive only
       await prisma.$transaction([
         prisma.recurringExpense.update({
           where: { id: existing.recurringExpenseId },
@@ -172,7 +171,7 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string; scheduleId: string } }
+  { params }: { params: { scheduleId: string } }
 ) {
   const { error } = await requireManager();
   if (error) return error;
@@ -180,21 +179,14 @@ export async function DELETE(
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const asset = await prisma.asset.findUnique({
-    where: { id: params.id },
-    select: { propertyId: true },
-  });
-  if (!asset) return Response.json({ error: "Asset not found" }, { status: 404 });
-  if (!propertyIds.includes(asset.propertyId)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const existing = await prisma.assetMaintenanceSchedule.findUnique({
     where: { id: params.scheduleId },
-    select: { assetId: true, recurringExpenseId: true },
+    select: { propertyId: true, recurringExpenseId: true },
   });
-  if (!existing || existing.assetId !== params.id) {
-    return Response.json({ error: "Schedule not found" }, { status: 404 });
+  if (!existing) return Response.json({ error: "Schedule not found" }, { status: 404 });
+
+  if (!existing.propertyId || !propertyIds.includes(existing.propertyId)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {

@@ -18,7 +18,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
-import { RepeatIcon, Plus, Trash2, Play, ToggleLeft, ToggleRight, CalendarClock, Wrench } from "lucide-react";
+import { RepeatIcon, Plus, Trash2, Play, ToggleLeft, ToggleRight, CalendarClock, Wrench, Pencil } from "lucide-react";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 
 const CATEGORIES = [
@@ -80,6 +80,12 @@ export default function RecurringExpensesPage() {
   const [applying, setApplying]     = useState(false);
   const [applyMonth, setApplyMonth] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
   const [recurVendorId, setRecurVendorId] = useState<string | null>(null);
+  const [editItem, setEditItem]           = useState<RecurringItem | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editVendorId, setEditVendorId]   = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    description: "", category: "", amount: "", frequency: "", nextDueDate: "",
+  });
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -151,6 +157,40 @@ export default function RecurringExpensesPage() {
     if (!res.ok) { toast.error("Apply failed"); return; }
     const result = await res.json();
     toast.success(`Applied ${result.applied} recurring expense${result.applied !== 1 ? "s" : ""} as expense entries`);
+    load();
+  };
+
+  const openEdit = (item: RecurringItem) => {
+    setEditItem(item);
+    setEditVendorId((item as any).vendor?.id ?? null);
+    setEditForm({
+      description: item.description,
+      category: item.category,
+      amount: String(item.amount),
+      frequency: item.frequency,
+      nextDueDate: item.nextDueDate.slice(0, 10),
+    });
+  };
+
+  const submitEdit = async () => {
+    if (!editItem) return;
+    setEditSubmitting(true);
+    const res = await fetch(`/api/recurring-expenses/${editItem.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: editForm.description,
+        category: editForm.category,
+        amount: parseFloat(editForm.amount),
+        frequency: editForm.frequency,
+        nextDueDate: editForm.nextDueDate,
+        vendorId: editVendorId,
+      }),
+    });
+    setEditSubmitting(false);
+    if (!res.ok) { toast.error("Failed to update"); return; }
+    toast.success("Updated");
+    setEditItem(null);
     load();
   };
 
@@ -242,6 +282,9 @@ export default function RecurringExpensesPage() {
                   <CurrencyDisplay currency={currency} amount={item.amount} size="md" className="font-medium text-expense shrink-0" />
                   {isManager && (
                     <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => openEdit(item)} className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-header" title="Edit">
+                        <Pencil size={15} />
+                      </button>
                       <button onClick={() => toggleActive(item)} className="p-2 hover:bg-gray-50 rounded-lg transition-colors" title={item.isActive ? "Pause" : "Activate"}>
                         {item.isActive
                           ? <ToggleRight size={18} className="text-income" />
@@ -300,6 +343,78 @@ export default function RecurringExpensesPage() {
         onConfirm={confirmDelete}
         onClose={() => setDeleteId(null)}
       />
+
+      {/* Edit modal */}
+      <Modal open={!!editItem} onClose={() => setEditItem(null)} title="Edit Recurring Expense" size="md">
+        {editItem && (
+          <div className="space-y-4">
+            {editItem.schedule && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
+                <Wrench size={13} className="mt-0.5 shrink-0" />
+                <span>Amount and frequency are linked to a maintenance schedule. Changes here won&apos;t sync back to the schedule.</span>
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Description</label>
+              <input
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                value={editForm.description}
+                onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Category</label>
+                <select
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                  value={editForm.category}
+                  onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                >
+                  {CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Amount (KSh)</label>
+                <input
+                  type="number"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  value={editForm.amount}
+                  onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Frequency</label>
+                <select
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                  value={editForm.frequency}
+                  onChange={e => setEditForm(f => ({ ...f, frequency: e.target.value }))}
+                >
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="QUARTERLY">Quarterly</option>
+                  <option value="BIANNUAL">Bi-annually</option>
+                  <option value="ANNUAL">Annual</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Next Due Date</label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  value={editForm.nextDueDate}
+                  onChange={e => setEditForm(f => ({ ...f, nextDueDate: e.target.value }))}
+                />
+              </div>
+            </div>
+            <VendorSelect label="Vendor" value={editVendorId} onChange={setEditVendorId} />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" type="button" onClick={() => setEditItem(null)}>Cancel</Button>
+              <Button variant="gold" onClick={submitEdit} loading={editSubmitting}>Save Changes</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

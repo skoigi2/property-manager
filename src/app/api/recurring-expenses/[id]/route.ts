@@ -4,7 +4,12 @@ import { z } from "zod";
 
 const patchSchema = z.object({
   description: z.string().min(1).optional(),
+  category: z.enum([
+    "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY",
+    "CLEANER","CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL","OTHER",
+  ]).optional(),
   amount: z.number().positive().optional(),
+  frequency: z.enum(["MONTHLY","QUARTERLY","ANNUAL","BIANNUAL"]).optional(),
   nextDueDate: z.string().optional(),
   isActive: z.boolean().optional(),
   vendorId: z.string().nullable().optional(),

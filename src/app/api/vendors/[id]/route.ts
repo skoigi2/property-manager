@@ -8,7 +8,7 @@ const patchSchema = z.object({
   category:    z.nativeEnum(VendorCategory).optional(),
   phone:       z.string().optional().nullable(),
   email:       z.string().email("Invalid email").optional().nullable().or(z.literal("")),
-  kraPin:      z.string().optional().nullable(),
+  taxId:       z.string().optional().nullable(),
   bankDetails: z.string().optional().nullable(),
   notes:       z.string().optional().nullable(),
   isActive:    z.boolean().optional(),

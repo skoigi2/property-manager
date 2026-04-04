@@ -259,7 +259,7 @@ function LogExpenseModal({ job, onClose, onLogged }: {
           {/* Amount */}
           <div>
             <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
-              Amount (KSh) *
+              Amount *
             </label>
             <input
               type="number"
@@ -352,9 +352,10 @@ function LogExpenseModal({ job, onClose, onLogged }: {
 
 // ─── Job Card ─────────────────────────────────────────────────────────────────
 
-function JobCard({ job, isManager, onEdit, onDelete, onAdvance, onLogExpense, advancing }: {
+function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogExpense, advancing }: {
   job:          Job;
   isManager:    boolean;
+  currency:     string;
   onEdit:       (j: Job) => void;
   onDelete:     (j: Job) => void;
   onAdvance:    (j: Job) => void;
@@ -407,7 +408,7 @@ function JobCard({ job, isManager, onEdit, onDelete, onAdvance, onLogExpense, ad
         )}
         {hasCost && (
           <div className="flex items-center gap-1 font-medium text-gray-500">
-            <span>KSh {job.cost!.toLocaleString("en-KE")}</span>
+            <span>{formatCurrency(job.cost!, currency)}</span>
           </div>
         )}
         {job.completedDate && (
@@ -508,7 +509,7 @@ function JobCard({ job, isManager, onEdit, onDelete, onAdvance, onLogExpense, ad
 export default function MaintenancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
 
   // ── Tab state ──────────────────────────────────────────────────────────────
@@ -974,6 +975,7 @@ export default function MaintenancePage() {
                               key={job.id}
                               job={job}
                               isManager={isManager}
+                              currency={currency}
                               onEdit={openEdit}
                               onDelete={setDeleteTarget}
                               onAdvance={handleAdvance}
@@ -1291,9 +1293,8 @@ export default function MaintenancePage() {
               {...register("scheduledDate")}
             />
             <Input
-              label={editJob?.status === "DONE" ? "Actual Cost (KSh)" : "Estimated Cost (KSh)"}
+              label={editJob?.status === "DONE" ? "Actual Cost" : "Estimated Cost"}
               type="number"
-              prefix="KSh"
               placeholder="0"
               {...register("cost")}
             />
@@ -1304,7 +1305,7 @@ export default function MaintenancePage() {
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-sm font-sans text-red-700">
               <span className="mt-0.5 shrink-0">⚠️</span>
               <span>
-                Cost exceeds repair authority limit (KSh {REPAIR_AUTHORITY_LIMIT.toLocaleString("en-KE")}).{" "}
+                Cost exceeds repair authority limit ({formatCurrency(REPAIR_AUTHORITY_LIMIT, currency)}).{" "}
                 <strong>Landlord written approval required</strong> before proceeding.
               </span>
             </div>
@@ -1404,7 +1405,7 @@ export default function MaintenancePage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost (KSh)</label>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost</label>
             <input type="number" min="0" value={addSchedForm.estimatedCost} onChange={e => setAddSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
             {parseFloat(addSchedForm.estimatedCost) > 0 && addSchedForm.frequency !== "WEEKLY" && (
               <p className="text-xs text-gold mt-1">A recurring expense will be created for financial tracking</p>
@@ -1445,7 +1446,7 @@ export default function MaintenancePage() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost (KSh)</label>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost</label>
             <input type="number" min="0" value={editSchedForm.estimatedCost} onChange={e => setEditSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
             {parseFloat(editSchedForm.estimatedCost) > 0 && editSchedForm.frequency !== "WEEKLY" && (
               <p className="text-xs text-gold mt-1">{editSchedTarget?.recurringExpenseId ? "Linked recurring expense will be updated" : "A recurring expense will be created"}</p>
@@ -1512,7 +1513,7 @@ export default function MaintenancePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Cost (KSh)</label>
+                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Cost</label>
                 <input
                   type="number"
                   value={logForm.cost}

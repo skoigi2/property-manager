@@ -97,6 +97,7 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `excel-export.ts` | SheetJS multi-sheet Excel export for income/expenses |
 | `import-templates.ts` | XLSX download template generators for bulk import |
 | `audit.ts` | `logAudit(action, resource, resourceId, before?, after?)` — logs CREATE/UPDATE/DELETE with JSON snapshots |
+| `forecast-engine.ts` | `buildForecast(tenants, recurringExpenses, insurancePolicies, agreements, horizon)` — projects monthly cash flow for 3/6/12 months. Called by `GET /api/forecast?propertyId=&months=` |
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
 
 ### Income ↔ Invoice link
@@ -117,9 +118,10 @@ When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route
 
 ## Property & Domain Model
 
-Two properties are seeded:
+Three properties are seeded:
 - **Riara One** (`PropertyType.LONGTERM`) — 5 units, long-term tenants, flat management fee
 - **Alba Gardens** (`PropertyType.AIRBNB`) — 3 units, short-let, 10% management fee
+- **Mayfair Suites** (`PropertyType.LONGTERM`) — 5 units, demo data Jan–Mar 2026
 
 `IncomeEntry` has a `type` field (`LONGTERM_RENT`, `AIRBNB`, `DEPOSIT`, `SERVICE_CHARGE`, `UTILITY_RECOVERY`, `OTHER`) and optional `checkIn`/`checkOut` for Airbnb bookings.
 
@@ -127,7 +129,7 @@ Two properties are seeded:
 
 ## UI Conventions
 
-- **Currency**: always `formatKSh()` from `src/lib/currency.ts` — uses `Intl.NumberFormat('en-KE')` with "KSh" prefix
+- **Currency**: use `formatCurrency(amount, currency)` from `src/lib/currency.ts` — supports KES, USD, GBP, EUR, TZS, UGX, ZAR, AED, INR, CHF. `formatKSh()` is kept for backward compat (defaults to KES) — prefer `formatCurrency` for new code that receives a currency string
 - **Colours**: `text-income` (green), `text-expense` (red), `text-gold` / `text-gold-dark` — defined in `tailwind.config.ts`
 - **Fonts**: `font-display` (DM Serif Display), `font-mono` (DM Mono), `font-sans` (DM Sans)
 - **Badge variants**: `"green" | "red" | "amber" | "gray" | "gold" | "blue"` — no `"purple"` or `"yellow"`
@@ -185,6 +187,18 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 **BuildingConditionReport** — property inspection records with a JSON `items` array. API: `GET/POST /api/properties/[id]/condition-reports`.
 
 **Vendor Registry** — org-scoped vendor/contractor records (`VendorCategory`: `CONTRACTOR`, `SUPPLIER`, `UTILITY_PROVIDER`, `SERVICE_PROVIDER`, `CONSULTANT`, `OTHER`) with phone, email, KRA PIN, bank details, and `isActive` toggle. `vendorId` FK exists on `ExpenseEntry`, `MaintenanceJob`, `AssetMaintenanceLog`, `RecurringExpense`, and `Asset`. API: `GET/POST /api/vendors`, `GET/PATCH/DELETE /api/vendors/[id]` — DELETE returns 409 with `linkedCount` if records are linked (deactivate instead). The `VendorSelect` combobox component (`src/components/ui/VendorSelect.tsx`) uses a module-level cache (`vendorCache`) and supports inline quick-create; use it wherever a vendor field is needed rather than a plain text input.
+
+**Recurring Expenses** — standing cost templates with frequency (`MONTHLY`, `QUARTERLY`, `BIANNUAL`, `ANNUAL`) and `nextDueDate`. `POST /api/recurring-expenses/apply` (body: `{ year, month }`) materialises all due entries as real `ExpenseEntry` rows and advances `nextDueDate`. API: `GET/POST /api/recurring-expenses`, `GET/PATCH/DELETE /api/recurring-expenses/[id]`.
+
+**Standalone Maintenance Schedules** — property/unit-level (not asset-linked) recurring maintenance tasks. API: `GET/POST /api/maintenance/schedules`, `GET/PATCH/DELETE /api/maintenance/schedules/[scheduleId]`. Asset-linked schedules use a separate path: `/api/assets/[id]/schedules/[scheduleId]`. Auth: `requireAuth` for reads, `requireManager` for writes; 403 is returned if a non-manager tries to edit/delete an asset-linked schedule.
+
+**Airbnb Guests** — `AirbnbGuest` records (independent of bookings) and `BookingGuest` join records that link guests to an `IncomeEntry`. API: `GET/POST /api/guests`, `GET/PATCH/DELETE /api/guests/[id]`, `GET/POST/DELETE /api/guests/[id]/documents`, `GET/POST /api/bookings/[entryId]/guests`, `DELETE /api/bookings/[entryId]/guests/[guestId]`.
+
+**Agents** — commission-based letting agents. `Agent` model stores name, phone, email, and commission rate. `vendorId`-like FK on `IncomeEntry` (agent commissions deducted from net profit). API: `GET/POST /api/agents`, `GET/PATCH/DELETE /api/agents/[id]`.
+
+**Compliance** — `GET /api/compliance` returns compliance status across insurance, lease renewals, and maintenance for accessible properties.
+
+**Owner Statement** — `GET /api/report/owner-statement?propertyId=&year=&month=` returns a per-unit income breakdown for owner-facing reports. Used by the `/report` page (OWNER role).
 
 ## Environment Variables
 

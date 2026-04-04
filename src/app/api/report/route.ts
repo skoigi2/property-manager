@@ -7,6 +7,7 @@ import { calcUnitSummary, calcPettyCashTotal, RIARA_MGMT_FEE } from "@/lib/calcu
 import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
+import { formatCurrency } from "@/lib/currency";
 
 // ── Shared data builder ────────────────────────────────────────────────────────
 
@@ -153,15 +154,16 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     else if (status === "CRITICAL") alerts.push(`${t.name} (${t.unit.unitNumber}): Lease EXPIRED`);
     else                       alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiring soon`);
   });
+  const _currency1 = properties[0]?.currency ?? "USD";
   if (calcPettyCashTotal(pettyCash) < 0)
-    alerts.push(`Petty cash deficit: KSh ${Math.abs(calcPettyCashTotal(pettyCash)).toLocaleString()}`);
+    alerts.push(`Petty cash deficit: ${formatCurrency(Math.abs(calcPettyCashTotal(pettyCash)), _currency1)}`);
   if (mgmtOwing > mgmtPaid)
-    alerts.push(`Management fee outstanding: KSh ${(mgmtOwing - mgmtPaid).toLocaleString()}`);
+    alerts.push(`Management fee outstanding: ${formatCurrency(mgmtOwing - mgmtPaid, _currency1)}`);
 
   return {
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
-    currency:             properties[0]?.currency ?? "KES",
+    currency:             properties[0]?.currency ?? "USD",
     longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
     shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
     ownerName,
@@ -306,15 +308,16 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
     else if (status === "CRITICAL") alerts.push(`${t.name} (${t.unit.unitNumber}): Lease EXPIRED`);
     else                            alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiring soon`);
   });
+  const _currency2 = properties[0]?.currency ?? "USD";
   if (calcPettyCashTotal(pettyCash) < 0)
-    alerts.push(`Petty cash deficit: KSh ${Math.abs(calcPettyCashTotal(pettyCash)).toLocaleString()}`);
+    alerts.push(`Petty cash deficit: ${formatCurrency(Math.abs(calcPettyCashTotal(pettyCash)), _currency2)}`);
   if (mgmtOwing > mgmtPaid)
-    alerts.push(`Management fee outstanding: KSh ${(mgmtOwing - mgmtPaid).toLocaleString()}`);
+    alerts.push(`Management fee outstanding: ${formatCurrency(mgmtOwing - mgmtPaid, _currency2)}`);
 
   return {
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
-    currency:             properties[0]?.currency ?? "KES",
+    currency:             properties[0]?.currency ?? "USD",
     longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
     shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
     ownerName, managerName,

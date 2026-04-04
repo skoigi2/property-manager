@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     where: { propertyId: { in: effectivePropertyIds } },
     include: {
       tenant: { select: { id: true, name: true, phone: true, email: true, unit: { select: { unitNumber: true } } } },
-      property: { select: { name: true } },
+      property: { select: { name: true, currency: true } },
       escalations: { orderBy: { createdAt: "desc" } },
     },
     orderBy: [{ stage: "asc" }, { updatedAt: "desc" }],
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     },
     include: {
       tenant: { select: { id: true, name: true, phone: true, email: true, unit: { select: { unitNumber: true } } } },
-      property: { select: { name: true } },
+      property: { select: { name: true, currency: true } },
       escalations: { orderBy: { createdAt: "desc" } },
     },
   });

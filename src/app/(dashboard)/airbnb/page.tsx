@@ -78,7 +78,7 @@ function avgNightlyRate(entries: any[]): number {
 export default function AirbnbPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [tab, setTab]     = useState<Tab>("calendar");
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
@@ -536,12 +536,12 @@ export default function AirbnbPage() {
                       )}
                       {/* Nightly rate */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Nightly Rate (KSh)</label>
+                        <label className="block text-xs text-gray-500 font-sans mb-1">Nightly Rate</label>
                         <input type="number" step="1" value={form.nightlyRate} onChange={(e) => setFormField("nightlyRate", e.target.value)} placeholder="Auto-computed" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       {/* Gross amount */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Gross Amount (KSh) *</label>
+                        <label className="block text-xs text-gray-500 font-sans mb-1">Gross Amount *</label>
                         <input type="number" step="0.01" value={form.grossAmount} onChange={(e) => setFormField("grossAmount", e.target.value)} placeholder="Total received" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       {/* Platform */}
@@ -566,7 +566,7 @@ export default function AirbnbPage() {
                       )}
                       {/* Commission */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Commission (KSh)</label>
+                        <label className="block text-xs text-gray-500 font-sans mb-1">Commission</label>
                         <input type="number" step="0.01" value={form.agentCommission} onChange={(e) => setForm((p) => ({ ...p, agentCommission: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       {/* Note */}

@@ -1,4 +1,5 @@
 import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { formatCurrency } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
   const [property, agreement, activeTenants, feeConfigs, incomeAgg] = await Promise.all([
     prisma.property.findUnique({
       where: { id: propertyId },
-      select: { type: true, ownerId: true },
+      select: { type: true, ownerId: true, currency: true },
     }),
     prisma.managementAgreement.findUnique({
       where: { propertyId },
@@ -91,14 +92,14 @@ export async function POST(req: Request) {
       const amount = cfg.flatAmount ?? (cfg.ratePercent / 100) * t.monthlyRent;
       const desc = cfg.flatAmount != null
         ? `Unit ${t.unit.unitNumber} — Management Fee (flat)`
-        : `Unit ${t.unit.unitNumber} — Management Fee (${cfg.ratePercent}% \u00d7 KSh ${t.monthlyRent.toLocaleString("en-KE")})`;
+        : `Unit ${t.unit.unitNumber} — Management Fee (${cfg.ratePercent}% \u00d7 ${formatCurrency(t.monthlyRent, property!.currency ?? "USD")})`;
       lineItems.push({ description: desc, amount, unitId: null, tenantId: null, incomeType: "OTHER" });
     }
   } else {
     // AIRBNB — 10% of gross income
     const amount = grossIncome * 0.1;
     lineItems.push({
-      description: `Management Fee — ${label} (10% \u00d7 KSh ${grossIncome.toLocaleString("en-KE")} gross income)`,
+      description: `Management Fee — ${label} (10% \u00d7 ${formatCurrency(grossIncome, property!.currency ?? "USD")} gross income)`,
       amount,
       unitId: null,
       tenantId: null,

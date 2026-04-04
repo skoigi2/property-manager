@@ -1,15 +1,22 @@
 /** Supported currencies with their display symbols/prefixes */
 export const SUPPORTED_CURRENCIES: { code: string; label: string; symbol: string }[] = [
-  { code: "KES", label: "Kenyan Shilling (KSh)",   symbol: "KSh" },
   { code: "USD", label: "US Dollar ($)",             symbol: "$"   },
   { code: "GBP", label: "British Pound (£)",         symbol: "£"   },
   { code: "EUR", label: "Euro (€)",                  symbol: "€"   },
+  { code: "KES", label: "Kenyan Shilling (KSh)",     symbol: "KSh" },
   { code: "TZS", label: "Tanzanian Shilling (TSh)",  symbol: "TSh" },
   { code: "UGX", label: "Ugandan Shilling (USh)",    symbol: "USh" },
   { code: "ZAR", label: "South African Rand (R)",    symbol: "R"   },
   { code: "AED", label: "UAE Dirham (AED)",           symbol: "AED" },
   { code: "INR", label: "Indian Rupee (₹)",          symbol: "₹"   },
   { code: "CHF", label: "Swiss Franc (CHF)",          symbol: "CHF" },
+  { code: "CAD", label: "Canadian Dollar (CA$)",     symbol: "CA$" },
+  { code: "AUD", label: "Australian Dollar (A$)",    symbol: "A$"  },
+  { code: "SGD", label: "Singapore Dollar (S$)",     symbol: "S$"  },
+  { code: "NGN", label: "Nigerian Naira (₦)",        symbol: "₦"   },
+  { code: "GHS", label: "Ghanaian Cedi (GH₵)",       symbol: "GH₵" },
+  { code: "ZMW", label: "Zambian Kwacha (ZK)",       symbol: "ZK"  },
+  { code: "RWF", label: "Rwandan Franc (RF)",        symbol: "RF"  },
 ];
 
 const CURRENCY_SYMBOLS: Record<string, string> = Object.fromEntries(
@@ -18,11 +25,11 @@ const CURRENCY_SYMBOLS: Record<string, string> = Object.fromEntries(
 
 /**
  * Format a number as {symbol} X,XXX for any supported currency.
- * Defaults to KES if no currency is provided.
+ * Defaults to USD if no currency is provided.
  */
 export function formatCurrency(
   amount: number,
-  currency = "KES",
+  currency = "USD",
   options?: { compact?: boolean; showSign?: boolean }
 ): string {
   const symbol = CURRENCY_SYMBOLS[currency] ?? currency;
@@ -36,7 +43,7 @@ export function formatCurrency(
     }
   }
 
-  const formatted = new Intl.NumberFormat("en-KE", {
+  const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(Math.abs(amount));
@@ -60,7 +67,7 @@ export function parseKSh(value: string): number {
 
 /** Format number with comma separators (no currency symbol) */
 export function formatNumber(amount: number): string {
-  return new Intl.NumberFormat("en-KE", {
+  return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);

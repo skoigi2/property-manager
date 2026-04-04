@@ -1,4 +1,5 @@
 import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { formatCurrency } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { format } from "date-fns";
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
   const [property, agreement] = await Promise.all([
     prisma.property.findUnique({
       where: { id: propertyId },
-      select: { ownerId: true },
+      select: { ownerId: true, currency: true },
     }),
     prisma.managementAgreement.findUnique({
       where: { propertyId },
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
     const amount = (rate / 100) * rent;
     const since  = u.vacantSince ? format(new Date(u.vacantSince), "d MMM yyyy") : "unknown";
     return {
-      description: `Vacancy Fee — Unit ${u.unitNumber} (${rate}% \u00d7 KSh ${rent.toLocaleString("en-KE")}) — vacant since ${since}`,
+      description: `Vacancy Fee — Unit ${u.unitNumber} (${rate}% \u00d7 ${formatCurrency(rent, property!.currency ?? "USD")}) — vacant since ${since}`,
       amount,
       unitId:      null,
       tenantId:    null,

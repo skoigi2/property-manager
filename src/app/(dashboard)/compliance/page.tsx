@@ -175,7 +175,7 @@ const DEADLINE_HREFS: Record<string, string> = {
 export default function CompliancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
 
   const now = new Date();
   const [year,  setYear]  = useState(now.getFullYear());

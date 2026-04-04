@@ -55,7 +55,7 @@ export default function SelectOrgPage() {
           </div>
           <div>
             <p className="font-display text-[#1a2332] text-base leading-none">Property Manager</p>
-            <p className="text-gray-400 text-xs font-sans mt-0.5">Nairobi</p>
+            <p className="text-gray-400 text-xs font-sans mt-0.5">Property Manager</p>
           </div>
         </div>
 

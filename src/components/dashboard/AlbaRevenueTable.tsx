@@ -16,7 +16,7 @@ interface AlbaRow {
   daysInMonth: number;
 }
 
-export function AlbaRevenueTable({ rows, currency = "KES" }: { rows: AlbaRow[]; currency?: string }) {
+export function AlbaRevenueTable({ rows, currency = "USD" }: { rows: AlbaRow[]; currency?: string }) {
   const totalGross = rows.reduce((s, r) => s + r.grossIncome, 0);
   const totalNet = rows.reduce((s, r) => s + r.netProfit, 0);
 

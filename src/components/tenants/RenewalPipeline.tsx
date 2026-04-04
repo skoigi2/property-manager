@@ -44,7 +44,7 @@ export function RenewalPipeline({
   currentRent,
   currentLeaseEnd,
   escalationRate: initialEscalationRate,
-  currency = "KES",
+  currency = "USD",
   onUpdated,
   onRenewed,
 }: Props) {
@@ -239,7 +239,7 @@ export function RenewalPipeline({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 font-sans">New Monthly Rent (KSh)</label>
+              <label className="text-xs text-gray-500 font-sans">New Monthly Rent</label>
               <input
                 type="number"
                 value={editProposedRent}
@@ -364,7 +364,7 @@ export function RenewalPipeline({
           <div className="mb-3 p-3 bg-cream rounded-xl space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-gray-500 font-sans">Monthly Rent (KSh)</label>
+                <label className="text-xs text-gray-500 font-sans">Monthly Rent</label>
                 <input
                   type="number"
                   value={newEntryRent}

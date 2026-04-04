@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Spinner } from "@/components/ui/Spinner";
 import { getLeaseStatus, formatDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/currency";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
@@ -44,12 +45,14 @@ function SettleDepositModal({
   tenantId,
   tenantName,
   depositAmount,
+  currency,
   onSettled,
   onClose,
 }: {
   tenantId:      string;
   tenantName:    string;
   depositAmount: number;
+  currency:      string;
   onSettled:     (s: DepositSettlement) => void;
   onClose:       () => void;
 }) {
@@ -175,12 +178,12 @@ function SettleDepositModal({
           <div className="bg-cream-dark rounded-xl p-4 space-y-2 text-sm font-sans">
             <div className="flex justify-between text-gray-500">
               <span>Deposit held</span>
-              <span className="font-mono">KSh {depositAmount.toLocaleString("en-KE")}</span>
+              <span className="font-mono">{formatCurrency(depositAmount, currency)}</span>
             </div>
             {totalDeductions > 0 && (
               <div className="flex justify-between text-expense">
                 <span>Total deductions</span>
-                <span className="font-mono">− KSh {totalDeductions.toLocaleString("en-KE")}</span>
+                <span className="font-mono">− {formatCurrency(totalDeductions, currency)}</span>
               </div>
             )}
             <div className="flex justify-between font-medium text-header border-t border-gray-200 pt-2 mt-1">
@@ -267,7 +270,7 @@ export default function TenantDetailPage() {
   const params  = useParams();
   const router  = useRouter();
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
 
   const [tenant,    setTenant]    = useState<any>(null);
   const [loading,   setLoading]   = useState(true);
@@ -554,7 +557,7 @@ export default function TenantDetailPage() {
                                 <td className="px-4 py-3 text-xs text-gray-400 font-sans">
                                   {row.payments.length === 0 ? "—" : row.payments.map((p: any) => (
                                     <span key={p.id} className="block">
-                                      {formatDate(p.date)} · KSh {p.grossAmount.toLocaleString("en-KE")}
+                                      {formatDate(p.date)} · {formatCurrency(p.grossAmount, currency)}
                                       {p.note ? ` · ${p.note}` : ""}
                                     </span>
                                   ))}
@@ -607,7 +610,7 @@ export default function TenantDetailPage() {
                                     <td className="px-4 py-3 text-right">
                                       <CurrencyDisplay amount={inv.totalAmount} size="sm" className="text-gray-700" />
                                       {inv.status === "PAID" && inv.paidAmount && inv.paidAmount !== inv.totalAmount && (
-                                        <span className="block text-xs text-green-600 font-sans mt-0.5">Paid: KSh {inv.paidAmount.toLocaleString("en-KE")}</span>
+                                        <span className="block text-xs text-green-600 font-sans mt-0.5">Paid: {formatCurrency(inv.paidAmount, currency)}</span>
                                       )}
                                     </td>
                                     <td className="px-4 py-3 text-sm font-sans text-gray-500">
@@ -636,9 +639,9 @@ export default function TenantDetailPage() {
                           </table>
                         </div>
                         <div className="border-t border-gray-100 pt-3 mt-1 flex flex-wrap gap-4 text-xs font-sans text-gray-500">
-                          <span>Total billed: <strong className="text-gray-700 font-mono">KSh {invoices.reduce((s, i) => s + i.totalAmount, 0).toLocaleString("en-KE")}</strong></span>
-                          <span>Total paid: <strong className="text-green-700 font-mono">KSh {invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + (i.paidAmount ?? i.totalAmount), 0).toLocaleString("en-KE")}</strong></span>
-                          <span>Outstanding: <strong className="text-amber-700 font-mono">KSh {invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").reduce((s, i) => s + i.totalAmount, 0).toLocaleString("en-KE")}</strong></span>
+                          <span>Total billed: <strong className="text-gray-700 font-mono">{formatCurrency(invoices.reduce((s, i) => s + i.totalAmount, 0), currency)}</strong></span>
+                          <span>Total paid: <strong className="text-green-700 font-mono">{formatCurrency(invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + (i.paidAmount ?? i.totalAmount), 0), currency)}</strong></span>
+                          <span>Outstanding: <strong className="text-amber-700 font-mono">{formatCurrency(invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").reduce((s, i) => s + i.totalAmount, 0), currency)}</strong></span>
                         </div>
                       </>
                     )}
@@ -735,20 +738,20 @@ export default function TenantDetailPage() {
                             <tbody>
                               <tr className="bg-cream-dark">
                                 <td className="px-4 py-3 font-sans text-gray-500">Deposit held</td>
-                                <td className="px-4 py-3 text-right font-mono text-header">KSh {settlement.depositHeld.toLocaleString("en-KE")}</td>
+                                <td className="px-4 py-3 text-right font-mono text-header">{formatCurrency(settlement.depositHeld, currency)}</td>
                               </tr>
                               {(settlement.deductions as { reason: string; amount: number }[]).map((d, i) => (
                                 <tr key={i} className="border-t border-gray-50">
                                   <td className="px-4 py-3 font-sans text-gray-500 pl-6">
                                     <span className="text-expense mr-1">−</span>{d.reason}
                                   </td>
-                                  <td className="px-4 py-3 text-right font-mono text-expense">KSh {d.amount.toLocaleString("en-KE")}</td>
+                                  <td className="px-4 py-3 text-right font-mono text-expense">{formatCurrency(d.amount, currency)}</td>
                                 </tr>
                               ))}
                               {settlement.totalDeductions > 0 && (
                                 <tr className="border-t border-gray-100 bg-cream-dark/50">
                                   <td className="px-4 py-3 font-sans text-gray-500">Total deductions</td>
-                                  <td className="px-4 py-3 text-right font-mono text-expense">− KSh {settlement.totalDeductions.toLocaleString("en-KE")}</td>
+                                  <td className="px-4 py-3 text-right font-mono text-expense">− {formatCurrency(settlement.totalDeductions, currency)}</td>
                                 </tr>
                               )}
                               <tr className="border-t-2 border-gray-200 bg-cream-dark">
@@ -820,6 +823,7 @@ export default function TenantDetailPage() {
           tenantId={tenantId}
           tenantName={tenant.name}
           depositAmount={tenant.depositAmount}
+          currency={currency}
           onSettled={(s) => { setSettlement(s); setShowSettleModal(false); }}
           onClose={() => setShowSettleModal(false)}
         />
@@ -831,7 +835,7 @@ export default function TenantDetailPage() {
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
-                <span className="text-gold font-mono font-bold text-sm">KSh</span>
+                <Banknote size={18} className="text-gold" />
               </div>
               <div>
                 <h3 className="font-display text-header text-base">Generate Renewal Fee Invoice?</h3>
@@ -839,7 +843,7 @@ export default function TenantDetailPage() {
               </div>
             </div>
             <p className="text-sm font-sans text-gray-600">
-              A lease renewal fee of <span className="font-semibold text-header">KSh 3,000</span> will be invoiced to the owner. Mark it paid once settled.
+              A lease renewal fee of <span className="font-semibold text-header">{formatCurrency(3000, currency)}</span> will be invoiced to the owner. Mark it paid once settled.
             </p>
             <div className="flex gap-3 pt-1">
               <button
@@ -869,7 +873,7 @@ export default function TenantDetailPage() {
                       }),
                     });
                     import("react-hot-toast").then(({ default: toast }) =>
-                      toast.success("Renewal fee invoice of KSh 3,000 generated (DRAFT)")
+                      toast.success(`Renewal fee invoice of ${formatCurrency(3000, currency)} generated (DRAFT)`)
                     );
                   } catch {
                     import("react-hot-toast").then(({ default: toast }) =>

@@ -13,6 +13,7 @@ import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Hom
 import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/currency";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -47,6 +48,7 @@ interface Property {
   managementFeeRate: number | null;
   managementFeeFlat: number | null;
   serviceChargeDefault: number | null;
+  currency: string | null;
   units: Unit[];
   owner:   { id: string; name: string | null; email: string | null } | null;
   manager: { id: string; name: string | null; email: string | null } | null;
@@ -243,7 +245,7 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
         </div>
         <div>
           <label className="form-label">City</label>
-          <input className="form-input" {...register("city")} placeholder="Nairobi" />
+          <input className="form-input" {...register("city")} placeholder="City" />
         </div>
       </div>
       <div>
@@ -256,12 +258,12 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
           <input type="number" step="0.1" className="form-input" {...register("managementFeeRate")} placeholder="10" />
         </div>
         <div>
-          <label className="form-label">Mgmt Fee Flat (KSh)</label>
+          <label className="form-label">Mgmt Fee Flat</label>
           <input type="number" className="form-input" {...register("managementFeeFlat")} placeholder="6000" />
         </div>
       </div>
       <div>
-        <label className="form-label">Default Service Charge (KSh)</label>
+        <label className="form-label">Default Service Charge</label>
         <input type="number" className="form-input" {...register("serviceChargeDefault")} placeholder="5000" />
       </div>
       {owners.length > 0 && (
@@ -335,7 +337,7 @@ function UnitFormFields({ register, errors, propertyType }: { register: any; err
       <div className="grid grid-cols-2 gap-3">
         {propertyType === "LONGTERM" && (
           <div>
-            <label className="form-label">Monthly Rent (KSh)</label>
+            <label className="form-label">Monthly Rent</label>
             <input type="number" className="form-input" {...register("monthlyRent")} placeholder="25000" />
           </div>
         )}
@@ -404,7 +406,7 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
                 <div className="flex items-center gap-3 shrink-0">
                   {u.monthlyRent != null && (
                     <span className="font-mono text-xs text-gray-500 hidden md:block">
-                      KSh {u.monthlyRent.toLocaleString("en-KE")}
+                      {formatCurrency(u.monthlyRent, property.currency ?? "USD")}
                     </span>
                   )}
                   {isManager && (
@@ -544,7 +546,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                             </div>
                             <div className="flex items-center gap-2">
                               {u.monthlyRent != null && (
-                                <span className="text-xs font-mono text-gray-500">KSh {u.monthlyRent.toLocaleString("en-KE")}</span>
+                                <span className="text-xs font-mono text-gray-500">{formatCurrency(u.monthlyRent, property!.currency ?? "USD")}</span>
                               )}
                               {(() => { const ds = unitDisplayStatus(u, property!.type); return (
                                 <Badge variant={(STATUS_BADGE as any)[ds] ?? "gray"}>
@@ -579,7 +581,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                   {/* ── 2. Current Month Financials ──────────────────────── */}
                   <div>
                     <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <TrendingUp size={12} /> {now.toLocaleString("en-KE", { month: "long" })} {now.getFullYear()} Financials
+                      <TrendingUp size={12} /> {now.toLocaleString("en-US", { month: "long" })} {now.getFullYear()} Financials
                     </p>
                     {!stmt ? (
                       <p className="text-xs text-gray-400 font-sans">No financial data for this month.</p>
@@ -596,7 +598,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                               {row.label}
                             </div>
                             <span className={`font-mono text-sm font-medium ${row.color}`}>
-                              {row.value < 0 ? "-" : ""}KSh {Math.abs(row.value).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                              {row.value < 0 ? "-" : ""}{formatCurrency(Math.abs(row.value), property.currency ?? "USD")}
                             </span>
                           </div>
                         ))}
@@ -633,7 +635,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                               <div className="min-w-0">
                                 <p className="text-sm font-sans font-medium text-header truncate">{t.name}</p>
                                 <p className="text-xs text-gray-400 font-sans">
-                                  Unit {t.unit?.unitNumber} · KSh {t.monthlyRent.toLocaleString("en-KE")}
+                                  Unit {t.unit?.unitNumber} · {formatCurrency(t.monthlyRent, property.currency ?? "USD")}
                                 </p>
                               </div>
                               <div className="text-right shrink-0">
@@ -703,7 +705,7 @@ function PropertiesTable({
             const feeText  = p.managementFeeRate
               ? `${p.managementFeeRate}%`
               : p.managementFeeFlat
-              ? `KSh ${p.managementFeeFlat.toLocaleString("en-KE")}`
+              ? formatCurrency(p.managementFeeFlat, p.currency ?? "USD")
               : "—";
 
             return (
@@ -992,7 +994,7 @@ export default function PropertiesPage() {
 
   const propForm = useForm<PropertyForm>({
     resolver: zodResolver(propertySchema),
-    defaultValues: { type: "LONGTERM", city: "Nairobi" },
+    defaultValues: { type: "LONGTERM", city: "" },
   });
 
   const unitForm = useForm<UnitForm>({
@@ -1030,7 +1032,7 @@ export default function PropertiesPage() {
 
   const openAddProperty = () => {
     setEditProp(null);
-    propForm.reset({ type: "LONGTERM", city: "Nairobi" });
+    propForm.reset({ type: "LONGTERM", city: "" });
     setPropModalOpen(true);
   };
 
@@ -1042,7 +1044,7 @@ export default function PropertiesPage() {
       category: p.category ?? undefined,
       categoryOther: p.categoryOther ?? "",
       address: p.address ?? "",
-      city: p.city ?? "Nairobi",
+      city: p.city ?? "",
       description: p.description ?? "",
       ownerId:   p.owner?.id   ?? "",
       managerId: p.manager?.id ?? "",
@@ -1277,8 +1279,8 @@ export default function PropertiesPage() {
                 {(p.managementFeeRate || p.managementFeeFlat) && (
                   <div className="flex gap-4 text-xs text-gray-400 font-sans mb-1">
                     {p.managementFeeRate && <span>Mgmt fee: {p.managementFeeRate}%</span>}
-                    {p.managementFeeFlat && <span>Flat fee: KSh {p.managementFeeFlat.toLocaleString()}</span>}
-                    {p.serviceChargeDefault && <span>Service charge: KSh {p.serviceChargeDefault.toLocaleString()}</span>}
+                    {p.managementFeeFlat && <span>Flat fee: {formatCurrency(p.managementFeeFlat, p.currency ?? "USD")}</span>}
+                    {p.serviceChargeDefault && <span>Service charge: {formatCurrency(p.serviceChargeDefault, p.currency ?? "USD")}</span>}
                   </div>
                 )}
 

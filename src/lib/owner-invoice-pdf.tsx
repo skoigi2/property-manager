@@ -95,13 +95,13 @@ export type OwnerInvoiceData = {
   } | null;
 };
 
-function formatKsh(amount: number, currency = "KES") {
+function formatKsh(amount: number, currency = "USD") {
   const symbols: Record<string, string> = { KES: "KSh", USD: "$", GBP: "£", EUR: "€", TZS: "TSh", UGX: "USh", ZAR: "R", AED: "AED", INR: "₹", CHF: "CHF" };
   const symbol = symbols[currency] ?? currency;
-  return `${symbol} ${amount.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${symbol} ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function LineItemsTable({ items, currency = "KES" }: { items: OwnerInvoiceLineItem[]; currency?: string }) {
+function LineItemsTable({ items, currency = "USD" }: { items: OwnerInvoiceLineItem[]; currency?: string }) {
   return (
     <View style={styles.table}>
       <View style={styles.tableHeader}>
@@ -119,7 +119,7 @@ function LineItemsTable({ items, currency = "KES" }: { items: OwnerInvoiceLineIt
 }
 
 function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
-  const currency = data.currency ?? "KES";
+  const currency = data.currency ?? "USD";
   const fmt = (n: number) => formatKsh(n, currency);
   const periodLabel = `${MONTH_NAMES[data.periodMonth - 1]} ${data.periodYear}`;
   const dueDate  = format(new Date(data.dueDate), "d MMMM yyyy");
@@ -148,7 +148,7 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
               const brandName = data.org?.name ?? data.property.name;
               const brandAddr = data.org?.address
                 ?? [data.property.address, data.property.city].filter(Boolean).join(", ")
-                ?? "Nairobi, Kenya";
+                ?? "";
               return logoUrl ? (
                 <>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}

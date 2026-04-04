@@ -329,7 +329,7 @@ function DocumentPanel({ assetId }: { assetId: string }) {
 
 function MaintenancePanel({ assetId }: { assetId: string }) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -603,7 +603,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost (KSh)</label>
+            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost</label>
             <input
               type="number"
               min="0"
@@ -644,7 +644,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Cost (KSh)</label>
+              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Cost</label>
               <input
                 type="number"
                 value={logForm.cost}
@@ -715,7 +715,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 export default function AssetsPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [assets, setAssets] = useState<Asset[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -1267,7 +1267,7 @@ export default function AssetsPage() {
             </div>
             <div>
               <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
-                Purchase Cost (KSh)
+                Purchase Cost
               </label>
               <input
                 type="number"

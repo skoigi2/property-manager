@@ -3,7 +3,7 @@ import { styles } from "./PdfStyles";
 import type { ReportData } from "@/types/report";
 import { formatCurrency } from "@/lib/currency";
 
-function fmt(n: number, currency = "KES"): string {
+function fmt(n: number, currency = "USD"): string {
   return formatCurrency(n, currency);
 }
 
@@ -18,7 +18,7 @@ function PageFooter({ period, manager, pageNum: _pageNum }: { period: string; ma
 }
 
 export function ReportDocument({ data }: { data: ReportData }) {
-  const fmt = (n: number) => formatCurrency(n, data.currency ?? "KES");
+  const fmt = (n: number) => formatCurrency(n, data.currency ?? "USD");
   const totalRentExpected = data.rentCollection.reduce((s, t) => s + t.expectedRent + t.serviceCharge, 0);
   const totalRentReceived = data.rentCollection.reduce((s, t) => s + t.received, 0);
   const totalAlbaGross = data.albaPerformance.reduce((s, u) => s + u.grossRevenue, 0);

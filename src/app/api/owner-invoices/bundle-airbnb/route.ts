@@ -81,9 +81,9 @@ export async function POST(req: Request) {
   // Build line items
   const lineItems = airbnbEntries.map((entry) => {
     const unitNumber = unitMap[entry.unitId] ?? "Unknown Unit";
-    const checkIn  = entry.checkIn  ? new Date(entry.checkIn).toLocaleDateString("en-KE")  : null;
-    const checkOut = entry.checkOut ? new Date(entry.checkOut).toLocaleDateString("en-KE") : null;
-    const dateLabel = checkIn && checkOut ? `${checkIn} – ${checkOut}` : new Date(entry.date).toLocaleDateString("en-KE");
+    const checkIn  = entry.checkIn  ? new Date(entry.checkIn).toLocaleDateString("en-US")  : null;
+    const checkOut = entry.checkOut ? new Date(entry.checkOut).toLocaleDateString("en-US") : null;
+    const dateLabel = checkIn && checkOut ? `${checkIn} – ${checkOut}` : new Date(entry.date).toLocaleDateString("en-US");
     return {
       description: `Airbnb letting fee — Unit ${unitNumber} (${dateLabel})`,
       amount:      Math.round(entry.grossAmount * feeRate),

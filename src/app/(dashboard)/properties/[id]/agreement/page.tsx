@@ -203,19 +203,19 @@ export default function AgreementPage() {
               <Field label="New Letting Fee (%)" help="% of first month's rent for new long-term tenancy" error={errors.newLettingFeeRate?.message}>
                 <input type="number" step="0.1" className="form-input" {...register("newLettingFeeRate")} placeholder="50" />
               </Field>
-              <Field label="Lease Renewal Fee (KSh)" help="Flat fee per unit on lease renewal" error={errors.leaseRenewalFeeFlat?.message}>
+              <Field label="Lease Renewal Fee" help="Flat fee per unit on lease renewal" error={errors.leaseRenewalFeeFlat?.message}>
                 <input type="number" className="form-input" {...register("leaseRenewalFeeFlat")} placeholder="3000" />
               </Field>
               <Field label="Short-term Letting Fee (%)" help="% of daily rent collected for short-term furnished lets" error={errors.shortTermLettingFeeRate?.message}>
                 <input type="number" step="0.1" className="form-input" {...register("shortTermLettingFeeRate")} placeholder="10" />
               </Field>
-              <Field label="Repair Authority Limit (KSh)" help="Maximum repair cost without landlord written approval" error={errors.repairAuthorityLimit?.message}>
+              <Field label="Repair Authority Limit" help="Maximum repair cost without landlord written approval" error={errors.repairAuthorityLimit?.message}>
                 <input type="number" className="form-input" {...register("repairAuthorityLimit")} placeholder="100000" />
               </Field>
               <Field label="Late Payment Interest (% p.a.)" help="Annual interest rate applied to overdue rent. Set to 0 to disable." error={errors.latePaymentInterestRate?.message}>
                 <input type="number" step="0.1" className="form-input" {...register("latePaymentInterestRate")} placeholder="0" />
               </Field>
-              <Field label="Setup Fee Total (KSh)" help="One-off setup fee (leave blank if none)" error={errors.setupFeeTotal?.message}>
+              <Field label="Setup Fee Total" help="One-off setup fee (leave blank if none)" error={errors.setupFeeTotal?.message}>
                 <input type="number" className="form-input" {...register("setupFeeTotal")} placeholder="600000" />
               </Field>
               <Field label="Setup Fee Instalments" help="Number of equal monthly instalments" error={errors.setupFeeInstalments?.message}>

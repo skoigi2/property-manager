@@ -32,7 +32,7 @@ function buildDraft(template: Template, tenant: Props["tenant"], currency: strin
   const total     = tenant.monthlyRent + tenant.serviceCharge;
   const fmt = (n: number) => formatCurrency(n, currency);
   const today     = new Date();
-  const monthName = today.toLocaleString("en-KE", { month: "long", year: "numeric" });
+  const monthName = today.toLocaleString("en-US", { month: "long", year: "numeric" });
 
   switch (template) {
     case "rent_reminder":
@@ -116,7 +116,7 @@ Property Management`,
   }
 }
 
-export function EmailDraftModal({ tenant, currency = "KES", onClose }: Props) {
+export function EmailDraftModal({ tenant, currency = "USD", onClose }: Props) {
   const [template, setTemplate]   = useState<Template>("rent_reminder");
   const [copied, setCopied]       = useState(false);
   const draft = buildDraft(template, tenant, currency);

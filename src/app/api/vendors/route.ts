@@ -8,7 +8,7 @@ const vendorSchema = z.object({
   category:    z.nativeEnum(VendorCategory).default("OTHER"),
   phone:       z.string().optional().nullable(),
   email:       z.string().email("Invalid email").optional().nullable().or(z.literal("")),
-  kraPin:      z.string().optional().nullable(),
+  taxId:       z.string().optional().nullable(),
   bankDetails: z.string().optional().nullable(),
   notes:       z.string().optional().nullable(),
 });
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
           v.name.toLowerCase().includes(q) ||
           (v.phone ?? "").toLowerCase().includes(q) ||
           (v.email ?? "").toLowerCase().includes(q) ||
-          (v.kraPin ?? "").toLowerCase().includes(q)
+          (v.taxId ?? "").toLowerCase().includes(q)
       )
     : vendors;
 

@@ -48,7 +48,7 @@ export default function SettingsPage() {
       setFeeForm(form);
       // Init currency form from property data
       const cform: Record<string, string> = {};
-      d.properties?.forEach((p: any) => { cform[p.id] = p.currency ?? "KES"; });
+      d.properties?.forEach((p: any) => { cform[p.id] = p.currency ?? "USD"; });
       setCurrencyForm(cform);
     }).catch(() => setLoading(false));
   }, []);
@@ -146,7 +146,7 @@ export default function SettingsPage() {
       const res = await fetch(`/api/properties/${propertyId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currency: currencyForm[propertyId] ?? "KES" }),
+        body: JSON.stringify({ currency: currencyForm[propertyId] ?? "USD" }),
       });
       if (!res.ok) throw new Error();
       toast.success("Currency updated");
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                         {isAlba ? (
                           <Input label="Rate (%)" type="number" step="0.1" value={form.ratePercent} onChange={(e) => setFeeForm((prev) => ({ ...prev, [unit.id]: { ...form, ratePercent: e.target.value } }))} />
                         ) : (
-                          <Input label="Flat Fee (KSh)" type="number" prefix="KSh" value={form.flatAmount} onChange={(e) => setFeeForm((prev) => ({ ...prev, [unit.id]: { ...form, flatAmount: e.target.value } }))} />
+                          <Input label="Flat Fee" type="number" value={form.flatAmount} onChange={(e) => setFeeForm((prev) => ({ ...prev, [unit.id]: { ...form, flatAmount: e.target.value } }))} />
                         )}
                       </div>
                       <Button size="sm" variant="secondary" loading={saving} onClick={() => saveFeeConfig(unit.id)}><Save size={14} /> Save</Button>
@@ -300,7 +300,7 @@ export default function SettingsPage() {
                               <p className="text-xs text-gray-400 font-sans">{property.type === "AIRBNB" ? "Short-let" : "Long-term"}</p>
                             </div>
                             <select
-                              value={currencyForm[property.id] ?? "KES"}
+                              value={currencyForm[property.id] ?? "USD"}
                               onChange={(e) => setCurrencyForm((prev) => ({ ...prev, [property.id]: e.target.value }))}
                               className="text-sm font-sans border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-header focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30"
                             >

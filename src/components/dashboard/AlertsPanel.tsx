@@ -173,7 +173,7 @@ export function AlertsPanel({
   pettyCashDeficit,
   pettyCashBalance,
   mgmtFeeBalance,
-  currency = "KES",
+  currency = "USD",
 }: AlertsPanelProps) {
   const fmt = (n: number) => formatCurrency(n, currency);
 

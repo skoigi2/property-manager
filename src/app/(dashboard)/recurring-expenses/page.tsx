@@ -70,7 +70,7 @@ const now = new Date();
 export default function RecurringExpensesPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [items, setItems]           = useState<RecurringItem[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -322,7 +322,7 @@ export default function RecurringExpensesPage() {
           <div className="grid grid-cols-2 gap-3">
             <Select label="Category" {...register("category")} error={errors.category?.message}
               options={CATEGORIES.map(c => ({ value: c, label: CAT_LABELS[c] }))} />
-            <Input label="Amount (KSh)" type="number" {...register("amount")} error={errors.amount?.message} />
+            <Input label="Amount" type="number" {...register("amount")} error={errors.amount?.message} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Select label="Frequency" {...register("frequency")} error={errors.frequency?.message}
@@ -387,7 +387,7 @@ export default function RecurringExpensesPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1">Amount (KSh)</label>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Amount</label>
                 <input
                   type="number"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"

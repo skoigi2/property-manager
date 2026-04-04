@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/currency";
 import { AlertTriangle, ChevronRight, CheckCircle, Plus, Trash2, FileText, Copy, FileDown } from "lucide-react";
 import { exportArrears } from "@/lib/excel-export";
 import { clsx } from "clsx";
@@ -34,7 +35,7 @@ interface ArrearsCase {
   createdAt: string;
   updatedAt: string;
   tenant: Tenant;
-  property: { name: string };
+  property: { name: string; currency?: string };
   escalations: Escalation[];
 }
 
@@ -74,7 +75,7 @@ function demandLetterTemplate(arrearsCase: ArrearsCase, stage: Stage): string {
   const tenant  = arrearsCase.tenant;
   const unit    = tenant.unit.unitNumber;
   const prop    = arrearsCase.property.name;
-  const amount  = `KSh ${arrearsCase.amountOwed.toLocaleString("en-KE")}`;
+  const amount  = formatCurrency(arrearsCase.amountOwed, arrearsCase.property.currency ?? "USD");
   const today   = formatDate(new Date());
 
   if (stage === "DEMAND_LETTER") {
@@ -154,7 +155,7 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }
             </div>
           ) : (
             <button onClick={() => isManager && setEditAmount(true)} className={clsx("font-mono text-sm font-medium text-expense", isManager && "hover:underline cursor-pointer")}>
-              KSh {arrearsCase.amountOwed.toLocaleString("en-KE")}
+              {formatCurrency(arrearsCase.amountOwed, arrearsCase.property.currency ?? "USD")}
             </button>
           )}
           <button onClick={() => setExpanded(e => !e)} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
@@ -300,7 +301,7 @@ function OpenCaseModal({ open, onClose, onCreated }: {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Amount Owed (KSh)</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Amount Owed</label>
           <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
         </div>
@@ -323,7 +324,7 @@ function OpenCaseModal({ open, onClose, onCreated }: {
 export default function ArrearsPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [cases, setCases]       = useState<ArrearsCase[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showOpen, setShowOpen] = useState(false);

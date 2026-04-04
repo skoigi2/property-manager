@@ -60,7 +60,7 @@ type Tab = "preview" | "annual" | "owner" | "download" | "quarterly";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function Stat({ label, value, color, currency = "KES" }: { label: string; value: number; color: string; currency?: string }) {
+function Stat({ label, value, color, currency = "USD" }: { label: string; value: number; color: string; currency?: string }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-gray-400 font-sans uppercase tracking-wide">{label}</span>
@@ -77,7 +77,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AmountCell({ value, strikethrough = false, currency = "KES" }: { value: number; strikethrough?: boolean; currency?: string }) {
+function AmountCell({ value, strikethrough = false, currency = "USD" }: { value: number; strikethrough?: boolean; currency?: string }) {
   return (
     <span className={clsx(
       "font-mono text-sm",
@@ -93,7 +93,7 @@ function AmountCell({ value, strikethrough = false, currency = "KES" }: { value:
 
 function PLPreview({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const fmt = (n: number) => formatCurrency(n, currency);
   const [data, setData]       = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -486,7 +486,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
 
 function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string | null }) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const fmt = (n: number) => formatCurrency(n, currency);
   const [months, setMonths]   = useState<MonthSummary[]>([]);
   const [loading, setLoading] = useState(true);

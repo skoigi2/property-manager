@@ -37,7 +37,7 @@ function categoryColor(value: string) {
   const map: Record<string, string> = {
     LEASE_AGREEMENT: "bg-blue-100 text-blue-700",
     ID_COPY:         "bg-purple-100 text-purple-700",
-    KRA_PIN:         "bg-amber-100 text-amber-700",
+    TAX_ID:          "bg-amber-100 text-amber-700",
     PAYMENT_RECEIPT: "bg-green-100 text-green-700",
     RENEWAL_NOTICE:  "bg-gold/20 text-yellow-800",
     CORRESPONDENCE:  "bg-gray-100 text-gray-600",

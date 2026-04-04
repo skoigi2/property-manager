@@ -1,4 +1,5 @@
 import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { formatCurrency } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
   const [property, agreement, newTenants] = await Promise.all([
     prisma.property.findUnique({
       where: { id: propertyId },
-      select: { ownerId: true },
+      select: { ownerId: true, currency: true },
     }),
     prisma.managementAgreement.findUnique({
       where: { propertyId },
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
   const lineItems = newTenants.map((t) => {
     const amount = (rate / 100) * t.monthlyRent;
     return {
-      description: `Letting Fee — ${t.name} — Unit ${t.unit.unitNumber} (${rate}% \u00d7 KSh ${t.monthlyRent.toLocaleString("en-KE")})`,
+      description: `Letting Fee — ${t.name} — Unit ${t.unit.unitNumber} (${rate}% \u00d7 ${formatCurrency(t.monthlyRent, property!.currency ?? "USD")})`,
       amount,
       unitId:     null,
       tenantId:   null,

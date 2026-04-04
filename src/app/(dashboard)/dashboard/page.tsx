@@ -57,7 +57,7 @@ function ActionCard({ icon, title, severity, lines, href }: {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);

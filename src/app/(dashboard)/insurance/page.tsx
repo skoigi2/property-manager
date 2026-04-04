@@ -275,7 +275,7 @@ function DocumentPanel({ policyId }: { policyId: string }) {
 export default function InsurancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -721,7 +721,7 @@ export default function InsurancePage() {
           {/* Coverage Amount */}
           <div>
             <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
-              Coverage Amount (KSh)
+              Coverage Amount
             </label>
             <input
               type="number"
@@ -737,7 +737,7 @@ export default function InsurancePage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
-                Premium Amount (KSh)
+                Premium Amount
               </label>
               <input
                 type="number"
@@ -787,7 +787,7 @@ export default function InsurancePage() {
                 type="text"
                 value={form.brokerContact}
                 onChange={(e) => setForm((f) => ({ ...f, brokerContact: e.target.value }))}
-                placeholder="+254 7xx xxx xxx"
+                placeholder="+1 555 000 0000"
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>

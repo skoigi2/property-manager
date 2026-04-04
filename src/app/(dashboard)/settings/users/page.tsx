@@ -352,7 +352,7 @@ export default function UsersPage() {
             </div>
             <div>
               <label className="form-label">Phone</label>
-              <input className="form-input" {...register("phone")} placeholder="+254 7..." />
+              <input className="form-input" {...register("phone")} placeholder="+1 555 000 0000" />
             </div>
           </div>
 

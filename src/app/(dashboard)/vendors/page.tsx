@@ -12,7 +12,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
-import { formatKSh } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import {
   Building2, Plus, Search, X, Phone, Mail, Edit2, Trash2,
   CheckCircle, XCircle, TrendingUp, Wrench, Package, RepeatIcon,
@@ -47,7 +47,7 @@ interface Vendor {
   category:       string;
   phone:          string | null;
   email:          string | null;
-  kraPin:         string | null;
+  taxId:          string | null;
   bankDetails:    string | null;
   notes:          string | null;
   isActive:       boolean;
@@ -74,7 +74,7 @@ interface VendorDetail extends Vendor {
   }[];
 }
 
-const blankForm = { name: "", category: "OTHER", phone: "", email: "", kraPin: "", bankDetails: "", notes: "" };
+const blankForm = { name: "", category: "OTHER", phone: "", email: "", taxId: "", bankDetails: "", notes: "" };
 
 export default function VendorsPage() {
   const { data: session } = useSession();
@@ -122,7 +122,7 @@ export default function VendorsPage() {
         v.name.toLowerCase().includes(q) ||
         (v.phone ?? "").includes(q) ||
         (v.email ?? "").toLowerCase().includes(q) ||
-        (v.kraPin ?? "").toLowerCase().includes(q);
+        (v.taxId ?? "").toLowerCase().includes(q);
       const matchCat    = !catFilter    || v.category === catFilter;
       const matchStatus =
         !statusFilter ||
@@ -146,7 +146,7 @@ export default function VendorsPage() {
       category:    v.category,
       phone:       v.phone ?? "",
       email:       v.email ?? "",
-      kraPin:      v.kraPin ?? "",
+      taxId:       v.taxId ?? "",
       bankDetails: v.bankDetails ?? "",
       notes:       v.notes ?? "",
     });
@@ -172,7 +172,7 @@ export default function VendorsPage() {
           category:    form.category,
           phone:       form.phone || null,
           email:       form.email || null,
-          kraPin:      form.kraPin || null,
+          taxId:       form.taxId || null,
           bankDetails: form.bankDetails || null,
           notes:       form.notes || null,
         }),
@@ -269,7 +269,7 @@ export default function VendorsPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by name, phone, email, KRA PIN…"
+                  placeholder="Search by name, phone, email, Tax ID…"
                   className="w-full pl-8 pr-8 py-2 text-sm font-sans border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
                 />
                 {search && (
@@ -361,7 +361,7 @@ export default function VendorsPage() {
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Vendor</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden sm:table-cell">Category</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden md:table-cell">Contact</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden lg:table-cell">KRA PIN</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden lg:table-cell">Tax ID</th>
                     <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Usage</th>
                     <th className="text-center px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Status</th>
                     <th className="px-4 py-3" />
@@ -409,7 +409,7 @@ export default function VendorsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 hidden lg:table-cell text-xs text-gray-600">
-                          {v.kraPin ?? <span className="text-gray-300">—</span>}
+                          {v.taxId ?? <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
@@ -491,7 +491,7 @@ export default function VendorsPage() {
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 error={formErrors.name}
-                placeholder="e.g. Nairobi Plumbing Co."
+                placeholder="e.g. City Plumbing Co."
               />
             </div>
             <div className="col-span-2">
@@ -510,7 +510,7 @@ export default function VendorsPage() {
               label="Phone"
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              placeholder="+254 700 000 000"
+              placeholder="+1 555 000 0000"
             />
             <Input
               label="Email"
@@ -521,10 +521,10 @@ export default function VendorsPage() {
               placeholder="vendor@example.com"
             />
             <Input
-              label="KRA PIN"
-              value={form.kraPin}
-              onChange={(e) => setForm((f) => ({ ...f, kraPin: e.target.value }))}
-              placeholder="A123456789B"
+              label="Tax ID"
+              value={form.taxId}
+              onChange={(e) => setForm((f) => ({ ...f, taxId: e.target.value }))}
+              placeholder="Tax registration number"
             />
           </div>
           <div>
@@ -573,9 +573,9 @@ export default function VendorsPage() {
                 { label: "Category",    value: CATEGORY_LABELS[detailVendor.category] ?? detailVendor.category },
                 { label: "Phone",       value: detailVendor.phone },
                 { label: "Email",       value: detailVendor.email },
-                { label: "KRA PIN",     value: detailVendor.kraPin },
-                { label: "Total spend", value: formatKSh(detailVendor.totalSpend) },
-                { label: `${new Date().getFullYear()} spend`, value: formatKSh(detailVendor.currentYearSpend) },
+                { label: "Tax ID",      value: detailVendor.taxId },
+                { label: "Total spend", value: formatCurrency(detailVendor.totalSpend) },
+                { label: `${new Date().getFullYear()} spend`, value: formatCurrency(detailVendor.currentYearSpend) },
               ].map(({ label, value }) => value ? (
                 <div key={label} className="bg-gray-50 rounded-lg p-3">
                   <div className="text-xs text-gray-500">{label}</div>
@@ -609,13 +609,13 @@ export default function VendorsPage() {
                       {detailVendor.expenses.map((e) => (
                         <tr key={e.id}>
                           <td className="px-3 py-2 text-gray-600">
-                            {new Date(e.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
+                            {new Date(e.date).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })}
                           </td>
                           <td className="px-3 py-2 text-gray-700">{e.description ?? e.category}</td>
                           <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">
                             {e.property?.name}{e.unit ? ` · ${e.unit.unitNumber}` : ""}
                           </td>
-                          <td className="px-3 py-2 text-right text-expense font-medium">{formatKSh(e.amount)}</td>
+                          <td className="px-3 py-2 text-right text-expense font-medium">{formatCurrency(e.amount)}</td>
                         </tr>
                       ))}
                     </tbody>

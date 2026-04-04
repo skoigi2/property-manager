@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import { Header } from "@/components/layout/Header";
 import { useProperty } from "@/lib/property-context";
 import OwnerInvoicesTab from "./OwnerInvoicesTab";
@@ -81,10 +82,6 @@ const STATUS_CONFIG = {
   OVERDUE:   { label: "Overdue",   icon: AlertTriangle, bg: "bg-red-100",    text: "text-red-700" },
   CANCELLED: { label: "Cancelled", icon: XCircle,       bg: "bg-gray-100",   text: "text-gray-400" },
 };
-
-function formatKsh(n: number) {
-  return `KSh ${n.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
-}
 
 // ── Zod schemas ────────────────────────────────────────────────────────────────
 
@@ -260,7 +257,7 @@ function CreateModal({
           {/* Amounts */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Rent (KSh) *</label>
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Rent *</label>
               <input
                 type="number"
                 min={0}
@@ -410,7 +407,7 @@ function MarkPaidModal({
 
           <div>
             <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
-              Amount Paid (KSh)
+              Amount Paid
             </label>
             <input
               type="number"
@@ -448,12 +445,14 @@ function MarkPaidModal({
 
 function InvoiceRow({
   invoice,
+  currency,
   onMarkPaid,
   onDelete,
   onStatusChange,
   onSync,
 }: {
   invoice: Invoice;
+  currency: string;
   onMarkPaid: (inv: Invoice) => void;
   onDelete: (inv: Invoice) => void;
   onStatusChange: (id: string, status: string) => void;
@@ -531,10 +530,10 @@ function InvoiceRow({
       {/* Amount */}
       <td className="px-4 py-3 text-right">
         <p className="text-sm font-medium font-mono text-gray-800">
-          {formatKsh(invoice.totalAmount)}
+          {formatCurrency(invoice.totalAmount, currency)}
         </p>
         {invoice.status === "PAID" && invoice.paidAmount && invoice.paidAmount !== invoice.totalAmount && (
-          <p className="text-xs text-green-600 mt-0.5">Paid: {formatKsh(invoice.paidAmount)}</p>
+          <p className="text-xs text-green-600 mt-0.5">Paid: {formatCurrency(invoice.paidAmount, currency)}</p>
         )}
       </td>
 
@@ -812,7 +811,8 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 
 export default function InvoicesPage() {
   const { data: session } = useSession();
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "USD";
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"tenant" | "owner">(
     searchParams.get("tab") === "owner" ? "owner" : "tenant"
@@ -960,7 +960,7 @@ export default function InvoicesPage() {
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Paid</p>
           <p className="text-2xl font-display text-green-700 mt-1">{stats.paid}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{formatKsh(stats.paidAmt)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(stats.paidAmt, currency)}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Overdue</p>
@@ -970,7 +970,7 @@ export default function InvoicesPage() {
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding</p>
           <p className="text-2xl font-display text-gold mt-1">{stats.pending}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{formatKsh(stats.dueAmt)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(stats.dueAmt, currency)}</p>
         </div>
       </div>
 
@@ -1061,6 +1061,7 @@ export default function InvoicesPage() {
                   <InvoiceRow
                     key={inv.id}
                     invoice={inv}
+                    currency={currency}
                     onMarkPaid={setMarkPaidTarget}
                     onDelete={setDeleteTarget}
                     onStatusChange={handleStatusChange}

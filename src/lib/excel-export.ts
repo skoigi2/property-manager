@@ -12,13 +12,13 @@ function kshs(n: number | null | undefined): number {
 
 function fmtDate(d: string | null | undefined): string {
   if (!d) return "";
-  return new Date(d).toLocaleDateString("en-KE", {
+  return new Date(d).toLocaleDateString("en-US", {
     day: "2-digit", month: "short", year: "numeric",
   });
 }
 
 function fmtMonth(d: Date): string {
-  return d.toLocaleDateString("en-KE", { month: "long", year: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
 function setColWidths(ws: XLSX.WorkSheet, widths: number[]) {
@@ -34,6 +34,11 @@ function buildSheet(headers: string[], rows: (string | number | null)[][]): XLSX
   return XLSX.utils.aoa_to_sheet(data);
 }
 
+/** Return a currency label suffix like " (USD)" or "" if currency is unknown */
+function currLabel(currency?: string | null): string {
+  return currency ? ` (${currency})` : "";
+}
+
 // ── Income ────────────────────────────────────────────────────────────────────
 
 const INCOME_TYPE_LABEL: Record<string, string> = {
@@ -42,10 +47,13 @@ const INCOME_TYPE_LABEL: Record<string, string> = {
   UTILITY_RECOVERY: "Utility Recovery", OTHER: "Other",
 };
 
-export function exportIncome(entries: any[], month: Date) {
+export function exportIncome(entries: any[], month: Date, currency?: string) {
+  const cur = currency ?? entries[0]?.property?.currency ?? entries[0]?.unit?.property?.currency ?? "";
+  const c = currLabel(cur);
+
   const headers = [
     "Date", "Type", "Tenant", "Unit", "Property",
-    "Gross Amount (KSh)", "Agent Commission (KSh)", "Net Amount (KSh)",
+    `Gross Amount${c}`, `Agent Commission${c}`, `Net Amount${c}`,
     "Agent", "Platform", "Check-in", "Check-out", "Notes",
   ];
 
@@ -82,14 +90,16 @@ const CAT_LABEL: Record<string, string> = {
   REINSTATEMENT: "Reinstatement", CAPITAL: "Capital Item", OTHER: "Other",
 };
 
-export function exportExpenses(entries: any[], month: Date) {
+export function exportExpenses(entries: any[], month: Date, currency?: string) {
+  const cur = currency ?? entries[0]?.property?.currency ?? "";
+  const c = currLabel(cur);
   const wb = XLSX.utils.book_new();
 
   // ── Sheet 1: Summary (one row per expense) ──────────────────────────────
   const summaryHeaders = [
     "Date", "Category", "Description", "Vendor", "Property", "Scope", "Units",
-    "Amount (KSh)", "Sunk Cost", "Petty Cash",
-    "Overall Payment Status", "VATable Amount (KSh)",
+    `Amount${c}`, "Capital Item", "Petty Cash",
+    "Overall Payment Status", `Taxable Amount${c}`,
   ];
 
   const summaryRows = entries.map((e) => {
@@ -106,7 +116,7 @@ export function exportExpenses(entries: any[], month: Date) {
       return "Partial";
     })();
 
-    const vatableAmt = (e.lineItems ?? [])
+    const taxableAmt = (e.lineItems ?? [])
       .filter((i: any) => i.isVatable)
       .reduce((s: number, i: any) => s + kshs(i.amount), 0);
 
@@ -122,19 +132,19 @@ export function exportExpenses(entries: any[], month: Date) {
       e.isSunkCost ? "Yes" : "No",
       e.paidFromPettyCash ? "Yes" : "No",
       payStatus,
-      vatableAmt || null,
+      taxableAmt || null,
     ];
   });
 
   const ws1 = buildSheet(summaryHeaders, summaryRows);
-  setColWidths(ws1, [14, 18, 30, 22, 20, 12, 18, 18, 10, 10, 20, 20]);
+  setColWidths(ws1, [14, 18, 30, 22, 20, 12, 18, 18, 12, 10, 20, 20]);
   XLSX.utils.book_append_sheet(wb, ws1, "Expenses Summary");
 
   // ── Sheet 2: Line Items (one row per line item) ─────────────────────────
   const lineHeaders = [
     "Date", "Expense Category", "Expense Description", "Vendor", "Property", "Units",
-    "Line Type", "Line Description", "Amount (KSh)", "VATable",
-    "Payment Status", "Amount Paid (KSh)", "Payment Reference",
+    "Line Type", "Line Description", `Amount${c}`, "Taxable",
+    "Payment Status", `Amount Paid${c}`, "Payment Reference",
   ];
 
   const lineRows: (string | number | null)[][] = [];
@@ -189,11 +199,14 @@ function leaseStatusLabel(leaseEnd: string | null): string {
   return "Active";
 }
 
-export function exportTenants(tenants: any[]) {
+export function exportTenants(tenants: any[], currency?: string) {
+  const cur = currency ?? tenants[0]?.unit?.property?.currency ?? "";
+  const c = currLabel(cur);
+
   const headers = [
     "Name", "Email", "Phone", "Unit", "Property",
-    "Monthly Rent (KSh)", "Service Charge (KSh)", "Total Monthly (KSh)",
-    "Deposit (KSh)", "Lease Start", "Lease End", "Lease Status",
+    `Monthly Rent${c}`, `Service Charge${c}`, `Total Monthly${c}`,
+    `Deposit${c}`, "Lease Start", "Lease End", "Lease Status",
     "Tenant Status", "Vacated Date",
   ];
 
@@ -232,28 +245,30 @@ const STAGE_LABEL: Record<string, string> = {
   RESOLVED: "Resolved",
 };
 
-export function exportArrears(cases: any[]) {
+export function exportArrears(cases: any[], currency?: string) {
+  const cur = currency ?? cases[0]?.property?.currency ?? "";
+  const c = currLabel(cur);
   const wb = XLSX.utils.book_new();
 
   // Sheet 1: Cases summary
   const caseHeaders = [
     "Tenant", "Email", "Phone", "Unit", "Property",
-    "Stage", "Amount Owed (KSh)", "Case Opened", "Last Updated",
+    "Stage", `Amount Owed${c}`, "Case Opened", "Last Updated",
     "Resolved Date", "Notes",
   ];
 
-  const caseRows = cases.map((c) => [
-    c.tenant?.name ?? "",
-    c.tenant?.email ?? "",
-    c.tenant?.phone ?? "",
-    c.tenant?.unit?.unitNumber ?? "",
-    c.property?.name ?? "",
-    STAGE_LABEL[c.stage] ?? c.stage,
-    kshs(c.amountOwed),
-    fmtDate(c.createdAt),
-    fmtDate(c.updatedAt),
-    fmtDate(c.resolvedAt),
-    c.notes ?? "",
+  const caseRows = cases.map((c_) => [
+    c_.tenant?.name ?? "",
+    c_.tenant?.email ?? "",
+    c_.tenant?.phone ?? "",
+    c_.tenant?.unit?.unitNumber ?? "",
+    c_.property?.name ?? "",
+    STAGE_LABEL[c_.stage] ?? c_.stage,
+    kshs(c_.amountOwed),
+    fmtDate(c_.createdAt),
+    fmtDate(c_.updatedAt),
+    fmtDate(c_.resolvedAt),
+    c_.notes ?? "",
   ]);
 
   const ws1 = buildSheet(caseHeaders, caseRows);
@@ -264,12 +279,12 @@ export function exportArrears(cases: any[]) {
   const escHeaders = ["Tenant", "Unit", "Property", "Stage", "Date", "Notes"];
   const escRows: (string | number | null)[][] = [];
 
-  for (const c of cases) {
-    for (const esc of c.escalations ?? []) {
+  for (const c_ of cases) {
+    for (const esc of c_.escalations ?? []) {
       escRows.push([
-        c.tenant?.name ?? "",
-        c.tenant?.unit?.unitNumber ?? "",
-        c.property?.name ?? "",
+        c_.tenant?.name ?? "",
+        c_.tenant?.unit?.unitNumber ?? "",
+        c_.property?.name ?? "",
         STAGE_LABEL[esc.stage] ?? esc.stage,
         fmtDate(esc.createdAt),
         esc.notes ?? "",
@@ -288,10 +303,11 @@ export function exportArrears(cases: any[]) {
 
 // ── Annual Summary ────────────────────────────────────────────────────────────
 
-export function exportAnnualSummary(months: any[], year: string) {
+export function exportAnnualSummary(months: any[], year: string, currency?: string) {
+  const c = currLabel(currency);
   const headers = [
-    "Month", "Gross Income (KSh)", "Commissions (KSh)",
-    "Expenses (KSh)", "Net Profit (KSh)", "Margin (%)",
+    "Month", `Gross Income${c}`, `Commissions${c}`,
+    `Expenses${c}`, `Net Profit${c}`, "Margin (%)",
   ];
 
   const rows = months.map((m) => {
@@ -334,10 +350,12 @@ export function exportAnnualSummary(months: any[], year: string) {
 
 // ── Owner Statement ───────────────────────────────────────────────────────────
 
-export function exportOwnerStatement(statements: any[], month: string) {
+export function exportOwnerStatement(statements: any[], month: string, currency?: string) {
   const wb = XLSX.utils.book_new();
 
   for (const stmt of statements) {
+    const cur = currency ?? stmt.currency ?? "";
+    const c = currLabel(cur);
     const rows: (string | number | null)[][] = [];
 
     // Property header rows
@@ -347,7 +365,7 @@ export function exportOwnerStatement(statements: any[], month: string) {
 
     // Income header
     rows.push(["INCOME", null, null, null]);
-    rows.push(["Tenant", "Unit", "Type", "Amount (KSh)"]);
+    rows.push(["Tenant", "Unit", "Type", `Amount${c}`]);
     for (const line of stmt.incomeLines ?? []) {
       rows.push([
         line.tenantName ?? "",

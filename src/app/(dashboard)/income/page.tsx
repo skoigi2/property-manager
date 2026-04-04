@@ -159,7 +159,7 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
 export default function IncomePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
 
   // Tab & collection mode
   const [tab, setTab]                         = useState<Tab>("collection");
@@ -1450,8 +1450,8 @@ export default function IncomePage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <Input label="Gross Amount (KSh)" type="number" step="0.01" prefix="KSh" {...register("grossAmount")} error={errors.grossAmount?.message} />
-                    <Input label="Commission (KSh)" type="number" step="0.01" prefix="KSh" {...register("agentCommission")} />
+                    <Input label="Gross Amount" type="number" step="0.01" {...register("grossAmount")} error={errors.grossAmount?.message} />
+                    <Input label="Commission" type="number" step="0.01" {...register("agentCommission")} />
                   </div>
 
                   {incomeType === "AIRBNB" && (
@@ -1469,10 +1469,10 @@ export default function IncomePage() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Input label="Nightly Rate (KSh)" type="number" step="1" prefix="KSh" {...register("nightlyRate")} placeholder={suggestedNightlyRate ? String(suggestedNightlyRate) : "Optional"} />
+                          <Input label="Nightly Rate" type="number" step="1" {...register("nightlyRate")} placeholder={suggestedNightlyRate ? String(suggestedNightlyRate) : "Optional"} />
                           {suggestedNightlyRate && (
                             <button type="button" onClick={() => setValue("nightlyRate", suggestedNightlyRate)} className="mt-1 text-xs text-gold hover:text-gold-dark font-sans transition-colors">
-                              Use suggested: KSh {suggestedNightlyRate.toLocaleString()}
+                              Use suggested: {formatCurrency(suggestedNightlyRate, currency)}
                             </button>
                           )}
                         </div>
@@ -1627,7 +1627,7 @@ export default function IncomePage() {
                           <input
                             value={agentFormData.phone}
                             onChange={(e) => setAgentFormData((p) => ({ ...p, phone: e.target.value }))}
-                            placeholder="+254 7xx xxx xxx"
+                            placeholder="+1 555 000 0000"
                             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
                           />
                         </div>

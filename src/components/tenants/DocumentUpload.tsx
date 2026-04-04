@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 export const DOCUMENT_CATEGORIES = [
   { value: "LEASE_AGREEMENT", label: "Lease Agreement" },
   { value: "ID_COPY",         label: "ID / Passport Copy" },
-  { value: "KRA_PIN",         label: "KRA PIN Certificate" },
+  { value: "TAX_ID",          label: "Tax ID Certificate" },
   { value: "PAYMENT_RECEIPT", label: "Payment Receipt" },
   { value: "RENEWAL_NOTICE",  label: "Renewal Notice" },
   { value: "CORRESPONDENCE",  label: "Correspondence" },

@@ -26,6 +26,7 @@ import { ExpenseDocumentUpload } from "@/components/expenses/ExpenseDocumentUplo
 import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { exportExpenses } from "@/lib/excel-export";
+import { formatCurrency, formatNumber } from "@/lib/currency";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 
@@ -136,7 +137,7 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
                   />
                 </div>
                 <div className="col-span-3">
-                  <label className="block text-xs text-gray-400 font-sans mb-1">Amount (KSh)</label>
+                  <label className="block text-xs text-gray-400 font-sans mb-1">Amount</label>
                   <input
                     type="number"
                     step="0.01"
@@ -148,7 +149,7 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
                   />
                 </div>
                 <div className="col-span-1 flex flex-col items-center gap-1">
-                  <label className="block text-xs text-gray-400 font-sans">VAT</label>
+                  <label className="block text-xs text-gray-400 font-sans">Tax</label>
                   <input
                     type="checkbox"
                     checked={item.isVatable}
@@ -179,7 +180,7 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
                 </div>
                 {(item.paymentStatus === "PARTIAL" || item.paymentStatus === "PAID") && (
                   <div>
-                    <label className="block text-xs text-gray-400 font-sans mb-1">Amount Paid (KSh)</label>
+                    <label className="block text-xs text-gray-400 font-sans mb-1">Amount Paid</label>
                     <input
                       type="number"
                       step="0.01"
@@ -212,12 +213,12 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
             <span className="text-gray-400">
               {totalVatable > 0 && (
                 <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-100">
-                  VATable: KSh {totalVatable.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                  Taxable: {formatNumber(totalVatable)}
                 </span>
               )}
             </span>
             <span className="font-semibold text-header">
-              Total: KSh {items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+              Total: {formatNumber(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0))}
             </span>
           </div>
         </div>
@@ -231,7 +232,7 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
 export default function ExpensesPage() {
   const { data: session } = useSession();
   const { selectedId, selected, properties } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -713,7 +714,7 @@ export default function ExpensesPage() {
             <CurrencyDisplay currency={currency} amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
             {e.unitAllocations?.length > 1 && (
               <p className="text-xs text-gray-400 font-sans mt-0.5">
-                KSh {(e.amount / e.unitAllocations.length).toLocaleString("en-KE", { maximumFractionDigits: 0 })} / unit
+                {formatCurrency(e.amount / e.unitAllocations.length, currency)} / unit
               </p>
             )}
           </td>
@@ -832,7 +833,7 @@ export default function ExpensesPage() {
             <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
             <span className="text-sm font-sans text-amber-800">
               <span className="font-semibold">{unpaidEntries.length} {unpaidEntries.length === 1 ? "expense has" : "expenses have"} outstanding payments</span>
-              {" "}totalling KSh {unpaidTotal.toLocaleString("en-KE")} — click to filter
+              {" "}totalling {formatCurrency(unpaidTotal, currency)} — click to filter
             </span>
           </button>
         )}
@@ -967,12 +968,12 @@ export default function ExpensesPage() {
                       Total Amount <span className="text-gray-400 font-normal">(computed)</span>
                     </label>
                     <div className="border border-gray-200 rounded-xl px-3 py-2 bg-cream font-mono text-sm text-header">
-                      KSh {(computedTotal ?? 0).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                      {formatCurrency(computedTotal ?? 0, currency)}
                     </div>
                     <input type="hidden" {...register("amount")} />
                   </div>
                 ) : (
-                  <Input label="Amount (KSh)" type="number" step="0.01" min="0" prefix="KSh" {...register("amount")} error={errors.amount?.message} />
+                  <Input label="Amount" type="number" step="0.01" min="0" {...register("amount")} error={errors.amount?.message} />
                 )}
               </div>
 
@@ -1003,7 +1004,7 @@ export default function ExpensesPage() {
                       <span className="text-gray-400">Loading balance…</span>
                     ) : (
                       <span className={pettyCashBalance >= 0 ? "text-income" : "text-expense"}>
-                        Current petty cash balance: KSh {pettyCashBalance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                        Current petty cash balance: {formatCurrency(pettyCashBalance, currency)}
                         {pettyCashBalance < 0 && " ⚠ Deficit — consider topping up"}
                       </span>
                     )}
@@ -1141,7 +1142,7 @@ export default function ExpensesPage() {
                                     <th className="text-left py-1 pr-4">Type</th>
                                     <th className="text-left py-1 pr-4">Description</th>
                                     <th className="text-right py-1 pr-4">Amount</th>
-                                    <th className="text-center py-1 pr-4">VAT</th>
+                                    <th className="text-center py-1 pr-4">Tax</th>
                                     <th className="text-left py-1 pr-4">Payment</th>
                                     <th className="text-right py-1 pr-4">Paid</th>
                                     <th className="text-left py-1">Reference</th>
@@ -1155,11 +1156,11 @@ export default function ExpensesPage() {
                                       </td>
                                       <td className="py-1.5 pr-4 text-gray-500">{item.description || "—"}</td>
                                       <td className="py-1.5 pr-4 text-right font-mono text-gray-700">
-                                        KSh {item.amount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                                        {formatCurrency(item.amount, currency)}
                                       </td>
                                       <td className="py-1.5 pr-4 text-center">
                                         {item.isVatable ? (
-                                          <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium">VAT</span>
+                                          <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium">Tax</span>
                                         ) : "—"}
                                       </td>
                                       <td className="py-1.5 pr-4">
@@ -1167,7 +1168,7 @@ export default function ExpensesPage() {
                                       </td>
                                       <td className="py-1.5 pr-4 text-right font-mono text-gray-600">
                                         {item.amountPaid > 0
-                                          ? `KSh ${item.amountPaid.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`
+                                          ? formatCurrency(item.amountPaid, currency)
                                           : "—"}
                                       </td>
                                       <td className="py-1.5 text-gray-500 max-w-[140px] truncate">
@@ -1178,10 +1179,10 @@ export default function ExpensesPage() {
                                 </tbody>
                               </table>
 
-                              {/* VATable summary */}
+                              {/* Taxable summary */}
                               {e.lineItems.some((i: any) => i.isVatable) && (
                                 <p className="text-xs text-amber-700 font-sans mt-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 inline-block">
-                                  VATable total: KSh {e.lineItems.filter((i: any) => i.isVatable).reduce((s: number, i: any) => s + i.amount, 0).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                                  Taxable total: {formatCurrency(e.lineItems.filter((i: any) => i.isVatable).reduce((s: number, i: any) => s + i.amount, 0), currency)}
                                 </p>
                               )}
                             </td>

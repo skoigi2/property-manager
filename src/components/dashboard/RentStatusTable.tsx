@@ -29,7 +29,7 @@ function statusBadge(status: string) {
   return <Badge variant="green">Active</Badge>;
 }
 
-export function RentStatusTable({ rows, currency = "KES" }: RentStatusTableProps) {
+export function RentStatusTable({ rows, currency = "USD" }: RentStatusTableProps) {
   const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
   const totalReceived = rows.reduce((s, r) => s + r.received, 0);
 

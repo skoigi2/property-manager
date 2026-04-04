@@ -13,20 +13,22 @@ datasource db {
 // ─── Organisation (multi-tenancy) ────────────────────────────────────────────
 
 model Organization {
-  id          String                       @id @default(cuid())
-  name        String
-  logoUrl     String?
-  address     String?
-  phone       String?
-  email       String?
-  website     String?
-  isActive    Boolean                      @default(true)
-  users       User[]
-  properties  Property[]
-  memberships UserOrganizationMembership[]
-  vendors     Vendor[]
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
+  id              String                       @id @default(cuid())
+  name            String
+  logoUrl         String?
+  address         String?
+  phone           String?
+  email           String?
+  website         String?
+  isActive        Boolean                      @default(true)
+  locale          String                       @default("en-US")
+  defaultCurrency String                       @default("USD")
+  users           User[]
+  properties      Property[]
+  memberships     UserOrganizationMembership[]
+  vendors         Vendor[]
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
 }
 
 model UserOrganizationMembership {
@@ -231,7 +233,7 @@ enum PettyCashType {
 enum DocumentCategory {
   LEASE_AGREEMENT
   ID_COPY
-  KRA_PIN
+  TAX_ID
   PAYMENT_RECEIPT
   RENEWAL_NOTICE
   CORRESPONDENCE
@@ -363,7 +365,7 @@ model Property {
   category             PropertyCategory?
   categoryOther        String?
   address              String?
-  city                 String?           @default("Nairobi")
+  city                 String?
   description          String?
   logoUrl              String?
   organizationId       String?
@@ -375,7 +377,7 @@ model Property {
   managementFeeRate    Float?
   managementFeeFlat    Float?
   serviceChargeDefault Float?
-  currency             String            @default("KES")
+  currency             String            @default("USD")
   units                Unit[]
   expenses             ExpenseEntry[]
   propertyAccess       PropertyAccess[]
@@ -426,7 +428,7 @@ model Tenant {
   email            String?
   phone            String?
   nationalId       String?
-  kraPinNumber     String?
+  taxIdNumber      String?           @map("kraPinNumber")
   unitId           String
   depositAmount    Float
   depositPaidDate  DateTime?
@@ -1040,7 +1042,7 @@ model Vendor {
   category       VendorCategory @default(OTHER)
   phone          String?
   email          String?
-  kraPin         String?
+  taxId          String?           @map("kraPin")
   bankDetails    String?
   notes          String?
   isActive       Boolean        @default(true)

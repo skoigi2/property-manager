@@ -83,14 +83,14 @@ export type InvoiceData = {
   };
 };
 
-function formatKsh(amount: number, currency = "KES") {
+function formatKsh(amount: number, currency = "USD") {
   const symbols: Record<string, string> = { KES: "KSh", USD: "$", GBP: "£", EUR: "€", TZS: "TSh", UGX: "USh", ZAR: "R", AED: "AED", INR: "₹", CHF: "CHF" };
   const symbol = symbols[currency] ?? currency;
-  return `${symbol} ${amount.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${symbol} ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function InvoicePDF({ data }: { data: InvoiceData }) {
-  const currency = data.currency ?? "KES";
+  const currency = data.currency ?? "USD";
   const fmt = (n: number) => formatKsh(n, currency);
   const periodLabel = `${MONTH_NAMES[data.periodMonth - 1]} ${data.periodYear}`;
   const dueDate = format(new Date(data.dueDate), "d MMMM yyyy");
@@ -113,7 +113,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
               const brandName = data.org?.name ?? data.tenant.unit.property.name;
               const brandAddr = data.org?.address
                 ?? [data.tenant.unit.property.address, data.tenant.unit.property.city].filter(Boolean).join(", ")
-                ?? "Nairobi, Kenya";
+                ?? "";
               return logoUrl ? (
                 <>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
@@ -205,7 +205,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
         <View style={styles.footer}>
           <View style={styles.footerDivider} />
           <Text style={styles.footerText}>
-            {data.tenant.unit.property.name} · {data.tenant.unit.property.city ?? "Nairobi"} · Generated {format(new Date(), "d MMM yyyy")}
+            {[data.tenant.unit.property.name, data.tenant.unit.property.city].filter(Boolean).join(" · ")} · Generated {format(new Date(), "d MMM yyyy")}
           </Text>
         </View>
       </Page>

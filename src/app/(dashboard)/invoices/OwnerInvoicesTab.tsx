@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import { useProperty } from "@/lib/property-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -73,10 +74,6 @@ const OWNER_INVOICE_TYPES: OwnerInvoiceType[] = [
   "LETTING_FEE","PERIODIC_LETTING_FEE","RENEWAL_FEE",
   "MANAGEMENT_FEE","VACANCY_FEE","SETUP_FEE_INSTALMENT","CONSULTANCY_FEE",
 ];
-
-function formatKsh(n: number) {
-  return `KSh ${n.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
-}
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 
@@ -146,7 +143,7 @@ function MarkPaidModal({
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-sans">Amount Paid (KSh)</label>
+            <label className="text-xs text-gray-500 font-sans">Amount Paid</label>
             <input
               type="number"
               value={paidAmount}
@@ -177,10 +174,12 @@ function MarkPaidModal({
 
 function BundleAirbnbModal({
   properties,
+  currency,
   onClose,
   onBundled,
 }: {
   properties: { id: string; name: string; type: string }[];
+  currency: string;
   onClose: () => void;
   onBundled: () => void;
 }) {
@@ -238,7 +237,7 @@ function BundleAirbnbModal({
             <p className="text-sm font-sans font-medium text-income">Invoice created successfully</p>
             <p className="text-xs text-gray-600 font-sans">{result.bundled} booking{result.bundled !== 1 ? "s" : ""} bundled</p>
             {result.totalAmount != null && (
-              <p className="text-xs text-gray-600 font-sans">Total: <span className="font-mono font-semibold">{formatKsh(result.totalAmount)}</span></p>
+              <p className="text-xs text-gray-600 font-sans">Total: <span className="font-mono font-semibold">{formatCurrency(result.totalAmount, currency)}</span></p>
             )}
           </div>
         ) : (
@@ -441,10 +440,12 @@ function GenerateModal({
 
 function EditOwnerInvoiceModal({
   invoice,
+  currency,
   onClose,
   onSaved,
 }: {
   invoice: OwnerInvoice;
+  currency: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -566,7 +567,7 @@ function EditOwnerInvoiceModal({
             ))}
           </div>
           <div className="flex justify-end mt-2">
-            <span className="text-xs text-gray-500 font-sans">Total: <span className="font-mono font-semibold text-header">{formatKsh(total)}</span></span>
+            <span className="text-xs text-gray-500 font-sans">Total: <span className="font-mono font-semibold text-header">{formatCurrency(total, currency)}</span></span>
           </div>
         </div>
 
@@ -602,10 +603,12 @@ function EditOwnerInvoiceModal({
 
 function NewOwnerInvoiceModal({
   properties,
+  currency,
   onClose,
   onCreated,
 }: {
   properties: { id: string; name: string }[];
+  currency: string;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -741,7 +744,7 @@ function NewOwnerInvoiceModal({
             ))}
           </div>
           <div className="flex justify-end mt-2">
-            <span className="text-xs text-gray-500 font-sans">Total: <span className="font-mono font-semibold text-header">{formatKsh(total)}</span></span>
+            <span className="text-xs text-gray-500 font-sans">Total: <span className="font-mono font-semibold text-header">{formatCurrency(total, currency)}</span></span>
           </div>
         </div>
 
@@ -769,7 +772,8 @@ function NewOwnerInvoiceModal({
 // ── Main Tab Component ────────────────────────────────────────────────────────
 
 export default function OwnerInvoicesTab() {
-  const { selectedId } = useProperty();
+  const { selectedId, selected } = useProperty();
+  const currency = selected?.currency ?? "USD";
 
   const [invoices,       setInvoices]       = useState<OwnerInvoice[]>([]);
   const [properties,     setProperties]     = useState<{ id: string; name: string; type: string }[]>([]);
@@ -940,11 +944,11 @@ export default function OwnerInvoicesTab() {
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding</p>
-          <p className="text-xl font-display text-expense mt-1">{formatKsh(totalDue)}</p>
+          <p className="text-xl font-display text-expense mt-1">{formatCurrency(totalDue, currency)}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Collected</p>
-          <p className="text-xl font-display text-income mt-1">{formatKsh(totalPaid)}</p>
+          <p className="text-xl font-display text-income mt-1">{formatCurrency(totalPaid, currency)}</p>
         </div>
       </div>
 
@@ -1013,7 +1017,7 @@ export default function OwnerInvoicesTab() {
                         {MONTH_NAMES[invoice.periodMonth - 1]} {invoice.periodYear}
                       </td>
                       <td className="px-4 py-3 text-right font-mono font-semibold text-header">
-                        {formatKsh(invoice.totalAmount)}
+                        {formatCurrency(invoice.totalAmount, currency)}
                       </td>
                       <td className={`px-4 py-3 font-sans text-xs ${isOverdue ? "text-expense font-medium" : "text-gray-500"}`}>
                         {format(dueDate, "d MMM yyyy")}
@@ -1098,6 +1102,7 @@ export default function OwnerInvoicesTab() {
       {showBundle && (
         <BundleAirbnbModal
           properties={properties}
+          currency={currency}
           onClose={() => setShowBundle(false)}
           onBundled={fetchInvoices}
         />
@@ -1105,6 +1110,7 @@ export default function OwnerInvoicesTab() {
       {showCreate && (
         <NewOwnerInvoiceModal
           properties={properties}
+          currency={currency}
           onClose={() => setShowCreate(false)}
           onCreated={fetchInvoices}
         />
@@ -1112,6 +1118,7 @@ export default function OwnerInvoicesTab() {
       {editTarget && (
         <EditOwnerInvoiceModal
           invoice={editTarget}
+          currency={currency}
           onClose={() => setEditTarget(null)}
           onSaved={fetchInvoices}
         />

@@ -13,7 +13,7 @@ interface CurrencyDisplayProps {
 
 export function CurrencyDisplay({
   amount,
-  currency = "KES",
+  currency = "USD",
   className,
   colorize = false,
   compact = false,

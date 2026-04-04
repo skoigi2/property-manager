@@ -17,7 +17,7 @@ interface Props {
   currency?: string;
 }
 
-export function ForecastChart({ months, currency = "KES" }: Props) {
+export function ForecastChart({ months, currency = "USD" }: Props) {
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">

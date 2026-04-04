@@ -20,9 +20,10 @@ import { getLeaseStatus, daysUntilExpiry, formatDate } from "@/lib/date-utils";
 import {
   Plus, AlertTriangle, ChevronRight, Pencil,
   LayoutGrid, List, Search, ArrowUpDown,
-  ArrowUp, ArrowDown, X, LogOut, FileDown,
+  ArrowUp, ArrowDown, X, LogOut, FileDown, Banknote,
 } from "lucide-react";
 import { exportTenants } from "@/lib/excel-export";
+import { formatCurrency } from "@/lib/currency";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { clsx } from "clsx";
 
@@ -61,7 +62,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 export default function TenantsPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
 
   // Data
   const [tenants, setTenants]       = useState<any[]>([]);
@@ -674,16 +675,16 @@ export default function TenantsPage() {
                         {/* Monthly total */}
                         <td className="px-4 py-3 text-right">
                           <p className="font-mono text-sm font-medium text-header">
-                            KSh {monthlyTotal.toLocaleString("en-KE")}
+                            {formatCurrency(monthlyTotal, currency)}
                           </p>
                           <p className="text-xs text-gray-400 font-sans mt-0.5">
-                            {tenant.monthlyRent?.toLocaleString("en-KE")} + {tenant.serviceCharge?.toLocaleString("en-KE")}
+                            {tenant.monthlyRent?.toLocaleString("en-US")} + {tenant.serviceCharge?.toLocaleString("en-US")}
                           </p>
                         </td>
                         {/* Deposit */}
                         <td className="px-4 py-3 text-center font-mono text-sm text-gray-500">
                           {tenant.depositAmount
-                            ? `KSh ${tenant.depositAmount.toLocaleString("en-KE")}`
+                            ? formatCurrency(tenant.depositAmount, currency)
                             : "—"}
                         </td>
                         {/* Lease end */}
@@ -754,10 +755,12 @@ export default function TenantsPage() {
               <span className="ml-auto">
                 Total monthly:{" "}
                 <strong className="text-gray-600 font-mono">
-                  KSh {filtered
-                    .filter((t) => t.isActive)
-                    .reduce((s, t) => s + (t.monthlyRent ?? 0) + (t.serviceCharge ?? 0), 0)
-                    .toLocaleString("en-KE")}
+                  {formatCurrency(
+                    filtered
+                      .filter((t) => t.isActive)
+                      .reduce((s, t) => s + (t.monthlyRent ?? 0) + (t.serviceCharge ?? 0), 0),
+                    currency
+                  )}
                 </strong>
               </span>
             </div>
@@ -848,7 +851,7 @@ export default function TenantsPage() {
             <Input label="Tenant Name" {...register("name")} error={errors.name?.message} />
             <div className="grid grid-cols-2 gap-4">
               <Input label="Email" type="email" placeholder="tenant@example.com" {...register("email")} error={errors.email?.message} />
-              <Input label="Phone" type="tel" placeholder="+254 7XX XXX XXX" {...register("phone")} />
+              <Input label="Phone" type="tel" placeholder="+1 555 000 0000" {...register("phone")} />
             </div>
             <Select
               label={editingTenant ? "Unit" : "Unit (vacant/listed only)"}
@@ -861,11 +864,11 @@ export default function TenantsPage() {
               error={errors.unitId?.message}
             />
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Monthly Rent (KSh)"    type="number" prefix="KSh" {...register("monthlyRent")}   error={errors.monthlyRent?.message} />
-              <Input label="Service Charge (KSh)"  type="number" prefix="KSh" {...register("serviceCharge")} />
+              <Input label="Monthly Rent"    type="number" {...register("monthlyRent")}   error={errors.monthlyRent?.message} />
+              <Input label="Service Charge"  type="number" {...register("serviceCharge")} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Deposit (KSh)" type="number" prefix="KSh" {...register("depositAmount")} error={errors.depositAmount?.message} />
+              <Input label="Deposit" type="number" {...register("depositAmount")} error={errors.depositAmount?.message} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
@@ -894,7 +897,7 @@ export default function TenantsPage() {
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
-                <span className="text-gold font-mono font-bold text-sm">KSh</span>
+                <Banknote size={18} className="text-gold" />
               </div>
               <div>
                 <h3 className="font-display text-header text-base">Generate Letting Fee Invoice?</h3>
@@ -902,7 +905,7 @@ export default function TenantsPage() {
               </div>
             </div>
             <p className="text-sm font-sans text-gray-600">
-              A letting fee of <span className="font-semibold text-header">KSh {lettingFeePrompt.amount.toLocaleString("en-KE")}</span> (50% of first month&apos;s rent) will be invoiced to the owner. Mark it paid once settled.
+              A letting fee of <span className="font-semibold text-header">{formatCurrency(lettingFeePrompt.amount, currency)}</span> (50% of first month&apos;s rent) will be invoiced to the owner. Mark it paid once settled.
             </p>
             <div className="flex gap-3 pt-1">
               <Button
@@ -932,7 +935,7 @@ export default function TenantsPage() {
                         notes: `New tenant: ${lettingFeePrompt.tenantName}`,
                       }),
                     });
-                    toast.success(`Letting fee invoice of KSh ${lettingFeePrompt.amount.toLocaleString("en-KE")} generated (DRAFT)`);
+                    toast.success(`Letting fee invoice of ${formatCurrency(lettingFeePrompt.amount, currency)} generated (DRAFT)`);
                   } catch {
                     toast.error("Failed to log letting fee");
                   } finally {

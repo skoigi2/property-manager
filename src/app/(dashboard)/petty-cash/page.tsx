@@ -29,7 +29,7 @@ import { formatCurrency } from "@/lib/currency";
 export default function PettyCashPage() {
   const { data: session } = useSession();
   const { selectedId, selected, properties } = useProperty();
-  const currency = selected?.currency ?? "KES";
+  const currency = selected?.currency ?? "USD";
 
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,7 +187,7 @@ export default function PettyCashPage() {
   }
 
   function exportCsv() {
-    const rows = [["Date", "Description", "Property", "Type", "In (KSh)", "Out (KSh)", "Balance (KSh)"]];
+    const rows = [["Date", "Description", "Property", "Type", "In", "Out", "Balance"]];
     displayEntries.forEach((e: any) => {
       const propName = e.propertyId ? (properties.find((p) => p.id === e.propertyId)?.name ?? "") : "Portfolio";
       rows.push([
@@ -480,7 +480,7 @@ export default function PettyCashPage() {
               <div className="grid grid-cols-3 gap-4">
                 <Select label="Type" {...register("type")} options={[{ value: "IN", label: "Cash In" }, { value: "OUT", label: "Cash Out" }]} />
                 <Input label="Date" type="date" {...register("date")} error={errors.date?.message} />
-                <Input label="Amount (KSh)" type="number" step="0.01" prefix="KSh" {...register("amount")} error={errors.amount?.message} />
+                <Input label="Amount" type="number" step="0.01" {...register("amount")} error={errors.amount?.message} />
               </div>
               <Input label="Description" {...register("description")} error={errors.description?.message} placeholder="What is this for?" />
               <Select label="Property" {...register("propertyId")} options={propertyOptions} />
@@ -613,7 +613,7 @@ export default function PettyCashPage() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Amount (KSh)</label>
+                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Amount</label>
                                   <input
                                     type="number"
                                     step="0.01"

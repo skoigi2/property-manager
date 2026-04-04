@@ -11,7 +11,7 @@ interface KPICardProps {
   currency?: string;
 }
 
-export function KPICard({ label, amount, type = "neutral", icon, subtext, currency = "KES" }: KPICardProps) {
+export function KPICard({ label, amount, type = "neutral", icon, subtext, currency = "USD" }: KPICardProps) {
   const colors = {
     income: "border-income/30 bg-green-50",
     expense: "border-expense/30 bg-red-50",

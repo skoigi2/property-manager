@@ -8,7 +8,7 @@ interface TrendPoint {
   net: number;
 }
 
-export function RevenueChart({ data, currency = "KES" }: { data: TrendPoint[]; currency?: string }) {
+export function RevenueChart({ data, currency = "USD" }: { data: TrendPoint[]; currency?: string }) {
   return (
     <div className="h-56">
       <ResponsiveContainer width="100%" height="100%">

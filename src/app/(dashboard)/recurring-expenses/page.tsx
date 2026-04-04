@@ -41,7 +41,7 @@ const schema = z.object({
   scope: z.enum(["UNIT","PROPERTY","PORTFOLIO"]),
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
-  frequency: z.enum(["MONTHLY","QUARTERLY","ANNUAL"]),
+  frequency: z.enum(["MONTHLY","QUARTERLY","BIANNUAL","ANNUAL"]),
   nextDueDate: z.string().min(1, "Next due date required"),
 });
 type FormValues = z.infer<typeof schema>;
@@ -162,6 +162,10 @@ export default function RecurringExpensesPage() {
   };
 
   const openEdit = (item: RecurringItem) => {
+    if (item.schedule) {
+      window.location.href = "/maintenance?tab=schedules";
+      return;
+    }
     setEditItem(item);
     setEditVendorId((item as any).vendor?.id ?? null);
     setEditForm({
@@ -200,7 +204,7 @@ export default function RecurringExpensesPage() {
 
   return (
     <div>
-      <Header title="Recurring Expenses" />
+      <Header title="Recurring Expenses" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
 
         {/* Apply panel */}
@@ -288,7 +292,7 @@ export default function RecurringExpensesPage() {
                   <CurrencyDisplay currency={currency} amount={item.amount} size="md" className="font-medium text-expense shrink-0" />
                   {canManage && (
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => openEdit(item)} className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-header" title="Edit">
+                      <button onClick={() => openEdit(item)} className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-header" title={item.schedule ? "Edit schedule on Maintenance page" : "Edit"}>
                         <Pencil size={15} />
                       </button>
                       <button onClick={() => toggleActive(item)} className="p-2 hover:bg-gray-50 rounded-lg transition-colors" title={item.isActive ? "Pause" : "Activate"}>
@@ -311,6 +315,9 @@ export default function RecurringExpensesPage() {
       {/* Add modal */}
       <Modal open={showForm} onClose={() => { setShowForm(false); reset(); setRecurVendorId(null); }} title="Add Recurring Expense" size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 font-sans">
+            Use this for <strong>financial commitments</strong> that recur on a fixed schedule — internet, security contracts, cleaning retainers, utility standing charges. For tasks that need on-site logging (pest control, generator service, inspections), use <strong>Maintenance → Schedules</strong> instead.
+          </div>
           <Input label="Description" {...register("description")} error={errors.description?.message} placeholder="e.g. Monthly internet bill" />
           <div className="grid grid-cols-2 gap-3">
             <Select label="Category" {...register("category")} error={errors.category?.message}
@@ -319,7 +326,7 @@ export default function RecurringExpensesPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Select label="Frequency" {...register("frequency")} error={errors.frequency?.message}
-              options={[{value:"MONTHLY",label:"Monthly"},{value:"QUARTERLY",label:"Quarterly"},{value:"ANNUAL",label:"Annual"}]} />
+              options={[{value:"MONTHLY",label:"Monthly"},{value:"QUARTERLY",label:"Quarterly"},{value:"BIANNUAL",label:"Bi-annually"},{value:"ANNUAL",label:"Annual"}]} />
             <Input label="Next Due Date" type="date" {...register("nextDueDate")} error={errors.nextDueDate?.message} />
           </div>
           <Select label="Scope" {...register("scope")} error={errors.scope?.message}

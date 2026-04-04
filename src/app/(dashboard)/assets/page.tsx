@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
@@ -712,6 +713,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AssetsPage() {
+  const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "KES";
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -891,7 +893,7 @@ export default function AssetsPage() {
 
   return (
     <>
-      <Header title="Asset Register" />
+      <Header title="Asset Register" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
 
         {/* Warranty alert banner */}

@@ -380,7 +380,7 @@ export default function ArrearsPage() {
 
   return (
     <div>
-      <Header title="Arrears Collection" />
+      <Header title="Arrears Collection" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
 
         {/* Summary cards */}

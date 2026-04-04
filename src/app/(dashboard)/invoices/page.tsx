@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -810,6 +811,7 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function InvoicesPage() {
+  const { data: session } = useSession();
   const { selectedId } = useProperty();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"tenant" | "owner">(
@@ -910,7 +912,7 @@ export default function InvoicesPage() {
 
   return (
     <>
-      <Header title="Invoices">
+      <Header title="Invoices" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role}>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowBulkGenerate(true)}

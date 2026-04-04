@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -38,6 +39,7 @@ const RESOURCES = ["", "IncomeEntry", "ExpenseEntry", "PettyCash", "Invoice"];
 const PAGE_SIZE = 50;
 
 export default function AuditPage() {
+  const { data: session } = useSession();
   const [logs, setLogs]       = useState<AuditLog[]>([]);
   const [total, setTotal]     = useState(0);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ export default function AuditPage() {
 
   return (
     <div>
-      <Header title="Audit Log" />
+      <Header title="Audit Log" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
         <Card padding="sm" className="bg-blue-50/50 border border-blue-100">
           <p className="text-xs text-blue-700 font-sans">

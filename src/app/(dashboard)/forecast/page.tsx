@@ -10,6 +10,7 @@ import {
   TrendingDown,
   DollarSign,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
@@ -261,6 +262,7 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ForecastPage() {
+  const { data: session } = useSession();
   const [horizon, setHorizon] = useState<3 | 6 | 12>(6);
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -285,7 +287,7 @@ export default function ForecastPage() {
 
   return (
     <>
-      <Header title="Cashflow Forecast">
+      <Header title="Cashflow Forecast" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role}>
         <HorizonToggle value={horizon} onChange={(n) => setHorizon(n as 3 | 6 | 12)} />
       </Header>
 

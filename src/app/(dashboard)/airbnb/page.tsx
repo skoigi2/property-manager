@@ -4,6 +4,7 @@ import {
   CalendarDays, BarChart2, Wrench, RefreshCw, Loader2, Plus, CheckCircle2,
   BedDouble, X, Trash2, Pencil, Users,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { getDaysInMonth, format, startOfDay } from "date-fns";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -75,6 +76,7 @@ function avgNightlyRate(entries: any[]): number {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AirbnbPage() {
+  const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "KES";
   const [tab, setTab]     = useState<Tab>("calendar");
@@ -407,7 +409,7 @@ export default function AirbnbPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-cream">
-      <Header title="Airbnb" />
+      <Header title="Airbnb" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
 
         {/* Tabs */}

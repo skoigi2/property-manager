@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
@@ -272,6 +273,7 @@ function DocumentPanel({ policyId }: { policyId: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function InsurancePage() {
+  const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "KES";
   const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
@@ -426,7 +428,7 @@ export default function InsurancePage() {
 
   return (
     <>
-      <Header title="Insurance Policies" />
+      <Header title="Insurance Policies" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
 
         {/* Expiry alert banner */}

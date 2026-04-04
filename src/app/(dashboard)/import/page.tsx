@@ -17,6 +17,7 @@ import {
   ChevronUp,
   RefreshCw,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -645,6 +646,7 @@ function ImportSection({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ImportPage() {
+  const { data: session } = useSession();
   const [tab, setTab] = useState<Tab>("tenants");
 
   const tabs: [Tab, string, React.ElementType][] = [
@@ -656,7 +658,7 @@ export default function ImportPage() {
 
   return (
     <div>
-      <Header title="Data Import" />
+      <Header title="Data Import" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
         {/* Info banner */}
         <Card className="bg-blue-50 border border-blue-100">

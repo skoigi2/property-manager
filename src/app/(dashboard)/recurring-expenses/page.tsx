@@ -18,7 +18,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
-import { RepeatIcon, Plus, Trash2, Play, ToggleLeft, ToggleRight, CalendarClock, Wrench, Pencil } from "lucide-react";
+import { RepeatIcon, Plus, Trash2, Play, ToggleLeft, ToggleRight, CalendarClock, Wrench, Pencil, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 
 const CATEGORIES = [
@@ -195,7 +196,7 @@ export default function RecurringExpensesPage() {
   };
 
   const due = items.filter(i => i.isActive && new Date(i.nextDueDate) <= new Date());
-  const isManager = session?.user?.role === "MANAGER";
+  const canManage = session?.user?.role !== "OWNER" && !!session?.user?.role;
 
   return (
     <div>
@@ -203,7 +204,7 @@ export default function RecurringExpensesPage() {
       <div className="page-container space-y-5">
 
         {/* Apply panel */}
-        {isManager && (
+        {canManage && (
           <Card padding="md" className="border border-amber-100 bg-amber-50/50">
             <div className="flex flex-wrap items-end gap-4">
               <div>
@@ -237,7 +238,7 @@ export default function RecurringExpensesPage() {
           <div>
             <p className="text-sm text-gray-500 font-sans">{items.length} template{items.length!==1?"s":""} · {due.length} due</p>
           </div>
-          {isManager && (
+          {canManage && (
             <Button variant="gold" onClick={() => setShowForm(true)} className="flex items-center gap-2">
               <Plus size={16} />
               Add Recurring
@@ -272,15 +273,20 @@ export default function RecurringExpensesPage() {
                       Next due: <span className={isDue ? "text-red-500 font-medium" : ""}>{formatDate(new Date(item.nextDueDate))}</span>
                     </p>
                     {item.schedule && (
-                      <p className="text-xs text-gray-400 font-sans flex items-center gap-1 mt-0.5">
+                      <Link
+                        href="/maintenance?tab=schedules"
+                        className="text-xs text-gray-400 font-sans flex items-center gap-1 mt-0.5 hover:text-gold transition-colors w-fit"
+                        title="View maintenance schedule"
+                      >
                         <Wrench size={10} />
                         {item.schedule.asset?.name ?? item.schedule.taskName}
                         {item.schedule.property?.name && ` · ${item.schedule.property.name}`}
-                      </p>
+                        <ExternalLink size={9} className="ml-0.5" />
+                      </Link>
                     )}
                   </div>
                   <CurrencyDisplay currency={currency} amount={item.amount} size="md" className="font-medium text-expense shrink-0" />
-                  {isManager && (
+                  {canManage && (
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openEdit(item)} className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-header" title="Edit">
                         <Pencil size={15} />

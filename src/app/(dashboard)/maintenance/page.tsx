@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { useProperty } from "@/lib/property-context";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/Badge";
@@ -512,6 +513,10 @@ export default function MaintenancePage() {
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"jobs" | "schedules">("jobs");
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("tab") === "schedules") setActiveTab("schedules");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Jobs state ─────────────────────────────────────────────────────────────
   const [jobs, setJobs]             = useState<Job[]>([]);

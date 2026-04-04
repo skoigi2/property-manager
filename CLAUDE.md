@@ -9,6 +9,8 @@ npm run dev          # Development server (defaults to :3000, increments if occu
 npm run build        # Production build — must pass before committing
 npm run lint         # ESLint check
 npm run db:seed      # Seed historical data (Jun–Oct 2025) — idempotent via upsert
+npm run db:seed:demo     # Seed demo property data (Mayfair Suites + read-only demo user)
+npm run db:seed:mayfair  # Seed Mayfair Suites data only
 npm run db:migrate   # Apply pending migrations (uses DIRECT_URL)
 npm run db:studio    # Open Prisma Studio at localhost:5555
 npx tsc --noEmit     # Type-check without building
@@ -43,7 +45,7 @@ Middleware (`src/middleware.ts`) enforces:
 - OWNER role → `/report` only; accessing any manager-only route redirects back to `/report`
 - ADMIN / MANAGER / ACCOUNTANT → full access
 
-Manager-only routes (OWNER is blocked): `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/vendors`.
+Manager-only routes (OWNER is blocked): `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/vendors`, `/airbnb`, `/forecast`, `/compliance`, `/asset-maintenance`.
 
 Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
@@ -96,7 +98,7 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `owner-invoice-pdf.tsx` | Server-only. Owner fee invoice PDF (letting, mgmt, renewal fees, etc.) |
 | `excel-export.ts` | SheetJS multi-sheet Excel export for income/expenses |
 | `import-templates.ts` | XLSX download template generators for bulk import |
-| `audit.ts` | `logAudit(action, resource, resourceId, before?, after?)` — logs CREATE/UPDATE/DELETE with JSON snapshots |
+| `audit.ts` | `logAudit({ userId, userEmail, action, resource, resourceId, before?, after? })` — logs CREATE/UPDATE/DELETE with JSON snapshots |
 | `forecast-engine.ts` | `buildForecast(tenants, recurringExpenses, insurancePolicies, agreements, horizon)` — projects monthly cash flow for 3/6/12 months. Called by `GET /api/forecast?propertyId=&months=` |
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
 
@@ -107,11 +109,11 @@ When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route
 - **Gross income** always excludes `DEPOSIT` type entries
 - **Net profit** = Gross − Agent Commissions − Operating Expenses (sunk costs excluded from P&L)
 - **Petty cash balance** is always recomputed from all entries, never stored
-- **Management fee**: Riara One = flat KSh (6,000 / 1-bed, 8,800 / 2-bed); Alba Gardens = 10% of gross revenue
+- **Management fee**: Riara One = flat amount per unit type (configured in `RIARA_MGMT_FEE` constant in `calculations.ts`); Alba Gardens = 10% of gross revenue (`ALBA_MGMT_FEE_RATE`)
 - Expenses with `isSunkCost: true` appear in reports as "capital items" and are excluded from the P&L
 
 ### PDF generation
-`@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route function has `maxDuration: 30` in `vercel.json` to handle slow PDF renders. Three separate generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices).
+`@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route sets `export const maxDuration = 30` at the top of `src/app/api/report/route.ts` to handle slow PDF renders (`vercel.json` is otherwise empty). Three separate generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices).
 
 ### PWA
 `next-pwa` wraps the Next.js config. Service worker is disabled in development. `/api/dashboard` uses `StaleWhileRevalidate`; all other API routes use `NetworkFirst`.
@@ -123,7 +125,7 @@ Three properties are seeded:
 - **Alba Gardens** (`PropertyType.AIRBNB`) — 3 units, short-let, 10% management fee
 - **Mayfair Suites** (`PropertyType.LONGTERM`) — 5 units, demo data Jan–Mar 2026
 
-`IncomeEntry` has a `type` field (`LONGTERM_RENT`, `AIRBNB`, `DEPOSIT`, `SERVICE_CHARGE`, `UTILITY_RECOVERY`, `OTHER`) and optional `checkIn`/`checkOut` for Airbnb bookings.
+`IncomeEntry` has a `type` field (`LONGTERM_RENT`, `AIRBNB`, `DEPOSIT`, `SERVICE_CHARGE`, `UTILITY_RECOVERY`, `OTHER`) and optional `checkIn`/`checkOut`, `nightlyRate`, and `platform` (`AIRBNB`, `BOOKING_COM`, `DIRECT`, `AGENT`) for Airbnb bookings.
 
 `ExpenseEntry` has a `scope` (`UNIT`, `PROPERTY`, `PORTFOLIO`) — the `propertyId` / `unitId` fields are populated based on scope.
 
@@ -137,6 +139,7 @@ Three properties are seeded:
 - Pages use `<Header>` + `<div className="page-container">` shell from the dashboard layout
 - Month filtering uses `<MonthPicker>` component which has built-in prev/next arrows — do not add outer arrow buttons
 - Vendor fields use `<VendorSelect>` (controlled: `value: string | null`, `onChange: (id: string | null) => void`) — never a plain text input for contractor/supplier fields
+- Components are organised under `src/components/` by feature: `dashboard/`, `expenses/`, `forecast/`, `guests/`, `income/`, `layout/`, `petty-cash/`, `report/`, `settings/`, `tenants/`, `ui/`
 
 ### Document Storage
 
@@ -197,6 +200,13 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 **Agents** — commission-based letting agents. `Agent` model stores name, phone, email, and commission rate. `vendorId`-like FK on `IncomeEntry` (agent commissions deducted from net profit). API: `GET/POST /api/agents`, `GET/PATCH/DELETE /api/agents/[id]`.
 
 **Compliance** — `GET /api/compliance` returns compliance status across insurance, lease renewals, and maintenance for accessible properties.
+
+**RentHistory** — tracks rent escalations and adjustments over time, linked to `Tenant`. API: `GET/POST /api/tenants/[id]/rent-history`, `DELETE /api/tenants/[id]/rent-history?entryId=`.
+
+**Tenant sub-routes** (not covered above):
+- `POST /api/tenants/[id]/vacate` — marks tenant vacated, sets unit status to `VACANT`
+- `POST /api/tenants/[id]/settle-deposit` — records deposit settlement with itemised deductions (`DepositSettlement` model)
+- `GET /api/properties/[id]/reassign-preview?targetOrgId=` — dry-run org reassignment showing which users gain/lose membership (super-admin only)
 
 **Owner Statement** — `GET /api/report/owner-statement?propertyId=&year=&month=` returns a per-unit income breakdown for owner-facing reports. Used by the `/report` page (OWNER role).
 

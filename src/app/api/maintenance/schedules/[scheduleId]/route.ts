@@ -57,11 +57,13 @@ export async function PATCH(
       lastDone: true,
       taskName: true,
       taskCategory: true,
+      asset: { select: { propertyId: true } },
     },
   });
   if (!existing) return Response.json({ error: "Schedule not found" }, { status: 404 });
 
-  const schedulePropertyId = existing.propertyId;
+  // propertyId may be null for asset-linked schedules created before migration — fall back to asset's propertyId
+  const schedulePropertyId = existing.propertyId ?? existing.asset?.propertyId ?? null;
   if (!schedulePropertyId || !propertyIds.includes(schedulePropertyId)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -181,11 +183,12 @@ export async function DELETE(
 
   const existing = await prisma.assetMaintenanceSchedule.findUnique({
     where: { id: params.scheduleId },
-    select: { propertyId: true, recurringExpenseId: true },
+    select: { propertyId: true, recurringExpenseId: true, asset: { select: { propertyId: true } } },
   });
   if (!existing) return Response.json({ error: "Schedule not found" }, { status: 404 });
 
-  if (!existing.propertyId || !propertyIds.includes(existing.propertyId)) {
+  const deletePropertyId = existing.propertyId ?? existing.asset?.propertyId ?? null;
+  if (!deletePropertyId || !propertyIds.includes(deletePropertyId)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

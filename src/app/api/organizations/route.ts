@@ -51,7 +51,15 @@ export async function GET() {
   }
 
   // Org member — return only their org
-  const orgId = await getCurrentOrgId();
+  // Primary: use organizationId from JWT; fallback: look up via membership table
+  let orgId = await getCurrentOrgId();
+  if (!orgId) {
+    const membership = await prisma.userOrganizationMembership.findFirst({
+      where: { userId: session!.user.id },
+      orderBy: { createdAt: "asc" },
+    });
+    orgId = membership?.organizationId ?? null;
+  }
   if (!orgId) return Response.json({ error: "No organization" }, { status: 404 });
 
   const org = await prisma.organization.findUnique({

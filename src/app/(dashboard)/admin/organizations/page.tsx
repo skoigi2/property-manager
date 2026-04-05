@@ -51,7 +51,7 @@ const roleBadge: Record<string, "green" | "blue" | "amber" | "gold" | "gray"> = 
 };
 
 const emptyForm = { name: "", address: "", phone: "", email: "", website: "" };
-const emptyAddUser = { name: "", email: "", password: "", role: "MANAGER", phone: "" };
+const emptyAddUser = { name: "", email: "", password: "", role: "MANAGER", phone: "", propertyIds: [] as string[] };
 
 export default function OrganizationsPage() {
   const { data: session, status } = useSession();
@@ -192,7 +192,11 @@ export default function OrganizationsPage() {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...addUserForm, organizationId: editOrg.id }),
+        body: JSON.stringify({
+          ...addUserForm,
+          organizationId: editOrg.id,
+          propertyIds: addUserForm.propertyIds.length ? addUserForm.propertyIds : undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -781,6 +785,33 @@ export default function OrganizationsPage() {
                             </button>
                           </div>
                         </div>
+                        {/* Property access — only relevant for non-owner roles */}
+                        {addUserForm.role !== "OWNER" && editOrg.properties.length > 0 && (
+                          <div>
+                            <p className="text-xs font-sans text-gray-500 mb-2">Property Access</p>
+                            <div className="space-y-1.5">
+                              {editOrg.properties.map((prop) => (
+                                <label key={prop.id} className="flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={addUserForm.propertyIds.includes(prop.id)}
+                                    onChange={(e) =>
+                                      setAddUserForm((prev) => ({
+                                        ...prev,
+                                        propertyIds: e.target.checked
+                                          ? [...prev.propertyIds, prop.id]
+                                          : prev.propertyIds.filter((id) => id !== prop.id),
+                                      }))
+                                    }
+                                    className="rounded border-gray-300 text-gold focus:ring-gold/30"
+                                  />
+                                  <span className="text-sm font-sans text-gray-700">{prop.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex gap-2 pt-1">
                           <Button
                             onClick={addUserToOrg}

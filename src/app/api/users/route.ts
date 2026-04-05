@@ -104,12 +104,31 @@ export async function POST(req: Request) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return Response.json({ error: "Email already in use" }, { status: 409 });
 
-  const hashed = await bcrypt.hash(password, 10);
-
   // Super-admin can specify which org the user belongs to; otherwise inherit creator's org
   const newUserOrgId = isSuperAdmin
     ? (bodyOrgId ?? null)
     : session!.user.organizationId ?? null;
+
+  // Validate & look up granted properties before writing anything
+  let grantedProperties: { id: string; organizationId: string | null }[] = [];
+  if (propertyIds?.length) {
+    grantedProperties = await prisma.property.findMany({
+      where: { id: { in: propertyIds } },
+      select: { id: true, organizationId: true },
+    });
+
+    // Non-super-admins cannot grant access to properties outside their org
+    if (!isSuperAdmin && newUserOrgId) {
+      const crossOrg = grantedProperties.some(
+        (p) => p.organizationId && p.organizationId !== newUserOrgId
+      );
+      if (crossOrg) {
+        return Response.json({ error: "One or more properties do not belong to your organisation" }, { status: 403 });
+      }
+    }
+  }
+
+  const hashed = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
     data: {
@@ -126,11 +145,27 @@ export async function POST(req: Request) {
     select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
   });
 
-  // Create org membership record
+  // Upsert org membership for the user's primary org
   if (newUserOrgId) {
     await prisma.userOrganizationMembership.upsert({
       where: { userId_organizationId: { userId: user.id, organizationId: newUserOrgId } },
       create: { userId: user.id, organizationId: newUserOrgId },
+      update: {},
+    });
+  }
+
+  // Also upsert memberships for any additional orgs introduced via property access
+  const extraOrgIds = Array.from(
+    new Set(
+      grantedProperties
+        .map((p) => p.organizationId)
+        .filter((id): id is string => !!id && id !== newUserOrgId)
+    )
+  );
+  for (const orgId of extraOrgIds) {
+    await prisma.userOrganizationMembership.upsert({
+      where: { userId_organizationId: { userId: user.id, organizationId: orgId } },
+      create: { userId: user.id, organizationId: orgId },
       update: {},
     });
   }

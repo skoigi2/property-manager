@@ -10,10 +10,23 @@ function getStorageClient() {
   return createClient(url, key);
 }
 
-async function canManageOrg(orgId: string, session: { user: { role: string; organizationId: string | null } }) {
+async function canManageOrg(orgId: string, session: { user: { id: string; role: string; organizationId: string | null } }) {
   const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
   const isOrgAdmin   = session.user.role === "ADMIN" && session.user.organizationId === orgId;
-  return isSuperAdmin || isOrgAdmin;
+  if (isSuperAdmin || isOrgAdmin) return true;
+  // Managers belonging to the org may also manage its logo
+  if (session.user.role === "MANAGER") {
+    if (session.user.organizationId === orgId) return true;
+    const membership = await prisma.userOrganizationMembership.findUnique({
+      where: { userId_organizationId: { userId: session.user.id, organizationId: orgId } },
+    });
+    if (membership) return true;
+    const access = await prisma.propertyAccess.findFirst({
+      where: { userId: session.user.id, property: { organizationId: orgId } },
+    });
+    return !!access;
+  }
+  return false;
 }
 
 // ── POST /api/organizations/[id]/logo ────────────────────────────────────────

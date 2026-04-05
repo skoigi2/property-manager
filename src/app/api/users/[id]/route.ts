@@ -96,12 +96,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
 
   // Sync membership table when org changes
-  if (newOrgId) {
-    await prisma.userOrganizationMembership.upsert({
-      where: { userId_organizationId: { userId: params.id, organizationId: newOrgId } },
-      create: { userId: params.id, organizationId: newOrgId },
-      update: {},
-    });
+  if (newOrgId !== undefined) {
+    // Remove old membership so the user doesn't accumulate stale orgs
+    if (target?.organizationId && target.organizationId !== newOrgId) {
+      await prisma.userOrganizationMembership.deleteMany({
+        where: { userId: params.id, organizationId: target.organizationId },
+      });
+    }
+    // Upsert new membership
+    if (newOrgId) {
+      await prisma.userOrganizationMembership.upsert({
+        where: { userId_organizationId: { userId: params.id, organizationId: newOrgId } },
+        create: { userId: params.id, organizationId: newOrgId },
+        update: {},
+      });
+    }
   }
 
   return Response.json(user);

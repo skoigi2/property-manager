@@ -1,20 +1,27 @@
-import { requireAuth, requireManager } from "@/lib/auth-utils";
+import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const { error } = await requireAuth();
   if (error) return error;
 
+  const propertyIds = await getAccessiblePropertyIds();
+  if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
   const [feeConfigs, units, properties] = await Promise.all([
     prisma.managementFeeConfig.findMany({
+      where: { unit: { propertyId: { in: propertyIds } } },
       include: { unit: { include: { property: true } } },
       orderBy: { effectiveFrom: "desc" },
     }),
     prisma.unit.findMany({
+      where: { propertyId: { in: propertyIds } },
       include: { property: true },
       orderBy: { unitNumber: "asc" },
     }),
-    prisma.property.findMany(),
+    prisma.property.findMany({
+      where: { id: { in: propertyIds } },
+    }),
   ]);
 
   return Response.json({ feeConfigs, units, properties });

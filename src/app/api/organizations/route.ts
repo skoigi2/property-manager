@@ -51,7 +51,9 @@ export async function GET() {
   }
 
   // Org member — return only their org
-  // Primary: use organizationId from JWT; fallback: look up via membership table
+  // 1. JWT organizationId (fastest)
+  // 2. UserOrganizationMembership (users who haven't re-logged in since org was assigned)
+  // 3. PropertyAccess → Property.organizationId (managers added via UI before memberships existed)
   let orgId = await getCurrentOrgId();
   if (!orgId) {
     const membership = await prisma.userOrganizationMembership.findFirst({
@@ -59,6 +61,13 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
     });
     orgId = membership?.organizationId ?? null;
+  }
+  if (!orgId) {
+    const access = await prisma.propertyAccess.findFirst({
+      where: { userId: session!.user.id, property: { organizationId: { not: null } } },
+      select: { property: { select: { organizationId: true } } },
+    });
+    orgId = access?.property?.organizationId ?? null;
   }
   if (!orgId) return Response.json({ error: "No organization" }, { status: 404 });
 

@@ -6,11 +6,16 @@ async function canAccessOrg(orgId: string, session: { user: { id: string; role: 
   const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
   if (isSuperAdmin) return true;
   if (session.user.organizationId === orgId) return true;
-  // Fallback: check membership table (covers users whose JWT org hasn't been set yet)
+  // Fallback 1: membership table
   const membership = await prisma.userOrganizationMembership.findUnique({
     where: { userId_organizationId: { userId: session.user.id, organizationId: orgId } },
   });
-  return !!membership;
+  if (membership) return true;
+  // Fallback 2: property access (managers added via UI before memberships existed)
+  const access = await prisma.propertyAccess.findFirst({
+    where: { userId: session.user.id, property: { organizationId: orgId } },
+  });
+  return !!access;
 }
 
 // ── GET /api/organizations/[id] ───────────────────────────────────────────────

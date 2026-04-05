@@ -2,10 +2,15 @@ import { requireAuth, requireSuperAdmin, getCurrentOrgId } from "@/lib/auth-util
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
-async function canAccessOrg(orgId: string, session: { user: { role: string; organizationId: string | null } }) {
+async function canAccessOrg(orgId: string, session: { user: { id: string; role: string; organizationId: string | null } }) {
   const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
   if (isSuperAdmin) return true;
-  return session.user.organizationId === orgId;
+  if (session.user.organizationId === orgId) return true;
+  // Fallback: check membership table (covers users whose JWT org hasn't been set yet)
+  const membership = await prisma.userOrganizationMembership.findUnique({
+    where: { userId_organizationId: { userId: session.user.id, organizationId: orgId } },
+  });
+  return !!membership;
 }
 
 // ── GET /api/organizations/[id] ───────────────────────────────────────────────
@@ -45,10 +50,14 @@ export async function PATCH(
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  // Only org admin or super-admin may update
-  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
-  const isOrgAdmin   = session!.user.role === "ADMIN" && session!.user.organizationId === params.id;
-  if (!isSuperAdmin && !isOrgAdmin) {
+  // Super-admin, org-admin, or manager of this org may update branding
+  const role = session!.user.role;
+  const isSuperAdmin = role === "ADMIN" && session!.user.organizationId === null;
+  const canEdit = isSuperAdmin || (
+    (role === "ADMIN" || role === "MANAGER") &&
+    await canAccessOrg(params.id, session!)
+  );
+  if (!canEdit) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

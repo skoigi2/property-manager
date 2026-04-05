@@ -21,6 +21,17 @@ function monthStart(year: number, month: number) {
 async function main() {
   console.log("🌱 Seeding Parkview Heights demo property...");
 
+  // ── ORGANISATION ────────────────────────────────────────────────────────────
+  const existingOrg = await prisma.organization.findFirst({ where: { name: "Parkview Management" } });
+  const org = existingOrg ?? await prisma.organization.create({
+    data: {
+      name: "Parkview Management",
+      email: "admin@parkview.co.ke",
+      defaultCurrency: "KES",
+    },
+  });
+  console.log("✓ Organisation: Parkview Management");
+
   // ── OWNER USER ─────────────────────────────────────────────────────────────
   const ownerPassword = await bcrypt.hash("demo123", 10);
 
@@ -33,6 +44,7 @@ async function main() {
       role: UserRole.OWNER,
       phone: "+254 712 345 678",
       isActive: true,
+      organizationId: org.id,
     },
     update: {
       name: "James Kariuki",
@@ -40,8 +52,17 @@ async function main() {
       password: ownerPassword,
       role: UserRole.OWNER,
       isActive: true,
+      organizationId: org.id,
     },
   });
+
+  // Upsert membership
+  await prisma.userOrganizationMembership.upsert({
+    where: { userId_organizationId: { userId: owner.id, organizationId: org.id } },
+    create: { userId: owner.id, organizationId: org.id },
+    update: {},
+  });
+
   console.log("✓ Owner user: demo@owner.co.ke / demo123");
 
   // ── PROPERTY ───────────────────────────────────────────────────────────────
@@ -75,7 +96,7 @@ async function main() {
 
     property = await prisma.property.update({
       where: { id: property.id },
-      data: { ownerId: owner.id },
+      data: { ownerId: owner.id, organizationId: org.id },
     });
     console.log("✓ Cleaned up existing Parkview Heights data");
   } else {
@@ -89,18 +110,25 @@ async function main() {
         description: "Modern 5-storey residential apartment block in Parklands. 20 units with backup generator, lift, and 24/7 security.",
         ownerId: owner.id,
         serviceChargeDefault: 3000,
+        organizationId: org.id,
       },
     });
   }
   console.log("✓ Property: Parkview Heights");
 
   // ── PROPERTY ACCESS ────────────────────────────────────────────────────────
-  // Give existing manager access to Parkview Heights
+  // Give existing manager access to Parkview Heights and ensure org membership
   const manager = await prisma.user.findUnique({ where: { email: "manager@alba.co.ke" } });
   if (manager) {
     await prisma.propertyAccess.upsert({
       where: { userId_propertyId: { userId: manager.id, propertyId: property.id } },
       create: { userId: manager.id, propertyId: property.id },
+      update: {},
+    });
+    // Ensure manager is also a member of the Parkview org
+    await prisma.userOrganizationMembership.upsert({
+      where: { userId_organizationId: { userId: manager.id, organizationId: org.id } },
+      create: { userId: manager.id, organizationId: org.id },
       update: {},
     });
     console.log("✓ Manager access granted to Parkview Heights");

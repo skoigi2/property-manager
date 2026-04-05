@@ -16,11 +16,36 @@ async function main() {
   await prisma.property.deleteMany();
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
+  await prisma.userOrganizationMembership.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.organization.deleteMany();
+
+  // ─── ORGANISATION ────────────────────────────────────────────────────────────
+  const org = await prisma.organization.create({
+    data: {
+      name: "Alba Property Group",
+      email: "admin@alba.co.ke",
+      defaultCurrency: "KES",
+    },
+  });
+
+  console.log("✓ Organisation seeded");
 
   // ─── USERS ──────────────────────────────────────────────────────────────────
+  const superAdminPassword = await bcrypt.hash("superadmin123", 10);
   const managerPassword = await bcrypt.hash("manager123", 10);
   const ownerPassword = await bcrypt.hash("owner123", 10);
+
+  // Platform super-admin — organizationId stays null
+  await prisma.user.create({
+    data: {
+      name: "Super Admin",
+      email: "superadmin@platform.local",
+      password: superAdminPassword,
+      role: UserRole.ADMIN,
+      organizationId: null,
+    },
+  });
 
   const manager = await prisma.user.create({
     data: {
@@ -28,6 +53,7 @@ async function main() {
       email: "manager@alba.co.ke",
       password: managerPassword,
       role: UserRole.MANAGER,
+      organizationId: org.id,
     },
   });
 
@@ -37,22 +63,31 @@ async function main() {
       email: "owner@alba.co.ke",
       password: ownerPassword,
       role: UserRole.OWNER,
+      organizationId: org.id,
     },
+  });
+
+  // Memberships
+  await prisma.userOrganizationMembership.createMany({
+    data: [
+      { userId: manager.id, organizationId: org.id },
+      { userId: owner.id,   organizationId: org.id },
+    ],
   });
 
   console.log("✓ Users seeded");
 
   // ─── PROPERTIES ─────────────────────────────────────────────────────────────
   const riaraOne = await prisma.property.create({
-    data: { name: "Riara One", type: PropertyType.LONGTERM },
+    data: { name: "Riara One", type: PropertyType.LONGTERM, organizationId: org.id },
   });
 
   const albaGardens = await prisma.property.create({
-    data: { name: "Alba Gardens", type: PropertyType.AIRBNB },
+    data: { name: "Alba Gardens", type: PropertyType.AIRBNB, organizationId: org.id },
   });
 
   const mayfairSuites = await prisma.property.create({
-    data: { name: "Mayfair Suites", type: PropertyType.AIRBNB },
+    data: { name: "Mayfair Suites", type: PropertyType.AIRBNB, organizationId: org.id },
   });
 
   console.log("✓ Properties seeded");
@@ -560,8 +595,9 @@ async function main() {
   console.log("");
   console.log("✅ Seed complete!");
   console.log("");
-  console.log("  Manager login: manager@alba.co.ke / manager123");
-  console.log("  Owner login:   owner@alba.co.ke   / owner123");
+  console.log("  Super-admin:   superadmin@platform.local / superadmin123");
+  console.log("  Manager login: manager@alba.co.ke       / manager123");
+  console.log("  Owner login:   owner@alba.co.ke         / owner123");
   console.log("");
   console.log("  ⚠️  Change these passwords after first login!");
 }

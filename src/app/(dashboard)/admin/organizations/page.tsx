@@ -77,10 +77,17 @@ export default function OrganizationsPage() {
 
   // Users tab state (within edit modal)
   const [showAddUser, setShowAddUser] = useState(false);
+  const [addUserMode, setAddUserMode] = useState<"new" | "existing">("new");
   const [showAddUserPassword, setShowAddUserPassword] = useState(false);
   const [addUserForm, setAddUserForm] = useState(emptyAddUser);
   const [addingUser, setAddingUser] = useState(false);
   const [removingUser, setRemovingUser] = useState<string | null>(null);
+
+  // Existing-user picker state
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string | null; email: string | null; role: string; organizationId: string | null }[]>([]);
+  const [existingUserSearch, setExistingUserSearch] = useState("");
+  const [selectedExistingUserId, setSelectedExistingUserId] = useState<string | null>(null);
+  const [existingUserPropertyIds, setExistingUserPropertyIds] = useState<string[]>([]);
 
   // Reassign users directly
   const [reassigning, setReassigning] = useState<string | null>(null); // "user-{id}"
@@ -107,6 +114,15 @@ export default function OrganizationsPage() {
   }, [session, status, router]);
 
   useEffect(() => { fetchOrgs(); }, []);
+
+  // Load all users once when the Users tab is first opened (for existing-user picker)
+  useEffect(() => {
+    if (editTab === "users" && allUsers.length === 0) {
+      fetch("/api/users").then((r) => r.json()).then((data) => {
+        if (Array.isArray(data)) setAllUsers(data);
+      }).catch(() => {});
+    }
+  }, [editTab, allUsers.length]);
 
   async function fetchOrgs(): Promise<Org[]> {
     setLoading(true);
@@ -174,8 +190,12 @@ export default function OrganizationsPage() {
     setEditOrg(org);
     setEditTab("details");
     setShowAddUser(false);
+    setAddUserMode("new");
     setShowAddUserPassword(false);
     setAddUserForm(emptyAddUser);
+    setSelectedExistingUserId(null);
+    setExistingUserPropertyIds([]);
+    setExistingUserSearch("");
     setEditForm({
       name: org.name,
       address: org.address ?? "",
@@ -205,6 +225,35 @@ export default function OrganizationsPage() {
       toast.success(`${addUserForm.name || addUserForm.email} added`);
       setShowAddUser(false);
       setAddUserForm(emptyAddUser);
+      const fresh = await fetchOrgs();
+      const updated = fresh.find((o) => o.id === editOrg.id);
+      if (updated) setEditOrg(updated);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to add user");
+    } finally { setAddingUser(false); }
+  }
+
+  async function addExistingUserToOrg() {
+    if (!editOrg || !selectedExistingUserId) return;
+    setAddingUser(true);
+    try {
+      const res = await fetch(`/api/organizations/${editOrg.id}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedExistingUserId,
+          propertyIds: existingUserPropertyIds.length ? existingUserPropertyIds : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to add user");
+      }
+      toast.success("User added to organisation");
+      setShowAddUser(false);
+      setSelectedExistingUserId(null);
+      setExistingUserPropertyIds([]);
+      setExistingUserSearch("");
       const fresh = await fetchOrgs();
       const updated = fresh.find((o) => o.id === editOrg.id);
       if (updated) setEditOrg(updated);
@@ -737,100 +786,183 @@ export default function OrganizationsPage() {
                       </button>
                     ) : (
                       <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-3">
-                        <p className="text-xs font-sans font-medium text-gray-500 uppercase tracking-wide">New User</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <Input
-                            label="Full Name *"
-                            value={addUserForm.name}
-                            onChange={(e) => setAddUserForm((p) => ({ ...p, name: e.target.value }))}
-                          />
-                          <Input
-                            label="Phone"
-                            value={addUserForm.phone}
-                            onChange={(e) => setAddUserForm((p) => ({ ...p, phone: e.target.value }))}
-                          />
+                        {/* Mode toggle */}
+                        <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
+                          <button
+                            onClick={() => setAddUserMode("new")}
+                            className={`px-3 py-1 rounded-md text-xs font-sans font-medium transition-colors ${addUserMode === "new" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                          >
+                            New User
+                          </button>
+                          <button
+                            onClick={() => setAddUserMode("existing")}
+                            className={`px-3 py-1 rounded-md text-xs font-sans font-medium transition-colors ${addUserMode === "existing" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                          >
+                            Existing User
+                          </button>
                         </div>
-                        <Input
-                          label="Email *"
-                          type="email"
-                          value={addUserForm.email}
-                          onChange={(e) => setAddUserForm((p) => ({ ...p, email: e.target.value }))}
-                        />
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-sans text-gray-500 mb-1">Role *</label>
-                            <select
-                              value={addUserForm.role}
-                              onChange={(e) => setAddUserForm((p) => ({ ...p, role: e.target.value }))}
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
-                            >
-                              <option value="MANAGER">Manager</option>
-                              <option value="ACCOUNTANT">Accountant</option>
-                              <option value="OWNER">Owner</option>
-                            </select>
-                          </div>
-                          <div className="relative">
-                            <Input
-                              label="Password *"
-                              type={showAddUserPassword ? "text" : "password"}
-                              value={addUserForm.password}
-                              onChange={(e) => setAddUserForm((p) => ({ ...p, password: e.target.value }))}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowAddUserPassword((v) => !v)}
-                              className="absolute right-3 top-7 text-gray-400 hover:text-gray-600 transition-colors"
-                            >
-                              {showAddUserPassword ? <EyeOff size={13} /> : <Eye size={13} />}
-                            </button>
-                          </div>
-                        </div>
-                        {/* Property access — only relevant for non-owner roles */}
-                        {addUserForm.role !== "OWNER" && editOrg.properties.length > 0 && (
-                          <div>
-                            <p className="text-xs font-sans text-gray-500 mb-2">Property Access</p>
-                            <div className="space-y-1.5">
-                              {editOrg.properties.map((prop) => (
-                                <label key={prop.id} className="flex items-center gap-2 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={addUserForm.propertyIds.includes(prop.id)}
-                                    onChange={(e) =>
-                                      setAddUserForm((prev) => ({
-                                        ...prev,
-                                        propertyIds: e.target.checked
-                                          ? [...prev.propertyIds, prop.id]
-                                          : prev.propertyIds.filter((id) => id !== prop.id),
-                                      }))
-                                    }
-                                    className="rounded border-gray-300 text-gold focus:ring-gold/30"
-                                  />
-                                  <span className="text-sm font-sans text-gray-700">{prop.name}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        )}
 
-                        <div className="flex gap-2 pt-1">
-                          <Button
-                            onClick={addUserToOrg}
-                            loading={addingUser}
-                            disabled={!addUserForm.name || !addUserForm.email || addUserForm.password.length < 6}
-                          >
-                            Add User
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              setShowAddUser(false);
-                              setAddUserForm(emptyAddUser);
-                              setShowAddUserPassword(false);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
+                        {addUserMode === "new" ? (
+                          <>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Input
+                                label="Full Name *"
+                                value={addUserForm.name}
+                                onChange={(e) => setAddUserForm((p) => ({ ...p, name: e.target.value }))}
+                              />
+                              <Input
+                                label="Phone"
+                                value={addUserForm.phone}
+                                onChange={(e) => setAddUserForm((p) => ({ ...p, phone: e.target.value }))}
+                              />
+                            </div>
+                            <Input
+                              label="Email *"
+                              type="email"
+                              value={addUserForm.email}
+                              onChange={(e) => setAddUserForm((p) => ({ ...p, email: e.target.value }))}
+                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-sans text-gray-500 mb-1">Role *</label>
+                                <select
+                                  value={addUserForm.role}
+                                  onChange={(e) => setAddUserForm((p) => ({ ...p, role: e.target.value }))}
+                                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                                >
+                                  <option value="MANAGER">Manager</option>
+                                  <option value="ACCOUNTANT">Accountant</option>
+                                  <option value="OWNER">Owner</option>
+                                </select>
+                              </div>
+                              <div className="relative">
+                                <Input
+                                  label="Password *"
+                                  type={showAddUserPassword ? "text" : "password"}
+                                  value={addUserForm.password}
+                                  onChange={(e) => setAddUserForm((p) => ({ ...p, password: e.target.value }))}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAddUserPassword((v) => !v)}
+                                  className="absolute right-3 top-7 text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                  {showAddUserPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                                </button>
+                              </div>
+                            </div>
+                            {/* Property access */}
+                            {addUserForm.role !== "OWNER" && editOrg.properties.length > 0 && (
+                              <div>
+                                <p className="text-xs font-sans text-gray-500 mb-2">Property Access</p>
+                                <div className="space-y-1.5">
+                                  {editOrg.properties.map((prop) => (
+                                    <label key={prop.id} className="flex items-center gap-2 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={addUserForm.propertyIds.includes(prop.id)}
+                                        onChange={(e) =>
+                                          setAddUserForm((prev) => ({
+                                            ...prev,
+                                            propertyIds: e.target.checked
+                                              ? [...prev.propertyIds, prop.id]
+                                              : prev.propertyIds.filter((id) => id !== prop.id),
+                                          }))
+                                        }
+                                        className="rounded border-gray-300 text-gold focus:ring-gold/30"
+                                      />
+                                      <span className="text-sm font-sans text-gray-700">{prop.name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                onClick={addUserToOrg}
+                                loading={addingUser}
+                                disabled={!addUserForm.name || !addUserForm.email || addUserForm.password.length < 6}
+                              >
+                                Add User
+                              </Button>
+                              <Button variant="secondary" onClick={() => { setShowAddUser(false); setAddUserForm(emptyAddUser); setShowAddUserPassword(false); }}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* Existing user search */}
+                            <Input
+                              label="Search users"
+                              placeholder="Name or email…"
+                              value={existingUserSearch}
+                              onChange={(e) => { setExistingUserSearch(e.target.value); setSelectedExistingUserId(null); }}
+                            />
+                            {(() => {
+                              const alreadyInOrg = new Set(editOrg.memberships.map((m) => m.user.id));
+                              const filtered = allUsers.filter((u) =>
+                                !alreadyInOrg.has(u.id) &&
+                                existingUserSearch.length >= 1 &&
+                                (`${u.name ?? ""} ${u.email ?? ""}`).toLowerCase().includes(existingUserSearch.toLowerCase())
+                              );
+                              return filtered.length > 0 ? (
+                                <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                                  {filtered.map((u) => (
+                                    <button
+                                      key={u.id}
+                                      onClick={() => { setSelectedExistingUserId(u.id); setExistingUserSearch(`${u.name ?? u.email ?? ""}`); }}
+                                      className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition-colors ${selectedExistingUserId === u.id ? "bg-gold/5" : ""}`}
+                                    >
+                                      <div>
+                                        <p className="text-sm font-sans font-medium text-gray-800">{u.name ?? "—"}</p>
+                                        <p className="text-xs font-sans text-gray-500">{u.email}</p>
+                                      </div>
+                                      <span className="text-xs font-sans text-gray-400">{u.role}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : existingUserSearch.length >= 1 ? (
+                                <p className="text-xs font-sans text-gray-400 italic">No matching users outside this organisation.</p>
+                              ) : null;
+                            })()}
+                            {/* Property access for existing user */}
+                            {selectedExistingUserId && editOrg.properties.length > 0 && (
+                              <div>
+                                <p className="text-xs font-sans text-gray-500 mb-2">Grant Property Access</p>
+                                <div className="space-y-1.5">
+                                  {editOrg.properties.map((prop) => (
+                                    <label key={prop.id} className="flex items-center gap-2 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={existingUserPropertyIds.includes(prop.id)}
+                                        onChange={(e) =>
+                                          setExistingUserPropertyIds((prev) =>
+                                            e.target.checked ? [...prev, prop.id] : prev.filter((id) => id !== prop.id)
+                                          )
+                                        }
+                                        className="rounded border-gray-300 text-gold focus:ring-gold/30"
+                                      />
+                                      <span className="text-sm font-sans text-gray-700">{prop.name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                onClick={addExistingUserToOrg}
+                                loading={addingUser}
+                                disabled={!selectedExistingUserId}
+                              >
+                                Add to Organisation
+                              </Button>
+                              <Button variant="secondary" onClick={() => { setShowAddUser(false); setSelectedExistingUserId(null); setExistingUserPropertyIds([]); setExistingUserSearch(""); }}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 

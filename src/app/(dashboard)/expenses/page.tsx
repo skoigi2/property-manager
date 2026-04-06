@@ -396,13 +396,15 @@ export default function ExpensesPage() {
     }
   }, [lineItems, setValue]);
 
-  // Fetch tax configs when form opens
+  // Fetch tax configs when form opens.
+  // orgId is optional — the API derives it from propertyId when absent (covers super-admin).
   useEffect(() => {
     if (!showForm) return;
-    const orgId = session?.user?.organizationId;
-    if (!orgId) return;
-    const params = new URLSearchParams({ orgId });
+    const params = new URLSearchParams();
+    const orgId = session?.user?.organizationId ?? "";
+    if (orgId)      params.set("orgId",      orgId);
     if (selectedId) params.set("propertyId", selectedId);
+    if (!orgId && !selectedId) { setTaxConfigs([]); return; }
     fetch(`/api/tax-configs?${params}`)
       .then((r) => r.ok ? r.json() : [])
       .then((configs: TaxConfigMeta[]) => setTaxConfigs(configs.filter((c) => c.isActive !== false)))

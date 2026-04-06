@@ -394,7 +394,7 @@ export default function SettingsPage() {
                   <div key={property.id}>
                     <h3 className="font-display text-sm text-header mb-1">{property.name}</h3>
                     <TaxConfigPanel
-                      orgId={session?.user?.organizationId ?? ""}
+                      orgId={property.organizationId ?? session?.user?.organizationId ?? ""}
                       propertyId={property.id}
                       currency={property.currency}
                     />

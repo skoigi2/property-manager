@@ -21,7 +21,16 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const propertyId = searchParams.get("propertyId");
-  const orgId = searchParams.get("orgId") ?? session!.user.organizationId ?? "";
+  let orgId = searchParams.get("orgId") ?? session!.user.organizationId ?? "";
+
+  // Super-admin has no organizationId in session; derive from the property when possible
+  if (!orgId && propertyId) {
+    const prop = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { organizationId: true },
+    });
+    orgId = prop?.organizationId ?? "";
+  }
 
   if (!orgId) return Response.json({ error: "orgId required" }, { status: 400 });
 

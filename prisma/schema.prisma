@@ -20,15 +20,17 @@ model Organization {
   phone           String?
   email           String?
   website         String?
-  isActive        Boolean                      @default(true)
-  locale          String                       @default("en-US")
-  defaultCurrency String                       @default("USD")
-  users           User[]
-  properties      Property[]
-  memberships     UserOrganizationMembership[]
-  vendors         Vendor[]
-  createdAt       DateTime                     @default(now())
-  updatedAt       DateTime                     @updatedAt
+  isActive              Boolean                      @default(true)
+  locale                String                       @default("en-US")
+  defaultCurrency       String                       @default("USD")
+  vatRegistrationNumber String?
+  users                 User[]
+  properties            Property[]
+  memberships           UserOrganizationMembership[]
+  vendors               Vendor[]
+  taxConfigurations     TaxConfiguration[]
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
 }
 
 model UserOrganizationMembership {
@@ -377,22 +379,24 @@ model Property {
   managementFeeRate    Float?
   managementFeeFlat    Float?
   serviceChargeDefault Float?
-  currency             String            @default("USD")
-  units                Unit[]
-  expenses             ExpenseEntry[]
-  propertyAccess       PropertyAccess[]
-  pettyCash            PettyCash[]
-  maintenanceJobs      MaintenanceJob[]
-  arrearsCases         ArrearsCase[]
-  recurringExpenses    RecurringExpense[]
-  insurancePolicies    InsurancePolicy[]
-  assets               Asset[]
-  agreement            ManagementAgreement?
-  conditionReports     BuildingConditionReport[]
-  ownerInvoices        OwnerInvoice[]
-  maintenanceSchedules AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  currency              String            @default("USD")
+  vatRegistrationNumber String?
+  units                 Unit[]
+  expenses              ExpenseEntry[]
+  propertyAccess        PropertyAccess[]
+  pettyCash             PettyCash[]
+  maintenanceJobs       MaintenanceJob[]
+  arrearsCases          ArrearsCase[]
+  recurringExpenses     RecurringExpense[]
+  insurancePolicies     InsurancePolicy[]
+  assets                Asset[]
+  agreement             ManagementAgreement?
+  conditionReports      BuildingConditionReport[]
+  ownerInvoices         OwnerInvoice[]
+  maintenanceSchedules  AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
+  taxConfigurations     TaxConfiguration[]
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
 }
 
 model Unit {
@@ -446,6 +450,7 @@ model Tenant {
   renewalNotes     String?
   escalationRate   Float?
   chargeLatePenalty Boolean         @default(false)
+  isTaxExempt      Boolean         @default(false)
   unit             Unit             @relation(fields: [unitId], references: [id])
   incomeEntries     IncomeEntry[]
   invoices          Invoice[]
@@ -492,6 +497,10 @@ model IncomeEntry {
   agentName         String?
   nightlyRate       Float?
   note              String?
+  taxConfigId       String?
+  taxRate           Float?
+  taxAmount         Float?
+  taxType           TaxType?
   unit              Unit         @relation(fields: [unitId], references: [id])
   tenant            Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -542,6 +551,10 @@ model ExpenseLineItem {
   description      String?
   amount           Float
   isVatable        Boolean              @default(false)
+  taxConfigId      String?
+  taxRate          Float?
+  taxAmount        Float?
+  taxType          TaxType?
   paymentStatus    LineItemPaymentStatus @default(UNPAID)
   amountPaid       Float                @default(0)
   paymentReference String?
@@ -1056,4 +1069,32 @@ model Vendor {
 
   @@index([organizationId])
   @@index([name])
+}
+
+// ─── Tax Engine ───────────────────────────────────────────────────────────────
+
+enum TaxType {
+  ADDITIVE  // VAT, GST — added on top of amount; increases invoice total
+  WITHHELD  // WHT, TDS — deducted from gross before remittance to owner/vendor
+}
+
+model TaxConfiguration {
+  id            String    @id @default(cuid())
+  orgId         String
+  propertyId    String?                       // null = org-level default for all properties
+  label         String                        // e.g. "VAT", "WHT", "GST", "TDS", "Tourism Levy"
+  rate          Float                         // decimal: 0.16 = 16%
+  type          TaxType
+  appliesTo     String[]                      // e.g. ["LONGTERM_RENT", "CONTRACTOR_LABOUR"]
+  isInclusive   Boolean   @default(false)     // true = stated amount already includes tax
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime  @default(now())     // rate-change history
+  createdAt     DateTime  @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  property Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([propertyId])
+  @@index([orgId, isActive])
 }

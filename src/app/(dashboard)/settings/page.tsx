@@ -10,13 +10,14 @@ import { Spinner } from "@/components/ui/Spinner";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Settings, Save, Upload, Trash2, Building2 } from "lucide-react";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { TaxConfigPanel } from "@/components/settings/TaxConfigPanel";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"fees" | "info" | "branding">("fees");
+  const [tab, setTab] = useState<"fees" | "info" | "branding" | "tax">("fees");
   const [feeForm, setFeeForm] = useState<Record<string, { ratePercent: string; flatAmount: string }>>({});
 
   // Branding state
@@ -166,9 +167,10 @@ export default function SettingsPage() {
   }
 
   const tabs = [
-    { key: "fees", label: "Management Fees" },
+    { key: "fees",     label: "Management Fees" },
     { key: "branding", label: "Branding" },
-    { key: "info", label: "Property Info" },
+    { key: "info",     label: "Property Info" },
+    { key: "tax",      label: "Tax" },
   ];
 
   return (
@@ -371,6 +373,33 @@ export default function SettingsPage() {
                     </Card>
                   </>
                 )}
+              </div>
+            )}
+
+            {/* ── Tax ── */}
+            {tab === "tax" && (
+              <div className="space-y-6">
+                {/* Org-level defaults */}
+                {session?.user?.organizationId && (
+                  <div>
+                    <h3 className="font-display text-sm text-header mb-1">Organisation Defaults</h3>
+                    <TaxConfigPanel
+                      orgId={session.user.organizationId}
+                      propertyId={null}
+                    />
+                  </div>
+                )}
+                {/* Per-property overrides */}
+                {data.properties?.map((property: any) => (
+                  <div key={property.id}>
+                    <h3 className="font-display text-sm text-header mb-1">{property.name}</h3>
+                    <TaxConfigPanel
+                      orgId={session?.user?.organizationId ?? ""}
+                      propertyId={property.id}
+                      currency={property.currency}
+                    />
+                  </div>
+                ))}
               </div>
             )}
 

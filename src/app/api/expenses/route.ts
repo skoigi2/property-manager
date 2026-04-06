@@ -2,6 +2,7 @@ import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/aut
 import { prisma } from "@/lib/prisma";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
+import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot, lineItemCategoryToAppliesTo } from "@/lib/tax-engine";
 
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true, property: { select: { name: true } } } },
@@ -93,6 +94,15 @@ export async function POST(req: Request) {
     resolvedUnitId = unitIds[0];
   }
 
+  // Pre-load tax configs for the property so we can apply snapshots to line items
+  const taxPropertyId = resolvedPropertyId ?? (resolvedUnitId
+    ? (await prisma.unit.findUnique({ where: { id: resolvedUnitId }, select: { propertyId: true } }))?.propertyId
+    : undefined);
+  const taxOrgId = session!.user.organizationId;
+  const taxConfigs = taxPropertyId && taxOrgId
+    ? await getActiveTaxConfigs(taxPropertyId, taxOrgId)
+    : [];
+
   // Resolve propertyId for petty-cash scoping
   let pettyCashPropertyId: string | null = null;
   if (paidFromPettyCash) {
@@ -141,16 +151,23 @@ export async function POST(req: Request) {
     // Create line items
     if (lineItems && lineItems.length > 0) {
       await tx.expenseLineItem.createMany({
-        data: lineItems.map(({ id: _id, ...item }) => ({
-          expenseId: expense.id,
-          category: item.category,
-          description: item.description,
-          amount: item.amount,
-          isVatable: item.isVatable ?? false,
-          paymentStatus: item.paymentStatus ?? "UNPAID",
-          amountPaid: item.amountPaid ?? 0,
-          paymentReference: item.paymentReference,
-        })),
+        data: lineItems.map(({ id: _id, ...item }) => {
+          const isVatable = item.isVatable ?? false;
+          const taxSnapshot = isVatable
+            ? buildTaxSnapshot(item.amount, matchConfig(taxConfigs, lineItemCategoryToAppliesTo(item.category)))
+            : { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
+          return {
+            expenseId: expense.id,
+            category: item.category,
+            description: item.description,
+            amount: item.amount,
+            isVatable,
+            paymentStatus: item.paymentStatus ?? "UNPAID",
+            amountPaid: item.amountPaid ?? 0,
+            paymentReference: item.paymentReference,
+            ...taxSnapshot,
+          };
+        }),
       });
     }
 

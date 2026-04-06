@@ -8,6 +8,7 @@ import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
 import { formatCurrency } from "@/lib/currency";
+import { buildTaxSummary } from "@/lib/tax-engine";
 
 // ── Shared data builder ────────────────────────────────────────────────────────
 
@@ -40,7 +41,10 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
           { propertyId: { in: propertyIds } },
         ],
       },
-      include: { vendor: { select: { id: true, name: true, category: true } } },
+      include: {
+        vendor: { select: { id: true, name: true, category: true } },
+        lineItems: { select: { taxAmount: true, taxType: true, isVatable: true } },
+      },
     }),
     prisma.pettyCash.findMany({ where: { propertyId: { in: propertyIds } }, orderBy: { date: "asc" } }),
   ]);
@@ -160,6 +164,10 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   if (mgmtOwing > mgmtPaid)
     alerts.push(`Management fee outstanding: ${formatCurrency(mgmtOwing - mgmtPaid, _currency1)}`);
 
+  // Tax summary
+  const allLineItems = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
+  const taxSummary = buildTaxSummary(incomeEntries, allLineItems);
+
   return {
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
@@ -186,6 +194,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     },
     mgmtFee: { owing: mgmtOwing, paid: mgmtPaid, balance: mgmtPaid - mgmtOwing },
     alerts,
+    ...(taxSummary.hasAnyTax ? { taxSummary } : {}),
   };
 }
 
@@ -224,6 +233,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
           { propertyId: { in: propertyIds } },
         ],
       },
+      include: { lineItems: { select: { taxAmount: true, taxType: true, isVatable: true } } },
     }),
     prisma.pettyCash.findMany({ where: { propertyId: { in: propertyIds } }, orderBy: { date: "asc" } }),
   ]);
@@ -314,6 +324,9 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   if (mgmtOwing > mgmtPaid)
     alerts.push(`Management fee outstanding: ${formatCurrency(mgmtOwing - mgmtPaid, _currency2)}`);
 
+  const allLineItemsQ = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
+  const taxSummaryQ   = buildTaxSummary(incomeEntries, allLineItemsQ);
+
   return {
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
@@ -332,6 +345,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
     },
     mgmtFee: { owing: mgmtOwing, paid: mgmtPaid, balance: mgmtPaid - mgmtOwing },
     alerts,
+    ...(taxSummaryQ.hasAnyTax ? { taxSummary: taxSummaryQ } : {}),
   };
 }
 

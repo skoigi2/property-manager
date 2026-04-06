@@ -3,6 +3,7 @@ import { formatCurrency } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
+import { getActiveTaxConfigs, matchConfig, calcTax, taxLabel } from "@/lib/tax-engine";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -107,13 +108,33 @@ export async function POST(req: Request) {
     });
   }
 
-  const mgmtFeeOwing = lineItems.reduce((s, i) => s + i.amount, 0);
+  const mgmtFeeSubtotal = lineItems.reduce((s, i) => s + i.amount, 0);
 
-  if (mgmtFeeOwing <= 0) {
+  if (mgmtFeeSubtotal <= 0) {
     return Response.json(
       { error: "Could not calculate management fee — check that fee configurations are set up for this property" },
       { status: 400 }
     );
+  }
+
+  // Apply tax if an ADDITIVE config covers management fee income
+  const orgId = (await prisma.property.findUnique({ where: { id: propertyId }, select: { organizationId: true } }))?.organizationId;
+  let mgmtFeeOwing = mgmtFeeSubtotal;
+  if (orgId) {
+    const taxConfigs = await getActiveTaxConfigs(propertyId, orgId);
+    const taxConfig = matchConfig(taxConfigs, "MANAGEMENT_FEE_INCOME");
+    if (taxConfig && taxConfig.type === "ADDITIVE") {
+      const { taxAmount } = calcTax(mgmtFeeSubtotal, taxConfig);
+      lineItems.push({
+        description: taxLabel(taxConfig),
+        amount: taxAmount,
+        unitId: null,
+        tenantId: null,
+        incomeType: "OTHER",
+        isTaxLine: true,
+      } as any);
+      mgmtFeeOwing = mgmtFeeSubtotal + taxAmount;
+    }
   }
 
   const dueDayOfMonth = agreement?.mgmtFeeInvoiceDay ?? 7;

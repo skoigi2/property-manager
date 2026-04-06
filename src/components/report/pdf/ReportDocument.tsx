@@ -250,11 +250,55 @@ export function ReportDocument({ data }: { data: ReportData }) {
           </View>
         </View>
 
-        {/* Section 8: Notes & Flags */}
+        {/* Section 8: Tax Summary (only rendered when tax data exists) */}
+        {data.taxSummary?.hasAnyTax && (
+          <>
+            <Text style={styles.sectionTitle}>
+              <Text style={styles.sectionNumber}>8. </Text>Tax Summary
+            </Text>
+            <View style={{ marginBottom: 4 }}>
+              {data.taxSummary.outputTaxAdditive > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={[styles.tableCell, { flex: 3 }]}>Output VAT / GST collected on income</Text>
+                  <Text style={[styles.tableCell, styles.tableCellRight]}>{fmt(data.taxSummary.outputTaxAdditive)}</Text>
+                </View>
+              )}
+              {data.taxSummary.outputTaxWithheld > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={[styles.tableCell, { flex: 3 }]}>WHT deducted from owner remittances</Text>
+                  <Text style={[styles.tableCell, styles.tableCellRight]}>{fmt(data.taxSummary.outputTaxWithheld)}</Text>
+                </View>
+              )}
+              {data.taxSummary.inputTaxAdditive > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={[styles.tableCell, { flex: 3, color: "#6b7280" }]}>Input VAT / GST paid on expenses</Text>
+                  <Text style={[styles.tableCell, styles.tableCellRight, { color: "#6b7280" }]}>({fmt(data.taxSummary.inputTaxAdditive)})</Text>
+                </View>
+              )}
+              {data.taxSummary.inputTaxWithheld > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={[styles.tableCell, { flex: 3, color: "#6b7280" }]}>WHT withheld from contractor payments</Text>
+                  <Text style={[styles.tableCell, styles.tableCellRight, { color: "#6b7280" }]}>({fmt(data.taxSummary.inputTaxWithheld)})</Text>
+                </View>
+              )}
+              {(data.taxSummary.outputTaxAdditive > 0 || data.taxSummary.inputTaxAdditive > 0) && (
+                <View style={[styles.tableRow, { borderTopWidth: 1, borderTopColor: "#e5e7eb", marginTop: 2 }]}>
+                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 3 }]}>Net VAT Liability (output − input)</Text>
+                  <Text style={[styles.tableCell, styles.tableCellBold, styles.tableCellRight]}>{fmt(data.taxSummary.netVatLiability)}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ fontSize: 7, color: "#9ca3af", marginBottom: 12, fontStyle: "italic" }}>
+              All figures are informational only. Consult your tax adviser for filing obligations.
+            </Text>
+          </>
+        )}
+
+        {/* Section 9: Notes & Flags */}
         {data.alerts.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>
-              <Text style={styles.sectionNumber}>8. </Text>Notes & Flags
+              <Text style={styles.sectionNumber}>{data.taxSummary?.hasAnyTax ? "9" : "8"}. </Text>Notes & Flags
             </Text>
             {data.alerts.map((alert, i) => (
               <View key={i} style={styles.alertBox}>

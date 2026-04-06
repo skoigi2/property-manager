@@ -3,6 +3,7 @@ import { formatCurrency } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
+import { getActiveTaxConfigs, matchConfig, calcTax, taxLabel } from "@/lib/tax-engine";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -90,7 +91,27 @@ export async function POST(req: Request) {
     };
   });
 
-  const totalAmount = lineItems.reduce((s, i) => s + i.amount, 0);
+  const subtotal = lineItems.reduce((s, i) => s + i.amount, 0);
+  let totalAmount = subtotal;
+
+  // Apply tax if an ADDITIVE config covers letting fee income
+  const orgId = (await prisma.property.findUnique({ where: { id: propertyId }, select: { organizationId: true } }))?.organizationId;
+  if (orgId) {
+    const taxConfigs = await getActiveTaxConfigs(propertyId, orgId);
+    const taxConfig = matchConfig(taxConfigs, "LETTING_FEE_INCOME");
+    if (taxConfig && taxConfig.type === "ADDITIVE") {
+      const { taxAmount } = calcTax(subtotal, taxConfig);
+      (lineItems as any[]).push({
+        description: taxLabel(taxConfig),
+        amount: taxAmount,
+        unitId: null,
+        tenantId: null,
+        incomeType: "OTHER",
+        isTaxLine: true,
+      });
+      totalAmount = subtotal + taxAmount;
+    }
+  }
 
   const dueDayOfMonth = agreement?.mgmtFeeInvoiceDay ?? 7;
   const dueDate = new Date(periodYear, periodMonth - 1, dueDayOfMonth);

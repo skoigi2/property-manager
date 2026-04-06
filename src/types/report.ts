@@ -70,4 +70,13 @@ export interface ReportData {
     totalSpend: number;
     expenseCount: number;
   }[];
+
+  taxSummary?: {
+    outputTaxAdditive: number;  // VAT/GST collected on income
+    outputTaxWithheld: number;  // WHT deducted from owner remittances
+    inputTaxAdditive: number;   // VAT/GST paid on expenses (potentially reclaimable)
+    inputTaxWithheld: number;   // WHT withheld from contractor payments
+    netVatLiability: number;    // outputTaxAdditive − inputTaxAdditive
+    hasAnyTax: boolean;
+  };
 }

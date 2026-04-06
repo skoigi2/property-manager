@@ -65,6 +65,7 @@ export type OrgBranding = {
   address?: string | null;
   phone?: string | null;
   email?: string | null;
+  vatRegistrationNumber?: string | null;
 };
 
 export type OwnerInvoiceData = {
@@ -87,6 +88,7 @@ export type OwnerInvoiceData = {
     address?: string | null;
     city?: string | null;
     logoUrl?: string | null;
+    vatRegistrationNumber?: string | null;
   };
   owner?: {
     name?: string | null;
@@ -101,19 +103,51 @@ function formatKsh(amount: number, currency = "USD") {
   return `${symbol} ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function LineItemsTable({ items, currency = "USD" }: { items: OwnerInvoiceLineItem[]; currency?: string }) {
+function LineItemsTable({
+  items,
+  currency = "USD",
+  totalAmount,
+  showTaxBreakdown = false,
+}: {
+  items: OwnerInvoiceLineItem[];
+  currency?: string;
+  totalAmount?: number;
+  showTaxBreakdown?: boolean;
+}) {
+  // Separate regular line items from tax line items
+  const regularItems = items.filter((i) => !(i as any).isTaxLine);
+  const taxItems     = items.filter((i) =>  (i as any).isTaxLine);
+  const subtotal     = regularItems.reduce((s, i) => s + i.amount, 0);
+
   return (
     <View style={styles.table}>
       <View style={styles.tableHeader}>
         <Text style={[styles.headerText, styles.colDesc]}>Description</Text>
         <Text style={[styles.headerText, styles.colAmtHeader]}>Amount</Text>
       </View>
-      {items.map((item, i) => (
+      {regularItems.map((item, i) => (
         <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
           <Text style={[styles.bodyText, styles.colDesc]}>{item.description}</Text>
           <Text style={[styles.bodyText, styles.colAmt]}>{formatKsh(item.amount, currency)}</Text>
         </View>
       ))}
+      {/* Tax breakdown rows */}
+      {showTaxBreakdown && taxItems.length > 0 && (
+        <>
+          {/* Subtotal row */}
+          <View style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 7, borderTopWidth: 1, borderTopColor: "#e5e7eb", marginTop: 4 }}>
+            <Text style={[styles.bodyText, styles.colDesc, { color: "#6b7280" }]}>Subtotal</Text>
+            <Text style={[styles.bodyText, styles.colAmt, { color: "#6b7280" }]}>{formatKsh(subtotal, currency)}</Text>
+          </View>
+          {/* Each tax line */}
+          {taxItems.map((taxItem, i) => (
+            <View key={`tax-${i}`} style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 7 }}>
+              <Text style={[styles.bodyText, styles.colDesc, { color: "#374151", fontStyle: "italic" }]}>{taxItem.description}</Text>
+              <Text style={[styles.bodyText, styles.colAmt]}>{formatKsh(taxItem.amount, currency)}</Text>
+            </View>
+          ))}
+        </>
+      )}
     </View>
   );
 }
@@ -127,7 +161,9 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
   const typeLabel = OWNER_INVOICE_TYPE_LABELS[data.type] ?? "Owner Invoice";
 
   // Show two pages for MANAGEMENT_FEE invoices that have a per-unit breakdown
-  const showBreakdown = data.type === "MANAGEMENT_FEE" && data.lineItems.length > 1;
+  const hasTaxLines  = data.lineItems.some((i) => (i as any).isTaxLine);
+  const showBreakdown = data.type === "MANAGEMENT_FEE" && data.lineItems.filter((i) => !(i as any).isTaxLine).length > 1;
+  const vatRegNumber = data.property.vatRegistrationNumber ?? data.org?.vatRegistrationNumber ?? null;
 
   // Page 1 shows a single summary line; page 2 shows the detail
   const summaryItems: OwnerInvoiceLineItem[] = showBreakdown
@@ -167,6 +203,11 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
             <Text style={styles.invoiceLabel}>OWNER INVOICE</Text>
             <Text style={styles.invoiceType}>{typeLabel}</Text>
             <Text style={styles.invoiceNumber}>{data.invoiceNumber}</Text>
+            {vatRegNumber && (
+              <Text style={{ fontSize: 8, color: "#9ca3af", textAlign: "right", marginTop: 2 }}>
+                VAT Reg: {vatRegNumber}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -197,7 +238,7 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
         </View>
 
         {/* Line items (summary or full) */}
-        <LineItemsTable items={summaryItems} currency={currency} />
+        <LineItemsTable items={summaryItems} currency={currency} totalAmount={data.totalAmount} showTaxBreakdown={hasTaxLines} />
 
         {/* Total */}
         <View style={styles.totalRow}>

@@ -2,6 +2,7 @@ import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/aut
 import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
+import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot } from "@/lib/tax-engine";
 
 export async function GET(req: Request) {
   const { error } = await requireAuth();
@@ -65,6 +66,14 @@ export async function POST(req: Request) {
 
   const { date, checkIn, checkOut, tenantId, invoiceId, ...rest } = parsed.data;
 
+  // Resolve property + org for tax lookup
+  const unitWithProperty = await prisma.unit.findUnique({
+    where: { id: rest.unitId },
+    select: { propertyId: true, property: { select: { organizationId: true } } },
+  });
+  const propertyId = unitWithProperty?.propertyId ?? null;
+  const orgId = unitWithProperty?.property?.organizationId ?? session!.user.organizationId ?? null;
+
   // Auto-link the active tenant if not explicitly provided and type is long-term
   let resolvedTenantId = tenantId ?? null;
   if (!resolvedTenantId && rest.type === "LONGTERM_RENT") {
@@ -91,6 +100,19 @@ export async function POST(req: Request) {
     resolvedInvoiceId = matchingInvoice?.id ?? null;
   }
 
+  // Tax snapshot — skip if tenant is exempt or no property/org context
+  let taxSnapshot = { taxConfigId: null as string | null, taxRate: null as number | null, taxAmount: null as number | null, taxType: null as any };
+  if (propertyId && orgId) {
+    const tenant = resolvedTenantId
+      ? await prisma.tenant.findUnique({ where: { id: resolvedTenantId }, select: { isTaxExempt: true } })
+      : null;
+    if (!tenant?.isTaxExempt) {
+      const configs = await getActiveTaxConfigs(propertyId, orgId);
+      const matched = matchConfig(configs, rest.type as string);
+      taxSnapshot = buildTaxSnapshot(rest.grossAmount, matched);
+    }
+  }
+
   const entry = await prisma.$transaction(async (tx) => {
     const newEntry = await tx.incomeEntry.create({
       data: {
@@ -100,6 +122,7 @@ export async function POST(req: Request) {
         date: new Date(date),
         checkIn: checkIn ? new Date(checkIn) : null,
         checkOut: checkOut ? new Date(checkOut) : null,
+        ...taxSnapshot,
       },
       include: {
         unit: { include: { property: { select: { name: true } } } },

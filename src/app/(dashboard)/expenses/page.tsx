@@ -30,6 +30,35 @@ import { formatCurrency, formatNumber } from "@/lib/currency";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 
+// ─── Tax helpers (client-side, mirrors tax-engine pure functions) ─────────────
+
+interface TaxConfigMeta {
+  id: string;
+  label: string;
+  rate: number;
+  type: "ADDITIVE" | "WITHHELD";
+  appliesTo: string[];
+  isInclusive: boolean;
+  isActive?: boolean;
+}
+
+function lineItemCatToAppliesTo(cat: string): string {
+  if (cat === "LABOUR")   return "CONTRACTOR_LABOUR";
+  if (cat === "MATERIAL") return "CONTRACTOR_MATERIALS";
+  return "VENDOR_INVOICE";
+}
+
+function matchTaxConfig(configs: TaxConfigMeta[], appliesTo: string): TaxConfigMeta | null {
+  return configs.find((c) => c.appliesTo.includes(appliesTo)) ?? null;
+}
+
+function computeTaxAmount(amount: number, config: TaxConfigMeta): number {
+  if (config.type === "ADDITIVE" && config.isInclusive) {
+    return amount - amount / (1 + config.rate);
+  }
+  return amount * config.rate;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
@@ -89,7 +118,17 @@ function PayBadge({ status }: { status: PayStatus | null }) {
 
 // ─── Line Items Editor ────────────────────────────────────────────────────────
 
-function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange: (items: LineItemDraft[]) => void }) {
+function LineItemsEditor({
+  items,
+  onChange,
+  taxConfigs,
+  currency,
+}: {
+  items: LineItemDraft[];
+  onChange: (items: LineItemDraft[]) => void;
+  taxConfigs: TaxConfigMeta[] | null;
+  currency: string;
+}) {
   function update(idx: number, patch: Partial<LineItemDraft>) {
     const next = items.map((item, i) => (i === idx ? { ...item, ...patch } : item));
     onChange(next);
@@ -98,6 +137,26 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
   function add() { onChange([...items, blankLine()]); }
 
   const totalVatable = items.filter((i) => i.isVatable).reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+
+  // Per-item tax computation
+  const itemTax = items.map((item) => {
+    if (!item.isVatable || !taxConfigs) return null;
+    const amount = parseFloat(item.amount) || 0;
+    if (amount === 0) return null;
+    const config = matchTaxConfig(taxConfigs, lineItemCatToAppliesTo(item.category));
+    if (!config) return null;
+    return { config, taxAmount: computeTaxAmount(amount, config) };
+  });
+
+  // Aggregate tax summary
+  let inputVatAdditive = 0;
+  let whtWithheld = 0;
+  itemTax.forEach((t) => {
+    if (!t) return;
+    if (t.config.type === "ADDITIVE") inputVatAdditive += t.taxAmount;
+    else whtWithheld += t.taxAmount;
+  });
+  const hasTax = inputVatAdditive > 0 || whtWithheld > 0;
 
   return (
     <div className="space-y-3">
@@ -164,6 +223,24 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
                 </div>
               </div>
 
+              {/* Tax badge */}
+              {itemTax[idx] && (
+                <div className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-sans border ${
+                    itemTax[idx]!.config.type === "ADDITIVE"
+                      ? "bg-blue-50 text-blue-700 border-blue-100"
+                      : "bg-amber-50 text-amber-700 border-amber-100"
+                  }`}>
+                    {itemTax[idx]!.config.label} ({(itemTax[idx]!.config.rate * 100).toFixed(0)}%):{" "}
+                    {formatCurrency(itemTax[idx]!.taxAmount, currency)}
+                    {itemTax[idx]!.config.type === "WITHHELD" && " withheld"}
+                  </span>
+                </div>
+              )}
+              {item.isVatable && taxConfigs !== null && !itemTax[idx] && (
+                <p className="text-xs text-gray-400 font-sans italic">No matching tax rule for this category.</p>
+              )}
+
               {/* Row 2: payment status */}
               <div className="grid grid-cols-3 gap-2 items-end">
                 <div>
@@ -221,6 +298,25 @@ function LineItemsEditor({ items, onChange }: { items: LineItemDraft[]; onChange
               Total: {formatNumber(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0))}
             </span>
           </div>
+
+          {/* Tax Summary box */}
+          {hasTax && (
+            <div className="border border-amber-100 rounded-xl bg-amber-50/60 px-4 py-3 space-y-1.5">
+              <p className="text-xs font-sans font-semibold text-amber-800 uppercase tracking-wide">Tax Summary</p>
+              {inputVatAdditive > 0 && (
+                <div className="flex items-center justify-between text-xs font-sans">
+                  <span className="text-gray-600">Input VAT / GST (reclaimable)</span>
+                  <span className="font-medium text-blue-700">{formatCurrency(inputVatAdditive, currency)}</span>
+                </div>
+              )}
+              {whtWithheld > 0 && (
+                <div className="flex items-center justify-between text-xs font-sans">
+                  <span className="text-gray-600">WHT / TDS to withhold</span>
+                  <span className="font-medium text-amber-700">{formatCurrency(whtWithheld, currency)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -249,6 +345,7 @@ export default function ExpensesPage() {
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([]);
   const [vendorId, setVendorId] = useState<string | null>(null);
+  const [taxConfigs, setTaxConfigs] = useState<TaxConfigMeta[] | null>(null);
 
   // Filters
   const [filterSearch, setFilterSearch] = useState("");
@@ -298,6 +395,19 @@ export default function ExpensesPage() {
       setValue("amount", total);
     }
   }, [lineItems, setValue]);
+
+  // Fetch tax configs when form opens
+  useEffect(() => {
+    if (!showForm) return;
+    const orgId = session?.user?.organizationId;
+    if (!orgId) return;
+    const params = new URLSearchParams({ orgId });
+    if (selectedId) params.set("propertyId", selectedId);
+    fetch(`/api/tax-configs?${params}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((configs: TaxConfigMeta[]) => setTaxConfigs(configs.filter((c) => c.isActive !== false)))
+      .catch(() => setTaxConfigs([]));
+  }, [showForm, selectedId, session?.user?.organizationId]);
 
   // Fetch petty cash balance when form is shown
   useEffect(() => {
@@ -1015,7 +1125,12 @@ export default function ExpensesPage() {
 
               {/* Divider */}
               <div className="border-t border-gray-100 pt-4">
-                <LineItemsEditor items={lineItems} onChange={setLineItems} />
+                <LineItemsEditor
+                  items={lineItems}
+                  onChange={setLineItems}
+                  taxConfigs={taxConfigs}
+                  currency={currency}
+                />
               </div>
 
               <div className="flex gap-3 pt-2">

@@ -9,8 +9,9 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthPage = pathname.startsWith("/login");
   const isSelectOrgPage = pathname.startsWith("/select-org");
+  const isPortalPage = pathname.startsWith("/portal/");
 
-  if (!isLoggedIn && !isAuthPage) {
+  if (!isLoggedIn && !isAuthPage && !isPortalPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

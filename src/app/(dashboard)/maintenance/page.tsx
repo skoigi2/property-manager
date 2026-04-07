@@ -47,7 +47,9 @@ interface Job {
   completedDate?: string | null;
   cost?:          number | null;
   notes?:         string | null;
-  expenseId?:     string | null;   // set once expense has been logged
+  expenseId?:          string | null;   // set once expense has been logged
+  submittedViaPortal?: boolean;
+  isEmergency?:        boolean;
   property:      { id: string; name: string };
   unit?:         { id: string; unitNumber: string } | null;
 }
@@ -385,6 +387,11 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
         </span>
         <span>{job.property.name}</span>
         {job.unit && <span>· Unit {job.unit.unitNumber}</span>}
+        {job.submittedViaPortal && (
+          <span className="bg-blue-50 border border-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+            Tenant Request
+          </span>
+        )}
       </div>
 
       {/* Description */}
@@ -530,6 +537,7 @@ export default function MaintenancePage() {
   const [deleting, setDeleting]     = useState(false);
   const [advancing, setAdvancing]   = useState<string | null>(null);
   const [filterProperty, setFilterProperty] = useState("");
+  const [filterPortalOnly, setFilterPortalOnly] = useState(false);
   const [showDone, setShowDone]     = useState(false);
   const [logExpenseTarget, setLogExpenseTarget] = useState<Job | null>(null);
   const [jobVendorId, setJobVendorId] = useState<string | null>(null);
@@ -573,11 +581,12 @@ export default function MaintenancePage() {
     const params = new URLSearchParams();
     const effectiveProp = filterProperty || selectedId || "";
     if (effectiveProp) params.set("propertyId", effectiveProp);
+    if (filterPortalOnly) params.set("portalOnly", "true");
     fetch(`/api/maintenance?${params}`)
       .then((r) => r.json())
       .then((d) => { setJobs(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [filterProperty, selectedId]);
+  }, [filterProperty, filterPortalOnly, selectedId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -917,6 +926,16 @@ export default function MaintenancePage() {
                   <option value="">All properties</option>
                   {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+                <button
+                  onClick={() => setFilterPortalOnly(!filterPortalOnly)}
+                  className={`text-xs font-sans px-3 py-1.5 rounded-lg border transition-colors ${
+                    filterPortalOnly
+                      ? "bg-blue-50 border-blue-300 text-blue-700"
+                      : "border-gray-200 text-gray-400 hover:text-header"
+                  }`}
+                >
+                  Tenant Requests
+                </button>
                 <button
                   onClick={() => setShowDone(!showDone)}
                   className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"

@@ -27,10 +27,11 @@ model Organization {
   users                 User[]
   properties            Property[]
   memberships           UserOrganizationMembership[]
-  vendors               Vendor[]
-  taxConfigurations     TaxConfiguration[]
-  createdAt             DateTime                     @default(now())
-  updatedAt             DateTime                     @updatedAt
+  vendors                Vendor[]
+  taxConfigurations      TaxConfiguration[]
+  complianceCertificates ComplianceCertificate[]
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
 }
 
 model UserOrganizationMembership {
@@ -393,10 +394,11 @@ model Property {
   agreement             ManagementAgreement?
   conditionReports      BuildingConditionReport[]
   ownerInvoices         OwnerInvoice[]
-  maintenanceSchedules  AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
-  taxConfigurations     TaxConfiguration[]
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  maintenanceSchedules   AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
+  taxConfigurations      TaxConfiguration[]
+  complianceCertificates ComplianceCertificate[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 }
 
 model Unit {
@@ -451,6 +453,8 @@ model Tenant {
   escalationRate   Float?
   chargeLatePenalty Boolean         @default(false)
   isTaxExempt      Boolean         @default(false)
+  portalToken          String?          @unique
+  portalTokenExpiresAt DateTime?
   unit             Unit             @relation(fields: [unitId], references: [id])
   incomeEntries     IncomeEntry[]
   invoices          Invoice[]
@@ -465,6 +469,7 @@ model Tenant {
   @@index([isActive])
   @@index([unitId, isActive])
   @@index([leaseEnd])
+  @@index([portalToken])
 }
 
 model RentHistory {
@@ -615,9 +620,10 @@ model MaintenanceJob {
   notes            String?
   expenseId        String?             // ID of the linked ExpenseEntry (once logged)
   vendorId         String?
-  isEmergency      Boolean             @default(false)
-  acknowledgedAt   DateTime?
-  requiresApproval Boolean             @default(false)
+  isEmergency        Boolean             @default(false)
+  submittedViaPortal Boolean             @default(false)
+  acknowledgedAt     DateTime?
+  requiresApproval   Boolean             @default(false)
   approvedAt       DateTime?
   approvalNotes    String?
   property         Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -1097,4 +1103,27 @@ model TaxConfiguration {
   @@index([orgId])
   @@index([propertyId])
   @@index([orgId, isActive])
+}
+
+// ─── Compliance Certificates ─────────────────────────────────────────────────
+
+model ComplianceCertificate {
+  id                  String        @id @default(cuid())
+  organizationId      String?
+  propertyId          String
+  certificateType     String        // free-text: "Gas Safety", "EPC", "HMO License", etc.
+  certificateNumber   String?
+  issuedBy            String?
+  issueDate           DateTime
+  expiryDate          DateTime?     // null = ongoing / no expiry
+  notes               String?
+  documentStoragePath String?
+  property            Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  organization        Organization? @relation(fields: [organizationId], references: [id])
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([propertyId])
+  @@index([organizationId])
+  @@index([expiryDate])
 }

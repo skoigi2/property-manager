@@ -12,7 +12,7 @@ import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import {
   CheckCircle2, AlertTriangle, XCircle, Clock, Target, DollarSign,
-  Calendar, Building2, Wrench, ChevronRight, Settings,
+  Calendar, Building2, Wrench, ChevronRight, Settings, ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -183,6 +183,7 @@ export default function CompliancePage() {
   const [data,  setData]  = useState<ComplianceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [certs, setCerts] = useState<{ id: string; certificateType: string; status: string; property: { name: string }; expiryDate: string | null }[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -195,6 +196,15 @@ export default function CompliancePage() {
   }, [selectedId, year, month]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (selectedId) params.set("propertyId", selectedId);
+    fetch(`/api/compliance/certificates?${params}`)
+      .then((r) => r.json())
+      .then((d) => setCerts(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, [selectedId]);
 
   const propertyIdForAgreement = selectedId || "";
 
@@ -451,6 +461,58 @@ export default function CompliancePage() {
                       </div>
                     </Link>
                   ))}
+                </div>
+              </Card>
+            )}
+
+            {/* ── Compliance Certificates ── */}
+            {certs.length > 0 && (
+              <Card>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <ShieldCheck size={14} className="text-blue-500" />
+                    </div>
+                    <div>
+                      <h2 className="font-display text-header text-sm">Compliance Certificates</h2>
+                      <p className="text-xs text-gray-400 font-sans">Certificate validity and upcoming renewals</p>
+                    </div>
+                  </div>
+                  <Link href="/compliance/certificates" className="text-xs text-gray-400 hover:text-header font-sans flex items-center gap-1 transition-colors">
+                    View all <ChevronRight size={12} />
+                  </Link>
+                </div>
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  {[
+                    { label: "Expired",       count: certs.filter((c) => c.status === "EXPIRED").length,       variant: "red"   as const },
+                    { label: "Expiring Soon", count: certs.filter((c) => c.status === "EXPIRING_SOON").length, variant: "amber" as const },
+                    { label: "Valid",         count: certs.filter((c) => c.status === "VALID").length,         variant: "green" as const },
+                  ].map((s) => s.count > 0 && (
+                    <div key={s.label} className="flex items-center gap-1.5 text-xs text-gray-500 font-sans">
+                      <Badge variant={s.variant}>{s.count}</Badge> {s.label}
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {certs
+                    .filter((c) => c.status === "EXPIRED" || c.status === "EXPIRING_SOON")
+                    .slice(0, 5)
+                    .map((cert) => (
+                      <div key={cert.id} className={`flex items-center justify-between p-3 rounded-lg border ${cert.status === "EXPIRED" ? "bg-red-50/40 border-red-100" : "bg-amber-50/40 border-amber-100"}`}>
+                        <div>
+                          <p className="text-sm font-semibold font-sans text-header">{cert.certificateType}</p>
+                          <p className="text-xs text-gray-500 font-sans">{cert.property.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={cert.status === "EXPIRED" ? "red" : "amber"}>
+                            {cert.status === "EXPIRED" ? "Expired" : "Expiring Soon"}
+                          </Badge>
+                          <Link href="/compliance/certificates" className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100">
+                            <ChevronRight size={14} />
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </Card>
             )}

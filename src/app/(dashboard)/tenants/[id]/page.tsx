@@ -19,7 +19,7 @@ import toast from "react-hot-toast";
 import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
   Download, FileText, Loader2, ScrollText, FolderOpen, RefreshCw, Mail,
-  ShieldCheck, Plus, X, Banknote,
+  ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy,
 } from "lucide-react";
 import { differenceInMonths, startOfMonth, addMonths, format } from "date-fns";
 
@@ -285,6 +285,8 @@ export default function TenantDetailPage() {
   const [settlement, setSettlement] = useState<DepositSettlement | null>(null);
   const [settlementLoading, setSettlementLoading] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
+  const [portalGenerating, setPortalGenerating] = useState(false);
+  const [portalRevoking, setPortalRevoking] = useState(false);
 
   const tenantId = params.id as string;
 
@@ -339,6 +341,35 @@ export default function TenantDetailPage() {
       URL.revokeObjectURL(url);
     } catch { /* silently fail */ }
     finally { setDownloadingId(null); }
+  }
+
+  async function generatePortalLink() {
+    setPortalGenerating(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/portal-token`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setTenant((t: any) => ({ ...t, portalToken: data.portalToken, portalTokenExpiresAt: data.portalTokenExpiresAt }));
+      toast.success("Portal link generated");
+    } catch {
+      toast.error("Failed to generate portal link");
+    } finally {
+      setPortalGenerating(false);
+    }
+  }
+
+  async function revokePortalLink() {
+    setPortalRevoking(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/portal-token`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setTenant((t: any) => ({ ...t, portalToken: null, portalTokenExpiresAt: null }));
+      toast.success("Portal link revoked");
+    } catch {
+      toast.error("Failed to revoke portal link");
+    } finally {
+      setPortalRevoking(false);
+    }
   }
 
   const leaseStatus    = getLeaseStatus(tenant?.leaseEnd);
@@ -422,6 +453,38 @@ export default function TenantDetailPage() {
                   >
                     <Mail size={13} /> Draft Email
                   </button>
+                  {/* Portal link button */}
+                  {!tenant.portalToken ? (
+                    <button
+                      onClick={generatePortalLink}
+                      disabled={portalGenerating}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 text-xs font-sans rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {portalGenerating ? <Loader2 size={13} className="animate-spin" /> : <Link2 size={13} />}
+                      Portal Link
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/portal/${tenant.portalToken}`);
+                          toast.success("Link copied!");
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-sans rounded-lg transition-colors"
+                        title="Copy portal link"
+                      >
+                        <Copy size={13} /> Copy Link
+                      </button>
+                      <button
+                        onClick={revokePortalLink}
+                        disabled={portalRevoking}
+                        className="flex items-center gap-1.5 px-2 py-1.5 border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 text-xs font-sans rounded-lg transition-colors disabled:opacity-50"
+                        title="Revoke portal link"
+                      >
+                        {portalRevoking ? <Loader2 size={13} className="animate-spin" /> : <Link2Off size={13} />}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -31,6 +31,7 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
   const propertyId = searchParams.get("propertyId");
   const category = searchParams.get("category");
+  const portalOnly = searchParams.get("portalOnly") === "true";
 
   const effectivePropertyIds = propertyId && propertyIds.includes(propertyId)
     ? [propertyId]
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
       propertyId: { in: effectivePropertyIds },
       ...(status ? { status: status as never } : {}),
       ...(category ? { category: category as never } : {}),
+      ...(portalOnly ? { submittedViaPortal: true } : {}),
     },
     include: {
       property: { select: { id: true, name: true } },

@@ -241,9 +241,11 @@ export default function PortalPage({ params }: { params: { token: string } }) {
       <div className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           {orgLogo ? (
-            <img src={orgLogo} alt={orgName} className="h-9 w-9 rounded-lg object-cover" />
+            <div className="h-10 w-20 rounded-lg bg-white border border-gray-100 flex items-center justify-center overflow-hidden shrink-0 p-1">
+              <img src={orgLogo} alt={orgName} className="max-h-full max-w-full object-contain" />
+            </div>
           ) : (
-            <div className="h-9 w-9 rounded-lg bg-gray-900 flex items-center justify-center text-white font-semibold text-sm">
+            <div className="h-10 w-10 rounded-lg bg-gray-900 flex items-center justify-center text-white font-semibold text-sm shrink-0">
               {orgName.charAt(0)}
             </div>
           )}

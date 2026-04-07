@@ -171,9 +171,18 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
               );
             })()}
           </View>
-          <View>
+          <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.invoiceLabel}>INVOICE</Text>
             <Text style={styles.invoiceNumber}>{data.invoiceNumber}</Text>
+            <View style={{ marginTop: 10, alignItems: "flex-end" }}>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "#1a1a2e", textAlign: "right" }}>
+                {data.tenant.unit.property.name}
+              </Text>
+              <Text style={{ fontSize: 9, color: "#6b7280", textAlign: "right", marginTop: 2 }}>
+                Unit {data.tenant.unit.unitNumber}
+                {data.tenant.unit.property.city ? `  ·  ${data.tenant.unit.property.city}` : ""}
+              </Text>
+            </View>
           </View>
         </View>
 

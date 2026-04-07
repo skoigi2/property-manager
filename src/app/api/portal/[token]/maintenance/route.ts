@@ -5,6 +5,39 @@ import { MaintenanceCategory } from "@prisma/client";
 
 const VALID_CATEGORIES = Object.values(MaintenanceCategory);
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { token: string } }
+) {
+  const tenant = await validatePortalToken(params.token);
+  if (!tenant) {
+    return Response.json({ error: "Invalid or expired link" }, { status: 404 });
+  }
+
+  const jobs = await prisma.maintenanceJob.findMany({
+    where: {
+      unitId: tenant.unitId,
+      submittedViaPortal: true,
+    },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      category: true,
+      status: true,
+      priority: true,
+      isEmergency: true,
+      reportedDate: true,
+      scheduledDate: true,
+      completedDate: true,
+      notes: true,
+    },
+    orderBy: { reportedDate: "desc" },
+  });
+
+  return Response.json(jobs);
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { token: string } }
@@ -42,7 +75,19 @@ export async function POST(
       isEmergency: isEmergency === true,
       requiresApproval: false,
     },
-    select: { id: true, title: true, status: true },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      category: true,
+      status: true,
+      priority: true,
+      isEmergency: true,
+      reportedDate: true,
+      scheduledDate: true,
+      completedDate: true,
+      notes: true,
+    },
   });
 
   return Response.json(job, { status: 201 });

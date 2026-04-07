@@ -59,6 +59,28 @@ type Doc = {
   url: string | null;
 };
 
+type MaintenanceRequest = {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  status: "OPEN" | "IN_PROGRESS" | "AWAITING_PARTS" | "DONE" | "CANCELLED";
+  priority: string;
+  isEmergency: boolean;
+  reportedDate: string;
+  scheduledDate: string | null;
+  completedDate: string | null;
+  notes: string | null;
+};
+
+const REQUEST_STATUS: Record<MaintenanceRequest["status"], { label: string; bg: string; text: string }> = {
+  OPEN:           { label: "Open",           bg: "bg-red-100",    text: "text-red-700"    },
+  IN_PROGRESS:    { label: "In Progress",    bg: "bg-amber-100",  text: "text-amber-700"  },
+  AWAITING_PARTS: { label: "Awaiting Parts", bg: "bg-blue-100",   text: "text-blue-700"   },
+  DONE:           { label: "Completed",      bg: "bg-green-100",  text: "text-green-700"  },
+  CANCELLED:      { label: "Cancelled",      bg: "bg-gray-100",   text: "text-gray-500"   },
+};
+
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -112,6 +134,10 @@ export default function PortalPage({ params }: { params: { token: string } }) {
   const [invalid, setInvalid] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
 
+  // Maintenance requests
+  const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+
   // Maintenance form
   const [form, setForm] = useState({
     title: "",
@@ -142,6 +168,20 @@ export default function PortalPage({ params }: { params: { token: string } }) {
       .finally(() => setDocsLoading(false));
   }, [tab, params.token, docs.length]);
 
+  function loadRequests() {
+    setRequestsLoading(true);
+    fetch(`/api/portal/${params.token}/maintenance`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setRequests(Array.isArray(d) ? d : []))
+      .finally(() => setRequestsLoading(false));
+  }
+
+  useEffect(() => {
+    if (tab !== "request") return;
+    loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, params.token]);
+
   async function handleSubmitRequest(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title.trim()) return;
@@ -153,6 +193,8 @@ export default function PortalPage({ params }: { params: { token: string } }) {
     });
     setSubmitting(false);
     if (res.ok) {
+      const newJob: MaintenanceRequest = await res.json();
+      setRequests((prev) => [newJob, ...prev]);
       setSubmitted(true);
       setForm({ title: "", description: "", category: "OTHER", isEmergency: false });
       toast.success("Request submitted successfully");
@@ -483,6 +525,61 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                     {submitting ? "Submitting..." : "Submit Request"}
                   </button>
                 </form>
+              )}
+            </div>
+
+            {/* My past requests */}
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700 mb-2">My Requests</h2>
+              {requestsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
+                </div>
+              ) : requests.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-sm">
+                  No requests submitted yet
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {requests.map((req) => {
+                    const s = REQUEST_STATUS[req.status];
+                    return (
+                      <div key={req.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-gray-900 leading-snug">{req.title}</p>
+                          <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+                            {s.label}
+                          </span>
+                        </div>
+                        {req.description && (
+                          <p className="text-xs text-gray-500 line-clamp-2">{req.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                          <span>{CATEGORIES.find((c) => c.value === req.category)?.label ?? req.category}</span>
+                          <span>Submitted {format(new Date(req.reportedDate), "d MMM yyyy")}</span>
+                          {req.isEmergency && (
+                            <span className="text-red-500 font-medium">Emergency</span>
+                          )}
+                          {req.scheduledDate && req.status !== "DONE" && (
+                            <span className="text-blue-500">
+                              Scheduled {format(new Date(req.scheduledDate), "d MMM")}
+                            </span>
+                          )}
+                          {req.completedDate && (
+                            <span className="text-green-600">
+                              Completed {format(new Date(req.completedDate), "d MMM yyyy")}
+                            </span>
+                          )}
+                        </div>
+                        {req.notes && req.status === "DONE" && (
+                          <p className="text-xs text-gray-500 bg-gray-50 rounded px-2.5 py-1.5 italic">
+                            {req.notes}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </>

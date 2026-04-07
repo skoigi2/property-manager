@@ -16,7 +16,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       property: {
         select: {
           id: true, name: true, address: true, city: true, logoUrl: true, currency: true,
-          organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true } },
+          organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true, vatRegistrationNumber: true } },
+          agreement: {
+            select: {
+              mgmtBankName: true, mgmtBankAccountName: true, mgmtBankAccountNumber: true, mgmtBankBranch: true,
+              mgmtMpesaPaybill: true, mgmtMpesaAccountNumber: true, mgmtMpesaTill: true, mgmtPaymentInstructions: true,
+            },
+          },
         },
       },
       owner: { select: { name: true, email: true, phone: true } },
@@ -28,12 +34,24 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const org = invoice.property.organization;
+  const orgBase = invoice.property.organization;
+  const agreement = invoice.property.agreement;
+  const org = orgBase ? {
+    ...orgBase,
+    bankName: agreement?.mgmtBankName ?? null,
+    bankAccountName: agreement?.mgmtBankAccountName ?? null,
+    bankAccountNumber: agreement?.mgmtBankAccountNumber ?? null,
+    bankBranch: agreement?.mgmtBankBranch ?? null,
+    mpesaPaybill: agreement?.mgmtMpesaPaybill ?? null,
+    mpesaAccountNumber: agreement?.mgmtMpesaAccountNumber ?? null,
+    mpesaTill: agreement?.mgmtMpesaTill ?? null,
+    paymentInstructions: agreement?.mgmtPaymentInstructions ?? null,
+  } : null;
   const data: OwnerInvoiceData = {
     ...invoice,
     lineItems: invoice.lineItems as OwnerInvoiceLineItem[],
     currency: invoice.property.currency,
-    org: org ?? null,
+    org,
     property: {
       ...invoice.property,
       logoUrl: invoice.property.logoUrl ?? null,

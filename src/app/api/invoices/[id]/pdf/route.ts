@@ -23,11 +23,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 select: {
                   id: true, name: true, address: true, city: true, logoUrl: true, currency: true,
                   organization: {
+                    select: { name: true, logoUrl: true, address: true, phone: true, email: true, vatRegistrationNumber: true },
+                  },
+                  agreement: {
                     select: {
-                      name: true, logoUrl: true, address: true, phone: true, email: true,
-                      vatRegistrationNumber: true,
-                      bankName: true, bankAccountName: true, bankAccountNumber: true, bankBranch: true,
-                      mpesaPaybill: true, mpesaAccountNumber: true, mpesaTill: true, paymentInstructions: true,
+                      tenantBankName: true, tenantBankAccountName: true, tenantBankAccountNumber: true, tenantBankBranch: true,
+                      tenantMpesaPaybill: true, tenantMpesaAccountNumber: true, tenantMpesaTill: true, tenantPaymentInstructions: true,
                     },
                   },
                 },
@@ -44,11 +45,23 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const org = invoice.tenant.unit.property.organization;
+  const orgBase = invoice.tenant.unit.property.organization;
+  const agreement = invoice.tenant.unit.property.agreement;
+  const org = orgBase ? {
+    ...orgBase,
+    bankName: agreement?.tenantBankName ?? null,
+    bankAccountName: agreement?.tenantBankAccountName ?? null,
+    bankAccountNumber: agreement?.tenantBankAccountNumber ?? null,
+    bankBranch: agreement?.tenantBankBranch ?? null,
+    mpesaPaybill: agreement?.tenantMpesaPaybill ?? null,
+    mpesaAccountNumber: agreement?.tenantMpesaAccountNumber ?? null,
+    mpesaTill: agreement?.tenantMpesaTill ?? null,
+    paymentInstructions: agreement?.tenantPaymentInstructions ?? null,
+  } : null;
   const pdfBuffer = await generateInvoicePdf({
     ...invoice,
     currency: invoice.tenant.unit.property.currency,
-    org: org ?? null,
+    org,
     tenant: {
       ...invoice.tenant,
       unit: {

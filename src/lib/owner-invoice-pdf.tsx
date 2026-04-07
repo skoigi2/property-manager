@@ -50,6 +50,22 @@ const styles = StyleSheet.create({
   statusPaidText:  { color: "#065f46", fontFamily: "Helvetica-Bold", fontSize: 9 },
   statusUnpaid:    { backgroundColor: "#fef3c7", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 4 },
   statusUnpaidText:{ color: "#92400e", fontFamily: "Helvetica-Bold", fontSize: 9 },
+  statusOverdue:     { backgroundColor: "#fee2e2", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 4 },
+  statusOverdueText: { color: "#991b1b", fontFamily: "Helvetica-Bold", fontSize: 9 },
+  statusDraft:       { backgroundColor: "#f3f4f6", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 4 },
+  statusDraftText:   { color: "#6b7280", fontFamily: "Helvetica-Bold", fontSize: 9 },
+  // How to Pay section
+  paySection:      { marginTop: 24, borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 16 },
+  paySectionTitle: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 },
+  payRemitTo:      { fontSize: 9, color: "#374151", marginBottom: 10 },
+  payGrid:         { flexDirection: "row", gap: 16 },
+  payBlock:        { flex: 1, backgroundColor: "#f9fafb", borderRadius: 6, padding: 10 },
+  payBlockTitle:   { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 },
+  payRow:          { flexDirection: "row", gap: 4, marginBottom: 2 },
+  payLabel:        { fontSize: 8, color: "#9ca3af", width: 80 },
+  payValue:        { fontSize: 8, color: "#1a1a2e", fontFamily: "Helvetica-Bold", flex: 1 },
+  payInstructions: { fontSize: 8, color: "#374151", lineHeight: 1.4, marginTop: 6 },
+  payContact:      { marginTop: 8, fontSize: 8, color: "#6b7280" },
   breakdownNote:   { fontSize: 8, color: "#9ca3af", marginTop: 12, textAlign: "right" },
   breakdownHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
   breakdownTitle:  { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#1a1a2e", marginBottom: 2 },
@@ -66,6 +82,14 @@ export type OrgBranding = {
   phone?: string | null;
   email?: string | null;
   vatRegistrationNumber?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
+  bankBranch?: string | null;
+  mpesaPaybill?: string | null;
+  mpesaAccountNumber?: string | null;
+  mpesaTill?: string | null;
+  paymentInstructions?: string | null;
 };
 
 export type OwnerInvoiceData = {
@@ -158,12 +182,19 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
   const periodLabel = `${MONTH_NAMES[data.periodMonth - 1]} ${data.periodYear}`;
   const dueDate  = format(new Date(data.dueDate), "d MMMM yyyy");
   const isPaid   = data.status === "PAID";
+  const isOverdue = data.status === "OVERDUE";
+  const isDraft   = data.status === "DRAFT";
   const typeLabel = OWNER_INVOICE_TYPE_LABELS[data.type] ?? "Owner Invoice";
+  const org = data.org;
 
   // Show two pages for MANAGEMENT_FEE invoices that have a per-unit breakdown
   const hasTaxLines  = data.lineItems.some((i) => (i as any).isTaxLine);
   const showBreakdown = data.type === "MANAGEMENT_FEE" && data.lineItems.filter((i) => !(i as any).isTaxLine).length > 1;
-  const vatRegNumber = data.property.vatRegistrationNumber ?? data.org?.vatRegistrationNumber ?? null;
+
+  // How to Pay section
+  const hasBankDetails = !!(org?.bankName || org?.bankAccountNumber);
+  const hasMpesa       = !!(org?.mpesaPaybill || org?.mpesaTill);
+  const showPaySection = !isPaid && (hasBankDetails || hasMpesa || !!org?.paymentInstructions);
 
   // Page 1 shows a single summary line; page 2 shows the detail
   const summaryItems: OwnerInvoiceLineItem[] = showBreakdown
@@ -171,6 +202,7 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
     : data.lineItems;
 
   const generatedOn = format(new Date(), "d MMM yyyy");
+  const footerOrg = org?.name ?? "Property Management";
 
   return (
     <Document>
@@ -180,9 +212,9 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
         <View style={styles.header}>
           <View style={styles.brandBlock}>
             {(() => {
-              const logoUrl = data.property.logoUrl ?? data.org?.logoUrl;
-              const brandName = data.org?.name ?? data.property.name;
-              const brandAddr = data.org?.address
+              const logoUrl = data.property.logoUrl ?? org?.logoUrl;
+              const brandName = org?.name ?? data.property.name;
+              const brandAddr = org?.address
                 ?? [data.property.address, data.property.city].filter(Boolean).join(", ")
                 ?? "";
               return logoUrl ? (
@@ -190,24 +222,35 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
                   <Image src={logoUrl} style={{ height: 40, marginBottom: 4, objectFit: "contain", objectPositionX: 0 }} />
                   <Text style={styles.brandSub}>{brandAddr}</Text>
+                  {org?.vatRegistrationNumber && (
+                    <Text style={[styles.brandSub, { marginTop: 2 }]}>KRA PIN: {org.vatRegistrationNumber}</Text>
+                  )}
+                  {(org?.phone || org?.email) && (
+                    <Text style={[styles.brandSub, { marginTop: 2 }]}>
+                      {[org?.phone, org?.email].filter(Boolean).join("  ·  ")}
+                    </Text>
+                  )}
                 </>
               ) : (
                 <>
                   <Text style={styles.brandName}>{brandName}</Text>
                   <Text style={styles.brandSub}>{brandAddr}</Text>
+                  {org?.vatRegistrationNumber && (
+                    <Text style={[styles.brandSub, { marginTop: 2 }]}>KRA PIN: {org.vatRegistrationNumber}</Text>
+                  )}
+                  {(org?.phone || org?.email) && (
+                    <Text style={[styles.brandSub, { marginTop: 2 }]}>
+                      {[org?.phone, org?.email].filter(Boolean).join("  ·  ")}
+                    </Text>
+                  )}
                 </>
               );
             })()}
           </View>
-          <View>
+          <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.invoiceLabel}>OWNER INVOICE</Text>
             <Text style={styles.invoiceType}>{typeLabel}</Text>
             <Text style={styles.invoiceNumber}>{data.invoiceNumber}</Text>
-            {vatRegNumber && (
-              <Text style={{ fontSize: 8, color: "#9ca3af", textAlign: "right", marginTop: 2 }}>
-                VAT Reg: {vatRegNumber}
-              </Text>
-            )}
           </View>
         </View>
 
@@ -229,6 +272,18 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
             {isPaid && data.paidAt && (
               <Text style={styles.bodyText}>Paid On: <Text style={styles.boldText}>{format(new Date(data.paidAt), "d MMM yyyy")}</Text></Text>
             )}
+            {/* Inline status badge */}
+            <View style={{ marginTop: 6 }}>
+              {isPaid ? (
+                <View style={styles.statusPaid}><Text style={styles.statusPaidText}>PAID</Text></View>
+              ) : isOverdue ? (
+                <View style={styles.statusOverdue}><Text style={styles.statusOverdueText}>OVERDUE</Text></View>
+              ) : isDraft ? (
+                <View style={styles.statusDraft}><Text style={styles.statusDraftText}>DRAFT</Text></View>
+              ) : (
+                <View style={styles.statusUnpaid}><Text style={styles.statusUnpaidText}>SENT — AWAITING PAYMENT</Text></View>
+              )}
+            </View>
           </View>
         </View>
 
@@ -251,24 +306,51 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
           <Text style={styles.breakdownNote}>See page 2 for per-unit fee breakdown</Text>
         )}
 
-        {/* Payment status */}
-        <View style={styles.statusBadge}>
-          {isPaid ? (
+        {/* PAID confirmation */}
+        {isPaid && (
+          <View style={styles.statusBadge}>
             <View style={styles.statusPaid}>
               <Text style={styles.statusPaidText}>
-                PAID — {data.paidAmount ? formatKsh(data.paidAmount) : formatKsh(data.totalAmount)}
+                ✓ PAID{data.paidAmount != null ? ` — ${fmt(data.paidAmount)}` : ""}{data.paidAt ? ` on ${format(new Date(data.paidAt), "d MMM yyyy")}` : ""}
               </Text>
             </View>
-          ) : (
-            <View style={styles.statusUnpaid}>
-              <Text style={styles.statusUnpaidText}>PAYMENT DUE BY {dueDate.toUpperCase()}</Text>
+          </View>
+        )}
+
+        {/* How to Pay */}
+        {showPaySection && (
+          <View style={styles.paySection}>
+            <Text style={styles.paySectionTitle}>How to Pay</Text>
+            <Text style={styles.payRemitTo}>Remit payment to: <Text style={{ fontFamily: "Helvetica-Bold" }}>{org?.name ?? ""}</Text></Text>
+            <View style={styles.payGrid}>
+              {hasBankDetails && (
+                <View style={styles.payBlock}>
+                  <Text style={styles.payBlockTitle}>Bank Transfer</Text>
+                  {org?.bankName && <View style={styles.payRow}><Text style={styles.payLabel}>Bank:</Text><Text style={styles.payValue}>{org.bankName}</Text></View>}
+                  {org?.bankAccountName && <View style={styles.payRow}><Text style={styles.payLabel}>Account Name:</Text><Text style={styles.payValue}>{org.bankAccountName}</Text></View>}
+                  {org?.bankAccountNumber && <View style={styles.payRow}><Text style={styles.payLabel}>Account No:</Text><Text style={styles.payValue}>{org.bankAccountNumber}</Text></View>}
+                  {org?.bankBranch && <View style={styles.payRow}><Text style={styles.payLabel}>Branch:</Text><Text style={styles.payValue}>{org.bankBranch}</Text></View>}
+                </View>
+              )}
+              {hasMpesa && (
+                <View style={styles.payBlock}>
+                  <Text style={styles.payBlockTitle}>M-Pesa</Text>
+                  {org?.mpesaPaybill && <View style={styles.payRow}><Text style={styles.payLabel}>Paybill:</Text><Text style={styles.payValue}>{org.mpesaPaybill}</Text></View>}
+                  {org?.mpesaPaybill && org?.mpesaAccountNumber && <View style={styles.payRow}><Text style={styles.payLabel}>Account No:</Text><Text style={styles.payValue}>{org.mpesaAccountNumber}</Text></View>}
+                  {org?.mpesaTill && <View style={styles.payRow}><Text style={styles.payLabel}>Till No:</Text><Text style={styles.payValue}>{org.mpesaTill}</Text></View>}
+                </View>
+              )}
             </View>
-          )}
-        </View>
+            {org?.paymentInstructions && <Text style={styles.payInstructions}>{org.paymentInstructions}</Text>}
+            {(org?.phone || org?.email) && (
+              <Text style={styles.payContact}>For queries contact: {[org?.phone, org?.email].filter(Boolean).join("  |  ")}</Text>
+            )}
+          </View>
+        )}
 
         {/* Notes */}
         {data.notes && (
-          <View style={{ marginTop: 20 }}>
+          <View style={{ marginTop: 16 }}>
             <Text style={styles.sectionLabel}>Notes</Text>
             <Text style={styles.bodyText}>{data.notes}</Text>
           </View>
@@ -278,7 +360,7 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
         <View style={styles.footer}>
           <View style={styles.footerDivider} />
           <Text style={styles.footerText}>
-            PKH Property Management · {data.property.name} · Generated {generatedOn}
+            {footerOrg} · {data.property.name} · Generated {generatedOn}
           </Text>
         </View>
       </Page>
@@ -307,7 +389,7 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
           <View style={styles.footer}>
             <View style={styles.footerDivider} />
             <Text style={styles.footerText}>
-              PKH Property Management · {data.property.name} · Generated {generatedOn} · Page 2
+              {footerOrg} · {data.property.name} · Generated {generatedOn} · Page 2
             </Text>
           </View>
         </Page>

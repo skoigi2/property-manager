@@ -22,14 +22,7 @@ export default function SettingsPage() {
 
   // Branding state
   const [org, setOrg] = useState<any>(null);
-  const [orgForm, setOrgForm] = useState({ name: "", address: "", phone: "", email: "", website: "" });
-  const [paymentForm, setPaymentForm] = useState({
-    vatRegistrationNumber: "",
-    bankName: "", bankAccountName: "", bankAccountNumber: "", bankBranch: "",
-    mpesaPaybill: "", mpesaAccountNumber: "", mpesaTill: "",
-    paymentInstructions: "",
-  });
-  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [orgForm, setOrgForm] = useState({ name: "", address: "", phone: "", email: "", website: "", vatRegistrationNumber: "" });
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -72,16 +65,7 @@ export default function SettingsPage() {
         const orgs = await res.json();
         const o = orgs[0] ?? null;
         setOrg(o);
-        if (o) {
-          setOrgForm({ name: o.name ?? "", address: o.address ?? "", phone: o.phone ?? "", email: o.email ?? "", website: o.website ?? "" });
-          setPaymentForm({
-            vatRegistrationNumber: o.vatRegistrationNumber ?? "",
-            bankName: o.bankName ?? "", bankAccountName: o.bankAccountName ?? "",
-            bankAccountNumber: o.bankAccountNumber ?? "", bankBranch: o.bankBranch ?? "",
-            mpesaPaybill: o.mpesaPaybill ?? "", mpesaAccountNumber: o.mpesaAccountNumber ?? "",
-            mpesaTill: o.mpesaTill ?? "", paymentInstructions: o.paymentInstructions ?? "",
-          });
-        }
+        if (o) setOrgForm({ name: o.name ?? "", address: o.address ?? "", phone: o.phone ?? "", email: o.email ?? "", website: o.website ?? "", vatRegistrationNumber: o.vatRegistrationNumber ?? "" });
       }
     } catch { /* ignore */ }
   }
@@ -101,26 +85,6 @@ export default function SettingsPage() {
     finally { setSaving(false); }
   }
 
-  async function savePaymentDetails() {
-    if (!org) return;
-    setPaymentSaving(true);
-    try {
-      const body: Record<string, string | null> = {};
-      (Object.keys(paymentForm) as (keyof typeof paymentForm)[]).forEach((k) => {
-        body[k] = paymentForm[k].trim() || null;
-      });
-      const res = await fetch(`/api/organizations/${org.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error();
-      toast.success("Payment details updated");
-      fetchOrg();
-    } catch { toast.error("Failed to save payment details"); }
-    finally { setPaymentSaving(false); }
-  }
-
   async function saveBranding() {
     if (!org) return;
     setBrandingSaving(true);
@@ -128,7 +92,7 @@ export default function SettingsPage() {
       const res = await fetch(`/api/organizations/${org.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orgForm),
+        body: JSON.stringify({ ...orgForm, vatRegistrationNumber: orgForm.vatRegistrationNumber.trim() || null }),
       });
       if (!res.ok) throw new Error();
       toast.success("Branding updated");
@@ -318,74 +282,11 @@ export default function SettingsPage() {
                           onChange={(e) => setOrgForm((p) => ({ ...p, address: e.target.value }))} />
                         <Input label="Website" value={orgForm.website}
                           onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
-                        <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>
-                      </div>
-                    </Card>
-
-                    {/* Payment Details */}
-                    <Card>
-                      <h3 className="font-sans font-semibold text-header mb-1 flex items-center gap-2">
-                        <Save size={16} className="text-gold" /> Payment Details
-                      </h3>
-                      <p className="text-xs text-gray-500 font-sans mb-4">
-                        These details appear on all invoices so tenants know exactly how to pay. At minimum, fill in either Bank or M-Pesa details.
-                      </p>
-                      <div className="space-y-4">
-                        <Input label="KRA PIN / VAT Registration Number" value={paymentForm.vatRegistrationNumber}
-                          onChange={(e) => setPaymentForm((p) => ({ ...p, vatRegistrationNumber: e.target.value }))}
+                        <Input label="KRA PIN / VAT Registration Number" value={orgForm.vatRegistrationNumber}
+                          onChange={(e) => setOrgForm((p) => ({ ...p, vatRegistrationNumber: e.target.value }))}
                           placeholder="e.g. P051234567X" />
-
-                        <div className="border-t border-gray-100 pt-4">
-                          <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">Bank Transfer</p>
-                          <div className="grid grid-cols-2 gap-4">
-                            <Input label="Bank Name" value={paymentForm.bankName}
-                              onChange={(e) => setPaymentForm((p) => ({ ...p, bankName: e.target.value }))}
-                              placeholder="e.g. Equity Bank" />
-                            <Input label="Account Name" value={paymentForm.bankAccountName}
-                              onChange={(e) => setPaymentForm((p) => ({ ...p, bankAccountName: e.target.value }))}
-                              placeholder="e.g. Acme Properties Ltd" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mt-4">
-                            <Input label="Account Number" value={paymentForm.bankAccountNumber}
-                              onChange={(e) => setPaymentForm((p) => ({ ...p, bankAccountNumber: e.target.value }))}
-                              placeholder="e.g. 0123456789" />
-                            <Input label="Branch (optional)" value={paymentForm.bankBranch}
-                              onChange={(e) => setPaymentForm((p) => ({ ...p, bankBranch: e.target.value }))}
-                              placeholder="e.g. Westlands" />
-                          </div>
-                        </div>
-
-                        <div className="border-t border-gray-100 pt-4">
-                          <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">M-Pesa</p>
-                          <div className="grid grid-cols-2 gap-4">
-                            <Input label="Paybill Number" value={paymentForm.mpesaPaybill}
-                              onChange={(e) => setPaymentForm((p) => ({ ...p, mpesaPaybill: e.target.value }))}
-                              placeholder="e.g. 522522" />
-                            <Input label="Account Number (for Paybill)" value={paymentForm.mpesaAccountNumber}
-                              onChange={(e) => setPaymentForm((p) => ({ ...p, mpesaAccountNumber: e.target.value }))}
-                              placeholder="e.g. tenant unit number" />
-                          </div>
-                          <div className="mt-4">
-                            <Input label="Till Number (alternative to Paybill)" value={paymentForm.mpesaTill}
-                              onChange={(e) => setPaymentForm((p) => ({ ...p, mpesaTill: e.target.value }))}
-                              placeholder="e.g. 123456" />
-                          </div>
-                        </div>
-
-                        <div className="border-t border-gray-100 pt-4">
-                          <label className="block text-xs font-sans font-medium text-gray-500 mb-1.5">
-                            Additional Payment Instructions (optional)
-                          </label>
-                          <textarea
-                            value={paymentForm.paymentInstructions}
-                            onChange={(e) => setPaymentForm((p) => ({ ...p, paymentInstructions: e.target.value }))}
-                            placeholder="e.g. Please use your unit number as the payment reference."
-                            rows={3}
-                            className="w-full text-sm font-sans border border-gray-200 rounded-xl px-3 py-2.5 text-header placeholder:text-gray-300 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 resize-none"
-                          />
-                        </div>
-
-                        <Button loading={paymentSaving} onClick={savePaymentDetails}><Save size={14} /> Save payment details</Button>
+                        <p className="text-xs text-gray-400 font-sans -mt-2">Appears in the header of all invoice PDFs. Payment details are configured per-property under Properties → Agreement.</p>
+                        <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>
                       </div>
                     </Card>
 

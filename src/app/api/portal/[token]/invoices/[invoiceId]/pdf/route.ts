@@ -21,7 +21,28 @@ export async function GET(
   }
 
   const property = tenant.unit.property;
-  const org = property.organization;
+  const orgBase = property.organization;
+
+  // Fetch per-property payment details from ManagementAgreement
+  const agreement = await prisma.managementAgreement.findUnique({
+    where: { propertyId: property.id },  // ManagementAgreement has unique propertyId
+    select: {
+      tenantBankName: true, tenantBankAccountName: true, tenantBankAccountNumber: true, tenantBankBranch: true,
+      tenantMpesaPaybill: true, tenantMpesaAccountNumber: true, tenantMpesaTill: true, tenantPaymentInstructions: true,
+    },
+  });
+
+  const org = orgBase ? {
+    ...orgBase,
+    bankName: agreement?.tenantBankName ?? null,
+    bankAccountName: agreement?.tenantBankAccountName ?? null,
+    bankAccountNumber: agreement?.tenantBankAccountNumber ?? null,
+    bankBranch: agreement?.tenantBankBranch ?? null,
+    mpesaPaybill: agreement?.tenantMpesaPaybill ?? null,
+    mpesaAccountNumber: agreement?.tenantMpesaAccountNumber ?? null,
+    mpesaTill: agreement?.tenantMpesaTill ?? null,
+    paymentInstructions: agreement?.tenantPaymentInstructions ?? null,
+  } : null;
 
   const buffer = await generateInvoicePdf({
     invoiceNumber: invoice.invoiceNumber,
@@ -37,24 +58,7 @@ export async function GET(
     paidAmount: invoice.paidAmount,
     notes: invoice.notes,
     currency: property.currency,
-    org: org
-      ? {
-          name: org.name,
-          logoUrl: org.logoUrl,
-          address: org.address,
-          phone: org.phone,
-          email: org.email,
-          vatRegistrationNumber: org.vatRegistrationNumber,
-          bankName: org.bankName,
-          bankAccountName: org.bankAccountName,
-          bankAccountNumber: org.bankAccountNumber,
-          bankBranch: org.bankBranch,
-          mpesaPaybill: org.mpesaPaybill,
-          mpesaAccountNumber: org.mpesaAccountNumber,
-          mpesaTill: org.mpesaTill,
-          paymentInstructions: org.paymentInstructions,
-        }
-      : null,
+    org,
     tenant: {
       name: tenant.name,
       email: tenant.email,

@@ -26,6 +26,24 @@ const agreementSchema = z.object({
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1).default(24),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1).default(96),
   latePaymentInterestRate:        z.coerce.number().min(0).max(100).default(0),
+  // Tenant invoice payment details
+  tenantBankName:                 z.string().optional().nullable(),
+  tenantBankAccountName:          z.string().optional().nullable(),
+  tenantBankAccountNumber:        z.string().optional().nullable(),
+  tenantBankBranch:               z.string().optional().nullable(),
+  tenantMpesaPaybill:             z.string().optional().nullable(),
+  tenantMpesaAccountNumber:       z.string().optional().nullable(),
+  tenantMpesaTill:                z.string().optional().nullable(),
+  tenantPaymentInstructions:      z.string().optional().nullable(),
+  // Manager billing details
+  mgmtBankName:                   z.string().optional().nullable(),
+  mgmtBankAccountName:            z.string().optional().nullable(),
+  mgmtBankAccountNumber:          z.string().optional().nullable(),
+  mgmtBankBranch:                 z.string().optional().nullable(),
+  mgmtMpesaPaybill:               z.string().optional().nullable(),
+  mgmtMpesaAccountNumber:         z.string().optional().nullable(),
+  mgmtMpesaTill:                  z.string().optional().nullable(),
+  mgmtPaymentInstructions:        z.string().optional().nullable(),
 });
 
 export async function GET(

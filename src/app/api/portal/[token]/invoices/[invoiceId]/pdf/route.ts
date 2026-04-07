@@ -27,7 +27,7 @@ export async function GET(
   const agreement = await prisma.managementAgreement.findUnique({
     where: { propertyId: property.id },  // ManagementAgreement has unique propertyId
     select: {
-      kraPin: true,
+      tenantKraPin: true,
       tenantBankName: true, tenantBankAccountName: true, tenantBankAccountNumber: true, tenantBankBranch: true,
       tenantMpesaPaybill: true, tenantMpesaAccountNumber: true, tenantMpesaTill: true, tenantPaymentInstructions: true,
     },
@@ -35,7 +35,7 @@ export async function GET(
 
   const org = orgBase ? {
     ...orgBase,
-    vatRegistrationNumber: agreement?.kraPin ?? orgBase.vatRegistrationNumber ?? null,
+    vatRegistrationNumber: agreement?.tenantKraPin ?? orgBase.vatRegistrationNumber ?? null,
     bankName: agreement?.tenantBankName ?? null,
     bankAccountName: agreement?.tenantBankAccountName ?? null,
     bankAccountNumber: agreement?.tenantBankAccountNumber ?? null,

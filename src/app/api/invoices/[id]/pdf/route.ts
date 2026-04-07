@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                   },
                   agreement: {
                     select: {
-                      kraPin: true,
+                      tenantKraPin: true,
                       tenantBankName: true, tenantBankAccountName: true, tenantBankAccountNumber: true, tenantBankBranch: true,
                       tenantMpesaPaybill: true, tenantMpesaAccountNumber: true, tenantMpesaTill: true, tenantPaymentInstructions: true,
                     },
@@ -50,7 +50,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const agreement = invoice.tenant.unit.property.agreement;
   const org = orgBase ? {
     ...orgBase,
-    vatRegistrationNumber: agreement?.kraPin ?? orgBase.vatRegistrationNumber ?? null,
+    vatRegistrationNumber: agreement?.tenantKraPin ?? orgBase.vatRegistrationNumber ?? null,
     bankName: agreement?.tenantBankName ?? null,
     bankAccountName: agreement?.tenantBankAccountName ?? null,
     bankAccountNumber: agreement?.tenantBankAccountNumber ?? null,

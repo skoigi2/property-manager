@@ -11,7 +11,7 @@ import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { ArrowLeft, FileText, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 
 const schema = z.object({
@@ -38,9 +38,8 @@ const schema = z.object({
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1),
   latePaymentInterestRate:        z.coerce.number().min(0).max(100),
-  // Invoice identity
-  kraPin:                    z.string().optional(),
   // Tenant invoice payment details
+  tenantKraPin:              z.string().optional(),
   tenantBankName:            z.string().optional(),
   tenantBankAccountName:     z.string().optional(),
   tenantBankAccountNumber:   z.string().optional(),
@@ -50,6 +49,7 @@ const schema = z.object({
   tenantMpesaTill:           z.string().optional(),
   tenantPaymentInstructions: z.string().optional(),
   // Manager billing details
+  mgmtKraPin:                z.string().optional(),
   mgmtBankName:              z.string().optional(),
   mgmtBankAccountName:       z.string().optional(),
   mgmtBankAccountNumber:     z.string().optional(),
@@ -110,9 +110,10 @@ export default function AgreementPage() {
       kpiTenantTurnoverTarget: 90, kpiDaysToLeaseTarget: 60, kpiRenewalRateTarget: 90,
       kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
       latePaymentInterestRate: 0,
-      kraPin: "",
+      tenantKraPin: "",
       tenantBankName: "", tenantBankAccountName: "", tenantBankAccountNumber: "", tenantBankBranch: "",
       tenantMpesaPaybill: "", tenantMpesaAccountNumber: "", tenantMpesaTill: "", tenantPaymentInstructions: "",
+      mgmtKraPin: "",
       mgmtBankName: "", mgmtBankAccountName: "", mgmtBankAccountNumber: "", mgmtBankBranch: "",
       mgmtMpesaPaybill: "", mgmtMpesaAccountNumber: "", mgmtMpesaTill: "", mgmtPaymentInstructions: "",
     },
@@ -175,9 +176,10 @@ export default function AgreementPage() {
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
     const textFields = [
-      "kraPin",
+      "tenantKraPin",
       "tenantBankName","tenantBankAccountName","tenantBankAccountNumber","tenantBankBranch",
       "tenantMpesaPaybill","tenantMpesaAccountNumber","tenantMpesaTill","tenantPaymentInstructions",
+      "mgmtKraPin",
       "mgmtBankName","mgmtBankAccountName","mgmtBankAccountNumber","mgmtBankBranch",
       "mgmtMpesaPaybill","mgmtMpesaAccountNumber","mgmtMpesaTill","mgmtPaymentInstructions",
     ] as const;
@@ -317,22 +319,6 @@ export default function AgreementPage() {
             </div>
           </Card>
 
-          {/* ── Invoice Identity ── */}
-          <Card>
-            <SectionHeader
-              icon={ShieldCheck}
-              title="Invoice Identity"
-              subtitle="Appears in the header of all invoice PDFs issued for this property"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="KRA PIN / VAT Registration Number"
-                placeholder="e.g. P051234567X"
-                {...register("kraPin")}
-              />
-            </div>
-          </Card>
-
           {/* ── Tenant Invoice Payment Details ── */}
           <Card>
             <SectionHeader
@@ -341,6 +327,9 @@ export default function AgreementPage() {
               subtitle="Shown on rent invoices so tenants know where to send payment"
             />
             <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-100 pb-4">
+                <Input label="KRA PIN / VAT Registration Number" placeholder="e.g. P051234567X" {...register("tenantKraPin")} />
+              </div>
               <div className="border-b border-gray-100 pb-4">
                 <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">Bank Transfer</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -375,6 +364,9 @@ export default function AgreementPage() {
               subtitle="Shown on owner invoices so the property owner knows where to remit management fees"
             />
             <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-100 pb-4">
+                <Input label="KRA PIN / VAT Registration Number" placeholder="e.g. P051234567X" {...register("mgmtKraPin")} />
+              </div>
               <div className="border-b border-gray-100 pb-4">
                 <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">Bank Transfer</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

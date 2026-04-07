@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true, vatRegistrationNumber: true } },
           agreement: {
             select: {
-              kraPin: true,
+              mgmtKraPin: true,
               mgmtBankName: true, mgmtBankAccountName: true, mgmtBankAccountNumber: true, mgmtBankBranch: true,
               mgmtMpesaPaybill: true, mgmtMpesaAccountNumber: true, mgmtMpesaTill: true, mgmtPaymentInstructions: true,
             },
@@ -39,7 +39,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const agreement = invoice.property.agreement;
   const org = orgBase ? {
     ...orgBase,
-    vatRegistrationNumber: agreement?.kraPin ?? orgBase.vatRegistrationNumber ?? null,
+    vatRegistrationNumber: agreement?.mgmtKraPin ?? orgBase.vatRegistrationNumber ?? null,
     bankName: agreement?.mgmtBankName ?? null,
     bankAccountName: agreement?.mgmtBankAccountName ?? null,
     bankAccountNumber: agreement?.mgmtBankAccountNumber ?? null,

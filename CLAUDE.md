@@ -16,7 +16,12 @@ npm run db:studio    # Open Prisma Studio at localhost:5555
 npx tsc --noEmit     # Type-check without building
 ```
 
-After any schema change: `npx prisma migrate dev --name <name>` then `npx prisma generate`.
+**Schema changes** — `prisma migrate dev` does NOT work (shadow DB incompatibility with Supabase). Instead:
+1. Edit `prisma/schema.prisma`
+2. Create `prisma/migrations/[YYYYMMDDHHmmss]_[name]/migration.sql` manually with the raw SQL (follow existing files as templates)
+3. `npx prisma db push` — syncs local dev DB
+4. `npx prisma generate` — regenerates the client
+5. Apply the same SQL in the Supabase SQL Editor for production
 
 There are no automated tests. Validate changes with `npx tsc --noEmit` and `npm run build`.
 
@@ -25,8 +30,9 @@ There are no automated tests. Validate changes with `npx tsc --noEmit` and `npm 
 Next.js 14 App Router app. All source code lives in `src/`.
 
 ### Route groups
-- `src/app/(auth)/` — unauthenticated pages (`/login`)
+- `src/app/(auth)/` — unauthenticated pages (`/login`, `/select-org`)
 - `src/app/(dashboard)/` — all protected pages, share a sidebar layout (`layout.tsx`)
+- `src/app/(portal)/` — token-based tenant portal (no auth, no sidebar); bypassed by middleware
 - `src/app/api/` — Route Handlers only; no server components fetch data directly
 
 ### Auth & access control
@@ -52,8 +58,10 @@ Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireManager()` — ADMIN, MANAGER, or ACCOUNTANT (blocks OWNER)
 - `requireAdmin()` — ADMIN only (org-admin or super-admin)
 - `requireSuperAdmin()` — ADMIN role **and** `organizationId === null` (platform super-admin only)
-- `requirePropertyAccess(propertyId)` — verifies current user may access a specific property
+- `requirePropertyAccess(propertyId)` — verifies current user may access a specific property; returns `{ ok: boolean, error?: Response }`
 - `getAccessiblePropertyIds()` — returns property IDs the current user may see (ADMIN = all; OWNER = their owned properties; MANAGER/ACCOUNTANT = `PropertyAccess` records)
+
+**Return type**: `requireAuth()` / `requireManager()` / `requireAdmin()` / `requireSuperAdmin()` all return `{ error: Response | null, session? }`. The `error` IS the full `Response` object — use `if (error) return error;`, never destructure a `status` from it. `requirePropertyAccess()` returns `{ ok, error? }` — use `if (!access.ok) return access.error!`.
 
 ### Multi-tenancy & Organisations
 
@@ -114,6 +122,8 @@ When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route
 
 ### PDF generation
 `@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route sets `export const maxDuration = 30` at the top of `src/app/api/report/route.ts` to handle slow PDF renders (`vercel.json` is otherwise empty). Three separate generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices).
+
+The `OrgBranding` type in `invoice-pdf.tsx` carries payment fields (`bankName`, `bankAccountName`, `bankAccountNumber`, `bankBranch`, `mpesaPaybill`, `mpesaAccountNumber`, `mpesaTill`, `paymentInstructions`, `vatRegistrationNumber`) sourced from the `Organization` model. Both PDF routes (`/api/invoices/[id]/pdf` and `/api/portal/[token]/invoices/[invoiceId]/pdf`) must query and pass these fields. Configured in **Settings → Branding → Payment Details**.
 
 ### PWA
 `next-pwa` wraps the Next.js config. Service worker is disabled in development. `/api/dashboard` uses `StaleWhileRevalidate`; all other API routes use `NetworkFirst`.
@@ -209,6 +219,23 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 - `GET /api/properties/[id]/reassign-preview?targetOrgId=` — dry-run org reassignment showing which users gain/lose membership (super-admin only)
 
 **Owner Statement** — `GET /api/report/owner-statement?propertyId=&year=&month=` returns a per-unit income breakdown for owner-facing reports. Used by the `/report` page (OWNER role).
+
+**Compliance Certificates** — `ComplianceCertificate` model stores per-property compliance docs (types: free-text string, e.g. "Fire Safety", "Lift Inspection"). Status is computed at query time: `EXPIRED` (days < 0), `EXPIRING_SOON` (days ≤ 30), `VALID`, `ONGOING` (no `expiryDate`). API: `GET/POST /api/compliance/certificates`, `GET/PATCH/DELETE /api/compliance/certificates/[id]`. Page: `/compliance/certificates`.
+
+### Tenant Portal
+
+Token-based read-only portal for tenants — no login required, shareable link. Lives in the `(portal)` route group (`src/app/(portal)/portal/[token]/page.tsx`).
+
+- `portalToken` (UUID, unique) and `portalTokenExpiresAt` fields on `Tenant` model
+- Middleware allows `/portal/*` without a session
+- Shared auth helper: `src/lib/portal-auth.ts` → `validatePortalToken(token)` — returns the tenant with full unit/property/org includes, or `null` if missing/expired
+- Portal API routes all live under `src/app/api/portal/[token]/`:
+  - `GET /api/portal/[token]` — tenant info, unit, property, last 12 invoices, outstanding balance
+  - `GET /api/portal/[token]/documents` — tenant documents with signed Supabase URLs
+  - `GET /api/portal/[token]/invoices/[invoiceId]/pdf` — PDF download (validates invoice belongs to this tenant)
+  - `GET/POST /api/portal/[token]/maintenance` — GET returns only `submittedViaPortal: true` jobs; POST creates a job with `submittedViaPortal: true`, `priority: MEDIUM`, `status: OPEN`
+- Manager generates/revokes the link from the tenant detail page (`POST/DELETE /api/tenants/[id]/portal-token`)
+- Maintenance jobs submitted via portal show a "Tenant Request" badge in the maintenance queue; filterable via `?portalOnly=true` query param on `GET /api/maintenance`
 
 ## Environment Variables
 

@@ -3,12 +3,13 @@ import { forwardRef } from "react";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  help?: string;
   error?: string;
   prefix?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, prefix, className, id, ...props }, ref) => {
+  ({ label, help, error, prefix, className, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
     return (
       <div className="flex flex-col gap-1">
@@ -38,6 +39,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
         </div>
+        {help && !error && <p className="text-xs text-gray-400 font-sans">{help}</p>}
         {error && <p className="text-xs text-expense font-sans">{error}</p>}
       </div>
     );

@@ -11,7 +11,7 @@ import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { ArrowLeft, FileText, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2 } from "lucide-react";
+import { ArrowLeft, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 
 const schema = z.object({
@@ -75,16 +75,6 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: stri
   );
 }
 
-function Field({ label, help, error, children }: { label: string; help?: string; error?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="form-label">{label}</label>
-      {children}
-      {help && <p className="text-xs text-gray-400 font-sans mt-1">{help}</p>}
-      {error && <p className="form-error">{error}</p>}
-    </div>
-  );
-}
 
 export default function AgreementPage() {
   const { data: session } = useSession();
@@ -231,36 +221,16 @@ export default function AgreementPage() {
           <Card>
             <SectionHeader icon={DollarSign} title="Fee Structure" subtitle="Rates charged to the property owner" />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Field label="Management Fee (%)" help="% of gross collected rent per month" error={errors.managementFeeRate?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("managementFeeRate")} placeholder="8.5" />
-              </Field>
-              <Field label="Vacancy Fee (%)" help="% of last gross rent after vacancy threshold" error={errors.vacancyFeeRate?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("vacancyFeeRate")} placeholder="5" />
-              </Field>
-              <Field label="Vacancy Threshold (months)" help="Months vacant before fee kicks in" error={errors.vacancyFeeThresholdMonths?.message}>
-                <input type="number" className="form-input" {...register("vacancyFeeThresholdMonths")} placeholder="9" />
-              </Field>
-              <Field label="New Letting Fee (%)" help="% of first month's rent for new long-term tenancy" error={errors.newLettingFeeRate?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("newLettingFeeRate")} placeholder="50" />
-              </Field>
-              <Field label="Lease Renewal Fee" help="Flat fee per unit on lease renewal" error={errors.leaseRenewalFeeFlat?.message}>
-                <input type="number" className="form-input" {...register("leaseRenewalFeeFlat")} placeholder="3000" />
-              </Field>
-              <Field label="Short-term Letting Fee (%)" help="% of daily rent collected for short-term furnished lets" error={errors.shortTermLettingFeeRate?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("shortTermLettingFeeRate")} placeholder="10" />
-              </Field>
-              <Field label="Repair Authority Limit" help="Maximum repair cost without landlord written approval" error={errors.repairAuthorityLimit?.message}>
-                <input type="number" className="form-input" {...register("repairAuthorityLimit")} placeholder="100000" />
-              </Field>
-              <Field label="Late Payment Interest (% p.a.)" help="Annual interest rate applied to overdue rent. Set to 0 to disable." error={errors.latePaymentInterestRate?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("latePaymentInterestRate")} placeholder="0" />
-              </Field>
-              <Field label="Setup Fee Total" help="One-off setup fee (leave blank if none)" error={errors.setupFeeTotal?.message}>
-                <input type="number" className="form-input" {...register("setupFeeTotal")} placeholder="600000" />
-              </Field>
-              <Field label="Setup Fee Instalments" help="Number of equal monthly instalments" error={errors.setupFeeInstalments?.message}>
-                <input type="number" className="form-input" {...register("setupFeeInstalments")} placeholder="3" />
-              </Field>
+              <Input type="number" step="0.1" label="Management Fee (%)" help="% of gross collected rent per month" error={errors.managementFeeRate?.message} placeholder="8.5" {...register("managementFeeRate")} />
+              <Input type="number" step="0.1" label="Vacancy Fee (%)" help="% of last gross rent after vacancy threshold" error={errors.vacancyFeeRate?.message} placeholder="5" {...register("vacancyFeeRate")} />
+              <Input type="number" label="Vacancy Threshold (months)" help="Months vacant before fee kicks in" error={errors.vacancyFeeThresholdMonths?.message} placeholder="9" {...register("vacancyFeeThresholdMonths")} />
+              <Input type="number" step="0.1" label="New Letting Fee (%)" help="% of first month's rent for new long-term tenancy" error={errors.newLettingFeeRate?.message} placeholder="50" {...register("newLettingFeeRate")} />
+              <Input type="number" label="Lease Renewal Fee" help="Flat fee per unit on lease renewal" error={errors.leaseRenewalFeeFlat?.message} placeholder="3000" {...register("leaseRenewalFeeFlat")} />
+              <Input type="number" step="0.1" label="Short-term Letting Fee (%)" help="% of daily rent for short-term furnished lets" error={errors.shortTermLettingFeeRate?.message} placeholder="10" {...register("shortTermLettingFeeRate")} />
+              <Input type="number" label="Repair Authority Limit" help="Max repair cost without landlord written approval" error={errors.repairAuthorityLimit?.message} placeholder="100000" {...register("repairAuthorityLimit")} />
+              <Input type="number" step="0.1" label="Late Payment Interest (% p.a.)" help="Annual interest on overdue rent. Set to 0 to disable." error={errors.latePaymentInterestRate?.message} placeholder="0" {...register("latePaymentInterestRate")} />
+              <Input type="number" label="Setup Fee Total" help="One-off setup fee (leave blank if none)" error={errors.setupFeeTotal?.message} placeholder="600000" {...register("setupFeeTotal")} />
+              <Input type="number" label="Setup Fee Instalments" help="Number of equal monthly instalments" error={errors.setupFeeInstalments?.message} placeholder="3" {...register("setupFeeInstalments")} />
             </div>
           </Card>
 
@@ -268,15 +238,9 @@ export default function AgreementPage() {
           <Card>
             <SectionHeader icon={Clock} title="Payment Deadlines" subtitle="Contractual dates for remittance and invoicing" />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Rent Remittance Day" help="Day of month rent must be remitted to landlord" error={errors.rentRemittanceDay?.message}>
-                <input type="number" className="form-input" {...register("rentRemittanceDay")} placeholder="5" />
-              </Field>
-              <Field label="Mgmt Fee Invoice Day" help="Day of month management fee is invoiced" error={errors.mgmtFeeInvoiceDay?.message}>
-                <input type="number" className="form-input" {...register("mgmtFeeInvoiceDay")} placeholder="7" />
-              </Field>
-              <Field label="Landlord Payment Days" help="Days within which landlord must pay after collection" error={errors.landlordPaymentDays?.message}>
-                <input type="number" className="form-input" {...register("landlordPaymentDays")} placeholder="2" />
-              </Field>
+              <Input type="number" label="Rent Remittance Day" help="Day of month rent must be remitted to landlord" error={errors.rentRemittanceDay?.message} placeholder="5" {...register("rentRemittanceDay")} />
+              <Input type="number" label="Mgmt Fee Invoice Day" help="Day of month management fee is invoiced" error={errors.mgmtFeeInvoiceDay?.message} placeholder="7" {...register("mgmtFeeInvoiceDay")} />
+              <Input type="number" label="Landlord Payment Days" help="Days within which landlord must pay after collection" error={errors.landlordPaymentDays?.message} placeholder="2" {...register("landlordPaymentDays")} />
             </div>
           </Card>
 
@@ -284,38 +248,18 @@ export default function AgreementPage() {
           <Card>
             <SectionHeader icon={Target} title="KPI Targets" subtitle="Performance benchmarks for the compliance dashboard" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <Field label="KPI Monitoring Start Date" help="Date from which KPIs are measured (e.g. post-onboarding)" error={errors.kpiStartDate?.message}>
-                <input type="date" className="form-input" {...register("kpiStartDate")} />
-              </Field>
+              <Input type="date" label="KPI Monitoring Start Date" help="Date from which KPIs are measured (e.g. post-onboarding)" error={errors.kpiStartDate?.message} {...register("kpiStartDate")} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Field label="Occupancy Target (%)" error={errors.kpiOccupancyTarget?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("kpiOccupancyTarget")} placeholder="90" />
-              </Field>
-              <Field label="Rent Collection Target (%)" error={errors.kpiRentCollectionTarget?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("kpiRentCollectionTarget")} placeholder="90" />
-              </Field>
-              <Field label="Expense Ratio Target (%)" help="Target: lower is better (operating costs / gross income)" error={errors.kpiExpenseRatioTarget?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("kpiExpenseRatioTarget")} placeholder="85" />
-              </Field>
-              <Field label="Tenant Turnover Target (%)" error={errors.kpiTenantTurnoverTarget?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("kpiTenantTurnoverTarget")} placeholder="90" />
-              </Field>
-              <Field label="Days to Lease Target" help="Max days to re-let a vacant unit" error={errors.kpiDaysToLeaseTarget?.message}>
-                <input type="number" className="form-input" {...register("kpiDaysToLeaseTarget")} placeholder="60" />
-              </Field>
-              <Field label="Lease Renewal Rate Target (%)" error={errors.kpiRenewalRateTarget?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("kpiRenewalRateTarget")} placeholder="90" />
-              </Field>
-              <Field label="Maintenance Completion Target (%)" help="% of jobs completed within SLA" error={errors.kpiMaintenanceCompletionTarget?.message}>
-                <input type="number" step="0.1" className="form-input" {...register("kpiMaintenanceCompletionTarget")} placeholder="95" />
-              </Field>
-              <Field label="Emergency Response SLA (hrs)" error={errors.kpiEmergencyResponseHrs?.message}>
-                <input type="number" className="form-input" {...register("kpiEmergencyResponseHrs")} placeholder="24" />
-              </Field>
-              <Field label="Standard Response SLA (hrs)" error={errors.kpiStandardResponseHrs?.message}>
-                <input type="number" className="form-input" {...register("kpiStandardResponseHrs")} placeholder="96" />
-              </Field>
+              <Input type="number" step="0.1" label="Occupancy Target (%)" error={errors.kpiOccupancyTarget?.message} placeholder="90" {...register("kpiOccupancyTarget")} />
+              <Input type="number" step="0.1" label="Rent Collection Target (%)" error={errors.kpiRentCollectionTarget?.message} placeholder="90" {...register("kpiRentCollectionTarget")} />
+              <Input type="number" step="0.1" label="Expense Ratio Target (%)" help="Lower is better (operating costs / gross income)" error={errors.kpiExpenseRatioTarget?.message} placeholder="85" {...register("kpiExpenseRatioTarget")} />
+              <Input type="number" step="0.1" label="Tenant Turnover Target (%)" error={errors.kpiTenantTurnoverTarget?.message} placeholder="90" {...register("kpiTenantTurnoverTarget")} />
+              <Input type="number" label="Days to Lease Target" help="Max days to re-let a vacant unit" error={errors.kpiDaysToLeaseTarget?.message} placeholder="60" {...register("kpiDaysToLeaseTarget")} />
+              <Input type="number" step="0.1" label="Lease Renewal Rate Target (%)" error={errors.kpiRenewalRateTarget?.message} placeholder="90" {...register("kpiRenewalRateTarget")} />
+              <Input type="number" step="0.1" label="Maintenance Completion Target (%)" help="% of jobs completed within SLA" error={errors.kpiMaintenanceCompletionTarget?.message} placeholder="95" {...register("kpiMaintenanceCompletionTarget")} />
+              <Input type="number" label="Emergency Response SLA (hrs)" error={errors.kpiEmergencyResponseHrs?.message} placeholder="24" {...register("kpiEmergencyResponseHrs")} />
+              <Input type="number" label="Standard Response SLA (hrs)" error={errors.kpiStandardResponseHrs?.message} placeholder="96" {...register("kpiStandardResponseHrs")} />
             </div>
           </Card>
 

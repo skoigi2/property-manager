@@ -22,7 +22,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
               property: {
                 select: {
                   id: true, name: true, address: true, city: true, logoUrl: true, currency: true,
-                  organization: { select: { name: true, logoUrl: true, address: true, phone: true, email: true } },
+                  organization: {
+                    select: {
+                      name: true, logoUrl: true, address: true, phone: true, email: true,
+                      vatRegistrationNumber: true,
+                      bankName: true, bankAccountName: true, bankAccountNumber: true, bankBranch: true,
+                      mpesaPaybill: true, mpesaAccountNumber: true, mpesaTill: true, paymentInstructions: true,
+                    },
+                  },
                 },
               },
             },

@@ -38,6 +38,21 @@ const styles = StyleSheet.create({
   statusPaidText: { color: "#065f46", fontFamily: "Helvetica-Bold", fontSize: 9 },
   statusUnpaid: { backgroundColor: "#fef3c7", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 4 },
   statusUnpaidText: { color: "#92400e", fontFamily: "Helvetica-Bold", fontSize: 9 },
+  statusOverdue: { backgroundColor: "#fee2e2", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 4 },
+  statusOverdueText: { color: "#991b1b", fontFamily: "Helvetica-Bold", fontSize: 9 },
+  statusDraft: { backgroundColor: "#f3f4f6", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 4 },
+  statusDraftText: { color: "#6b7280", fontFamily: "Helvetica-Bold", fontSize: 9 },
+  // How to Pay section
+  paySection: { marginTop: 24, borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 16 },
+  paySectionTitle: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 },
+  payGrid: { flexDirection: "row", gap: 16 },
+  payBlock: { flex: 1, backgroundColor: "#f9fafb", borderRadius: 6, padding: 10 },
+  payBlockTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 },
+  payRow: { flexDirection: "row", gap: 4, marginBottom: 2 },
+  payLabel: { fontSize: 8, color: "#9ca3af", width: 80 },
+  payValue: { fontSize: 8, color: "#1a1a2e", fontFamily: "Helvetica-Bold", flex: 1 },
+  payInstructions: { fontSize: 8, color: "#374151", lineHeight: 1.4, marginTop: 6 },
+  payContact: { marginTop: 8, fontSize: 8, color: "#6b7280" },
   footer: { position: "absolute", bottom: 32, left: 48, right: 48 },
   footerDivider: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", marginBottom: 10 },
   footerText: { fontSize: 8, color: "#9ca3af", textAlign: "center" },
@@ -49,6 +64,15 @@ export type OrgBranding = {
   address?: string | null;
   phone?: string | null;
   email?: string | null;
+  vatRegistrationNumber?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
+  bankBranch?: string | null;
+  mpesaPaybill?: string | null;
+  mpesaAccountNumber?: string | null;
+  mpesaTill?: string | null;
+  paymentInstructions?: string | null;
 };
 
 export type InvoiceData = {
@@ -95,6 +119,19 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
   const periodLabel = `${MONTH_NAMES[data.periodMonth - 1]} ${data.periodYear}`;
   const dueDate = format(new Date(data.dueDate), "d MMMM yyyy");
   const isPaid = data.status === "PAID";
+  const isOverdue = data.status === "OVERDUE";
+  const isDraft = data.status === "DRAFT";
+
+  // Advance billing note: period is in the future relative to due date
+  const dueDateObj = new Date(data.dueDate);
+  const periodStart = new Date(data.periodYear, data.periodMonth - 1, 1);
+  const isAdvanceBilling = periodStart > dueDateObj;
+
+  const org = data.org;
+  const hasBankDetails = !!(org?.bankName || org?.bankAccountNumber);
+  const hasMpesa = !!(org?.mpesaPaybill || org?.mpesaTill);
+  const hasPayInstructions = !!(org?.paymentInstructions);
+  const showPaySection = !isPaid && (hasBankDetails || hasMpesa || hasPayInstructions);
 
   const lineItems = [
     { label: "Monthly Rent", amount: data.rentAmount },
@@ -109,9 +146,9 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
         <View style={styles.header}>
           <View style={styles.brandBlock}>
             {(() => {
-              const logoUrl = data.tenant.unit.property.logoUrl ?? data.org?.logoUrl;
-              const brandName = data.org?.name ?? data.tenant.unit.property.name;
-              const brandAddr = data.org?.address
+              const logoUrl = data.tenant.unit.property.logoUrl ?? org?.logoUrl;
+              const brandName = org?.name ?? data.tenant.unit.property.name;
+              const brandAddr = org?.address
                 ?? [data.tenant.unit.property.address, data.tenant.unit.property.city].filter(Boolean).join(", ")
                 ?? "";
               return logoUrl ? (
@@ -119,11 +156,17 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
                   <Image src={logoUrl} style={{ height: 40, marginBottom: 4, objectFit: "contain", objectPositionX: 0 }} />
                   <Text style={styles.brandSub}>{brandAddr}</Text>
+                  {org?.vatRegistrationNumber && (
+                    <Text style={[styles.brandSub, { marginTop: 2 }]}>KRA PIN: {org.vatRegistrationNumber}</Text>
+                  )}
                 </>
               ) : (
                 <>
                   <Text style={styles.brandName}>{brandName}</Text>
                   <Text style={styles.brandSub}>{brandAddr}</Text>
+                  {org?.vatRegistrationNumber && (
+                    <Text style={[styles.brandSub, { marginTop: 2 }]}>KRA PIN: {org.vatRegistrationNumber}</Text>
+                  )}
                 </>
               );
             })()}
@@ -136,11 +179,12 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
 
         <View style={styles.divider} />
 
-        {/* Bill To + Period */}
+        {/* Bill To + Invoice Details */}
         <View style={styles.twoCol}>
           <View style={styles.col}>
             <Text style={styles.sectionLabel}>Bill To</Text>
             <Text style={styles.boldText}>{data.tenant.name}</Text>
+            <Text style={styles.bodyText}>{data.tenant.unit.property.name}</Text>
             <Text style={styles.bodyText}>Unit {data.tenant.unit.unitNumber}</Text>
             {data.tenant.phone && <Text style={styles.bodyText}>{data.tenant.phone}</Text>}
             {data.tenant.email && <Text style={styles.bodyText}>{data.tenant.email}</Text>}
@@ -148,16 +192,40 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
           <View style={styles.col}>
             <Text style={styles.sectionLabel}>Invoice Details</Text>
             <Text style={styles.bodyText}>Invoice No: <Text style={styles.boldText}>{data.invoiceNumber}</Text></Text>
+            <Text style={styles.bodyText}>Period: <Text style={styles.boldText}>{periodLabel}</Text></Text>
             <Text style={styles.bodyText}>Due Date: <Text style={styles.boldText}>{dueDate}</Text></Text>
             {isPaid && data.paidAt && (
               <Text style={styles.bodyText}>Paid On: <Text style={styles.boldText}>{format(new Date(data.paidAt), "d MMM yyyy")}</Text></Text>
             )}
+            {/* Status badge inline */}
+            <View style={{ marginTop: 6 }}>
+              {isPaid ? (
+                <View style={styles.statusPaid}>
+                  <Text style={styles.statusPaidText}>PAID</Text>
+                </View>
+              ) : isOverdue ? (
+                <View style={styles.statusOverdue}>
+                  <Text style={styles.statusOverdueText}>OVERDUE</Text>
+                </View>
+              ) : isDraft ? (
+                <View style={styles.statusDraft}>
+                  <Text style={styles.statusDraftText}>DRAFT</Text>
+                </View>
+              ) : (
+                <View style={styles.statusUnpaid}>
+                  <Text style={styles.statusUnpaidText}>SENT — AWAITING PAYMENT</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
         {/* Period badge */}
         <View style={styles.periodBadge}>
-          <Text style={styles.periodText}>Period: {periodLabel}</Text>
+          <Text style={styles.periodText}>
+            Billing Period: {periodLabel}
+            {isAdvanceBilling ? "  (Advance billing — payment due before period start)" : ""}
+          </Text>
         </View>
 
         {/* Line items table */}
@@ -180,22 +248,89 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
           </View>
         </View>
 
-        {/* Payment status */}
-        <View style={styles.statusBadge}>
-          {isPaid ? (
+        {/* Payment confirmation (if paid) */}
+        {isPaid && (
+          <View style={styles.statusBadge}>
             <View style={styles.statusPaid}>
-              <Text style={styles.statusPaidText}>✓ PAID — {data.paidAmount ? formatKsh(data.paidAmount) : formatKsh(data.totalAmount)}</Text>
+              <Text style={styles.statusPaidText}>
+                ✓ PAID{data.paidAmount != null ? ` — ${fmt(data.paidAmount)}` : ""}{data.paidAt ? ` on ${format(new Date(data.paidAt), "d MMM yyyy")}` : ""}
+              </Text>
             </View>
-          ) : (
-            <View style={styles.statusUnpaid}>
-              <Text style={styles.statusUnpaidText}>PAYMENT DUE BY {dueDate.toUpperCase()}</Text>
+          </View>
+        )}
+
+        {/* How to Pay */}
+        {showPaySection && (
+          <View style={styles.paySection}>
+            <Text style={styles.paySectionTitle}>How to Pay</Text>
+            <View style={styles.payGrid}>
+              {hasBankDetails && (
+                <View style={styles.payBlock}>
+                  <Text style={styles.payBlockTitle}>Bank Transfer</Text>
+                  {org?.bankName && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Bank:</Text>
+                      <Text style={styles.payValue}>{org.bankName}</Text>
+                    </View>
+                  )}
+                  {org?.bankAccountName && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Account Name:</Text>
+                      <Text style={styles.payValue}>{org.bankAccountName}</Text>
+                    </View>
+                  )}
+                  {org?.bankAccountNumber && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Account No:</Text>
+                      <Text style={styles.payValue}>{org.bankAccountNumber}</Text>
+                    </View>
+                  )}
+                  {org?.bankBranch && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Branch:</Text>
+                      <Text style={styles.payValue}>{org.bankBranch}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              {hasMpesa && (
+                <View style={styles.payBlock}>
+                  <Text style={styles.payBlockTitle}>M-Pesa</Text>
+                  {org?.mpesaPaybill && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Paybill:</Text>
+                      <Text style={styles.payValue}>{org.mpesaPaybill}</Text>
+                    </View>
+                  )}
+                  {org?.mpesaPaybill && org?.mpesaAccountNumber && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Account No:</Text>
+                      <Text style={styles.payValue}>{org.mpesaAccountNumber}</Text>
+                    </View>
+                  )}
+                  {org?.mpesaTill && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Till No:</Text>
+                      <Text style={styles.payValue}>{org.mpesaTill}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
-          )}
-        </View>
+            {hasPayInstructions && (
+              <Text style={styles.payInstructions}>{org?.paymentInstructions}</Text>
+            )}
+            {(org?.phone || org?.email) && (
+              <Text style={styles.payContact}>
+                For payment queries contact: {[org?.phone, org?.email].filter(Boolean).join("  |  ")}
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Notes */}
         {data.notes && (
-          <View style={{ marginTop: 20 }}>
+          <View style={{ marginTop: 16 }}>
             <Text style={styles.sectionLabel}>Notes</Text>
             <Text style={styles.bodyText}>{data.notes}</Text>
           </View>

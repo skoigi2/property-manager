@@ -24,6 +24,14 @@ model Organization {
   locale                String                       @default("en-US")
   defaultCurrency       String                       @default("USD")
   vatRegistrationNumber String?
+  bankName              String?
+  bankAccountName       String?
+  bankAccountNumber     String?
+  bankBranch            String?
+  mpesaPaybill          String?
+  mpesaAccountNumber    String?
+  mpesaTill             String?
+  paymentInstructions   String?
   users                 User[]
   properties            Property[]
   memberships           UserOrganizationMembership[]

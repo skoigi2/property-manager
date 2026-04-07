@@ -40,12 +40,21 @@ export async function GET(
 
 // ── PATCH /api/organizations/[id] ────────────────────────────────────────────
 const updateSchema = z.object({
-  name:     z.string().min(1).optional(),
-  address:  z.string().optional().nullable(),
-  phone:    z.string().optional().nullable(),
-  email:    z.string().email().optional().nullable(),
-  website:  z.string().optional().nullable(),
-  isActive: z.boolean().optional(),
+  name:                 z.string().min(1).optional(),
+  address:              z.string().optional().nullable(),
+  phone:                z.string().optional().nullable(),
+  email:                z.string().email().optional().nullable(),
+  website:              z.string().optional().nullable(),
+  isActive:             z.boolean().optional(),
+  vatRegistrationNumber: z.string().optional().nullable(),
+  bankName:             z.string().optional().nullable(),
+  bankAccountName:      z.string().optional().nullable(),
+  bankAccountNumber:    z.string().optional().nullable(),
+  bankBranch:           z.string().optional().nullable(),
+  mpesaPaybill:         z.string().optional().nullable(),
+  mpesaAccountNumber:   z.string().optional().nullable(),
+  mpesaTill:            z.string().optional().nullable(),
+  paymentInstructions:  z.string().optional().nullable(),
 });
 
 export async function PATCH(

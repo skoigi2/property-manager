@@ -44,6 +44,15 @@ export async function GET(
           address: org.address,
           phone: org.phone,
           email: org.email,
+          vatRegistrationNumber: org.vatRegistrationNumber,
+          bankName: org.bankName,
+          bankAccountName: org.bankAccountName,
+          bankAccountNumber: org.bankAccountNumber,
+          bankBranch: org.bankBranch,
+          mpesaPaybill: org.mpesaPaybill,
+          mpesaAccountNumber: org.mpesaAccountNumber,
+          mpesaTill: org.mpesaTill,
+          paymentInstructions: org.paymentInstructions,
         }
       : null,
     tenant: {

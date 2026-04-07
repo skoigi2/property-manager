@@ -60,9 +60,11 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const totalUnits    = properties.reduce((s, p) => s + p.units.length, 0);
   const occupancyRate = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
 
-  const riaraProperty = properties.find((p) => p.type === "LONGTERM");
-  const albaProperty  = properties.find((p) => p.type === "AIRBNB");
-  const riaraTenants  = tenants.filter((t) => t.unit.propertyId === riaraProperty?.id);
+  const longTermIds  = new Set(properties.filter((p) => p.type === "LONGTERM").map((p) => p.id));
+  const riaraTenants = tenants.filter((t) => longTermIds.has(t.unit.propertyId));
+  const albaUnits    = properties.filter((p) => p.type === "AIRBNB").flatMap((p) => p.units);
+  const longTermName = properties.filter((p) => p.type === "LONGTERM").map((p) => p.name).join(" & ") || "Long-Term Rent";
+  const shortLetName = properties.filter((p) => p.type === "AIRBNB").map((p) => p.name).join(" & ")  || "Short-Let Performance";
 
   // Rent collection
   const rentCollection = riaraTenants.map((t) => {
@@ -83,7 +85,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
 
   // Alba performance
   const daysInMonth    = getDaysInMonth(from);
-  const albaPerformance = (albaProperty?.units ?? []).map((unit) => {
+  const albaPerformance = albaUnits.map((unit) => {
     const unitIncome    = incomeEntries.filter((e) => e.unitId === unit.id);
     const unitExpenses  = expenseEntries.filter((e) => e.unitId === unit.id);
     const summary       = calcUnitSummary(unitIncome, unitExpenses);
@@ -123,7 +125,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   // Management fee
   const mgmtOwing =
     riaraTenants.reduce((s, t) => s + (RIARA_MGMT_FEE[t.unit.type] ?? 0), 0) +
-    (albaProperty?.units ?? []).reduce((s, unit) => {
+    albaUnits.reduce((s, unit) => {
       const unitIncome = incomeEntries.filter((e) => e.unitId === unit.id);
       return s + unitIncome.reduce((sum, e) => sum + e.grossAmount, 0) * 0.1;
     }, 0);
@@ -172,8 +174,8 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
     currency:             properties[0]?.currency ?? "USD",
-    longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
-    shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
+    longTermPropertyName: longTermName,
+    shortLetPropertyName: shortLetName,
     ownerName,
     managerName,
     period:      periodLabel,
@@ -249,9 +251,11 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   const totalUnits    = properties.reduce((s, p) => s + p.units.length, 0);
   const occupancyRate = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
 
-  const riaraProperty = properties.find((p) => p.type === "LONGTERM");
-  const albaProperty  = properties.find((p) => p.type === "AIRBNB");
-  const riaraTenants  = tenants.filter((t) => t.unit.propertyId === riaraProperty?.id);
+  const longTermIdsQ  = new Set(properties.filter((p) => p.type === "LONGTERM").map((p) => p.id));
+  const riaraTenants  = tenants.filter((t) => longTermIdsQ.has(t.unit.propertyId));
+  const albaUnitsQ    = properties.filter((p) => p.type === "AIRBNB").flatMap((p) => p.units);
+  const longTermNameQ = properties.filter((p) => p.type === "LONGTERM").map((p) => p.name).join(" & ") || "Long-Term Rent";
+  const shortLetNameQ = properties.filter((p) => p.type === "AIRBNB").map((p) => p.name).join(" & ")  || "Short-Let Performance";
 
   // Rent collection — 3 months expected
   const rentCollection = riaraTenants.map((t) => {
@@ -271,7 +275,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   });
 
   // Alba performance
-  const albaPerformance = (albaProperty?.units ?? []).map((unit) => {
+  const albaPerformance = albaUnitsQ.map((unit) => {
     const unitIncome   = incomeEntries.filter((e) => e.unitId === unit.id);
     const unitExpenses = expenseEntries.filter((e) => e.unitId === unit.id);
     const summary      = calcUnitSummary(unitIncome, unitExpenses);
@@ -304,7 +308,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   // Management fee — 3 months for Riara flat rate
   const mgmtOwing =
     riaraTenants.reduce((s, t) => s + (RIARA_MGMT_FEE[t.unit.type] ?? 0), 0) * 3 +
-    (albaProperty?.units ?? []).reduce((s, unit) => {
+    albaUnitsQ.reduce((s, unit) => {
       const unitIncome = incomeEntries.filter((e) => e.unitId === unit.id);
       return s + unitIncome.reduce((sum, e) => sum + e.grossAmount, 0) * 0.1;
     }, 0);
@@ -331,8 +335,8 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
     currency:             properties[0]?.currency ?? "USD",
-    longTermPropertyName: riaraProperty?.name ?? "Long-Term Rent",
-    shortLetPropertyName: albaProperty?.name  ?? "Short-Let Performance",
+    longTermPropertyName: longTermNameQ,
+    shortLetPropertyName: shortLetNameQ,
     ownerName, managerName,
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),

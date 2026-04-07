@@ -22,7 +22,7 @@ export default function SettingsPage() {
 
   // Branding state
   const [org, setOrg] = useState<any>(null);
-  const [orgForm, setOrgForm] = useState({ name: "", address: "", phone: "", email: "", website: "", vatRegistrationNumber: "" });
+  const [orgForm, setOrgForm] = useState({ name: "", address: "", phone: "", email: "", website: "" });
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +65,7 @@ export default function SettingsPage() {
         const orgs = await res.json();
         const o = orgs[0] ?? null;
         setOrg(o);
-        if (o) setOrgForm({ name: o.name ?? "", address: o.address ?? "", phone: o.phone ?? "", email: o.email ?? "", website: o.website ?? "", vatRegistrationNumber: o.vatRegistrationNumber ?? "" });
+        if (o) setOrgForm({ name: o.name ?? "", address: o.address ?? "", phone: o.phone ?? "", email: o.email ?? "", website: o.website ?? "" });
       }
     } catch { /* ignore */ }
   }
@@ -92,7 +92,7 @@ export default function SettingsPage() {
       const res = await fetch(`/api/organizations/${org.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...orgForm, vatRegistrationNumber: orgForm.vatRegistrationNumber.trim() || null }),
+        body: JSON.stringify(orgForm),
       });
       if (!res.ok) throw new Error();
       toast.success("Branding updated");
@@ -282,10 +282,7 @@ export default function SettingsPage() {
                           onChange={(e) => setOrgForm((p) => ({ ...p, address: e.target.value }))} />
                         <Input label="Website" value={orgForm.website}
                           onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
-                        <Input label="KRA PIN / VAT Registration Number" value={orgForm.vatRegistrationNumber}
-                          onChange={(e) => setOrgForm((p) => ({ ...p, vatRegistrationNumber: e.target.value }))}
-                          placeholder="e.g. P051234567X" />
-                        <p className="text-xs text-gray-400 font-sans -mt-2">Appears in the header of all invoice PDFs. Payment details are configured per-property under Properties → Agreement.</p>
+                        <p className="text-xs text-gray-400 font-sans">KRA PIN and payment details are configured per-property under Properties → Agreement.</p>
                         <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>
                       </div>
                     </Card>

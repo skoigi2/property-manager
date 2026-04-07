@@ -11,7 +11,8 @@ import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
-import { ArrowLeft, FileText, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2 } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2, ShieldCheck } from "lucide-react";
+import { Input } from "@/components/ui/Input";
 
 const schema = z.object({
   managementFeeRate:              z.coerce.number().min(0).max(100),
@@ -37,6 +38,8 @@ const schema = z.object({
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1),
   latePaymentInterestRate:        z.coerce.number().min(0).max(100),
+  // Invoice identity
+  kraPin:                    z.string().optional(),
   // Tenant invoice payment details
   tenantBankName:            z.string().optional(),
   tenantBankAccountName:     z.string().optional(),
@@ -107,6 +110,7 @@ export default function AgreementPage() {
       kpiTenantTurnoverTarget: 90, kpiDaysToLeaseTarget: 60, kpiRenewalRateTarget: 90,
       kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
       latePaymentInterestRate: 0,
+      kraPin: "",
       tenantBankName: "", tenantBankAccountName: "", tenantBankAccountNumber: "", tenantBankBranch: "",
       tenantMpesaPaybill: "", tenantMpesaAccountNumber: "", tenantMpesaTill: "", tenantPaymentInstructions: "",
       mgmtBankName: "", mgmtBankAccountName: "", mgmtBankAccountNumber: "", mgmtBankBranch: "",
@@ -171,6 +175,7 @@ export default function AgreementPage() {
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
     const textFields = [
+      "kraPin",
       "tenantBankName","tenantBankAccountName","tenantBankAccountNumber","tenantBankBranch",
       "tenantMpesaPaybill","tenantMpesaAccountNumber","tenantMpesaTill","tenantPaymentInstructions",
       "mgmtBankName","mgmtBankAccountName","mgmtBankAccountNumber","mgmtBankBranch",
@@ -312,6 +317,22 @@ export default function AgreementPage() {
             </div>
           </Card>
 
+          {/* ── Invoice Identity ── */}
+          <Card>
+            <SectionHeader
+              icon={ShieldCheck}
+              title="Invoice Identity"
+              subtitle="Appears in the header of all invoice PDFs issued for this property"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="KRA PIN / VAT Registration Number"
+                placeholder="e.g. P051234567X"
+                {...register("kraPin")}
+              />
+            </div>
+          </Card>
+
           {/* ── Tenant Invoice Payment Details ── */}
           <Card>
             <SectionHeader
@@ -323,38 +344,26 @@ export default function AgreementPage() {
               <div className="border-b border-gray-100 pb-4">
                 <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">Bank Transfer</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Bank Name">
-                    <input type="text" className="form-input" {...register("tenantBankName")} placeholder="e.g. Equity Bank" />
-                  </Field>
-                  <Field label="Account Name">
-                    <input type="text" className="form-input" {...register("tenantBankAccountName")} placeholder="e.g. Parkview Heights Ltd" />
-                  </Field>
-                  <Field label="Account Number">
-                    <input type="text" className="form-input" {...register("tenantBankAccountNumber")} placeholder="e.g. 0123456789" />
-                  </Field>
-                  <Field label="Branch (optional)">
-                    <input type="text" className="form-input" {...register("tenantBankBranch")} placeholder="e.g. Westlands" />
-                  </Field>
+                  <Input label="Bank Name" placeholder="e.g. Equity Bank" {...register("tenantBankName")} />
+                  <Input label="Account Name" placeholder="e.g. Parkview Heights Ltd" {...register("tenantBankAccountName")} />
+                  <Input label="Account Number" placeholder="e.g. 0123456789" {...register("tenantBankAccountNumber")} />
+                  <Input label="Branch (optional)" placeholder="e.g. Westlands" {...register("tenantBankBranch")} />
                 </div>
               </div>
               <div className="border-b border-gray-100 pb-4">
                 <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">M-Pesa</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Paybill Number" help="Leave blank if using Till">
-                    <input type="text" className="form-input" {...register("tenantMpesaPaybill")} placeholder="e.g. 522522" />
-                  </Field>
-                  <Field label="Account No (for Paybill)">
-                    <input type="text" className="form-input" {...register("tenantMpesaAccountNumber")} placeholder="e.g. unit number" />
-                  </Field>
-                  <Field label="Till Number" help="Alternative to Paybill">
-                    <input type="text" className="form-input" {...register("tenantMpesaTill")} placeholder="e.g. 123456" />
-                  </Field>
+                  <Input label="Paybill Number" placeholder="e.g. 522522" {...register("tenantMpesaPaybill")} />
+                  <Input label="Account No (for Paybill)" placeholder="e.g. unit number" {...register("tenantMpesaAccountNumber")} />
+                  <Input label="Till Number (alternative to Paybill)" placeholder="e.g. 123456" {...register("tenantMpesaTill")} />
                 </div>
               </div>
-              <Field label="Additional Instructions (optional)" help="Printed verbatim on the invoice">
-                <textarea rows={2} className="form-input resize-none" {...register("tenantPaymentInstructions")}
-                  placeholder="e.g. Use your unit number as the payment reference." />
-              </Field>
+              <div>
+                <label className="text-sm font-medium text-gray-600 font-sans">Additional Instructions <span className="text-gray-400 font-normal">(optional)</span></label>
+                <textarea rows={2} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
+                  placeholder="e.g. Use your unit number as the payment reference."
+                  {...register("tenantPaymentInstructions")} />
+              </div>
             </div>
           </Card>
 
@@ -369,38 +378,26 @@ export default function AgreementPage() {
               <div className="border-b border-gray-100 pb-4">
                 <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">Bank Transfer</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Bank Name">
-                    <input type="text" className="form-input" {...register("mgmtBankName")} placeholder="e.g. KCB Bank" />
-                  </Field>
-                  <Field label="Account Name">
-                    <input type="text" className="form-input" {...register("mgmtBankAccountName")} placeholder="e.g. Koka Advisory Group" />
-                  </Field>
-                  <Field label="Account Number">
-                    <input type="text" className="form-input" {...register("mgmtBankAccountNumber")} placeholder="e.g. 9876543210" />
-                  </Field>
-                  <Field label="Branch (optional)">
-                    <input type="text" className="form-input" {...register("mgmtBankBranch")} placeholder="e.g. Upper Hill" />
-                  </Field>
+                  <Input label="Bank Name" placeholder="e.g. KCB Bank" {...register("mgmtBankName")} />
+                  <Input label="Account Name" placeholder="e.g. Koka Advisory Group" {...register("mgmtBankAccountName")} />
+                  <Input label="Account Number" placeholder="e.g. 9876543210" {...register("mgmtBankAccountNumber")} />
+                  <Input label="Branch (optional)" placeholder="e.g. Upper Hill" {...register("mgmtBankBranch")} />
                 </div>
               </div>
               <div className="border-b border-gray-100 pb-4">
                 <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">M-Pesa</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Paybill Number" help="Leave blank if using Till">
-                    <input type="text" className="form-input" {...register("mgmtMpesaPaybill")} placeholder="e.g. 522522" />
-                  </Field>
-                  <Field label="Account No (for Paybill)">
-                    <input type="text" className="form-input" {...register("mgmtMpesaAccountNumber")} placeholder="e.g. invoice number" />
-                  </Field>
-                  <Field label="Till Number" help="Alternative to Paybill">
-                    <input type="text" className="form-input" {...register("mgmtMpesaTill")} placeholder="e.g. 654321" />
-                  </Field>
+                  <Input label="Paybill Number" placeholder="e.g. 522522" {...register("mgmtMpesaPaybill")} />
+                  <Input label="Account No (for Paybill)" placeholder="e.g. invoice number" {...register("mgmtMpesaAccountNumber")} />
+                  <Input label="Till Number (alternative to Paybill)" placeholder="e.g. 654321" {...register("mgmtMpesaTill")} />
                 </div>
               </div>
-              <Field label="Additional Instructions (optional)" help="Printed verbatim on the owner invoice">
-                <textarea rows={2} className="form-input resize-none" {...register("mgmtPaymentInstructions")}
-                  placeholder="e.g. Please quote invoice number on your bank transfer." />
-              </Field>
+              <div>
+                <label className="text-sm font-medium text-gray-600 font-sans">Additional Instructions <span className="text-gray-400 font-normal">(optional)</span></label>
+                <textarea rows={2} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
+                  placeholder="e.g. Please quote invoice number on your bank transfer."
+                  {...register("mgmtPaymentInstructions")} />
+              </div>
             </div>
           </Card>
 

@@ -975,6 +975,9 @@ model ManagementAgreement {
   kpiStandardResponseHrs         Int      @default(96)
   latePaymentInterestRate        Float    @default(0)   // annual %, e.g. 5.0
 
+  // Invoice identity (appears in PDF header)
+  kraPin                         String?
+
   // Tenant invoice payment details (where tenants send rent)
   tenantBankName                 String?
   tenantBankAccountName          String?

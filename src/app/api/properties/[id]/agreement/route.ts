@@ -26,6 +26,8 @@ const agreementSchema = z.object({
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1).default(24),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1).default(96),
   latePaymentInterestRate:        z.coerce.number().min(0).max(100).default(0),
+  // Invoice identity
+  kraPin:                         z.string().optional().nullable(),
   // Tenant invoice payment details
   tenantBankName:                 z.string().optional().nullable(),
   tenantBankAccountName:          z.string().optional().nullable(),

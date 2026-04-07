@@ -229,6 +229,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
   const currency = property.currency;
   const orgName = organization?.name ?? property.name;
   const orgLogo = organization?.logoUrl ?? property.logoUrl;
+  const displayName = property.name;
 
   // Compute next due date
   const today = new Date();
@@ -250,7 +251,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
             </div>
           )}
           <div>
-            <div className="font-semibold text-gray-900 text-sm leading-tight">{orgName}</div>
+            <div className="font-semibold text-gray-900 text-sm leading-tight">{displayName}</div>
             <div className="text-gray-500 text-xs">Unit {unit.unitNumber}</div>
           </div>
         </div>

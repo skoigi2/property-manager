@@ -17,6 +17,11 @@ export const SUPPORTED_CURRENCIES: { code: string; label: string; symbol: string
   { code: "GHS", label: "Ghanaian Cedi (GH₵)",       symbol: "GH₵" },
   { code: "ZMW", label: "Zambian Kwacha (ZK)",       symbol: "ZK"  },
   { code: "RWF", label: "Rwandan Franc (RF)",        symbol: "RF"  },
+  { code: "BHD", label: "Bahraini Dinar (BD)",       symbol: "BD"  },
+  { code: "OMR", label: "Omani Rial (OMR)",           symbol: "OMR" },
+  { code: "KWD", label: "Kuwaiti Dinar (KD)",         symbol: "KD"  },
+  { code: "QAR", label: "Qatari Riyal (QR)",          symbol: "QR"  },
+  { code: "SAR", label: "Saudi Riyal (SAR)",           symbol: "SAR" },
 ];
 
 const CURRENCY_SYMBOLS: Record<string, string> = Object.fromEntries(

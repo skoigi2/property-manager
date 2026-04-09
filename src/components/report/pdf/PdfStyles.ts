@@ -181,69 +181,103 @@ export const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 16,
   },
-  // Base (unused directly, kept for any fallback)
-  kpiBox: {
+  // Shared card base
+  kpiCardBase: {
     flex: 1,
-    borderRadius: 4,
-    padding: 10,
-    backgroundColor: C.LIGHT,
+    borderRadius: 6,
+    padding: 12,
+    minHeight: 90,
+    flexDirection: "column",
+    justifyContent: "flex-start",
   },
-  kpiBoxIncome: {
-    flex: 1,
-    backgroundColor: C.GOLD_LT,
-    borderRadius: 4,
-    padding: 10,
-  },
-  kpiBoxCost: {
-    flex: 1,
-    backgroundColor: C.AMBER_BG,
-    borderRadius: 4,
-    padding: 10,
-  },
-  kpiBoxProfit: {
-    flex: 1,
-    backgroundColor: C.GREEN_BG,
-    borderRadius: 4,
-    padding: 10,
-  },
-  kpiBoxProfitNeg: {
-    flex: 1,
-    backgroundColor: C.RED_BG,
-    borderRadius: 4,
-    padding: 10,
-  },
+  // Background variants
+  kpiBox:         { flex: 1, borderRadius: 6, padding: 12, minHeight: 90, backgroundColor: C.LIGHT },
+  kpiBoxIncome:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 90, backgroundColor: C.GOLD_LT },
+  kpiBoxCost:     { flex: 1, borderRadius: 6, padding: 12, minHeight: 90, backgroundColor: C.AMBER_BG },
+  kpiBoxProfit:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 90, backgroundColor: C.GREEN_BG },
+  kpiBoxProfitNeg:{ flex: 1, borderRadius: 6, padding: 12, minHeight: 90, backgroundColor: C.RED_BG },
+  // Occupancy card — centred
   kpiBoxOccupancy: {
     flex: 1,
     backgroundColor: C.GOLD_LT,
-    borderRadius: 4,
-    padding: 10,
+    borderRadius: 6,
+    padding: 12,
+    minHeight: 90,
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
   },
+
+  // Label — sentence case, muted, no hyphenation from uppercase
   kpiLabel: {
-    fontSize: 7,
+    fontSize: 8,
+    fontFamily: "Helvetica",
     color: C.SLATE,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 8,
   },
+  // Currency symbol line — smaller, lighter
+  kpiCurrency: {
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: C.SLATE,
+    marginBottom: 1,
+  },
+  kpiCurrencyCost: {
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: C.AMBER,
+    marginBottom: 1,
+  },
+  kpiCurrencyProfit: {
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: C.GREEN,
+    marginBottom: 1,
+  },
+  kpiCurrencyProfitNeg: {
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: C.RED,
+    marginBottom: 1,
+  },
+  // Amount line — large, dominant
   kpiValue: {
-    fontSize: 14,
+    fontSize: 22,
     fontFamily: "Helvetica-Bold",
     color: C.INK,
+    lineHeight: 1.1,
   },
   kpiValueCost: {
-    fontSize: 14,
+    fontSize: 22,
     fontFamily: "Helvetica-Bold",
     color: C.AMBER,
+    lineHeight: 1.1,
   },
   kpiValueProfit: {
-    fontSize: 14,
+    fontSize: 22,
     fontFamily: "Helvetica-Bold",
     color: C.GREEN,
+    lineHeight: 1.1,
   },
   kpiValueProfitNeg: {
-    fontSize: 14,
+    fontSize: 22,
     fontFamily: "Helvetica-Bold",
     color: C.RED,
+    lineHeight: 1.1,
+  },
+  // Occupancy percentage — large, centred
+  kpiOccupancyPct: {
+    fontSize: 28,
+    fontFamily: "Helvetica-Bold",
+    color: C.INK,
+    textAlign: "center",
+  },
+  kpiOccupancyLabel: {
+    fontSize: 8,
+    fontFamily: "Helvetica",
+    color: C.SLATE,
+    textAlign: "center",
+    marginBottom: 6,
   },
 
   // ── Tables ────────────────────────────────────────────────────────────────

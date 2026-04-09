@@ -127,6 +127,14 @@ function AlertCard({ alert }: { alert: string }) {
 export function ReportDocument({ data }: { data: ReportData }) {
   const fmt = (n: number) => formatCurrency(n, data.currency ?? "USD");
 
+  /** Split "KSh 1,213,000" → { symbol: "KSh", amount: "1,213,000" } */
+  const fmtParts = (n: number): { symbol: string; amount: string } => {
+    const full = fmt(Math.abs(n));
+    const idx = full.search(/[\d,\.]/);
+    if (idx <= 0) return { symbol: "", amount: full };
+    return { symbol: full.slice(0, idx).trim(), amount: full.slice(idx).trim() };
+  };
+
   const hasLongTerm = data.rentCollection.length > 0;
   const hasShortLet = data.albaPerformance.length > 0;
   const hasVendors  = (data.vendorSpend?.length ?? 0) > 0;
@@ -220,27 +228,50 @@ export function ReportDocument({ data }: { data: ReportData }) {
           {/* Section 1: Executive Summary */}
           <SectionHeading num={SEC.exec} title="Executive Summary" />
           <View style={styles.kpiRow}>
-            <View style={styles.kpiBoxIncome}>
-              <Text style={styles.kpiLabel}>Gross Income</Text>
-              <Text style={styles.kpiValue}>{fmt(data.kpis.grossIncome)}</Text>
-            </View>
-            <View style={styles.kpiBoxCost}>
-              <Text style={styles.kpiLabel}>Agent Commissions</Text>
-              <Text style={styles.kpiValueCost}>{fmt(data.kpis.agentCommissions)}</Text>
-            </View>
-            <View style={styles.kpiBoxCost}>
-              <Text style={styles.kpiLabel}>Total Expenses</Text>
-              <Text style={styles.kpiValueCost}>{fmt(data.kpis.totalExpenses)}</Text>
-            </View>
-            <View style={data.kpis.netProfit >= 0 ? styles.kpiBoxProfit : styles.kpiBoxProfitNeg}>
-              <Text style={styles.kpiLabel}>Net Profit to Owner</Text>
-              <Text style={data.kpis.netProfit >= 0 ? styles.kpiValueProfit : styles.kpiValueProfitNeg}>
-                {fmt(data.kpis.netProfit)}
-              </Text>
-            </View>
+            {/* Gross Income */}
+            {(() => { const { symbol, amount } = fmtParts(data.kpis.grossIncome); return (
+              <View style={styles.kpiBoxIncome}>
+                <Text style={styles.kpiLabel}>Gross Income</Text>
+                <Text style={styles.kpiCurrency}>{symbol}</Text>
+                <Text style={styles.kpiValue}>{amount}</Text>
+              </View>
+            ); })()}
+
+            {/* Agent Commissions */}
+            {(() => { const { symbol, amount } = fmtParts(data.kpis.agentCommissions); return (
+              <View style={styles.kpiBoxCost}>
+                <Text style={styles.kpiLabel}>Agent Commissions</Text>
+                <Text style={styles.kpiCurrencyCost}>{symbol}</Text>
+                <Text style={styles.kpiValueCost}>{amount}</Text>
+              </View>
+            ); })()}
+
+            {/* Total Expenses */}
+            {(() => { const { symbol, amount } = fmtParts(data.kpis.totalExpenses); return (
+              <View style={styles.kpiBoxCost}>
+                <Text style={styles.kpiLabel}>Total Expenses</Text>
+                <Text style={styles.kpiCurrencyCost}>{symbol}</Text>
+                <Text style={styles.kpiValueCost}>{amount}</Text>
+              </View>
+            ); })()}
+
+            {/* Net Profit */}
+            {(() => {
+              const isPos = data.kpis.netProfit >= 0;
+              const { symbol, amount } = fmtParts(data.kpis.netProfit);
+              return (
+                <View style={isPos ? styles.kpiBoxProfit : styles.kpiBoxProfitNeg}>
+                  <Text style={styles.kpiLabel}>Net Profit to Owner</Text>
+                  <Text style={isPos ? styles.kpiCurrencyProfit : styles.kpiCurrencyProfitNeg}>{symbol}</Text>
+                  <Text style={isPos ? styles.kpiValueProfit : styles.kpiValueProfitNeg}>{amount}</Text>
+                </View>
+              );
+            })()}
+
+            {/* Occupancy Rate — centred */}
             <View style={styles.kpiBoxOccupancy}>
-              <Text style={styles.kpiLabel}>Occupancy Rate</Text>
-              <Text style={styles.kpiValue}>{data.kpis.occupancyRate}%</Text>
+              <Text style={styles.kpiOccupancyLabel}>Occupancy Rate</Text>
+              <Text style={styles.kpiOccupancyPct}>{data.kpis.occupancyRate}%</Text>
             </View>
           </View>
 

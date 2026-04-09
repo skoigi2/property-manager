@@ -174,27 +174,27 @@ RAISE NOTICE '20 units created';
 -- =============================================================
 -- MANAGEMENT FEE CONFIGS
 -- =============================================================
-INSERT INTO "ManagementFeeConfig" (id,"unitId","flatAmount","ratePercent","effectiveFrom","createdAt","updatedAt") VALUES
-  (gen_random_uuid()::text, u101, 50, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u102, 50, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u103, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u104, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u105, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u201, 50, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u202, 50, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u203, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u204, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u205,100, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u301, 50, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u302, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u303, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u304, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u305,100, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u401, 50, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u402, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u403, 75, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u404,100, 0, '2026-01-01', NOW(), NOW()),
-  (gen_random_uuid()::text, u405,100, 0, '2026-01-01', NOW(), NOW());
+INSERT INTO "ManagementFeeConfig" (id,"unitId","flatAmount","ratePercent","effectiveFrom") VALUES
+  (gen_random_uuid()::text, u101, 50, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u102, 50, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u103, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u104, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u105, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u201, 50, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u202, 50, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u203, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u204, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u205,100, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u301, 50, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u302, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u303, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u304, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u305,100, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u401, 50, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u402, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u403, 75, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u404,100, 0, '2026-01-01'),
+  (gen_random_uuid()::text, u405,100, 0, '2026-01-01');
 
 -- =============================================================
 -- TENANTS (20)

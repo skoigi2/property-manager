@@ -33,6 +33,7 @@ DECLARE
   v_vendor_clean TEXT;
   v_vendor_plumb TEXT;
   v_vendor_tech  TEXT;
+  v_vendor_lift  TEXT;
 
   -- Misc
   v_inv_id  TEXT;
@@ -455,7 +456,11 @@ INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isAct
 VALUES (gen_random_uuid()::text,v_org_id,'Gulf Technical Services','CONTRACTOR','+973 3600 4488','service@gulftechbh.com','Electrical and HVAC contractor. Handles A/C servicing, electrical faults, and generator maintenance.',true,NOW(),NOW())
 RETURNING id INTO v_vendor_tech;
 
-RAISE NOTICE '7 vendors created';
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'ThyssenKrupp Elevator Bahrain','SERVICE_PROVIDER','+973 1721 5566','service.bh@thyssenkrupp.com','Annual lift servicing and statutory inspection contract for the 10-person MRL passenger lift. Contract ref: TK-SVC-2026-BH-004.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_lift;
+
+RAISE NOTICE '8 vendors created';
 
 -- =============================================================
 -- EXPENSES — monthly property-level (3 months)
@@ -561,6 +566,7 @@ INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId
 UPDATE "RecurringExpense" SET "vendorId" = v_vendor_clean WHERE "propertyId" = v_prop_id AND description LIKE '%G4S%';
 UPDATE "RecurringExpense" SET "vendorId" = v_vendor_clean WHERE "propertyId" = v_prop_id AND description LIKE '%Landscaping%';
 UPDATE "RecurringExpense" SET "vendorId" = v_vendor_tech  WHERE "propertyId" = v_prop_id AND description LIKE '%Generator%';
+UPDATE "RecurringExpense" SET "vendorId" = v_vendor_lift  WHERE "propertyId" = v_prop_id AND description LIKE '%Lift%';
 
 RAISE NOTICE '4 recurring expenses created';
 

@@ -34,6 +34,14 @@ DECLARE
   v_vendor_plumb TEXT;
   v_vendor_tech  TEXT;
   v_vendor_lift  TEXT;
+  v_vendor_pump  TEXT;
+  v_vendor_cctv  TEXT;
+
+  -- Recurring expense IDs (for schedule linkage)
+  v_recur_gen   TEXT;
+  v_recur_lift  TEXT;
+  v_recur_pump  TEXT;
+  v_recur_cctv  TEXT;
 
   -- Misc
   v_inv_id  TEXT;
@@ -460,7 +468,15 @@ INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isAct
 VALUES (gen_random_uuid()::text,v_org_id,'ThyssenKrupp Elevator Bahrain','SERVICE_PROVIDER','+973 1721 5566','service.bh@thyssenkrupp.com','Annual lift servicing and statutory inspection contract for the 10-person MRL passenger lift. Contract ref: TK-SVC-2026-BH-004.',true,NOW(),NOW())
 RETURNING id INTO v_vendor_lift;
 
-RAISE NOTICE '8 vendors created';
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'Aqua Systems Bahrain','CONTRACTOR','+973 1733 8899','service@aquasystemsbh.com','Authorised Grundfos service partner. Handles pump inspections, pressure testing, and rooftop tank maintenance.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_pump;
+
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'Techno Systems Bahrain','CONTRACTOR','+973 1744 6677','support@technosystems.bh','CCTV installation and maintenance contractor. Manages Hikvision 16-channel system including annual health checks and storage verification.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_cctv;
+
+RAISE NOTICE '10 vendors created';
 
 -- =============================================================
 -- EXPENSES — monthly property-level (3 months)
@@ -534,41 +550,59 @@ RAISE NOTICE '2 insurance policies created';
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'Cummins Standby Generator','GENERATOR','CUM-C150D5-00341','2021-04-10',8500,'2024-04-10','Cummins Bahrain','+973 1770 0011','150 kVA Cummins diesel generator. Powers common areas and lifts during MEW outages.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Monthly Generator Service Check','MONTHLY','2026-04-10',true,NOW(),NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","estimatedCost","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Monthly Generator Service Check','MONTHLY','2026-04-10',true,280,NOW(),NOW());
 
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'ThyssenKrupp Passenger Lift','LIFT','TK-MRL-2020-BH-004','2020-09-01',14000,NULL,'ThyssenKrupp Elevator Bahrain','+973 1721 5566','10-person machine-room-less lift. Annual statutory inspection required.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Quarterly Lift Servicing','QUARTERLY','2026-04-01',true,NOW(),NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","estimatedCost","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Quarterly Lift Servicing','QUARTERLY','2026-04-01',true,200,NOW(),NOW());
 
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'Grundfos Water Pump','PLUMBING','GRF-CM5-2023-0055','2023-02-14',950,'2025-02-14','Aqua Systems Bahrain','+973 1733 8899','Supplies pressurised water to all floors from rooftop tanks.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Biannual Pump Inspection','BIANNUALLY','2026-06-14',true,NOW(),NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","estimatedCost","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Biannual Pump Inspection','BIANNUALLY','2026-06-14',true,150,NOW(),NOW());
 
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'Hikvision 16-Channel CCTV System','SECURITY','HIK-DS-16CH-2022','2022-07-20',1800,'2025-07-20','Techno Systems Bahrain','+973 1744 6677','16 cameras covering entrance, car park, corridors, and rooftop. 30-day storage.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Annual CCTV Review & Maintenance','ANNUALLY','2026-07-20',true,NOW(),NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","estimatedCost","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Annual CCTV Review & Maintenance','ANNUALLY','2026-07-20',true,250,NOW(),NOW());
 
 RAISE NOTICE '4 assets with maintenance schedules created';
 
 -- =============================================================
 -- RECURRING EXPENSES
 -- =============================================================
-INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId",frequency,"nextDueDate","isActive","createdAt","updatedAt") VALUES
-  (gen_random_uuid()::text,'Monthly Security Patrol — G4S Bahrain',    'CLEANER',    350,'PROPERTY',v_prop_id,'MONTHLY',  '2026-04-01',true,NOW(),NOW()),
-  (gen_random_uuid()::text,'Landscaping & Garden Maintenance',          'CLEANER',    120,'PROPERTY',v_prop_id,'MONTHLY',  '2026-04-01',true,NOW(),NOW()),
-  (gen_random_uuid()::text,'Quarterly Generator Service — Cummins',     'MAINTENANCE',280,'PROPERTY',v_prop_id,'QUARTERLY','2026-06-01',true,NOW(),NOW()),
-  (gen_random_uuid()::text,'Annual Lift Servicing Contract — ThyssenKrupp','MAINTENANCE',800,'PROPERTY',v_prop_id,'ANNUAL','2026-12-01',true,NOW(),NOW());
+-- Non-asset recurring expenses (security & landscaping)
+INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId","vendorId",frequency,"nextDueDate","isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Monthly Security Patrol — G4S Bahrain','CLEANER',350,'PROPERTY',v_prop_id,v_vendor_clean,'MONTHLY','2026-04-01',true,NOW(),NOW());
 
--- Link vendors to recurring expenses
-UPDATE "RecurringExpense" SET "vendorId" = v_vendor_clean WHERE "propertyId" = v_prop_id AND description LIKE '%G4S%';
-UPDATE "RecurringExpense" SET "vendorId" = v_vendor_clean WHERE "propertyId" = v_prop_id AND description LIKE '%Landscaping%';
-UPDATE "RecurringExpense" SET "vendorId" = v_vendor_tech  WHERE "propertyId" = v_prop_id AND description LIKE '%Generator%';
-UPDATE "RecurringExpense" SET "vendorId" = v_vendor_lift  WHERE "propertyId" = v_prop_id AND description LIKE '%Lift%';
+INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId","vendorId",frequency,"nextDueDate","isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Landscaping & Garden Maintenance','CLEANER',120,'PROPERTY',v_prop_id,v_vendor_clean,'MONTHLY','2026-04-01',true,NOW(),NOW());
 
-RAISE NOTICE '4 recurring expenses created';
+-- Asset-linked recurring expenses (captured for schedule linkage)
+INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId","vendorId",frequency,"nextDueDate","isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Quarterly Generator Service — Gulf Technical Services','MAINTENANCE',280,'PROPERTY',v_prop_id,v_vendor_tech,'QUARTERLY','2026-06-01',true,NOW(),NOW())
+RETURNING id INTO v_recur_gen;
+
+INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId","vendorId",frequency,"nextDueDate","isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Annual Lift Servicing Contract — ThyssenKrupp','MAINTENANCE',800,'PROPERTY',v_prop_id,v_vendor_lift,'ANNUAL','2026-12-01',true,NOW(),NOW())
+RETURNING id INTO v_recur_lift;
+
+INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId","vendorId",frequency,"nextDueDate","isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Biannual Water Pump Inspection — Aqua Systems','MAINTENANCE',150,'PROPERTY',v_prop_id,v_vendor_pump,'BIANNUAL','2026-06-14',true,NOW(),NOW())
+RETURNING id INTO v_recur_pump;
+
+INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId","vendorId",frequency,"nextDueDate","isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Annual CCTV Review & Maintenance — Techno Systems','MAINTENANCE',250,'PROPERTY',v_prop_id,v_vendor_cctv,'ANNUAL','2026-07-20',true,NOW(),NOW())
+RETURNING id INTO v_recur_cctv;
+
+-- Link asset maintenance schedules to their recurring expenses
+UPDATE "AssetMaintenanceSchedule" SET "recurringExpenseId" = v_recur_gen  WHERE "propertyId" = v_prop_id AND "taskName" LIKE '%Generator%';
+UPDATE "AssetMaintenanceSchedule" SET "recurringExpenseId" = v_recur_lift WHERE "propertyId" = v_prop_id AND "taskName" LIKE '%Lift%';
+UPDATE "AssetMaintenanceSchedule" SET "recurringExpenseId" = v_recur_pump WHERE "propertyId" = v_prop_id AND "taskName" LIKE '%Pump%';
+UPDATE "AssetMaintenanceSchedule" SET "recurringExpenseId" = v_recur_cctv WHERE "propertyId" = v_prop_id AND "taskName" LIKE '%CCTV%';
+
+RAISE NOTICE '6 recurring expenses created, 4 linked to asset schedules';
 
 -- =============================================================
 -- ARREARS CASES

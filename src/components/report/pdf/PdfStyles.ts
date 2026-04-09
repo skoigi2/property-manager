@@ -217,50 +217,50 @@ export const styles = StyleSheet.create({
   },
   // Currency symbol line — smaller, lighter
   kpiCurrency: {
-    fontSize: 16,
+    fontSize: 10,
     fontFamily: "Helvetica",
     color: C.SLATE,
     marginBottom: 1,
   },
   kpiCurrencyCost: {
-    fontSize: 16,
+    fontSize: 10,
     fontFamily: "Helvetica",
     color: C.AMBER,
     marginBottom: 1,
   },
   kpiCurrencyProfit: {
-    fontSize: 16,
+    fontSize: 10,
     fontFamily: "Helvetica",
     color: C.GREEN,
     marginBottom: 1,
   },
   kpiCurrencyProfitNeg: {
-    fontSize: 16,
+    fontSize: 10,
     fontFamily: "Helvetica",
     color: C.RED,
     marginBottom: 1,
   },
   // Amount line — large, dominant
   kpiValue: {
-    fontSize: 22,
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
     color: C.INK,
     lineHeight: 1.1,
   },
   kpiValueCost: {
-    fontSize: 22,
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
     color: C.AMBER,
     lineHeight: 1.1,
   },
   kpiValueProfit: {
-    fontSize: 22,
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
     color: C.GREEN,
     lineHeight: 1.1,
   },
   kpiValueProfitNeg: {
-    fontSize: 22,
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
     color: C.RED,
     lineHeight: 1.1,

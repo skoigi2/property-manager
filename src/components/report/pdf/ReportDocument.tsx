@@ -302,7 +302,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(t.expectedRent + t.serviceCharge)}</Text>
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(t.received)}</Text>
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }, t.variance < 0 ? styles.negative : t.variance > 0 ? styles.positive : {}]}>{fmt(t.variance)}</Text>
-                    <View style={{ flex: 1.8 }}>
+                    <View style={{ flex: 1.8, alignItems: "center" }}>
                       <StatusPill variance={t.variance} status={t.status} leaseEnd={t.leaseEnd} />
                     </View>
                     <Text style={[styles.tableCell, { flex: 1.8 }, t.leaseEnd ? {} : styles.muted]}>{t.leaseEnd ?? "—"}</Text>

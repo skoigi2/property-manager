@@ -186,23 +186,23 @@ export const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 6,
     padding: 12,
-    minHeight: 75,
+    minHeight: 55,
     flexDirection: "column",
     justifyContent: "flex-start",
   },
   // Background variants
-  kpiBox:         { flex: 1, borderRadius: 6, padding: 12, minHeight: 75, backgroundColor: C.LIGHT },
-  kpiBoxIncome:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 75, backgroundColor: C.GOLD_LT },
-  kpiBoxCost:     { flex: 1, borderRadius: 6, padding: 12, minHeight: 75, backgroundColor: C.AMBER_BG },
-  kpiBoxProfit:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 75, backgroundColor: C.GREEN_BG },
-  kpiBoxProfitNeg:{ flex: 1, borderRadius: 6, padding: 12, minHeight: 75, backgroundColor: C.RED_BG },
+  kpiBox:         { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.LIGHT },
+  kpiBoxIncome:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.GOLD_LT },
+  kpiBoxCost:     { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.AMBER_BG },
+  kpiBoxProfit:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.GREEN_BG },
+  kpiBoxProfitNeg:{ flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.RED_BG },
   // Occupancy card — centred
   kpiBoxOccupancy: {
     flex: 1,
     backgroundColor: C.GOLD_LT,
     borderRadius: 6,
     padding: 12,
-    minHeight: 75,
+    minHeight: 55,
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
@@ -211,7 +211,7 @@ export const styles = StyleSheet.create({
   // Label — sentence case, muted, no hyphenation from uppercase
   kpiLabel: {
     fontSize: 8,
-    fontFamily: "Helvetica",
+    fontFamily: "Helvetica-Bold",
     color: C.SLATE,
     marginBottom: 8,
   },
@@ -274,7 +274,7 @@ export const styles = StyleSheet.create({
   },
   kpiOccupancyLabel: {
     fontSize: 8,
-    fontFamily: "Helvetica",
+    fontFamily: "Helvetica-Bold",
     color: C.SLATE,
     textAlign: "center",
     marginBottom: 6,

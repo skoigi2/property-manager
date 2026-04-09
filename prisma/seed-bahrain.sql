@@ -266,8 +266,8 @@ INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAm
 -- UNIT 102 — 350+50=400; Jan PAID, Feb OVERDUE, Mar OVERDUE
 INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-002',t102,2026,1,350,50,400,'2026-01-05','PAID','2026-01-01',400,NOW(),NOW()) RETURNING id INTO v_inv_id;
 INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',u102,t102,v_inv_id,'LONGTERM_RENT',400,0,NOW());
-INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-002',t102,2026,2,350,50,400,'2026-02-05','OVERDUE',NOW());
-INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-002',t102,2026,3,350,50,400,'2026-03-05','OVERDUE',NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-002',t102,2026,2,350,50,400,'2026-02-05','OVERDUE',NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-002',t102,2026,3,350,50,400,'2026-03-05','OVERDUE',NOW(),NOW());
 
 -- UNIT 103 — 500+75=575 all PAID
 INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-003',t103,2026,1,500,75,575,'2026-01-05','PAID','2026-01-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
@@ -362,7 +362,7 @@ INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth",
 INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',u304,t304,v_inv_id,'LONGTERM_RENT',595,0,NOW());
 INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-014',t304,2026,2,520,75,595,'2026-02-05','PAID','2026-02-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
 INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',u304,t304,v_inv_id,'LONGTERM_RENT',595,0,NOW());
-INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-014',t304,2026,3,520,75,595,'2026-03-05','OVERDUE',NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-014',t304,2026,3,520,75,595,'2026-03-05','OVERDUE',NOW(),NOW());
 
 -- UNIT 305 — 720+100=820 all PAID
 INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-015',t305,2026,1,720,100,820,'2026-01-05','PAID','2026-01-01',820,NOW(),NOW()) RETURNING id INTO v_inv_id;
@@ -467,7 +467,7 @@ RAISE NOTICE 'Petty cash created';
 -- =============================================================
 INSERT INTO "InsurancePolicy" (id,"propertyId",type,insurer,"policyNumber","startDate","endDate","premiumAmount","premiumFrequency","coverageAmount","brokerName","brokerContact",notes,"createdAt","updatedAt") VALUES
   (gen_random_uuid()::text,v_prop_id,'BUILDING','Gulf Union Insurance','GUI-BLD-2025-1142','2025-01-01','2025-12-31',2400,'ANNUALLY',2000000,'Bahrain Insurance Brokers','+973 1700 4455','Full building structure coverage. Renewal due January 2026.',NOW(),NOW()),
-  (gen_random_uuid()::text,v_prop_id,'PUBLIC_LIABILITY','AXA Gulf','AXA-PL-2025-0881','2025-06-01','2026-05-31',480,'BIANNUALLY',500000,'Bahrain Insurance Brokers','+973 1700 4455','Covers third-party injury and property damage claims.',NOW());
+  (gen_random_uuid()::text,v_prop_id,'PUBLIC_LIABILITY','AXA Gulf','AXA-PL-2025-0881','2025-06-01','2026-05-31',480,'BIANNUALLY',500000,'Bahrain Insurance Brokers','+973 1700 4455','Covers third-party injury and property damage claims.',NOW(),NOW());
 
 RAISE NOTICE '2 insurance policies created';
 
@@ -477,22 +477,22 @@ RAISE NOTICE '2 insurance policies created';
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'Cummins Standby Generator','GENERATOR','CUM-C150D5-00341','2021-04-10',8500,'2024-04-10','Cummins Bahrain','+973 1770 0011','150 kVA Cummins diesel generator. Powers common areas and lifts during MEW outages.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Monthly Generator Service Check','MONTHLY','2026-04-10',true,NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Monthly Generator Service Check','MONTHLY','2026-04-10',true,NOW(),NOW());
 
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'ThyssenKrupp Passenger Lift','LIFT','TK-MRL-2020-BH-004','2020-09-01',14000,NULL,'ThyssenKrupp Elevator Bahrain','+973 1721 5566','10-person machine-room-less lift. Annual statutory inspection required.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Quarterly Lift Servicing','QUARTERLY','2026-04-01',true,NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Quarterly Lift Servicing','QUARTERLY','2026-04-01',true,NOW(),NOW());
 
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'Grundfos Water Pump','PLUMBING','GRF-CM5-2023-0055','2023-02-14',950,'2025-02-14','Aqua Systems Bahrain','+973 1733 8899','Supplies pressurised water to all floors from rooftop tanks.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Biannual Pump Inspection','BIANNUALLY','2026-06-14',true,NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Biannual Pump Inspection','BIANNUALLY','2026-06-14',true,NOW(),NOW());
 
 INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
 VALUES (gen_random_uuid()::text,v_prop_id,'Hikvision 16-Channel CCTV System','SECURITY','HIK-DS-16CH-2022','2022-07-20',1800,'2025-07-20','Techno Systems Bahrain','+973 1744 6677','16 cameras covering entrance, car park, corridors, and rooftop. 30-day storage.',NOW(),NOW())
 RETURNING id INTO v_asset_id;
-INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Annual CCTV Review & Maintenance','ANNUALLY','2026-07-20',true,NOW());
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Annual CCTV Review & Maintenance','ANNUALLY','2026-07-20',true,NOW(),NOW());
 
 RAISE NOTICE '4 assets with maintenance schedules created';
 
@@ -503,7 +503,7 @@ INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId
   (gen_random_uuid()::text,'Monthly Security Patrol — G4S Bahrain',    'CLEANER',    350,'PROPERTY',v_prop_id,'MONTHLY',  '2026-04-01',true,NOW(),NOW()),
   (gen_random_uuid()::text,'Landscaping & Garden Maintenance',          'CLEANER',    120,'PROPERTY',v_prop_id,'MONTHLY',  '2026-04-01',true,NOW(),NOW()),
   (gen_random_uuid()::text,'Quarterly Generator Service — Cummins',     'MAINTENANCE',280,'PROPERTY',v_prop_id,'QUARTERLY','2026-06-01',true,NOW(),NOW()),
-  (gen_random_uuid()::text,'Annual Lift Servicing Contract — ThyssenKrupp','MAINTENANCE',800,'PROPERTY',v_prop_id,'ANNUAL','2026-12-01',true,NOW());
+  (gen_random_uuid()::text,'Annual Lift Servicing Contract — ThyssenKrupp','MAINTENANCE',800,'PROPERTY',v_prop_id,'ANNUAL','2026-12-01',true,NOW(),NOW());
 
 RAISE NOTICE '4 recurring expenses created';
 
@@ -514,7 +514,7 @@ INSERT INTO "ArrearsCase" (id,"tenantId","propertyId",stage,"amountOwed",notes,"
   (gen_random_uuid()::text,t102,v_prop_id,'INFORMAL_REMINDER',800,
    'Tenant has not paid rent for February and March 2026 (BD 400 × 2 months). Called on 15 March — promised to clear by end of month. Follow up required.',NOW(),NOW()),
   (gen_random_uuid()::text,t304,v_prop_id,'INFORMAL_REMINDER',595,
-   'March 2026 rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent 10 March. Tenant has given notice — chase payment before lease-end.',NOW());
+   'March 2026 rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent 10 March. Tenant has given notice — chase payment before lease-end.',NOW(),NOW());
 
 RAISE NOTICE '2 arrears cases created';
 

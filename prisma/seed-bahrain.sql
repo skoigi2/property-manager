@@ -1,0 +1,527 @@
+-- =============================================================
+-- Al Seef Residences — Bahrain Demo Seed
+-- Paste this entire script into the Supabase SQL Editor and run.
+-- Safe to re-run: deletes existing Al Seef data first.
+-- =============================================================
+
+DO $$
+DECLARE
+  -- Top-level IDs
+  v_org_id        TEXT;
+  v_owner_id      TEXT;
+  v_manager_id    TEXT;
+  v_prop_id       TEXT;
+  v_pw            TEXT := '$2b$10$YR7smwp6QhOjwIvBOiGqW.9Dxjx0I3owntXjibvn/ByM9XmLTrbkm';
+
+  -- Unit IDs
+  u101 TEXT; u102 TEXT; u103 TEXT; u104 TEXT; u105 TEXT;
+  u201 TEXT; u202 TEXT; u203 TEXT; u204 TEXT; u205 TEXT;
+  u301 TEXT; u302 TEXT; u303 TEXT; u304 TEXT; u305 TEXT;
+  u401 TEXT; u402 TEXT; u403 TEXT; u404 TEXT; u405 TEXT;
+
+  -- Tenant IDs
+  t101 TEXT; t102 TEXT; t103 TEXT; t104 TEXT; t105 TEXT;
+  t201 TEXT; t202 TEXT; t203 TEXT; t204 TEXT; t205 TEXT;
+  t301 TEXT; t302 TEXT; t303 TEXT; t304 TEXT; t305 TEXT;
+  t401 TEXT; t402 TEXT; t403 TEXT; t404 TEXT; t405 TEXT;
+
+  -- Misc
+  v_inv_id  TEXT;
+  v_inc_id  TEXT;
+  v_asset_id TEXT;
+
+BEGIN
+
+-- =============================================================
+-- CLEANUP: remove existing Al Seef data (idempotent)
+-- =============================================================
+SELECT id INTO v_prop_id FROM "Property" WHERE name = 'Al Seef Residences' LIMIT 1;
+
+IF v_prop_id IS NOT NULL THEN
+  DELETE FROM "ArrearsCase"            WHERE "propertyId" = v_prop_id;
+  DELETE FROM "RecurringExpense"        WHERE "propertyId" = v_prop_id;
+  DELETE FROM "InsurancePolicy"         WHERE "propertyId" = v_prop_id;
+  DELETE FROM "PettyCash"               WHERE "propertyId" = v_prop_id;
+  DELETE FROM "ExpenseEntry"            WHERE "propertyId" = v_prop_id;
+  DELETE FROM "AssetMaintenanceSchedule" WHERE "propertyId" = v_prop_id;
+  DELETE FROM "Asset"                   WHERE "propertyId" = v_prop_id;
+  -- Units → tenants → invoices → income
+  DELETE FROM "IncomeEntry"  WHERE "unitId" IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
+  DELETE FROM "Invoice"      WHERE "tenantId" IN (SELECT id FROM "Tenant" WHERE "unitId" IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id));
+  DELETE FROM "ExpenseEntry" WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
+  DELETE FROM "ManagementFeeConfig" WHERE "unitId" IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
+  DELETE FROM "Tenant"       WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
+  DELETE FROM "PropertyAccess" WHERE "propertyId" = v_prop_id;
+  DELETE FROM "Unit"         WHERE "propertyId" = v_prop_id;
+  DELETE FROM "Property"     WHERE id = v_prop_id;
+  RAISE NOTICE 'Cleaned up existing Al Seef Residences data';
+END IF;
+
+-- =============================================================
+-- ORGANISATION
+-- =============================================================
+SELECT id INTO v_org_id FROM "Organization" WHERE name = 'Al Seef Property Management' LIMIT 1;
+IF v_org_id IS NULL THEN
+  INSERT INTO "Organization" (id, name, email, "defaultCurrency", "createdAt", "updatedAt")
+  VALUES (gen_random_uuid()::text, 'Al Seef Property Management', 'admin@alseef.bh', 'BHD', NOW(), NOW())
+  RETURNING id INTO v_org_id;
+END IF;
+RAISE NOTICE 'Org ID: %', v_org_id;
+
+-- =============================================================
+-- OWNER USER
+-- =============================================================
+SELECT id INTO v_owner_id FROM "User" WHERE email = 'owner@alseef.bh' LIMIT 1;
+IF v_owner_id IS NULL THEN
+  INSERT INTO "User" (id, name, email, password, role, phone, "isActive", "organizationId", "createdAt", "updatedAt")
+  VALUES (gen_random_uuid()::text, 'Khalid Al-Dosari', 'owner@alseef.bh', v_pw, 'OWNER', '+973 3600 1001', true, v_org_id, NOW(), NOW())
+  RETURNING id INTO v_owner_id;
+ELSE
+  UPDATE "User" SET password = v_pw, "organizationId" = v_org_id, "isActive" = true, "updatedAt" = NOW()
+  WHERE id = v_owner_id;
+END IF;
+
+INSERT INTO "UserOrganizationMembership" ("userId", "organizationId", "createdAt")
+VALUES (v_owner_id, v_org_id, NOW())
+ON CONFLICT ("userId", "organizationId") DO NOTHING;
+RAISE NOTICE 'Owner user: owner@alseef.bh / demo123';
+
+-- =============================================================
+-- MANAGER USER
+-- =============================================================
+SELECT id INTO v_manager_id FROM "User" WHERE email = 'manager@alseef.bh' LIMIT 1;
+IF v_manager_id IS NULL THEN
+  INSERT INTO "User" (id, name, email, password, role, phone, "isActive", "organizationId", "createdAt", "updatedAt")
+  VALUES (gen_random_uuid()::text, 'Sara Al-Habsi', 'manager@alseef.bh', v_pw, 'MANAGER', '+973 3600 2002', true, v_org_id, NOW(), NOW())
+  RETURNING id INTO v_manager_id;
+ELSE
+  UPDATE "User" SET password = v_pw, "organizationId" = v_org_id, "isActive" = true, "updatedAt" = NOW()
+  WHERE id = v_manager_id;
+END IF;
+
+INSERT INTO "UserOrganizationMembership" ("userId", "organizationId", "createdAt")
+VALUES (v_manager_id, v_org_id, NOW())
+ON CONFLICT ("userId", "organizationId") DO NOTHING;
+RAISE NOTICE 'Manager user: manager@alseef.bh / demo123';
+
+-- =============================================================
+-- PROPERTY
+-- =============================================================
+INSERT INTO "Property" (id, name, type, category, address, city, description, "ownerId", "organizationId", "serviceChargeDefault", currency, "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid()::text,
+  'Al Seef Residences', 'LONGTERM', 'RESIDENTIAL',
+  'Seef District, Manama', 'Manama',
+  'Modern 4-storey residential tower in the heart of Seef District. 20 fully-furnished apartments with central A/C, covered parking, rooftop terrace, and 24/7 security.',
+  v_owner_id, v_org_id, 75, 'BHD', NOW(), NOW()
+) RETURNING id INTO v_prop_id;
+
+INSERT INTO "PropertyAccess" ("userId", "propertyId", "createdAt")
+VALUES (v_manager_id, v_prop_id, NOW())
+ON CONFLICT ("userId", "propertyId") DO NOTHING;
+
+RAISE NOTICE 'Property: Al Seef Residences (%)' , v_prop_id;
+
+-- =============================================================
+-- UNITS (20)
+-- =============================================================
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'101',v_prop_id,'ONE_BED',  1,350,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security'],58, NOW(),NOW()) RETURNING id INTO u101;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'102',v_prop_id,'ONE_BED',  1,350,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security'],58, NOW(),NOW()) RETURNING id INTO u102;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'103',v_prop_id,'TWO_BED',  1,500,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security'],90, NOW(),NOW()) RETURNING id INTO u103;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'104',v_prop_id,'TWO_BED',  1,500,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security'],90, NOW(),NOW()) RETURNING id INTO u104;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'105',v_prop_id,'TWO_BED',  1,500,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security'],90, NOW(),NOW()) RETURNING id INTO u105;
+
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'201',v_prop_id,'ONE_BED',  2,370,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security'],58, NOW(),NOW()) RETURNING id INTO u201;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'202',v_prop_id,'ONE_BED',  2,370,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security'],58, NOW(),NOW()) RETURNING id INTO u202;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'203',v_prop_id,'TWO_BED',  2,520,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],95, NOW(),NOW()) RETURNING id INTO u203;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'204',v_prop_id,'TWO_BED',  2,520,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],95, NOW(),NOW()) RETURNING id INTO u204;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'205',v_prop_id,'THREE_BED',2,720,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],130,NOW(),NOW()) RETURNING id INTO u205;
+
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'301',v_prop_id,'ONE_BED',  3,370,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],58, NOW(),NOW()) RETURNING id INTO u301;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'302',v_prop_id,'TWO_BED',  3,520,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],95, NOW(),NOW()) RETURNING id INTO u302;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'303',v_prop_id,'TWO_BED',  3,520,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],95, NOW(),NOW()) RETURNING id INTO u303;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'304',v_prop_id,'TWO_BED',  3,520,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],95, NOW(),NOW()) RETURNING id INTO u304;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'305',v_prop_id,'THREE_BED',3,720,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],130,NOW(),NOW()) RETURNING id INTO u305;
+
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'401',v_prop_id,'ONE_BED',  4,390,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],60, NOW(),NOW()) RETURNING id INTO u401;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'402',v_prop_id,'TWO_BED',  4,540,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],98, NOW(),NOW()) RETURNING id INTO u402;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'403',v_prop_id,'TWO_BED',  4,540,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],98, NOW(),NOW()) RETURNING id INTO u403;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'404',v_prop_id,'THREE_BED',4,750,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],135,NOW(),NOW()) RETURNING id INTO u404;
+INSERT INTO "Unit" (id,"unitNumber","propertyId",type,floor,"monthlyRent",status,amenities,"sizeSqm","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'405',v_prop_id,'THREE_BED',4,750,'ACTIVE',ARRAY['Central A/C','Covered Parking','24/7 Security','City View','Balcony'],135,NOW(),NOW()) RETURNING id INTO u405;
+
+RAISE NOTICE '20 units created';
+
+-- =============================================================
+-- MANAGEMENT FEE CONFIGS
+-- =============================================================
+INSERT INTO "ManagementFeeConfig" (id,"unitId","flatAmount","ratePercent","effectiveFrom","createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text, u101, 50, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u102, 50, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u103, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u104, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u105, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u201, 50, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u202, 50, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u203, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u204, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u205,100, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u301, 50, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u302, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u303, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u304, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u305,100, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u401, 50, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u402, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u403, 75, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u404,100, 0, '2026-01-01', NOW(), NOW()),
+  (gen_random_uuid()::text, u405,100, 0, '2026-01-01', NOW(), NOW());
+
+-- =============================================================
+-- TENANTS (20)
+-- =============================================================
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Ahmed Al-Dosari',      u101,700, '2026-01-01','2026-01-01','2027-12-31',350,50,1,true,'+973 3900 1101','ahmed.aldosari@gmail.com',   'BH-19820341','NONE',NOW(),NOW()) RETURNING id INTO t101;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Priya Sharma',         u102,700, '2026-01-01','2026-01-01','2026-12-31',350,50,1,true,'+973 3900 1102','priya.sharma@gmail.com',      'IN-EXP-2340','NONE',NOW(),NOW()) RETURNING id INTO t102;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Mohammed Al-Mannai',   u103,1000,'2026-01-01','2026-01-01','2027-12-31',500,75,1,true,'+973 3900 1103','m.almannaibh@gmail.com',      'BH-19751234','NONE',NOW(),NOW()) RETURNING id INTO t103;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'James & Claire Harrison',u104,1000,'2026-01-01','2026-01-01','2026-12-31',500,75,1,true,'+973 3900 1104','j.harrison.bh@gmail.com',    'GB-EXP-0891','NONE',NOW(),NOW()) RETURNING id INTO t104;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Rajesh Kumar',         u105,1000,'2026-01-01','2026-01-01','2026-12-31',500,75,1,true,'+973 3900 1105','rajesh.kumar.bh@gmail.com',   'IN-EXP-5512','NONE',NOW(),NOW()) RETURNING id INTO t105;
+
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Fatima Al-Khalifa',    u201,740, '2026-01-01','2026-01-01','2027-12-31',370,50,1,true,'+973 3900 2201','fatima.alkhalifa@gmail.com',  'BH-19900876','NONE',NOW(),NOW()) RETURNING id INTO t201;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Tariq Hussain',        u202,740, '2026-01-01','2026-01-01','2026-12-31',370,50,1,true,'+973 3900 2202','tariq.hussain.bh@gmail.com',  'PK-EXP-3312','NONE',NOW(),NOW()) RETURNING id INTO t202;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Nasser Al-Qasimi',     u203,1040,'2026-01-01','2026-01-01','2027-12-31',520,75,1,true,'+973 3900 2203','n.alqasimi@gmail.com',        'AE-EXP-0044','NONE',NOW(),NOW()) RETURNING id INTO t203;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Sunita & Vikram Nair', u204,1040,'2026-01-01','2026-01-01','2026-12-31',520,75,1,true,'+973 3900 2204','vikram.nair.bh@gmail.com',    'IN-EXP-7789','NONE',NOW(),NOW()) RETURNING id INTO t204;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Ali Al-Zayani',        u205,1440,'2026-01-01','2026-01-01','2027-12-31',720,100,1,true,'+973 3900 2205','ali.alzayani@gmail.com',      'BH-19780654','NONE',NOW(),NOW()) RETURNING id INTO t205;
+
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Sarah Mitchell',       u301,740, '2026-01-01','2026-01-01','2026-12-31',370,50,1,true,'+973 3900 3301','sarah.mitchell.bh@gmail.com', 'GB-EXP-1122','NONE',NOW(),NOW()) RETURNING id INTO t301;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Hassan Al-Buainain',   u302,1040,'2026-01-01','2026-01-01','2027-12-31',520,75,1,true,'+973 3900 3302','h.albuainain@gmail.com',      'BH-19851023','NONE',NOW(),NOW()) RETURNING id INTO t302;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Anwar Al-Rashid',      u303,1040,'2026-01-01','2026-01-01','2027-12-31',520,75,1,true,'+973 3900 3303','anwar.alrashid@gmail.com',    'BH-19800412','NONE',NOW(),NOW()) RETURNING id INTO t303;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Deepak & Meera Pillai',u304,1040,'2026-01-01','2026-01-01','2026-12-31',520,75,1,true,'+973 3900 3304','deepak.pillai.bh@gmail.com',  'IN-EXP-2209','NOTICE_SENT',NOW(),NOW()) RETURNING id INTO t304;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","notes","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Khalid Al-Rumaihi',    u305,1440,'2026-01-01','2026-01-01','2027-12-31',720,100,1,true,'+973 3900 3305','k.alrumaihi@gmail.com',       'BH-19720889','NONE',NULL,NOW(),NOW()) RETURNING id INTO t305;
+
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Omar Al-Tajer',        u401,780, '2026-01-01','2026-01-01','2027-12-31',390,50,1,true,'+973 3900 4401','omar.altajer@gmail.com',      'BH-19930567','NONE',NOW(),NOW()) RETURNING id INTO t401;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Aisha Yusuf',          u402,1080,'2026-01-01','2026-01-01','2026-12-31',540,75,1,true,'+973 3900 4402','aisha.yusuf.bh@gmail.com',    'BH-19870234','NONE',NOW(),NOW()) RETURNING id INTO t402;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Michael & Diane Foster',u403,1080,'2026-01-01','2026-01-01','2026-12-31',540,75,1,true,'+973 3900 4403','m.foster.bahrain@gmail.com',  'US-EXP-3301','NONE',NOW(),NOW()) RETURNING id INTO t403;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Abdullah Al-Maktoum',  u404,1500,'2026-01-01','2026-01-01','2027-12-31',750,100,1,true,'+973 3900 4404','a.almaktoum.bh@gmail.com',    'AE-EXP-0078','NONE',NOW(),NOW()) RETURNING id INTO t404;
+INSERT INTO "Tenant" (id,name,"unitId","depositAmount","depositPaidDate","leaseStart","leaseEnd","monthlyRent","serviceCharge","rentDueDay","isActive",phone,email,"nationalId","renewalStage","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,'Faisal Al-Noaimi',     u405,1500,'2026-01-01','2026-01-01','2027-12-31',750,100,1,true,'+973 3900 4405','faisal.alnoaimi@gmail.com',   'BH-19680123','NONE',NOW(),NOW()) RETURNING id INTO t405;
+
+RAISE NOTICE '20 tenants created';
+
+-- =============================================================
+-- INVOICES + INCOME ENTRIES
+-- Arrears: unit 102 skips Feb(2)+Mar(3); unit 304 skips Mar(3)
+-- Invoice numbering: ASR-2026-MM-NNN
+-- =============================================================
+
+-- Helper macro: insert invoice + income in one shot
+-- PAID months
+-- Jan (periodMonth=1, date=2026-01-01, due=2026-01-05)
+
+-- UNIT 101 — 350+50=400 all 3 months PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-001',t101,2026,1,350,50,400,'2026-01-05','PAID','2026-01-01',400,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u101,t101,v_inv_id,'LONGTERM_RENT',400,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-001',t101,2026,2,350,50,400,'2026-02-05','PAID','2026-02-01',400,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u101,t101,v_inv_id,'LONGTERM_RENT',400,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-001',t101,2026,3,350,50,400,'2026-03-05','PAID','2026-03-01',400,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u101,t101,v_inv_id,'LONGTERM_RENT',400,0,NOW(),NOW());
+
+-- UNIT 102 — 350+50=400; Jan PAID, Feb OVERDUE, Mar OVERDUE
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-002',t102,2026,1,350,50,400,'2026-01-05','PAID','2026-01-01',400,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u102,t102,v_inv_id,'LONGTERM_RENT',400,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-002',t102,2026,2,350,50,400,'2026-02-05','OVERDUE',NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-002',t102,2026,3,350,50,400,'2026-03-05','OVERDUE',NOW(),NOW());
+
+-- UNIT 103 — 500+75=575 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-003',t103,2026,1,500,75,575,'2026-01-05','PAID','2026-01-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u103,t103,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-003',t103,2026,2,500,75,575,'2026-02-05','PAID','2026-02-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u103,t103,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-003',t103,2026,3,500,75,575,'2026-03-05','PAID','2026-03-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u103,t103,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+
+-- UNIT 104 — 500+75=575 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-004',t104,2026,1,500,75,575,'2026-01-05','PAID','2026-01-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u104,t104,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-004',t104,2026,2,500,75,575,'2026-02-05','PAID','2026-02-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u104,t104,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-004',t104,2026,3,500,75,575,'2026-03-05','PAID','2026-03-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u104,t104,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+
+-- UNIT 105 — 500+75=575 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-005',t105,2026,1,500,75,575,'2026-01-05','PAID','2026-01-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u105,t105,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-005',t105,2026,2,500,75,575,'2026-02-05','PAID','2026-02-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u105,t105,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-005',t105,2026,3,500,75,575,'2026-03-05','PAID','2026-03-01',575,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u105,t105,v_inv_id,'LONGTERM_RENT',575,0,NOW(),NOW());
+
+-- UNIT 201 — 370+50=420 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-006',t201,2026,1,370,50,420,'2026-01-05','PAID','2026-01-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u201,t201,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-006',t201,2026,2,370,50,420,'2026-02-05','PAID','2026-02-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u201,t201,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-006',t201,2026,3,370,50,420,'2026-03-05','PAID','2026-03-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u201,t201,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+
+-- UNIT 202 — 370+50=420 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-007',t202,2026,1,370,50,420,'2026-01-05','PAID','2026-01-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u202,t202,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-007',t202,2026,2,370,50,420,'2026-02-05','PAID','2026-02-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u202,t202,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-007',t202,2026,3,370,50,420,'2026-03-05','PAID','2026-03-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u202,t202,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+
+-- UNIT 203 — 520+75=595 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-008',t203,2026,1,520,75,595,'2026-01-05','PAID','2026-01-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u203,t203,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-008',t203,2026,2,520,75,595,'2026-02-05','PAID','2026-02-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u203,t203,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-008',t203,2026,3,520,75,595,'2026-03-05','PAID','2026-03-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u203,t203,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+
+-- UNIT 204 — 520+75=595 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-009',t204,2026,1,520,75,595,'2026-01-05','PAID','2026-01-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u204,t204,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-009',t204,2026,2,520,75,595,'2026-02-05','PAID','2026-02-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u204,t204,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-009',t204,2026,3,520,75,595,'2026-03-05','PAID','2026-03-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u204,t204,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+
+-- UNIT 205 — 720+100=820 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-010',t205,2026,1,720,100,820,'2026-01-05','PAID','2026-01-01',820,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u205,t205,v_inv_id,'LONGTERM_RENT',820,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-010',t205,2026,2,720,100,820,'2026-02-05','PAID','2026-02-01',820,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u205,t205,v_inv_id,'LONGTERM_RENT',820,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-010',t205,2026,3,720,100,820,'2026-03-05','PAID','2026-03-01',820,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u205,t205,v_inv_id,'LONGTERM_RENT',820,0,NOW(),NOW());
+
+-- UNIT 301 — 370+50=420 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-011',t301,2026,1,370,50,420,'2026-01-05','PAID','2026-01-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u301,t301,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-011',t301,2026,2,370,50,420,'2026-02-05','PAID','2026-02-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u301,t301,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-011',t301,2026,3,370,50,420,'2026-03-05','PAID','2026-03-01',420,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u301,t301,v_inv_id,'LONGTERM_RENT',420,0,NOW(),NOW());
+
+-- UNIT 302 — 520+75=595 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-012',t302,2026,1,520,75,595,'2026-01-05','PAID','2026-01-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u302,t302,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-012',t302,2026,2,520,75,595,'2026-02-05','PAID','2026-02-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u302,t302,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-012',t302,2026,3,520,75,595,'2026-03-05','PAID','2026-03-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u302,t302,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+
+-- UNIT 303 — 520+75=595 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-013',t303,2026,1,520,75,595,'2026-01-05','PAID','2026-01-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u303,t303,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-013',t303,2026,2,520,75,595,'2026-02-05','PAID','2026-02-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u303,t303,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-013',t303,2026,3,520,75,595,'2026-03-05','PAID','2026-03-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u303,t303,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+
+-- UNIT 304 — 520+75=595; Jan+Feb PAID, Mar OVERDUE
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-014',t304,2026,1,520,75,595,'2026-01-05','PAID','2026-01-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u304,t304,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-014',t304,2026,2,520,75,595,'2026-02-05','PAID','2026-02-01',595,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u304,t304,v_inv_id,'LONGTERM_RENT',595,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-014',t304,2026,3,520,75,595,'2026-03-05','OVERDUE',NOW(),NOW());
+
+-- UNIT 305 — 720+100=820 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-015',t305,2026,1,720,100,820,'2026-01-05','PAID','2026-01-01',820,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u305,t305,v_inv_id,'LONGTERM_RENT',820,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-015',t305,2026,2,720,100,820,'2026-02-05','PAID','2026-02-01',820,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u305,t305,v_inv_id,'LONGTERM_RENT',820,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-015',t305,2026,3,720,100,820,'2026-03-05','PAID','2026-03-01',820,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u305,t305,v_inv_id,'LONGTERM_RENT',820,0,NOW(),NOW());
+
+-- UNIT 401 — 390+50=440 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-016',t401,2026,1,390,50,440,'2026-01-05','PAID','2026-01-01',440,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u401,t401,v_inv_id,'LONGTERM_RENT',440,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-016',t401,2026,2,390,50,440,'2026-02-05','PAID','2026-02-01',440,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u401,t401,v_inv_id,'LONGTERM_RENT',440,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-016',t401,2026,3,390,50,440,'2026-03-05','PAID','2026-03-01',440,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u401,t401,v_inv_id,'LONGTERM_RENT',440,0,NOW(),NOW());
+
+-- UNIT 402 — 540+75=615 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-017',t402,2026,1,540,75,615,'2026-01-05','PAID','2026-01-01',615,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u402,t402,v_inv_id,'LONGTERM_RENT',615,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-017',t402,2026,2,540,75,615,'2026-02-05','PAID','2026-02-01',615,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u402,t402,v_inv_id,'LONGTERM_RENT',615,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-017',t402,2026,3,540,75,615,'2026-03-05','PAID','2026-03-01',615,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u402,t402,v_inv_id,'LONGTERM_RENT',615,0,NOW(),NOW());
+
+-- UNIT 403 — 540+75=615 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-018',t403,2026,1,540,75,615,'2026-01-05','PAID','2026-01-01',615,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u403,t403,v_inv_id,'LONGTERM_RENT',615,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-018',t403,2026,2,540,75,615,'2026-02-05','PAID','2026-02-01',615,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u403,t403,v_inv_id,'LONGTERM_RENT',615,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-018',t403,2026,3,540,75,615,'2026-03-05','PAID','2026-03-01',615,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u403,t403,v_inv_id,'LONGTERM_RENT',615,0,NOW(),NOW());
+
+-- UNIT 404 — 750+100=850 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-019',t404,2026,1,750,100,850,'2026-01-05','PAID','2026-01-01',850,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u404,t404,v_inv_id,'LONGTERM_RENT',850,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-019',t404,2026,2,750,100,850,'2026-02-05','PAID','2026-02-01',850,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u404,t404,v_inv_id,'LONGTERM_RENT',850,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-019',t404,2026,3,750,100,850,'2026-03-05','PAID','2026-03-01',850,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u404,t404,v_inv_id,'LONGTERM_RENT',850,0,NOW(),NOW());
+
+-- UNIT 405 — 750+100=850 all PAID
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-01-020',t405,2026,1,750,100,850,'2026-01-05','PAID','2026-01-01',850,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-01-01',u405,t405,v_inv_id,'LONGTERM_RENT',850,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-02-020',t405,2026,2,750,100,850,'2026-02-05','PAID','2026-02-01',850,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-02-01',u405,t405,v_inv_id,'LONGTERM_RENT',850,0,NOW(),NOW());
+INSERT INTO "Invoice" (id,"invoiceNumber","tenantId","periodYear","periodMonth","rentAmount","serviceCharge","totalAmount","dueDate",status,"paidAt","paidAmount","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'ASR-2026-03-020',t405,2026,3,750,100,850,'2026-03-05','PAID','2026-03-01',850,NOW(),NOW()) RETURNING id INTO v_inv_id;
+INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAmount","agentCommission","createdAt","updatedAt") VALUES (gen_random_uuid()::text,'2026-03-01',u405,t405,v_inv_id,'LONGTERM_RENT',850,0,NOW(),NOW());
+
+RAISE NOTICE 'Invoices and income entries created';
+
+-- =============================================================
+-- EXPENSES — monthly property-level (3 months)
+-- =============================================================
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','WIFI',           90,'Batelco Fibre — building internet infrastructure',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','CLEANER',       380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','WIFI',           90,'Batelco Fibre — building internet infrastructure',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','CLEANER',       380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','WIFI',           90,'Batelco Fibre — building internet infrastructure',false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','CLEANER',       380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,NOW(),NOW());
+
+-- Ad-hoc unit-level expenses
+INSERT INTO "ExpenseEntry" (id,date,"unitId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text,'2026-01-01',u103,'UNIT','MAINTENANCE',  120,'Plumbing repair — bathroom tap replacement', false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01',u201,'UNIT','MAINTENANCE',   85,'Electrical fault — kitchen circuit breaker', false,false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01',u404,'UNIT','MAINTENANCE',  310,'A/C compressor replacement — master bedroom', true, false,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-01',u302,'UNIT','REINSTATEMENT',420,'Deep clean & repainting — post-notice unit',  true, false,NOW(),NOW());
+
+RAISE NOTICE 'Expenses created';
+
+-- =============================================================
+-- PETTY CASH
+-- =============================================================
+INSERT INTO "PettyCash" (id,date,type,amount,description,"propertyId","createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text,'2026-01-01','IN', 500,'Monthly petty cash top-up — Khalid Al-Dosari',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-01','IN', 500,'Monthly petty cash top-up — Khalid Al-Dosari',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-01','IN', 500,'Monthly petty cash top-up — Khalid Al-Dosari',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-01-08','OUT', 45,'Lightbulbs & electrical fittings — lobby & corridors',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-01-14','OUT', 80,'Emergency plumber call-out — unit 103 overflow',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-01-22','OUT', 15,'Stationery & notice printing',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-06','OUT', 55,'Cleaning materials & detergents restock',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-13','OUT', 90,'Emergency electrician — lift control panel',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-02-20','OUT', 20,'Replacement padlocks & keys — car park gate',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-09','OUT', 40,'Garden tools & soil conditioner — rooftop terrace',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-17','OUT', 65,'Minor plumbing repairs — common area bathrooms',v_prop_id,NOW(),NOW()),
+  (gen_random_uuid()::text,'2026-03-25','OUT', 12,'Postage & courier — lease correspondence',v_prop_id,NOW(),NOW());
+
+RAISE NOTICE 'Petty cash created';
+
+-- =============================================================
+-- INSURANCE
+-- =============================================================
+INSERT INTO "InsurancePolicy" (id,"propertyId",type,insurer,"policyNumber","startDate","endDate","premiumAmount","premiumFrequency","coverageAmount","brokerName","brokerContact",notes,"createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text,v_prop_id,'BUILDING','Gulf Union Insurance','GUI-BLD-2025-1142','2025-01-01','2025-12-31',2400,'ANNUALLY',2000000,'Bahrain Insurance Brokers','+973 1700 4455','Full building structure coverage. Renewal due January 2026.',NOW(),NOW()),
+  (gen_random_uuid()::text,v_prop_id,'PUBLIC_LIABILITY','AXA Gulf','AXA-PL-2025-0881','2025-06-01','2026-05-31',480,'BIANNUALLY',500000,'Bahrain Insurance Brokers','+973 1700 4455','Covers third-party injury and property damage claims.',NOW(),NOW());
+
+RAISE NOTICE '2 insurance policies created';
+
+-- =============================================================
+-- ASSETS + MAINTENANCE SCHEDULES
+-- =============================================================
+INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_prop_id,'Cummins Standby Generator','GENERATOR','CUM-C150D5-00341','2021-04-10',8500,'2024-04-10','Cummins Bahrain','+973 1770 0011','150 kVA Cummins diesel generator. Powers common areas and lifts during MEW outages.',NOW(),NOW())
+RETURNING id INTO v_asset_id;
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Monthly Generator Service Check','MONTHLY','2026-04-10',true,NOW(),NOW());
+
+INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_prop_id,'ThyssenKrupp Passenger Lift','LIFT','TK-MRL-2020-BH-004','2020-09-01',14000,NULL,'ThyssenKrupp Elevator Bahrain','+973 1721 5566','10-person machine-room-less lift. Annual statutory inspection required.',NOW(),NOW())
+RETURNING id INTO v_asset_id;
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Quarterly Lift Servicing','QUARTERLY','2026-04-01',true,NOW(),NOW());
+
+INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_prop_id,'Grundfos Water Pump','PLUMBING','GRF-CM5-2023-0055','2023-02-14',950,'2025-02-14','Aqua Systems Bahrain','+973 1733 8899','Supplies pressurised water to all floors from rooftop tanks.',NOW(),NOW())
+RETURNING id INTO v_asset_id;
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Biannual Pump Inspection','BIANNUALLY','2026-06-14',true,NOW(),NOW());
+
+INSERT INTO "Asset" (id,"propertyId",name,category,"serialNumber","purchaseDate","purchaseCost","warrantyExpiry","serviceProvider","serviceContact",notes,"createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_prop_id,'Hikvision 16-Channel CCTV System','SECURITY','HIK-DS-16CH-2022','2022-07-20',1800,'2025-07-20','Techno Systems Bahrain','+973 1744 6677','16 cameras covering entrance, car park, corridors, and rooftop. 30-day storage.',NOW(),NOW())
+RETURNING id INTO v_asset_id;
+INSERT INTO "AssetMaintenanceSchedule" (id,"assetId","propertyId","taskName",frequency,"nextDue","isActive","createdAt","updatedAt") VALUES (gen_random_uuid()::text,v_asset_id,v_prop_id,'Annual CCTV Review & Maintenance','ANNUALLY','2026-07-20',true,NOW(),NOW());
+
+RAISE NOTICE '4 assets with maintenance schedules created';
+
+-- =============================================================
+-- RECURRING EXPENSES
+-- =============================================================
+INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId",frequency,"nextDueDate","isActive","createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text,'Monthly Security Patrol — G4S Bahrain',    'CLEANER',    350,'PROPERTY',v_prop_id,'MONTHLY',  '2026-04-01',true,NOW(),NOW()),
+  (gen_random_uuid()::text,'Landscaping & Garden Maintenance',          'CLEANER',    120,'PROPERTY',v_prop_id,'MONTHLY',  '2026-04-01',true,NOW(),NOW()),
+  (gen_random_uuid()::text,'Quarterly Generator Service — Cummins',     'MAINTENANCE',280,'PROPERTY',v_prop_id,'QUARTERLY','2026-06-01',true,NOW(),NOW()),
+  (gen_random_uuid()::text,'Annual Lift Servicing Contract — ThyssenKrupp','MAINTENANCE',800,'PROPERTY',v_prop_id,'ANNUAL','2026-12-01',true,NOW(),NOW());
+
+RAISE NOTICE '4 recurring expenses created';
+
+-- =============================================================
+-- ARREARS CASES
+-- =============================================================
+INSERT INTO "ArrearsCase" (id,"tenantId","propertyId",stage,"amountOwed",notes,"createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text,t102,v_prop_id,'INFORMAL_REMINDER',800,
+   'Tenant has not paid rent for February and March 2026 (BD 400 × 2 months). Called on 15 March — promised to clear by end of month. Follow up required.',NOW(),NOW()),
+  (gen_random_uuid()::text,t304,v_prop_id,'INFORMAL_REMINDER',595,
+   'March 2026 rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent 10 March. Tenant has given notice — chase payment before lease-end.',NOW(),NOW());
+
+RAISE NOTICE '2 arrears cases created';
+
+RAISE NOTICE '';
+RAISE NOTICE '✅ Al Seef Residences seeded successfully!';
+RAISE NOTICE '   Owner login:   owner@alseef.bh  /  demo123';
+RAISE NOTICE '   Manager login: manager@alseef.bh /  demo123';
+RAISE NOTICE '   20 units · 20 tenants · 3 months (Jan–Mar 2026) · BHD';
+
+END $$;

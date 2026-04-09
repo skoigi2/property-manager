@@ -227,22 +227,22 @@ export const styles = StyleSheet.create({
   },
   kpiValue: {
     fontSize: 14,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.INK,
   },
   kpiValueCost: {
     fontSize: 14,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.AMBER,
   },
   kpiValueProfit: {
     fontSize: 14,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.GREEN,
   },
   kpiValueProfitNeg: {
     fontSize: 14,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.RED,
   },
 
@@ -254,7 +254,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: C.INK,
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     marginBottom: 0,
   },
   tableHeaderCell: {
@@ -266,8 +266,8 @@ export const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: C.RULE,
   },
@@ -277,7 +277,7 @@ export const styles = StyleSheet.create({
   tableRowTotal: {
     flexDirection: "row",
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     backgroundColor: C.GOLD_LT,
     borderTopWidth: 1,
     borderTopColor: C.GOLD,
@@ -289,7 +289,7 @@ export const styles = StyleSheet.create({
   },
   tableCellMono: {
     fontSize: 9,
-    fontFamily: "Courier",
+    fontFamily: "Helvetica",
     color: C.INK,
   },
   tableCellRight: {
@@ -381,31 +381,31 @@ export const styles = StyleSheet.create({
   },
   plValue: {
     fontSize: 9,
-    fontFamily: "Courier",
+    fontFamily: "Helvetica",
     color: C.INK,
     textAlign: "right",
   },
   plValueTotal: {
     fontSize: 10,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.GOLD,
     textAlign: "right",
   },
   plValueTotalGreen: {
     fontSize: 10,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.GREEN,
     textAlign: "right",
   },
   plValueTotalAmber: {
     fontSize: 10,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.AMBER,
     textAlign: "right",
   },
   plValueTotalRed: {
     fontSize: 10,
-    fontFamily: "Courier-Bold",
+    fontFamily: "Helvetica-Bold",
     color: C.RED,
     textAlign: "right",
   },

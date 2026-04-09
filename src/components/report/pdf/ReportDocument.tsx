@@ -250,33 +250,42 @@ export function ReportDocument({ data }: { data: ReportData }) {
               <SectionHeading num={SEC.longTerm} title={`${data.longTermPropertyName} — Rent Collection`} />
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
-                  {["Tenant", "Unit", "Type", "Expected", "Received", "Variance", "Status", "Lease End"].map((h, i) => (
-                    <Text key={h} style={[styles.tableHeaderCell, { flex: i === 0 ? 3 : i <= 2 ? 1.2 : i === 7 ? 1.5 : 1.5 }]}>{h}</Text>
+                  {[
+                    { h: "Tenant",    f: 2.5 },
+                    { h: "Unit",      f: 0.8 },
+                    { h: "Type",      f: 1.2 },
+                    { h: "Expected",  f: 2 },
+                    { h: "Received",  f: 2 },
+                    { h: "Variance",  f: 2 },
+                    { h: "Status",    f: 1.8 },
+                    { h: "Lease End", f: 1.8 },
+                  ].map(({ h, f }) => (
+                    <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
                   ))}
                 </View>
                 {data.rentCollection.map((t, idx) => (
                   <View key={t.unit} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
-                    <Text style={[styles.tableCell, { flex: 3 }]}>{t.tenantName}</Text>
-                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{t.unit}</Text>
+                    <Text style={[styles.tableCell, { flex: 2.5 }]}>{t.tenantName}</Text>
+                    <Text style={[styles.tableCell, { flex: 0.8 }]}>{t.unit}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{UNIT_LABEL[t.type] ?? t.type}</Text>
-                    <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{fmt(t.expectedRent + t.serviceCharge)}</Text>
-                    <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{fmt(t.received)}</Text>
-                    <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }, t.variance < 0 ? styles.negative : t.variance > 0 ? styles.positive : {}]}>{fmt(t.variance)}</Text>
-                    <View style={{ flex: 1.5 }}>
+                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(t.expectedRent + t.serviceCharge)}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(t.received)}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }, t.variance < 0 ? styles.negative : t.variance > 0 ? styles.positive : {}]}>{fmt(t.variance)}</Text>
+                    <View style={{ flex: 1.8 }}>
                       <StatusPill variance={t.variance} status={t.status} leaseEnd={t.leaseEnd} />
                     </View>
-                    <Text style={[styles.tableCell, { flex: 1.5 }, t.leaseEnd ? {} : styles.muted]}>{t.leaseEnd ?? "—"}</Text>
+                    <Text style={[styles.tableCell, { flex: 1.8 }, t.leaseEnd ? {} : styles.muted]}>{t.leaseEnd ?? "—"}</Text>
                   </View>
                 ))}
                 <View style={styles.tableRowTotal}>
-                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 3 }]}>TOTAL</Text>
+                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 2.5 }]}>TOTAL</Text>
+                  <Text style={[styles.tableCell, { flex: 0.8 }]} />
                   <Text style={[styles.tableCell, { flex: 1.2 }]} />
-                  <Text style={[styles.tableCell, { flex: 1.2 }]} />
-                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{fmt(totalRentExpected)}</Text>
-                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }]}>{fmt(totalRentReceived)}</Text>
-                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.5, textAlign: "right" }, totalRentReceived - totalRentExpected < 0 ? styles.negative : styles.positive]}>{fmt(totalRentReceived - totalRentExpected)}</Text>
-                  <Text style={[styles.tableCell, { flex: 1.5 }]} />
-                  <Text style={[styles.tableCell, { flex: 1.5 }]} />
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(totalRentExpected)}</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(totalRentReceived)}</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }, totalRentReceived - totalRentExpected < 0 ? styles.negative : styles.positive]}>{fmt(totalRentReceived - totalRentExpected)}</Text>
+                  <Text style={[styles.tableCell, { flex: 1.8 }]} />
+                  <Text style={[styles.tableCell, { flex: 1.8 }]} />
                 </View>
               </View>
             </>

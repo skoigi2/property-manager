@@ -81,8 +81,8 @@ ELSE
   WHERE id = v_owner_id;
 END IF;
 
-INSERT INTO "UserOrganizationMembership" ("userId", "organizationId", "createdAt")
-VALUES (v_owner_id, v_org_id, NOW())
+INSERT INTO "UserOrganizationMembership" (id, "userId", "organizationId", "createdAt")
+VALUES (gen_random_uuid()::text, v_owner_id, v_org_id, NOW())
 ON CONFLICT ("userId", "organizationId") DO NOTHING;
 RAISE NOTICE 'Owner user: owner@alseef.bh / demo123';
 
@@ -99,8 +99,8 @@ ELSE
   WHERE id = v_manager_id;
 END IF;
 
-INSERT INTO "UserOrganizationMembership" ("userId", "organizationId", "createdAt")
-VALUES (v_manager_id, v_org_id, NOW())
+INSERT INTO "UserOrganizationMembership" (id, "userId", "organizationId", "createdAt")
+VALUES (gen_random_uuid()::text, v_manager_id, v_org_id, NOW())
 ON CONFLICT ("userId", "organizationId") DO NOTHING;
 RAISE NOTICE 'Manager user: manager@alseef.bh / demo123';
 
@@ -116,8 +116,8 @@ VALUES (
   v_owner_id, v_org_id, 75, 'BHD', NOW(), NOW()
 ) RETURNING id INTO v_prop_id;
 
-INSERT INTO "PropertyAccess" ("userId", "propertyId", "grantedAt")
-VALUES (v_manager_id, v_prop_id, NOW())
+INSERT INTO "PropertyAccess" (id, "userId", "propertyId", "grantedAt")
+VALUES (gen_random_uuid()::text, v_manager_id, v_prop_id, NOW())
 ON CONFLICT ("userId", "propertyId") DO NOTHING;
 
 RAISE NOTICE 'Property: Al Seef Residences (%)' , v_prop_id;

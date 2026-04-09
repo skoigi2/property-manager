@@ -116,7 +116,7 @@ VALUES (
   v_owner_id, v_org_id, 75, 'BHD', NOW(), NOW()
 ) RETURNING id INTO v_prop_id;
 
-INSERT INTO "PropertyAccess" ("userId", "propertyId", "createdAt")
+INSERT INTO "PropertyAccess" ("userId", "propertyId", "grantedAt")
 VALUES (v_manager_id, v_prop_id, NOW())
 ON CONFLICT ("userId", "propertyId") DO NOTHING;
 

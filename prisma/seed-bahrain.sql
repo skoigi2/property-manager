@@ -25,6 +25,15 @@ DECLARE
   t301 TEXT; t302 TEXT; t303 TEXT; t304 TEXT; t305 TEXT;
   t401 TEXT; t402 TEXT; t403 TEXT; t404 TEXT; t405 TEXT;
 
+  -- Vendor IDs
+  v_vendor_mgmt  TEXT;
+  v_vendor_water TEXT;
+  v_vendor_elec  TEXT;
+  v_vendor_wifi  TEXT;
+  v_vendor_clean TEXT;
+  v_vendor_plumb TEXT;
+  v_vendor_tech  TEXT;
+
   -- Misc
   v_inv_id  TEXT;
   v_inc_id  TEXT;
@@ -51,6 +60,7 @@ IF v_prop_id IS NOT NULL THEN
   DELETE FROM "ExpenseEntry" WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
   DELETE FROM "ManagementFeeConfig" WHERE "unitId" IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
   DELETE FROM "Tenant"       WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
+  DELETE FROM "Vendor"        WHERE "organizationId" = (SELECT "organizationId" FROM "Property" WHERE id = v_prop_id);
   DELETE FROM "PropertyAccess" WHERE "propertyId" = v_prop_id;
   DELETE FROM "Unit"         WHERE "propertyId" = v_prop_id;
   DELETE FROM "Property"     WHERE id = v_prop_id;
@@ -415,6 +425,39 @@ INSERT INTO "IncomeEntry" (id,date,"unitId","tenantId","invoiceId",type,"grossAm
 RAISE NOTICE 'Invoices and income entries created';
 
 -- =============================================================
+-- VENDORS
+-- =============================================================
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'Al Seef Property Management','SERVICE_PROVIDER','+973 1700 1100','info@alseef.bh','Property management company responsible for day-to-day operations of Al Seef Residences.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_mgmt;
+
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'BEWA — Bahrain Electricity & Water Authority','UTILITY_PROVIDER','+973 1700 0000','customer@bewa.bh','National water utility. Account ref: BEWA-ASR-2025-0441.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_water;
+
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'MEW — Ministry of Electricity & Water Affairs','UTILITY_PROVIDER','+973 1753 3533','info@mew.gov.bh','National electricity provider for common areas, lifts and car park lighting. Account ref: MEW-ASR-2025-1887.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_elec;
+
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'Batelco','UTILITY_PROVIDER','+973 1788 1881','business@batelco.com.bh','Batelco fibre internet — 500 Mbps dedicated building line. Contract ref: BAT-BIZ-2024-6612.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_wifi;
+
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'Al Noor Facility Management','SERVICE_PROVIDER','+973 3300 7744','ops@alnoor-fm.bh','Provides 2 full-time cleaners for common areas and grounds. Also handles landscaping and G4S security coordination.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_clean;
+
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'Al Baraka Plumbing & Maintenance','CONTRACTOR','+973 3911 2255','albaraka.plumbing@gmail.com','Licensed plumbing and general maintenance contractor. Used for unit-level repairs and common area plumbing.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_plumb;
+
+INSERT INTO "Vendor" (id,"organizationId",name,category,phone,email,notes,"isActive","createdAt","updatedAt")
+VALUES (gen_random_uuid()::text,v_org_id,'Gulf Technical Services','CONTRACTOR','+973 3600 4488','service@gulftechbh.com','Electrical and HVAC contractor. Handles A/C servicing, electrical faults, and generator maintenance.',true,NOW(),NOW())
+RETURNING id INTO v_vendor_tech;
+
+RAISE NOTICE '7 vendors created';
+
+-- =============================================================
 -- EXPENSES — monthly property-level (3 months)
 -- =============================================================
 INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","createdAt") VALUES
@@ -440,6 +483,15 @@ INSERT INTO "ExpenseEntry" (id,date,"unitId",scope,category,amount,description,"
   (gen_random_uuid()::text,'2026-02-01',u201,'UNIT','MAINTENANCE',   85,'Electrical fault — kitchen circuit breaker', false,false,NOW()),
   (gen_random_uuid()::text,'2026-02-01',u404,'UNIT','MAINTENANCE',  310,'A/C compressor replacement — master bedroom', true, false,NOW()),
   (gen_random_uuid()::text,'2026-03-01',u302,'UNIT','REINSTATEMENT',420,'Deep clean & repainting — post-notice unit',  true, false,NOW());
+
+-- Link vendors to expenses
+UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_mgmt  WHERE "propertyId" = v_prop_id AND category = 'MANAGEMENT_FEE';
+UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_water  WHERE "propertyId" = v_prop_id AND category = 'WATER';
+UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_elec   WHERE "propertyId" = v_prop_id AND category = 'ELECTRICITY';
+UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_wifi   WHERE "propertyId" = v_prop_id AND category = 'WIFI';
+UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_clean  WHERE "propertyId" = v_prop_id AND category = 'CLEANER';
+UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_plumb  WHERE "unitId" IN (u103, u302);
+UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_tech   WHERE "unitId" IN (u201, u404);
 
 RAISE NOTICE 'Expenses created';
 
@@ -504,6 +556,11 @@ INSERT INTO "RecurringExpense" (id,description,category,amount,scope,"propertyId
   (gen_random_uuid()::text,'Landscaping & Garden Maintenance',          'CLEANER',    120,'PROPERTY',v_prop_id,'MONTHLY',  '2026-04-01',true,NOW(),NOW()),
   (gen_random_uuid()::text,'Quarterly Generator Service — Cummins',     'MAINTENANCE',280,'PROPERTY',v_prop_id,'QUARTERLY','2026-06-01',true,NOW(),NOW()),
   (gen_random_uuid()::text,'Annual Lift Servicing Contract — ThyssenKrupp','MAINTENANCE',800,'PROPERTY',v_prop_id,'ANNUAL','2026-12-01',true,NOW(),NOW());
+
+-- Link vendors to recurring expenses
+UPDATE "RecurringExpense" SET "vendorId" = v_vendor_clean WHERE "propertyId" = v_prop_id AND description LIKE '%G4S%';
+UPDATE "RecurringExpense" SET "vendorId" = v_vendor_clean WHERE "propertyId" = v_prop_id AND description LIKE '%Landscaping%';
+UPDATE "RecurringExpense" SET "vendorId" = v_vendor_tech  WHERE "propertyId" = v_prop_id AND description LIKE '%Generator%';
 
 RAISE NOTICE '4 recurring expenses created';
 

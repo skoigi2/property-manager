@@ -81,6 +81,7 @@ IF v_prop_id IS NOT NULL THEN
   DELETE FROM "ExpenseEntry" WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
   DELETE FROM "ManagementFeeConfig" WHERE "unitId" IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
   DELETE FROM "Tenant"       WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
+  DELETE FROM "ComplianceCertificate" WHERE "propertyId" = v_prop_id;
   DELETE FROM "TaxConfiguration" WHERE "orgId" = (SELECT "organizationId" FROM "Property" WHERE id = v_prop_id) AND label = 'VAT';
   DELETE FROM "Vendor"        WHERE "organizationId" = (SELECT "organizationId" FROM "Property" WHERE id = v_prop_id);
   DELETE FROM "PropertyAccess" WHERE "propertyId" = v_prop_id;
@@ -714,6 +715,94 @@ UPDATE "MaintenanceJob" SET "expenseId" = (
 ) WHERE "propertyId" = v_prop_id AND title LIKE '%repaint%';
 
 RAISE NOTICE '15 maintenance jobs created (10 manager-logged, 5 tenant requests), 4 linked to expense entries';
+
+-- =============================================================
+-- COMPLIANCE CERTIFICATES
+-- =============================================================
+INSERT INTO "ComplianceCertificate" (id,"organizationId","propertyId","certificateType","certificateNumber","issuedBy","issueDate","expiryDate",notes,"createdAt","updatedAt") VALUES
+
+-- VALID
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Building Completion Certificate','BCC-2019-MAN-04412',
+ 'Ministry of Works, Municipalities Affairs & Urban Planning, Bahrain',
+ '2019-06-15',NULL,
+ 'Original completion certificate issued on handover. No expiry — retained for regulatory records.',
+ NOW(),NOW()),
+
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Lift Safety Certificate','LSCC-2025-TK-0341',
+ 'Labour Market Regulatory Authority (LMRA), Bahrain',
+ '2025-09-01','2026-08-31',
+ 'Annual statutory lift inspection by ThyssenKrupp, signed off by LMRA. Covers 10-person MRL passenger lift.',
+ NOW(),NOW()),
+
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Municipality Building Use Permit','MBP-2024-SEE-7891',
+ 'Southern Municipality, Bahrain',
+ '2024-03-01','2026-02-28',
+ 'Two-year building use permit renewal. Covers residential occupation for all 20 units.',
+ NOW(),NOW()),
+
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Swimming Pool & Gym Health Certificate',NULL,
+ 'Ministry of Health, Bahrain',
+ '2025-07-01','2026-06-30',
+ 'Annual health and hygiene certificate for shared amenities. Water quality and equipment safety checks completed.',
+ NOW(),NOW()),
+
+-- EXPIRING SOON (within 30 days of 2026-04-10)
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Civil Defence Fire Safety Approval','CDA-FSC-2025-0087',
+ 'General Directorate of Civil Defence, Bahrain',
+ '2025-04-15','2026-04-14',
+ 'EXPIRING IN 4 DAYS — renewal inspection booked for 12 April 2026. Ensure all fire extinguishers are serviced before visit.',
+ NOW(),NOW()),
+
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Electrical Installation Condition Report','EICR-2024-GTS-0088',
+ 'Gulf Technical Services',
+ '2024-04-20','2026-04-30',
+ 'EXPIRING IN 20 DAYS — biennial electrical inspection. Gulf Technical Services scheduled for 28 April 2026.',
+ NOW(),NOW()),
+
+-- EXPIRED
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Building Insurance Certificate','GUI-BLD-2025-1142',
+ 'Gulf Union Insurance',
+ '2025-01-01','2025-12-31',
+ 'EXPIRED — building insurance policy lapsed December 2025. Renewal quote received — awaiting owner approval.',
+ NOW(),NOW()),
+
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Pest Control Treatment Certificate','PCT-2025-BH-0229',
+ 'Al Khaleej Pest Control, Bahrain',
+ '2025-01-15','2026-01-14',
+ 'EXPIRED — annual pest control certificate lapsed January 2026. Reschedule urgently given recent tenant cockroach report in unit 101.',
+ NOW(),NOW()),
+
+-- ONGOING (no expiry date)
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Water Tank Cleaning Certificate','WTC-2025-AQS-0055',
+ 'Aqua Systems Bahrain',
+ '2025-06-14',NULL,
+ 'Rooftop water tank cleaned and certified potable. Recommended annually — next cleaning due June 2026.',
+ NOW(),NOW()),
+
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'CCTV System Compliance Certificate','HIK-COMP-2025-016',
+ 'Techno Systems Bahrain',
+ '2025-07-20',NULL,
+ 'Security system certified compliant with Bahrain Personal Data Protection Law. 30-day retention verified.',
+ NOW(),NOW()),
+
+(gen_random_uuid()::text,v_org_id,v_prop_id,
+ 'Building Completion Certificate — As-Built Drawings','BCC-ASBUILT-2019-112',
+ 'Ministry of Works, Municipalities Affairs & Urban Planning, Bahrain',
+ '2019-09-01',NULL,
+ 'As-built structural drawings registered with the municipality. No expiry.',
+ NOW(),NOW());
+
+RAISE NOTICE '11 compliance certificates created (4 valid, 2 expiring soon, 2 expired, 3 ongoing)';
 
 RAISE NOTICE '';
 RAISE NOTICE '✅ Al Seef Residences seeded successfully!';

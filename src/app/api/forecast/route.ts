@@ -26,7 +26,7 @@ export async function GET(req: Request) {
       ? propertyIdParam
       : null;
 
-  const [tenants, recurringExpenses, insurancePolicies, agreements] =
+  const [tenants, recurringExpenses, insurancePolicies, agreements, assetMaintenanceSchedules] =
     await Promise.all([
       prisma.tenant.findMany({
         where: {
@@ -100,6 +100,35 @@ export async function GET(req: Request) {
           managementFeeRate: true,
         },
       }),
+
+      prisma.assetMaintenanceSchedule.findMany({
+        where: {
+          isActive: true,
+          recurringExpenseId: null,
+          estimatedCost: { gt: 0 },
+          frequency: { in: ["MONTHLY", "QUARTERLY", "BIANNUALLY", "ANNUALLY"] },
+          OR: [
+            { asset: { propertyId: { in: propertyIds } } },
+            { propertyId: { in: propertyIds } },
+          ],
+        },
+        select: {
+          id: true,
+          taskName: true,
+          taskCategory: true,
+          frequency: true,
+          nextDue: true,
+          estimatedCost: true,
+          recurringExpenseId: true,
+          asset: {
+            select: {
+              name: true,
+              property: { select: { name: true } },
+            },
+          },
+          property: { select: { name: true } },
+        },
+      }),
     ]);
 
   const result = buildForecast({
@@ -109,6 +138,7 @@ export async function GET(req: Request) {
     recurringExpenses: recurringExpenses as Parameters<typeof buildForecast>[0]["recurringExpenses"],
     insurancePolicies: insurancePolicies as Parameters<typeof buildForecast>[0]["insurancePolicies"],
     agreements,
+    assetMaintenanceSchedules: assetMaintenanceSchedules as Parameters<typeof buildForecast>[0]["assetMaintenanceSchedules"],
   });
 
   return Response.json(result);

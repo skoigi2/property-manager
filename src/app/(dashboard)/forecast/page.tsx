@@ -151,12 +151,19 @@ function MonthDetailRow({
                       key={`${item.sourceId}-${idx}`}
                       className="flex items-center justify-between gap-2"
                     >
-                      <span className="text-xs font-sans text-gray-700 truncate">
-                        {item.description}
-                        {item.propertyName && (
-                          <span className="text-gray-400">
-                            {" "}
-                            · {item.propertyName}
+                      <span className="text-xs font-sans text-gray-700 truncate flex items-center gap-1.5 min-w-0">
+                        <span className="truncate">
+                          {item.description}
+                          {item.propertyName && (
+                            <span className="text-gray-400">
+                              {" "}
+                              · {item.propertyName}
+                            </span>
+                          )}
+                        </span>
+                        {item.type === "ASSET_MAINTENANCE" && (
+                          <span className="shrink-0 text-[10px] font-sans font-medium text-orange-600 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded-full">
+                            asset
                           </span>
                         )}
                       </span>
@@ -186,6 +193,7 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
   const leaseExpiries = risks.filter((r) => r.type === "LEASE_EXPIRY");
   const vacancies = risks.filter((r) => r.type === "VACANT_UNIT");
   const insuranceExpiries = risks.filter((r) => r.type === "INSURANCE_EXPIRY");
+  const assetMaintenance = risks.filter((r) => r.type === "ASSET_MAINTENANCE_DUE");
 
   if (risks.length === 0) {
     return (
@@ -201,7 +209,7 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {leaseExpiries.length > 0 && (
         <Card padding="sm">
           <div className="flex items-center gap-2 mb-3">
@@ -248,6 +256,24 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
           </div>
           <div className="space-y-2">
             {insuranceExpiries.map((r, i) => (
+              <p key={i} className="text-xs font-sans text-gray-600">
+                {r.message}
+              </p>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {assetMaintenance.length > 0 && (
+        <Card padding="sm">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={15} className="text-orange-500 shrink-0" />
+            <p className="text-xs font-sans font-semibold text-gray-700 uppercase tracking-wide">
+              Asset Maintenance ({assetMaintenance.length})
+            </p>
+          </div>
+          <div className="space-y-2">
+            {assetMaintenance.map((r, i) => (
               <p key={i} className="text-xs font-sans text-gray-600">
                 {r.message}
               </p>

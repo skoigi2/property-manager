@@ -33,12 +33,12 @@ export interface ExpenseBreakdownItem {
   description: string;
   category: string;
   amount: number;
-  type: "RECURRING" | "INSURANCE" | "MANAGEMENT_FEE";
+  type: "RECURRING" | "INSURANCE" | "MANAGEMENT_FEE" | "ASSET_MAINTENANCE";
   propertyName?: string;
 }
 
 export interface ForecastRisk {
-  type: "LEASE_EXPIRY" | "VACANT_UNIT" | "INSURANCE_EXPIRY";
+  type: "LEASE_EXPIRY" | "VACANT_UNIT" | "INSURANCE_EXPIRY" | "ASSET_MAINTENANCE_DUE";
   tenantName?: string;
   unitNumber?: string;
   propertyName?: string;

@@ -61,6 +61,18 @@ interface ManagementAgreementInput {
   managementFeeRate: number;
 }
 
+interface AssetMaintenanceScheduleInput {
+  id: string;
+  taskName: string;
+  taskCategory: string | null;
+  frequency: string;
+  nextDue: Date | null;
+  estimatedCost: number;
+  recurringExpenseId: string | null;
+  asset: { name: string; property: { name: string } | null } | null;
+  property: { name: string } | null;
+}
+
 export interface ForecastInput {
   horizon: number;
   propertyId: string | null;
@@ -68,6 +80,7 @@ export interface ForecastInput {
   recurringExpenses: RecurringExpenseInput[];
   insurancePolicies: InsurancePolicyInput[];
   agreements: ManagementAgreementInput[];
+  assetMaintenanceSchedules: AssetMaintenanceScheduleInput[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -93,6 +106,18 @@ function advanceInsuranceCursor(cursor: Date, frequency: string): Date {
   return addMonths(cursor, months);
 }
 
+const ASSET_MAINT_FREQ_MONTHS: Record<string, number> = {
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  BIANNUALLY: 6,
+  ANNUALLY: 12,
+};
+
+function advanceAssetMaintenanceCursor(cursor: Date, frequency: string): Date {
+  const months = ASSET_MAINT_FREQ_MONTHS[frequency] ?? 12;
+  return addMonths(cursor, months);
+}
+
 function getEscalatedRent(tenant: TenantInput, monthStart: Date): number {
   if (!tenant.escalationRate) return tenant.monthlyRent;
   const years = differenceInYears(monthStart, tenant.leaseStart);
@@ -103,7 +128,7 @@ function getEscalatedRent(tenant: TenantInput, monthStart: Date): number {
 // ── Main engine ───────────────────────────────────────────────────────────────
 
 export function buildForecast(input: ForecastInput): ForecastResponse {
-  const { horizon, propertyId, tenants, recurringExpenses, insurancePolicies, agreements } = input;
+  const { horizon, propertyId, tenants, recurringExpenses, insurancePolicies, agreements, assetMaintenanceSchedules } = input;
 
   const today = new Date();
   const windowStart = startOfMonth(addMonths(today, 1));
@@ -207,6 +232,38 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
       }
     }
 
+    // ── ASSET MAINTENANCE SCHEDULES ─────────────────────────────────────────
+    for (const schedule of assetMaintenanceSchedules) {
+      // Skip if already linked to a recurring expense (already counted above)
+      if (schedule.recurringExpenseId) continue;
+      // Skip unscheduled or costless items
+      if (!schedule.nextDue || !schedule.estimatedCost) continue;
+      // Skip frequencies we can't project monthly (WEEKLY, AS_NEEDED)
+      if (!ASSET_MAINT_FREQ_MONTHS[schedule.frequency]) continue;
+
+      let cursor = new Date(schedule.nextDue);
+      while (cursor < monthStart) {
+        cursor = advanceAssetMaintenanceCursor(cursor, schedule.frequency);
+      }
+
+      if (isSameMonth(cursor, monthStart)) {
+        const propertyName =
+          schedule.asset?.property?.name ?? schedule.property?.name ?? "Portfolio";
+        const description = schedule.asset
+          ? `${schedule.taskName} — ${schedule.asset.name}`
+          : schedule.taskName;
+
+        expenseBreakdown.push({
+          sourceId: schedule.id,
+          description,
+          category: schedule.taskCategory ?? "MAINTENANCE",
+          amount: schedule.estimatedCost,
+          type: "ASSET_MAINTENANCE",
+          propertyName,
+        });
+      }
+    }
+
     // ── MANAGEMENT FEES ─────────────────────────────────────────────────────
     // Group rentBreakdown by propertyId, compute fee per property
     const revenueByProperty = new Map<string, { name: string; total: number }>();
@@ -296,6 +353,34 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
         propertyName: policy.property.name,
         date: format(policy.endDate, "d MMM yyyy"),
         message: `${policy.type} Insurance for ${policy.property.name} expires ${format(policy.endDate, "d MMM yyyy")}`,
+      });
+    }
+  }
+
+  // Flag high-cost asset maintenance events due within the window
+  for (const schedule of assetMaintenanceSchedules) {
+    if (schedule.recurringExpenseId) continue;
+    if (!schedule.nextDue || !schedule.estimatedCost) continue;
+    if (!ASSET_MAINT_FREQ_MONTHS[schedule.frequency]) continue;
+
+    // Find the first occurrence within the window
+    let cursor = new Date(schedule.nextDue);
+    while (cursor < windowStart) {
+      cursor = advanceAssetMaintenanceCursor(cursor, schedule.frequency);
+    }
+
+    if (cursor >= windowStart && cursor <= windowEnd) {
+      const propertyName =
+        schedule.asset?.property?.name ?? schedule.property?.name ?? "Portfolio";
+      const assetLabel = schedule.asset
+        ? `${schedule.taskName} — ${schedule.asset.name}`
+        : schedule.taskName;
+
+      risks.push({
+        type: "ASSET_MAINTENANCE_DUE",
+        propertyName,
+        date: format(cursor, "d MMM yyyy"),
+        message: `Scheduled maintenance due: ${assetLabel} (${propertyName}) — est. cost ${schedule.estimatedCost.toLocaleString()} on ${format(cursor, "d MMM yyyy")}`,
       });
     }
   }

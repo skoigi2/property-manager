@@ -43,6 +43,17 @@ DECLARE
   v_recur_pump  TEXT;
   v_recur_cctv  TEXT;
 
+  -- Tax config
+  v_vat_id      TEXT;
+
+  -- Expense IDs for VAT line items
+  e_mgmt_jan TEXT; e_mgmt_feb TEXT; e_mgmt_mar TEXT;
+  e_water_jan TEXT; e_water_feb TEXT; e_water_mar TEXT;
+  e_elec_jan TEXT; e_elec_feb TEXT; e_elec_mar TEXT;
+  e_wifi_jan TEXT; e_wifi_feb TEXT; e_wifi_mar TEXT;
+  e_clean_jan TEXT; e_clean_feb TEXT; e_clean_mar TEXT;
+  e_maint_103 TEXT; e_maint_201 TEXT; e_maint_404 TEXT; e_reinstate_302 TEXT;
+
   -- Misc
   v_inv_id  TEXT;
   v_inc_id  TEXT;
@@ -70,6 +81,7 @@ IF v_prop_id IS NOT NULL THEN
   DELETE FROM "ExpenseEntry" WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
   DELETE FROM "ManagementFeeConfig" WHERE "unitId" IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
   DELETE FROM "Tenant"       WHERE "unitId"  IN (SELECT id FROM "Unit" WHERE "propertyId" = v_prop_id);
+  DELETE FROM "TaxConfiguration" WHERE "orgId" = (SELECT "organizationId" FROM "Property" WHERE id = v_prop_id) AND label = 'VAT';
   DELETE FROM "Vendor"        WHERE "organizationId" = (SELECT "organizationId" FROM "Property" WHERE id = v_prop_id);
   DELETE FROM "PropertyAccess" WHERE "propertyId" = v_prop_id;
   DELETE FROM "Unit"         WHERE "propertyId" = v_prop_id;
@@ -87,6 +99,12 @@ IF v_org_id IS NULL THEN
   RETURNING id INTO v_org_id;
 END IF;
 RAISE NOTICE 'Org ID: %', v_org_id;
+
+-- VAT Configuration (Bahrain standard rate 10%)
+INSERT INTO "TaxConfiguration" (id,"orgId",label,rate,type,"appliesTo","isInclusive","isActive","effectiveFrom","createdAt")
+VALUES (gen_random_uuid()::text,v_org_id,'VAT',0.10,'ADDITIVE',ARRAY['CONTRACTOR_LABOUR','SERVICE','MATERIALS','UTILITY'],false,true,'2022-01-01',NOW())
+RETURNING id INTO v_vat_id;
+RAISE NOTICE 'VAT config created (10%%)';
 
 -- =============================================================
 -- OWNER USER
@@ -480,42 +498,60 @@ RETURNING id INTO v_vendor_cctv;
 RAISE NOTICE '10 vendors created';
 
 -- =============================================================
--- EXPENSES — monthly property-level (3 months)
+-- EXPENSES — monthly property-level (each INSERT captured for VAT line items)
 -- =============================================================
-INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","createdAt") VALUES
-  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','WIFI',           90,'Batelco Fibre — building internet infrastructure',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','CLEANER',       380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','WIFI',           90,'Batelco Fibre — building internet infrastructure',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','CLEANER',       380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','WIFI',           90,'Batelco Fibre — building internet infrastructure',false,false,NOW()),
-  (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','CLEANER',       380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,NOW());
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,v_vendor_mgmt,NOW()) RETURNING id INTO e_mgmt_jan;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,v_vendor_water,NOW()) RETURNING id INTO e_water_jan;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,v_vendor_elec,NOW()) RETURNING id INTO e_elec_jan;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','WIFI',            90,'Batelco Fibre — building internet infrastructure',false,false,v_vendor_wifi,NOW()) RETURNING id INTO e_wifi_jan;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',v_prop_id,'PROPERTY','CLEANER',        380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,v_vendor_clean,NOW()) RETURNING id INTO e_clean_jan;
+
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,v_vendor_mgmt,NOW()) RETURNING id INTO e_mgmt_feb;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,v_vendor_water,NOW()) RETURNING id INTO e_water_feb;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,v_vendor_elec,NOW()) RETURNING id INTO e_elec_feb;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','WIFI',            90,'Batelco Fibre — building internet infrastructure',false,false,v_vendor_wifi,NOW()) RETURNING id INTO e_wifi_feb;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',v_prop_id,'PROPERTY','CLEANER',        380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,v_vendor_clean,NOW()) RETURNING id INTO e_clean_feb;
+
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','MANAGEMENT_FEE',650,'Monthly management fee — Al Seef Property Management',false,false,v_vendor_mgmt,NOW()) RETURNING id INTO e_mgmt_mar;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','WATER',         180,'BEWA — building water supply',false,false,v_vendor_water,NOW()) RETURNING id INTO e_water_mar;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','ELECTRICITY',   220,'MEW — common areas, lifts & car park lighting',false,false,v_vendor_elec,NOW()) RETURNING id INTO e_elec_mar;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','WIFI',            90,'Batelco Fibre — building internet infrastructure',false,false,v_vendor_wifi,NOW()) RETURNING id INTO e_wifi_mar;
+INSERT INTO "ExpenseEntry" (id,date,"propertyId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-03-01',v_prop_id,'PROPERTY','CLEANER',        380,'Cleaning staff — 2 full-time (common areas & grounds)',false,false,v_vendor_clean,NOW()) RETURNING id INTO e_clean_mar;
 
 -- Ad-hoc unit-level expenses
-INSERT INTO "ExpenseEntry" (id,date,"unitId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","createdAt") VALUES
-  (gen_random_uuid()::text,'2026-01-01',u103,'UNIT','MAINTENANCE',  120,'Plumbing repair — bathroom tap replacement', false,false,NOW()),
-  (gen_random_uuid()::text,'2026-02-01',u201,'UNIT','MAINTENANCE',   85,'Electrical fault — kitchen circuit breaker', false,false,NOW()),
-  (gen_random_uuid()::text,'2026-02-01',u404,'UNIT','MAINTENANCE',  310,'A/C compressor replacement — master bedroom', true, false,NOW()),
-  (gen_random_uuid()::text,'2026-03-01',u302,'UNIT','REINSTATEMENT',420,'Deep clean & repainting — post-notice unit',  true, false,NOW());
+INSERT INTO "ExpenseEntry" (id,date,"unitId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-01-01',u103,'UNIT','MAINTENANCE',  120,'Plumbing repair — bathroom tap replacement', false,false,v_vendor_plumb,NOW()) RETURNING id INTO e_maint_103;
+INSERT INTO "ExpenseEntry" (id,date,"unitId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',u201,'UNIT','MAINTENANCE',   85,'Electrical fault — kitchen circuit breaker', false,false,v_vendor_tech,NOW()) RETURNING id INTO e_maint_201;
+INSERT INTO "ExpenseEntry" (id,date,"unitId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-02-01',u404,'UNIT','MAINTENANCE',  310,'A/C compressor replacement — master bedroom', true, false,v_vendor_tech,NOW()) RETURNING id INTO e_maint_404;
+INSERT INTO "ExpenseEntry" (id,date,"unitId",scope,category,amount,description,"isSunkCost","paidFromPettyCash","vendorId","createdAt") VALUES (gen_random_uuid()::text,'2026-03-01',u302,'UNIT','REINSTATEMENT',420,'Deep clean & repainting — post-notice unit',  true, false,v_vendor_clean,NOW()) RETURNING id INTO e_reinstate_302;
 
--- Link vendors to expenses
-UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_mgmt  WHERE "propertyId" = v_prop_id AND category = 'MANAGEMENT_FEE';
-UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_water  WHERE "propertyId" = v_prop_id AND category = 'WATER';
-UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_elec   WHERE "propertyId" = v_prop_id AND category = 'ELECTRICITY';
-UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_wifi   WHERE "propertyId" = v_prop_id AND category = 'WIFI';
-UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_clean  WHERE "propertyId" = v_prop_id AND category = 'CLEANER';
-UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_plumb  WHERE "unitId" IN (u103, u302);
-UPDATE "ExpenseEntry" SET "vendorId" = v_vendor_tech   WHERE "unitId" IN (u201, u404);
+-- VAT line items (10% on all vendor-payable expenses)
+-- BEWA (water) and MEW (electricity) are government utilities — VAT applicable in Bahrain
+-- Management fee, cleaning, wifi, contractors — all standard 10% VAT
+INSERT INTO "ExpenseLineItem" (id,"expenseId",category,description,amount,"isVatable","taxConfigId","taxRate","taxAmount","taxType","paymentStatus","amountPaid","createdAt","updatedAt") VALUES
+  (gen_random_uuid()::text,e_mgmt_jan,   'LABOUR','Management fee — January 2026',  650,true,v_vat_id,0.10,65, 'ADDITIVE','PAID',715,NOW(),NOW()),
+  (gen_random_uuid()::text,e_water_jan,  'MATERIAL','Water charges — January 2026', 180,true,v_vat_id,0.10,18, 'ADDITIVE','PAID',198,NOW(),NOW()),
+  (gen_random_uuid()::text,e_elec_jan,   'MATERIAL','Electricity charges — January 2026',220,true,v_vat_id,0.10,22,'ADDITIVE','PAID',242,NOW(),NOW()),
+  (gen_random_uuid()::text,e_wifi_jan,   'LABOUR','Batelco fibre — January 2026',    90,true,v_vat_id,0.10,9,  'ADDITIVE','PAID',99, NOW(),NOW()),
+  (gen_random_uuid()::text,e_clean_jan,  'LABOUR','Cleaning staff — January 2026',  380,true,v_vat_id,0.10,38, 'ADDITIVE','PAID',418,NOW(),NOW()),
 
-RAISE NOTICE 'Expenses created';
+  (gen_random_uuid()::text,e_mgmt_feb,   'LABOUR','Management fee — February 2026', 650,true,v_vat_id,0.10,65, 'ADDITIVE','PAID',715,NOW(),NOW()),
+  (gen_random_uuid()::text,e_water_feb,  'MATERIAL','Water charges — February 2026',180,true,v_vat_id,0.10,18, 'ADDITIVE','PAID',198,NOW(),NOW()),
+  (gen_random_uuid()::text,e_elec_feb,   'MATERIAL','Electricity charges — February 2026',220,true,v_vat_id,0.10,22,'ADDITIVE','PAID',242,NOW(),NOW()),
+  (gen_random_uuid()::text,e_wifi_feb,   'LABOUR','Batelco fibre — February 2026',   90,true,v_vat_id,0.10,9,  'ADDITIVE','PAID',99, NOW(),NOW()),
+  (gen_random_uuid()::text,e_clean_feb,  'LABOUR','Cleaning staff — February 2026', 380,true,v_vat_id,0.10,38, 'ADDITIVE','PAID',418,NOW(),NOW()),
+
+  (gen_random_uuid()::text,e_mgmt_mar,   'LABOUR','Management fee — March 2026',    650,true,v_vat_id,0.10,65, 'ADDITIVE','PAID',715,NOW(),NOW()),
+  (gen_random_uuid()::text,e_water_mar,  'MATERIAL','Water charges — March 2026',   180,true,v_vat_id,0.10,18, 'ADDITIVE','PAID',198,NOW(),NOW()),
+  (gen_random_uuid()::text,e_elec_mar,   'MATERIAL','Electricity charges — March 2026',220,true,v_vat_id,0.10,22,'ADDITIVE','PAID',242,NOW(),NOW()),
+  (gen_random_uuid()::text,e_wifi_mar,   'LABOUR','Batelco fibre — March 2026',      90,true,v_vat_id,0.10,9,  'ADDITIVE','PAID',99, NOW(),NOW()),
+  (gen_random_uuid()::text,e_clean_mar,  'LABOUR','Cleaning staff — March 2026',    380,true,v_vat_id,0.10,38, 'ADDITIVE','PAID',418,NOW(),NOW()),
+
+  (gen_random_uuid()::text,e_maint_103,  'LABOUR','Plumbing repair — unit 103',     120,true,v_vat_id,0.10,12, 'ADDITIVE','PAID',132,NOW(),NOW()),
+  (gen_random_uuid()::text,e_maint_201,  'LABOUR','Electrical repair — unit 201',    85,true,v_vat_id,0.10,8.5,'ADDITIVE','PAID',93.5,NOW(),NOW()),
+  (gen_random_uuid()::text,e_maint_404,  'MATERIAL','A/C compressor — unit 404',    310,true,v_vat_id,0.10,31, 'ADDITIVE','PAID',341,NOW(),NOW()),
+  (gen_random_uuid()::text,e_reinstate_302,'LABOUR','Deep clean & repaint — unit 302',420,true,v_vat_id,0.10,42,'ADDITIVE','PAID',462,NOW(),NOW());
+
+RAISE NOTICE 'Expenses and VAT line items created';
 
 -- =============================================================
 -- PETTY CASH

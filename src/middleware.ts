@@ -23,12 +23,19 @@ export default auth((req) => {
 
   // Multi-org users who haven't selected an org yet: redirect to org picker
   // Skip this for the select-org page itself and API routes
-  if (isLoggedIn && !isSelectOrgPage) {
+  const isOnboardingPage = pathname.startsWith("/onboarding");
+
+  if (isLoggedIn && !isSelectOrgPage && !isOnboardingPage) {
     const user = req.auth?.user as any;
     const membershipCount = user?.membershipCount ?? 1;
     const orgId = user?.organizationId;
     const role = user?.role;
     const isSuperAdmin = role === "ADMIN" && (orgId === null || orgId === undefined);
+
+    // New self-signup user (Google or future signup flow) — no org yet
+    if (!isSuperAdmin && membershipCount === 0) {
+      return NextResponse.redirect(new URL("/onboarding", req.url));
+    }
 
     // Regular users (not super-admin) with multiple org memberships and no active org
     if (!isSuperAdmin && membershipCount > 1 && !orgId) {

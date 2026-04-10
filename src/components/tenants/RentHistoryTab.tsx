@@ -207,7 +207,7 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
         <div className="text-center py-10 text-gray-400">
           <TrendingUp size={28} className="mx-auto mb-2 opacity-20" />
           <p className="text-sm font-sans">No rent history recorded yet.</p>
-          <p className="text-xs font-sans mt-1">Use "Log Rent Change" to track escalations and adjustments.</p>
+          <p className="text-xs font-sans mt-1">Use &quot;Log Rent Change&quot; to track escalations and adjustments.</p>
         </div>
       ) : (
         <div className="relative">

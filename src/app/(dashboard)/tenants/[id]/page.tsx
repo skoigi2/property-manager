@@ -14,12 +14,13 @@ import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
+import { RentHistoryTab } from "@/components/tenants/RentHistoryTab";
 import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
   Download, FileText, Loader2, ScrollText, FolderOpen, RefreshCw, Mail,
-  ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy,
+  ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy, History,
 } from "lucide-react";
 import { differenceInMonths, startOfMonth, addMonths, format } from "date-fns";
 
@@ -263,7 +264,7 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
   return rows.reverse();
 }
 
-type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit";
+type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history";
 
 export default function TenantDetailPage() {
   const { data: session } = useSession();
@@ -382,11 +383,12 @@ export default function TenantDetailPage() {
   const monthsInArrears = ledger.filter((r) => r.variance < 0).length;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number | string }[] = [
-    { id: "ledger",    label: "Ledger",    icon: <TrendingUp size={14} /> },
-    { id: "invoices",  label: "Invoices",  icon: <ScrollText size={14} />, badge: invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").length || undefined },
-    { id: "documents", label: "Documents", icon: <FolderOpen size={14} />, badge: documents.length || undefined },
-    { id: "renewal",   label: "Renewal",   icon: <RefreshCw size={14} /> },
-    { id: "deposit",   label: "Deposit",   icon: <Banknote size={14} /> },
+    { id: "ledger",    label: "Ledger",       icon: <TrendingUp size={14} /> },
+    { id: "invoices",  label: "Invoices",     icon: <ScrollText size={14} />, badge: invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").length || undefined },
+    { id: "documents", label: "Documents",    icon: <FolderOpen size={14} />, badge: documents.length || undefined },
+    { id: "history",   label: "Rent History", icon: <History size={14} /> },
+    { id: "renewal",   label: "Renewal",      icon: <RefreshCw size={14} /> },
+    { id: "deposit",   label: "Deposit",      icon: <Banknote size={14} /> },
   ];
 
   return (
@@ -730,6 +732,15 @@ export default function TenantDetailPage() {
                       )}
                     </div>
                   </>
+                )}
+
+                {/* ── RENT HISTORY TAB ───────────────────────────────────────── */}
+                {tab === "history" && (
+                  <RentHistoryTab
+                    tenantId={tenantId}
+                    currentRent={tenant.monthlyRent ?? 0}
+                    currency={currency}
+                  />
                 )}
 
                 {/* ── DEPOSIT TAB ────────────────────────────────────────────── */}

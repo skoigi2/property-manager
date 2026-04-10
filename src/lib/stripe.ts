@@ -1,0 +1,42 @@
+import Stripe from "stripe";
+
+// ─── Stripe singleton ─────────────────────────────────────────────────────────
+
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// ─── Price IDs (set in Vercel env vars) ──────────────────────────────────────
+
+export const PRICE_IDS = {
+  STARTER: {
+    monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID!,
+    annual:  process.env.STRIPE_STARTER_ANNUAL_PRICE_ID!,
+  },
+  GROWTH: {
+    monthly: process.env.STRIPE_GROWTH_MONTHLY_PRICE_ID!,
+    annual:  process.env.STRIPE_GROWTH_ANNUAL_PRICE_ID!,
+  },
+  PRO: {
+    monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID!,
+    annual:  process.env.STRIPE_PRO_ANNUAL_PRICE_ID!,
+  },
+} as const;
+
+// ─── Property limits per tier (single source of truth) ───────────────────────
+// Never store this in the DB — compute at runtime from pricingTier.
+
+export const PROPERTY_LIMITS: Record<string, number> = {
+  TRIAL:   2,
+  STARTER: 2,
+  GROWTH:  10,
+  PRO:     Infinity,
+};
+
+// ─── Tier lookup from Stripe Price ID ────────────────────────────────────────
+// Used in webhook handler to map a Stripe price back to our tier.
+
+export function tierFromPriceId(priceId: string): string | null {
+  for (const [tier, prices] of Object.entries(PRICE_IDS)) {
+    if (prices.monthly === priceId || prices.annual === priceId) return tier;
+  }
+  return null;
+}

@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText, PackageOpen, Loader2, CheckCircle, AlertTriangle, ClipboardList } from "lucide-react";
+import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText, PackageOpen, Loader2, CheckCircle, AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
@@ -22,7 +22,7 @@ import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 
 // ─── Demo empty state ─────────────────────────────────────────────────────────
 
-function DemoEmptyState({ onLoaded }: { onLoaded: () => void }) {
+function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void; emptyState?: boolean }) {
   const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
   const [loading, setLoading] = useState(false);
 
@@ -49,52 +49,58 @@ function DemoEmptyState({ onLoaded }: { onLoaded: () => void }) {
   }
 
   return (
-    <div className="max-w-md mx-auto py-16 px-4">
-      <div className="text-center mb-8">
-        <Building2 size={40} className="mx-auto mb-3 text-gray-200" />
-        <p className="text-gray-400 font-sans text-sm">No properties yet.</p>
-        <p className="text-gray-400 font-sans text-xs mt-1">
-          Add your first property using the button above, or load a sample to explore the app.
-        </p>
-      </div>
-
-      <div className="border-t border-gray-100 pt-7">
-        <p className="text-xs font-semibold text-gray-400 font-sans uppercase tracking-wide mb-3 text-center">
-          Explore with sample data
-        </p>
-
-        <div className="space-y-2 mb-4">
-          {DEMO_PROPERTIES.map((demo) => (
-            <button
-              key={demo.key}
-              onClick={() => setSelectedDemo(demo.key)}
-              disabled={loading}
-              className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all disabled:opacity-50 ${
-                selectedDemo === demo.key
-                  ? "border-gold bg-gold/5"
-                  : "border-gray-100 hover:border-gray-200"
-              }`}
-            >
-              <span className="text-2xl leading-none">{demo.flag}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium font-sans text-[#1a2332]">{demo.name}</p>
-                <p className="text-xs text-gray-400 font-sans mt-0.5">{demo.description}</p>
-              </div>
-              {selectedDemo === demo.key && (
-                <span className="w-4 h-4 rounded-full bg-gold flex-shrink-0 mt-0.5" />
-              )}
-            </button>
-          ))}
+    <div className={emptyState ? "max-w-md mx-auto py-16 px-4" : ""}>
+      {emptyState && (
+        <div className="text-center mb-8">
+          <Building2 size={40} className="mx-auto mb-3 text-gray-200" />
+          <p className="text-gray-400 font-sans text-sm">No properties yet.</p>
+          <p className="text-gray-400 font-sans text-xs mt-1">
+            Add your first property using the button above, or load a sample to explore the app.
+          </p>
         </div>
+      )}
 
-        <button
-          onClick={loadDemo}
-          disabled={loading || !selectedDemo}
-          className="w-full border border-gold text-gold py-2.5 rounded-xl font-sans font-semibold text-sm hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {loading ? "Loading sample data…" : "Load sample property →"}
-        </button>
+      {emptyState && <div className="border-t border-gray-100 pt-7 mb-4" />}
+
+      <p className="text-xs font-semibold text-gray-400 font-sans uppercase tracking-wide mb-3">
+        {emptyState ? "Explore with sample data" : "Choose a sample property"}
+      </p>
+
+      <div className="space-y-2 mb-4">
+        {DEMO_PROPERTIES.map((demo) => (
+          <button
+            key={demo.key}
+            onClick={() => setSelectedDemo(demo.key)}
+            disabled={loading}
+            className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all disabled:opacity-50 ${
+              selectedDemo === demo.key
+                ? "border-gold bg-gold/5"
+                : "border-gray-100 hover:border-gray-200"
+            }`}
+          >
+            <span className="text-2xl leading-none">{demo.flag}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium font-sans text-[#1a2332]">{demo.name}</p>
+              <p className="text-xs text-gray-400 font-sans mt-0.5">{demo.description}</p>
+            </div>
+            {selectedDemo === demo.key && (
+              <span className="w-4 h-4 rounded-full bg-gold flex-shrink-0 mt-0.5" />
+            )}
+          </button>
+        ))}
       </div>
+
+      <p className="text-xs text-gray-400 font-sans mb-3">
+        The sample property is fully editable — explore freely, then delete it when you&apos;re ready to add your own.
+      </p>
+
+      <button
+        onClick={loadDemo}
+        disabled={loading || !selectedDemo}
+        className="w-full border border-gold text-gold py-2.5 rounded-xl font-sans font-semibold text-sm hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {loading ? "Loading sample data…" : "Load sample property →"}
+      </button>
     </div>
   );
 }
@@ -1079,6 +1085,13 @@ export default function PropertiesPage() {
   // Import handover
   const [showImport, setShowImport] = useState(false);
 
+  // Demo loader modal
+  const [showDemoModal, setShowDemoModal] = useState(false);
+
+  // Delete property confirm
+  const [deletingProperty, setDeletingProperty] = useState<Property | null>(null);
+  const [deletingProp, setDeletingProp] = useState(false);
+
   const propForm = useForm<PropertyForm>({
     resolver: zodResolver(propertySchema),
     defaultValues: { type: "LONGTERM", city: "" },
@@ -1141,6 +1154,23 @@ export default function PropertiesPage() {
     });
     setPropModalOpen(true);
   };
+
+  async function confirmDeleteProperty() {
+    if (!deletingProperty) return;
+    setDeletingProp(true);
+    try {
+      const res = await fetch(`/api/properties/${deletingProperty.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setProperties((prev) => prev.filter((p) => p.id !== deletingProperty.id));
+      if (selectedProperty?.id === deletingProperty.id) setSelectedProperty(null);
+      toast.success(`"${deletingProperty.name}" deleted.`);
+    } catch {
+      toast.error("Failed to delete property.");
+    } finally {
+      setDeletingProp(false);
+      setDeletingProperty(null);
+    }
+  }
 
   const onSaveProperty = async (values: PropertyForm) => {
     setPropSubmitting(true);
@@ -1267,6 +1297,11 @@ export default function PropertiesPage() {
           </Button>
         )}
         {isManager && (
+          <Button size="sm" variant="secondary" className="hidden lg:flex" onClick={() => setShowDemoModal(true)}>
+            <Sparkles size={14} className="mr-1" /> Load sample
+          </Button>
+        )}
+        {isManager && (
           <Button size="sm" onClick={openAddProperty}>
             <Plus size={14} className="sm:mr-1" />
             <span className="hidden sm:inline">Add Property</span>
@@ -1306,7 +1341,7 @@ export default function PropertiesPage() {
             <Spinner size="lg" />
           </div>
         ) : properties.length === 0 ? (
-          <DemoEmptyState onLoaded={load} />
+          <DemoEmptyState onLoaded={load} emptyState />
         ) : layout === "table" ? (
           <PropertiesTable
             properties={properties}
@@ -1374,6 +1409,13 @@ export default function PropertiesPage() {
                           title="Edit property"
                         >
                           <PencilLine size={15} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeletingProperty(p); }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Delete property"
+                        >
+                          <Trash2 size={15} />
                         </button>
                       </>
                     )}
@@ -1502,6 +1544,22 @@ export default function PropertiesPage() {
           onImported={load}
         />
       )}
+
+      {/* Demo loader modal */}
+      <Modal open={showDemoModal} title="Load sample property" onClose={() => setShowDemoModal(false)}>
+        <DemoEmptyState onLoaded={() => { setShowDemoModal(false); load(); }} />
+      </Modal>
+
+      {/* Delete property confirm */}
+      <ConfirmDialog
+        open={!!deletingProperty}
+        title="Delete property"
+        message={`Are you sure you want to permanently delete "${deletingProperty?.name}"? This will remove all units, tenants, income, expenses, and associated data. This cannot be undone.`}
+        confirmLabel="Delete"
+        loading={deletingProp}
+        onConfirm={confirmDeleteProperty}
+        onClose={() => setDeletingProperty(null)}
+      />
     </div>
   );
 }

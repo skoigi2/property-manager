@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 import toast from "react-hot-toast";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -363,38 +364,115 @@ function StepUnits({ propertyId, onNext }: { propertyId: string; onNext: () => v
 function StepDone({ newOrgId }: { newOrgId: string | null }) {
   const { update } = useSession();
   const router     = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [seedLoading,  setSeedLoading]  = useState(false);
+  const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
 
-  async function goToDashboard() {
-    setLoading(true);
-    try {
-      // Google OAuth users need their JWT refreshed with the new org
-      if (newOrgId) {
-        await update({ organizationId: newOrgId, membershipCount: 1 });
-      }
-    } catch { /* silently ignore JWT update failures */ }
+  async function refreshAndNavigate(orgId: string | null) {
+    if (orgId) {
+      await update({ organizationId: orgId, membershipCount: 1 }).catch(() => {});
+    }
     router.push("/dashboard");
     router.refresh();
   }
 
+  async function goToDashboard() {
+    setLoading(true);
+    try { await refreshAndNavigate(newOrgId); } catch { /* ignore */ }
+  }
+
+  async function loadSampleData() {
+    setSeedLoading(true);
+    try {
+      const res = await fetch("/api/demo/seed", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ demoKey: selectedDemo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && data?.reason !== "already_seeded") {
+        toast.error("Could not load sample data. You can still explore the dashboard.");
+        return;
+      }
+      await refreshAndNavigate(newOrgId);
+    } catch {
+      toast.error("Could not load sample data. You can still explore the dashboard.");
+    } finally {
+      setSeedLoading(false);
+    }
+  }
+
   return (
     <div className="text-center py-2">
+      {/* Checkmark */}
       <div className="w-16 h-16 bg-gold/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
         <svg className="w-8 h-8 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
       <h2 className="font-display text-2xl text-header mb-2">You&apos;re all set!</h2>
-      <p className="text-sm text-gray-500 font-sans leading-relaxed mb-8 max-w-xs mx-auto">
+      <p className="text-sm text-gray-500 font-sans leading-relaxed mb-6 max-w-xs mx-auto">
         Your property is ready. Head to the dashboard to track income, manage tenants, and generate reports.
       </p>
+
+      {/* Primary CTA */}
       <button
         onClick={goToDashboard}
-        disabled={loading}
+        disabled={loading || seedLoading}
         className="w-full bg-header text-white py-3 rounded-xl font-sans font-semibold text-sm hover:bg-header/90 transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? "Taking you there…" : "Go to Dashboard →"}
       </button>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 my-5">
+        <div className="flex-1 h-px bg-gray-100" />
+        <span className="text-xs text-gray-400 font-sans">or explore with sample data</span>
+        <div className="flex-1 h-px bg-gray-100" />
+      </div>
+
+      {/* Demo picker */}
+      <div className="space-y-2 mb-3 text-left">
+        {DEMO_PROPERTIES.map((demo) => (
+          <button
+            key={demo.key}
+            type="button"
+            onClick={() => setSelectedDemo(demo.key)}
+            disabled={loading || seedLoading}
+            className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all disabled:opacity-50 ${
+              selectedDemo === demo.key
+                ? "border-gold bg-gold/5"
+                : "border-gray-100 hover:border-gray-200"
+            }`}
+          >
+            <span className="text-2xl leading-none">{demo.flag}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium font-sans text-[#1a2332]">{demo.name}</p>
+              <p className="text-xs text-gray-400 font-sans mt-0.5">{demo.description}</p>
+            </div>
+            {selectedDemo === demo.key && (
+              <span className="w-4 h-4 rounded-full bg-gold flex-shrink-0 mt-0.5" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Load demo button */}
+      <button
+        onClick={loadSampleData}
+        disabled={loading || seedLoading || !selectedDemo}
+        className="w-full border border-gold text-gold py-2.5 rounded-xl font-sans font-semibold text-sm hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {seedLoading ? (
+          <span className="flex items-center justify-center gap-2">
+            <Spinner />
+            Loading sample data…
+          </span>
+        ) : (
+          "Load sample property →"
+        )}
+      </button>
+
       <p className="text-xs text-gray-400 font-sans mt-6">
         Need help?{" "}
         <a href="mailto:support@groundworkpm.com" className="text-gold hover:underline">

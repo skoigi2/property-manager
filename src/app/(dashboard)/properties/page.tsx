@@ -18,6 +18,86 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
+import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
+
+// ─── Demo empty state ─────────────────────────────────────────────────────────
+
+function DemoEmptyState({ onLoaded }: { onLoaded: () => void }) {
+  const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
+  const [loading, setLoading] = useState(false);
+
+  async function loadDemo() {
+    if (!selectedDemo) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/demo/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ demoKey: selectedDemo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && data?.reason !== "already_seeded") {
+        toast.error("Could not load sample data. Please try again.");
+        return;
+      }
+      onLoaded();
+    } catch {
+      toast.error("Could not load sample data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="max-w-md mx-auto py-16 px-4">
+      <div className="text-center mb-8">
+        <Building2 size={40} className="mx-auto mb-3 text-gray-200" />
+        <p className="text-gray-400 font-sans text-sm">No properties yet.</p>
+        <p className="text-gray-400 font-sans text-xs mt-1">
+          Add your first property using the button above, or load a sample to explore the app.
+        </p>
+      </div>
+
+      <div className="border-t border-gray-100 pt-7">
+        <p className="text-xs font-semibold text-gray-400 font-sans uppercase tracking-wide mb-3 text-center">
+          Explore with sample data
+        </p>
+
+        <div className="space-y-2 mb-4">
+          {DEMO_PROPERTIES.map((demo) => (
+            <button
+              key={demo.key}
+              onClick={() => setSelectedDemo(demo.key)}
+              disabled={loading}
+              className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all disabled:opacity-50 ${
+                selectedDemo === demo.key
+                  ? "border-gold bg-gold/5"
+                  : "border-gray-100 hover:border-gray-200"
+              }`}
+            >
+              <span className="text-2xl leading-none">{demo.flag}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium font-sans text-[#1a2332]">{demo.name}</p>
+                <p className="text-xs text-gray-400 font-sans mt-0.5">{demo.description}</p>
+              </div>
+              {selectedDemo === demo.key && (
+                <span className="w-4 h-4 rounded-full bg-gold flex-shrink-0 mt-0.5" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={loadDemo}
+          disabled={loading || !selectedDemo}
+          className="w-full border border-gold text-gold py-2.5 rounded-xl font-sans font-semibold text-sm hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {loading ? "Loading sample data…" : "Load sample property →"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1226,10 +1306,7 @@ export default function PropertiesPage() {
             <Spinner size="lg" />
           </div>
         ) : properties.length === 0 ? (
-          <div className="text-center py-20 text-gray-400 font-sans text-sm">
-            <Building2 size={40} className="mx-auto mb-3 opacity-30" />
-            No properties yet. Add your first property.
-          </div>
+          <DemoEmptyState onLoaded={load} />
         ) : layout === "table" ? (
           <PropertiesTable
             properties={properties}

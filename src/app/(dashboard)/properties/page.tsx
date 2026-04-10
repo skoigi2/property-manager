@@ -36,12 +36,14 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         body: JSON.stringify({ demoKey: selectedDemo }),
       });
       const data = await res.json().catch(() => ({}));
+      console.error("[demo/seed] response:", res.status, data);
       if (!res.ok && data?.reason !== "already_seeded") {
-        toast.error("Could not load sample data. Please try again.");
+        toast.error(data?.detail ?? data?.error ?? "Could not load sample data. Please try again.");
         return;
       }
       onLoaded();
-    } catch {
+    } catch (err) {
+      console.error("[demo/seed] fetch error:", err);
       toast.error("Could not load sample data. Please try again.");
     } finally {
       setLoading(false);

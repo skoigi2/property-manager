@@ -9,6 +9,9 @@ import {
   RecurringFrequency, ArrearsStage, InvoiceStatus,
 } from "@prisma/client";
 
+// Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
+export const maxDuration = 60;
+
 function d(dateStr: string) { return new Date(dateStr); }
 function monthStart(year: number, month: number) { return new Date(year, month, 1); }
 
@@ -164,6 +167,12 @@ async function seedAlSeef(organizationId: string) {
   // Use last 6 chars of propertyId to namespace invoice numbers globally unique
   const propCode = property.id.slice(-6).toUpperCase();
 
+  // Collect income entries to batch-create after all invoices are created
+  const incomeEntryData: {
+    date: Date; unitId: string; tenantId: string; invoiceId: string;
+    type: IncomeType; grossAmount: number; agentCommission: number;
+  }[] = [];
+
   for (const month of MONTHS) {
     for (const t of tenantDefs) {
       const unit = units[t.unit];
@@ -193,22 +202,23 @@ async function seedAlSeef(organizationId: string) {
       });
 
       if (!isArrears) {
-        await prisma.incomeEntry.create({
-          data: {
-            date: monthStart(YEAR, month),
-            unitId: unit.id,
-            tenantId: tenant.id,
-            invoiceId: invoice.id,
-            type: IncomeType.LONGTERM_RENT,
-            grossAmount,
-            agentCommission: 0,
-          },
+        incomeEntryData.push({
+          date: monthStart(YEAR, month),
+          unitId: unit.id,
+          tenantId: tenant.id,
+          invoiceId: invoice.id,
+          type: IncomeType.LONGTERM_RENT,
+          grossAmount,
+          agentCommission: 0,
         });
       }
     }
   }
 
-  // ── Property-level monthly expenses ────────────────────────────────────────
+  // Batch-create all 57 income entries in one round-trip
+  await prisma.incomeEntry.createMany({ data: incomeEntryData });
+
+  // ── Property-level monthly expenses (batched) ──────────────────────────────
   const monthlyPropExpenses = [
     { category: ExpenseCategory.MANAGEMENT_FEE, amount: 650, desc: "Monthly management fee — Al Seef Property Management" },
     { category: ExpenseCategory.WATER,          amount: 180, desc: "BEWA — building water supply"                          },
@@ -217,81 +227,71 @@ async function seedAlSeef(organizationId: string) {
     { category: ExpenseCategory.CLEANER,        amount: 380, desc: "Cleaning staff — 2 full-time (common areas & grounds)" },
   ];
 
-  for (const month of MONTHS) {
-    for (const e of monthlyPropExpenses) {
-      await prisma.expenseEntry.create({
-        data: {
-          date: monthStart(YEAR, month),
-          propertyId: property.id,
-          scope: ExpenseScope.PROPERTY,
-          category: e.category,
-          amount: e.amount,
-          description: e.desc,
-          isSunkCost: false,
-          paidFromPettyCash: false,
-        },
-      });
-    }
-  }
-
-  // ── Unit-level ad-hoc expenses ──────────────────────────────────────────────
-  const adHocExpenses = [
-    { month: 0, unit: "103", cat: ExpenseCategory.MAINTENANCE,   amount: 120, desc: "Plumbing repair — bathroom tap replacement",  sunk: false },
-    { month: 1, unit: "201", cat: ExpenseCategory.MAINTENANCE,   amount: 85,  desc: "Electrical fault — kitchen circuit breaker",   sunk: false },
-    { month: 1, unit: "404", cat: ExpenseCategory.MAINTENANCE,   amount: 310, desc: "A/C compressor replacement — master bedroom",  sunk: true  },
-    { month: 2, unit: "302", cat: ExpenseCategory.REINSTATEMENT, amount: 420, desc: "Deep clean & repainting — post-notice unit",   sunk: true  },
-  ];
-
-  for (const e of adHocExpenses) {
-    await prisma.expenseEntry.create({
-      data: {
-        date: monthStart(YEAR, e.month),
-        unitId: units[e.unit].id,
-        scope: ExpenseScope.UNIT,
-        category: e.cat,
+  await prisma.expenseEntry.createMany({
+    data: MONTHS.flatMap((month) =>
+      monthlyPropExpenses.map((e) => ({
+        date: monthStart(YEAR, month),
+        propertyId: property.id,
+        scope: ExpenseScope.PROPERTY,
+        category: e.category,
         amount: e.amount,
         description: e.desc,
-        isSunkCost: e.sunk,
+        isSunkCost: false,
         paidFromPettyCash: false,
-      },
-    });
-  }
+      }))
+    ),
+  });
 
-  // ── Petty cash ──────────────────────────────────────────────────────────────
-  const pettyCashOut = [
-    { month: 0, day: 8,  amount: 45, desc: "Lightbulbs & electrical fittings — lobby & corridors" },
-    { month: 0, day: 14, amount: 80, desc: "Emergency plumber call-out — unit 103 overflow"        },
-    { month: 0, day: 22, amount: 15, desc: "Stationery & notice printing"                          },
-    { month: 1, day: 6,  amount: 55, desc: "Cleaning materials & detergents restock"               },
-    { month: 1, day: 13, amount: 90, desc: "Emergency electrician — lift control panel"            },
-    { month: 1, day: 20, amount: 20, desc: "Replacement padlocks & keys — car park gate"           },
-    { month: 2, day: 9,  amount: 40, desc: "Garden tools & soil conditioner — rooftop terrace"     },
-    { month: 2, day: 17, amount: 65, desc: "Minor plumbing repairs — common area bathrooms"        },
-    { month: 2, day: 25, amount: 12, desc: "Postage & courier — lease correspondence"              },
-  ];
+  // ── Unit-level ad-hoc expenses (batched) ───────────────────────────────────
+  await prisma.expenseEntry.createMany({
+    data: [
+      { month: 0, unit: "103", cat: ExpenseCategory.MAINTENANCE,   amount: 120, desc: "Plumbing repair — bathroom tap replacement",  sunk: false },
+      { month: 1, unit: "201", cat: ExpenseCategory.MAINTENANCE,   amount: 85,  desc: "Electrical fault — kitchen circuit breaker",   sunk: false },
+      { month: 1, unit: "404", cat: ExpenseCategory.MAINTENANCE,   amount: 310, desc: "A/C compressor replacement — master bedroom",  sunk: true  },
+      { month: 2, unit: "302", cat: ExpenseCategory.REINSTATEMENT, amount: 420, desc: "Deep clean & repainting — post-notice unit",   sunk: true  },
+    ].map((e) => ({
+      date: monthStart(YEAR, e.month),
+      unitId: units[e.unit].id,
+      scope: ExpenseScope.UNIT,
+      category: e.cat,
+      amount: e.amount,
+      description: e.desc,
+      isSunkCost: e.sunk,
+      paidFromPettyCash: false,
+    })),
+  });
 
-  for (const month of MONTHS) {
-    await prisma.pettyCash.create({
-      data: {
+  // ── Petty cash (batched) ────────────────────────────────────────────────────
+  await prisma.pettyCash.createMany({
+    data: [
+      // Monthly top-ups (IN)
+      ...MONTHS.map((month) => ({
         date: monthStart(YEAR, month),
         type: PettyCashType.IN,
         amount: 500,
         description: "Monthly petty cash top-up",
         propertyId: property.id,
-      },
-    });
-  }
-  for (const p of pettyCashOut) {
-    await prisma.pettyCash.create({
-      data: {
+      })),
+      // OUT withdrawals
+      ...([
+        { month: 0, day: 8,  amount: 45, desc: "Lightbulbs & electrical fittings — lobby & corridors" },
+        { month: 0, day: 14, amount: 80, desc: "Emergency plumber call-out — unit 103 overflow"        },
+        { month: 0, day: 22, amount: 15, desc: "Stationery & notice printing"                          },
+        { month: 1, day: 6,  amount: 55, desc: "Cleaning materials & detergents restock"               },
+        { month: 1, day: 13, amount: 90, desc: "Emergency electrician — lift control panel"            },
+        { month: 1, day: 20, amount: 20, desc: "Replacement padlocks & keys — car park gate"           },
+        { month: 2, day: 9,  amount: 40, desc: "Garden tools & soil conditioner — rooftop terrace"     },
+        { month: 2, day: 17, amount: 65, desc: "Minor plumbing repairs — common area bathrooms"        },
+        { month: 2, day: 25, amount: 12, desc: "Postage & courier — lease correspondence"              },
+      ] as { month: number; day: number; amount: number; desc: string }[]).map((p) => ({
         date: new Date(YEAR, p.month, p.day),
         type: PettyCashType.OUT,
         amount: p.amount,
         description: p.desc,
         propertyId: property.id,
-      },
-    });
-  }
+      })),
+    ],
+  });
 
   // ── Insurance policies ──────────────────────────────────────────────────────
   await prisma.insurancePolicy.createMany({

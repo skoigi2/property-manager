@@ -390,8 +390,9 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
         body:    JSON.stringify({ demoKey: selectedDemo }),
       });
       const data = await res.json().catch(() => ({}));
+      console.error("[demo/seed] response:", res.status, data);
       if (!res.ok && data?.reason !== "already_seeded") {
-        toast.error("Could not load sample data. You can still explore the dashboard.");
+        toast.error(data?.detail ?? data?.error ?? "Could not load sample data.");
         return;
       }
       await refreshAndNavigate(newOrgId);

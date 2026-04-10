@@ -11,11 +11,23 @@ export default auth((req) => {
   const isSelectOrgPage = pathname.startsWith("/select-org");
   const isPortalPage = pathname.startsWith("/portal/");
 
-  if (!isLoggedIn && !isAuthPage && !isPortalPage) {
+  // Public marketing + auth pages — no login required
+  const isPublicPage =
+    pathname === "/" ||
+    pathname.startsWith("/pricing") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/api/auth/signup") ||
+    pathname.startsWith("/api/auth/forgot-password") ||
+    pathname.startsWith("/api/auth/reset-password") ||
+    pathname.startsWith("/api/webhooks/stripe");
+
+  if (!isLoggedIn && !isAuthPage && !isPortalPage && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  if (isLoggedIn && isAuthPage) {
+  if (isLoggedIn && (isAuthPage || pathname === "/")) {
     const role = req.auth?.user?.role;
     const dest = role === "OWNER" ? "/report" : "/dashboard";
     return NextResponse.redirect(new URL(dest, req.url));

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 
 export default function LoginPage() {
@@ -69,15 +70,20 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="manager@alba.co.ke"
+                placeholder="jane@example.com"
                 required
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1.5">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-gray-600">
+                  Password
+                </label>
+                <Link href="/forgot-password" className="text-xs text-header hover:underline font-sans">
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}
@@ -136,7 +142,10 @@ export default function LoginPage() {
           </button>
 
           <p className="text-xs text-gray-400 text-center mt-6 font-sans">
-            Contact your manager to reset your password
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="text-header font-medium hover:underline">
+              Start free trial
+            </Link>
           </p>
         </div>
       </div>

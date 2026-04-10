@@ -1,14 +1,23 @@
 import { Resend } from "resend";
 
-// ─── Resend singleton ─────────────────────────────────────────────────────────
+// ─── Lazy Resend singleton ────────────────────────────────────────────────────
+// Initialized on first use so builds succeed even when RESEND_API_KEY is absent.
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
-const FROM   = process.env.RESEND_FROM_EMAIL ?? "Property Manager <noreply@propertymanager.app>";
+let _resend: Resend | null = null;
+
+function getResend(): Resend {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY!);
+  }
+  return _resend;
+}
+
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Property Manager <noreply@propertymanager.app>";
 
 // ─── Password reset ───────────────────────────────────────────────────────────
 
 export async function sendPasswordReset(email: string, resetLink: string): Promise<void> {
-  await resend.emails.send({
+  await getResend().emails.send({
     from:    FROM,
     to:      email,
     subject: "Reset your Property Manager password",
@@ -39,7 +48,7 @@ export async function sendPasswordReset(email: string, resetLink: string): Promi
 // ─── Welcome email ────────────────────────────────────────────────────────────
 
 export async function sendWelcome(email: string, name: string): Promise<void> {
-  await resend.emails.send({
+  await getResend().emails.send({
     from:    FROM,
     to:      email,
     subject: "Welcome to Property Manager 🏠",

@@ -56,6 +56,7 @@ BEGIN
 SELECT id INTO v_prop_id FROM "Property" WHERE name = 'Al Seef Residences' LIMIT 1;
 
 IF v_prop_id IS NOT NULL THEN
+  DELETE FROM "MaintenanceJob"          WHERE "propertyId" = v_prop_id;
   DELETE FROM "ArrearsCase"            WHERE "propertyId" = v_prop_id;
   DELETE FROM "RecurringExpense"        WHERE "propertyId" = v_prop_id;
   DELETE FROM "InsurancePolicy"         WHERE "propertyId" = v_prop_id;
@@ -614,6 +615,52 @@ INSERT INTO "ArrearsCase" (id,"tenantId","propertyId",stage,"amountOwed",notes,"
    'March 2026 rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent 10 March. Tenant has given notice — chase payment before lease-end.',NOW(),NOW());
 
 RAISE NOTICE '2 arrears cases created';
+
+-- =============================================================
+-- MAINTENANCE JOBS
+-- =============================================================
+-- Manager-logged jobs (various statuses)
+INSERT INTO "MaintenanceJob" (id,"propertyId","unitId",title,description,category,priority,status,"reportedBy","assignedTo","reportedDate","scheduledDate","completedDate",cost,notes,"vendorId","isEmergency","submittedViaPortal","createdAt","updatedAt") VALUES
+
+-- DONE jobs
+(gen_random_uuid()::text,v_prop_id,u103,'Bathroom tap replacement','Cold water tap in main bathroom dripping constantly. Replaced tap cartridge and resealed fittings.','PLUMBING','MEDIUM','DONE','Sara Al-Habsi','Al Baraka Plumbing','2026-01-05','2026-01-07','2026-01-08',120,'Job completed satisfactorily. Tenant confirmed resolved.',v_vendor_plumb,false,false,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,u201,'Kitchen circuit breaker fault','Intermittent tripping of kitchen RCD. Replaced faulty breaker and tested all circuits.','ELECTRICAL','HIGH','DONE','Sara Al-Habsi','Gulf Technical Services','2026-02-03','2026-02-05','2026-02-06',85,'Circuit board inspected — no further faults found.',v_vendor_tech,false,false,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,u404,'A/C compressor replacement','Master bedroom A/C unit failed — compressor seized. Full unit replacement completed.','APPLIANCE','URGENT','DONE','Sara Al-Habsi','Gulf Technical Services','2026-02-10','2026-02-12','2026-02-14',310,'Sunk cost — capital replacement. New unit under 2-year warranty.',v_vendor_tech,false,false,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,u302,'Deep clean and repainting','End-of-notice deep clean and full repaint of unit following Deepak & Meera Pillai giving notice.','PAINTING','MEDIUM','DONE','Sara Al-Habsi','Al Noor Facility Management','2026-03-02','2026-03-08','2026-03-12',420,'Unit fully reinstated. Ready for re-letting.',v_vendor_clean,false,false,NOW(),NOW()),
+
+-- IN_PROGRESS jobs
+(gen_random_uuid()::text,v_prop_id,u205,'Balcony waterproofing — crack repair','Hairline crack along balcony parapet wall. Water ingress reported after rain. Contractor assessed — waterproofing treatment in progress.','STRUCTURAL','HIGH','IN_PROGRESS','Sara Al-Habsi','Gulf Technical Services','2026-03-20','2026-04-05',NULL,NULL,'Awaiting final coat to cure before sign-off.',v_vendor_tech,false,false,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,NULL,'Lobby CCTV camera 4 — offline','Camera 4 covering the main entrance has been offline since 28 March. Techno Systems attending to replace housing and reconnect feed.','SECURITY','HIGH','IN_PROGRESS','Sara Al-Habsi','Techno Systems Bahrain','2026-03-28','2026-04-08',NULL,NULL,'Replacement part ordered. ETA 3 business days.',v_vendor_cctv,false,false,NOW(),NOW()),
+
+-- OPEN jobs
+(gen_random_uuid()::text,v_prop_id,u401,'Bedroom door lock stiff','Door lock on master bedroom has become difficult to operate. Tenant reports key gets stuck.','OTHER','LOW','OPEN','Sara Al-Habsi',NULL,'2026-04-02',NULL,NULL,NULL,NULL,v_vendor_plumb,false,false,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,NULL,'Car park gate — slow closure','Automated car park gate taking over 30 seconds to close. Spring tension needs adjustment.','OTHER','LOW','OPEN','Sara Al-Habsi',NULL,'2026-04-07',NULL,NULL,NULL,NULL,NULL,false,false,NOW(),NOW()),
+
+-- Emergency job (completed)
+(gen_random_uuid()::text,v_prop_id,u103,'Emergency: water overflow — unit 103','Overflow from washing machine hose caused flooding of bathroom and hallway. Emergency plumber called out same day.','PLUMBING','URGENT','DONE','Sara Al-Habsi','Al Baraka Plumbing','2026-01-14','2026-01-14','2026-01-14',80,'Hose replaced and floor dried. No damage to unit below. Paid from petty cash.',v_vendor_plumb,true,false,NOW(),NOW()),
+
+-- AWAITING_PARTS
+(gen_random_uuid()::text,v_prop_id,u302,'Lift call button — floor 3 unresponsive','Floor 3 call button for passenger lift not responding. ThyssenKrupp engineer inspected — control board component needs replacement.','ELECTRICAL','MEDIUM','AWAITING_PARTS','Sara Al-Habsi','ThyssenKrupp Elevator Bahrain','2026-03-25','2026-04-03',NULL,NULL,'Part ordered from Germany. ETA 2 weeks.',v_vendor_lift,false,false,NOW(),NOW());
+
+-- TENANT PORTAL REQUESTS (submittedViaPortal = true)
+INSERT INTO "MaintenanceJob" (id,"propertyId","unitId",title,description,category,priority,status,"reportedBy","assignedTo","reportedDate","scheduledDate","completedDate",cost,notes,"vendorId","isEmergency","submittedViaPortal","createdAt","updatedAt") VALUES
+
+(gen_random_uuid()::text,v_prop_id,u102,'Hot water not reaching shower','Hot water takes over 5 minutes to reach the shower in the main bathroom. Cold water fine. Please investigate.','PLUMBING','MEDIUM','OPEN','Priya Sharma',NULL,'2026-04-01',NULL,NULL,NULL,NULL,v_vendor_plumb,false,true,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,u203,'Intercom not working','Our intercom handset is completely dead — cannot receive calls from the lobby. Guests cannot reach us.','ELECTRICAL','MEDIUM','IN_PROGRESS','Nasser Al-Qasimi','Gulf Technical Services','2026-03-18','2026-03-22',NULL,NULL,'Handset confirmed faulty. Replacement unit being sourced.',v_vendor_tech,false,true,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,u305,'Ceiling light flickering — living room','Living room ceiling light flickers intermittently, especially when other appliances are on. Possible loose connection.','ELECTRICAL','LOW','OPEN','Khalid Al-Rumaihi',NULL,'2026-04-05',NULL,NULL,NULL,NULL,NULL,false,true,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,u404,'Extractor fan very noisy','Kitchen extractor fan making loud rattling noise when on. Gets worse at higher speed settings.','APPLIANCE','LOW','DONE','Abdullah Al-Maktoum','Gulf Technical Services','2026-03-10','2026-03-13','2026-03-14',NULL,'Fan blade loose — tightened and rebalanced. No cost.',v_vendor_tech,false,true,NOW(),NOW()),
+
+(gen_random_uuid()::text,v_prop_id,u101,'Pest sighting — cockroach in kitchen','Found two cockroaches near the kitchen sink. Please arrange pest control treatment as soon as possible.','PEST_CONTROL','HIGH','OPEN','Ahmed Al-Dosari',NULL,'2026-04-08',NULL,NULL,NULL,NULL,NULL,false,true,NOW(),NOW());
+
+RAISE NOTICE '15 maintenance jobs created (10 manager-logged, 5 tenant requests)';
 
 RAISE NOTICE '';
 RAISE NOTICE '✅ Al Seef Residences seeded successfully!';

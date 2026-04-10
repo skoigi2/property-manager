@@ -61,6 +61,13 @@ interface ManagementAgreementInput {
   managementFeeRate: number;
 }
 
+interface ComplianceCertificateInput {
+  id: string;
+  certificateType: string;
+  expiryDate: Date | null;
+  property: { name: string };
+}
+
 interface AssetMaintenanceScheduleInput {
   id: string;
   taskName: string;
@@ -81,6 +88,7 @@ export interface ForecastInput {
   insurancePolicies: InsurancePolicyInput[];
   agreements: ManagementAgreementInput[];
   assetMaintenanceSchedules: AssetMaintenanceScheduleInput[];
+  complianceCertificates: ComplianceCertificateInput[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -128,7 +136,7 @@ function getEscalatedRent(tenant: TenantInput, monthStart: Date): number {
 // ── Main engine ───────────────────────────────────────────────────────────────
 
 export function buildForecast(input: ForecastInput): ForecastResponse {
-  const { horizon, propertyId, tenants, recurringExpenses, insurancePolicies, agreements, assetMaintenanceSchedules } = input;
+  const { horizon, propertyId, tenants, recurringExpenses, insurancePolicies, agreements, assetMaintenanceSchedules, complianceCertificates } = input;
 
   const today = new Date();
   const windowStart = startOfMonth(addMonths(today, 1));
@@ -381,6 +389,19 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
         propertyName,
         date: format(cursor, "d MMM yyyy"),
         message: `Scheduled maintenance due: ${assetLabel} (${propertyName}) — est. cost ${schedule.estimatedCost.toLocaleString()} on ${format(cursor, "d MMM yyyy")}`,
+      });
+    }
+  }
+
+  // Flag compliance certificates expiring within the window
+  for (const cert of complianceCertificates) {
+    if (!cert.expiryDate) continue;
+    if (cert.expiryDate >= windowStart && cert.expiryDate <= windowEnd) {
+      risks.push({
+        type: "CERT_EXPIRY",
+        propertyName: cert.property.name,
+        date: format(cert.expiryDate, "d MMM yyyy"),
+        message: `${cert.certificateType} certificate for ${cert.property.name} expires ${format(cert.expiryDate, "d MMM yyyy")}`,
       });
     }
   }

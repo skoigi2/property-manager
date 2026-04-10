@@ -194,6 +194,7 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
   const vacancies = risks.filter((r) => r.type === "VACANT_UNIT");
   const insuranceExpiries = risks.filter((r) => r.type === "INSURANCE_EXPIRY");
   const assetMaintenance = risks.filter((r) => r.type === "ASSET_MAINTENANCE_DUE");
+  const certExpiries = risks.filter((r) => r.type === "CERT_EXPIRY");
 
   if (risks.length === 0) {
     return (
@@ -274,6 +275,24 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
           </div>
           <div className="space-y-2">
             {assetMaintenance.map((r, i) => (
+              <p key={i} className="text-xs font-sans text-gray-600">
+                {r.message}
+              </p>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {certExpiries.length > 0 && (
+        <Card padding="sm">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={15} className="text-purple-500 shrink-0" />
+            <p className="text-xs font-sans font-semibold text-gray-700 uppercase tracking-wide">
+              Cert Expiries ({certExpiries.length})
+            </p>
+          </div>
+          <div className="space-y-2">
+            {certExpiries.map((r, i) => (
               <p key={i} className="text-xs font-sans text-gray-600">
                 {r.message}
               </p>

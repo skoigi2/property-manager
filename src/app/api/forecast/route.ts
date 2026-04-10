@@ -26,7 +26,7 @@ export async function GET(req: Request) {
       ? propertyIdParam
       : null;
 
-  const [tenants, recurringExpenses, insurancePolicies, agreements, assetMaintenanceSchedules] =
+  const [tenants, recurringExpenses, insurancePolicies, agreements, assetMaintenanceSchedules, complianceCertificates] =
     await Promise.all([
       prisma.tenant.findMany({
         where: {
@@ -129,6 +129,16 @@ export async function GET(req: Request) {
           property: { select: { name: true } },
         },
       }),
+
+      prisma.complianceCertificate.findMany({
+        where: { propertyId: { in: propertyIds } },
+        select: {
+          id: true,
+          certificateType: true,
+          expiryDate: true,
+          property: { select: { name: true } },
+        },
+      }),
     ]);
 
   const result = buildForecast({
@@ -139,6 +149,7 @@ export async function GET(req: Request) {
     insurancePolicies: insurancePolicies as Parameters<typeof buildForecast>[0]["insurancePolicies"],
     agreements,
     assetMaintenanceSchedules: assetMaintenanceSchedules as Parameters<typeof buildForecast>[0]["assetMaintenanceSchedules"],
+    complianceCertificates,
   });
 
   return Response.json(result);

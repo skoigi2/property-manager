@@ -38,7 +38,7 @@ export interface ExpenseBreakdownItem {
 }
 
 export interface ForecastRisk {
-  type: "LEASE_EXPIRY" | "VACANT_UNIT" | "INSURANCE_EXPIRY" | "ASSET_MAINTENANCE_DUE";
+  type: "LEASE_EXPIRY" | "VACANT_UNIT" | "INSURANCE_EXPIRY" | "ASSET_MAINTENANCE_DUE" | "CERT_EXPIRY";
   tenantName?: string;
   unitNumber?: string;
   propertyName?: string;

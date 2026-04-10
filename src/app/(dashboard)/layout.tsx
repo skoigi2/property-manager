@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { PropertyProvider } from "@/lib/property-context";
+import { TrialBanner } from "@/components/layout/TrialBanner";
 
 export default async function DashboardLayout({
   children,
@@ -20,6 +21,7 @@ export default async function DashboardLayout({
       <div className="flex min-h-screen bg-cream">
         <Sidebar role={role} organizationId={organizationId} />
         <div className="flex-1 flex flex-col min-w-0">
+          {organizationId && <TrialBanner />}
           <main className="flex-1 pb-20 lg:pb-0">
             {children}
           </main>

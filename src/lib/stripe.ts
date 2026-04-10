@@ -1,8 +1,24 @@
 import Stripe from "stripe";
 
-// ─── Stripe singleton ─────────────────────────────────────────────────────────
+// ─── Lazy Stripe singleton ────────────────────────────────────────────────────
+// Initialized on first use so builds succeed even when STRIPE_SECRET_KEY is absent.
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let _stripe: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  }
+  return _stripe;
+}
+
+/** Convenience re-export so callers can use `stripe.xxx` directly */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (getStripe() as any)[prop];
+  },
+});
 
 // ─── Price IDs (set in Vercel env vars) ──────────────────────────────────────
 

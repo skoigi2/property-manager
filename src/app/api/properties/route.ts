@@ -1,6 +1,7 @@
 import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { canAddProperty } from "@/lib/subscription";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -58,6 +59,18 @@ export async function POST(req: Request) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // ── Property limit guard ──────────────────────────────────────────────────
+  const orgId = session.user.organizationId;
+  if (orgId) {
+    const allowed = await canAddProperty(orgId);
+    if (!allowed) {
+      return Response.json(
+        { error: "Property limit reached for your current plan. Upgrade to add more properties." },
+        { status: 402 },
+      );
+    }
   }
 
   const body = await req.json();

@@ -29,6 +29,7 @@ import {
   ChevronRight,
   ArrowLeftRight,
   LineChart,
+  CreditCard,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -104,6 +105,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/settings/users", label: "Users",     icon: UserCog,    roles: ["MANAGER"] },
       { href: "/settings/audit", label: "Audit Log", icon: ShieldCheck,roles: ["MANAGER"] },
       { href: "/import",         label: "Import",    icon: Upload,     roles: ["MANAGER"] },
+      { href: "/billing",        label: "Billing",   icon: CreditCard, roles: ["MANAGER"] },
     ],
   },
 ];

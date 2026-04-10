@@ -161,6 +161,8 @@ async function seedAlSeef(organizationId: string) {
   // Arrears: unit 102 misses Feb + Mar; unit 304 misses Mar
   const arrears: Record<string, number[]> = { "102": [1, 2], "304": [2] };
   let invoiceSeq = 1;
+  // Use last 6 chars of propertyId to namespace invoice numbers globally unique
+  const propCode = property.id.slice(-6).toUpperCase();
 
   for (const month of MONTHS) {
     for (const t of tenantDefs) {
@@ -170,7 +172,7 @@ async function seedAlSeef(organizationId: string) {
       const grossAmount = t.rent + serviceCharge;
       const isArrears = (arrears[t.unit] ?? []).includes(month);
 
-      const invoiceNum = `ASR-${YEAR}-${String(month + 1).padStart(2, "0")}-${String(
+      const invoiceNum = `ASR-${propCode}-${YEAR}-${String(month + 1).padStart(2, "0")}-${String(
         invoiceSeq++
       ).padStart(3, "0")}`;
 
@@ -509,8 +511,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Demo not yet implemented." }, { status: 400 });
     }
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("[demo/seed] Error seeding demo property:", err);
-    return NextResponse.json({ ok: false, error: "Seed failed. Please try again." }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[demo/seed] Error seeding demo property:", message);
+    return NextResponse.json({ ok: false, error: "Seed failed. Please try again.", detail: message }, { status: 500 });
   }
 }

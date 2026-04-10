@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { OwnerEmailDraftModal } from "@/components/report/OwnerEmailDraftModal";
 import { TaxSummaryTab } from "@/components/report/TaxSummary";
+import { OwnerDashboard } from "@/components/report/OwnerDashboard";
 import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
@@ -990,6 +991,22 @@ export default function ReportPage() {
   const [month, setMonth]               = useState(String(currentMonth));
   const [quarter, setQuarter]           = useState(Math.ceil(currentMonth / 3));
   const [quarterYear, setQuarterYear]   = useState(String(currentYear));
+
+  // OWNER role gets a read-only dashboard instead of the manager tab system
+  if (session?.user?.role === "OWNER") {
+    return (
+      <div>
+        <Header
+          title="Owner Dashboard"
+          userName={session?.user?.name ?? session?.user?.email}
+          role={session?.user?.role}
+        />
+        <div className="page-container space-y-5">
+          <OwnerDashboard />
+        </div>
+      </div>
+    );
+  }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "preview",   label: "P&L Preview",       icon: <TrendingUp size={15} /> },

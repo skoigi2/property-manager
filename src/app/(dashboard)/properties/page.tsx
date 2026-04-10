@@ -1161,8 +1161,9 @@ export default function PropertiesPage() {
         userName={session?.user?.name ?? session?.user?.email}
         role={session?.user?.role}
       >
+        {/* Desktop only: layout toggle */}
         {properties.length > 0 && (
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+          <div className="hidden lg:flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
             <button
               onClick={() => setLayoutMode("grid")}
               className={`p-1.5 rounded-md transition-all ${layout === "grid" ? "bg-white shadow-sm text-header" : "text-gray-400 hover:text-gray-600"}`}
@@ -1179,19 +1180,47 @@ export default function PropertiesPage() {
             </button>
           </div>
         )}
+        {/* Desktop only: Import button */}
         {isManager && (
-          <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
+          <Button size="sm" variant="secondary" className="hidden lg:flex" onClick={() => setShowImport(true)}>
             <PackageOpen size={14} className="mr-1" /> Import from Handover
           </Button>
         )}
         {isManager && (
           <Button size="sm" onClick={openAddProperty}>
-            <Plus size={14} className="mr-1" /> Add Property
+            <Plus size={14} className="sm:mr-1" />
+            <span className="hidden sm:inline">Add Property</span>
           </Button>
         )}
       </Header>
 
       <div className="page-container">
+        {/* Mobile/tablet toolbar — hidden on desktop */}
+        {!loading && properties.length > 0 && (
+          <div className="flex items-center justify-between mb-4 lg:hidden">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setLayoutMode("grid")}
+                className={`p-1.5 rounded-md transition-all ${layout === "grid" ? "bg-white shadow-sm text-header" : "text-gray-400 hover:text-gray-600"}`}
+                title="Grid view"
+              >
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                onClick={() => setLayoutMode("table")}
+                className={`p-1.5 rounded-md transition-all ${layout === "table" ? "bg-white shadow-sm text-header" : "text-gray-400 hover:text-gray-600"}`}
+                title="List view"
+              >
+                <List size={15} />
+              </button>
+            </div>
+            {isManager && (
+              <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
+                <PackageOpen size={14} className="mr-1" /> Import from Handover
+              </Button>
+            )}
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <Spinner size="lg" />

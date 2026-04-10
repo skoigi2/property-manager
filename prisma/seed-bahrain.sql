@@ -660,7 +660,24 @@ INSERT INTO "MaintenanceJob" (id,"propertyId","unitId",title,description,categor
 
 (gen_random_uuid()::text,v_prop_id,u101,'Pest sighting — cockroach in kitchen','Found two cockroaches near the kitchen sink. Please arrange pest control treatment as soon as possible.','PEST_CONTROL','HIGH','OPEN','Ahmed Al-Dosari',NULL,'2026-04-08',NULL,NULL,NULL,NULL,NULL,false,true,NOW(),NOW());
 
-RAISE NOTICE '15 maintenance jobs created (10 manager-logged, 5 tenant requests)';
+-- Link completed jobs to their matching expense entries
+UPDATE "MaintenanceJob" SET "expenseId" = (
+  SELECT id FROM "ExpenseEntry" WHERE "unitId" = u103 AND category = 'MAINTENANCE' AND amount = 120 LIMIT 1
+) WHERE "propertyId" = v_prop_id AND title LIKE '%tap replacement%';
+
+UPDATE "MaintenanceJob" SET "expenseId" = (
+  SELECT id FROM "ExpenseEntry" WHERE "unitId" = u201 AND category = 'MAINTENANCE' AND amount = 85 LIMIT 1
+) WHERE "propertyId" = v_prop_id AND title LIKE '%circuit breaker%';
+
+UPDATE "MaintenanceJob" SET "expenseId" = (
+  SELECT id FROM "ExpenseEntry" WHERE "unitId" = u404 AND category = 'MAINTENANCE' AND amount = 310 LIMIT 1
+) WHERE "propertyId" = v_prop_id AND title LIKE '%compressor%';
+
+UPDATE "MaintenanceJob" SET "expenseId" = (
+  SELECT id FROM "ExpenseEntry" WHERE "unitId" = u302 AND category = 'REINSTATEMENT' AND amount = 420 LIMIT 1
+) WHERE "propertyId" = v_prop_id AND title LIKE '%repaint%';
+
+RAISE NOTICE '15 maintenance jobs created (10 manager-logged, 5 tenant requests), 4 linked to expense entries';
 
 RAISE NOTICE '';
 RAISE NOTICE '✅ Al Seef Residences seeded successfully!';

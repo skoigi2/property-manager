@@ -11,9 +11,10 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Badge } from "@/components/ui/Badge";
 import {
   FileText, Download, TrendingUp, Receipt, DollarSign,
-  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2, Calendar, Mail,
+  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2, Calendar, Mail, BarChart2,
 } from "lucide-react";
 import { OwnerEmailDraftModal } from "@/components/report/OwnerEmailDraftModal";
+import { TaxSummaryTab } from "@/components/report/TaxSummary";
 import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
@@ -56,7 +57,7 @@ interface MonthSummary {
   netProfit: number;
 }
 
-type Tab = "preview" | "annual" | "owner" | "download" | "quarterly";
+type Tab = "preview" | "annual" | "owner" | "download" | "quarterly" | "tax";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -994,6 +995,7 @@ export default function ReportPage() {
     { id: "preview",   label: "P&L Preview",       icon: <TrendingUp size={15} /> },
     { id: "annual",    label: "Annual Summary",     icon: <Receipt size={15} /> },
     { id: "owner",     label: "Owner Statement",    icon: <DollarSign size={15} /> },
+    { id: "tax",       label: "Tax Summary",        icon: <BarChart2 size={15} /> },
     { id: "download",  label: "Download PDF",       icon: <Download size={15} /> },
     { id: "quarterly", label: "Quarterly Report",   icon: <Calendar size={15} /> },
   ];
@@ -1067,7 +1069,7 @@ export default function ReportPage() {
                   {t.icon}
                   <span className="hidden sm:inline">{t.label}</span>
                   <span className="sm:hidden">
-                    {t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : t.id === "owner" ? "Owner" : t.id === "quarterly" ? "Qtrly" : "PDF"}
+                    {t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : t.id === "owner" ? "Owner" : t.id === "tax" ? "Tax" : t.id === "quarterly" ? "Qtrly" : "PDF"}
                   </span>
                 </button>
               ))}
@@ -1079,6 +1081,7 @@ export default function ReportPage() {
         {activeTab === "preview"   && <PLPreview year={year} month={month} selectedId={selectedId} />}
         {activeTab === "annual"    && <AnnualSummary year={year} selectedId={selectedId} />}
         {activeTab === "owner"     && <OwnerStatementTab year={year} month={month} selectedId={selectedId} />}
+        {activeTab === "tax"       && <TaxSummaryTab year={year} month={month} selectedId={selectedId} />}
         {activeTab === "download"  && <DownloadPDF year={year} month={month} setYear={setYear} setMonth={setMonth} selectedId={selectedId} />}
         {activeTab === "quarterly" && (
           <QuarterlyDownload

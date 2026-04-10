@@ -301,6 +301,59 @@ export function exportArrears(cases: any[], currency?: string) {
   writeFile(wb, `Arrears-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+// ── Maintenance ───────────────────────────────────────────────────────────────
+
+const PRIORITY_LABEL: Record<string, string> = {
+  LOW: "Low", MEDIUM: "Medium", HIGH: "High", URGENT: "Urgent",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  OPEN: "Open", IN_PROGRESS: "In Progress",
+  AWAITING_PARTS: "Awaiting Parts", DONE: "Done", CANCELLED: "Cancelled",
+};
+
+const MAINT_CAT_LABEL: Record<string, string> = {
+  PLUMBING: "Plumbing", ELECTRICAL: "Electrical", STRUCTURAL: "Structural",
+  APPLIANCE: "Appliance", PAINTING: "Painting", CLEANING: "Cleaning",
+  SECURITY: "Security", PEST_CONTROL: "Pest Control", OTHER: "Other",
+};
+
+export function exportMaintenance(jobs: any[], currency?: string) {
+  const cur = currency ?? jobs[0]?.property?.currency ?? "";
+  const c = currLabel(cur);
+
+  const headers = [
+    "Title", "Category", "Priority", "Status", "Property", "Unit",
+    "Reported By", "Reported Date", "Scheduled Date", "Completed Date",
+    `Cost${c}`, "Assigned To", "Tenant Request", "Emergency", "Notes",
+  ];
+
+  const rows = jobs.map((j) => [
+    j.title ?? "",
+    MAINT_CAT_LABEL[j.category] ?? j.category ?? "",
+    PRIORITY_LABEL[j.priority] ?? j.priority ?? "",
+    STATUS_LABEL[j.status] ?? j.status ?? "",
+    j.property?.name ?? "",
+    j.unit?.unitNumber ?? "",
+    j.reportedBy ?? "",
+    fmtDate(j.reportedDate),
+    fmtDate(j.scheduledDate),
+    fmtDate(j.completedDate),
+    typeof j.cost === "number" ? j.cost : null,
+    j.assignedTo ?? "",
+    j.submittedViaPortal ? "Yes" : "No",
+    j.isEmergency ? "Yes" : "No",
+    j.notes ?? "",
+  ]);
+
+  const ws = buildSheet(headers, rows);
+  setColWidths(ws, [28, 14, 10, 14, 20, 10, 20, 14, 14, 14, 14, 20, 14, 10, 36]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Maintenance Jobs");
+  writeFile(wb, `Maintenance-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
 // ── Annual Summary ────────────────────────────────────────────────────────────
 
 export function exportAnnualSummary(months: any[], year: string, currency?: string) {

@@ -20,8 +20,9 @@ import toast from "react-hot-toast";
 import {
   Plus, Wrench, Trash2, PencilLine, ChevronRight,
   CalendarDays, User, Receipt, CheckCircle2, ExternalLink,
-  Loader2, X, AlertTriangle,
+  Loader2, X, AlertTriangle, FileDown,
 } from "lucide-react";
+import { exportMaintenance } from "@/lib/excel-export";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
@@ -942,6 +943,14 @@ export default function MaintenancePage() {
                 >
                   {showDone ? "Hide done" : "Show done"}
                 </button>
+                {jobs.length > 0 && (
+                  <button
+                    onClick={() => exportMaintenance(jobs, selected?.currency)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+                  >
+                    <FileDown size={13} /> Export
+                  </button>
+                )}
               </div>
             </div>
 

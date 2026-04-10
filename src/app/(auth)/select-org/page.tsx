@@ -54,8 +54,8 @@ export default function SelectOrgPage() {
             <Home size={18} className="text-amber-400" />
           </div>
           <div>
-            <p className="font-display text-[#1a2332] text-base leading-none">Property Manager</p>
-            <p className="text-gray-400 text-xs font-sans mt-0.5">Property Manager</p>
+            <p className="font-display text-[#1a2332] text-base leading-none">Groundwork PM</p>
+            <p className="text-gray-400 text-xs font-sans mt-0.5">Groundwork PM</p>
           </div>
         </div>
 

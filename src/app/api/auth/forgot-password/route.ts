@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const baseUrl = process.env.NEXTAUTH_URL ?? "https://property-manager-ke-rho.vercel.app";
+    const baseUrl = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
     const resetLink = `${baseUrl}/reset-password?token=${token}`;
 
     // Fire-and-forget — response must not reveal whether email exists

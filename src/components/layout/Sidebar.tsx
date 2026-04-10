@@ -197,8 +197,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
             <Home size={16} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-display text-white text-sm leading-none">Property Manager</p>
-            <p className="text-white/40 text-xs font-sans mt-0.5">Property Manager</p>
+            <p className="font-display text-white text-sm leading-none">Groundwork PM</p>
+            <p className="text-white/40 text-xs font-sans mt-0.5">Groundwork PM</p>
           </div>
         </div>
 

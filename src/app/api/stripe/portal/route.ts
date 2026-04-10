@@ -21,7 +21,7 @@ export async function GET() {
     return NextResponse.json({ error: "No billing account found." }, { status: 404 });
   }
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? "https://property-manager-ke-rho.vercel.app";
+  const baseUrl = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
 
   const portalSession = await stripe.billingPortal.sessions.create({
     customer:   org.stripeCustomerId,

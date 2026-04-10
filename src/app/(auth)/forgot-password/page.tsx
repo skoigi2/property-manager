@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
           </div>
-          <h1 className="font-display text-2xl text-white">Property Manager</h1>
+          <h1 className="font-display text-2xl text-white">Groundwork PM</h1>
           <p className="text-white/60 text-sm mt-1 font-sans">Reset your password</p>
         </div>
 

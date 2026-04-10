@@ -119,7 +119,20 @@
       "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\guests\\\\[id]\\\\documents\\\\[docId]\")",
       "Bash(mkdir -p \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\api\\\\bookings\\\\[entryId]\\\\guests\\\\[guestId]\")",
       "Bash(\"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\prisma\\\\schema.prisma\")",
-      "Bash(ls 'C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\airbnb')"
+      "Bash(ls 'C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\src\\\\app\\\\\\(dashboard\\)\\\\airbnb')",
+      "Bash(Remove-Item \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\.git\\\\index.lock\" -Force)",
+      "Bash(grep -n \"Draft Email\\\\|EmailDraftModal\\\\|portalToken\\\\|portal\\\\|Portal\\\\|header.*button\\\\|Button.*Mail\\\\|Mail.*Button\" src/app/\\\\\\(dashboard\\\\\\)/tenants/[id]/page.tsx)",
+      "Bash(wc -l src/app/\\\\\\(dashboard\\\\\\)/compliance/page.tsx)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const url = process.env.DATABASE_URL || ''; const match = url.match\\(/db\\\\.\\([^.]+\\)\\\\.supabase\\\\.co/\\); console.log\\('DB host:', match ? match[0] : url.substring\\(0, 60\\) + '...'\\);\")",
+      "Bash(node -e \"const bcrypt = require\\('bcryptjs'\\); bcrypt.hash\\('demo123', 10\\).then\\(h => console.log\\(h\\)\\);\")",
+      "Read(//tmp/**)",
+      "Bash(sed -i 's/INSERT INTO \"IncomeEntry\" \\(id,date,\"unitId\",\"tenantId\",\"invoiceId\",type,\"grossAmount\",\"agentCommission\",\"createdAt\",\"updatedAt\"\\)/INSERT INTO \"IncomeEntry\" \\(id,date,\"unitId\",\"tenantId\",\"invoiceId\",type,\"grossAmount\",\"agentCommission\",\"createdAt\"\\)/g' prisma/seed-bahrain.sql)",
+      "Bash(sed -i 's/,NOW\\(\\),NOW\\(\\)\\);$/,NOW\\(\\)\\);/g' prisma/seed-bahrain.sql)",
+      "Bash(grep -n '\"createdAt\",\"updatedAt\".*NOW\\(\\)\\);$' \"C:\\\\Users\\\\STEVE KOIGI\\\\Desktop\\\\Stephen Apps\\\\Property Manager\\\\prisma\\\\seed-bahrain.sql\")",
+      "WebFetch(domain:authjs.dev)",
+      "WebSearch",
+      "WebFetch(domain:next-auth.js.org)",
+      "Bash(npm list:*)"
     ]
   }
 }

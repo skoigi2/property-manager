@@ -396,8 +396,8 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       </button>
       <p className="text-xs text-gray-400 font-sans mt-6">
         Need help?{" "}
-        <a href="mailto:support@propertymanager.app" className="text-gold hover:underline">
-          support@propertymanager.app
+        <a href="mailto:support@groundworkpm.com" className="text-gold hover:underline">
+          support@groundworkpm.com
         </a>
       </p>
     </div>

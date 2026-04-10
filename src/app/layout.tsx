@@ -25,13 +25,13 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Property Manager",
-  description: "Smart property management, simplified",
+  title: "Groundwork PM",
+  description: "Property insights. Built on solid groundwork.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "PropMgr",
+    title: "Groundwork",
   },
 };
 

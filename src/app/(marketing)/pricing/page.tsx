@@ -16,7 +16,7 @@ function Nav() {
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
           </div>
-          <span className="font-display text-lg text-header">Property Manager</span>
+          <span className="font-display text-lg text-header">Groundwork PM</span>
         </Link>
         <div className="hidden md:flex items-center gap-8 text-sm font-sans">
           <Link href="/#features" className="text-gray-500 hover:text-header transition-colors">Features</Link>
@@ -315,9 +315,9 @@ export default function PricingPage() {
                 <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
             </div>
-            <span className="font-display text-sm text-header">Property Manager</span>
+            <span className="font-display text-sm text-header">Groundwork PM</span>
           </Link>
-          <p className="text-xs text-gray-300 font-sans">© {new Date().getFullYear()} Property Manager</p>
+          <p className="text-xs text-gray-300 font-sans">© {new Date().getFullYear()} Groundwork PM</p>
         </div>
       </footer>
     </div>

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     select: { stripeCustomerId: true, name: true },
   });
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? "https://property-manager-ke-rho.vercel.app";
+  const baseUrl = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",

@@ -170,7 +170,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const footerProps = { period: data.period, property: data.property };
 
   return (
-    <Document title={data.title} author="Property Manager">
+    <Document title={data.title} author="Groundwork PM">
 
       {/* ── COVER PAGE ─────────────────────────────────────── */}
       <Page size="A4" style={styles.coverPage}>

@@ -4,20 +4,20 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Property Manager — Smart property management for landlords & agencies",
+  title: "Groundwork PM — Property Management Analytics & Financial Tracking",
   description:
-    "Track rent, generate owner reports, manage maintenance and compliance for your property portfolio. Trusted by landlords and agencies worldwide. 30-day free trial.",
+    "Track rent, generate owner reports, manage maintenance and compliance for your property portfolio. Property insights. Built on solid groundwork. 30-day free trial.",
   openGraph: {
-    title: "Property Manager — Smart property management",
+    title: "Groundwork PM — Property Management Analytics & Financial Tracking",
     description:
       "Track rent, invoices, maintenance, and compliance. Built for landlords and agencies worldwide.",
-    url: "https://property-manager-ke-rho.vercel.app",
-    siteName: "Property Manager",
+    url: "https://groundworkpm.com",
+    siteName: "Groundwork PM",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Property Manager — Smart property management",
+    title: "Groundwork PM — Property Management Analytics & Financial Tracking",
     description: "Track rent, invoices, maintenance, and compliance. 30-day free trial.",
   },
 };
@@ -35,7 +35,7 @@ function Nav() {
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
           </div>
-          <span className="font-display text-lg text-header">Property Manager</span>
+          <span className="font-display text-lg text-header">Groundwork PM</span>
         </div>
 
         <div className="hidden md:flex items-center gap-8 text-sm font-sans">
@@ -325,16 +325,16 @@ export default async function RootPage() {
                 <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
             </div>
-            <span className="font-display text-sm text-header">Property Manager</span>
+            <span className="font-display text-sm text-header">Groundwork PM</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-gray-400 font-sans">
             <Link href="/pricing" className="hover:text-header transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-header transition-colors">Sign in</Link>
             <Link href="/signup" className="hover:text-header transition-colors">Sign up</Link>
-            <a href="mailto:support@propertymanager.app" className="hover:text-header transition-colors">Support</a>
+            <a href="mailto:support@groundworkpm.com" className="hover:text-header transition-colors">Support</a>
           </div>
           <p className="text-xs text-gray-300 font-sans">
-            © {new Date().getFullYear()} Property Manager
+            © {new Date().getFullYear()} Groundwork PM
           </p>
         </div>
       </footer>

@@ -12,7 +12,7 @@ function getResend(): Resend {
   return _resend;
 }
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Property Manager <noreply@propertymanager.app>";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Groundwork PM <noreply@groundworkpm.com>";
 
 // ─── Password reset ───────────────────────────────────────────────────────────
 
@@ -20,12 +20,12 @@ export async function sendPasswordReset(email: string, resetLink: string): Promi
   await getResend().emails.send({
     from:    FROM,
     to:      email,
-    subject: "Reset your Property Manager password",
+    subject: "Reset your Groundwork PM password",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Reset your password</h2>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-          We received a request to reset the password for your Property Manager account.
+          We received a request to reset the password for your Groundwork PM account.
           Click the button below to choose a new password. This link expires in <strong>1 hour</strong>.
         </p>
         <a href="${resetLink}"
@@ -39,7 +39,7 @@ export async function sendPasswordReset(email: string, resetLink: string): Promi
           Your password won't change until you click the link above.
         </p>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
-        <p style="color: #9ca3af; font-size: 11px;">Property Manager · Smart property management for landlords &amp; agencies worldwide</p>
+        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Smart property management for landlords &amp; agencies worldwide</p>
       </div>
     `,
   });
@@ -51,7 +51,7 @@ export async function sendWelcome(email: string, name: string): Promise<void> {
   await getResend().emails.send({
     from:    FROM,
     to:      email,
-    subject: "Welcome to Property Manager 🏠",
+    subject: "Welcome to Groundwork PM 🏠",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Welcome, ${name}!</h2>
@@ -64,7 +64,7 @@ export async function sendWelcome(email: string, name: string): Promise<void> {
           <li>Generate owner reports and invoices</li>
           <li>Manage maintenance and assets</li>
         </ul>
-        <a href="${process.env.NEXTAUTH_URL ?? "https://property-manager-ke-rho.vercel.app"}/onboarding"
+        <a href="${process.env.NEXTAUTH_URL ?? "https://groundworkpm.com"}/onboarding"
            style="display: inline-block; margin: 24px 0; background: #c9a84c; color: white;
                   padding: 12px 28px; border-radius: 8px; text-decoration: none;
                   font-size: 14px; font-weight: 600;">

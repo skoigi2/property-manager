@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText, PackageOpen, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText, PackageOpen, Loader2, CheckCircle, AlertTriangle, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
@@ -778,6 +778,13 @@ function PropertiesTable({
                         >
                           <FileText size={14} />
                         </Link>
+                        <Link
+                          href={`/properties/${p.id}/condition-reports`}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                          title="Condition reports"
+                        >
+                          <ClipboardList size={14} />
+                        </Link>
                         <button
                           onClick={() => onEdit(p)}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
@@ -1246,6 +1253,14 @@ export default function PropertiesPage() {
                           title="Configure agreement"
                         >
                           <FileText size={15} />
+                        </Link>
+                        <Link
+                          href={`/properties/${p.id}/condition-reports`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
+                          title="Condition reports"
+                        >
+                          <ClipboardList size={15} />
                         </Link>
                         <button
                           onClick={(e) => { e.stopPropagation(); openEditProperty(p); }}

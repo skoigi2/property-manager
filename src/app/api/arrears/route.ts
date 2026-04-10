@@ -23,17 +23,32 @@ export async function GET(req: Request) {
       ? [filterPropertyId]
       : propertyIds;
 
-  const cases = await prisma.arrearsCase.findMany({
-    where: { propertyId: { in: effectivePropertyIds } },
-    include: {
-      tenant: { select: { id: true, name: true, phone: true, email: true, unit: { select: { unitNumber: true } } } },
-      property: { select: { name: true, currency: true } },
-      escalations: { orderBy: { createdAt: "desc" } },
-    },
-    orderBy: [{ stage: "asc" }, { updatedAt: "desc" }],
-  });
+  const [cases, agreements] = await Promise.all([
+    prisma.arrearsCase.findMany({
+      where: { propertyId: { in: effectivePropertyIds } },
+      include: {
+        tenant: { select: { id: true, name: true, phone: true, email: true, unit: { select: { unitNumber: true } } } },
+        property: { select: { name: true, currency: true } },
+        escalations: { orderBy: { createdAt: "desc" } },
+      },
+      orderBy: [{ stage: "asc" }, { updatedAt: "desc" }],
+    }),
+    prisma.managementAgreement.findMany({
+      where: { propertyId: { in: effectivePropertyIds } },
+      select: { propertyId: true, latePaymentInterestRate: true },
+    }),
+  ]);
 
-  return Response.json(cases);
+  const rateByProperty = Object.fromEntries(
+    agreements.map((a) => [a.propertyId, a.latePaymentInterestRate])
+  );
+
+  const casesWithRate = cases.map((c) => ({
+    ...c,
+    latePaymentInterestRate: rateByProperty[c.propertyId] ?? 12,
+  }));
+
+  return Response.json(casesWithRate);
 }
 
 export async function POST(req: Request) {

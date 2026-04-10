@@ -14,7 +14,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
-import { AlertTriangle, ChevronRight, CheckCircle, Plus, Trash2, FileText, Copy, FileDown } from "lucide-react";
+import { calcLateInterest } from "@/lib/calculations";
+import { AlertTriangle, ChevronRight, CheckCircle, Plus, Trash2, FileText, Copy, FileDown, TrendingUp } from "lucide-react";
 import { exportArrears } from "@/lib/excel-export";
 import { clsx } from "clsx";
 
@@ -37,6 +38,23 @@ interface ArrearsCase {
   tenant: Tenant;
   property: { name: string; currency?: string };
   escalations: Escalation[];
+  latePaymentInterestRate?: number; // annual %, from ManagementAgreement (default 12)
+}
+
+const MS_PER_DAY = 86_400_000;
+
+function daysOpen(arrearsCase: ArrearsCase): number {
+  const from = new Date(arrearsCase.createdAt).getTime();
+  const to   = arrearsCase.resolvedAt
+    ? new Date(arrearsCase.resolvedAt).getTime()
+    : Date.now();
+  return Math.max(0, Math.floor((to - from) / MS_PER_DAY));
+}
+
+function accruedInterest(arrearsCase: ArrearsCase): number {
+  const rate = arrearsCase.latePaymentInterestRate ?? 12;
+  if (rate === 0) return 0;
+  return calcLateInterest(arrearsCase.amountOwed, rate, daysOpen(arrearsCase));
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -158,6 +176,22 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }
               {formatCurrency(arrearsCase.amountOwed, arrearsCase.property.currency ?? "USD")}
             </button>
           )}
+          {/* Accrued interest */}
+          {(() => {
+            const interest = accruedInterest(arrearsCase);
+            const rate     = arrearsCase.latePaymentInterestRate ?? 12;
+            const days     = daysOpen(arrearsCase);
+            if (interest <= 0) return null;
+            return (
+              <div className="flex items-center gap-1 text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1" title={`${rate}% p.a. × ${days} days`}>
+                <TrendingUp size={11} />
+                <span className="font-mono text-xs font-medium">
+                  +{formatCurrency(interest, arrearsCase.property.currency ?? "USD")}
+                </span>
+                <span className="text-[10px] text-amber-500 font-sans">{days}d interest</span>
+              </div>
+            );
+          })()}
           <button onClick={() => setExpanded(e => !e)} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
             {expanded ? "Collapse" : "Expand"} <ChevronRight size={12} className={clsx("transition-transform", expanded && "rotate-90")} />
           </button>
@@ -167,6 +201,20 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }
       {/* Escalation history */}
       {expanded && (
         <div className="mt-4 pl-12 space-y-3">
+          {/* Interest detail */}
+          {(() => {
+            const interest = accruedInterest(arrearsCase);
+            const rate     = arrearsCase.latePaymentInterestRate ?? 12;
+            const days     = daysOpen(arrearsCase);
+            if (interest <= 0) return null;
+            return (
+              <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs font-sans text-amber-700">
+                <span className="font-medium">Interest accrued: </span>
+                {formatCurrency(interest, arrearsCase.property.currency ?? "USD")}
+                <span className="text-amber-500"> · {rate}% p.a. × {days} days on {formatCurrency(arrearsCase.amountOwed, arrearsCase.property.currency ?? "USD")} outstanding</span>
+              </div>
+            );
+          })()}
           {/* Timeline */}
           <div className="space-y-2">
             {arrearsCase.escalations.map(e => (
@@ -373,9 +421,10 @@ export default function ArrearsPage() {
     load();
   };
 
-  const open   = cases.filter(c => c.stage !== "RESOLVED");
-  const resolved = cases.filter(c => c.stage === "RESOLVED");
-  const totalOwed = open.reduce((s,c) => s + c.amountOwed, 0);
+  const open        = cases.filter(c => c.stage !== "RESOLVED");
+  const resolved    = cases.filter(c => c.stage === "RESOLVED");
+  const totalOwed   = open.reduce((s, c) => s + c.amountOwed, 0);
+  const totalInterest = open.reduce((s, c) => s + accruedInterest(c), 0);
 
   const stageCount = (s: Stage) => open.filter(c => c.stage === s).length;
 
@@ -385,12 +434,19 @@ export default function ArrearsPage() {
       <div className="page-container space-y-5">
 
         {/* Summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <Card padding="sm" className="border-l-4 border-expense">
             <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Total Owed</p>
             <CurrencyDisplay currency={currency} amount={totalOwed} size="lg" className="text-expense font-medium mt-1" />
           </Card>
-          <Card padding="sm" className="border-l-4 border-amber-400">
+          {totalInterest > 0 && (
+            <Card padding="sm" className="border-l-4 border-amber-400">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Interest Accrued</p>
+              <CurrencyDisplay currency={currency} amount={totalInterest} size="lg" className="text-amber-600 font-medium mt-1" />
+              <p className="text-xs text-amber-500 font-sans mt-0.5">on open cases</p>
+            </Card>
+          )}
+          <Card padding="sm" className={clsx(!totalInterest && "border-l-4 border-amber-400")}>
             <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Open Cases</p>
             <p className="text-2xl font-display text-header mt-1">{open.length}</p>
           </Card>

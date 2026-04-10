@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import toast from "react-hot-toast";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -433,11 +434,8 @@ export default function OnboardingPage() {
 
         {/* Brand header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-header rounded-xl mx-auto mb-3 flex items-center justify-center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
+          <div className="mx-auto mb-3 w-fit">
+            <BrandLogo size={52} />
           </div>
           <p className="text-xs text-gray-400 font-sans">
             Step {step + 1} of 3 — {STEP_TITLES[step]}

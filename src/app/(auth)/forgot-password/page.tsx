@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail]       = useState("");
@@ -36,11 +37,8 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         {/* Header Card */}
         <div className="bg-header rounded-t-2xl px-8 py-8 text-center">
-          <div className="w-12 h-12 bg-gold rounded-xl mx-auto mb-4 flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
+          <div className="mx-auto mb-4 w-fit">
+            <BrandLogo size={56} dark />
           </div>
           <h1 className="font-display text-2xl text-white">Groundwork PM</h1>
           <p className="text-white/60 text-sm mt-1 font-sans">Reset your password</p>

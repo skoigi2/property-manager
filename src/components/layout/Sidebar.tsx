@@ -12,7 +12,7 @@ import {
   FileText,
   Settings,
   LogOut,
-  Home,
+
   Building2,
   UserCog,
   Wrench,
@@ -35,6 +35,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 interface NavItem {
   href: string;
@@ -193,9 +194,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center shrink-0">
-            <Home size={16} className="text-white" />
-          </div>
+          <BrandLogo size={32} dark />
           <div className="flex-1 min-w-0">
             <p className="font-display text-white text-sm leading-none">Groundwork PM</p>
             <p className="text-white/40 text-xs font-sans mt-0.5">Groundwork PM</p>

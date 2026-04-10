@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Building2, Home, ChevronRight } from "lucide-react";
+import { Building2, ChevronRight } from "lucide-react";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 interface OrgOption {
   id: string;
@@ -50,9 +51,7 @@ export default function SelectOrgPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-10 h-10 bg-[#1a2332] rounded-xl flex items-center justify-center">
-            <Home size={18} className="text-amber-400" />
-          </div>
+          <BrandLogo size={40} />
           <div>
             <p className="font-display text-[#1a2332] text-base leading-none">Groundwork PM</p>
             <p className="text-gray-400 text-xs font-sans mt-0.5">Groundwork PM</p>

@@ -9,6 +9,7 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
+  FileDown,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -18,6 +19,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { ForecastChart } from "@/components/forecast/ForecastChart";
 import { useProperty } from "@/lib/property-context";
 import { formatCurrency } from "@/lib/currency";
+import { exportForecast } from "@/lib/excel-export";
 import type {
   ForecastResponse,
   ForecastMonth,
@@ -355,6 +357,16 @@ export default function ForecastPage() {
 
         {!loading && data && (
           <>
+            {/* Export button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => exportForecast(data, currency)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors bg-white"
+              >
+                <FileDown size={13} /> Export to Excel
+              </button>
+            </div>
+
             {/* KPI strip */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card>

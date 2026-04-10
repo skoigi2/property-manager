@@ -452,3 +452,68 @@ export function exportOwnerStatement(statements: any[], month: string, currency?
 
   writeFile(wb, `Owner-Statement-${month.replace(/\s/g, "-")}.xlsx`);
 }
+
+// ── Forecast ──────────────────────────────────────────────────────────────────
+
+export function exportForecast(data: {
+  months: Array<{
+    label: string;
+    forecastedRent: number;
+    projectedExpenses: number;
+    netCashflow: number;
+    expenseBreakdown: Array<{ description: string; category: string; amount: number; type: string; propertyName?: string }>;
+  }>;
+  summary: { totalForecastedRent: number; totalProjectedExpenses: number; totalNetCashflow: number };
+  horizon: number;
+}, currency?: string) {
+  const c = currLabel(currency);
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Monthly Projection
+  const projHeaders = [
+    "Month",
+    `Forecasted Income${c}`,
+    `Projected Expenses${c}`,
+    `Net Cashflow${c}`,
+    "Margin (%)",
+  ];
+
+  const projRows: (string | number | null)[][] = data.months.map((m) => {
+    const margin = m.forecastedRent > 0
+      ? parseFloat(((m.netCashflow / m.forecastedRent) * 100).toFixed(1))
+      : null;
+    return [m.label, m.forecastedRent, m.projectedExpenses, m.netCashflow, margin];
+  });
+
+  projRows.push([
+    `TOTAL (${data.horizon} months)`,
+    data.summary.totalForecastedRent,
+    data.summary.totalProjectedExpenses,
+    data.summary.totalNetCashflow,
+    data.summary.totalForecastedRent > 0
+      ? parseFloat(((data.summary.totalNetCashflow / data.summary.totalForecastedRent) * 100).toFixed(1))
+      : null,
+  ]);
+
+  const ws1 = buildSheet(projHeaders, projRows);
+  setColWidths(ws1, [16, 22, 22, 20, 12]);
+  XLSX.utils.book_append_sheet(wb, ws1, "Monthly Projection");
+
+  // Sheet 2: Expense Breakdown
+  const expHeaders = ["Month", "Description", "Category", "Type", `Amount${c}`, "Property"];
+  const expRows: (string | number | null)[][] = [];
+
+  for (const m of data.months) {
+    for (const e of m.expenseBreakdown) {
+      expRows.push([m.label, e.description, e.category, e.type, e.amount, e.propertyName ?? ""]);
+    }
+  }
+
+  if (expRows.length > 0) {
+    const ws2 = buildSheet(expHeaders, expRows);
+    setColWidths(ws2, [16, 30, 20, 18, 18, 20]);
+    XLSX.utils.book_append_sheet(wb, ws2, "Expense Breakdown");
+  }
+
+  writeFile(wb, `Forecast-${data.horizon}mo-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}

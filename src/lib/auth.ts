@@ -74,9 +74,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async jwt({ token, user, account, trigger, session }) {
-      // Org-switch: session.update({ organizationId }) — refresh token only
+      // Org-switch / onboarding org creation:
+      // session.update({ organizationId, membershipCount? }) — refresh token only
       if (trigger === "update" && session?.organizationId !== undefined) {
         token.organizationId = session.organizationId;
+        if (session?.membershipCount !== undefined) {
+          token.membershipCount = session.membershipCount;
+        }
         return token;
       }
 

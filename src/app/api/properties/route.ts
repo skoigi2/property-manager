@@ -11,6 +11,7 @@ const createSchema = z.object({
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
+  currency: z.string().optional(),
   ownerId: z.string().optional(),
   managerId: z.string().optional(),
   managementFeeRate: z.number().optional(),

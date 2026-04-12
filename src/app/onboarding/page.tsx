@@ -384,13 +384,19 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
   async function loadSampleData() {
     setSeedLoading(true);
     try {
+      // If this is a new org (Google OAuth flow), update the JWT before calling
+      // the seed route — otherwise session.user.organizationId is still null
+      // and the server returns "No organisation found".
+      if (newOrgId) {
+        await update({ organizationId: newOrgId, membershipCount: 1 }).catch(() => {});
+      }
+
       const res = await fetch("/api/demo/seed", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ demoKey: selectedDemo }),
       });
       const data = await res.json().catch(() => ({}));
-      console.error("[demo/seed] response:", res.status, data);
       if (!res.ok && data?.reason !== "already_seeded") {
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data.");
         return;

@@ -531,9 +531,9 @@ export async function POST(req: Request) {
 
   if (existing) {
     if (existing._count.units > 0) {
-      // Fully seeded — nothing to do; return the property ID so the client
-      // can navigate directly to it
-      return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id });
+      // Fully seeded — return property ID and org ID so the client can switch
+      // to the correct org if the active session is pointing at a different one
+      return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id, organizationId });
     }
     // Partially seeded (property record exists but no units — a previous attempt
     // timed out or failed mid-way). Delete it so we can re-seed cleanly.
@@ -543,7 +543,7 @@ export async function POST(req: Request) {
   try {
     if (demo.key === "al-seef") {
       const property = await seedAlSeef(organizationId);
-      return NextResponse.json({ ok: true, propertyId: property.id });
+      return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
     } else {
       return NextResponse.json({ error: "Demo not yet implemented." }, { status: 400 });
     }

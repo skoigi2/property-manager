@@ -23,6 +23,7 @@ import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 // ─── Demo empty state ─────────────────────────────────────────────────────────
 
 function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void; emptyState?: boolean }) {
+  const { update } = useSession();
   const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
   const [loading, setLoading] = useState(false);
 
@@ -39,6 +40,11 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
       if (!res.ok && data?.reason !== "already_seeded") {
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data. Please try again.");
         return;
+      }
+      // If the seed route resolved to a different org than the active session
+      // (via JWT fallback), switch the session to that org before refreshing
+      if (data?.organizationId) {
+        await update({ organizationId: data.organizationId, membershipCount: 1 }).catch(() => {});
       }
       // Pre-select the demo property so it's active as soon as the list refreshes
       if (data?.propertyId) {

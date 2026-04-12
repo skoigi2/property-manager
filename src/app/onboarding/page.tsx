@@ -405,7 +405,9 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       if (data?.propertyId) {
         sessionStorage.setItem("selectedPropertyId", data.propertyId);
       }
-      await refreshAndNavigate(newOrgId);
+      // Use the org the seed route resolved to (may differ from newOrgId when
+      // the JWT was stale and a DB fallback picked a different org)
+      await refreshAndNavigate(data?.organizationId ?? newOrgId);
     } catch {
       toast.error("Could not load sample data. You can still explore the dashboard.");
     } finally {

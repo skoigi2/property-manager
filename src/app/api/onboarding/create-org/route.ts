@@ -31,26 +31,26 @@ export async function POST(req: NextRequest) {
 
   const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  const { org } = await prisma.$transaction(async (tx) => {
-    const org = await tx.organization.create({
-      data: {
-        name:        name.trim(),
-        pricingTier: "TRIAL",
-        trialEndsAt,
-      },
-    });
+  // Sequential operations — pgBouncer (transaction pooling mode) is incompatible
+  // with the callback-form of prisma.$transaction, so we use individual awaits
+  // with a best-effort rollback if any step fails.
+  const org = await prisma.organization.create({
+    data: { name: name.trim(), pricingTier: "TRIAL", trialEndsAt },
+  });
 
-    await tx.user.update({
+  try {
+    await prisma.user.update({
       where: { id: session!.user.id },
       data:  { organizationId: org.id },
     });
-
-    await tx.userOrganizationMembership.create({
+    await prisma.userOrganizationMembership.create({
       data: { userId: session!.user.id, organizationId: org.id },
     });
-
-    return { org };
-  });
+  } catch (err) {
+    // Best-effort rollback — delete the org so we don't leave orphaned data
+    await prisma.organization.delete({ where: { id: org.id } }).catch(() => {});
+    throw err;
+  }
 
   return NextResponse.json({ orgId: org.id }, { status: 201 });
 }

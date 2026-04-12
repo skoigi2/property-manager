@@ -483,11 +483,14 @@ export async function POST(req: Request) {
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  // Prefer JWT value; fall back to DB if JWT is stale (e.g. org was created
-  // mid-session and session.update() hasn't been called yet on the client).
-  // UserOrganizationMembership is the source of truth — it is always written
-  // at org-creation time, whereas the JWT can lag behind.
+  // Three-level fallback to resolve the user's org regardless of JWT freshness
+  // or whether UserOrganizationMembership was correctly populated.
+
+  // Fallback 1: JWT (fast path — works for most logged-in users)
   let organizationId = (session!.user as any).organizationId as string | null;
+
+  // Fallback 2: UserOrganizationMembership — source of truth per CLAUDE.md;
+  // covers stale JWTs (org created mid-session before session.update() ran)
   if (!organizationId) {
     const membership = await prisma.userOrganizationMembership.findFirst({
       where: { userId: session!.user.id },
@@ -495,6 +498,17 @@ export async function POST(req: Request) {
     });
     organizationId = membership?.organizationId ?? null;
   }
+
+  // Fallback 3: User.organizationId directly — covers accounts where the
+  // membership row was never written (e.g. pgBouncer partial commit in create-org)
+  if (!organizationId) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session!.user.id },
+      select: { organizationId: true },
+    });
+    organizationId = dbUser?.organizationId ?? null;
+  }
+
   if (!organizationId) {
     return NextResponse.json({ error: "No organisation found. Complete onboarding first." }, { status: 400 });
   }

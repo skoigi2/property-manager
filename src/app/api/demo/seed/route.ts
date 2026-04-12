@@ -549,15 +549,23 @@ export async function POST(req: Request) {
     include: { _count: { select: { units: true } } },
   });
 
+  // Helper: grant PropertyAccess to every member of the org so the property
+  // is visible to all users regardless of role, and shows as assigned in the UI
+  async function grantAccess(propertyId: string) {
+    const members = await prisma.userOrganizationMembership.findMany({
+      where:  { organizationId: organizationId! },
+      select: { userId: true },
+    });
+    await prisma.propertyAccess.createMany({
+      data:           members.map((m) => ({ userId: m.userId, propertyId })),
+      skipDuplicates: true,
+    });
+  }
+
   if (existing) {
     if (existing._count.units > 0) {
-      // Fully seeded — ensure the requesting user is assigned (they may not be
-      // if the property was seeded by a different user or before this fix)
-      await prisma.propertyAccess.upsert({
-        where:  { userId_propertyId: { userId: session!.user.id, propertyId: existing.id } },
-        update: {},
-        create: { userId: session!.user.id, propertyId: existing.id },
-      });
+      // Fully seeded — backfill access for any org members who are missing it
+      await grantAccess(existing.id);
       return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id, organizationId });
     }
     // Partially seeded (property exists but no units). Delete and re-seed.
@@ -567,13 +575,7 @@ export async function POST(req: Request) {
   try {
     if (demo.key === "al-seef") {
       const property = await seedAlSeef(organizationId);
-      // Assign the requesting user to the demo property so it's visible
-      // regardless of their role (MANAGER/ACCOUNTANT need explicit PropertyAccess)
-      await prisma.propertyAccess.upsert({
-        where:  { userId_propertyId: { userId: session!.user.id, propertyId: property.id } },
-        update: {},
-        create: { userId: session!.user.id, propertyId: property.id },
-      });
+      await grantAccess(property.id);
       return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
     } else {
       return NextResponse.json({ error: "Demo not yet implemented." }, { status: 400 });

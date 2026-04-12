@@ -23,7 +23,7 @@ import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 // ─── Demo empty state ─────────────────────────────────────────────────────────
 
 function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void; emptyState?: boolean }) {
-  const { update } = useSession();
+  const { data: session, update } = useSession();
   const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
   const [loading, setLoading] = useState(false);
 
@@ -41,14 +41,18 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data. Please try again.");
         return;
       }
-      // If the seed route resolved to a different org than the active session
-      // (via JWT fallback), switch the session to that org before refreshing
-      if (data?.organizationId) {
-        await update({ organizationId: data.organizationId, membershipCount: 1 }).catch(() => {});
-      }
-      // Pre-select the demo property so it's active as soon as the list refreshes
+      // Pre-select the demo property before any navigation
       if (data?.propertyId) {
         sessionStorage.setItem("selectedPropertyId", data.propertyId);
+      }
+      const activeOrg = session?.user?.organizationId;
+      if (data?.organizationId && data.organizationId !== activeOrg) {
+        // Org mismatch — update the JWT then do a full reload so the new
+        // cookie is included in the properties fetch (in-place refetch would
+        // still use the old token)
+        await update({ organizationId: data.organizationId, membershipCount: 1 }).catch(() => {});
+        window.location.reload();
+        return;
       }
       onLoaded();
     } catch (err) {

@@ -1,21 +1,25 @@
 import { clsx } from "clsx";
 import { forwardRef } from "react";
+import { HelpTip } from "./HelpTip";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   help?: string;
   error?: string;
   prefix?: string;
+  /** Short contextual tip shown in a hover tooltip next to the label */
+  tooltip?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, help, error, prefix, className, id, ...props }, ref) => {
+  ({ label, help, error, prefix, tooltip, className, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-gray-600 font-sans">
+          <label htmlFor={inputId} className="text-sm font-medium text-gray-600 font-sans flex items-center gap-1.5">
             {label}
+            {tooltip && <HelpTip text={tooltip} />}
           </label>
         )}
         <div className="relative">

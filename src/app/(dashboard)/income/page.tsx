@@ -1390,7 +1390,7 @@ export default function IncomePage() {
                   <input type="hidden" {...register("invoiceId")} />
 
                   <div className="grid grid-cols-2 gap-4">
-                    <Select label="Type" {...register("type")} options={[
+                    <Select label="Type" tooltip="Categorise what this payment is for. Deposits and letting fees are tracked separately and don't affect your monthly profit." {...register("type")} options={[
                       { value: "LONGTERM_RENT",       label: "Long-term Rent" },
                       { value: "SERVICE_CHARGE",      label: "Service Charge" },
                       { value: "DEPOSIT",             label: "Deposit (not P&L income)" },
@@ -1450,8 +1450,8 @@ export default function IncomePage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <Input label="Gross Amount" type="number" step="0.01" {...register("grossAmount")} error={errors.grossAmount?.message} />
-                    <Input label="Commission" type="number" step="0.01" {...register("agentCommission")} />
+                    <Input label="Gross Amount" tooltip="Enter the full amount received from the tenant, including any service charge. This is your total revenue before deductions." type="number" step="0.01" {...register("grossAmount")} error={errors.grossAmount?.message} />
+                    <Input label="Commission" tooltip="Any letting agent fee or referral cut on this payment. It's deducted automatically when calculating your net income." type="number" step="0.01" {...register("agentCommission")} />
                   </div>
 
                   {incomeType === "AIRBNB" && (
@@ -1469,7 +1469,7 @@ export default function IncomePage() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Input label="Nightly Rate" type="number" step="1" {...register("nightlyRate")} placeholder={suggestedNightlyRate ? String(suggestedNightlyRate) : "Optional"} />
+                          <Input label="Nightly Rate" tooltip="The per-night price charged to the guest. Helps you track average rate performance across bookings." type="number" step="1" {...register("nightlyRate")} placeholder={suggestedNightlyRate ? String(suggestedNightlyRate) : "Optional"} />
                           {suggestedNightlyRate && (
                             <button type="button" onClick={() => setValue("nightlyRate", suggestedNightlyRate)} className="mt-1 text-xs text-gold hover:text-gold-dark font-sans transition-colors">
                               Use suggested: {formatCurrency(suggestedNightlyRate, currency)}

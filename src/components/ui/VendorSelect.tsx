@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Building2, X, Plus, ChevronDown } from "lucide-react";
+import { HelpTip } from "./HelpTip";
 
 const CATEGORY_LABELS: Record<string, string> = {
   CONTRACTOR:       "Contractor",
@@ -25,11 +26,13 @@ interface VendorSelectProps {
   label?:   string;
   error?:   string;
   disabled?: boolean;
+  /** Short contextual tip shown in a hover tooltip next to the label */
+  tooltip?: string;
 }
 
 let vendorCache: Vendor[] | null = null;
 
-export function VendorSelect({ value, onChange, label, error, disabled }: VendorSelectProps) {
+export function VendorSelect({ value, onChange, label, error, disabled, tooltip }: VendorSelectProps) {
   const [open, setOpen]         = useState(false);
   const [query, setQuery]       = useState("");
   const [vendors, setVendors]   = useState<Vendor[]>(vendorCache ?? []);
@@ -108,8 +111,9 @@ export function VendorSelect({ value, onChange, label, error, disabled }: Vendor
   return (
     <div ref={containerRef} className="relative">
       {label && (
-        <label className="block text-xs font-sans font-medium text-gray-600 mb-1">
+        <label className="flex items-center gap-1.5 text-xs font-sans font-medium text-gray-600 mb-1">
           {label}
+          {tooltip && <HelpTip text={tooltip} />}
         </label>
       )}
 

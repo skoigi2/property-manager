@@ -189,6 +189,7 @@ export default function DashboardPage() {
                 amount={data.kpis.totalGrossIncome}
                 type="income"
                 icon={<TrendingUp size={18} />}
+                tooltip="Total rent and charges collected this period, before any deductions. This is your top-line revenue."
               />
               <KPICard
                 currency={currency}
@@ -199,6 +200,7 @@ export default function DashboardPage() {
                 subtext={data.kpis.totalGrossIncome > 0
                   ? `${((data.kpis.netProfit / data.kpis.totalGrossIncome) * 100).toFixed(1)}% margin`
                   : undefined}
+                tooltip="What's left after agent commissions and all operating expenses. A healthy property typically returns 30–50% margin."
               />
               <KPICard
                 currency={currency}
@@ -207,6 +209,7 @@ export default function DashboardPage() {
                 type={invSum.amount > 0 ? "neutral" : "income"}
                 icon={<Receipt size={18} />}
                 subtext={invSum.count > 0 ? `${invSum.count} invoice${invSum.count > 1 ? "s" : ""}` : "All invoices paid"}
+                tooltip="Invoices sent to tenants that haven't been paid yet. Chasing these promptly keeps your cash flow healthy."
               />
               <KPICard
                 currency={currency}
@@ -215,6 +218,7 @@ export default function DashboardPage() {
                 type={arrears.totalOwed > 0 ? "expense" : "income"}
                 icon={<AlertTriangle size={18} />}
                 subtext={arrears.openCases > 0 ? `${arrears.openCases} open case${arrears.openCases > 1 ? "s" : ""}` : "No active cases"}
+                tooltip="Rent your tenants owe that's overdue. Early action — a call or reminder — prevents this from escalating."
               />
               <KPICard
                 currency={currency}
@@ -223,6 +227,7 @@ export default function DashboardPage() {
                 type="balance"
                 icon={<DollarSign size={18} />}
                 subtext="Current balance"
+                tooltip="Cash on hand for small day-to-day costs like supplies or minor repairs. Top up when it runs low to avoid delays."
               />
             </div>
 

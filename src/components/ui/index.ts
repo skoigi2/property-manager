@@ -9,3 +9,4 @@ export { Spinner } from "./Spinner";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { MonthPicker } from "./MonthPicker";
 export { EmptyState } from "./EmptyState";
+export { HelpTip } from "./HelpTip";

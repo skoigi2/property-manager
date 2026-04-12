@@ -15,6 +15,7 @@ import { MonthPicker } from "@/components/ui/MonthPicker";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { HelpTip } from "@/components/ui/HelpTip";
 import { expenseEntrySchema, type ExpenseEntryInput } from "@/lib/validations";
 import { formatDate } from "@/lib/date-utils";
 import {
@@ -1015,7 +1016,7 @@ export default function ExpensesPage() {
               {/* Date + Scope */}
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Date" type="date" {...register("date")} error={errors.date?.message} />
-                <Select label="Scope" {...register("scope")} options={[
+                <Select label="Scope" tooltip="Unit = affects one apartment (e.g. a repair). Property = shared building cost (e.g. cleaning). Portfolio = applies across all your properties." {...register("scope")} options={[
                   { value: "UNIT", label: "Unit" },
                   { value: "PROPERTY", label: "Whole Property" },
                   { value: "PORTFOLIO", label: "Whole Portfolio" },
@@ -1069,6 +1070,7 @@ export default function ExpensesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <Select
                   label="Category"
+                  tooltip="Categorising correctly helps you spot trends — e.g. rising Maintenance costs may signal ageing fixtures that need replacing."
                   {...register("category")}
                   options={CATEGORIES.map((c) => ({ value: c, label: CAT_LABELS[c] }))}
                   error={errors.category?.message}
@@ -1089,15 +1091,16 @@ export default function ExpensesPage() {
                 )}
               </div>
 
-              <VendorSelect label="Vendor" value={vendorId} onChange={setVendorId} />
+              <VendorSelect label="Vendor" tooltip="Link this expense to a contractor or supplier. This helps you track spending per vendor and spot your highest-cost relationships." value={vendorId} onChange={setVendorId} />
 
               <Input label="Description" {...register("description")} placeholder="Optional description..." />
 
               {/* Sunk cost */}
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input type="checkbox" {...register("isSunkCost")} className="w-4 h-4 rounded border-gray-300 accent-gold" />
-                <span className="text-sm font-sans text-gray-600">
+                <span className="text-sm font-sans text-gray-600 flex items-center gap-1.5">
                   Sunk cost / capital item <span className="text-gray-400">(excluded from monthly P&L)</span>
+                  <HelpTip text="One-off capital costs like renovations or new appliances. Tick this so they don't distort your monthly profit figures — they appear separately as capital items." />
                 </span>
               </label>
 

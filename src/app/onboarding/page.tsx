@@ -401,6 +401,10 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data.");
         return;
       }
+      // Pre-select the demo property so the dashboard opens straight to it
+      if (data?.propertyId) {
+        sessionStorage.setItem("selectedPropertyId", data.propertyId);
+      }
       await refreshAndNavigate(newOrgId);
     } catch {
       toast.error("Could not load sample data. You can still explore the dashboard.");

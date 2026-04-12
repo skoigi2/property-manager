@@ -36,10 +36,13 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         body: JSON.stringify({ demoKey: selectedDemo }),
       });
       const data = await res.json().catch(() => ({}));
-      console.error("[demo/seed] response:", res.status, data);
       if (!res.ok && data?.reason !== "already_seeded") {
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data. Please try again.");
         return;
+      }
+      // Pre-select the demo property so it's active as soon as the list refreshes
+      if (data?.propertyId) {
+        sessionStorage.setItem("selectedPropertyId", data.propertyId);
       }
       onLoaded();
     } catch (err) {

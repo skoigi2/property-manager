@@ -20,7 +20,7 @@ function monthStart(year: number, month: number) { return new Date(year, month, 
 // Adapted from prisma/seed-bahrain.ts (no hardcoded org/users/PropertyAccess)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function seedAlSeef(organizationId: string) {
+async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
     data: {
@@ -473,6 +473,8 @@ async function seedAlSeef(organizationId: string) {
         "March 2026 rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent 10 March. Tenant has given notice — chase payment before lease-end.",
     },
   });
+
+  return property;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -521,21 +523,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unknown demo key." }, { status: 400 });
   }
 
-  // Idempotency — scoped per org so two orgs can each load the same demo independently
+  // Idempotency — check if this demo property already exists for this org
   const existing = await prisma.property.findFirst({
     where: { name: demo.name, organizationId },
+    include: { _count: { select: { units: true } } },
   });
+
   if (existing) {
-    return NextResponse.json({ ok: false, reason: "already_seeded" });
+    if (existing._count.units > 0) {
+      // Fully seeded — nothing to do; return the property ID so the client
+      // can navigate directly to it
+      return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id });
+    }
+    // Partially seeded (property record exists but no units — a previous attempt
+    // timed out or failed mid-way). Delete it so we can re-seed cleanly.
+    await prisma.property.delete({ where: { id: existing.id } });
   }
 
   try {
     if (demo.key === "al-seef") {
-      await seedAlSeef(organizationId);
+      const property = await seedAlSeef(organizationId);
+      return NextResponse.json({ ok: true, propertyId: property.id });
     } else {
       return NextResponse.json({ error: "Demo not yet implemented." }, { status: 400 });
     }
-    return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[demo/seed] Error seeding demo property:", message);

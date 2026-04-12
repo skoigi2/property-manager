@@ -551,18 +551,29 @@ export async function POST(req: Request) {
 
   if (existing) {
     if (existing._count.units > 0) {
-      // Fully seeded — return property ID and org ID so the client can switch
-      // to the correct org if the active session is pointing at a different one
+      // Fully seeded — ensure the requesting user is assigned (they may not be
+      // if the property was seeded by a different user or before this fix)
+      await prisma.propertyAccess.upsert({
+        where:  { userId_propertyId: { userId: session!.user.id, propertyId: existing.id } },
+        update: {},
+        create: { userId: session!.user.id, propertyId: existing.id },
+      });
       return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id, organizationId });
     }
-    // Partially seeded (property record exists but no units — a previous attempt
-    // timed out or failed mid-way). Delete it so we can re-seed cleanly.
+    // Partially seeded (property exists but no units). Delete and re-seed.
     await prisma.property.delete({ where: { id: existing.id } });
   }
 
   try {
     if (demo.key === "al-seef") {
       const property = await seedAlSeef(organizationId);
+      // Assign the requesting user to the demo property so it's visible
+      // regardless of their role (MANAGER/ACCOUNTANT need explicit PropertyAccess)
+      await prisma.propertyAccess.upsert({
+        where:  { userId_propertyId: { userId: session!.user.id, propertyId: property.id } },
+        update: {},
+        create: { userId: session!.user.id, propertyId: property.id },
+      });
       return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
     } else {
       return NextResponse.json({ error: "Demo not yet implemented." }, { status: 400 });

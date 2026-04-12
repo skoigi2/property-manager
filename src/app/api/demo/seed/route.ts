@@ -483,7 +483,18 @@ export async function POST(req: Request) {
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  const organizationId = (session!.user as any).organizationId as string | null;
+  // Prefer JWT value; fall back to DB if JWT is stale (e.g. org was created
+  // mid-session and session.update() hasn't been called yet on the client).
+  // UserOrganizationMembership is the source of truth — it is always written
+  // at org-creation time, whereas the JWT can lag behind.
+  let organizationId = (session!.user as any).organizationId as string | null;
+  if (!organizationId) {
+    const membership = await prisma.userOrganizationMembership.findFirst({
+      where: { userId: session!.user.id },
+      select: { organizationId: true },
+    });
+    organizationId = membership?.organizationId ?? null;
+  }
   if (!organizationId) {
     return NextResponse.json({ error: "No organisation found. Complete onboarding first." }, { status: 400 });
   }

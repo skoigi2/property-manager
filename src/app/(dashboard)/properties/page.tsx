@@ -23,7 +23,7 @@ import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 // ─── Demo empty state ─────────────────────────────────────────────────────────
 
 function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void; emptyState?: boolean }) {
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
   const [loading, setLoading] = useState(false);
 
@@ -34,25 +34,19 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
       const res = await fetch("/api/demo/seed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ demoKey: selectedDemo }),
+        // Send the active org so the seed always targets the user's current org
+        body: JSON.stringify({
+          demoKey: selectedDemo,
+          organizationId: session?.user?.organizationId ?? undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok && data?.reason !== "already_seeded") {
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data. Please try again.");
         return;
       }
-      // Pre-select the demo property before any navigation
       if (data?.propertyId) {
         sessionStorage.setItem("selectedPropertyId", data.propertyId);
-      }
-      const activeOrg = session?.user?.organizationId;
-      if (data?.organizationId && data.organizationId !== activeOrg) {
-        // Org mismatch — update the JWT then do a full reload so the new
-        // cookie is included in the properties fetch (in-place refetch would
-        // still use the old token)
-        await update({ organizationId: data.organizationId, membershipCount: 1 }).catch(() => {});
-        window.location.reload();
-        return;
       }
       onLoaded();
     } catch (err) {

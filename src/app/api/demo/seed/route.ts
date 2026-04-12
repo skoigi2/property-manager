@@ -485,38 +485,58 @@ export async function POST(req: Request) {
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  // Three-level fallback to resolve the user's org regardless of JWT freshness
-  // or whether UserOrganizationMembership was correctly populated.
+  // Read body first so we can use the client-supplied organizationId
+  const body = await req.json().catch(() => ({}));
+  const demoKey     = body?.demoKey      as string | undefined;
+  const clientOrgId = body?.organizationId as string | undefined;
 
-  // Fallback 1: JWT (fast path — works for most logged-in users)
-  let organizationId = (session!.user as any).organizationId as string | null;
+  // ── Resolve organizationId ────────────────────────────────────────────────
+  // Prefer the org the client explicitly sent (= session.user.organizationId on
+  // the browser, always the active org). Fall back to server-side lookups only
+  // when the client sends nothing (e.g. onboarding with a brand-new org that
+  // hasn't been written to the JWT cookie yet).
+  let organizationId: string | null = null;
 
-  // Fallback 2: UserOrganizationMembership — source of truth per CLAUDE.md;
-  // covers stale JWTs (org created mid-session before session.update() ran)
-  if (!organizationId) {
+  if (clientOrgId) {
+    // Validate the user actually belongs to this org before trusting it
     const membership = await prisma.userOrganizationMembership.findFirst({
-      where: { userId: session!.user.id },
+      where: { userId: session!.user.id, organizationId: clientOrgId },
       select: { organizationId: true },
     });
-    organizationId = membership?.organizationId ?? null;
-  }
-
-  // Fallback 3: User.organizationId directly — covers accounts where the
-  // membership row was never written (e.g. pgBouncer partial commit in create-org)
-  if (!organizationId) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: session!.user.id },
-      select: { organizationId: true },
-    });
-    organizationId = dbUser?.organizationId ?? null;
+    if (!membership) {
+      // Membership row may be missing (pgBouncer partial commit) — also accept
+      // if User.organizationId matches
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session!.user.id },
+        select: { organizationId: true },
+      });
+      if (dbUser?.organizationId !== clientOrgId) {
+        return NextResponse.json({ error: "Organisation access denied." }, { status: 403 });
+      }
+    }
+    organizationId = clientOrgId;
+  } else {
+    // No org in body — fall back to server-side resolution
+    organizationId = (session!.user as any).organizationId as string | null;
+    if (!organizationId) {
+      const membership = await prisma.userOrganizationMembership.findFirst({
+        where: { userId: session!.user.id },
+        select: { organizationId: true },
+      });
+      organizationId = membership?.organizationId ?? null;
+    }
+    if (!organizationId) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session!.user.id },
+        select: { organizationId: true },
+      });
+      organizationId = dbUser?.organizationId ?? null;
+    }
   }
 
   if (!organizationId) {
     return NextResponse.json({ error: "No organisation found. Complete onboarding first." }, { status: 400 });
   }
-
-  const body = await req.json().catch(() => ({}));
-  const demoKey = body?.demoKey as string | undefined;
 
   const demo = DEMO_PROPERTIES.find((d) => d.key === demoKey);
   if (!demo) {

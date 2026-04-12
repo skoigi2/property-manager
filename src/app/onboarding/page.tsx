@@ -394,7 +394,12 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       const res = await fetch("/api/demo/seed", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ demoKey: selectedDemo }),
+        // Send the org explicitly so the seed targets the user's actual org,
+        // not whatever the server's fallback logic resolves to
+        body:    JSON.stringify({
+          demoKey:        selectedDemo,
+          organizationId: newOrgId ?? undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok && data?.reason !== "already_seeded") {

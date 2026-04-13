@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { exportMaintenance } from "@/lib/excel-export";
 import { VendorSelect } from "@/components/ui/VendorSelect";
+import { HelpTip } from "@/components/ui/HelpTip";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
@@ -1268,11 +1269,13 @@ export default function MaintenancePage() {
           <div className="grid grid-cols-2 gap-4">
             <Select
               label="Category"
+              tooltip="Categorising jobs helps you spot patterns — repeated Plumbing calls, for example, may signal ageing pipes worth replacing."
               {...register("category")}
               options={Object.entries(CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l as string }))}
             />
             <Select
               label="Priority"
+              tooltip="Sets urgency. Urgent = safety or security risk needing same-day action. High = major disruption. Medium = normal repair. Low = cosmetic or scheduled."
               {...register("priority")}
               options={[
                 { value: "LOW",    label: "Low" },
@@ -1304,6 +1307,7 @@ export default function MaintenancePage() {
           <div className="grid grid-cols-2 gap-4">
             <VendorSelect
               label="Assigned To (Vendor)"
+              tooltip="The contractor handling this job. Linking jobs to vendors lets you track response times and cost per supplier over time."
               value={jobVendorId}
               onChange={setJobVendorId}
             />
@@ -1322,6 +1326,7 @@ export default function MaintenancePage() {
             />
             <Input
               label={editJob?.status === "DONE" ? "Actual Cost" : "Estimated Cost"}
+              tooltip="Tracking costs per job helps you compare vendors and identify which units drive the most maintenance spend."
               type="number"
               placeholder="0"
               {...register("cost")}

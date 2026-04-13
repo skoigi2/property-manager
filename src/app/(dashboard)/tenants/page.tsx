@@ -26,6 +26,7 @@ import { exportTenants } from "@/lib/excel-export";
 import { formatCurrency } from "@/lib/currency";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { clsx } from "clsx";
+import { HelpTip } from "@/components/ui/HelpTip";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -864,15 +865,15 @@ export default function TenantsPage() {
               error={errors.unitId?.message}
             />
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Monthly Rent"    type="number" {...register("monthlyRent")}   error={errors.monthlyRent?.message} />
-              <Input label="Service Charge"  type="number" {...register("serviceCharge")} />
+              <Input label="Monthly Rent" tooltip="The base rent amount, not including service charge. This is what's tracked in your rent roll and invoices." type="number" {...register("monthlyRent")} error={errors.monthlyRent?.message} />
+              <Input label="Service Charge" tooltip="Shared building costs passed to the tenant — utilities, cleaning, maintenance. Keep separate from rent for clear reporting." type="number" {...register("serviceCharge")} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Deposit" type="number" {...register("depositAmount")} error={errors.depositAmount?.message} />
+              <Input label="Deposit" tooltip="Security held against potential damage or unpaid rent. Not counted as income — it's returned at lease end minus any deductions." type="number" {...register("depositAmount")} error={errors.depositAmount?.message} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
-              <Input label="Lease End"   type="date" {...register("leaseEnd")} />
+              <Input label="Lease End" tooltip="Leave blank if the end date isn't agreed yet. The tenant will show as 'Lease TBC' until a date is set." type="date" {...register("leaseEnd")} />
             </div>
             <p className="text-xs text-gray-400 font-sans">Leave Lease End blank to mark as TBC</p>
             <div className="flex gap-3 pt-2">

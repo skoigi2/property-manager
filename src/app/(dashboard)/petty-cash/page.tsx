@@ -25,6 +25,7 @@ import { clsx } from "clsx";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { useProperty } from "@/lib/property-context";
 import { formatCurrency } from "@/lib/currency";
+import { HelpTip } from "@/components/ui/HelpTip";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
@@ -478,11 +479,11 @@ export default function PettyCashPage() {
             <h3 className="font-display text-base text-header mb-4">New Entry</h3>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
-                <Select label="Type" {...register("type")} options={[{ value: "IN", label: "Cash In" }, { value: "OUT", label: "Cash Out" }]} />
+                <Select label="Type" tooltip="Cash In = topping up the petty cash fund. Cash Out = a payment made from the fund. Both update the running balance." {...register("type")} options={[{ value: "IN", label: "Cash In" }, { value: "OUT", label: "Cash Out" }]} />
                 <Input label="Date" type="date" {...register("date")} error={errors.date?.message} />
-                <Input label="Amount" type="number" step="0.01" {...register("amount")} error={errors.amount?.message} />
+                <Input label="Amount" tooltip="Enter the exact cash amount moved. The fund balance is recalculated automatically from all entries." type="number" step="0.01" {...register("amount")} error={errors.amount?.message} />
               </div>
-              <Input label="Description" {...register("description")} error={errors.description?.message} placeholder="What is this for?" />
+              <Input label="Description" tooltip="A clear description helps you audit the fund later — include what was purchased and why." {...register("description")} error={errors.description?.message} placeholder="What is this for?" />
               <Select label="Property" {...register("propertyId")} options={propertyOptions} />
               <div className="flex gap-3">
                 <Button type="submit" loading={submitting}>Save</Button>

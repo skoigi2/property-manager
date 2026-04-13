@@ -21,6 +21,7 @@ import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
 import { useProperty } from "@/lib/property-context";
 import { formatCurrency } from "@/lib/currency";
+import { HelpTip } from "@/components/ui/HelpTip";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -140,15 +141,18 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { label: "Gross Income",    value: data.kpis.grossIncome,       icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
-          { label: "Commissions",     value: data.kpis.agentCommissions,  icon: <DollarSign size={16} />,  color: "text-expense", border: "border-expense" },
-          { label: "Total Expenses",  value: data.kpis.totalExpenses,     icon: <Receipt size={16} />,     color: "text-expense", border: "border-expense" },
-          { label: "Net Profit",      value: data.kpis.netProfit,         icon: <Wallet size={16} />,      color: data.kpis.netProfit >= 0 ? "text-income" : "text-expense", border: data.kpis.netProfit >= 0 ? "border-income" : "border-expense" },
+          { label: "Gross Income",   tooltip: "Total rent and charges collected this period. Deposits are excluded.",                                           value: data.kpis.grossIncome,       icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
+          { label: "Commissions",    tooltip: "Agent or letting fees deducted from your revenue. This reduces your net income.",                                value: data.kpis.agentCommissions,  icon: <DollarSign size={16} />,  color: "text-expense", border: "border-expense" },
+          { label: "Total Expenses", tooltip: "All operating costs — maintenance, utilities, management fees. One-off capital items are excluded.",             value: data.kpis.totalExpenses,     icon: <Receipt size={16} />,     color: "text-expense", border: "border-expense" },
+          { label: "Net Profit",     tooltip: "Your actual return after all deductions. Compare month-on-month to track performance trends.",                   value: data.kpis.netProfit,         icon: <Wallet size={16} />,      color: data.kpis.netProfit >= 0 ? "text-income" : "text-expense", border: data.kpis.netProfit >= 0 ? "border-income" : "border-expense" },
         ].map((k) => (
           <Card key={k.label} padding="sm" className={`border-l-4 ${k.border}`}>
             <div className="flex items-center gap-2 mb-1">
               <span className={k.color}>{k.icon}</span>
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{k.label}</p>
+              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide flex items-center gap-1.5">
+                {k.label}
+                <HelpTip text={k.tooltip} position="below" />
+              </p>
             </div>
             <CurrencyDisplay currency={currency} amount={k.value} className={`${k.color} font-medium`} size="lg" />
           </Card>
@@ -156,7 +160,10 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
         <Card padding="sm" className={`border-l-4 ${data.kpis.occupancyRate >= 80 ? "border-income" : "border-amber-400"}`}>
           <div className="flex items-center gap-2 mb-1">
             <span className={data.kpis.occupancyRate >= 80 ? "text-income" : "text-amber-500"}><Building2 size={16} /></span>
-            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Occupancy</p>
+            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide flex items-center gap-1.5">
+              Occupancy
+              <HelpTip text="Percentage of your units currently occupied. Above 80% is typically healthy for residential property." position="below" />
+            </p>
           </div>
           <p className={`text-2xl font-mono font-semibold ${data.kpis.occupancyRate >= 80 ? "text-income" : "text-amber-500"}`}>
             {data.kpis.occupancyRate}%
@@ -375,18 +382,19 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
         <SectionTitle><TrendingUp size={16} className="text-gold" /> Profit & Loss Statement</SectionTitle>
         <div className="space-y-2 max-w-sm">
           {[
-            { label: "Gross Income",         value: data.kpis.grossIncome,                    bold: false, indent: false },
-            { label: "Less: Commissions",    value: -data.kpis.agentCommissions,              bold: false, indent: true },
-            { label: "Net Income",           value: data.kpis.grossIncome - data.kpis.agentCommissions, bold: true, indent: false },
-            { label: "Less: Expenses",       value: -data.kpis.totalExpenses,                 bold: false, indent: true },
-            { label: "Net Profit",           value: data.kpis.netProfit,                       bold: true,  indent: false },
+            { label: "Gross Income",      tooltip: "Total rental revenue before any deductions.",                          value: data.kpis.grossIncome,                    bold: false, indent: false },
+            { label: "Less: Commissions", tooltip: "Agent or letting fees deducted from gross income.",                    value: -data.kpis.agentCommissions,              bold: false, indent: true },
+            { label: "Net Income",        tooltip: "Gross income minus agent commissions.",                                value: data.kpis.grossIncome - data.kpis.agentCommissions, bold: true, indent: false },
+            { label: "Less: Expenses",    tooltip: "All operating costs deducted from net income.",                        value: -data.kpis.totalExpenses,                 bold: false, indent: true },
+            { label: "Net Profit",        tooltip: "Your bottom line — income remaining after every deduction.",           value: data.kpis.netProfit,                      bold: true,  indent: false },
           ].map((row) => (
             <div key={row.label} className={clsx(
               "flex items-center justify-between py-1.5",
               row.bold ? "border-t border-gray-200 pt-3 mt-1" : "border-b border-gray-50",
             )}>
-              <span className={clsx("font-sans text-sm", row.bold ? "font-semibold text-header" : "text-gray-600", row.indent && "pl-4")}>
+              <span className={clsx("font-sans text-sm flex items-center gap-1.5", row.bold ? "font-semibold text-header" : "text-gray-600", row.indent && "pl-4")}>
                 {row.label}
+                <HelpTip text={row.tooltip} />
               </span>
               <span className={clsx(
                 "font-mono text-sm",
@@ -398,7 +406,10 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
             </div>
           ))}
           <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-gray-400 font-sans">Profit Margin</span>
+            <span className="text-xs text-gray-400 font-sans flex items-center gap-1.5">
+              Profit Margin
+              <HelpTip text="Net Profit as a percentage of Gross Income — a higher margin means more efficient property management." />
+            </span>
             <span className={clsx("font-mono text-sm font-medium", Number(margin) >= 0 ? "text-income" : "text-expense")}>
               {margin}%
             </span>
@@ -460,12 +471,15 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
         <SectionTitle><DollarSign size={16} className="text-gold" /> Management Fee Reconciliation</SectionTitle>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Fees Owing", value: data.mgmtFee.owing, color: "text-expense" },
-            { label: "Fees Paid",  value: data.mgmtFee.paid,  color: "text-income" },
-            { label: "Balance",    value: data.mgmtFee.balance, color: data.mgmtFee.balance >= 0 ? "text-income" : "text-expense" },
+            { label: "Fees Owing", tooltip: "Management fees earned this period that haven't been paid yet.",              value: data.mgmtFee.owing,   color: "text-expense" },
+            { label: "Fees Paid",  tooltip: "Management fees already invoiced and received.",                              value: data.mgmtFee.paid,    color: "text-income" },
+            { label: "Balance",    tooltip: "Positive = fees still outstanding. Negative = you've been overpaid and may need to adjust next invoice.", value: data.mgmtFee.balance, color: data.mgmtFee.balance >= 0 ? "text-income" : "text-expense" },
           ].map((s) => (
             <div key={s.label} className="bg-cream rounded-lg p-3 text-center">
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">{s.label}</p>
+              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1 flex items-center justify-center gap-1.5">
+                {s.label}
+                <HelpTip text={s.tooltip} />
+              </p>
               <CurrencyDisplay currency={currency} amount={s.value} className={`font-medium ${s.color}`} size="md" />
             </div>
           ))}

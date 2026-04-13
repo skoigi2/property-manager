@@ -18,6 +18,7 @@ import { calcLateInterest } from "@/lib/calculations";
 import { AlertTriangle, ChevronRight, CheckCircle, Plus, Trash2, FileText, Copy, FileDown, TrendingUp } from "lucide-react";
 import { exportArrears } from "@/lib/excel-export";
 import { clsx } from "clsx";
+import { HelpTip } from "@/components/ui/HelpTip";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,13 @@ const STAGE_NEXT_LABEL: Partial<Record<Stage, string>> = {
   LEGAL_NOTICE:      "Escalate to Eviction Notice",
   EVICTION:          "Mark Resolved",
 };
+const STAGE_TIPS: Record<Stage, string> = {
+  INFORMAL_REMINDER: "Initial polite contact about the overdue balance. Most cases resolve at this stage.",
+  DEMAND_LETTER:     "Formal written demand requiring payment within 7 days. Creates a paper trail.",
+  LEGAL_NOTICE:      "Legal proceedings have begun. Seek professional advice before proceeding.",
+  EVICTION:          "Eviction notice served. This is the final escalation before court action.",
+  RESOLVED:          "The balance has been paid or a settlement agreed. Case is closed.",
+};
 
 // ── Demand letter templates ────────────────────────────────────────────────────
 
@@ -152,7 +160,10 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium text-sm text-header">{arrearsCase.tenant.name}</p>
-            <Badge variant={STAGE_BADGE[arrearsCase.stage] as any}>{STAGE_LABELS[arrearsCase.stage]}</Badge>
+            <span className="inline-flex items-center gap-1">
+              <Badge variant={STAGE_BADGE[arrearsCase.stage] as any}>{STAGE_LABELS[arrearsCase.stage]}</Badge>
+              <HelpTip text={STAGE_TIPS[arrearsCase.stage]} />
+            </span>
           </div>
           <p className="text-xs text-gray-400 font-sans mt-0.5">
             Unit {arrearsCase.tenant.unit.unitNumber} · {arrearsCase.property.name} · Opened {formatDate(new Date(arrearsCase.createdAt))}
@@ -436,26 +447,36 @@ export default function ArrearsPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <Card padding="sm" className="border-l-4 border-expense">
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Total Owed</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans flex items-center gap-1.5">
+              Total Owed <HelpTip text="Sum of all unpaid rent and charges across your active arrears cases." position="below" />
+            </p>
             <CurrencyDisplay currency={currency} amount={totalOwed} size="lg" className="text-expense font-medium mt-1" />
           </Card>
           {totalInterest > 0 && (
             <Card padding="sm" className="border-l-4 border-amber-400">
-              <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Interest Accrued</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-sans flex items-center gap-1.5">
+                Interest Accrued <HelpTip text="Late payment penalties calculated automatically. Resolving cases early prevents this from compounding." position="below" />
+              </p>
               <CurrencyDisplay currency={currency} amount={totalInterest} size="lg" className="text-amber-600 font-medium mt-1" />
               <p className="text-xs text-amber-500 font-sans mt-0.5">on open cases</p>
             </Card>
           )}
           <Card padding="sm" className={clsx(!totalInterest && "border-l-4 border-amber-400")}>
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Open Cases</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans flex items-center gap-1.5">
+              Open Cases <HelpTip text="Arrears cases that are still active and require follow-up action." position="below" />
+            </p>
             <p className="text-2xl font-display text-header mt-1">{open.length}</p>
           </Card>
           <Card padding="sm">
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Demand / Legal</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans flex items-center gap-1.5">
+              Demand / Legal <HelpTip text="Cases escalated to formal demand letters or legal proceedings — the highest-risk category, act quickly." position="below" />
+            </p>
             <p className="text-2xl font-display text-header mt-1">{stageCount("DEMAND_LETTER") + stageCount("LEGAL_NOTICE")}</p>
           </Card>
           <Card padding="sm" className="border-l-4 border-income">
-            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Resolved</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans flex items-center gap-1.5">
+              Resolved <HelpTip text="Cases where the tenant paid in full or a settlement was reached." position="below" />
+            </p>
             <p className="text-2xl font-display text-header mt-1">{resolved.length}</p>
           </Card>
         </div>

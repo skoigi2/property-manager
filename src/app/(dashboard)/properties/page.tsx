@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText, PackageOpen, Loader2, CheckCircle, AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { HelpTip } from "@/components/ui/HelpTip";
 import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
@@ -297,91 +300,101 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
 }) {
   return (
     <div className="space-y-4">
-      <div>
-        <label className="form-label">Property Name *</label>
-        <input className="form-input" {...register("name")} placeholder="e.g. Riara One" />
-        {errors.name && <p className="form-error">{errors.name.message}</p>}
+      <Input
+        label="Property Name"
+        {...register("name")}
+        placeholder="e.g. Riara One"
+        error={errors.name?.message}
+      />
+
+      <div className="grid grid-cols-2 gap-4">
+        <Select
+          label="Billing Type"
+          {...register("type")}
+          options={[
+            { value: "LONGTERM", label: "Long-term Rental" },
+            { value: "AIRBNB",   label: "Airbnb / Short-let" },
+          ]}
+        />
+        <Select
+          label="Property Category"
+          placeholder="— Select category —"
+          {...register("category")}
+          options={[
+            { value: "RESIDENTIAL", label: "Residential" },
+            { value: "OFFICE",      label: "Office" },
+            { value: "INDUSTRIAL",  label: "Industrial" },
+            { value: "RETAIL",      label: "Retail" },
+            { value: "MIXED_USE",   label: "Mixed Use" },
+            { value: "OTHER",       label: "Other (specify)" },
+          ]}
+        />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="form-label">Billing Type *</label>
-          <select className="form-input" {...register("type")}>
-            <option value="LONGTERM">Long-term Rental</option>
-            <option value="AIRBNB">Airbnb / Short-let</option>
-          </select>
-        </div>
-        <div>
-          <label className="form-label">Property Category</label>
-          <select className="form-input" {...register("category")}>
-            <option value="">— Select category —</option>
-            <option value="RESIDENTIAL">Residential</option>
-            <option value="OFFICE">Office</option>
-            <option value="INDUSTRIAL">Industrial</option>
-            <option value="RETAIL">Retail</option>
-            <option value="MIXED_USE">Mixed Use</option>
-            <option value="OTHER">Other (specify)</option>
-          </select>
-        </div>
-      </div>
+
       {watchedCategory === "OTHER" && (
-        <div>
-          <label className="form-label">Specify Category</label>
-          <input
-            className="form-input"
-            {...register("categoryOther")}
-            placeholder="e.g. Warehouse, Hotel, Student Housing…"
-          />
-        </div>
+        <Input
+          label="Specify Category"
+          {...register("categoryOther")}
+          placeholder="e.g. Warehouse, Hotel, Student Housing…"
+        />
       )}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="form-label">Address</label>
-          <input className="form-input" {...register("address")} placeholder="Street address" />
-        </div>
-        <div>
-          <label className="form-label">City</label>
-          <input className="form-input" {...register("city")} placeholder="City" />
-        </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input label="Address" {...register("address")} placeholder="Street address" />
+        <Input label="City"    {...register("city")}    placeholder="City" />
       </div>
-      <div>
-        <label className="form-label">Description</label>
-        <textarea className="form-input" rows={2} {...register("description")} />
+
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-600 font-sans">Description</label>
+        <textarea
+          rows={2}
+          className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+          {...register("description")}
+        />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="form-label">Mgmt Fee Rate (%)</label>
-          <input type="number" step="0.1" className="form-input" {...register("managementFeeRate")} placeholder="10" />
-        </div>
-        <div>
-          <label className="form-label">Mgmt Fee Flat</label>
-          <input type="number" className="form-input" {...register("managementFeeFlat")} placeholder="6000" />
-        </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Management Fee Rate (%)"
+          tooltip="Percentage of gross rent charged as a management fee (e.g. 10%). Used for properties billed on a % basis."
+          type="number"
+          step="0.1"
+          {...register("managementFeeRate")}
+          placeholder="10"
+        />
+        <Input
+          label="Management Fee Flat"
+          tooltip="Fixed monthly fee charged per property instead of a percentage. Leave blank if you use a % rate instead."
+          type="number"
+          {...register("managementFeeFlat")}
+          placeholder="6000"
+        />
       </div>
-      <div>
-        <label className="form-label">Default Service Charge</label>
-        <input type="number" className="form-input" {...register("serviceChargeDefault")} placeholder="5000" />
-      </div>
+
+      <Input
+        label="Default Service Charge"
+        tooltip="Default charge applied to each unit for shared costs (utilities, cleaning, etc.). Tenants can have individual amounts set on their profile."
+        type="number"
+        {...register("serviceChargeDefault")}
+        placeholder="5000"
+      />
+
       {owners.length > 0 && (
-        <div>
-          <label className="form-label">Property Owner</label>
-          <select className="form-input" {...register("ownerId")}>
-            <option value="">— Unassigned —</option>
-            {owners.map((o) => (
-              <option key={o.id} value={o.id}>{o.name ?? o.email}</option>
-            ))}
-          </select>
-        </div>
+        <Select
+          label="Property Owner"
+          placeholder="— Unassigned —"
+          {...register("ownerId")}
+          options={owners.map((o) => ({ value: o.id, label: o.name ?? o.email ?? o.id }))}
+        />
       )}
+
       {managers.length > 0 && (
-        <div>
-          <label className="form-label">Lead Manager</label>
-          <select className="form-input" {...register("managerId")}>
-            <option value="">— Unassigned —</option>
-            {managers.map((m) => (
-              <option key={m.id} value={m.id}>{m.name ?? m.email}</option>
-            ))}
-          </select>
-        </div>
+        <Select
+          label="Lead Manager"
+          placeholder="— Unassigned —"
+          {...register("managerId")}
+          options={managers.map((m) => ({ value: m.id, label: m.name ?? m.email ?? m.id }))}
+        />
       )}
     </div>
   );
@@ -390,61 +403,78 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
 function UnitFormFields({ register, errors, propertyType }: { register: any; errors: any; propertyType: "AIRBNB" | "LONGTERM" }) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="form-label">Unit Number *</label>
-          <input className="form-input" {...register("unitNumber")} placeholder="e.g. 101, A1, G1" />
-          {errors.unitNumber && <p className="form-error">{errors.unitNumber.message}</p>}
-        </div>
-        <div>
-          <label className="form-label">Floor</label>
-          <input type="number" className="form-input" {...register("floor")} placeholder="1" />
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Unit Number"
+          {...register("unitNumber")}
+          placeholder="e.g. 101, A1, G1"
+          error={errors.unitNumber?.message}
+        />
+        <Input
+          label="Floor"
+          type="number"
+          {...register("floor")}
+          placeholder="1"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Select
+          label="Type"
+          {...register("type")}
+          options={[
+            { value: "BEDSITTER",  label: "Bedsitter / Studio" },
+            { value: "ONE_BED",    label: "1 Bedroom" },
+            { value: "TWO_BED",    label: "2 Bedrooms" },
+            { value: "THREE_BED",  label: "3 Bedrooms" },
+            { value: "FOUR_BED",   label: "4+ Bedrooms" },
+            { value: "PENTHOUSE",  label: "Penthouse" },
+            { value: "COMMERCIAL", label: "Commercial" },
+            { value: "OTHER",      label: "Other" },
+          ]}
+        />
+        <div className="flex flex-col gap-1">
+          <Select
+            label="Status"
+            {...register("status")}
+            options={[
+              { value: "VACANT",         label: "Vacant" },
+              { value: "LISTED",         label: "Listed" },
+              { value: "UNDER_NOTICE",   label: "Under Notice" },
+              { value: "MAINTENANCE",    label: "Maintenance" },
+              { value: "OWNER_OCCUPIED", label: "Owner Occupied" },
+            ]}
+          />
+          <p className="text-xs text-gray-400 font-sans">&quot;Occupied&quot; is set automatically when a tenant is assigned.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="form-label">Type *</label>
-          <select className="form-input" {...register("type")}>
-            <option value="BEDSITTER">Bedsitter</option>
-            <option value="ONE_BED">1 Bedroom</option>
-            <option value="TWO_BED">2 Bedroom</option>
-            <option value="THREE_BED">3 Bedroom</option>
-            <option value="FOUR_BED">4 Bedroom</option>
-            <option value="PENTHOUSE">Penthouse</option>
-            <option value="COMMERCIAL">Commercial</option>
-            <option value="OTHER">Other</option>
-          </select>
-        </div>
-        <div>
-          <label className="form-label">Status *</label>
-          <select className="form-input" {...register("status")}>
-            <option value="VACANT">Vacant</option>
-            <option value="LISTED">Listed</option>
-            <option value="UNDER_NOTICE">Under Notice</option>
-            <option value="MAINTENANCE">Maintenance</option>
-            <option value="OWNER_OCCUPIED">Owner Occupied</option>
-          </select>
-          <p className="text-xs text-gray-400 mt-1">&quot;Occupied&quot; is set automatically when a tenant is assigned.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         {propertyType === "LONGTERM" && (
-          <div>
-            <label className="form-label">Monthly Rent</label>
-            <input type="number" className="form-input" {...register("monthlyRent")} placeholder="25000" />
-          </div>
+          <Input
+            label="Monthly Rent"
+            type="number"
+            {...register("monthlyRent")}
+            placeholder="25000"
+          />
         )}
-        <div>
-          <label className="form-label">Size (sqm)</label>
-          <input type="number" step="0.1" className="form-input" {...register("sizeSqm")} placeholder="45" />
-        </div>
+        <Input
+          label="Size (sqm)"
+          type="number"
+          step="0.1"
+          {...register("sizeSqm")}
+          placeholder="45"
+        />
       </div>
 
-      <div>
-        <label className="form-label">Description / Notes</label>
-        <textarea className="form-input" rows={2} {...register("description")} placeholder="e.g. Corner unit, recently renovated" />
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-gray-600 font-sans">Description / Notes</label>
+        <textarea
+          rows={2}
+          placeholder="e.g. Corner unit, recently renovated"
+          className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+          {...register("description")}
+        />
       </div>
     </div>
   );

@@ -598,9 +598,90 @@ export default function TenantsPage() {
         ) : (
           // ── TABLE VIEW ───────────────────────────────────────────────────
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+
+            {/* Mobile: stacked list (no horizontal scroll) */}
+            <div className="md:hidden divide-y divide-gray-50">
+              {filtered.map((tenant) => {
+                const status = getLeaseStatus(toDate(tenant.leaseEnd));
+                const monthlyTotal = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
+                return (
+                  <div
+                    key={tenant.id}
+                    className={clsx("px-4 py-3", !tenant.isActive && "opacity-55")}
+                  >
+                    {/* Top row: name + badge */}
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <p className="font-medium text-header text-sm leading-tight truncate">{tenant.name}</p>
+                        <p className="text-xs text-gray-400 font-mono mt-0.5">
+                          {tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}
+                        </p>
+                      </div>
+                      {tenant.isActive
+                        ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                        : <Badge variant="gray">Vacated</Badge>
+                      }
+                    </div>
+                    {/* Finance + lease row */}
+                    <div className="grid grid-cols-2 gap-2 mt-2 mb-2.5">
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Monthly</p>
+                        <p className="font-mono text-sm font-medium text-header">{formatCurrency(monthlyTotal, currency)}</p>
+                        <p className="text-[10px] text-gray-400 font-sans mt-0.5">
+                          {tenant.monthlyRent?.toLocaleString("en-US")} + {tenant.serviceCharge?.toLocaleString("en-US")}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Lease End</p>
+                        <p className={clsx(
+                          "text-sm font-sans",
+                          status === "TBC"      && "text-amber-600 font-medium",
+                          status === "CRITICAL" && "text-expense font-medium",
+                          status === "WARNING"  && "text-amber-500 font-medium",
+                          status === "OK"       && "text-gray-600",
+                        )}>
+                          {tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
+                        </p>
+                        {status === "WARNING" && (
+                          <p className="text-[10px] text-amber-400 font-sans mt-0.5">
+                            {daysUntilExpiry(toDate(tenant.leaseEnd))}d left
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-3 pt-2 border-t border-gray-50">
+                      <button
+                        onClick={() => openEdit(tenant)}
+                        className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-header transition-colors"
+                      >
+                        <Pencil size={13} /> Edit
+                      </button>
+                      {tenant.isActive && (
+                        <button
+                          onClick={() => openVacate(tenant)}
+                          className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-expense transition-colors"
+                        >
+                          <LogOut size={13} /> Vacate
+                        </button>
+                      )}
+                      <Link
+                        href={`/tenants/${tenant.id}`}
+                        className="flex items-center gap-1 text-xs font-sans text-gold hover:text-gold-dark transition-colors ml-auto"
+                      >
+                        View Detail <ChevronRight size={13} />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop: scrollable table with sticky header */}
+            <div className="hidden md:block">
+            <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
               <table className="w-full text-sm min-w-[640px]">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-gray-50/95">
                   <tr className="border-b border-gray-100 bg-gray-50/60">
                     {/* Sortable: Name */}
                     <th
@@ -746,8 +827,9 @@ export default function TenantsPage() {
                 </tbody>
               </table>
             </div>
+            </div>{/* end hidden md:block */}
 
-            {/* Table footer */}
+            {/* Footer: count + monthly total — shown in both views */}
             <div className="border-t border-gray-50 px-4 py-2.5 flex flex-wrap gap-4 text-xs text-gray-400 font-sans">
               <span>
                 {filtered.length} tenant{filtered.length !== 1 ? "s" : ""}

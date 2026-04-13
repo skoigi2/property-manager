@@ -128,8 +128,8 @@ export function MobileNav({ role }: MobileNavProps) {
 
   if (role === "OWNER") {
     return (
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-header border-t border-white/10 z-40 safe-b">
-        <div className="flex">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-header border-t border-white/10 z-40 safe-b overflow-hidden">
+        <div className="flex w-full">
           {ownerItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -137,12 +137,12 @@ export function MobileNav({ role }: MobileNavProps) {
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex-1 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
+                  "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
                   pathname === item.href ? "text-gold" : "text-white/50 hover:text-white/80"
                 )}
               >
                 <Icon size={20} />
-                <span>{item.label}</span>
+                <span className="truncate w-full text-center leading-none">{item.label}</span>
               </Link>
             );
           })}
@@ -162,8 +162,8 @@ export function MobileNav({ role }: MobileNavProps) {
 
   return (
     <>
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-header border-t border-white/10 z-40 safe-b">
-        <div className="flex">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-header border-t border-white/10 z-40 safe-b overflow-hidden">
+        <div className="flex w-full">
           {primaryItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -172,24 +172,24 @@ export function MobileNav({ role }: MobileNavProps) {
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex-1 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
+                  "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
                   isActive ? "text-gold" : "text-white/50 hover:text-white/80"
                 )}
               >
                 <Icon size={20} />
-                <span>{item.label}</span>
+                <span className="truncate w-full text-center leading-none">{item.label}</span>
               </Link>
             );
           })}
           <button
             onClick={() => setDrawerOpen(true)}
             className={clsx(
-              "flex-1 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
+              "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
               drawerOpen || drawerIsActive ? "text-gold" : "text-white/50 hover:text-white/80"
             )}
           >
             <MoreHorizontal size={20} />
-            <span>More</span>
+            <span className="truncate w-full text-center leading-none">More</span>
           </button>
         </div>
       </nav>

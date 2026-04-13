@@ -937,6 +937,119 @@ function PropertiesTable({
   );
 }
 
+// ─── Properties Mobile List (table mode on small screens) ────────────────────
+
+function PropertiesMobileList({
+  properties,
+  isManager,
+  onSelect,
+  onEdit,
+  activeUnits,
+  vacantUnits,
+}: {
+  properties: Property[];
+  isManager: boolean;
+  onSelect: (p: Property) => void;
+  onEdit: (p: Property) => void;
+  activeUnits: (units: Property["units"], propertyType: string) => number;
+  vacantUnits: (units: Property["units"]) => number;
+}) {
+  return (
+    <div className="space-y-2">
+      {properties.map((p) => {
+        const occupied = activeUnits(p.units, p.type);
+        const vacant   = vacantUnits(p.units);
+        const total    = p._count.units;
+        const feeText  = p.managementFeeRate
+          ? `${p.managementFeeRate}% mgmt fee`
+          : p.managementFeeFlat
+          ? `${formatCurrency(p.managementFeeFlat, p.currency ?? "USD")} flat fee`
+          : null;
+
+        return (
+          <div
+            key={p.id}
+            onClick={() => onSelect(p)}
+            className="bg-white rounded-xl border border-gray-100 px-4 py-3 cursor-pointer active:bg-gray-50 transition-colors"
+          >
+            {/* Row 1: name + chevron */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                  <Building2 size={15} className="text-gold" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-sans font-semibold text-header text-sm leading-tight truncate">{p.name}</p>
+                  {(p.address || p.city) && (
+                    <p className="text-xs text-gray-400 font-sans truncate">
+                      {[p.address, p.city].filter(Boolean).join(", ")}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                {isManager && (
+                  <>
+                    <Link
+                      href={`/properties/${p.id}/agreement`}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                      title="Agreement"
+                    >
+                      <FileText size={14} />
+                    </Link>
+                    <button
+                      onClick={() => onEdit(p)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                      title="Edit"
+                    >
+                      <PencilLine size={14} />
+                    </button>
+                  </>
+                )}
+                <ChevronRight size={16} className="text-gray-300" />
+              </div>
+            </div>
+
+            {/* Row 2: badges */}
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              {p.category && (
+                <Badge variant={CATEGORY_BADGE[p.category]}>
+                  {p.category === "OTHER" && p.categoryOther ? p.categoryOther : CATEGORY_LABELS[p.category]}
+                </Badge>
+              )}
+              <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
+                {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
+              </Badge>
+            </div>
+
+            {/* Row 3: unit counts + fee */}
+            <div className="flex items-center gap-3 mt-2 text-xs font-sans text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="font-mono font-semibold text-header">{total}</span> units
+              </span>
+              <span className="text-gray-200">·</span>
+              <span className="flex items-center gap-1">
+                <span className={`font-mono font-semibold ${p.type === "AIRBNB" ? "text-gold" : "text-income"}`}>{occupied}</span>
+                {p.type === "AIRBNB" ? "booked" : "occupied"}
+              </span>
+              <span className="text-gray-200">·</span>
+              <span className="flex items-center gap-1">
+                <span className="font-mono font-semibold text-yellow-500">{vacant}</span> vacant
+              </span>
+              {feeText && (
+                <>
+                  <span className="text-gray-200">·</span>
+                  <span>{feeText}</span>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Import Handover Modal ────────────────────────────────────────────────────
 
 interface ImportSummary {
@@ -1382,14 +1495,30 @@ export default function PropertiesPage() {
         ) : properties.length === 0 ? (
           <DemoEmptyState onLoaded={load} emptyState />
         ) : layout === "table" ? (
-          <PropertiesTable
-            properties={properties}
-            isManager={isManager}
-            onSelect={setSelectedProperty}
-            onEdit={openEditProperty}
-            activeUnits={activeUnits}
-            vacantUnits={vacantUnits}
-          />
+          <>
+            {/* Desktop: full scrollable table */}
+            <div className="hidden md:block">
+              <PropertiesTable
+                properties={properties}
+                isManager={isManager}
+                onSelect={setSelectedProperty}
+                onEdit={openEditProperty}
+                activeUnits={activeUnits}
+                vacantUnits={vacantUnits}
+              />
+            </div>
+            {/* Mobile: compact stacked list — no horizontal scroll */}
+            <div className="md:hidden">
+              <PropertiesMobileList
+                properties={properties}
+                isManager={isManager}
+                onSelect={setSelectedProperty}
+                onEdit={openEditProperty}
+                activeUnits={activeUnits}
+                vacantUnits={vacantUnits}
+              />
+            </div>
+          </>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {properties.map((p) => (

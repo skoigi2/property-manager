@@ -975,8 +975,11 @@ export default function MaintenancePage() {
               <div className="flex justify-center py-24"><Spinner size="lg" /></div>
             ) : (
               <div
-                className="grid gap-4"
-                style={{ gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))` }}
+                className={`grid gap-4 grid-cols-1 ${
+                  visibleColumns.length === 2 ? "sm:grid-cols-2"
+                  : visibleColumns.length === 3 ? "sm:grid-cols-2 lg:grid-cols-3"
+                  : "sm:grid-cols-2 lg:grid-cols-4"
+                }`}
               >
                 {visibleColumns.map((col) => {
                   const colJobs = jobsByStatus(col.status);

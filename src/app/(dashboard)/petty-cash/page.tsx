@@ -546,7 +546,60 @@ export default function PettyCashPage() {
               icon={<Wallet size={40} />}
             />
            ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Mobile: stacked cards */}
+              <div className="md:hidden divide-y divide-gray-50">
+                {(() => {
+                  let runningBalance = 0;
+                  return displayEntries.map((e: any) => {
+                    runningBalance += e.type === "IN" ? e.amount : -e.amount;
+                    const rowBalance = runningBalance;
+                    return (
+                      <div key={e.id} className="px-4 py-3">
+                        {/* Top row: date + type badge */}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs text-gray-400 font-sans">{formatDate(e.date)}</span>
+                          {e.type === "IN" ? (
+                            <Badge variant="green">Cash In</Badge>
+                          ) : (
+                            <Badge variant="red">Cash Out</Badge>
+                          )}
+                        </div>
+
+                        {/* Description + property */}
+                        <p className="text-sm font-sans text-header">{e.description}</p>
+                        {e.property?.name && (
+                          <p className="text-xs text-gray-400 font-sans mt-0.5">{e.property.name}</p>
+                        )}
+
+                        {/* Amount + balance */}
+                        <div className="flex items-center justify-between mt-2">
+                          <span className={clsx("text-sm font-mono font-medium", e.type === "IN" ? "text-income" : "text-expense")}>
+                            {e.type === "IN" ? "+" : "−"}{formatCurrency(e.amount, currency)}
+                          </span>
+                          <div className="text-right">
+                            <span className="text-xs text-gray-400 font-sans mr-1">Balance</span>
+                            <span className="text-xs font-mono text-gray-600">{formatCurrency(rowBalance, currency)}</span>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-2 border-t border-gray-50 mt-2 pt-2">
+                          <button onClick={() => editId === e.id ? setEditId(null) : openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1">
+                            <Pencil size={14} />
+                          </button>
+                          <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Desktop: scrollable table */}
+              <div className="hidden md:block overflow-x-auto">
               <table className="w-full min-w-[620px]">
                 <thead className="bg-cream-dark">
                   <tr>
@@ -658,7 +711,8 @@ export default function PettyCashPage() {
                   })()}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </Card>
       </div>

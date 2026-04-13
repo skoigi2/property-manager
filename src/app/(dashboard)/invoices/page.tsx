@@ -1044,33 +1044,96 @@ export default function InvoicesPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Invoice</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Tenant</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Due</th>
-                  <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((inv) => (
-                  <InvoiceRow
-                    key={inv.id}
-                    invoice={inv}
-                    currency={currency}
-                    onMarkPaid={setMarkPaidTarget}
-                    onDelete={setDeleteTarget}
-                    onStatusChange={handleStatusChange}
-                    onSync={handleSync}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-gray-50">
+              {filtered.map((inv) => {
+                const needsSync = inv.status === "PAID" && (inv._count?.incomeEntries ?? 0) === 0;
+                return (
+                  <div key={inv.id} className="px-4 py-3">
+                    {/* Invoice # + period + status */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <p className="font-mono text-xs font-semibold text-header">{inv.invoiceNumber}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</p>
+                      </div>
+                      <StatusBadge status={inv.status} />
+                    </div>
+                    {/* Tenant + amount */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{inv.tenant.name}</p>
+                        <p className="text-xs text-gray-400">Unit {inv.tenant.unit.unitNumber} · {inv.tenant.unit.property.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium font-mono text-gray-800">{formatCurrency(inv.totalAmount, currency)}</p>
+                        {inv.status === "PAID" && inv.paidAmount && inv.paidAmount !== inv.totalAmount && (
+                          <p className="text-xs text-green-600">Paid: {formatCurrency(inv.paidAmount, currency)}</p>
+                        )}
+                      </div>
+                    </div>
+                    {/* Due date + actions */}
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                      <p className="text-xs text-gray-400 font-sans">Due {format(new Date(inv.dueDate), "d MMM yyyy")}</p>
+                      <div className="flex items-center gap-2">
+                        {inv.status !== "PAID" && (
+                          <button
+                            onClick={() => setMarkPaidTarget(inv)}
+                            className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-lg font-sans hover:bg-green-100 transition-colors"
+                          >
+                            Mark Paid
+                          </button>
+                        )}
+                        {needsSync && (
+                          <button
+                            onClick={() => handleSync(inv.id)}
+                            className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg font-sans"
+                          >
+                            Sync
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setDeleteTarget(inv)}
+                          className="text-xs text-gray-400 hover:text-expense transition-colors p-1"
+                        >
+                          <XCircle size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop: scrollable table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Invoice</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Tenant</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</th>
+                    <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Due</th>
+                    <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((inv) => (
+                    <InvoiceRow
+                      key={inv.id}
+                      invoice={inv}
+                      currency={currency}
+                      onMarkPaid={setMarkPaidTarget}
+                      onDelete={setDeleteTarget}
+                      onStatusChange={handleStatusChange}
+                      onSync={handleSync}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Footer count */}

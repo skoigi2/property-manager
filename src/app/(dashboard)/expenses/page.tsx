@@ -1158,7 +1158,61 @@ export default function ExpensesPage() {
               action={entries.length === 0 ? <Button variant="gold" size="sm" onClick={() => { resetForm(); setShowForm(true); }}><Plus size={14} /> Add Expense</Button> : undefined}
             />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Mobile: stacked cards */}
+            <div className="md:hidden divide-y divide-gray-50">
+              {displayEntries.map((e: any) => {
+                const payStatus = aggregatePayment(e.lineItems);
+                return (
+                  <div key={e.id} className="px-4 py-3">
+                    {/* Top row: date + category badge */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-gray-400 font-sans">{formatDate(e.date)}</span>
+                      <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
+                    </div>
+
+                    {/* Description + vendor */}
+                    <p className="text-sm font-sans text-header truncate">{e.description ?? "—"}</p>
+                    {e.vendor?.name && (
+                      <p className="text-xs text-gray-400 font-sans mt-0.5">{e.vendor.name}</p>
+                    )}
+
+                    {/* Amount + pay status */}
+                    <div className="flex items-center justify-between mt-2">
+                      <span className={clsx("text-sm font-mono font-medium", e.isSunkCost ? "text-gray-400 line-through" : "text-expense")}>
+                        {formatCurrency(e.amount, currency)}
+                      </span>
+                      <PayBadge status={payStatus} />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 border-t border-gray-50 mt-2 pt-2">
+                      <button onClick={() => openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Edit">
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => toggleDocPanel(e.id)}
+                        className={clsx("relative text-gray-300 hover:text-gold transition-colors p-1", docPanelRows.has(e.id) && "text-gold")}
+                        title="Documents"
+                      >
+                        <Paperclip size={14} />
+                        {expenseDocs[e.id]?.length > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-[9px] font-sans font-bold leading-none">
+                            {expenseDocs[e.id].length > 9 ? "9+" : expenseDocs[e.id].length}
+                          </span>
+                        )}
+                      </button>
+                      <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop: scrollable table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full min-w-[860px]">
                 <thead className="bg-cream-dark">
                   <tr>
@@ -1314,6 +1368,7 @@ export default function ExpensesPage() {
                 </tbody>
               </table>
             </div>
+          </>
           )}
         </Card>
       </div>

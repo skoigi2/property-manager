@@ -942,7 +942,7 @@ export default function IncomePage() {
         })()}
 
         {/* ── Tab bar ────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 bg-cream-dark rounded-xl p-1 w-fit">
+        <div className="flex items-center gap-1 bg-cream-dark rounded-xl p-1 overflow-x-auto">
           <button
             onClick={() => { setTab("collection"); setSortCol(null); setSortDir("asc"); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
@@ -1089,7 +1089,56 @@ export default function IncomePage() {
                   <EmptyState title="No active tenants" description="Add tenants to track rent collection" icon={<User size={40} />} />
                 ) : (
                   <Card padding="none">
-                    <div className="overflow-x-auto">
+                    {/* Mobile: stacked cards */}
+                    <div className="md:hidden divide-y divide-gray-50">
+                      {sortedCollectionRows.map((row) => {
+                        const { tenant, totalPaid, expected, isPaid } = row;
+                        return (
+                          <div key={tenant.id} className="px-4 py-3">
+                            {/* Tenant + status */}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <p className="text-sm font-medium font-sans text-header">{tenant.name}</p>
+                                <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                              </div>
+                              {isPaid ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Paid</span>
+                              ) : totalPaid > 0 ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Partial</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs font-sans text-red-600 bg-red-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Pending</span>
+                              )}
+                            </div>
+                            {/* Financials */}
+                            <div className="grid grid-cols-2 gap-2 mb-2.5">
+                              <div>
+                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                                <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
+                                {tenant.serviceCharge > 0 && <p className="text-[10px] text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+                                {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+                              </div>
+                            </div>
+                            {/* Action */}
+                            <div className="pt-1">
+                              {row.isPaid ? (
+                                <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
+                                  {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
+                                </button>
+                              ) : (
+                                <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant)}>
+                                  <Plus size={12} /> Record
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full min-w-[580px]">
                         <thead className="bg-cream-dark">
                           <tr>
@@ -1160,7 +1209,69 @@ export default function IncomePage() {
                   <EmptyState title="No active tenants" description="Add tenants to track arrears" icon={<User size={40} />} />
                 ) : (
                   <Card padding="none">
-                    <div className="overflow-x-auto">
+                    {/* Mobile: stacked cards */}
+                    <div className="md:hidden divide-y divide-gray-50">
+                      {arrearsRows.map(({ tenant, summary, annualRate }) => (
+                        <div
+                          key={tenant.id}
+                          className={`px-4 py-3 border-l-4 ${summary.totalArrears > tenant.monthlyRent * 2 ? "border-red-300 bg-red-50/30" : summary.totalArrears > 0 ? "border-amber-300 bg-amber-50/20" : "border-transparent"}`}
+                        >
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                              <p className="text-sm font-medium font-sans text-gray-700">{tenant.name}</p>
+                              <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                            </div>
+                            {summary.totalMonthsOwed === 0 ? (
+                              <span className="text-xs text-green-700 font-sans bg-green-50 px-2 py-1 rounded-lg">Up to date</span>
+                            ) : (
+                              <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-lg">{summary.totalMonthsOwed}mo overdue</span>
+                            )}
+                          </div>
+                          {/* Arrears + actions */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              {summary.totalArrears > 0 ? (
+                                <CurrencyDisplay currency={currency} amount={summary.totalArrears} size="sm" className="text-red-600 font-semibold" />
+                              ) : (
+                                <span className="text-xs text-green-600 font-sans">No arrears</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {summary.hasArrears && (
+                                <Button size="sm" variant="gold" onClick={() => handleQuickRecord(tenant)}>
+                                  <Plus size={12} /> Record
+                                </Button>
+                              )}
+                              {summary.hasArrears && (
+                                openCases[tenant.id] ? (
+                                  <Link
+                                    href="/arrears"
+                                    className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded-lg hover:bg-amber-100 transition-colors whitespace-nowrap"
+                                  >
+                                    <FolderOpen size={11} />
+                                    Case Open
+                                  </Link>
+                                ) : (
+                                  <button
+                                    disabled={openingCaseFor === tenant.id}
+                                    onClick={() => handleOpenCase(tenant, summary.totalArrears)}
+                                    className="flex items-center gap-1 text-xs font-medium text-gray-500 border border-gray-200 px-2 py-1.5 rounded-lg hover:border-gray-300 hover:text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50"
+                                  >
+                                    {openingCaseFor === tenant.id
+                                      ? <Loader2 size={11} className="animate-spin" />
+                                      : <FolderOpen size={11} />}
+                                    Open Case
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full min-w-[680px]">
                         <thead className="bg-cream-dark">
                           <tr>
@@ -1501,52 +1612,95 @@ export default function IncomePage() {
                   action={<Button variant="gold" size="sm" onClick={() => setShowForm(true)}><Plus size={14} /> Add Entry</Button>}
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[700px]">
-                    <thead className="bg-cream-dark">
-                      <tr>
-                        {entriesColOrder.map((key) => renderColHeader(key, entriesColOrder, setEntriesColOrder, "income-entries-col-order", ENTRIES_SORTABLE))}
-                        <th className="px-4 py-3" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedEntries.map((entry: any) => {
-                        const isAirbnb = entry.type === "AIRBNB";
-                        const isExpanded = expandedEntries.has(entry.id);
-                        return (
-                          <>
-                            <tr key={entry.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", entry.type === "DEPOSIT" && "opacity-75", isExpanded && "bg-cream/50")}>
-                              {entriesColOrder.map((key) => renderEntriesCell(key, entry))}
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-1">
-                                  {isAirbnb && (
-                                    <button
-                                      onClick={() => toggleEntry(entry.id)}
-                                      className="text-gray-400 hover:text-gold transition-colors p-1"
-                                      title={isExpanded ? "Hide guests" : "View guests"}
-                                    >
-                                      {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                <>
+                  {/* Mobile: stacked cards */}
+                  <div className="md:hidden divide-y divide-gray-50">
+                    {sortedEntries.map((entry: any) => {
+                      const typeInfo = INCOME_TYPE_LABELS[entry.type] ?? { label: entry.type, badge: "gray" as const };
+                      const net = (entry.grossAmount ?? 0) - (entry.agentCommission ?? 0);
+                      return (
+                        <div key={entry.id} className={clsx("px-4 py-3", entry.type === "DEPOSIT" && "opacity-75")}>
+                          {/* Date + badge */}
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-xs text-gray-400 font-mono">{formatDate(entry.date)}</span>
+                            <Badge variant={typeInfo.badge}>{typeInfo.label}</Badge>
+                          </div>
+                          {/* Unit + tenant */}
+                          <div className="mb-2">
+                            <p className="text-sm font-medium font-sans text-header">
+                              {entry.tenant?.name ?? entry.unit?.unitNumber ?? "—"}
+                            </p>
+                            {entry.tenant?.name && entry.unit?.unitNumber && (
+                              <p className="text-xs text-gray-400 font-mono mt-0.5">{entry.unit.unitNumber}</p>
+                            )}
+                            {entry.invoice?.invoiceNumber && (
+                              <p className="text-xs text-gray-400 font-sans mt-0.5">Inv {entry.invoice.invoiceNumber}</p>
+                            )}
+                          </div>
+                          {/* Amount + delete */}
+                          <div className="flex items-end justify-between">
+                            <div>
+                              <CurrencyDisplay currency={currency} amount={entry.grossAmount ?? 0} size="sm" className="text-income font-semibold" />
+                              {(entry.agentCommission ?? 0) > 0 && (
+                                <p className="text-[10px] text-gray-400 font-sans mt-0.5">Net: {fmt(net)}</p>
+                              )}
+                            </div>
+                            <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                      <thead className="bg-cream-dark">
+                        <tr>
+                          {entriesColOrder.map((key) => renderColHeader(key, entriesColOrder, setEntriesColOrder, "income-entries-col-order", ENTRIES_SORTABLE))}
+                          <th className="px-4 py-3" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedEntries.map((entry: any) => {
+                          const isAirbnb = entry.type === "AIRBNB";
+                          const isExpanded = expandedEntries.has(entry.id);
+                          return (
+                            <>
+                              <tr key={entry.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", entry.type === "DEPOSIT" && "opacity-75", isExpanded && "bg-cream/50")}>
+                                {entriesColOrder.map((key) => renderEntriesCell(key, entry))}
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-1">
+                                    {isAirbnb && (
+                                      <button
+                                        onClick={() => toggleEntry(entry.id)}
+                                        className="text-gray-400 hover:text-gold transition-colors p-1"
+                                        title={isExpanded ? "Hide guests" : "View guests"}
+                                      >
+                                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                                      </button>
+                                    )}
+                                    <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
+                                      <Trash2 size={15} />
                                     </button>
-                                  )}
-                                  <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
-                                    <Trash2 size={15} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                            {isAirbnb && isExpanded && (
-                              <tr key={`${entry.id}-guests`} className="border-t border-gold/20 bg-amber-50/30">
-                                <td colSpan={entriesColOrder.length + 1} className="px-6 py-4">
-                                  <GuestPanel incomeEntryId={entry.id} />
+                                  </div>
                                 </td>
                               </tr>
-                            )}
-                          </>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                              {isAirbnb && isExpanded && (
+                                <tr key={`${entry.id}-guests`} className="border-t border-gold/20 bg-amber-50/30">
+                                  <td colSpan={entriesColOrder.length + 1} className="px-6 py-4">
+                                    <GuestPanel incomeEntryId={entry.id} />
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </Card>
           </div>

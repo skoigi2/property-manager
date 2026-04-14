@@ -16,6 +16,9 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  Building2,
+  Wrench,
+  Store,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -28,11 +31,14 @@ import {
   downloadIncomeTemplate,
   downloadExpensesTemplate,
   downloadPettyCashTemplate,
+  downloadUnitsTemplate,
+  downloadMaintenanceTemplate,
+  downloadVendorsTemplate,
 } from "@/lib/import-templates";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "tenants" | "income" | "expenses" | "petty-cash";
+type Tab = "tenants" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors";
 
 interface ParsedRow {
   rowIndex: number;
@@ -51,11 +57,11 @@ interface ImportResult {
 const TENANT_COLS = [
   "Name",
   "Unit Number",
-  "Property Name",
   "Monthly Rent",
+  "Lease Start",
+  "Property Name",
   "Service Charge",
   "Deposit",
-  "Lease Start",
   "Lease End",
   "Email",
   "Phone",
@@ -65,26 +71,70 @@ const INCOME_COLS = [
   "Date",
   "Type",
   "Unit Number",
-  "Property Name",
   "Gross Amount",
+  "Property Name",
+  "Tenant Name",
   "Agent Commission",
   "Agent Name",
   "Notes",
+  "Platform",
+  "Check In",
+  "Check Out",
+  "Nightly Rate",
 ];
 
 const EXPENSE_COLS = [
   "Date",
   "Category",
-  "Description",
+  "Amount",
   "Scope",
+  "Description",
   "Property Name",
   "Unit Number",
-  "Amount",
   "Sunk Cost",
   "Petty Cash",
+  "Vendor Name",
 ];
 
-const PC_COLS = ["Date", "Type", "Description", "Amount"];
+const PC_COLS = ["Date", "Type", "Description", "Amount", "Property Name"];
+
+const UNIT_COLS = [
+  "Unit Number",
+  "Property Name",
+  "Type",
+  "Floor",
+  "Size (sqm)",
+  "Monthly Rent",
+  "Status",
+  "Description",
+];
+
+const MAINTENANCE_COLS = [
+  "Property Name",
+  "Title",
+  "Category",
+  "Priority",
+  "Status",
+  "Unit Number",
+  "Description",
+  "Reported By",
+  "Reported Date",
+  "Scheduled Date",
+  "Cost",
+  "Vendor Name",
+  "Notes",
+  "Is Emergency",
+];
+
+const VENDOR_COLS = [
+  "Name",
+  "Category",
+  "Phone",
+  "Email",
+  "Tax ID (KRA PIN)",
+  "Bank Details",
+  "Notes",
+];
 
 // ── Client-side Validators ────────────────────────────────────────────────────
 
@@ -95,6 +145,11 @@ const VALID_INCOME_TYPES = [
   "AIRBNB",
   "UTILITY_RECOVERY",
   "OTHER",
+  "LETTING_FEE",
+  "RENEWAL_FEE",
+  "VACANCY_FEE",
+  "SETUP_FEE_INSTALMENT",
+  "CONSULTANCY_FEE",
 ];
 
 const VALID_EXPENSE_CATEGORIES = [
@@ -112,6 +167,27 @@ const VALID_EXPENSE_CATEGORIES = [
 ];
 
 const VALID_EXPENSE_SCOPES = ["UNIT", "PROPERTY", "PORTFOLIO"];
+
+const VALID_UNIT_TYPES = [
+  "BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED",
+  "PENTHOUSE", "COMMERCIAL", "OTHER",
+];
+
+const VALID_MAINTENANCE_CATEGORIES = [
+  "PLUMBING", "ELECTRICAL", "STRUCTURAL", "APPLIANCE",
+  "PAINTING", "CLEANING", "SECURITY", "PEST_CONTROL", "OTHER",
+];
+
+const VALID_MAINTENANCE_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+
+const VALID_MAINTENANCE_STATUSES = [
+  "OPEN", "IN_PROGRESS", "AWAITING_PARTS", "DONE", "CANCELLED",
+];
+
+const VALID_VENDOR_CATEGORIES = [
+  "CONTRACTOR", "SUPPLIER", "UTILITY_PROVIDER",
+  "SERVICE_PROVIDER", "CONSULTANT", "OTHER",
+];
 
 function validateTenantRow(row: Record<string, string>): string[] {
   const errors: string[] = [];
@@ -132,7 +208,7 @@ function validateIncomeRow(row: Record<string, string>): string[] {
   else if (isNaN(Date.parse(row["Date"]))) errors.push("Date is not a valid date");
   if (!row["Type"]?.trim()) errors.push("Type is required");
   else if (!VALID_INCOME_TYPES.includes(row["Type"].trim().toUpperCase()))
-    errors.push(`Invalid type "${row["Type"]}"`);
+    errors.push(`Invalid type "${row["Type"]}" — must be one of: ${VALID_INCOME_TYPES.join(", ")}`);
   if (!row["Unit Number"]?.trim()) errors.push("Unit Number is required");
   const amt = parseFloat(row["Gross Amount"] ?? "");
   if (!row["Gross Amount"] || isNaN(amt) || amt <= 0)
@@ -150,7 +226,7 @@ function validateExpenseRow(row: Record<string, string>): string[] {
   const scope = row["Scope"]?.trim()?.toUpperCase();
   if (!scope) errors.push("Scope is required");
   else if (!VALID_EXPENSE_SCOPES.includes(scope))
-    errors.push(`Invalid scope "${row["Scope"]}"`);
+    errors.push(`Invalid scope "${row["Scope"]}" — must be UNIT, PROPERTY or PORTFOLIO`);
   const amt = parseFloat(row["Amount"] ?? "");
   if (!row["Amount"] || isNaN(amt) || amt <= 0)
     errors.push("Amount must be a positive number");
@@ -169,6 +245,46 @@ function validatePettyCashRow(row: Record<string, string>): string[] {
   const amt = parseFloat(row["Amount"] ?? "");
   if (!row["Amount"] || isNaN(amt) || amt <= 0)
     errors.push("Amount must be a positive number");
+  return errors;
+}
+
+function validateUnitRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Unit Number"]?.trim()) errors.push("Unit Number is required");
+  if (!row["Property Name"]?.trim()) errors.push("Property Name is required");
+  const type = row["Type"]?.trim()?.toUpperCase();
+  if (!type) errors.push("Type is required");
+  else if (!VALID_UNIT_TYPES.includes(type))
+    errors.push(`Invalid Type "${row["Type"]}" — must be one of: ${VALID_UNIT_TYPES.join(", ")}`);
+  return errors;
+}
+
+function validateMaintenanceRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Property Name"]?.trim()) errors.push("Property Name is required");
+  if (!row["Title"]?.trim()) errors.push("Title is required");
+  const category = row["Category"]?.trim()?.toUpperCase();
+  if (!category) errors.push("Category is required");
+  else if (!VALID_MAINTENANCE_CATEGORIES.includes(category))
+    errors.push(`Invalid Category "${row["Category"]}" — must be one of: ${VALID_MAINTENANCE_CATEGORIES.join(", ")}`);
+  const priority = row["Priority"]?.trim()?.toUpperCase();
+  if (!priority) errors.push("Priority is required");
+  else if (!VALID_MAINTENANCE_PRIORITIES.includes(priority))
+    errors.push(`Invalid Priority "${row["Priority"]}" — must be one of: ${VALID_MAINTENANCE_PRIORITIES.join(", ")}`);
+  const status = row["Status"]?.trim()?.toUpperCase();
+  if (!status) errors.push("Status is required");
+  else if (!VALID_MAINTENANCE_STATUSES.includes(status))
+    errors.push(`Invalid Status "${row["Status"]}" — must be one of: ${VALID_MAINTENANCE_STATUSES.join(", ")}`);
+  return errors;
+}
+
+function validateVendorRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Name"]?.trim()) errors.push("Name is required");
+  const category = row["Category"]?.trim()?.toUpperCase();
+  if (!category) errors.push("Category is required");
+  else if (!VALID_VENDOR_CATEGORIES.includes(category))
+    errors.push(`Invalid Category "${row["Category"]}" — must be one of: ${VALID_VENDOR_CATEGORIES.join(", ")}`);
   return errors;
 }
 
@@ -202,15 +318,19 @@ function parseFile(
             continue;
           }
 
-          // Skip template notes rows (first column starts with "Valid")
+          // Skip template helper rows (hint row + old-style note rows)
           const firstVal = String(Object.values(row)[0] ?? "").trim();
-          if (firstVal.startsWith("Valid") || firstVal.startsWith("Type must")) {
+          if (
+            firstVal === "REQUIRED" ||
+            firstVal === "optional" ||
+            firstVal.startsWith("Valid") ||
+            firstVal.startsWith("Type must")
+          ) {
             rowIndex++;
             continue;
           }
 
           // Remap row keys to our expected column names
-          // The xlsx columns may be the actual header names from row 1
           const mapped: Record<string, string> = {};
           for (const col of cols) {
             mapped[col] = String(row[col] ?? "").trim();
@@ -230,56 +350,107 @@ function parseFile(
   });
 }
 
-// ── Row-to-API Mapper ─────────────────────────────────────────────────────────
+// ── Row-to-API Mappers ────────────────────────────────────────────────────────
 
 function mapTenantRowToApi(row: Record<string, string>) {
   return {
-    name: row["Name"],
-    unitNumber: row["Unit Number"],
-    propertyName: row["Property Name"],
-    monthlyRent: row["Monthly Rent"],
+    name:          row["Name"],
+    unitNumber:    row["Unit Number"],
+    propertyName:  row["Property Name"],
+    monthlyRent:   row["Monthly Rent"],
     serviceCharge: row["Service Charge"],
     depositAmount: row["Deposit"],
-    leaseStart: row["Lease Start"],
-    leaseEnd: row["Lease End"],
-    email: row["Email"],
-    phone: row["Phone"],
+    leaseStart:    row["Lease Start"],
+    leaseEnd:      row["Lease End"],
+    email:         row["Email"],
+    phone:         row["Phone"],
   };
 }
 
 function mapIncomeRowToApi(row: Record<string, string>) {
   return {
-    date: row["Date"],
-    type: row["Type"],
-    unitNumber: row["Unit Number"],
-    propertyName: row["Property Name"],
-    grossAmount: row["Gross Amount"],
+    date:            row["Date"],
+    type:            row["Type"],
+    unitNumber:      row["Unit Number"],
+    propertyName:    row["Property Name"],
+    grossAmount:     row["Gross Amount"],
+    tenantName:      row["Tenant Name"],
     agentCommission: row["Agent Commission"],
-    agentName: row["Agent Name"],
-    notes: row["Notes"],
+    agentName:       row["Agent Name"],
+    notes:           row["Notes"],
+    platform:        row["Platform"],
+    checkIn:         row["Check In"],
+    checkOut:        row["Check Out"],
+    nightlyRate:     row["Nightly Rate"],
   };
 }
 
 function mapExpenseRowToApi(row: Record<string, string>) {
   return {
-    date: row["Date"],
-    category: row["Category"],
-    description: row["Description"],
-    scope: row["Scope"],
+    date:         row["Date"],
+    category:     row["Category"],
+    description:  row["Description"],
+    scope:        row["Scope"],
     propertyName: row["Property Name"],
-    unitNumber: row["Unit Number"],
-    amount: row["Amount"],
-    sunkCost: row["Sunk Cost"],
-    pettyCash: row["Petty Cash"],
+    unitNumber:   row["Unit Number"],
+    amount:       row["Amount"],
+    sunkCost:     row["Sunk Cost"],
+    pettyCash:    row["Petty Cash"],
+    vendorName:   row["Vendor Name"],
   };
 }
 
 function mapPettyCashRowToApi(row: Record<string, string>) {
   return {
-    date: row["Date"],
-    type: row["Type"],
-    description: row["Description"],
-    amount: row["Amount"],
+    date:         row["Date"],
+    type:         row["Type"],
+    description:  row["Description"],
+    amount:       row["Amount"],
+    propertyName: row["Property Name"],
+  };
+}
+
+function mapUnitRowToApi(row: Record<string, string>) {
+  return {
+    unitNumber:   row["Unit Number"],
+    propertyName: row["Property Name"],
+    type:         row["Type"],
+    floor:        row["Floor"],
+    sizeSqm:      row["Size (sqm)"],
+    monthlyRent:  row["Monthly Rent"],
+    status:       row["Status"],
+    description:  row["Description"],
+  };
+}
+
+function mapMaintenanceRowToApi(row: Record<string, string>) {
+  return {
+    propertyName:  row["Property Name"],
+    title:         row["Title"],
+    category:      row["Category"],
+    priority:      row["Priority"],
+    status:        row["Status"],
+    unitNumber:    row["Unit Number"],
+    description:   row["Description"],
+    reportedBy:    row["Reported By"],
+    reportedDate:  row["Reported Date"],
+    scheduledDate: row["Scheduled Date"],
+    cost:          row["Cost"],
+    vendorName:    row["Vendor Name"],
+    notes:         row["Notes"],
+    isEmergency:   row["Is Emergency"],
+  };
+}
+
+function mapVendorRowToApi(row: Record<string, string>) {
+  return {
+    name:        row["Name"],
+    category:    row["Category"],
+    phone:       row["Phone"],
+    email:       row["Email"],
+    taxId:       row["Tax ID (KRA PIN)"],
+    bankDetails: row["Bank Details"],
+    notes:       row["Notes"],
   };
 }
 
@@ -650,10 +821,13 @@ export default function ImportPage() {
   const [tab, setTab] = useState<Tab>("tenants");
 
   const tabs: [Tab, string, React.ElementType][] = [
-    ["tenants", "Tenants", Users],
-    ["income", "Income", TrendingUp],
-    ["expenses", "Expenses", Receipt],
-    ["petty-cash", "Petty Cash", Wallet],
+    ["tenants",     "Tenants",     Users],
+    ["income",      "Income",      TrendingUp],
+    ["expenses",    "Expenses",    Receipt],
+    ["petty-cash",  "Petty Cash",  Wallet],
+    ["units",       "Units",       Building2],
+    ["maintenance", "Maintenance", Wrench],
+    ["vendors",     "Vendors",     Store],
   ];
 
   return (
@@ -667,30 +841,30 @@ export default function ImportPage() {
             <div>
               <p className="text-sm font-medium text-blue-800 font-sans">How to import</p>
               <p className="text-sm text-blue-600 font-sans">
-                1. Download the template &middot; 2. Fill it in &middot; 3. Upload and
-                preview &middot; 4. Confirm import. Duplicate records are automatically
-                skipped.
+                1. Download the template &middot; 2. Fill in the Data sheet (row 2 shows which fields are required) &middot; 3. Upload and preview &middot; 4. Confirm import. Duplicate records are automatically skipped.
               </p>
             </div>
           </div>
         </Card>
 
         {/* Tab bar */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit flex-wrap">
-          {tabs.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
-                tab === id
-                  ? "bg-white text-header shadow-sm"
-                  : "text-gray-500 hover:text-header"
-              }`}
-            >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
+        <div className="overflow-x-auto">
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+            {tabs.map(([id, label, Icon]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all whitespace-nowrap ${
+                  tab === id
+                    ? "bg-white text-header shadow-sm"
+                    : "text-gray-500 hover:text-header"
+                }`}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tab content */}
@@ -710,7 +884,7 @@ export default function ImportPage() {
         {tab === "income" && (
           <ImportSection
             title="Import Income"
-            description="Download the template, fill in income records, then upload. Duplicate entries with the same unit, date, type and amount are skipped."
+            description="Download the template, fill in income records, then upload. Duplicate entries with the same unit, date, type and amount are skipped. Supports all income types including Airbnb bookings."
             cols={INCOME_COLS}
             validate={validateIncomeRow}
             apiPath="/api/import/income"
@@ -723,7 +897,7 @@ export default function ImportPage() {
         {tab === "expenses" && (
           <ImportSection
             title="Import Expenses"
-            description="Download the template, fill in expense records, then upload. Duplicate entries with the same date, category and amount are skipped."
+            description="Download the template, fill in expense records, then upload. Duplicate entries with the same date, category and amount are skipped. Vendor names are matched against existing vendor records."
             cols={EXPENSE_COLS}
             validate={validateExpenseRow}
             apiPath="/api/import/expenses"
@@ -743,6 +917,45 @@ export default function ImportPage() {
             onDownloadTemplate={downloadPettyCashTemplate}
             templateName="Petty Cash"
             mapRowToApi={mapPettyCashRowToApi}
+          />
+        )}
+
+        {tab === "units" && (
+          <ImportSection
+            title="Import Units"
+            description="Download the template, fill in unit details, then upload to bulk-create units. Units with the same number in the same property are skipped. The property must already exist in the system."
+            cols={UNIT_COLS}
+            validate={validateUnitRow}
+            apiPath="/api/import/units"
+            onDownloadTemplate={downloadUnitsTemplate}
+            templateName="Units"
+            mapRowToApi={mapUnitRowToApi}
+          />
+        )}
+
+        {tab === "maintenance" && (
+          <ImportSection
+            title="Import Maintenance Jobs"
+            description="Download the template, fill in maintenance job details, then upload. All jobs are created (no duplicate check). Vendor names are matched against existing vendor records."
+            cols={MAINTENANCE_COLS}
+            validate={validateMaintenanceRow}
+            apiPath="/api/import/maintenance"
+            onDownloadTemplate={downloadMaintenanceTemplate}
+            templateName="Maintenance"
+            mapRowToApi={mapMaintenanceRowToApi}
+          />
+        )}
+
+        {tab === "vendors" && (
+          <ImportSection
+            title="Import Vendors"
+            description="Download the template, fill in vendor details, then upload to bulk-create vendor records. Vendors with the same name in your organisation are skipped."
+            cols={VENDOR_COLS}
+            validate={validateVendorRow}
+            apiPath="/api/import/vendors"
+            onDownloadTemplate={downloadVendorsTemplate}
+            templateName="Vendors"
+            mapRowToApi={mapVendorRowToApi}
           />
         )}
       </div>

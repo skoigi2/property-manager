@@ -25,18 +25,22 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Groundwork PM",
+  title: "GroundWorkPM",
   description: "Property insights. Built on solid groundwork.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Groundwork",
+    title: "GroundWorkPM",
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icons/apple-touch-icon.png",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1A1A2E",
+  themeColor: "#132635",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -50,7 +54,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSerif.variable} ${dmMono.variable} ${dmSans.variable}`}>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
       </head>
       <body>
         <Providers>{children}</Providers>

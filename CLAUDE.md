@@ -13,6 +13,8 @@ npm run db:seed:demo     # Seed demo property data (Mayfair Suites + read-only d
 npm run db:seed:mayfair  # Seed Mayfair Suites data only
 npm run db:migrate   # Apply pending migrations (uses DIRECT_URL)
 npm run db:studio    # Open Prisma Studio at localhost:5555
+npm run db:seed:bahrain  # Seed Al Seef Residences demo (Bahrain, 20 units)
+npm start                # Production server (after npm run build)
 npx tsc --noEmit     # Type-check without building
 ```
 
@@ -30,7 +32,7 @@ There are no automated tests. Validate changes with `npx tsc --noEmit` and `npm 
 Next.js 14 App Router app. All source code lives in `src/`.
 
 ### Route groups
-- `src/app/(auth)/` — unauthenticated pages (`/login`, `/select-org`)
+- `src/app/(auth)/` — unauthenticated pages (`/login`, `/signup`, `/forgot-password`, `/reset-password`, `/select-org`)
 - `src/app/(dashboard)/` — all protected pages, share a sidebar layout (`layout.tsx`)
 - `src/app/(portal)/` — token-based tenant portal (no auth, no sidebar); bypassed by middleware
 - `src/app/api/` — Route Handlers only; no server components fetch data directly
@@ -126,7 +128,9 @@ When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route
 The `OrgBranding` type in `invoice-pdf.tsx` carries payment fields (`bankName`, `bankAccountName`, `bankAccountNumber`, `bankBranch`, `mpesaPaybill`, `mpesaAccountNumber`, `mpesaTill`, `paymentInstructions`, `vatRegistrationNumber`) sourced from the `Organization` model. Both PDF routes (`/api/invoices/[id]/pdf` and `/api/portal/[token]/invoices/[invoiceId]/pdf`) must query and pass these fields. Configured in **Settings → Branding → Payment Details**.
 
 ### PWA
-`next-pwa` wraps the Next.js config. Service worker is disabled in development. `/api/dashboard` uses `StaleWhileRevalidate`; all other API routes use `NetworkFirst`.
+`next-pwa` wraps the Next.js config. Service worker is disabled in development. Caching strategies (`next.config.mjs`): `/api/dashboard` → `StaleWhileRevalidate` (5 min); all other `/api/**` → `NetworkFirst` (60 s); `https://*.supabase.co/**` → `NetworkFirst` (24 h, cache name `supabase-cache`).
+
+PWA app name is **GroundWorkPM** (`public/manifest.json`). Icons live in `public/icons/`: `icon-192.png`, `icon-512.png`, `icon-maskable.png` (512 × 512, navy `#132635` background, logo inside 80 % safe zone), `apple-touch-icon.png` (180 × 180, cream background). If the source logo changes, regenerate from `Logo/GroundWorkPM Logo.png` using Python Pillow (see git history for the script).
 
 ## Property & Domain Model
 
@@ -149,6 +153,8 @@ Three properties are seeded:
 - Pages use `<Header>` + `<div className="page-container">` shell from the dashboard layout
 - Month filtering uses `<MonthPicker>` component which has built-in prev/next arrows — do not add outer arrow buttons
 - Vendor fields use `<VendorSelect>` (controlled: `value: string | null`, `onChange: (id: string | null) => void`) — never a plain text input for contractor/supplier fields
+- **HelpTip**: `<HelpTip text="..." position="above|below" />` (`src/components/ui/HelpTip.tsx`) — small ℹ icon that shows a dark tooltip on hover. Default position is `"above"`; use `"below"` for elements near the top of the page (KPI cards, summary strips). Render inside label rows as `<span className="flex items-center gap-1.5"><span>Label</span><HelpTip text="..." /></span>`. The `Input`, `Select`, and `VendorSelect` components accept a `tooltip` prop that wires this up automatically.
+- **Mobile table pattern**: pages with data tables use `md:hidden` stacked card list + `hidden md:block overflow-x-auto` desktop table. The `<main>` in `src/app/(dashboard)/layout.tsx` carries `overflow-x-hidden` to prevent any overflowing child from creating a page-level horizontal scroll (which shifts the fixed bottom nav). `MobileNav` bar items require `min-w-0` on each flex child and `truncate w-full` on each label `<span>` to prevent long labels pushing items off-screen on narrow devices.
 - Components are organised under `src/components/` by feature: `dashboard/`, `expenses/`, `forecast/`, `guests/`, `income/`, `layout/`, `petty-cash/`, `report/`, `settings/`, `tenants/`, `ui/`
 
 ### Document Storage
@@ -236,6 +242,26 @@ Token-based read-only portal for tenants — no login required, shareable link. 
   - `GET/POST /api/portal/[token]/maintenance` — GET returns only `submittedViaPortal: true` jobs; POST creates a job with `submittedViaPortal: true`, `priority: MEDIUM`, `status: OPEN`
 - Manager generates/revokes the link from the tenant detail page (`POST/DELETE /api/tenants/[id]/portal-token`)
 - Maintenance jobs submitted via portal show a "Tenant Request" badge in the maintenance queue; filterable via `?portalOnly=true` query param on `GET /api/maintenance`
+
+### SaaS Onboarding & Demo System
+
+**Signup flow** (`/signup` → `/onboarding`):
+- `POST /api/auth/signup` — creates User + Organization + UserOrganizationMembership in a single request (credentials-based). Redirects to `/onboarding` after auto sign-in.
+- Google OAuth users land at `/onboarding` with no org yet (`session.user.organizationId === null`). `needsOrg: true` triggers org creation inline in Step 1 via `POST /api/onboarding/create-org`.
+- `POST /api/onboarding/create-org` — creates Organization (30-day TRIAL), updates `User.organizationId`, creates `UserOrganizationMembership`. Uses sequential awaits (not callback-form `prisma.$transaction`) due to pgBouncer incompatibility. On failure, best-effort deletes the org to avoid orphaned data.
+- Password reset: `POST /api/auth/forgot-password` sends a reset token; `POST /api/auth/reset-password` validates token and updates the password hash.
+
+**Onboarding wizard** (`src/app/onboarding/page.tsx`) — 3 steps:
+1. **Property** — org name (Google OAuth only), property name/type/currency/address. Calls `create-org` then `POST /api/properties`.
+2. **Units** — add unit numbers/types/rent. Calls `POST /api/units` for each.
+3. **Done** — optionally loads a sample demo property. Calls `POST /api/demo/seed` with `{ demoKey, organizationId }`, then `session.update()` to refresh JWT, then navigates to `/`.
+
+**Demo seed system**:
+- `src/lib/demo-definitions.ts` — registry of `DemoDefinition` objects with fields `key`, `name`, `country`, `currency`, `units`, `description`, `flag` (emoji). Adding an entry here automatically surfaces it in the onboarding demo picker and the Properties page empty state. Each new demo also needs a matching `case` in `POST /api/demo/seed` (route file) and a corresponding seed script (e.g. `npm run db:seed:bahrain`).
+- `POST /api/demo/seed` — seeds a full demo property into the caller's active org. Body: `{ demoKey: string, organizationId?: string }`. The client always sends `organizationId` (the active session org) so the server never has to guess from a potentially stale JWT. After seeding, calls `grantAccess()` which bulk-inserts `PropertyAccess` rows for every `UserOrganizationMembership` member of the org (`skipDuplicates: true`) so all users see the property. Returns `{ ok: true, propertyId }` or `{ ok: false, reason: "already_seeded", propertyId }`. Idempotency: checks `_count.units > 0`; if property exists but has no units (partial timeout), deletes and re-seeds. Has `export const maxDuration = 60` (Vercel function timeout).
+- Currently implemented demo: `"al-seef"` → Al Seef Residences (20-unit Bahrain tower, `seedAlSeef()` inside the route file).
+
+**pgBouncer constraint**: Supabase uses pgBouncer in transaction pooling mode. This makes the callback-form `prisma.$transaction(async (tx) => {...})` incompatible — it silently commits partial work. Always use sequential `await` calls with manual cleanup, or the array-form `prisma.$transaction([op1, op2, ...])` for atomic operations.
 
 ## Environment Variables
 

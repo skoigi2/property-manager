@@ -8,7 +8,7 @@ import {
   InsuranceType, PremiumFrequency, AssetCategory, MaintenanceFrequency,
   RecurringFrequency, ArrearsStage, InvoiceStatus,
   MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
-  VendorCategory, OwnerInvoiceType,
+  VendorCategory, OwnerInvoiceType, TaxType,
 } from "@prisma/client";
 
 // Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
@@ -836,6 +836,35 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     ],
   });
 
+  // ── Tax configurations ──────────────────────────────────────────────────────
+  // Bahrain introduced 10% VAT in January 2022 (Value Added Tax Act)
+  await prisma.taxConfiguration.createMany({
+    data: [
+      {
+        orgId: organizationId,
+        propertyId: property.id,
+        label: "VAT — Management & Letting Fees",
+        rate: 0.10,
+        type: TaxType.ADDITIVE,
+        appliesTo: ["MANAGEMENT_FEE_INCOME", "LETTING_FEE_INCOME"],
+        isInclusive: false,
+        effectiveFrom: d("2022-01-01"),
+        isActive: true,
+      },
+      {
+        orgId: organizationId,
+        propertyId: property.id,
+        label: "VAT — Contractor & Vendor Invoices",
+        rate: 0.10,
+        type: TaxType.ADDITIVE,
+        appliesTo: ["CONTRACTOR_LABOUR", "CONTRACTOR_MATERIALS", "VENDOR_INVOICE"],
+        isInclusive: true,
+        effectiveFrom: d("2022-01-01"),
+        isActive: true,
+      },
+    ],
+  });
+
   return property;
 }
 
@@ -1628,6 +1657,48 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         stage: ArrearsStage.INFORMAL_REMINDER,
         notes: "Follow-up call 20 Mar 2026. Tenant did not pay by promised date. Escalation under review.",
         createdAt: d("2026-03-20"),
+      },
+    ],
+  });
+
+  // ── Tax configurations ──────────────────────────────────────────────────────
+  // South Africa: VAT at 15% (raised from 14% in April 2018)
+  // Residential rental is VAT-exempt; management fees and contractor invoices are taxable.
+  // Rental Income Withholding Tax (RIWT) at 15% applies when the landlord is non-resident.
+  await prisma.taxConfiguration.createMany({
+    data: [
+      {
+        orgId: organizationId,
+        propertyId: property.id,
+        label: "VAT — Management & Letting Fees",
+        rate: 0.15,
+        type: TaxType.ADDITIVE,
+        appliesTo: ["MANAGEMENT_FEE_INCOME", "LETTING_FEE_INCOME"],
+        isInclusive: false,
+        effectiveFrom: d("2018-04-01"),
+        isActive: true,
+      },
+      {
+        orgId: organizationId,
+        propertyId: property.id,
+        label: "VAT — Contractor & Vendor Invoices",
+        rate: 0.15,
+        type: TaxType.ADDITIVE,
+        appliesTo: ["CONTRACTOR_LABOUR", "CONTRACTOR_MATERIALS", "VENDOR_INVOICE"],
+        isInclusive: true,
+        effectiveFrom: d("2018-04-01"),
+        isActive: true,
+      },
+      {
+        orgId: organizationId,
+        propertyId: property.id,
+        label: "Rental Income Withholding Tax — Non-Resident Landlord",
+        rate: 0.15,
+        type: TaxType.WITHHELD,
+        appliesTo: ["LONGTERM_RENT"],
+        isInclusive: false,
+        effectiveFrom: d("2026-01-01"),
+        isActive: true,
       },
     ],
   });

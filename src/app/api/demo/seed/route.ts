@@ -7,6 +7,8 @@ import {
   IncomeType, ExpenseCategory, ExpenseScope, PettyCashType,
   InsuranceType, PremiumFrequency, AssetCategory, MaintenanceFrequency,
   RecurringFrequency, ArrearsStage, InvoiceStatus,
+  MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
+  VendorCategory, OwnerInvoiceType,
 } from "@prisma/client";
 
 // Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
@@ -474,6 +476,366 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     },
   });
 
+  // ── Vendors ─────────────────────────────────────────────────────────────────
+  const [vendorMaint, vendorElec] = await Promise.all([
+    prisma.vendor.create({
+      data: {
+        name: "Gulf Maintenance Services",
+        category: VendorCategory.CONTRACTOR,
+        phone: "+973 1766 1100",
+        email: "info@gulfmaint.bh",
+        organizationId,
+        isActive: true,
+        notes: "General plumbing & civil maintenance contractor for Al Seef.",
+      },
+    }),
+    prisma.vendor.create({
+      data: {
+        name: "Al Baraka Electrical",
+        category: VendorCategory.CONTRACTOR,
+        phone: "+973 1744 2200",
+        email: "info@albarakaelec.bh",
+        organizationId,
+        isActive: true,
+        notes: "Licensed electrical contractor — fault finding & installations.",
+      },
+    }),
+    prisma.vendor.create({
+      data: {
+        name: "Bahrain Cleaning Services",
+        category: VendorCategory.SERVICE_PROVIDER,
+        phone: "+973 1733 5500",
+        email: "ops@bahrainclean.bh",
+        organizationId,
+        isActive: true,
+        notes: "Daily common area cleaning & periodic deep-clean services.",
+      },
+    }),
+  ]);
+
+  // ── Agent ────────────────────────────────────────────────────────────────────
+  await prisma.agent.create({
+    data: {
+      name: "Bahrain Properties LLC",
+      phone: "+973 1700 3344",
+      email: "leasing@bahrainproperties.bh",
+      agency: "Bahrain Properties LLC",
+      notes: "Primary letting agent for Al Seef Residences.",
+    },
+  });
+
+  // ── Management agreement ────────────────────────────────────────────────────
+  await prisma.managementAgreement.create({
+    data: {
+      propertyId: property.id,
+      managementFeeRate: 8.5,
+      vacancyFeeRate: 5.0,
+      vacancyFeeThresholdMonths: 9,
+      newLettingFeeRate: 50.0,
+      leaseRenewalFeeFlat: 150,
+      repairAuthorityLimit: 500,
+      rentRemittanceDay: 5,
+      mgmtFeeInvoiceDay: 7,
+      landlordPaymentDays: 2,
+      kpiStartDate: d("2026-01-01"),
+      kpiOccupancyTarget: 90,
+      kpiRentCollectionTarget: 92,
+      kpiExpenseRatioTarget: 85,
+      kpiDaysToLeaseTarget: 45,
+      kpiRenewalRateTarget: 80,
+      kpiMaintenanceCompletionTarget: 95,
+      kpiEmergencyResponseHrs: 4,
+      kpiStandardResponseHrs: 48,
+    },
+  });
+
+  // ── Rent history ────────────────────────────────────────────────────────────
+  await prisma.rentHistory.createMany({
+    data: [
+      // Prior-year rate for long-term tenants (showing annual escalation)
+      { tenantId: tenants["101"].id, monthlyRent: 330, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["103"].id, monthlyRent: 480, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["205"].id, monthlyRent: 700, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["305"].id, monthlyRent: 700, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["401"].id, monthlyRent: 370, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      // Lease commencement / annual review records (all tenants, Jan 2026)
+      ...tenantDefs.map((t) => ({
+        tenantId: tenants[t.unit].id,
+        monthlyRent: t.rent,
+        effectiveDate: d("2026-01-01"),
+        reason: "Lease commencement / annual review",
+      })),
+    ],
+  });
+
+  // ── Maintenance jobs ────────────────────────────────────────────────────────
+  await prisma.maintenanceJob.createMany({
+    data: [
+      {
+        propertyId: property.id,
+        unitId: units["103"].id,
+        title: "Bathroom tap replacement — unit 103",
+        description: "Mixer tap dripping constantly. Tenant reported via WhatsApp.",
+        category: MaintenanceCategory.PLUMBING,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Mohammed Al-Mannai (unit 103)",
+        assignedTo: "Gulf Maintenance Services",
+        reportedDate: new Date(2026, 0, 10),
+        scheduledDate: new Date(2026, 0, 12),
+        completedDate: new Date(2026, 0, 12),
+        cost: 120,
+        vendorId: vendorMaint.id,
+        notes: "Replaced mixer tap with Grohe unit. Tenant confirmed resolved.",
+      },
+      {
+        propertyId: property.id,
+        title: "Lift — door sensor fault (floor 2)",
+        description: "Lift door not closing properly on floor 2. Reported by multiple tenants.",
+        category: MaintenanceCategory.OTHER,
+        priority: MaintenancePriority.HIGH,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Multiple tenants",
+        assignedTo: "ThyssenKrupp Elevator Bahrain",
+        reportedDate: new Date(2026, 0, 18),
+        scheduledDate: new Date(2026, 0, 20),
+        completedDate: new Date(2026, 0, 21),
+        cost: 340,
+        notes: "Door sensor replaced. Full door cycle test completed. Back in service.",
+      },
+      {
+        propertyId: property.id,
+        unitId: units["201"].id,
+        title: "Kitchen circuit breaker tripping — unit 201",
+        description: "Breaker trips after microwave use. Suspected undersized circuit.",
+        category: MaintenanceCategory.ELECTRICAL,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Fatima Al-Khalifa (unit 201)",
+        assignedTo: "Al Baraka Electrical",
+        reportedDate: new Date(2026, 1, 6),
+        scheduledDate: new Date(2026, 1, 8),
+        completedDate: new Date(2026, 1, 8),
+        cost: 85,
+        vendorId: vendorElec.id,
+        notes: "Uprated circuit breaker installed. Fault confirmed resolved.",
+      },
+      {
+        propertyId: property.id,
+        unitId: units["404"].id,
+        title: "A/C compressor failure — master bedroom unit 404",
+        description: "A/C compressor stopped working. No cooling in master bedroom.",
+        category: MaintenanceCategory.APPLIANCE,
+        priority: MaintenancePriority.HIGH,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Abdullah Al-Maktoum (unit 404)",
+        assignedTo: "Gulf Maintenance Services",
+        reportedDate: new Date(2026, 1, 13),
+        scheduledDate: new Date(2026, 1, 15),
+        completedDate: new Date(2026, 1, 16),
+        cost: 310,
+        vendorId: vendorMaint.id,
+        notes: "Compressor replaced. Full system test passed.",
+      },
+      {
+        propertyId: property.id,
+        title: "CCTV camera offline — car park north corner",
+        description: "Camera 12 (north car park) offline since 28 Feb. Possible cable fault.",
+        category: MaintenanceCategory.SECURITY,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.IN_PROGRESS,
+        reportedBy: "Security guard",
+        assignedTo: "Techno Systems Bahrain",
+        reportedDate: new Date(2026, 2, 1),
+        scheduledDate: new Date(2026, 2, 10),
+        notes: "Technician booked for 10 March. Cable run inspection required.",
+      },
+      {
+        propertyId: property.id,
+        title: "Rooftop terrace — cracked floor tiles",
+        description: "Section of tiles near water feature cracked and lifted. Trip hazard.",
+        category: MaintenanceCategory.STRUCTURAL,
+        priority: MaintenancePriority.LOW,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Building manager",
+        reportedDate: new Date(2026, 2, 15),
+        notes: "Non-urgent. Area cordoned off. Quote requested from contractor.",
+      },
+    ],
+  });
+
+  // ── Compliance certificates ─────────────────────────────────────────────────
+  await prisma.complianceCertificate.createMany({
+    data: [
+      {
+        propertyId: property.id,
+        organizationId,
+        certificateType: "Fire Safety Certificate",
+        certificateNumber: "FSC-BH-2025-1142",
+        issuedBy: "Bahrain Civil Defence Directorate",
+        issueDate: d("2025-03-15"),
+        expiryDate: d("2026-03-14"),
+        notes: "Annual fire safety inspection passed. Extinguishers, alarms & evacuation routes compliant.",
+      },
+      {
+        propertyId: property.id,
+        organizationId,
+        certificateType: "Lift Safety Certificate",
+        certificateNumber: "LSC-BH-2025-0443",
+        issuedBy: "Ministry of Works — Lift Inspectorate",
+        issueDate: d("2025-09-01"),
+        expiryDate: d("2026-08-31"),
+        notes: "Annual statutory lift inspection. ThyssenKrupp lift certified safe for occupancy.",
+      },
+      {
+        propertyId: property.id,
+        organizationId,
+        certificateType: "Building Completion Certificate",
+        certificateNumber: "BCC-MAN-2020-0078",
+        issuedBy: "Bahrain Survey & Land Registration Bureau",
+        issueDate: d("2020-10-01"),
+        notes: "Original completion certificate. No expiry date.",
+      },
+    ],
+  });
+
+  // ── Building condition report ───────────────────────────────────────────────
+  await prisma.buildingConditionReport.create({
+    data: {
+      propertyId: property.id,
+      reportDate: d("2026-03-01"),
+      inspector: "Khalid Al-Saffar, RICS Registered Inspector",
+      overallCondition: "Good",
+      summary:
+        "Al Seef Residences is in good overall condition. Building structure, common areas, and mechanical systems are well-maintained. Minor cosmetic work recommended on the car park floor. CCTV camera fault currently being addressed.",
+      nextReviewDate: d("2026-09-01"),
+      items: [
+        { area: "Roof & Rooftop Terrace",   condition: "Good",      notes: "No water ingress. Cracked tiles flagged for repair." },
+        { area: "Exterior Facade",          condition: "Good",      notes: "Clean finish. No spalling or efflorescence observed." },
+        { area: "Common Areas & Corridors", condition: "Very Good", notes: "Recently repainted. Clean and well-lit." },
+        { area: "Lobby & Reception",        condition: "Very Good", notes: "Well presented. Access control functioning." },
+        { area: "Lift & Mechanical Room",   condition: "Good",      notes: "Lift serviced Jan 2026. Certificate current to Aug 2026." },
+        { area: "Car Park",                 condition: "Fair",      notes: "Oil stains on floor. Recommend pressure wash and reseal." },
+        { area: "Plumbing Infrastructure",  condition: "Good",      notes: "Pump serviced. No active leaks in risers or plant room." },
+        { area: "Electrical Systems",       condition: "Good",      notes: "DB boards inspected. Generator load-tested monthly." },
+        { area: "Security & CCTV",          condition: "Fair",      notes: "Camera 12 offline — repair booked for 10 March 2026." },
+        { area: "Fire Safety Systems",      condition: "Good",      notes: "Certificate valid to March 2026. Renewal due." },
+      ],
+    },
+  });
+
+  // ── Owner invoices (management fee — Jan–Mar 2026) ──────────────────────────
+  for (const { month, paid } of [
+    { month: 1, paid: true  },
+    { month: 2, paid: true  },
+    { month: 3, paid: false },
+  ]) {
+    await prisma.ownerInvoice.create({
+      data: {
+        invoiceNumber: `OWN-ASR-${propCode}-2026-${String(month).padStart(2, "0")}-MGMT`,
+        propertyId: property.id,
+        type: OwnerInvoiceType.MANAGEMENT_FEE,
+        periodYear: YEAR,
+        periodMonth: month,
+        lineItems: [
+          { description: "Management fee — 8 one-bedroom units",   units: 8, unitRate: 50,  amount: 400  },
+          { description: "Management fee — 9 two-bedroom units",   units: 9, unitRate: 75,  amount: 675  },
+          { description: "Management fee — 3 three-bedroom units", units: 3, unitRate: 100, amount: 300  },
+        ],
+        totalAmount: 1375,
+        dueDate: new Date(YEAR, month - 1, 10),
+        status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
+        paidAt: paid ? new Date(YEAR, month - 1, 12) : null,
+        paidAmount: paid ? 1375 : null,
+        notes: `Monthly property management fee — ${new Date(YEAR, month - 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
+      },
+    });
+  }
+
+  // ── Asset maintenance logs ──────────────────────────────────────────────────
+  const asrAssets = await prisma.asset.findMany({
+    where: { propertyId: property.id },
+    select: { id: true, name: true },
+  });
+  const asrAssetMap = Object.fromEntries(asrAssets.map((a) => [a.name, a.id]));
+
+  await prisma.assetMaintenanceLog.createMany({
+    data: [
+      {
+        assetId: asrAssetMap["Cummins Standby Generator"],
+        date: d("2026-01-10"),
+        description: "Monthly service check — oil level, coolant, battery voltage, 30-min load test",
+        cost: 65,
+        technician: "Ahmed Khalil, Cummins Bahrain",
+        vendorId: vendorMaint.id,
+        notes: "All systems nominal. Next service due 10 Feb 2026.",
+      },
+      {
+        assetId: asrAssetMap["Cummins Standby Generator"],
+        date: d("2026-02-10"),
+        description: "Monthly service check — routine inspection and load test passed",
+        cost: 65,
+        technician: "Ahmed Khalil, Cummins Bahrain",
+        vendorId: vendorMaint.id,
+        notes: "No faults found. Next service due 10 Mar 2026.",
+      },
+      {
+        assetId: asrAssetMap["ThyssenKrupp Passenger Lift"],
+        date: d("2026-01-21"),
+        description: "Unscheduled repair — door sensor replacement, floor 2",
+        cost: 340,
+        technician: "ThyssenKrupp service technician",
+        notes: "Door sensor faulty — replaced. Full door cycle test completed. Back in service.",
+      },
+      {
+        assetId: asrAssetMap["Grundfos Water Pump"],
+        date: d("2026-02-14"),
+        description: "Biannual inspection — pressure test, seals check, flow rate measurement",
+        cost: 110,
+        technician: "Aqua Systems Bahrain technician",
+        notes: "Pump within spec. Pressure seal showing minor wear — flagged for next service.",
+      },
+    ],
+  });
+
+  // ── Arrears escalations ─────────────────────────────────────────────────────
+  const asrArrearsCases = await prisma.arrearsCase.findMany({
+    where: { propertyId: property.id },
+    select: { id: true, tenantId: true },
+  });
+  const asrCaseByTenant = Object.fromEntries(asrArrearsCases.map((c) => [c.tenantId, c.id]));
+
+  await prisma.arrearsEscalation.createMany({
+    data: [
+      // Priya Sharma (unit 102) — 2 months overdue
+      {
+        caseId: asrCaseByTenant[tenants["102"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "WhatsApp reminder sent 3 Feb 2026. Tenant acknowledged but did not pay.",
+        createdAt: d("2026-02-03"),
+      },
+      {
+        caseId: asrCaseByTenant[tenants["102"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "Follow-up call 15 Feb 2026. Tenant promised to pay by month-end. March also missed.",
+        createdAt: d("2026-02-15"),
+      },
+      {
+        caseId: asrCaseByTenant[tenants["102"].id],
+        stage: ArrearsStage.DEMAND_LETTER,
+        notes: "Formal demand letter issued 18 Mar 2026 via registered post. 7-day payment window given.",
+        createdAt: d("2026-03-18"),
+      },
+      // Deepak & Meera Pillai (unit 304) — March rent outstanding
+      {
+        caseId: asrCaseByTenant[tenants["304"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "SMS reminder sent 10 Mar 2026. Tenant has given notice — chase payment before lease-end.",
+        createdAt: d("2026-03-10"),
+      },
+    ],
+  });
+
   return property;
 }
 
@@ -903,6 +1265,371 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       notes:
         "March 2026 rent outstanding (R14,500 + R650 service charge). WhatsApp reminder sent 8 March. Awaiting response.",
     },
+  });
+
+  // ── Vendors ─────────────────────────────────────────────────────────────────
+  const [shVendorMaint, shVendorElec] = await Promise.all([
+    prisma.vendor.create({
+      data: {
+        name: "BuildFix SA",
+        category: VendorCategory.CONTRACTOR,
+        phone: "+27 11 402 3300",
+        email: "info@buildfixsa.co.za",
+        organizationId,
+        isActive: true,
+        notes: "General building maintenance contractor — plumbing, tiling, carpentry.",
+      },
+    }),
+    prisma.vendor.create({
+      data: {
+        name: "Sparks Electrical",
+        category: VendorCategory.CONTRACTOR,
+        phone: "+27 11 402 4400",
+        email: "ops@sparkselectrical.co.za",
+        organizationId,
+        isActive: true,
+        notes: "Licensed electrical contractor — fault finding, COC testing & DB upgrades.",
+      },
+    }),
+    prisma.vendor.create({
+      data: {
+        name: "Green Clean Services",
+        category: VendorCategory.SERVICE_PROVIDER,
+        phone: "+27 11 402 5500",
+        email: "admin@greenclean.co.za",
+        organizationId,
+        isActive: true,
+        notes: "Daily common area cleaning & scheduled deep-clean services.",
+      },
+    }),
+  ]);
+
+  // ── Agent ────────────────────────────────────────────────────────────────────
+  await prisma.agent.create({
+    data: {
+      name: "Seeff Properties Sandton",
+      phone: "+27 11 784 8870",
+      email: "sandton@seeff.com",
+      agency: "Seeff Properties",
+      notes: "Primary letting agent for Sandton Heights. Commission rate per agreement.",
+    },
+  });
+
+  // ── Management agreement ────────────────────────────────────────────────────
+  await prisma.managementAgreement.create({
+    data: {
+      propertyId: property.id,
+      managementFeeRate: 10.0,
+      vacancyFeeRate: 5.0,
+      vacancyFeeThresholdMonths: 9,
+      newLettingFeeRate: 100.0,
+      leaseRenewalFeeFlat: 3500,
+      repairAuthorityLimit: 10000,
+      rentRemittanceDay: 3,
+      mgmtFeeInvoiceDay: 5,
+      landlordPaymentDays: 3,
+      kpiStartDate: d("2026-01-01"),
+      kpiOccupancyTarget: 90,
+      kpiRentCollectionTarget: 92,
+      kpiExpenseRatioTarget: 85,
+      kpiDaysToLeaseTarget: 30,
+      kpiRenewalRateTarget: 80,
+      kpiMaintenanceCompletionTarget: 95,
+      kpiEmergencyResponseHrs: 4,
+      kpiStandardResponseHrs: 48,
+    },
+  });
+
+  // ── Rent history ────────────────────────────────────────────────────────────
+  await prisma.rentHistory.createMany({
+    data: [
+      // Prior-year rate for long-term tenants (showing annual escalation)
+      { tenantId: tenants["101"].id, monthlyRent: 7800,  effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["103"].id, monthlyRent: 12500, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["203"].id, monthlyRent: 18000, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["303"].id, monthlyRent: 18500, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      // Lease commencement / annual review records (all tenants, Jan 2026)
+      ...tenantDefs.map((t) => ({
+        tenantId: tenants[t.unit].id,
+        monthlyRent: t.rent,
+        effectiveDate: d("2026-01-01"),
+        reason: "Lease commencement / annual review",
+      })),
+    ],
+  });
+
+  // ── Maintenance jobs ────────────────────────────────────────────────────────
+  await prisma.maintenanceJob.createMany({
+    data: [
+      {
+        propertyId: property.id,
+        unitId: units["103"].id,
+        title: "Geyser element failure — unit 103",
+        description: "No hot water in unit 103. Geyser element failed overnight.",
+        category: MaintenanceCategory.PLUMBING,
+        priority: MaintenancePriority.HIGH,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Thabo Mokoena (unit 103)",
+        assignedTo: "BuildFix SA",
+        reportedDate: new Date(2026, 0, 8),
+        scheduledDate: new Date(2026, 0, 9),
+        completedDate: new Date(2026, 0, 9),
+        cost: 1800,
+        vendorId: shVendorMaint.id,
+        notes: "150L geyser element and thermostat replaced. Tested and functioning.",
+      },
+      {
+        propertyId: property.id,
+        title: "Generator — fuel system service post load-shedding",
+        description: "Generator ran for extended periods during Stage 6 load-shedding. Full service required.",
+        category: MaintenanceCategory.OTHER,
+        priority: MaintenancePriority.HIGH,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Building manager",
+        assignedTo: "Agrico Equipment",
+        reportedDate: new Date(2026, 0, 20),
+        scheduledDate: new Date(2026, 0, 22),
+        completedDate: new Date(2026, 0, 23),
+        cost: 2400,
+        notes: "Oil changed, filters replaced, fuel injectors cleaned. Generator back to full spec.",
+      },
+      {
+        propertyId: property.id,
+        unitId: units["201"].id,
+        title: "DB board trip — intermittent fault unit 201",
+        description: "Main DB board tripping after power restoration from load-shedding.",
+        category: MaintenanceCategory.ELECTRICAL,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Johan van der Merwe (unit 201)",
+        assignedTo: "Sparks Electrical",
+        reportedDate: new Date(2026, 1, 7),
+        scheduledDate: new Date(2026, 1, 9),
+        completedDate: new Date(2026, 1, 9),
+        cost: 950,
+        vendorId: shVendorElec.id,
+        notes: "Surge protector failed — replaced. DB board tested. COC issued.",
+      },
+      {
+        propertyId: property.id,
+        unitId: units["203"].id,
+        title: "Air conditioning compressor failure — master bedroom unit 203",
+        description: "Split A/C unit in master bedroom not cooling. Compressor failure confirmed.",
+        category: MaintenanceCategory.APPLIANCE,
+        priority: MaintenancePriority.HIGH,
+        status: MaintenanceStatus.DONE,
+        reportedBy: "Lungelo Khumalo (unit 203)",
+        assignedTo: "BuildFix SA",
+        reportedDate: new Date(2026, 1, 14),
+        scheduledDate: new Date(2026, 1, 16),
+        completedDate: new Date(2026, 1, 17),
+        cost: 4200,
+        vendorId: shVendorMaint.id,
+        notes: "Compressor replaced. Full re-gas and system test completed.",
+      },
+      {
+        propertyId: property.id,
+        title: "Security gate motor fault — basement entry",
+        description: "Automated gate to basement parking not opening. Motor fault.",
+        category: MaintenanceCategory.SECURITY,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.IN_PROGRESS,
+        reportedBy: "Multiple tenants",
+        assignedTo: "ADT Security",
+        reportedDate: new Date(2026, 2, 5),
+        scheduledDate: new Date(2026, 2, 12),
+        notes: "Technician booked 12 March. Manual override in place for tenants.",
+      },
+      {
+        propertyId: property.id,
+        title: "Drain blockage — ground floor common bathroom",
+        description: "Drain in ground floor staff bathroom blocking repeatedly.",
+        category: MaintenanceCategory.PLUMBING,
+        priority: MaintenancePriority.LOW,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Cleaning staff",
+        reportedDate: new Date(2026, 2, 18),
+        notes: "Non-urgent. Quoted for hydro-jetting of drain. Awaiting approval.",
+      },
+    ],
+  });
+
+  // ── Compliance certificates ─────────────────────────────────────────────────
+  await prisma.complianceCertificate.createMany({
+    data: [
+      {
+        propertyId: property.id,
+        organizationId,
+        certificateType: "Certificate of Compliance (COC) — Electrical",
+        certificateNumber: "COC-GP-2025-44821",
+        issuedBy: "Sparks Electrical — Registered Wireman",
+        issueDate: d("2025-06-01"),
+        expiryDate: d("2027-05-31"),
+        notes: "Full electrical installation compliance certificate. Valid for 2 years.",
+      },
+      {
+        propertyId: property.id,
+        organizationId,
+        certificateType: "Fire Safety Certificate",
+        certificateNumber: "FSC-GP-2025-0932",
+        issuedBy: "Johannesburg Fire & Rescue Services",
+        issueDate: d("2025-02-15"),
+        expiryDate: d("2026-02-14"),
+        notes: "Annual fire safety inspection passed. Extinguishers, hose reels & detectors compliant.",
+      },
+      {
+        propertyId: property.id,
+        organizationId,
+        certificateType: "Occupation Certificate",
+        certificateNumber: "OC-JHB-2020-1154",
+        issuedBy: "City of Johannesburg — Building Development Management",
+        issueDate: d("2020-11-15"),
+        notes: "Original occupation certificate issued on completion. No expiry.",
+      },
+    ],
+  });
+
+  // ── Building condition report ───────────────────────────────────────────────
+  await prisma.buildingConditionReport.create({
+    data: {
+      propertyId: property.id,
+      reportDate: d("2026-03-05"),
+      inspector: "Pieter Swanepoel, SACAP Registered Professional",
+      overallCondition: "Good",
+      summary:
+        "Sandton Heights is in good overall condition. The structure, common areas, and services are well-maintained. The fire safety certificate expires February 2026 and renewal is due. Security gate motor requires urgent attention. Generator is performing well given sustained load-shedding periods.",
+      nextReviewDate: d("2026-09-05"),
+      items: [
+        { area: "Roof & Waterproofing",         condition: "Good",      notes: "No active leaks. Flashings intact. Re-inspect after rainy season." },
+        { area: "Exterior Facade & Paintwork",  condition: "Good",      notes: "Clean render. Minor cracking at expansion joint on floor 2 — monitor." },
+        { area: "Common Areas & Corridors",     condition: "Very Good", notes: "Freshly painted. Clean and well-lit. Fire extinguishers in place." },
+        { area: "Lobby & Intercom",             condition: "Good",      notes: "Intercom system functional. Access control operating correctly." },
+        { area: "Lift",                         condition: "Good",      notes: "Otis lift serviced Q1 2026. Quarterly service due April." },
+        { area: "Basement Parking & Gate",      condition: "Fair",      notes: "Gate motor faulty — repair in progress. Parking markings faded." },
+        { area: "Plumbing Infrastructure",      condition: "Good",      notes: "Pressure pump operational. No active leaks in risers." },
+        { area: "Electrical & Generator",       condition: "Good",      notes: "Generator serviced post Stage 6 outages. DB boards inspected." },
+        { area: "Security & CCTV",              condition: "Good",      notes: "16 cameras all operational. Gate motor fault logged separately." },
+        { area: "Fire Safety Systems",          condition: "Fair",      notes: "Certificate expired Feb 2026. Renewal inspection to be scheduled." },
+        { area: "Landscaped Gardens",           condition: "Very Good", notes: "Well-maintained. Irrigation system operational." },
+      ],
+    },
+  });
+
+  // ── Owner invoices (management fee — Jan–Mar 2026) ──────────────────────────
+  for (const { month, paid } of [
+    { month: 1, paid: true  },
+    { month: 2, paid: true  },
+    { month: 3, paid: false },
+  ]) {
+    await prisma.ownerInvoice.create({
+      data: {
+        invoiceNumber: `OWN-SH-${propCode}-2026-${String(month).padStart(2, "0")}-MGMT`,
+        propertyId: property.id,
+        type: OwnerInvoiceType.MANAGEMENT_FEE,
+        periodYear: YEAR,
+        periodMonth: month,
+        lineItems: [
+          { description: "Management fee — 3 one-bedroom units",   units: 3, unitRate: 850,  amount: 2550 },
+          { description: "Management fee — 4 two-bedroom units",   units: 4, unitRate: 1100, amount: 4400 },
+          { description: "Management fee — 2 three-bedroom units", units: 2, unitRate: 1500, amount: 3000 },
+        ],
+        totalAmount: 9950,
+        dueDate: new Date(YEAR, month - 1, 8),
+        status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
+        paidAt: paid ? new Date(YEAR, month - 1, 10) : null,
+        paidAmount: paid ? 9950 : null,
+        notes: `Monthly property management fee — ${new Date(YEAR, month - 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
+      },
+    });
+  }
+
+  // ── Asset maintenance logs ──────────────────────────────────────────────────
+  const shAssets = await prisma.asset.findMany({
+    where: { propertyId: property.id },
+    select: { id: true, name: true },
+  });
+  const shAssetMap = Object.fromEntries(shAssets.map((a) => [a.name, a.id]));
+
+  await prisma.assetMaintenanceLog.createMany({
+    data: [
+      {
+        assetId: shAssetMap["Perkins Standby Generator"],
+        date: d("2026-01-08"),
+        description: "Post-Stage 6 full service — oil change, filters, fuel injectors, load test",
+        cost: 2400,
+        technician: "Agrico Equipment technician",
+        notes: "Generator ran 72 hrs continuous during Stage 6. All consumables replaced. Performing normally.",
+      },
+      {
+        assetId: shAssetMap["Perkins Standby Generator"],
+        date: d("2026-02-10"),
+        description: "Monthly routine check — oil level, coolant, battery voltage, 30-min load test",
+        cost: 850,
+        technician: "Agrico Equipment technician",
+        vendorId: shVendorMaint.id,
+        notes: "All systems nominal. No faults detected. Next check due 10 Mar 2026.",
+      },
+      {
+        assetId: shAssetMap["Otis Passenger Lift"],
+        date: d("2026-01-15"),
+        description: "Q1 quarterly service — lubrication, safety brake test, door mechanism check",
+        cost: 3200,
+        technician: "Otis Elevator SA technician",
+        notes: "All checks passed. Certificate of service issued. Next quarterly due April 2026.",
+      },
+      {
+        assetId: shAssetMap["Grundfos Pressure Pump"],
+        date: d("2026-03-10"),
+        description: "Routine inspection — pressure output, seal condition, impeller check",
+        cost: 1400,
+        technician: "Pump & Valve SA technician",
+        notes: "Pump within spec. Shaft seal showing slight wear — replacement recommended at next service.",
+      },
+    ],
+  });
+
+  // ── Arrears escalations ─────────────────────────────────────────────────────
+  const shArrearsCases = await prisma.arrearsCase.findMany({
+    where: { propertyId: property.id },
+    select: { id: true, tenantId: true },
+  });
+  const shCaseByTenant = Object.fromEntries(shArrearsCases.map((c) => [c.tenantId, c.id]));
+
+  await prisma.arrearsEscalation.createMany({
+    data: [
+      // Priya Naidoo (unit 102) — 2 months overdue
+      {
+        caseId: shCaseByTenant[tenants["102"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "WhatsApp reminder sent 5 Feb 2026. Tenant read message but did not respond.",
+        createdAt: d("2026-02-05"),
+      },
+      {
+        caseId: shCaseByTenant[tenants["102"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "Phone call 18 Feb 2026. Tenant cited financial difficulty — requested 2-week extension. March also missed.",
+        createdAt: d("2026-02-18"),
+      },
+      {
+        caseId: shCaseByTenant[tenants["102"].id],
+        stage: ArrearsStage.DEMAND_LETTER,
+        notes: "Section 4 notice issued 20 Mar 2026 via registered post. 20-business-day compliance window.",
+        createdAt: d("2026-03-20"),
+      },
+      // Rajesh Govender (unit 302) — March rent outstanding
+      {
+        caseId: shCaseByTenant[tenants["302"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "WhatsApp reminder sent 8 Mar 2026. Tenant acknowledged and promised payment by 15 March.",
+        createdAt: d("2026-03-08"),
+      },
+      {
+        caseId: shCaseByTenant[tenants["302"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "Follow-up call 20 Mar 2026. Tenant did not pay by promised date. Escalation under review.",
+        createdAt: d("2026-03-20"),
+      },
+    ],
   });
 
   return property;

@@ -24,5 +24,14 @@ export const DEMO_PROPERTIES: DemoDefinition[] = [
     description: "20-unit residential tower in Manama — 3 months of income, expenses, tenants & arrears.",
     flag: "🇧🇭",
   },
+  {
+    key: "sandton-heights",
+    name: "Sandton Heights",
+    country: "South Africa",
+    currency: "ZAR",
+    units: 9,
+    description: "9-unit residential complex in Sandton, Johannesburg — 3 months of income, expenses, tenants & arrears.",
+    flag: "🇿🇦",
+  },
   // Future demos registered here. Each needs a matching case in /api/demo/seed/route.ts
 ];

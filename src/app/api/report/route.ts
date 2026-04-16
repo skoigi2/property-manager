@@ -21,8 +21,9 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
       where: { id: { in: propertyIds } },
       include: {
         units: true,
-        owner:   { select: { name: true, email: true } },
-        manager: { select: { name: true, email: true } },
+        owner:        { select: { name: true, email: true } },
+        manager:      { select: { name: true, email: true } },
+        organization: { select: { name: true } },
       },
     }),
     prisma.tenant.findMany({
@@ -54,11 +55,12 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const totalExpenses     = expenseEntries.filter((e) => !e.isSunkCost).reduce((s, e) => s + e.amount, 0);
   const netProfit         = grossIncome - agentCommissions - totalExpenses;
 
-  const propertyNames = properties.map((p) => p.name).join(" & ");
-  const ownerName     = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
-  const managerName   = properties[0]?.manager?.name ?? properties[0]?.manager?.email ?? session?.user?.name ?? "Manager";
-  const totalUnits    = properties.reduce((s, p) => s + p.units.length, 0);
-  const occupancyRate = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
+  const propertyNames    = properties.map((p) => p.name).join(" & ");
+  const organizationName = properties[0]?.organization?.name ?? "Property Manager";
+  const ownerName        = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
+  const managerName      = properties[0]?.manager?.name ?? properties[0]?.manager?.email ?? session?.user?.name ?? "Manager";
+  const totalUnits       = properties.reduce((s, p) => s + p.units.length, 0);
+  const occupancyRate    = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
 
   const longTermIds  = new Set(properties.filter((p) => p.type === "LONGTERM").map((p) => p.id));
   const riaraTenants = tenants.filter((t) => longTermIds.has(t.unit.propertyId));
@@ -174,6 +176,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
     currency:             properties[0]?.currency ?? "USD",
+    organizationName,
     longTermPropertyName: longTermName,
     shortLetPropertyName: shortLetName,
     ownerName,
@@ -215,8 +218,9 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
       where: { id: { in: propertyIds } },
       include: {
         units: true,
-        owner:   { select: { name: true, email: true } },
-        manager: { select: { name: true, email: true } },
+        owner:        { select: { name: true, email: true } },
+        manager:      { select: { name: true, email: true } },
+        organization: { select: { name: true } },
       },
     }),
     prisma.tenant.findMany({
@@ -245,11 +249,12 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   const totalExpenses    = expenseEntries.filter((e) => !e.isSunkCost).reduce((s, e) => s + e.amount, 0);
   const netProfit        = grossIncome - agentCommissions - totalExpenses;
 
-  const propertyNames = properties.map((p) => p.name).join(" & ");
-  const ownerName     = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
-  const managerName   = properties[0]?.manager?.name ?? properties[0]?.manager?.email ?? session?.user?.name ?? "Manager";
-  const totalUnits    = properties.reduce((s, p) => s + p.units.length, 0);
-  const occupancyRate = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
+  const propertyNames    = properties.map((p) => p.name).join(" & ");
+  const organizationName = properties[0]?.organization?.name ?? "Property Manager";
+  const ownerName        = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
+  const managerName      = properties[0]?.manager?.name ?? properties[0]?.manager?.email ?? session?.user?.name ?? "Manager";
+  const totalUnits       = properties.reduce((s, p) => s + p.units.length, 0);
+  const occupancyRate    = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
 
   const longTermIdsQ  = new Set(properties.filter((p) => p.type === "LONGTERM").map((p) => p.id));
   const riaraTenants  = tenants.filter((t) => longTermIdsQ.has(t.unit.propertyId));
@@ -335,6 +340,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
     currency:             properties[0]?.currency ?? "USD",
+    organizationName,
     longTermPropertyName: longTermNameQ,
     shortLetPropertyName: shortLetNameQ,
     ownerName, managerName,

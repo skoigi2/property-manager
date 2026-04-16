@@ -34,11 +34,11 @@ function PageHeader({ period, property }: { period: string; property: string }) 
   );
 }
 
-function PageFooter({ period, property }: { period: string; property: string }) {
+function PageFooter({ period, property, organizationName }: { period: string; property: string; organizationName: string }) {
   return (
     <View style={styles.footer} fixed>
       <Text style={styles.footerText}>
-        KOKA Advisory Group · {property} · Property Performance Report · {period}
+        {organizationName} · {property} · Property Performance Report · {period}
       </Text>
       <Text
         style={styles.footerText}
@@ -167,7 +167,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const grossIncome       = data.kpis.grossIncome;
   const margin            = grossIncome > 0 ? ((data.kpis.netProfit / grossIncome) * 100).toFixed(1) : "0.0";
 
-  const footerProps = { period: data.period, property: data.property };
+  const footerProps = { period: data.period, property: data.property, organizationName: data.organizationName };
 
   return (
     <Document title={data.title} author="Groundwork PM">
@@ -176,7 +176,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
       <Page size="A4" style={styles.coverPage}>
         {/* Gold top bar */}
         <View style={styles.coverTopBar}>
-          <Text style={styles.coverTopBarLeft}>KOKA ADVISORY GROUP</Text>
+          <Text style={styles.coverTopBarLeft}>{data.organizationName.toUpperCase()}</Text>
           <Text style={styles.coverTopBarRight}>Property &amp; Asset Management</Text>
         </View>
 

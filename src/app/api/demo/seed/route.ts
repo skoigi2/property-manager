@@ -1068,211 +1068,188 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
 
   await prisma.incomeEntry.createMany({ data: incomeEntryData });
 
-  // ── Property-level monthly expenses (with vendors & line items) ─────────────
-  for (const month of MONTHS) {
-    // Management fee
-    await prisma.expenseEntry.create({
-      data: {
+  // ── Property-level monthly expenses (batched) ────────────────────────────────
+  const monthlyPropExpensesDefs = [
+    { category: ExpenseCategory.MANAGEMENT_FEE, amount: 7200, desc: "Monthly management fee — Sandton Property Management", vendorId: shVendorMgmt.id },
+    { category: ExpenseCategory.WATER,          amount: 2400, desc: "City of Johannesburg — water & sewerage",              vendorId: shVendorWater.id },
+    { category: ExpenseCategory.ELECTRICITY,    amount: 3800, desc: "Eskom — common areas & security lighting",             vendorId: shVendorEskom.id },
+    { category: ExpenseCategory.CLEANER,        amount: 5500, desc: "Cleaning staff — 2 cleaners (common areas & grounds)", vendorId: shVendorClean.id },
+    { category: ExpenseCategory.WIFI,           amount: 1200, desc: "Vox Fibre — building internet infrastructure",         vendorId: shVendorFibre.id },
+  ];
+
+  await prisma.expenseEntry.createMany({
+    data: MONTHS.flatMap((month) =>
+      monthlyPropExpensesDefs.map((e) => ({
         date: monthStart(YEAR, month),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
-        category: ExpenseCategory.MANAGEMENT_FEE,
-        amount: 7200,
-        description: "Monthly management fee — Sandton Property Management",
+        category: e.category,
+        amount: e.amount,
+        description: e.desc,
         isSunkCost: false,
         paidFromPettyCash: false,
-        vendorId: shVendorMgmt.id,
-        lineItems: {
-          create: [
-            { category: LineItemCategory.LABOUR,   description: "Management fee (excl. VAT)", amount: 6261, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
-            { category: LineItemCategory.QUOTE,    description: "VAT @ 15%",                  amount: 939,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-          ],
-        },
-      },
-    });
-    // Water & sewerage
-    await prisma.expenseEntry.create({
-      data: {
-        date: monthStart(YEAR, month),
-        propertyId: property.id,
-        scope: ExpenseScope.PROPERTY,
-        category: ExpenseCategory.WATER,
-        amount: 2400,
-        description: "City of Johannesburg — water & sewerage",
+        vendorId: e.vendorId,
+      }))
+    ),
+  });
+
+  // ── Unit-level ad-hoc expenses (batched) ─────────────────────────────────────
+  await prisma.expenseEntry.createMany({
+    data: [
+      {
+        date: monthStart(YEAR, 0),
+        unitId: units["103"].id,
+        scope: ExpenseScope.UNIT,
+        category: ExpenseCategory.MAINTENANCE,
+        amount: 1800,
+        description: "Geyser replacement — hot water cylinder unit 103",
         isSunkCost: false,
         paidFromPettyCash: false,
-        vendorId: shVendorWater.id,
-        lineItems: {
-          create: [
-            { category: LineItemCategory.MATERIAL, description: "Water consumption", amount: 1680, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-            { category: LineItemCategory.MATERIAL, description: "Sewerage levy",     amount: 720,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-          ],
-        },
+        vendorId: shVendorMaint.id,
       },
-    });
-    // Electricity
-    await prisma.expenseEntry.create({
-      data: {
-        date: monthStart(YEAR, month),
-        propertyId: property.id,
-        scope: ExpenseScope.PROPERTY,
-        category: ExpenseCategory.ELECTRICITY,
-        amount: 3800,
-        description: "Eskom — common areas & security lighting",
+      {
+        date: monthStart(YEAR, 1),
+        unitId: units["201"].id,
+        scope: ExpenseScope.UNIT,
+        category: ExpenseCategory.MAINTENANCE,
+        amount: 950,
+        description: "Electrical fault — DB board trip, unit 201",
         isSunkCost: false,
         paidFromPettyCash: false,
-        vendorId: shVendorEskom.id,
-        lineItems: {
-          create: [
-            { category: LineItemCategory.MATERIAL, description: "Electricity consumption (incl. VAT)", amount: 3200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-            { category: LineItemCategory.MATERIAL, description: "Network access charge (incl. VAT)",   amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-          ],
-        },
+        vendorId: shVendorSparks.id,
       },
-    });
-    // Cleaning
-    await prisma.expenseEntry.create({
-      data: {
-        date: monthStart(YEAR, month),
-        propertyId: property.id,
-        scope: ExpenseScope.PROPERTY,
-        category: ExpenseCategory.CLEANER,
-        amount: 5500,
-        description: "Cleaning staff — 2 cleaners (common areas & grounds)",
-        isSunkCost: false,
+      {
+        date: monthStart(YEAR, 1),
+        unitId: units["203"].id,
+        scope: ExpenseScope.UNIT,
+        category: ExpenseCategory.MAINTENANCE,
+        amount: 4200,
+        description: "Air conditioning compressor — master bedroom unit 203",
+        isSunkCost: true,
+        paidFromPettyCash: false,
+        vendorId: shVendorMaint.id,
+      },
+      {
+        date: monthStart(YEAR, 2),
+        unitId: units["302"].id,
+        scope: ExpenseScope.UNIT,
+        category: ExpenseCategory.REINSTATEMENT,
+        amount: 3500,
+        description: "Deep clean & touch-up painting — notice unit 302",
+        isSunkCost: true,
         paidFromPettyCash: false,
         vendorId: shVendorClean.id,
-        lineItems: {
-          create: [
-            { category: LineItemCategory.LABOUR,   description: "Cleaning staff wages (2 cleaners)", amount: 4800, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-            { category: LineItemCategory.MATERIAL, description: "Cleaning materials & detergents",   amount: 700,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-          ],
-        },
       },
-    });
-    // Fibre internet
-    await prisma.expenseEntry.create({
-      data: {
-        date: monthStart(YEAR, month),
+      {
+        date: monthStart(YEAR, 3),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
-        category: ExpenseCategory.WIFI,
-        amount: 1200,
-        description: "Vox Fibre — building internet infrastructure",
+        category: ExpenseCategory.MAINTENANCE,
+        amount: 8500,
+        description: "Security gate motor replacement — basement entry",
         isSunkCost: false,
         paidFromPettyCash: false,
-        vendorId: shVendorFibre.id,
-        lineItems: {
-          create: [
-            { category: LineItemCategory.MATERIAL, description: "Fibre subscription (excl. VAT)", amount: 1043, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
-            { category: LineItemCategory.QUOTE,    description: "VAT @ 15%",                      amount: 157,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-          ],
-        },
+        vendorId: shVendorADT.id,
       },
-    });
+    ],
+  });
+
+  // ── Expense line items ────────────────────────────────────────────────────────
+  // Fetch the created entries so we can attach line items by description match
+  const createdExpenses = await prisma.expenseEntry.findMany({
+    where: { propertyId: property.id },
+    select: { id: true, description: true, category: true, amount: true },
+  });
+  // Also fetch unit-level expenses for this property's units
+  const createdUnitExpenses = await prisma.expenseEntry.findMany({
+    where: { unitId: { in: Object.values(units).map((u) => u.id) } },
+    select: { id: true, description: true, category: true, amount: true },
+  });
+  const allCreatedExpenses = [...createdExpenses, ...createdUnitExpenses];
+
+  function findExpenseId(descFragment: string): string | null {
+    return allCreatedExpenses.find((e) => e.description?.includes(descFragment))?.id ?? null;
   }
 
-  // ── Unit-level ad-hoc expenses (with vendors & line items) ──────────────────
-  // Jan — Geyser replacement, unit 103 (BuildFix SA)
-  await prisma.expenseEntry.create({
-    data: {
-      date: monthStart(YEAR, 0),
-      unitId: units["103"].id,
-      scope: ExpenseScope.UNIT,
-      category: ExpenseCategory.MAINTENANCE,
-      amount: 1800,
-      description: "Geyser replacement — hot water cylinder unit 103",
-      isSunkCost: false,
-      paidFromPettyCash: false,
-      vendorId: shVendorMaint.id,
-      lineItems: {
-        create: [
-          { category: LineItemCategory.LABOUR,   description: "Installation labour",              amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-          { category: LineItemCategory.MATERIAL, description: "150L geyser element & thermostat", amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-        ],
-      },
-    },
-  });
-  // Feb — DB board fault, unit 201 (Sparks Electrical)
-  await prisma.expenseEntry.create({
-    data: {
-      date: monthStart(YEAR, 1),
-      unitId: units["201"].id,
-      scope: ExpenseScope.UNIT,
-      category: ExpenseCategory.MAINTENANCE,
-      amount: 950,
-      description: "Electrical fault — DB board trip, unit 201",
-      isSunkCost: false,
-      paidFromPettyCash: false,
-      vendorId: shVendorSparks.id,
-      lineItems: {
-        create: [
-          { category: LineItemCategory.LABOUR,   description: "Fault-finding & repair labour", amount: 700, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-          { category: LineItemCategory.MATERIAL, description: "Surge protector replacement",   amount: 250, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-        ],
-      },
-    },
-  });
-  // Feb — A/C compressor, unit 203 (BuildFix SA) — sunk cost
-  await prisma.expenseEntry.create({
-    data: {
-      date: monthStart(YEAR, 1),
-      unitId: units["203"].id,
-      scope: ExpenseScope.UNIT,
-      category: ExpenseCategory.MAINTENANCE,
-      amount: 4200,
-      description: "Air conditioning compressor — master bedroom",
-      isSunkCost: true,
-      paidFromPettyCash: false,
-      vendorId: shVendorMaint.id,
-      lineItems: {
-        create: [
-          { category: LineItemCategory.LABOUR,   description: "Installation & re-gas labour",  amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-          { category: LineItemCategory.MATERIAL, description: "Compressor unit (incl. VAT)",   amount: 3000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-        ],
-      },
-    },
-  });
-  // Mar — Deep clean & reinstatement, unit 302 (Green Clean Services) — sunk cost
-  await prisma.expenseEntry.create({
-    data: {
-      date: monthStart(YEAR, 2),
-      unitId: units["302"].id,
-      scope: ExpenseScope.UNIT,
-      category: ExpenseCategory.REINSTATEMENT,
-      amount: 3500,
-      description: "Deep clean & touch-up painting — notice unit 302",
-      isSunkCost: true,
-      paidFromPettyCash: false,
-      vendorId: shVendorClean.id,
-      lineItems: {
-        create: [
-          { category: LineItemCategory.LABOUR,   description: "Deep clean labour",             amount: 2500, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-          { category: LineItemCategory.MATERIAL, description: "Painting materials & sundries", amount: 1000, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-        ],
-      },
-    },
-  });
-  // Apr — Gate motor replacement, property-level (ADT Security)
-  await prisma.expenseEntry.create({
-    data: {
-      date: monthStart(YEAR, 3),
-      propertyId: property.id,
-      scope: ExpenseScope.PROPERTY,
-      category: ExpenseCategory.MAINTENANCE,
-      amount: 8500,
-      description: "Security gate motor replacement — basement entry",
-      isSunkCost: false,
-      paidFromPettyCash: false,
-      vendorId: shVendorADT.id,
-      lineItems: {
-        create: [
-          { category: LineItemCategory.LABOUR,   description: "Motor installation & commissioning", amount: 2500, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-          { category: LineItemCategory.MATERIAL, description: "Gate motor unit & hardware",         amount: 6000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-        ],
-      },
-    },
-  });
+  const lineItemRows: {
+    expenseId: string;
+    category: LineItemCategory;
+    description: string;
+    amount: number;
+    isVatable: boolean;
+    paymentStatus: LineItemPaymentStatus;
+  }[] = [];
+
+  // Collect line items for each expense type (using first-month entry as template —
+  // all months share the same line item breakdown)
+  const mgmtIds    = allCreatedExpenses.filter((e) => e.category === ExpenseCategory.MANAGEMENT_FEE);
+  const waterIds   = allCreatedExpenses.filter((e) => e.category === ExpenseCategory.WATER && e.description?.includes("Johannesburg"));
+  const eskomIds   = allCreatedExpenses.filter((e) => e.category === ExpenseCategory.ELECTRICITY);
+  const cleanIds   = allCreatedExpenses.filter((e) => e.category === ExpenseCategory.CLEANER && e.description?.includes("Cleaning staff"));
+  const wifiIds    = allCreatedExpenses.filter((e) => e.category === ExpenseCategory.WIFI);
+
+  for (const e of mgmtIds) {
+    lineItemRows.push(
+      { expenseId: e.id, category: LineItemCategory.LABOUR,  description: "Management fee (excl. VAT)", amount: 6261, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.QUOTE,   description: "VAT @ 15%",                  amount: 939,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+    );
+  }
+  for (const e of waterIds) {
+    lineItemRows.push(
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Water consumption", amount: 1680, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Sewerage levy",     amount: 720,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+    );
+  }
+  for (const e of eskomIds) {
+    lineItemRows.push(
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Electricity consumption (incl. VAT)", amount: 3200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Network access charge (incl. VAT)",   amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    );
+  }
+  for (const e of cleanIds) {
+    lineItemRows.push(
+      { expenseId: e.id, category: LineItemCategory.LABOUR,   description: "Cleaning staff wages (2 cleaners)", amount: 4800, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Cleaning materials & detergents",   amount: 700,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+    );
+  }
+  for (const e of wifiIds) {
+    lineItemRows.push(
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Fibre subscription (excl. VAT)", amount: 1043, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.QUOTE,    description: "VAT @ 15%",                      amount: 157,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+    );
+  }
+
+  // Ad-hoc unit expenses
+  const geyserExp = findExpenseId("Geyser replacement");
+  const dbBoardExp = findExpenseId("DB board trip");
+  const acExp = findExpenseId("Air conditioning compressor");
+  const deepCleanExp = findExpenseId("Deep clean & touch-up");
+  const gateMotorExp = findExpenseId("gate motor replacement");
+
+  if (geyserExp) lineItemRows.push(
+    { expenseId: geyserExp, category: LineItemCategory.LABOUR,   description: "Installation labour",              amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: geyserExp, category: LineItemCategory.MATERIAL, description: "150L geyser element & thermostat", amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+  );
+  if (dbBoardExp) lineItemRows.push(
+    { expenseId: dbBoardExp, category: LineItemCategory.LABOUR,   description: "Fault-finding & repair labour", amount: 700, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: dbBoardExp, category: LineItemCategory.MATERIAL, description: "Surge protector replacement",   amount: 250, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+  );
+  if (acExp) lineItemRows.push(
+    { expenseId: acExp, category: LineItemCategory.LABOUR,   description: "Installation & re-gas labour", amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: acExp, category: LineItemCategory.MATERIAL, description: "Compressor unit (incl. VAT)",  amount: 3000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+  );
+  if (deepCleanExp) lineItemRows.push(
+    { expenseId: deepCleanExp, category: LineItemCategory.LABOUR,   description: "Deep clean labour",             amount: 2500, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: deepCleanExp, category: LineItemCategory.MATERIAL, description: "Painting materials & sundries", amount: 1000, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+  );
+  if (gateMotorExp) lineItemRows.push(
+    { expenseId: gateMotorExp, category: LineItemCategory.LABOUR,   description: "Motor installation & commissioning", amount: 2500, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: gateMotorExp, category: LineItemCategory.MATERIAL, description: "Gate motor unit & hardware",         amount: 6000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+  );
+
+  if (lineItemRows.length > 0) {
+    await prisma.expenseLineItem.createMany({ data: lineItemRows });
+  }
 
   // ── Petty cash (batched) ────────────────────────────────────────────────────
   await prisma.pettyCash.createMany({

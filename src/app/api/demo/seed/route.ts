@@ -9,6 +9,7 @@ import {
   RecurringFrequency, ArrearsStage, InvoiceStatus,
   MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
   VendorCategory, OwnerInvoiceType, TaxType,
+  LineItemCategory, LineItemPaymentStatus,
 } from "@prisma/client";
 
 // Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
@@ -983,11 +984,38 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     })),
   });
 
+  // ── Vendors ─────────────────────────────────────────────────────────────────
+  const [
+    shVendorMgmt,
+    shVendorWater,
+    shVendorEskom,
+    shVendorClean,
+    shVendorFibre,
+    shVendorMaint,
+    shVendorSparks,
+    shVendorAgrico,
+    shVendorADT,
+    shVendorOtis,
+    shVendorG4S,
+  ] = await Promise.all([
+    prisma.vendor.create({ data: { name: "Sandton Property Management", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 784 0200", email: "accounts@sandtonpm.co.za", organizationId, isActive: true, notes: "Full-service property management company for Sandton Heights." } }),
+    prisma.vendor.create({ data: { name: "City of Johannesburg", category: VendorCategory.UTILITY_PROVIDER, phone: "+27 11 375 5555", email: "billing@joburg.org.za", organizationId, isActive: true, notes: "Municipal water & sewerage billing." } }),
+    prisma.vendor.create({ data: { name: "Eskom", category: VendorCategory.UTILITY_PROVIDER, phone: "+27 11 800 8111", email: "customercare@eskom.co.za", organizationId, isActive: true, notes: "Electricity supply — common areas & security systems." } }),
+    prisma.vendor.create({ data: { name: "Green Clean Services", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 402 5500", email: "admin@greenclean.co.za", organizationId, isActive: true, notes: "Daily common area cleaning & scheduled deep-clean services." } }),
+    prisma.vendor.create({ data: { name: "Vox Fibre", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 87 805 0000", email: "billing@vox.co.za", organizationId, isActive: true, notes: "Building fibre internet infrastructure — 100 Mbps shared." } }),
+    prisma.vendor.create({ data: { name: "BuildFix SA", category: VendorCategory.CONTRACTOR, phone: "+27 11 402 3300", email: "info@buildfixsa.co.za", organizationId, isActive: true, notes: "General building maintenance contractor — plumbing, tiling, carpentry." } }),
+    prisma.vendor.create({ data: { name: "Sparks Electrical", category: VendorCategory.CONTRACTOR, phone: "+27 11 402 4400", email: "ops@sparkselectrical.co.za", organizationId, isActive: true, notes: "Licensed electrical contractor — fault finding, COC testing & DB upgrades." } }),
+    prisma.vendor.create({ data: { name: "Agrico Equipment", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 966 0010", email: "service@agrico.co.za", organizationId, isActive: true, notes: "Generator service & maintenance specialist." } }),
+    prisma.vendor.create({ data: { name: "ADT Security", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 418 1111", email: "commercial@adt.co.za", organizationId, isActive: true, notes: "Security monitoring, CCTV, and access control maintenance." } }),
+    prisma.vendor.create({ data: { name: "Otis Elevator SA", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 490 6000", email: "service@otis.co.za", organizationId, isActive: true, notes: "Lift servicing & statutory inspections." } }),
+    prisma.vendor.create({ data: { name: "G4S South Africa", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 301 8500", email: "info@g4s.co.za", organizationId, isActive: true, notes: "Armed response & on-site security patrol services." } }),
+  ]);
+
   // ── Income & invoices ───────────────────────────────────────────────────────
-  const MONTHS = [0, 1, 2]; // Jan, Feb, Mar
+  const MONTHS = [0, 1, 2, 3]; // Jan, Feb, Mar, Apr 2026
   const YEAR = 2026;
-  // Arrears: unit 102 misses Feb + Mar; unit 302 misses Mar
-  const arrears: Record<string, number[]> = { "102": [1, 2], "302": [2] };
+  // Arrears: unit 102 misses Feb + Mar + Apr; unit 302 misses Mar + Apr
+  const arrears: Record<string, number[]> = { "102": [1, 2, 3], "302": [2, 3] };
   let invoiceSeq = 1;
   const propCode = property.id.slice(-6).toUpperCase();
 
@@ -1040,47 +1068,210 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
 
   await prisma.incomeEntry.createMany({ data: incomeEntryData });
 
-  // ── Property-level monthly expenses (batched) ──────────────────────────────
-  const monthlyPropExpenses = [
-    { category: ExpenseCategory.MANAGEMENT_FEE, amount: 7200, desc: "Monthly management fee — Sandton Property Management"    },
-    { category: ExpenseCategory.WATER,          amount: 2400, desc: "City of Johannesburg — water & sewerage"                 },
-    { category: ExpenseCategory.ELECTRICITY,    amount: 3800, desc: "Eskom — common areas & security lighting"                },
-    { category: ExpenseCategory.CLEANER,        amount: 5500, desc: "Cleaning staff — 2 cleaners (common areas & grounds)"    },
-    { category: ExpenseCategory.WIFI,           amount: 1200, desc: "Vox Fibre — building internet infrastructure"            },
-  ];
-
-  await prisma.expenseEntry.createMany({
-    data: MONTHS.flatMap((month) =>
-      monthlyPropExpenses.map((e) => ({
+  // ── Property-level monthly expenses (with vendors & line items) ─────────────
+  for (const month of MONTHS) {
+    // Management fee
+    await prisma.expenseEntry.create({
+      data: {
         date: monthStart(YEAR, month),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
-        category: e.category,
-        amount: e.amount,
-        description: e.desc,
+        category: ExpenseCategory.MANAGEMENT_FEE,
+        amount: 7200,
+        description: "Monthly management fee — Sandton Property Management",
         isSunkCost: false,
         paidFromPettyCash: false,
-      }))
-    ),
-  });
+        vendorId: shVendorMgmt.id,
+        lineItems: {
+          create: [
+            { category: LineItemCategory.LABOUR,   description: "Management fee (excl. VAT)", amount: 6261, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
+            { category: LineItemCategory.QUOTE,    description: "VAT @ 15%",                  amount: 939,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+          ],
+        },
+      },
+    });
+    // Water & sewerage
+    await prisma.expenseEntry.create({
+      data: {
+        date: monthStart(YEAR, month),
+        propertyId: property.id,
+        scope: ExpenseScope.PROPERTY,
+        category: ExpenseCategory.WATER,
+        amount: 2400,
+        description: "City of Johannesburg — water & sewerage",
+        isSunkCost: false,
+        paidFromPettyCash: false,
+        vendorId: shVendorWater.id,
+        lineItems: {
+          create: [
+            { category: LineItemCategory.MATERIAL, description: "Water consumption", amount: 1680, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+            { category: LineItemCategory.MATERIAL, description: "Sewerage levy",     amount: 720,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+          ],
+        },
+      },
+    });
+    // Electricity
+    await prisma.expenseEntry.create({
+      data: {
+        date: monthStart(YEAR, month),
+        propertyId: property.id,
+        scope: ExpenseScope.PROPERTY,
+        category: ExpenseCategory.ELECTRICITY,
+        amount: 3800,
+        description: "Eskom — common areas & security lighting",
+        isSunkCost: false,
+        paidFromPettyCash: false,
+        vendorId: shVendorEskom.id,
+        lineItems: {
+          create: [
+            { category: LineItemCategory.MATERIAL, description: "Electricity consumption (incl. VAT)", amount: 3200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+            { category: LineItemCategory.MATERIAL, description: "Network access charge (incl. VAT)",   amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+          ],
+        },
+      },
+    });
+    // Cleaning
+    await prisma.expenseEntry.create({
+      data: {
+        date: monthStart(YEAR, month),
+        propertyId: property.id,
+        scope: ExpenseScope.PROPERTY,
+        category: ExpenseCategory.CLEANER,
+        amount: 5500,
+        description: "Cleaning staff — 2 cleaners (common areas & grounds)",
+        isSunkCost: false,
+        paidFromPettyCash: false,
+        vendorId: shVendorClean.id,
+        lineItems: {
+          create: [
+            { category: LineItemCategory.LABOUR,   description: "Cleaning staff wages (2 cleaners)", amount: 4800, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+            { category: LineItemCategory.MATERIAL, description: "Cleaning materials & detergents",   amount: 700,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+          ],
+        },
+      },
+    });
+    // Fibre internet
+    await prisma.expenseEntry.create({
+      data: {
+        date: monthStart(YEAR, month),
+        propertyId: property.id,
+        scope: ExpenseScope.PROPERTY,
+        category: ExpenseCategory.WIFI,
+        amount: 1200,
+        description: "Vox Fibre — building internet infrastructure",
+        isSunkCost: false,
+        paidFromPettyCash: false,
+        vendorId: shVendorFibre.id,
+        lineItems: {
+          create: [
+            { category: LineItemCategory.MATERIAL, description: "Fibre subscription (excl. VAT)", amount: 1043, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
+            { category: LineItemCategory.QUOTE,    description: "VAT @ 15%",                      amount: 157,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+          ],
+        },
+      },
+    });
+  }
 
-  // ── Unit-level ad-hoc expenses (batched) ───────────────────────────────────
-  await prisma.expenseEntry.createMany({
-    data: [
-      { month: 0, unit: "103", cat: ExpenseCategory.MAINTENANCE,   amount: 1800, desc: "Geyser replacement — hot water cylinder unit 103",   sunk: false },
-      { month: 1, unit: "201", cat: ExpenseCategory.MAINTENANCE,   amount: 950,  desc: "Electrical fault — DB board trip, unit 201",         sunk: false },
-      { month: 1, unit: "203", cat: ExpenseCategory.MAINTENANCE,   amount: 4200, desc: "Air conditioning compressor — master bedroom",        sunk: true  },
-      { month: 2, unit: "302", cat: ExpenseCategory.REINSTATEMENT, amount: 3500, desc: "Deep clean & touch-up painting — notice unit 302",    sunk: true  },
-    ].map((e) => ({
-      date: monthStart(YEAR, e.month),
-      unitId: units[e.unit].id,
+  // ── Unit-level ad-hoc expenses (with vendors & line items) ──────────────────
+  // Jan — Geyser replacement, unit 103 (BuildFix SA)
+  await prisma.expenseEntry.create({
+    data: {
+      date: monthStart(YEAR, 0),
+      unitId: units["103"].id,
       scope: ExpenseScope.UNIT,
-      category: e.cat,
-      amount: e.amount,
-      description: e.desc,
-      isSunkCost: e.sunk,
+      category: ExpenseCategory.MAINTENANCE,
+      amount: 1800,
+      description: "Geyser replacement — hot water cylinder unit 103",
+      isSunkCost: false,
       paidFromPettyCash: false,
-    })),
+      vendorId: shVendorMaint.id,
+      lineItems: {
+        create: [
+          { category: LineItemCategory.LABOUR,   description: "Installation labour",              amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+          { category: LineItemCategory.MATERIAL, description: "150L geyser element & thermostat", amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+        ],
+      },
+    },
+  });
+  // Feb — DB board fault, unit 201 (Sparks Electrical)
+  await prisma.expenseEntry.create({
+    data: {
+      date: monthStart(YEAR, 1),
+      unitId: units["201"].id,
+      scope: ExpenseScope.UNIT,
+      category: ExpenseCategory.MAINTENANCE,
+      amount: 950,
+      description: "Electrical fault — DB board trip, unit 201",
+      isSunkCost: false,
+      paidFromPettyCash: false,
+      vendorId: shVendorSparks.id,
+      lineItems: {
+        create: [
+          { category: LineItemCategory.LABOUR,   description: "Fault-finding & repair labour", amount: 700, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+          { category: LineItemCategory.MATERIAL, description: "Surge protector replacement",   amount: 250, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+        ],
+      },
+    },
+  });
+  // Feb — A/C compressor, unit 203 (BuildFix SA) — sunk cost
+  await prisma.expenseEntry.create({
+    data: {
+      date: monthStart(YEAR, 1),
+      unitId: units["203"].id,
+      scope: ExpenseScope.UNIT,
+      category: ExpenseCategory.MAINTENANCE,
+      amount: 4200,
+      description: "Air conditioning compressor — master bedroom",
+      isSunkCost: true,
+      paidFromPettyCash: false,
+      vendorId: shVendorMaint.id,
+      lineItems: {
+        create: [
+          { category: LineItemCategory.LABOUR,   description: "Installation & re-gas labour",  amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+          { category: LineItemCategory.MATERIAL, description: "Compressor unit (incl. VAT)",   amount: 3000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+        ],
+      },
+    },
+  });
+  // Mar — Deep clean & reinstatement, unit 302 (Green Clean Services) — sunk cost
+  await prisma.expenseEntry.create({
+    data: {
+      date: monthStart(YEAR, 2),
+      unitId: units["302"].id,
+      scope: ExpenseScope.UNIT,
+      category: ExpenseCategory.REINSTATEMENT,
+      amount: 3500,
+      description: "Deep clean & touch-up painting — notice unit 302",
+      isSunkCost: true,
+      paidFromPettyCash: false,
+      vendorId: shVendorClean.id,
+      lineItems: {
+        create: [
+          { category: LineItemCategory.LABOUR,   description: "Deep clean labour",             amount: 2500, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+          { category: LineItemCategory.MATERIAL, description: "Painting materials & sundries", amount: 1000, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+        ],
+      },
+    },
+  });
+  // Apr — Gate motor replacement, property-level (ADT Security)
+  await prisma.expenseEntry.create({
+    data: {
+      date: monthStart(YEAR, 3),
+      propertyId: property.id,
+      scope: ExpenseScope.PROPERTY,
+      category: ExpenseCategory.MAINTENANCE,
+      amount: 8500,
+      description: "Security gate motor replacement — basement entry",
+      isSunkCost: false,
+      paidFromPettyCash: false,
+      vendorId: shVendorADT.id,
+      lineItems: {
+        create: [
+          { category: LineItemCategory.LABOUR,   description: "Motor installation & commissioning", amount: 2500, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+          { category: LineItemCategory.MATERIAL, description: "Gate motor unit & hardware",         amount: 6000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+        ],
+      },
+    },
   });
 
   // ── Petty cash (batched) ────────────────────────────────────────────────────
@@ -1105,6 +1296,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         { month: 2, day: 8,  amount: 350, desc: "Garden tools & potting soil — landscaped gardens"         },
         { month: 2, day: 16, amount: 560, desc: "Minor plumbing repairs — common area bathrooms"           },
         { month: 2, day: 24, amount: 140, desc: "Postage & courier — lease correspondence"                 },
+        { month: 3, day: 3,  amount: 430, desc: "Fire extinguisher service & recharge — annual inspection" },
+        { month: 3, day: 11, amount: 275, desc: "Paint & filler — touch-ups corridor floor 2"              },
       ] as { month: number; day: number; amount: number; desc: string }[]).map((p) => ({
         date: new Date(YEAR, p.month, p.day),
         type: PettyCashType.OUT,
@@ -1237,8 +1430,9 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.MONTHLY,
-        nextDueDate: d("2026-04-01"),
+        nextDueDate: d("2026-05-01"),
         isActive: true,
+        vendorId: shVendorG4S.id,
       },
       {
         description: "Landscaping & Garden Maintenance — Grounds",
@@ -1247,8 +1441,9 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.MONTHLY,
-        nextDueDate: d("2026-04-01"),
+        nextDueDate: d("2026-05-01"),
         isActive: true,
+        vendorId: shVendorClean.id,
       },
       {
         description: "Quarterly Generator Service — Agrico Equipment",
@@ -1259,6 +1454,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         frequency: RecurringFrequency.QUARTERLY,
         nextDueDate: d("2026-06-01"),
         isActive: true,
+        vendorId: shVendorAgrico.id,
       },
       {
         description: "Annual Lift Servicing Contract — Otis SA",
@@ -1269,69 +1465,35 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         frequency: RecurringFrequency.ANNUAL,
         nextDueDate: d("2026-12-01"),
         isActive: true,
+        vendorId: shVendorOtis.id,
       },
     ],
   });
 
   // ── Arrears cases ───────────────────────────────────────────────────────────
+  // Unit 102: 3 months overdue (Feb + Mar + Apr) = R9,000 × 3 = R27,000
   await prisma.arrearsCase.create({
     data: {
       tenantId: tenants["102"].id,
       propertyId: property.id,
-      stage: ArrearsStage.INFORMAL_REMINDER,
-      amountOwed: 18000,
+      stage: ArrearsStage.DEMAND_LETTER,
+      amountOwed: 27000,
       notes:
-        "Tenant has not paid rent for February and March 2026 (R9,000 × 2 months). Called on 18 March — promised to settle by month-end. Follow-up required.",
+        "Tenant has not paid rent for February, March and April 2026 (R9,000 × 3 months). Section 4 notice issued March 2026. Court proceedings under review if no settlement by 30 April.",
     },
   });
 
+  // Unit 302: 2 months overdue (Mar + Apr) = R15,150 × 2 = R30,300
   await prisma.arrearsCase.create({
     data: {
       tenantId: tenants["302"].id,
       propertyId: property.id,
       stage: ArrearsStage.INFORMAL_REMINDER,
-      amountOwed: 15150,
+      amountOwed: 30300,
       notes:
-        "March 2026 rent outstanding (R14,500 + R650 service charge). WhatsApp reminder sent 8 March. Awaiting response.",
+        "March and April 2026 rent outstanding (R14,500 + R650 service charge = R15,150 × 2). Tenant unresponsive. Escalation to formal demand under review.",
     },
   });
-
-  // ── Vendors ─────────────────────────────────────────────────────────────────
-  const [shVendorMaint, shVendorElec] = await Promise.all([
-    prisma.vendor.create({
-      data: {
-        name: "BuildFix SA",
-        category: VendorCategory.CONTRACTOR,
-        phone: "+27 11 402 3300",
-        email: "info@buildfixsa.co.za",
-        organizationId,
-        isActive: true,
-        notes: "General building maintenance contractor — plumbing, tiling, carpentry.",
-      },
-    }),
-    prisma.vendor.create({
-      data: {
-        name: "Sparks Electrical",
-        category: VendorCategory.CONTRACTOR,
-        phone: "+27 11 402 4400",
-        email: "ops@sparkselectrical.co.za",
-        organizationId,
-        isActive: true,
-        notes: "Licensed electrical contractor — fault finding, COC testing & DB upgrades.",
-      },
-    }),
-    prisma.vendor.create({
-      data: {
-        name: "Green Clean Services",
-        category: VendorCategory.SERVICE_PROVIDER,
-        phone: "+27 11 402 5500",
-        email: "admin@greenclean.co.za",
-        organizationId,
-        isActive: true,
-        notes: "Daily common area cleaning & scheduled deep-clean services.",
-      },
-    }),
-  ]);
 
   // ── Agent ────────────────────────────────────────────────────────────────────
   await prisma.agent.create({
@@ -1420,6 +1582,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scheduledDate: new Date(2026, 0, 22),
         completedDate: new Date(2026, 0, 23),
         cost: 2400,
+        vendorId: shVendorAgrico.id,
         notes: "Oil changed, filters replaced, fuel injectors cleaned. Generator back to full spec.",
       },
       {
@@ -1436,7 +1599,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scheduledDate: new Date(2026, 1, 9),
         completedDate: new Date(2026, 1, 9),
         cost: 950,
-        vendorId: shVendorElec.id,
+        vendorId: shVendorSparks.id,
         notes: "Surge protector failed — replaced. DB board tested. COC issued.",
       },
       {
@@ -1459,15 +1622,18 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       {
         propertyId: property.id,
         title: "Security gate motor fault — basement entry",
-        description: "Automated gate to basement parking not opening. Motor fault.",
+        description: "Automated gate to basement parking not opening. Motor fault diagnosed and replaced.",
         category: MaintenanceCategory.SECURITY,
         priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.IN_PROGRESS,
+        status: MaintenanceStatus.DONE,
         reportedBy: "Multiple tenants",
         assignedTo: "ADT Security",
         reportedDate: new Date(2026, 2, 5),
         scheduledDate: new Date(2026, 2, 12),
-        notes: "Technician booked 12 March. Manual override in place for tenants.",
+        completedDate: new Date(2026, 3, 2),
+        cost: 8500,
+        vendorId: shVendorADT.id,
+        notes: "Gate motor and control board replaced. Tested and commissioned 2 April 2026.",
       },
       {
         propertyId: property.id,
@@ -1526,29 +1692,30 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       inspector: "Pieter Swanepoel, SACAP Registered Professional",
       overallCondition: "Good",
       summary:
-        "Sandton Heights is in good overall condition. The structure, common areas, and services are well-maintained. The fire safety certificate expires February 2026 and renewal is due. Security gate motor requires urgent attention. Generator is performing well given sustained load-shedding periods.",
+        "Sandton Heights is in good overall condition. The structure, common areas, and services are well-maintained. The fire safety certificate expired February 2026 and renewal is due. Security gate motor was repaired in April 2026. Generator is performing well given sustained load-shedding periods.",
       nextReviewDate: d("2026-09-05"),
       items: [
         { area: "Roof & Waterproofing",         condition: "Good",      notes: "No active leaks. Flashings intact. Re-inspect after rainy season." },
         { area: "Exterior Facade & Paintwork",  condition: "Good",      notes: "Clean render. Minor cracking at expansion joint on floor 2 — monitor." },
         { area: "Common Areas & Corridors",     condition: "Very Good", notes: "Freshly painted. Clean and well-lit. Fire extinguishers in place." },
         { area: "Lobby & Intercom",             condition: "Good",      notes: "Intercom system functional. Access control operating correctly." },
-        { area: "Lift",                         condition: "Good",      notes: "Otis lift serviced Q1 2026. Quarterly service due April." },
-        { area: "Basement Parking & Gate",      condition: "Fair",      notes: "Gate motor faulty — repair in progress. Parking markings faded." },
+        { area: "Lift",                         condition: "Good",      notes: "Otis lift serviced Q1 2026. Quarterly service due July." },
+        { area: "Basement Parking & Gate",      condition: "Good",      notes: "Gate motor replaced April 2026. Parking markings faded — schedule re-marking." },
         { area: "Plumbing Infrastructure",      condition: "Good",      notes: "Pressure pump operational. No active leaks in risers." },
         { area: "Electrical & Generator",       condition: "Good",      notes: "Generator serviced post Stage 6 outages. DB boards inspected." },
-        { area: "Security & CCTV",              condition: "Good",      notes: "16 cameras all operational. Gate motor fault logged separately." },
+        { area: "Security & CCTV",              condition: "Good",      notes: "16 cameras all operational. CCTV maintenance completed April 2026." },
         { area: "Fire Safety Systems",          condition: "Fair",      notes: "Certificate expired Feb 2026. Renewal inspection to be scheduled." },
         { area: "Landscaped Gardens",           condition: "Very Good", notes: "Well-maintained. Irrigation system operational." },
       ],
     },
   });
 
-  // ── Owner invoices (management fee — Jan–Mar 2026) ──────────────────────────
+  // ── Owner invoices (management fee — Jan–Apr 2026) ──────────────────────────
   for (const { month, paid } of [
     { month: 1, paid: true  },
     { month: 2, paid: true  },
-    { month: 3, paid: false },
+    { month: 3, paid: true  },
+    { month: 4, paid: false },
   ]) {
     await prisma.ownerInvoice.create({
       data: {
@@ -1595,8 +1762,17 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         description: "Monthly routine check — oil level, coolant, battery voltage, 30-min load test",
         cost: 850,
         technician: "Agrico Equipment technician",
-        vendorId: shVendorMaint.id,
+        vendorId: shVendorAgrico.id,
         notes: "All systems nominal. No faults detected. Next check due 10 Mar 2026.",
+      },
+      {
+        assetId: shAssetMap["Perkins Standby Generator"],
+        date: d("2026-03-10"),
+        description: "Monthly routine check — oil level, coolant, battery voltage, 30-min load test",
+        cost: 850,
+        technician: "Agrico Equipment technician",
+        vendorId: shVendorAgrico.id,
+        notes: "All systems nominal. No faults detected. Next check due 10 Apr 2026.",
       },
       {
         assetId: shAssetMap["Otis Passenger Lift"],
@@ -1604,7 +1780,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         description: "Q1 quarterly service — lubrication, safety brake test, door mechanism check",
         cost: 3200,
         technician: "Otis Elevator SA technician",
-        notes: "All checks passed. Certificate of service issued. Next quarterly due April 2026.",
+        vendorId: shVendorOtis.id,
+        notes: "All checks passed. Certificate of service issued. Next quarterly due July 2026.",
       },
       {
         assetId: shAssetMap["Grundfos Pressure Pump"],
@@ -1613,6 +1790,15 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         cost: 1400,
         technician: "Pump & Valve SA technician",
         notes: "Pump within spec. Shaft seal showing slight wear — replacement recommended at next service.",
+      },
+      {
+        assetId: shAssetMap["Hikvision 16-Channel CCTV System"],
+        date: d("2026-04-10"),
+        description: "Annual CCTV review — camera alignment, recording integrity check, firmware update",
+        cost: 2800,
+        technician: "ADT Security technician",
+        vendorId: shVendorADT.id,
+        notes: "All 16 cameras verified operational. DVR storage healthy. Firmware updated to latest version.",
       },
     ],
   });
@@ -1626,7 +1812,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
 
   await prisma.arrearsEscalation.createMany({
     data: [
-      // Priya Naidoo (unit 102) — 2 months overdue
+      // Priya Naidoo (unit 102) — 3 months overdue
       {
         caseId: shCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
@@ -1645,7 +1831,13 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         notes: "Section 4 notice issued 20 Mar 2026 via registered post. 20-business-day compliance window.",
         createdAt: d("2026-03-20"),
       },
-      // Rajesh Govender (unit 302) — March rent outstanding
+      {
+        caseId: shCaseByTenant[tenants["102"].id],
+        stage: ArrearsStage.DEMAND_LETTER,
+        notes: "April rent also unpaid. Total arrears R27,000. Compliance window expired. Court application being prepared.",
+        createdAt: d("2026-04-15"),
+      },
+      // Rajesh Govender (unit 302) — 2 months overdue
       {
         caseId: shCaseByTenant[tenants["302"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
@@ -1657,6 +1849,12 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         stage: ArrearsStage.INFORMAL_REMINDER,
         notes: "Follow-up call 20 Mar 2026. Tenant did not pay by promised date. Escalation under review.",
         createdAt: d("2026-03-20"),
+      },
+      {
+        caseId: shCaseByTenant[tenants["302"].id],
+        stage: ArrearsStage.INFORMAL_REMINDER,
+        notes: "April rent also not paid. Total arrears R30,300. Formal demand letter to be issued if not settled by 30 April.",
+        createdAt: d("2026-04-10"),
       },
     ],
   });

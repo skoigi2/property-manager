@@ -29,28 +29,39 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
   const { data: session } = useSession();
   const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
   const [loading, setLoading] = useState(false);
+  // Set to the demoKey when the server says it's already seeded — offers a Reseed option
+  const [alreadySeededKey, setAlreadySeededKey] = useState<string | null>(null);
 
-  async function loadDemo() {
+  async function loadDemo(force = false) {
     if (!selectedDemo) return;
     setLoading(true);
+    setAlreadySeededKey(null);
     try {
       const res = await fetch("/api/demo/seed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Send the active org so the seed always targets the user's current org
         body: JSON.stringify({
           demoKey: selectedDemo,
           organizationId: session?.user?.organizationId ?? undefined,
+          ...(force ? { force: true } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok && data?.reason !== "already_seeded") {
+      if (data?.reason === "already_seeded") {
+        // Already seeded — offer reseed instead of silently succeeding
+        setAlreadySeededKey(selectedDemo);
+        if (data?.propertyId) sessionStorage.setItem("selectedPropertyId", data.propertyId);
+        onLoaded(); // still refresh the list so the property appears
+        return;
+      }
+      if (!res.ok) {
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data. Please try again.");
         return;
       }
       if (data?.propertyId) {
         sessionStorage.setItem("selectedPropertyId", data.propertyId);
       }
+      toast.success(force ? "Sample property reseeded successfully." : "Sample property loaded.");
       onLoaded();
     } catch (err) {
       console.error("[demo/seed] fetch error:", err);
@@ -82,7 +93,7 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         {DEMO_PROPERTIES.map((demo) => (
           <button
             key={demo.key}
-            onClick={() => setSelectedDemo(demo.key)}
+            onClick={() => { setSelectedDemo(demo.key); setAlreadySeededKey(null); }}
             disabled={loading}
             className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all disabled:opacity-50 ${
               selectedDemo === demo.key
@@ -106,8 +117,28 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         The sample property is fully editable — explore freely, then delete it when you&apos;re ready to add your own.
       </p>
 
+      {/* Already seeded banner — show Reseed option */}
+      {alreadySeededKey === selectedDemo && (
+        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+          <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-800 font-sans">This sample is already loaded.</p>
+            <p className="text-xs text-amber-700 font-sans mt-0.5">
+              To refresh it with the latest seed data, reseed from scratch. This will delete and recreate the property and all its data.
+            </p>
+            <button
+              onClick={() => loadDemo(true)}
+              disabled={loading}
+              className="mt-2 text-xs font-semibold font-sans text-amber-700 underline underline-offset-2 hover:text-amber-900 disabled:opacity-50"
+            >
+              {loading ? "Reseeding…" : "Reseed from scratch →"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <button
-        onClick={loadDemo}
+        onClick={() => loadDemo(false)}
         disabled={loading || !selectedDemo}
         className="w-full border border-gold text-gold py-2.5 rounded-xl font-sans font-semibold text-sm hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >

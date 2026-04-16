@@ -1914,8 +1914,9 @@ export async function POST(req: Request) {
 
   // Read body first so we can use the client-supplied organizationId
   const body = await req.json().catch(() => ({}));
-  const demoKey     = body?.demoKey      as string | undefined;
+  const demoKey     = body?.demoKey        as string | undefined;
   const clientOrgId = body?.organizationId as string | undefined;
+  const force       = body?.force === true; // if true, delete existing property and re-seed
 
   // ── Resolve organizationId ────────────────────────────────────────────────
   // Prefer the org the client explicitly sent (= session.user.organizationId on
@@ -1990,12 +1991,12 @@ export async function POST(req: Request) {
   }
 
   if (existing) {
-    if (existing._count.units > 0) {
+    if (existing._count.units > 0 && !force) {
       // Fully seeded — backfill access for any org members who are missing it
       await grantAccess(existing.id);
       return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id, organizationId });
     }
-    // Partially seeded (property exists but no units). Delete and re-seed.
+    // Either partially seeded (no units) or force re-seed requested — delete and re-seed.
     await prisma.property.delete({ where: { id: existing.id } });
   }
 

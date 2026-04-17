@@ -1,6 +1,6 @@
 import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { differenceInDays, format, startOfMonth, endOfMonth } from "date-fns";
+import { differenceInDays, format, startOfMonth, endOfMonth, subDays } from "date-fns";
 
 export type EventType =
   | "LEASE_EXPIRY"
@@ -31,7 +31,7 @@ function toDateStr(d: Date): string {
   return format(d, "yyyy-MM-dd");
 }
 
-function urgency(type: EventType, daysUntil: number): EventUrgency {
+function calcUrgency(type: EventType, daysUntil: number): EventUrgency {
   if (type === "LEASE_EXPIRY" || type === "INSURANCE_RENEWAL" || type === "COMPLIANCE_EXPIRY") {
     if (daysUntil <= 7) return "critical";
     if (daysUntil <= 30) return "warning";
@@ -52,20 +52,22 @@ export async function GET(req: Request) {
 
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds || propertyIds.length === 0) {
-    return Response.json({ events: [] });
+    return Response.json({ events: [], overdueEvents: [] });
   }
 
   const { searchParams } = new URL(req.url);
-  const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()), 10);
+  const year  = parseInt(searchParams.get("year")  ?? String(new Date().getFullYear()), 10);
   const month = parseInt(searchParams.get("month") ?? String(new Date().getMonth() + 1), 10);
 
   if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
     return Response.json({ error: "Invalid year or month" }, { status: 400 });
   }
 
-  const from = startOfMonth(new Date(year, month - 1, 1));
-  const to = endOfMonth(from);
+  const from  = startOfMonth(new Date(year, month - 1, 1));
+  const to    = endOfMonth(from);
   const today = new Date();
+  // Overdue window: up to 90 days in the past (avoids surfacing ancient records)
+  const overdueFrom = subDays(today, 90);
 
   const [
     tenants,
@@ -74,13 +76,20 @@ export async function GET(req: Request) {
     complianceCerts,
     recurringExpenses,
     agreements,
+    // Overdue queries
+    overdueLeases,
+    overdueMaintenanceSchedules,
+    overdueInsurance,
+    overdueCompliance,
+    overdueRecurring,
   ] = await Promise.all([
+    // ── Month-range queries ──────────────────────────────────────────────────
     prisma.tenant.findMany({
       where: {
         isActive: true,
         unit: { propertyId: { in: propertyIds } },
         OR: [
-          { leaseEnd: { gte: from, lte: to } },
+          { leaseEnd:   { gte: from, lte: to } },
           { leaseStart: { gte: from, lte: to } },
         ],
       },
@@ -103,17 +112,11 @@ export async function GET(req: Request) {
       },
     }),
     prisma.insurancePolicy.findMany({
-      where: {
-        propertyId: { in: propertyIds },
-        endDate: { gte: from, lte: to },
-      },
+      where: { propertyId: { in: propertyIds }, endDate: { gte: from, lte: to } },
       include: { property: { select: { id: true, name: true } } },
     }),
     prisma.complianceCertificate.findMany({
-      where: {
-        propertyId: { in: propertyIds },
-        expiryDate: { gte: from, lte: to },
-      },
+      where: { propertyId: { in: propertyIds }, expiryDate: { gte: from, lte: to } },
       include: { property: { select: { id: true, name: true } } },
     }),
     prisma.recurringExpense.findMany({
@@ -134,11 +137,66 @@ export async function GET(req: Request) {
       where: { propertyId: { in: propertyIds } },
       include: { property: { select: { id: true, name: true } } },
     }),
+    // ── Overdue queries (past 90 days, before today) ─────────────────────────
+    // All active tenants with an already-expired lease
+    prisma.tenant.findMany({
+      where: {
+        isActive: true,
+        unit: { propertyId: { in: propertyIds } },
+        leaseEnd: { lt: today },
+      },
+      include: {
+        unit: { include: { property: { select: { id: true, name: true } } } },
+      },
+    }),
+    prisma.assetMaintenanceSchedule.findMany({
+      where: {
+        isActive: true,
+        nextDue: { gte: overdueFrom, lt: today },
+        OR: [
+          { propertyId: { in: propertyIds } },
+          { asset: { propertyId: { in: propertyIds } } },
+        ],
+      },
+      include: {
+        property: { select: { id: true, name: true } },
+        asset: { include: { property: { select: { id: true, name: true } } } },
+      },
+    }),
+    prisma.insurancePolicy.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        endDate: { gte: overdueFrom, lt: today },
+      },
+      include: { property: { select: { id: true, name: true } } },
+    }),
+    prisma.complianceCertificate.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        expiryDate: { gte: overdueFrom, lt: today },
+      },
+      include: { property: { select: { id: true, name: true } } },
+    }),
+    prisma.recurringExpense.findMany({
+      where: {
+        isActive: true,
+        nextDueDate: { gte: overdueFrom, lt: today },
+        OR: [
+          { propertyId: { in: propertyIds } },
+          { unit: { propertyId: { in: propertyIds } } },
+        ],
+      },
+      include: {
+        property: { select: { id: true, name: true } },
+        unit: { include: { property: { select: { id: true, name: true } } } },
+      },
+    }),
   ]);
+
+  // ── Build month events ─────────────────────────────────────────────────────
 
   const events: CalendarEvent[] = [];
 
-  // Lease expiry + lease start
   for (const t of tenants) {
     const prop = t.unit.property;
     if (t.leaseEnd) {
@@ -155,7 +213,7 @@ export async function GET(req: Request) {
           unitName: t.unit.unitNumber,
           link: "/tenants",
           daysUntil: days,
-          urgency: urgency("LEASE_EXPIRY", days),
+          urgency: calcUrgency("LEASE_EXPIRY", days),
         });
       }
     }
@@ -172,17 +230,16 @@ export async function GET(req: Request) {
         unitName: t.unit.unitNumber,
         link: "/tenants",
         daysUntil: days,
-        urgency: urgency("LEASE_START", days),
+        urgency: calcUrgency("LEASE_START", days),
       });
     }
   }
 
-  // Maintenance schedules
   for (const s of maintenanceSchedules) {
     if (!s.nextDue) continue;
     const prop = s.property ?? s.asset?.property;
     if (!prop) continue;
-    const due = new Date(s.nextDue);
+    const due  = new Date(s.nextDue);
     const days = differenceInDays(due, today);
     events.push({
       id: `maintenance-${s.id}`,
@@ -193,13 +250,12 @@ export async function GET(req: Request) {
       propertyName: prop.name,
       link: "/maintenance",
       daysUntil: days,
-      urgency: urgency("MAINTENANCE_DUE", days),
+      urgency: calcUrgency("MAINTENANCE_DUE", days),
     });
   }
 
-  // Insurance renewals
   for (const p of insurancePolicies) {
-    const end = new Date(p.endDate);
+    const end  = new Date(p.endDate);
     const days = differenceInDays(end, today);
     events.push({
       id: `insurance-${p.id}`,
@@ -210,14 +266,13 @@ export async function GET(req: Request) {
       propertyName: p.property.name,
       link: "/insurance",
       daysUntil: days,
-      urgency: urgency("INSURANCE_RENEWAL", days),
+      urgency: calcUrgency("INSURANCE_RENEWAL", days),
     });
   }
 
-  // Compliance certificates
   for (const c of complianceCerts) {
     if (!c.expiryDate) continue;
-    const exp = new Date(c.expiryDate);
+    const exp  = new Date(c.expiryDate);
     const days = differenceInDays(exp, today);
     events.push({
       id: `compliance-${c.id}`,
@@ -228,15 +283,14 @@ export async function GET(req: Request) {
       propertyName: c.property.name,
       link: "/compliance/certificates",
       daysUntil: days,
-      urgency: urgency("COMPLIANCE_EXPIRY", days),
+      urgency: calcUrgency("COMPLIANCE_EXPIRY", days),
     });
   }
 
-  // Recurring expenses
   for (const r of recurringExpenses) {
     const prop = r.property ?? r.unit?.property;
     if (!prop) continue;
-    const due = new Date(r.nextDueDate);
+    const due  = new Date(r.nextDueDate);
     const days = differenceInDays(due, today);
     events.push({
       id: `recurring-${r.id}`,
@@ -247,15 +301,14 @@ export async function GET(req: Request) {
       propertyName: prop.name,
       link: "/recurring-expenses",
       daysUntil: days,
-      urgency: urgency("RECURRING_EXPENSE", days),
+      urgency: calcUrgency("RECURRING_EXPENSE", days),
     });
   }
 
-  // Management agreement day-of-month events
   for (const a of agreements) {
-    const remitDay = a.rentRemittanceDay;
-    const invoiceDay = a.mgmtFeeInvoiceDay;
     const daysInMonth = to.getDate();
+    const remitDay   = a.rentRemittanceDay;
+    const invoiceDay = a.mgmtFeeInvoiceDay;
 
     if (remitDay >= 1 && remitDay <= daysInMonth) {
       const remitDate = new Date(year, month - 1, remitDay);
@@ -269,7 +322,7 @@ export async function GET(req: Request) {
         propertyName: a.property.name,
         link: `/properties/${a.property.id}/agreement`,
         daysUntil: days,
-        urgency: urgency("RENT_REMITTANCE", days),
+        urgency: calcUrgency("RENT_REMITTANCE", days),
       });
     }
 
@@ -285,12 +338,106 @@ export async function GET(req: Request) {
         propertyName: a.property.name,
         link: `/properties/${a.property.id}/agreement`,
         daysUntil: days,
-        urgency: urgency("MGMT_FEE_INVOICE", days),
+        urgency: calcUrgency("MGMT_FEE_INVOICE", days),
       });
     }
   }
 
   events.sort((a, b) => a.date.localeCompare(b.date));
 
-  return Response.json({ events, year, month });
+  // ── Build overdue events ───────────────────────────────────────────────────
+
+  const overdueEvents: CalendarEvent[] = [];
+
+  for (const t of overdueLeases) {
+    if (!t.leaseEnd) continue;
+    const leaseEnd = new Date(t.leaseEnd);
+    const days = differenceInDays(leaseEnd, today);
+    overdueEvents.push({
+      id: `lease-expiry-${t.id}`,
+      type: "LEASE_EXPIRY",
+      title: `${t.name} — lease expired`,
+      date: toDateStr(leaseEnd),
+      propertyId: t.unit.property.id,
+      propertyName: t.unit.property.name,
+      unitName: t.unit.unitNumber,
+      link: "/tenants",
+      daysUntil: days,
+      urgency: "critical",
+    });
+  }
+
+  for (const s of overdueMaintenanceSchedules) {
+    if (!s.nextDue) continue;
+    const prop = s.property ?? s.asset?.property;
+    if (!prop) continue;
+    const due  = new Date(s.nextDue);
+    const days = differenceInDays(due, today);
+    overdueEvents.push({
+      id: `maintenance-${s.id}`,
+      type: "MAINTENANCE_DUE",
+      title: `${s.taskName} — overdue`,
+      date: toDateStr(due),
+      propertyId: prop.id,
+      propertyName: prop.name,
+      link: "/maintenance",
+      daysUntil: days,
+      urgency: "critical",
+    });
+  }
+
+  for (const p of overdueInsurance) {
+    const end  = new Date(p.endDate);
+    const days = differenceInDays(end, today);
+    overdueEvents.push({
+      id: `insurance-${p.id}`,
+      type: "INSURANCE_RENEWAL",
+      title: `${p.insurer} — policy expired`,
+      date: toDateStr(end),
+      propertyId: p.property.id,
+      propertyName: p.property.name,
+      link: "/insurance",
+      daysUntil: days,
+      urgency: "critical",
+    });
+  }
+
+  for (const c of overdueCompliance) {
+    if (!c.expiryDate) continue;
+    const exp  = new Date(c.expiryDate);
+    const days = differenceInDays(exp, today);
+    overdueEvents.push({
+      id: `compliance-${c.id}`,
+      type: "COMPLIANCE_EXPIRY",
+      title: `${c.certificateType} — expired`,
+      date: toDateStr(exp),
+      propertyId: c.property.id,
+      propertyName: c.property.name,
+      link: "/compliance/certificates",
+      daysUntil: days,
+      urgency: "critical",
+    });
+  }
+
+  for (const r of overdueRecurring) {
+    const prop = r.property ?? r.unit?.property;
+    if (!prop) continue;
+    const due  = new Date(r.nextDueDate);
+    const days = differenceInDays(due, today);
+    overdueEvents.push({
+      id: `recurring-${r.id}`,
+      type: "RECURRING_EXPENSE",
+      title: `${r.description} — not applied`,
+      date: toDateStr(due),
+      propertyId: prop.id,
+      propertyName: prop.name,
+      link: "/recurring-expenses",
+      daysUntil: days,
+      urgency: "critical",
+    });
+  }
+
+  overdueEvents.sort((a, b) => a.date.localeCompare(b.date));
+
+  return Response.json({ events, overdueEvents, year, month });
 }

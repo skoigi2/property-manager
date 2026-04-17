@@ -318,10 +318,13 @@ export default async function RootPage() {
             <BrandLogo size={24} />
             <span className="font-display text-sm text-header">Groundwork PM</span>
           </div>
-          <div className="flex items-center gap-6 text-xs text-gray-400 font-sans">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400 font-sans">
             <Link href="/pricing" className="hover:text-header transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-header transition-colors">Sign in</Link>
             <Link href="/signup" className="hover:text-header transition-colors">Sign up</Link>
+            <Link href="/terms" className="hover:text-header transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-header transition-colors">Privacy</Link>
+            <Link href="/refund" className="hover:text-header transition-colors">Refund Policy</Link>
             <a href="mailto:support@groundworkpm.com" className="hover:text-header transition-colors">Support</a>
           </div>
           <p className="text-xs text-gray-300 font-sans">

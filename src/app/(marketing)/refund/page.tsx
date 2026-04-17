@@ -1,0 +1,189 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Refund Policy — Groundwork PM",
+  description: "Groundwork PM's refund and cancellation policy for subscriptions.",
+};
+
+function Nav() {
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-header rounded-lg flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </div>
+          <span className="font-display text-lg text-header">Groundwork PM</span>
+        </Link>
+        <div className="hidden md:flex items-center gap-8 text-sm font-sans">
+          <Link href="/#features" className="text-gray-500 hover:text-header transition-colors">Features</Link>
+          <Link href="/pricing" className="text-gray-500 hover:text-header transition-colors">Pricing</Link>
+          <Link href="/login" className="text-gray-500 hover:text-header transition-colors">Sign in</Link>
+        </div>
+        <Link href="/signup" className="bg-header text-white text-sm font-sans font-medium px-5 py-2 rounded-lg hover:bg-header/90 transition-colors">
+          Start free trial
+        </Link>
+      </div>
+    </nav>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-gray-100 bg-white py-10 px-6">
+      <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 bg-header rounded flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </div>
+          <span className="font-display text-sm text-header">Groundwork PM</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400 font-sans">
+          <Link href="/pricing" className="hover:text-header transition-colors">Pricing</Link>
+          <Link href="/login" className="hover:text-header transition-colors">Sign in</Link>
+          <Link href="/signup" className="hover:text-header transition-colors">Sign up</Link>
+          <Link href="/terms" className="hover:text-header transition-colors">Terms</Link>
+          <Link href="/privacy" className="hover:text-header transition-colors">Privacy</Link>
+          <Link href="/refund" className="hover:text-header transition-colors">Refund Policy</Link>
+          <a href="mailto:support@groundworkpm.com" className="hover:text-header transition-colors">Support</a>
+        </div>
+        <p className="text-xs text-gray-300 font-sans">© {new Date().getFullYear()} Groundwork PM</p>
+      </div>
+    </footer>
+  );
+}
+
+export default function RefundPage() {
+  return (
+    <div className="min-h-screen bg-white font-sans">
+      <Nav />
+
+      <main className="pt-28 pb-20 max-w-3xl mx-auto px-6">
+        <h1 className="font-display text-4xl text-header mb-2">Refund Policy</h1>
+        <p className="text-sm text-gray-400 mb-10">Last updated: April 2025</p>
+
+        <div className="prose prose-gray max-w-none space-y-8 text-gray-600 leading-relaxed">
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">1. Free Trial</h2>
+            <p>
+              All new Groundwork PM accounts include a 30-day free trial. No payment is required to start your
+              trial, and you will not be charged unless you explicitly choose to subscribe after your trial ends.
+              There is nothing to refund during the trial period.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">2. Monthly Subscriptions</h2>
+            <p>
+              Monthly subscriptions are billed in advance at the start of each billing cycle. If you are not
+              satisfied with the Service, you may request a full refund within <strong className="text-gray-700">7 days</strong> of
+              a charge, provided you have not materially used the Service during that period (e.g., entered
+              significant data, generated reports, or invited team members).
+            </p>
+            <p className="mt-3">
+              After the 7-day window has passed, the charge for that billing period is non-refundable. You may
+              cancel at any time, and your access will continue until the end of the current paid period.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">3. Annual Subscriptions</h2>
+            <p>
+              Annual subscriptions are billed upfront for a full 12-month period at a discounted rate. Refund
+              eligibility for annual plans:
+            </p>
+            <ul className="list-disc pl-6 mt-3 space-y-2">
+              <li>
+                <strong className="text-gray-700">Within 7 days of payment</strong> — full refund, no
+                questions asked, regardless of usage.
+              </li>
+              <li>
+                <strong className="text-gray-700">8 to 30 days after payment</strong> — pro-rated refund for
+                the unused full months remaining, minus the equivalent monthly rate for months already used.
+              </li>
+              <li>
+                <strong className="text-gray-700">After 30 days</strong> — no refund. Your subscription
+                remains active until the end of the annual term.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">4. How to Request a Refund</h2>
+            <p>
+              To request a refund, email us at{" "}
+              <a href="mailto:support@groundworkpm.com" className="text-header hover:underline">
+                support@groundworkpm.com
+              </a>{" "}
+              with the subject line <strong className="text-gray-700">&ldquo;Refund Request&rdquo;</strong> and include:
+            </p>
+            <ul className="list-disc pl-6 mt-2 space-y-1">
+              <li>The email address associated with your account</li>
+              <li>The date of the charge you are requesting a refund for</li>
+              <li>A brief reason for your request</li>
+            </ul>
+            <p className="mt-3">
+              We will respond within 2 business days. Approved refunds are processed through Paddle, our payment
+              provider, and typically take <strong className="text-gray-700">5–10 business days</strong> to appear
+              on your statement depending on your bank or card issuer.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">5. Exceptional Circumstances</h2>
+            <p>
+              We understand that unexpected situations arise. If you have a circumstance that falls outside the
+              standard policy above — such as a serious illness, a billing error, or a Service outage that
+              significantly impacted your use — please contact us and we will review your case individually.
+              We aim to be fair and reasonable in all circumstances.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">6. Cancellation</h2>
+            <p>
+              You may cancel your subscription at any time from your account settings. Cancellation stops future
+              renewals but does not trigger a refund for the current period unless you are within the eligible
+              refund window described above. After cancellation, your account remains accessible in read-only
+              mode until the end of your paid period, allowing you to export your data.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">7. Payment Processing</h2>
+            <p>
+              All payments are processed by Paddle.com Market Limited, who act as our Merchant of Record. Refunds
+              are issued back to the original payment method. Paddle may have their own policies that apply to
+              certain payment methods — see the{" "}
+              <a href="https://www.paddle.com/legal" className="text-header hover:underline" target="_blank" rel="noopener noreferrer">
+                Paddle legal page
+              </a>{" "}
+              for details.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-xl text-header mb-3">8. Contact</h2>
+            <p>
+              Questions about this policy? Reach us at{" "}
+              <a href="mailto:support@groundworkpm.com" className="text-header hover:underline">
+                support@groundworkpm.com
+              </a>.
+            </p>
+          </section>
+
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

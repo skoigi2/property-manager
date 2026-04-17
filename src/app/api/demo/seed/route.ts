@@ -342,7 +342,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       serviceProvider: "Cummins Bahrain",
       serviceContact: "+973 1770 0011",
       notes: "150 kVA Cummins diesel generator. Powers common areas and lifts during MEW outages.",
-      schedule: { taskName: "Monthly Generator Service Check", frequency: MaintenanceFrequency.MONTHLY, nextDue: d("2026-04-10") },
+      schedule: { taskName: "Monthly Generator Service Check", frequency: MaintenanceFrequency.MONTHLY, nextDue: d("2026-04-10"), estimatedCost: 280 },
     },
     {
       name: "ThyssenKrupp Passenger Lift",
@@ -354,7 +354,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       serviceProvider: "ThyssenKrupp Elevator Bahrain",
       serviceContact: "+973 1721 5566",
       notes: "10-person machine-room-less lift. Annual statutory inspection required.",
-      schedule: { taskName: "Quarterly Lift Servicing", frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-04-01") },
+      schedule: { taskName: "Quarterly Lift Servicing", frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-04-01"), estimatedCost: 200 },
     },
     {
       name: "Grundfos Water Pump",
@@ -366,7 +366,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       serviceProvider: "Aqua Systems Bahrain",
       serviceContact: "+973 1733 8899",
       notes: "Supplies pressurised water to all floors from rooftop tanks.",
-      schedule: { taskName: "Biannual Pump Inspection", frequency: MaintenanceFrequency.BIANNUALLY, nextDue: d("2026-06-14") },
+      schedule: { taskName: "Biannual Pump Inspection", frequency: MaintenanceFrequency.BIANNUALLY, nextDue: d("2026-06-14"), estimatedCost: 150 },
     },
     {
       name: "Hikvision 16-Channel CCTV System",
@@ -378,7 +378,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       serviceProvider: "Techno Systems Bahrain",
       serviceContact: "+973 1744 6677",
       notes: "16 cameras covering entrance, car park, corridors, and rooftop. 30-day storage.",
-      schedule: { taskName: "Annual CCTV Review & Maintenance", frequency: MaintenanceFrequency.ANNUALLY, nextDue: d("2026-07-20") },
+      schedule: { taskName: "Annual CCTV Review & Maintenance", frequency: MaintenanceFrequency.ANNUALLY, nextDue: d("2026-07-20"), estimatedCost: 250 },
     },
   ];
 
@@ -400,10 +400,12 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     await prisma.assetMaintenanceSchedule.create({
       data: {
         assetId: asset.id,
+        propertyId: property.id,
         taskName: a.schedule.taskName,
         frequency: a.schedule.frequency,
         nextDue: a.schedule.nextDue,
         isActive: true,
+        estimatedCost: a.schedule.estimatedCost,
       },
     });
   }
@@ -453,6 +455,27 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       },
     ],
   });
+
+  // ── Link asset maintenance schedules → recurring expenses ──────────────────
+  {
+    const asSchedLinks = [
+      { taskFragment: "Generator",   descFragment: "Generator" },
+      { taskFragment: "Lift",        descFragment: "Lift" },
+      { taskFragment: "Pump",        descFragment: "Pump" },
+      { taskFragment: "CCTV",        descFragment: "CCTV" },
+    ];
+    const [asSchedRows, asRecurRows] = await Promise.all([
+      prisma.assetMaintenanceSchedule.findMany({ where: { propertyId: property.id }, select: { id: true, taskName: true } }),
+      prisma.recurringExpense.findMany({ where: { propertyId: property.id }, select: { id: true, description: true } }),
+    ]);
+    for (const link of asSchedLinks) {
+      const sched = asSchedRows.find((s) => s.taskName.includes(link.taskFragment));
+      const recur = asRecurRows.find((r) => r.description.includes(link.descFragment));
+      if (sched && recur) {
+        await prisma.assetMaintenanceSchedule.update({ where: { id: sched.id }, data: { recurringExpenseId: recur.id } });
+      }
+    }
+  }
 
   // ── Arrears cases ───────────────────────────────────────────────────────────
   await prisma.arrearsCase.create({
@@ -588,6 +611,8 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         cost: 120,
         vendorId: vendorMaint.id,
         notes: "Replaced mixer tap with Grohe unit. Tenant confirmed resolved.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -603,6 +628,8 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         completedDate: new Date(2026, 0, 21),
         cost: 340,
         notes: "Door sensor replaced. Full door cycle test completed. Back in service.",
+        isEmergency: true,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -620,6 +647,8 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         cost: 85,
         vendorId: vendorElec.id,
         notes: "Uprated circuit breaker installed. Fault confirmed resolved.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -637,6 +666,8 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         cost: 310,
         vendorId: vendorMaint.id,
         notes: "Compressor replaced. Full system test passed.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -650,6 +681,8 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         reportedDate: new Date(2026, 2, 1),
         scheduledDate: new Date(2026, 2, 10),
         notes: "Technician booked for 10 March. Cable run inspection required.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -661,9 +694,77 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         reportedBy: "Building manager",
         reportedDate: new Date(2026, 2, 15),
         notes: "Non-urgent. Area cordoned off. Quote requested from contractor.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
     ],
   });
+
+  // Portal-submitted tenant maintenance requests
+  await prisma.maintenanceJob.createMany({
+    data: [
+      {
+        propertyId: property.id,
+        unitId: units["102"].id,
+        title: "Leaking shower head — unit 102",
+        description: "Shower head dripping even when fully off. Getting worse.",
+        category: MaintenanceCategory.PLUMBING,
+        priority: MaintenancePriority.LOW,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Noor Al-Rashid",
+        reportedDate: new Date(2026, 2, 22),
+        isEmergency: false,
+        submittedViaPortal: true,
+      },
+      {
+        propertyId: property.id,
+        unitId: units["305"].id,
+        title: "Bedroom light fixture flickering — unit 305",
+        description: "Main bedroom ceiling light flickers intermittently. Suspected loose connection.",
+        category: MaintenanceCategory.ELECTRICAL,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Sara Al-Zayed",
+        reportedDate: new Date(2026, 3, 2),
+        isEmergency: false,
+        submittedViaPortal: true,
+      },
+      {
+        propertyId: property.id,
+        unitId: units["401"].id,
+        title: "Balcony door lock stiff — unit 401",
+        description: "Balcony sliding door lock is very stiff and hard to operate. Security concern.",
+        category: MaintenanceCategory.OTHER,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Khalid Al-Dosari",
+        reportedDate: new Date(2026, 3, 7),
+        isEmergency: false,
+        submittedViaPortal: true,
+      },
+    ],
+  });
+
+  // ── Link DONE maintenance jobs → their expense entries ─────────────────────
+  {
+    const asJobExpLinks = [
+      { titleFragment: "Bathroom tap replacement", amount: 120 },
+      { titleFragment: "Kitchen circuit breaker",  amount: 85  },
+      { titleFragment: "A/C compressor failure",   amount: 310 },
+    ];
+    const asUnitIds = Object.values(units).map((u) => u.id);
+    for (const link of asJobExpLinks) {
+      const job = await prisma.maintenanceJob.findFirst({
+        where: { propertyId: property.id, title: { contains: link.titleFragment } },
+      });
+      const exp = await prisma.expenseEntry.findFirst({
+        where: { amount: link.amount, OR: [{ propertyId: property.id }, { unitId: { in: asUnitIds } }] },
+      });
+      if (job && exp) {
+        await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
+      }
+    }
+  }
 
   // ── Compliance certificates ─────────────────────────────────────────────────
   await prisma.complianceCertificate.createMany({
@@ -1178,6 +1279,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     amount: number;
     isVatable: boolean;
     paymentStatus: LineItemPaymentStatus;
+    amountPaid: number;
   }[] = [];
 
   // Collect line items for each expense type (using first-month entry as template —
@@ -1190,32 +1292,32 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
 
   for (const e of mgmtIds) {
     lineItemRows.push(
-      { expenseId: e.id, category: LineItemCategory.LABOUR,  description: "Management fee (excl. VAT)", amount: 6261, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
-      { expenseId: e.id, category: LineItemCategory.QUOTE,   description: "VAT @ 15%",                  amount: 939,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.LABOUR,  description: "Management fee (excl. VAT)", amount: 6261, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 6261 },
+      { expenseId: e.id, category: LineItemCategory.QUOTE,   description: "VAT @ 15%",                  amount: 939,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 939  },
     );
   }
   for (const e of waterIds) {
     lineItemRows.push(
-      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Water consumption", amount: 1680, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Sewerage levy",     amount: 720,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Water consumption", amount: 1680, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 1680 },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Sewerage levy",     amount: 720,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 720  },
     );
   }
   for (const e of eskomIds) {
     lineItemRows.push(
-      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Electricity consumption (incl. VAT)", amount: 3200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Network access charge (incl. VAT)",   amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Electricity consumption (incl. VAT)", amount: 3200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 3200 },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Network access charge (incl. VAT)",   amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 600  },
     );
   }
   for (const e of cleanIds) {
     lineItemRows.push(
-      { expenseId: e.id, category: LineItemCategory.LABOUR,   description: "Cleaning staff wages (2 cleaners)", amount: 4800, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Cleaning materials & detergents",   amount: 700,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.LABOUR,   description: "Cleaning staff wages (2 cleaners)", amount: 4800, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 4800 },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Cleaning materials & detergents",   amount: 700,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 700  },
     );
   }
   for (const e of wifiIds) {
     lineItemRows.push(
-      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Fibre subscription (excl. VAT)", amount: 1043, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID },
-      { expenseId: e.id, category: LineItemCategory.QUOTE,    description: "VAT @ 15%",                      amount: 157,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+      { expenseId: e.id, category: LineItemCategory.MATERIAL, description: "Fibre subscription (excl. VAT)", amount: 1043, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 1043 },
+      { expenseId: e.id, category: LineItemCategory.QUOTE,    description: "VAT @ 15%",                      amount: 157,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 157  },
     );
   }
 
@@ -1227,24 +1329,24 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   const gateMotorExp = findExpenseId("gate motor replacement");
 
   if (geyserExp) lineItemRows.push(
-    { expenseId: geyserExp, category: LineItemCategory.LABOUR,   description: "Installation labour",              amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-    { expenseId: geyserExp, category: LineItemCategory.MATERIAL, description: "150L geyser element & thermostat", amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: geyserExp, category: LineItemCategory.LABOUR,   description: "Installation labour",              amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 1200 },
+    { expenseId: geyserExp, category: LineItemCategory.MATERIAL, description: "150L geyser element & thermostat", amount: 600,  isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 600  },
   );
   if (dbBoardExp) lineItemRows.push(
-    { expenseId: dbBoardExp, category: LineItemCategory.LABOUR,   description: "Fault-finding & repair labour", amount: 700, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-    { expenseId: dbBoardExp, category: LineItemCategory.MATERIAL, description: "Surge protector replacement",   amount: 250, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: dbBoardExp, category: LineItemCategory.LABOUR,   description: "Fault-finding & repair labour", amount: 700, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 700 },
+    { expenseId: dbBoardExp, category: LineItemCategory.MATERIAL, description: "Surge protector replacement",   amount: 250, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 250 },
   );
   if (acExp) lineItemRows.push(
-    { expenseId: acExp, category: LineItemCategory.LABOUR,   description: "Installation & re-gas labour", amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-    { expenseId: acExp, category: LineItemCategory.MATERIAL, description: "Compressor unit (incl. VAT)",  amount: 3000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: acExp, category: LineItemCategory.LABOUR,   description: "Installation & re-gas labour", amount: 1200, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 1200 },
+    { expenseId: acExp, category: LineItemCategory.MATERIAL, description: "Compressor unit (incl. VAT)",  amount: 3000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 3000 },
   );
   if (deepCleanExp) lineItemRows.push(
-    { expenseId: deepCleanExp, category: LineItemCategory.LABOUR,   description: "Deep clean labour",             amount: 2500, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
-    { expenseId: deepCleanExp, category: LineItemCategory.MATERIAL, description: "Painting materials & sundries", amount: 1000, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: deepCleanExp, category: LineItemCategory.LABOUR,   description: "Deep clean labour",             amount: 2500, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 2500 },
+    { expenseId: deepCleanExp, category: LineItemCategory.MATERIAL, description: "Painting materials & sundries", amount: 1000, isVatable: false, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 1000 },
   );
   if (gateMotorExp) lineItemRows.push(
-    { expenseId: gateMotorExp, category: LineItemCategory.LABOUR,   description: "Motor installation & commissioning", amount: 2500, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
-    { expenseId: gateMotorExp, category: LineItemCategory.MATERIAL, description: "Gate motor unit & hardware",         amount: 6000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID },
+    { expenseId: gateMotorExp, category: LineItemCategory.LABOUR,   description: "Motor installation & commissioning", amount: 2500, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 2500 },
+    { expenseId: gateMotorExp, category: LineItemCategory.MATERIAL, description: "Gate motor unit & hardware",         amount: 6000, isVatable: true, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: 6000 },
   );
 
   if (lineItemRows.length > 0) {
@@ -1331,7 +1433,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       serviceProvider: "Agrico Equipment",
       serviceContact: "+27 11 966 0010",
       notes: "100 kVA Perkins diesel generator. Powers common areas and security systems during Eskom load-shedding.",
-      schedule: { taskName: "Monthly Generator Service Check", frequency: MaintenanceFrequency.MONTHLY, nextDue: d("2026-04-15") },
+      schedule: { taskName: "Monthly Generator Service Check", frequency: MaintenanceFrequency.MONTHLY, nextDue: d("2026-04-15"), estimatedCost: 2800 },
     },
     {
       name: "Otis Passenger Lift",
@@ -1343,7 +1445,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       serviceProvider: "Otis Elevator Company SA",
       serviceContact: "+27 11 490 6000",
       notes: "8-person machine-room-less lift. Annual statutory inspection required.",
-      schedule: { taskName: "Quarterly Lift Servicing", frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-04-01") },
+      schedule: { taskName: "Quarterly Lift Servicing", frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-04-01"), estimatedCost: 3200 },
     },
     {
       name: "Grundfos Pressure Pump",
@@ -1355,7 +1457,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       serviceProvider: "Pump & Valve SA",
       serviceContact: "+27 11 444 8800",
       notes: "Supplies pressurised water to all floors from municipal connection.",
-      schedule: { taskName: "Biannual Pump Inspection", frequency: MaintenanceFrequency.BIANNUALLY, nextDue: d("2026-06-10") },
+      schedule: { taskName: "Biannual Pump Inspection", frequency: MaintenanceFrequency.BIANNUALLY, nextDue: d("2026-06-10"), estimatedCost: 1400 },
     },
     {
       name: "Hikvision 16-Channel CCTV System",
@@ -1367,7 +1469,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       serviceProvider: "ADT Security",
       serviceContact: "+27 11 418 1111",
       notes: "16 cameras covering entrance, parking, corridors, and gardens. 30-day storage.",
-      schedule: { taskName: "Annual CCTV Review & Maintenance", frequency: MaintenanceFrequency.ANNUALLY, nextDue: d("2026-09-12") },
+      schedule: { taskName: "Annual CCTV Review & Maintenance", frequency: MaintenanceFrequency.ANNUALLY, nextDue: d("2026-09-12"), estimatedCost: 2800 },
     },
   ];
 
@@ -1389,10 +1491,12 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     await prisma.assetMaintenanceSchedule.create({
       data: {
         assetId: asset.id,
+        propertyId: property.id,
         taskName: a.schedule.taskName,
         frequency: a.schedule.frequency,
         nextDue: a.schedule.nextDue,
         isActive: true,
+        estimatedCost: a.schedule.estimatedCost,
       },
     });
   }
@@ -1446,6 +1550,27 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       },
     ],
   });
+
+  // ── Link asset maintenance schedules → recurring expenses ──────────────────
+  {
+    const shSchedLinks = [
+      { taskFragment: "Generator", descFragment: "Generator" },
+      { taskFragment: "Lift",      descFragment: "Lift" },
+      { taskFragment: "Pump",      descFragment: "Pump" },
+      { taskFragment: "CCTV",      descFragment: "CCTV" },
+    ];
+    const [shSchedRows, shRecurRows] = await Promise.all([
+      prisma.assetMaintenanceSchedule.findMany({ where: { propertyId: property.id }, select: { id: true, taskName: true } }),
+      prisma.recurringExpense.findMany({ where: { propertyId: property.id }, select: { id: true, description: true } }),
+    ]);
+    for (const link of shSchedLinks) {
+      const sched = shSchedRows.find((s) => s.taskName.includes(link.taskFragment));
+      const recur = shRecurRows.find((r) => r.description.includes(link.descFragment));
+      if (sched && recur) {
+        await prisma.assetMaintenanceSchedule.update({ where: { id: sched.id }, data: { recurringExpenseId: recur.id } });
+      }
+    }
+  }
 
   // ── Arrears cases ───────────────────────────────────────────────────────────
   // Unit 102: 3 months overdue (Feb + Mar + Apr) = R9,000 × 3 = R27,000
@@ -1545,6 +1670,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         cost: 1800,
         vendorId: shVendorMaint.id,
         notes: "150L geyser element and thermostat replaced. Tested and functioning.",
+        isEmergency: true,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -1561,6 +1688,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         cost: 2400,
         vendorId: shVendorAgrico.id,
         notes: "Oil changed, filters replaced, fuel injectors cleaned. Generator back to full spec.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -1578,6 +1707,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         cost: 950,
         vendorId: shVendorSparks.id,
         notes: "Surge protector failed — replaced. DB board tested. COC issued.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -1595,6 +1726,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         cost: 4200,
         vendorId: shVendorMaint.id,
         notes: "Compressor replaced. Full re-gas and system test completed.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -1611,6 +1744,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         cost: 8500,
         vendorId: shVendorADT.id,
         notes: "Gate motor and control board replaced. Tested and commissioned 2 April 2026.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
       {
         propertyId: property.id,
@@ -1622,9 +1757,79 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         reportedBy: "Cleaning staff",
         reportedDate: new Date(2026, 2, 18),
         notes: "Non-urgent. Quoted for hydro-jetting of drain. Awaiting approval.",
+        isEmergency: false,
+        submittedViaPortal: false,
       },
     ],
   });
+
+  // Portal-submitted tenant maintenance requests
+  await prisma.maintenanceJob.createMany({
+    data: [
+      {
+        propertyId: property.id,
+        unitId: units["101"].id,
+        title: "Blocked kitchen drain — unit 101",
+        description: "Kitchen sink draining slowly — possible grease blockage.",
+        category: MaintenanceCategory.PLUMBING,
+        priority: MaintenancePriority.LOW,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Sipho Dlamini",
+        reportedDate: new Date(2026, 2, 20),
+        isEmergency: false,
+        submittedViaPortal: true,
+      },
+      {
+        propertyId: property.id,
+        unitId: units["202"].id,
+        title: "Intercom handset dead — unit 202",
+        description: "Lobby intercom handset not responding — cannot buzz visitors in.",
+        category: MaintenanceCategory.ELECTRICAL,
+        priority: MaintenancePriority.MEDIUM,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Ayesha Patel",
+        reportedDate: new Date(2026, 3, 3),
+        isEmergency: false,
+        submittedViaPortal: true,
+      },
+      {
+        propertyId: property.id,
+        unitId: units["303"].id,
+        title: "Bedroom ceiling fan noise — unit 303",
+        description: "Ceiling fan vibrating loudly. Gets worse at high speed.",
+        category: MaintenanceCategory.APPLIANCE,
+        priority: MaintenancePriority.LOW,
+        status: MaintenanceStatus.OPEN,
+        reportedBy: "Michael & Sarah Pretorius",
+        reportedDate: new Date(2026, 3, 8),
+        isEmergency: false,
+        submittedViaPortal: true,
+      },
+    ],
+  });
+
+  // ── Link DONE maintenance jobs → their expense entries ─────────────────────
+  {
+    const shJobExpLinks = [
+      { titleFragment: "Geyser element failure",             amount: 1800 },
+      { titleFragment: "DB board trip",                      amount: 950  },
+      { titleFragment: "Air conditioning compressor failure", amount: 4200 },
+      { titleFragment: "Deep clean & touch-up",              amount: 3500 },
+      { titleFragment: "gate motor fault",                   amount: 8500 },
+    ];
+    const shUnitIds = Object.values(units).map((u) => u.id);
+    for (const link of shJobExpLinks) {
+      const job = await prisma.maintenanceJob.findFirst({
+        where: { propertyId: property.id, title: { contains: link.titleFragment } },
+      });
+      const exp = await prisma.expenseEntry.findFirst({
+        where: { amount: link.amount, OR: [{ propertyId: property.id }, { unitId: { in: shUnitIds } }] },
+      });
+      if (job && exp) {
+        await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
+      }
+    }
+  }
 
   // ── Compliance certificates ─────────────────────────────────────────────────
   await prisma.complianceCertificate.createMany({

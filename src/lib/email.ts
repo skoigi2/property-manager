@@ -45,6 +45,16 @@ export async function sendPasswordReset(email: string, resetLink: string): Promi
   });
 }
 
+// ─── Generic notification helper ─────────────────────────────────────────────
+
+export async function sendNotificationEmail(
+  to: string,
+  subject: string,
+  html: string,
+): Promise<void> {
+  await getResend().emails.send({ from: FROM, to, subject, html });
+}
+
 // ─── Welcome email ────────────────────────────────────────────────────────────
 
 export async function sendWelcome(email: string, name: string): Promise<void> {

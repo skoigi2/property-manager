@@ -273,4 +273,27 @@ AUTH_SECRET                   # Same value as NEXTAUTH_SECRET
 NEXTAUTH_URL                  # App URL (http://localhost:3000 for dev)
 NEXT_PUBLIC_SUPABASE_URL      # Supabase project URL (for document storage)
 SUPABASE_SERVICE_ROLE_KEY     # Supabase service role key (server-only, never exposed to browser)
+RESEND_API_KEY                # Resend email API key — required for all email sending
+RESEND_FROM_EMAIL             # Optional sender address (default: "Groundwork PM <noreply@groundworkpm.com>")
+CRON_SECRET                   # Random secret that Vercel sends as Bearer token to authenticate cron calls
+```
+
+### Automated Notifications (Cron)
+
+`GET /api/cron/notifications` — runs daily at 07:00 UTC via Vercel Cron (configured in `vercel.json`). Secured by `Authorization: Bearer ${CRON_SECRET}`.
+
+Checks and emails all ADMIN + MANAGER users with property access when:
+- A tenant lease expires in ≤30 days (`LEASE_EXPIRY_30D`) or ≤7 days (`LEASE_EXPIRY_7D`)
+- An invoice is unpaid and >7 days overdue (`INVOICE_OVERDUE`)
+- A compliance certificate expires in ≤30 days or ≤7 days
+- An insurance policy ends in ≤30 days or ≤7 days
+- An URGENT maintenance job is still OPEN after 4+ hours
+
+Deduplication: `NotificationLog` table stores every sent notification; each checker queries this before sending to prevent repeated alerts within the dedup window.
+
+Source files: `src/lib/notifications/checkers.ts`, `src/lib/notifications/email-templates.ts`
+
+To test locally:
+```bash
+curl -H "Authorization: Bearer your-cron-secret" http://localhost:3000/api/cron/notifications
 ```

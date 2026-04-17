@@ -45,6 +45,7 @@ model Organization {
   vendors                Vendor[]
   taxConfigurations      TaxConfiguration[]
   complianceCertificates ComplianceCertificate[]
+  notificationLogs       NotificationLog[]
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
 }
@@ -1165,6 +1166,35 @@ model ComplianceCertificate {
   @@index([propertyId])
   @@index([organizationId])
   @@index([expiryDate])
+}
+
+// ─── Automated Notifications ─────────────────────────────────────────────────
+
+enum NotificationType {
+  LEASE_EXPIRY_30D
+  LEASE_EXPIRY_7D
+  INVOICE_OVERDUE
+  COMPLIANCE_EXPIRY_30D
+  COMPLIANCE_EXPIRY_7D
+  INSURANCE_EXPIRY_30D
+  INSURANCE_EXPIRY_7D
+  MAINTENANCE_URGENT_OPEN
+}
+
+model NotificationLog {
+  id             String           @id @default(cuid())
+  organizationId String
+  type           NotificationType
+  resourceId     String
+  resourceType   String
+  recipientEmail String
+  subject        String
+  sentAt         DateTime         @default(now())
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([type, resourceId, sentAt])
+  @@index([organizationId, sentAt])
 }
 
 // ─── SaaS Billing Enum ────────────────────────────────────────────────────────

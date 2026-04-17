@@ -479,7 +479,8 @@ model Tenant {
   documents         TenantDocument[]
   arrearsCases      ArrearsCase[]
   depositSettlement DepositSettlement?
-  rentHistory       RentHistory[]
+  rentHistory          RentHistory[]
+  communicationLogs    CommunicationLog[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -1195,6 +1196,30 @@ model NotificationLog {
 
   @@index([type, resourceId, sentAt])
   @@index([organizationId, sentAt])
+}
+
+// ─── Communication Log ───────────────────────────────────────────────────────
+
+enum CommunicationType {
+  EMAIL
+}
+
+model CommunicationLog {
+  id                String            @id @default(cuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type              CommunicationType
+  subject           String
+  body              String?
+  templateUsed      String?
+  loggedByEmail     String
+  loggedByName      String?
+  sentAt            DateTime          @default(now())
+  followUpDate      DateTime?
+  followUpCompleted Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+
+  @@index([tenantId, sentAt])
 }
 
 // ─── SaaS Billing Enum ────────────────────────────────────────────────────────

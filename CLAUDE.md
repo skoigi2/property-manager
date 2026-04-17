@@ -219,6 +219,8 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **RentHistory** — tracks rent escalations and adjustments over time, linked to `Tenant`. API: `GET/POST /api/tenants/[id]/rent-history`, `DELETE /api/tenants/[id]/rent-history?entryId=`.
 
+**Communication Log** — per-tenant log of outbound emails (`CommunicationLog` model). Fields: `type` (`CommunicationType` enum: `EMAIL`), `subject`, `body?`, `templateUsed?`, `loggedByEmail`, `loggedByName?`, `sentAt`, `followUpDate?`, `followUpCompleted`. API: `GET/POST /api/tenants/[id]/communication-log`, `PATCH/DELETE /api/tenants/[id]/communication-log/[entryId]`. Exposed as a "Comms" tab on the tenant detail page (`src/components/tenants/CommunicationLogTab.tsx`). `EmailDraftModal` auto-logs a fire-and-forget POST when manager clicks "Open in mail app" or "Copy body" — requires `tenantId` prop.
+
 **Tenant sub-routes** (not covered above):
 - `POST /api/tenants/[id]/vacate` — marks tenant vacated, sets unit status to `VACANT`
 - `POST /api/tenants/[id]/settle-deposit` — records deposit settlement with itemised deductions (`DepositSettlement` model)

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { X, Copy, Check, Mail, ExternalLink } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
+import toast from "react-hot-toast";
 
 type Template = "rent_reminder" | "payment_receipt" | "renewal_offer" | "expiry_notice";
 
@@ -16,6 +17,7 @@ interface Props {
     proposedRent:     number | null;
     proposedLeaseEnd: string | null;
   };
+  tenantId?: string;
   currency?: string;
   onClose: () => void;
 }
@@ -116,15 +118,32 @@ Property Management`,
   }
 }
 
-export function EmailDraftModal({ tenant, currency = "USD", onClose }: Props) {
+export function EmailDraftModal({ tenant, tenantId, currency = "USD", onClose }: Props) {
   const [template, setTemplate]   = useState<Template>("rent_reminder");
   const [copied, setCopied]       = useState(false);
   const draft = buildDraft(template, tenant, currency);
+
+  function autoLog() {
+    if (!tenantId) return;
+    fetch(`/api/tenants/${tenantId}/communication-log`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        type:         "EMAIL",
+        subject:      draft.subject,
+        body:         draft.body,
+        templateUsed: template,
+      }),
+    })
+      .then(() => toast.success("Communication logged"))
+      .catch(() => {});
+  }
 
   async function copyBody() {
     await navigator.clipboard.writeText(draft.body);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    autoLog();
   }
 
   const mailtoLink = tenant.email
@@ -202,6 +221,7 @@ export function EmailDraftModal({ tenant, currency = "USD", onClose }: Props) {
                 href={mailtoLink}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={autoLog}
                 className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark transition-colors"
               >
                 <ExternalLink size={14} />

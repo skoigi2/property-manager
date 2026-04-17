@@ -25,6 +25,7 @@ import {
   Package,
   BarChart3,
   CalendarDays,
+  CalendarRange,
   ChevronDown,
   ChevronRight,
   ArrowLeftRight,
@@ -56,7 +57,8 @@ type SidebarEntry = NavItem | ({ type: "group" } & NavGroup);
 const sidebarEntries: SidebarEntry[] = [
   { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard, roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/properties", label: "Properties", icon: Building2,        roles: ["MANAGER", "ACCOUNTANT"] },
-  { href: "/airbnb",     label: "Airbnb",     icon: CalendarDays,     roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/airbnb",    label: "Airbnb",    icon: CalendarDays, roles: ["MANAGER", "ACCOUNTANT"] },
+  { href: "/calendar",  label: "Calendar",  icon: CalendarRange, roles: ["MANAGER", "ACCOUNTANT"] },
   {
     type: "group",
     label: "Finances",

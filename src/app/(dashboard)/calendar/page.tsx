@@ -237,21 +237,28 @@ export default function CalendarPage() {
             </button>
 
             {overdueExpanded && (
-              <div className="px-4 pb-3 flex flex-wrap gap-2">
+              <div className="divide-y divide-red-100">
                 {overdueEvents.map((e) => {
                   const cfg = TYPE_CONFIG[e.type as EventType];
                   return (
                     <Link
                       key={e.id}
                       href={e.link}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-red-200 rounded-lg text-xs font-sans text-gray-700 hover:border-red-400 hover:bg-red-50 transition-colors group"
-                      title={`${e.title} · ${e.propertyName}`}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-100/50 transition-colors group"
                     >
                       <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                      <span className="max-w-[160px] truncate">{e.title}</span>
-                      <span className="text-gray-400 shrink-0">·</span>
-                      <span className="text-red-600 font-medium shrink-0">{Math.abs(e.daysUntil)}d ago</span>
-                      <ExternalLink size={11} className="text-gray-300 group-hover:text-red-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-sans text-gray-800 truncate">{e.title}</p>
+                        <p className="text-xs text-gray-500 font-sans truncate">
+                          {e.propertyName}{e.unitName ? ` · ${e.unitName}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-sans font-semibold text-red-600">
+                          {Math.abs(e.daysUntil)}d ago
+                        </span>
+                        <ExternalLink size={13} className="text-gray-300 group-hover:text-red-400" />
+                      </div>
                     </Link>
                   );
                 })}

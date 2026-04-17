@@ -58,7 +58,14 @@ export const pettyCashSchema = z.object({
   type: z.enum(["IN", "OUT"]),
   amount: z.coerce.number().positive("Amount must be positive"),
   description: z.string().min(1, "Description is required"),
+  receiptRef: z.string().optional(),
   propertyId: z.string().optional(),
+});
+
+export const pettyCashApproveSchema = z.object({
+  action: z.enum(["approve", "reject"]),
+  approvalNotes: z.string().optional(),
+  rejectionReason: z.string().optional(),
 });
 
 export const tenantSchema = z.object({

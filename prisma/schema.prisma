@@ -251,6 +251,12 @@ enum PettyCashType {
   OUT
 }
 
+enum PettyCashStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum DocumentCategory {
   LEASE_AGREEMENT
   ID_COPY
@@ -599,16 +605,24 @@ model ExpenseUnitAllocation {
 }
 
 model PettyCash {
-  id          String        @id @default(cuid())
-  date        DateTime
-  type        PettyCashType
-  amount      Float
-  description String
-  propertyId  String?
-  property    Property?     @relation(fields: [propertyId], references: [id])
-  createdAt   DateTime      @default(now())
+  id              String          @id @default(cuid())
+  date            DateTime
+  type            PettyCashType
+  amount          Float
+  description     String
+  receiptRef      String?
+  propertyId      String?
+  property        Property?       @relation(fields: [propertyId], references: [id])
+  status          PettyCashStatus @default(APPROVED)
+  approvedBy      String?
+  approvedAt      DateTime?
+  approvalNotes   String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime        @default(now())
 
   @@index([propertyId])
+  @@index([status])
 }
 
 model ManagementFeeConfig {

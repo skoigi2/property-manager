@@ -4,24 +4,28 @@ export interface PettyCashWithBalance extends PettyCash {
   balance: number;
 }
 
-/** Compute running balance for petty cash entries (must be sorted by date ASC) */
+/** Compute running balance for petty cash entries (must be sorted by date ASC).
+ *  PENDING and REJECTED entries do not affect the balance — only APPROVED counts. */
 export function calcPettyCashBalance(entries: PettyCash[]): PettyCashWithBalance[] {
   let running = 0;
   return entries.map((entry) => {
-    if (entry.type === "IN") {
-      running += entry.amount;
-    } else {
-      running -= entry.amount;
+    const counts = entry.status === "APPROVED";
+    if (counts) {
+      if (entry.type === "IN") {
+        running += entry.amount;
+      } else {
+        running -= entry.amount;
+      }
     }
     return { ...entry, balance: running };
   });
 }
 
-/** Total petty cash balance */
+/** Total petty cash balance (APPROVED entries only) */
 export function calcPettyCashTotal(entries: PettyCash[]): number {
-  return entries.reduce((acc, e) => {
-    return acc + (e.type === "IN" ? e.amount : -e.amount);
-  }, 0);
+  return entries
+    .filter((e) => e.status === "APPROVED")
+    .reduce((acc, e) => acc + (e.type === "IN" ? e.amount : -e.amount), 0);
 }
 
 /** Net income = gross income - agent commissions - operating expenses (excl sunk costs) */

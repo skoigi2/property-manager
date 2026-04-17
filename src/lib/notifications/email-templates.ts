@@ -181,6 +181,32 @@ export function insuranceExpiryTemplate(data: {
 
 // ─── Urgent maintenance stale ────────────────────────────────────────────────
 
+export function pettyCashPendingTemplate(data: {
+  propertyName: string;
+  amount: number;
+  description: string;
+  receiptRef: string | null;
+  submittedBy: string;
+}): { subject: string; html: string } {
+  const subject = `Petty Cash Approval Required — ${data.propertyName}`;
+  const html = shell(
+    "Petty Cash Approval Required",
+    AMBER,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      A petty cash OUT entry has been submitted above the approval threshold and requires your review.
+    </p>
+    <table style="border-collapse:collapse;margin-bottom:4px;">
+      ${row("Property", data.propertyName)}
+      ${row("Amount", data.amount.toLocaleString())}
+      ${row("Description", data.description)}
+      ${row("Receipt / Ref", data.receiptRef ?? "—")}
+      ${row("Submitted by", data.submittedBy)}
+    </table>
+    ${cta("Review & Approve", `${APP_URL}/petty-cash`)}`,
+  );
+  return { subject, html };
+}
+
 export function urgentMaintenanceTemplate(data: {
   jobTitle: string;
   propertyName: string;

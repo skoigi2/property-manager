@@ -22,7 +22,7 @@ import {
   LayoutList, TableProperties, Receipt, ChevronDown, ChevronRight, ChevronUp,
   RefreshCw, AlertTriangle, Loader2, Zap, FolderOpen,
   DollarSign, CheckCheck, Clock, FileDown, ChevronsUpDown, GripVertical,
-  Phone, Mail, Building2, BookUser, Pencil,
+  Phone, Mail, Building2, BookUser, Pencil, X,
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
 import { calcLateInterest } from "@/lib/calculations";
@@ -719,6 +719,72 @@ export default function IncomePage() {
     }
   }
 
+  // ── Bulk selection ────────────────────────────────────────────────────────
+  const [bulkSelected, setBulkSelected] = useState<Map<string, number>>(new Map());
+  const [bulkRecording, setBulkRecording] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
+  // Clear selection when the month changes
+  useEffect(() => { setBulkSelected(new Map()); }, [month]);
+
+  function toggleBulkRow(tenantId: string, defaultAmount: number) {
+    setBulkSelected(prev => {
+      const next = new Map(prev);
+      if (next.has(tenantId)) { next.delete(tenantId); } else { next.set(tenantId, defaultAmount); }
+      return next;
+    });
+  }
+
+  function setBulkAmount(tenantId: string, amount: number) {
+    setBulkSelected(prev => new Map(prev).set(tenantId, amount));
+  }
+
+  function selectAllUnpaid() {
+    setBulkSelected(new Map(
+      collectionRows.filter((r) => !r.isPaid).map((r) => [r.tenant.id, r.tenant.monthlyRent as number]),
+    ));
+  }
+
+  async function handleBulkRecord() {
+    const toRecord = Array.from(bulkSelected.entries());
+    if (toRecord.length === 0) return;
+
+    setBulkRecording(true);
+    setBulkProgress({ done: 0, total: toRecord.length });
+    const dateStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-01`;
+    let created = 0, failed = 0;
+
+    for (const [tenantId, grossAmount] of toRecord) {
+      const row = collectionRows.find((r) => r.tenant.id === tenantId);
+      if (!row) { failed++; continue; }
+      try {
+        const res = await fetch("/api/income", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type:            "LONGTERM_RENT",
+            unitId:          row.tenant.unitId,
+            tenantId,
+            grossAmount,
+            agentCommission: 0,
+            date:            dateStr,
+          }),
+        });
+        if (res.ok) { created++; } else { failed++; }
+      } catch { failed++; }
+      setBulkProgress((p) => p && { ...p, done: p.done + 1 });
+    }
+
+    fetchEntries();
+    setArrearsSeq((s) => s + 1);
+    setBulkSelected(new Map());
+    setBulkRecording(false);
+    setBulkProgress(null);
+
+    if (failed === 0) toast.success(`${created} payment${created !== 1 ? "s" : ""} recorded`);
+    else toast.success(`${created} recorded, ${failed} failed`);
+  }
+
   // ── Submit ─────────────────────────────────────────────────────────────────
   async function onSubmit(data: IncomeEntryInput) {
     setSubmitting(true);
@@ -1088,70 +1154,98 @@ export default function IncomePage() {
                 ) : collectionRows.length === 0 ? (
                   <EmptyState title="No active tenants" description="Add tenants to track rent collection" icon={<User size={40} />} />
                 ) : (
-                  <Card padding="none">
-                    {/* Mobile: stacked cards */}
-                    <div className="md:hidden divide-y divide-gray-50">
-                      {sortedCollectionRows.map((row) => {
-                        const { tenant, totalPaid, expected, isPaid } = row;
-                        return (
-                          <div key={tenant.id} className="px-4 py-3">
-                            {/* Tenant + status */}
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div>
-                                <p className="text-sm font-medium font-sans text-header">{tenant.name}</p>
-                                <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                  <>
+                    {/* ── Bulk action bar ───────────────────────────────────── */}
+                    {bulkSelected.size > 0 && (
+                      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gold/10 border border-gold/30 rounded-xl">
+                        <p className="text-sm font-medium font-sans text-header">
+                          {bulkSelected.size} tenant{bulkSelected.size !== 1 ? "s" : ""} selected
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={selectAllUnpaid}
+                            disabled={bulkRecording}
+                            className="text-xs font-sans text-gold hover:text-gold-dark transition-colors disabled:opacity-40"
+                          >
+                            Select all unpaid
+                          </button>
+                          <button
+                            onClick={() => setBulkSelected(new Map())}
+                            disabled={bulkRecording}
+                            className="text-xs font-sans text-gray-500 hover:text-gray-700 flex items-center gap-0.5 transition-colors disabled:opacity-40"
+                          >
+                            <X size={11} /> Clear
+                          </button>
+                          <button
+                            onClick={handleBulkRecord}
+                            disabled={bulkRecording}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
+                          >
+                            {bulkRecording ? (
+                              <><Loader2 size={12} className="animate-spin" /> Recording… {bulkProgress ? `(${bulkProgress.done}/${bulkProgress.total})` : ""}</>
+                            ) : (
+                              <><CheckCheck size={12} /> Record selected ({bulkSelected.size})</>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <Card padding="none">
+                      {/* Mobile: stacked cards */}
+                      <div className="md:hidden divide-y divide-gray-50">
+                        {sortedCollectionRows.map((row) => {
+                          const { tenant, totalPaid, expected, isPaid } = row;
+                          const isChecked = bulkSelected.has(tenant.id);
+                          return (
+                            <div key={tenant.id} className={clsx("px-4 py-3 transition-colors", isChecked && "bg-gold/5")}>
+                              {/* Tenant + status */}
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex items-start gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    disabled={isPaid}
+                                    onChange={() => toggleBulkRow(tenant.id, tenant.monthlyRent)}
+                                    className="mt-0.5 accent-[#c9a84c] disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                                  />
+                                  <div>
+                                    <p className="text-sm font-medium font-sans text-header">{tenant.name}</p>
+                                    <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                                  </div>
+                                </div>
+                                {isPaid ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Paid</span>
+                                ) : totalPaid > 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Partial</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-red-600 bg-red-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Pending</span>
+                                )}
                               </div>
-                              {isPaid ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Paid</span>
-                              ) : totalPaid > 0 ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Partial</span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-xs font-sans text-red-600 bg-red-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Pending</span>
-                              )}
-                            </div>
-                            {/* Financials */}
-                            <div className="grid grid-cols-2 gap-2 mb-2.5">
-                              <div>
-                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
-                                <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
-                                {tenant.serviceCharge > 0 && <p className="text-[10px] text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                              {/* Financials */}
+                              <div className="grid grid-cols-2 gap-2 mb-2.5">
+                                <div>
+                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                                  <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
+                                  {tenant.serviceCharge > 0 && <p className="text-[10px] text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+                                  {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
-                                {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
-                              </div>
-                            </div>
-                            {/* Action */}
-                            <div className="pt-1">
-                              {row.isPaid ? (
-                                <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
-                                  {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
-                                </button>
-                              ) : (
-                                <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant)}>
-                                  <Plus size={12} /> Record
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Desktop table */}
-                    <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full min-w-[580px]">
-                        <thead className="bg-cream-dark">
-                          <tr>
-                            {collColOrder.map((key) => renderColHeader(key, collColOrder, setCollColOrder, "income-coll-col-order", COLL_SORTABLE))}
-                            <th className="px-4 py-3" />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sortedCollectionRows.map((row) => (
-                            <tr key={row.tenant.id} className="border-t border-gray-50 hover:bg-cream/50 transition-colors">
-                              {collColOrder.map((key) => renderCollCell(key, row))}
-                              <td className="px-4 py-3">
-                                {row.isPaid ? (
+                              {/* Action */}
+                              <div className="pt-1">
+                                {isChecked ? (
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={bulkSelected.get(tenant.id) ?? tenant.monthlyRent}
+                                    onChange={(e) => setBulkAmount(tenant.id, parseFloat(e.target.value) || 0)}
+                                    className="w-32 border border-gold/50 rounded-lg px-2 py-1.5 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                                  />
+                                ) : isPaid ? (
                                   <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
                                     {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
                                   </button>
@@ -1160,13 +1254,72 @@ export default function IncomePage() {
                                     <Plus size={12} /> Record
                                   </Button>
                                 )}
-                              </td>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Desktop table */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full min-w-[580px]">
+                          <thead className="bg-cream-dark">
+                            <tr>
+                              <th className="w-8 px-3 py-3">
+                                <input
+                                  type="checkbox"
+                                  title="Select all unpaid"
+                                  checked={bulkSelected.size > 0 && collectionRows.filter(r => !r.isPaid).every(r => bulkSelected.has(r.tenant.id))}
+                                  onChange={(e) => e.target.checked ? selectAllUnpaid() : setBulkSelected(new Map())}
+                                  className="accent-[#c9a84c] cursor-pointer"
+                                />
+                              </th>
+                              {collColOrder.map((key) => renderColHeader(key, collColOrder, setCollColOrder, "income-coll-col-order", COLL_SORTABLE))}
+                              <th className="px-4 py-3" />
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
+                          </thead>
+                          <tbody>
+                            {sortedCollectionRows.map((row) => {
+                              const isChecked = bulkSelected.has(row.tenant.id);
+                              return (
+                                <tr key={row.tenant.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", isChecked && "bg-gold/5")}>
+                                  <td className="w-8 px-3 py-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      disabled={row.isPaid}
+                                      onChange={() => toggleBulkRow(row.tenant.id, row.tenant.monthlyRent)}
+                                      className="accent-[#c9a84c] disabled:opacity-30 cursor-pointer disabled:cursor-default"
+                                    />
+                                  </td>
+                                  {collColOrder.map((key) => renderCollCell(key, row))}
+                                  <td className="px-4 py-3">
+                                    {isChecked ? (
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={bulkSelected.get(row.tenant.id) ?? row.tenant.monthlyRent}
+                                        onChange={(e) => setBulkAmount(row.tenant.id, parseFloat(e.target.value) || 0)}
+                                        className="w-28 border border-gold/50 rounded-lg px-2 py-1 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                                      />
+                                    ) : row.isPaid ? (
+                                      <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
+                                        {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
+                                      </button>
+                                    ) : (
+                                      <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant)}>
+                                        <Plus size={12} /> Record
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  </>
                 )}
               </>
             )}

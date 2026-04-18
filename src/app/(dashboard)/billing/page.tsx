@@ -250,6 +250,13 @@ function BillingInner() {
     initializePaddle({
       environment: (process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT ?? "production") as "sandbox" | "production",
       token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "",
+      eventCallback(event) {
+        if (event.name === "checkout.error") {
+          console.error("[paddle] checkout error:", event.data);
+          toast.error("Checkout error — check the browser console for details.");
+          setLoading(null);
+        }
+      },
     }).then(setPaddle);
   }, []);
 

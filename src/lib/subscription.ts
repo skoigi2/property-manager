@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { PROPERTY_LIMITS } from "@/lib/stripe";
+import { PROPERTY_LIMITS } from "@/lib/paddle";
 
 // ─── Trial & subscription status helpers ─────────────────────────────────────
 
@@ -17,11 +17,9 @@ export function isSubscriptionActive(org: {
   subscriptionStatus: string | null;
   trialEndsAt:        Date | null;
 }): boolean {
-  // Paid tiers — trust Stripe status
   if (org.pricingTier !== "TRIAL") {
     return org.subscriptionStatus === "active" || org.subscriptionStatus === "trialing";
   }
-  // Trial — active as long as not expired
   return !isTrialExpired(org);
 }
 
@@ -65,11 +63,12 @@ export async function getSubscriptionInfo(orgId: string) {
     prisma.organization.findUnique({
       where: { id: orgId },
       select: {
-        pricingTier:        true,
-        subscriptionStatus: true,
-        trialEndsAt:        true,
-        stripeCustomerId:   true,
-        stripeSubscriptionId: true,
+        pricingTier:          true,
+        subscriptionStatus:   true,
+        trialEndsAt:          true,
+        currentPeriodEnd:     true,
+        paddleCustomerId:     true,
+        paddleSubscriptionId: true,
       },
     }),
     prisma.property.count({ where: { organizationId: orgId } }),
@@ -82,11 +81,11 @@ export async function getSubscriptionInfo(orgId: string) {
     pricingTier:        org.pricingTier,
     subscriptionStatus: org.subscriptionStatus,
     trialEndsAt:        org.trialEndsAt,
+    currentPeriodEnd:   org.currentPeriodEnd,
     trialDaysLeft:      trialDaysLeft(org.trialEndsAt),
     isLocked:           isLocked(org),
     propertyCount,
     propertyLimit:      limit === Infinity ? null : limit,
-    hasStripeCustomer:  !!org.stripeCustomerId,
-    hasSubscription:    !!org.stripeSubscriptionId,
+    hasSubscription:    !!org.paddleSubscriptionId,
   };
 }

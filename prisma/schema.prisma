@@ -33,12 +33,13 @@ model Organization {
   mpesaTill             String?
   paymentInstructions   String?
   // ── SaaS billing ──────────────────────────────────────────────────────────
-  pricingTier          PricingTier                  @default(TRIAL)
-  trialEndsAt          DateTime?
-  subscriptionStatus   String?                      // "trialing"|"active"|"past_due"|"canceled"
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
-  stripeEventId        String?                      // last processed webhook event (idempotency)
+  pricingTier           PricingTier                  @default(TRIAL)
+  trialEndsAt           DateTime?
+  subscriptionStatus    String?                      // "trialing"|"active"|"past_due"|"canceled"
+  currentPeriodEnd      DateTime?
+  paddleCustomerId      String?
+  paddleSubscriptionId  String?
+  paddleEventId         String?                      // last processed webhook event (idempotency)
   users                 User[]
   properties            Property[]
   memberships           UserOrganizationMembership[]

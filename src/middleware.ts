@@ -21,7 +21,7 @@ export default auth((req) => {
     pathname.startsWith("/api/auth/signup") ||
     pathname.startsWith("/api/auth/forgot-password") ||
     pathname.startsWith("/api/auth/reset-password") ||
-    pathname.startsWith("/api/webhooks/stripe") ||
+    pathname.startsWith("/api/webhooks/paddle") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/refund");

@@ -272,11 +272,15 @@ function BillingInner() {
     if (!priceId) { toast.error("Price not configured — contact support."); return; }
 
     setLoading(planKey);
+    const email = session.user.email;
     paddle.Checkout.open({
       items: [{ priceId, quantity: 1 }],
-      customer: { email: session.user.email ?? "" },
+      ...(email ? { customer: { email } } : {}),
       customData: { organizationId: (session.user as any).organizationId ?? "" },
-      settings: { successUrl: `${window.location.origin}/billing?upgraded=1` },
+      settings: {
+        successUrl: `${window.location.origin}/billing?upgraded=1`,
+        displayMode: "overlay",
+      },
     });
     setTimeout(() => setLoading(null), 1500);
   }

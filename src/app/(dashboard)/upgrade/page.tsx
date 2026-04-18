@@ -59,17 +59,17 @@ export default function UpgradePage() {
     }
 
     setLoading(planKey);
+    const email = session.user.email;
 
     paddle.Checkout.open({
       items: [{ priceId, quantity: 1 }],
-      customer: {
-        email: session.user.email ?? "",
-      },
+      ...(email ? { customer: { email } } : {}),
       customData: {
         organizationId: (session.user as any).organizationId ?? "",
       },
       settings: {
-        successUrl: `${window.location.origin}/dashboard?upgraded=1`,
+        successUrl: `${window.location.origin}/billing?upgraded=1`,
+        displayMode: "overlay",
       },
     });
 

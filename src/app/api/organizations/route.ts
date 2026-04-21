@@ -80,15 +80,24 @@ export async function GET() {
 
 // ── POST /api/organizations ───────────────────────────────────────────────────
 // Super-admin only. Optionally creates the first admin user for the org.
+const optionalEmail = z.preprocess(
+  (v) => (v === "" ? undefined : v),
+  z.string().email().optional()
+);
+const optionalPassword = z.preprocess(
+  (v) => (v === "" ? undefined : v),
+  z.string().min(6).optional()
+);
+
 const createWithAdminSchema = z.object({
-  name:      z.string().min(1),
-  address:   z.string().optional(),
-  phone:     z.string().optional(),
-  email:     z.string().email().optional(),
-  website:   z.string().optional(),
-  adminName:  z.string().optional(),
-  adminEmail: z.string().email().optional(),
-  adminPassword: z.string().min(6).optional(),
+  name:          z.string().min(1),
+  address:       z.string().optional(),
+  phone:         z.string().optional(),
+  email:         optionalEmail,
+  website:       z.string().optional(),
+  adminName:     z.string().optional(),
+  adminEmail:    optionalEmail,
+  adminPassword: optionalPassword,
 });
 
 export async function POST(req: Request) {

@@ -212,8 +212,9 @@ const propertySchema = z.object({
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
-  ownerId:   z.string().optional(),
-  managerId: z.string().optional(),
+  ownerId:        z.string().optional(),
+  managerId:      z.string().optional(),
+  organizationId: z.string().optional(),
   managementFeeRate: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).max(100).optional()
@@ -325,12 +326,21 @@ function StatusDot({ status }: { status: string }) {
 }
 
 interface OwnerUser { id: string; name: string | null; email: string | null; }
+interface OrgOption  { id: string; name: string; }
 
-function PropertyFormFields({ register, errors, owners, managers, watchedCategory }: {
-  register: any; errors: any; owners: OwnerUser[]; managers: OwnerUser[]; watchedCategory?: string;
+function PropertyFormFields({ register, errors, owners, managers, watchedCategory, orgs }: {
+  register: any; errors: any; owners: OwnerUser[]; managers: OwnerUser[]; watchedCategory?: string; orgs: OrgOption[];
 }) {
   return (
     <div className="space-y-4">
+      {orgs.length > 1 && (
+        <Select
+          label="Organisation"
+          placeholder="— Select organisation —"
+          {...register("organizationId")}
+          options={orgs.map((o) => ({ value: o.id, label: o.name }))}
+        />
+      )}
       <Input
         label="Property Name"
         {...register("name")}
@@ -1237,10 +1247,12 @@ function ImportHandoverModal({ onClose, onImported }: { onClose: () => void; onI
 export default function PropertiesPage() {
   const { data: session } = useSession();
   const isManager = session?.user?.role === "MANAGER" || session?.user?.role === "ADMIN";
+  const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [owners, setOwners]         = useState<OwnerUser[]>([]);
   const [managers, setManagers]     = useState<OwnerUser[]>([]);
+  const [orgs, setOrgs]             = useState<OrgOption[]>([]);
   const [loading, setLoading]       = useState(true);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [layout, setLayout] = useState<LayoutMode>("grid");
@@ -1301,7 +1313,6 @@ export default function PropertiesPage() {
 
   useEffect(() => {
     load();
-    // Fetch OWNER-role users for the owner dropdown
     fetch("/api/users")
       .then((r) => r.json())
       .then((d: any[]) => {
@@ -1309,13 +1320,25 @@ export default function PropertiesPage() {
         setManagers(d.filter((u) => u.role === "MANAGER" || u.role === "ACCOUNTANT"));
       })
       .catch(() => {});
-  }, []);
+    if (isSuperAdmin) {
+      fetch("/api/organizations")
+        .then((r) => r.json())
+        .then((d: any[]) => {
+          if (Array.isArray(d)) setOrgs(d.map((o) => ({ id: o.id, name: o.name })));
+        })
+        .catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   // ── Property handlers ────────────────────────────────────────────────────────
 
   const openAddProperty = () => {
     setEditProp(null);
-    propForm.reset({ type: "LONGTERM", city: "" });
+    propForm.reset({
+      type: "LONGTERM",
+      city: "",
+      organizationId: orgs.length === 1 ? orgs[0].id : undefined,
+    });
     setPropModalOpen(true);
   };
 
@@ -1685,7 +1708,7 @@ export default function PropertiesPage() {
         title={editProp ? "Edit Property" : "Add Property"}
       >
         <form onSubmit={propForm.handleSubmit(onSaveProperty)} className="space-y-4">
-          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} managers={managers} watchedCategory={propForm.watch("category")} />
+          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} managers={managers} watchedCategory={propForm.watch("category")} orgs={orgs} />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setPropModalOpen(false)}>
               Cancel

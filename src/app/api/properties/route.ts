@@ -18,6 +18,7 @@ const createSchema = z.object({
   managementFeeRate: z.number().optional(),
   managementFeeFlat: z.number().optional(),
   serviceChargeDefault: z.number().optional(),
+  organizationId: z.string().optional(),
 });
 
 export async function GET() {
@@ -77,8 +78,14 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
+  const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
+  const resolvedOrgId = isSuperAdmin
+    ? (parsed.data.organizationId ?? null)
+    : (session.user.organizationId ?? null);
+
+  const { organizationId: _orgId, ...propertyData } = parsed.data;
   const property = await prisma.property.create({
-    data: { ...parsed.data, organizationId: session.user.organizationId ?? null },
+    data: { ...propertyData, organizationId: resolvedOrgId },
   });
 
   // Automatically grant the creating manager access

@@ -771,19 +771,21 @@ model RecurringExpense {
 }
 
 model AuditLog {
-  id         String      @id @default(cuid())
-  userId     String
-  userEmail  String?
-  action     AuditAction
-  resource   String
-  resourceId String
-  before     Json?
-  after      Json?
-  createdAt  DateTime    @default(now())
+  id             String      @id @default(cuid())
+  userId         String
+  userEmail      String?
+  action         AuditAction
+  resource       String
+  resourceId     String
+  organizationId String?
+  before         Json?
+  after          Json?
+  createdAt      DateTime    @default(now())
 
   @@index([resource, resourceId])
   @@index([userId])
   @@index([createdAt])
+  @@index([organizationId])
 }
 
 model TenantDocument {

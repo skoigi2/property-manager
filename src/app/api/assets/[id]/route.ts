@@ -124,6 +124,7 @@ export async function PATCH(
       action: "UPDATE",
       resource: "Asset",
       resourceId: params.id,
+      organizationId: session!.user.organizationId,
       before: asset,
       after: { name: updated.name, category: updated.category },
     });
@@ -163,6 +164,7 @@ export async function DELETE(
       action: "DELETE",
       resource: "Asset",
       resourceId: params.id,
+      organizationId: session!.user.organizationId,
       before: asset,
     });
 

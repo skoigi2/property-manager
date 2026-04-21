@@ -70,6 +70,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     action:    "CREATE",
     resource:  "DepositSettlement",
     resourceId: settlement.id,
+    organizationId: session!.user.organizationId,
     after: {
       tenantId:       params.id,
       depositHeld:    rest.depositHeld,

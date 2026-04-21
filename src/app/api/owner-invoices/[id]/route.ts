@@ -108,6 +108,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     action:    "UPDATE",
     resource:  "OwnerInvoice",
     resourceId: params.id,
+    organizationId: session!.user.organizationId,
     after: { status: updated.status, totalAmount: updated.totalAmount },
   });
 
@@ -133,6 +134,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     action:    "DELETE",
     resource:  "OwnerInvoice",
     resourceId: params.id,
+    organizationId: session!.user.organizationId,
   });
 
   return new Response(null, { status: 204 });

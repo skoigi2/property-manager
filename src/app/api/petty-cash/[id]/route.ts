@@ -60,6 +60,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       action: "UPDATE",
       resource: "PettyCash",
       resourceId: params.id,
+      organizationId: session!.user.organizationId,
       before: { status: existing.status },
       after: { status: updated.status },
     });
@@ -113,6 +114,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     action: "UPDATE",
     resource: "PettyCash",
     resourceId: params.id,
+    organizationId: session!.user.organizationId,
     before,
     after: { type: updated.type, amount: updated.amount, date: updated.date, status: updated.status },
   });
@@ -126,6 +128,6 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 
   const before = await prisma.pettyCash.findUnique({ where: { id: params.id }, select: { type: true, amount: true, date: true } });
   await prisma.pettyCash.delete({ where: { id: params.id } });
-  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "PettyCash", resourceId: params.id, before });
+  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "PettyCash", resourceId: params.id, organizationId: session!.user.organizationId, before });
   return Response.json({ success: true });
 }

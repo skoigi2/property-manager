@@ -149,6 +149,7 @@ export async function POST(req: Request) {
     action:     "CREATE",
     resource:   "Property",
     resourceId: property.id,
+    organizationId: session!.user.organizationId,
     after:      { name: propName, type: propTypeRaw, source: "handover_import" },
   });
 

@@ -185,6 +185,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     action:     "DELETE",
     resource:   "Property",
     resourceId: params.id,
+    organizationId: session.user.organizationId,
     before:     { name: property?.name ?? params.id },
   });
 

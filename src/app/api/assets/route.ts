@@ -124,6 +124,7 @@ export async function POST(req: Request) {
       action: "CREATE",
       resource: "Asset",
       resourceId: asset.id,
+      organizationId: session!.user.organizationId,
       after: { name: asset.name, category: asset.category, propertyId: asset.propertyId },
     });
 

@@ -199,6 +199,7 @@ export async function POST(req: Request) {
     action: "CREATE",
     resource: "ExpenseEntry",
     resourceId: entry.id,
+    organizationId: session!.user.organizationId,
     after: { category: entry.category, amount: entry.amount, date: entry.date },
   });
 

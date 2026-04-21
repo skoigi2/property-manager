@@ -47,6 +47,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       action:     "UPDATE",
       resource:   "TaxConfiguration",
       resourceId: params.id,
+      organizationId: session!.user.organizationId,
       before,
       after:      updated,
     });
@@ -85,6 +86,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
         action:     "UPDATE",
         resource:   "TaxConfiguration",
         resourceId: params.id,
+        organizationId: session!.user.organizationId,
         before:     config,
         after:      updated,
       });
@@ -98,6 +100,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
       action:     "DELETE",
       resource:   "TaxConfiguration",
       resourceId: params.id,
+      organizationId: session!.user.organizationId,
       before:     config,
     });
 

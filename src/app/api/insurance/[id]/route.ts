@@ -114,6 +114,7 @@ export async function PATCH(
       action: "UPDATE",
       resource: "InsurancePolicy",
       resourceId: params.id,
+      organizationId: session!.user.organizationId,
       before: policy,
       after: { insurer: updated.insurer, type: updated.type, policyNumber: updated.policyNumber },
     });
@@ -153,6 +154,7 @@ export async function DELETE(
       action: "DELETE",
       resource: "InsurancePolicy",
       resourceId: params.id,
+      organizationId: session!.user.organizationId,
       before: policy,
     });
 

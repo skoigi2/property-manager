@@ -121,6 +121,7 @@ export async function POST(req: Request) {
     action:    "CREATE",
     resource:  "OwnerInvoice",
     resourceId: invoice.id,
+    organizationId: session!.user.organizationId,
     after: { invoiceNumber, type: "PERIODIC_LETTING_FEE", totalAmount, bundled: lineItems.length },
   });
 

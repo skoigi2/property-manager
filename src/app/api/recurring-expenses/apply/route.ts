@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       action: "CREATE",
       resource: "ExpenseEntry",
       resourceId: expense.id,
+      organizationId: session!.user.organizationId,
       after: { category: expense.category, amount: expense.amount, source: "recurring", recurringId: item.id },
     });
 

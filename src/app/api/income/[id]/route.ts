@@ -29,6 +29,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     action:    "UPDATE",
     resource:  "IncomeEntry",
     resourceId: params.id,
+    organizationId: session!.user.organizationId,
     before: { commissionPaidAt: before?.commissionPaidAt ?? null },
     after:  { commissionPaidAt: entry.commissionPaidAt },
   });
@@ -61,7 +62,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     include: { unit: { include: { property: { select: { name: true } } } } },
   });
 
-  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "IncomeEntry", resourceId: params.id, before, after: { type: entry.type, grossAmount: entry.grossAmount, date: entry.date } });
+  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "IncomeEntry", resourceId: params.id, organizationId: session!.user.organizationId, before, after: { type: entry.type, grossAmount: entry.grossAmount, date: entry.date } });
 
   return Response.json(entry);
 }
@@ -72,6 +73,6 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 
   const before = await prisma.incomeEntry.findUnique({ where: { id: params.id }, select: { grossAmount: true, type: true, date: true } });
   await prisma.incomeEntry.delete({ where: { id: params.id } });
-  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "IncomeEntry", resourceId: params.id, before });
+  await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "IncomeEntry", resourceId: params.id, organizationId: session!.user.organizationId, before });
   return Response.json({ success: true });
 }

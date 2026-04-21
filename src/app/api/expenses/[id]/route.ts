@@ -118,6 +118,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     action: "UPDATE",
     resource: "ExpenseEntry",
     resourceId: params.id,
+    organizationId: session!.user.organizationId,
     before,
     after: { category: entry?.category, amount: entry?.amount, date: entry?.date },
   });
@@ -151,6 +152,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     action: "DELETE",
     resource: "ExpenseEntry",
     resourceId: params.id,
+    organizationId: session!.user.organizationId,
     before,
   });
 

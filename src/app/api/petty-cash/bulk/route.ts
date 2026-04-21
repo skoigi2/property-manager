@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
   if (action === "delete") {
     await prisma.pettyCash.deleteMany({ where: { id: { in: ids } } });
-    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "PettyCash", resourceId: `bulk:${ids.length}`, before: { ids } });
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "PettyCash", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, before: { ids } });
     return Response.json({ success: true, count: ids.length });
   }
 
@@ -47,14 +47,14 @@ export async function POST(req: Request) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
     await prisma.pettyCash.updateMany({ where: { id: { in: ids } }, data: { propertyId } });
-    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "PettyCash", resourceId: `bulk:${ids.length}`, after: { propertyId } });
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "PettyCash", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, after: { propertyId } });
     return Response.json({ success: true, count: ids.length });
   }
 
   if (action === "retype") {
     const { type } = parsed.data;
     await prisma.pettyCash.updateMany({ where: { id: { in: ids } }, data: { type } });
-    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "PettyCash", resourceId: `bulk:${ids.length}`, after: { type } });
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "PettyCash", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, after: { type } });
     return Response.json({ success: true, count: ids.length });
   }
 }

@@ -97,6 +97,7 @@ export async function POST(req: Request) {
     action: "CREATE",
     resource: "PettyCash",
     resourceId: entry.id,
+    organizationId: session!.user.organizationId,
     after: { type: entry.type, amount: entry.amount, date: entry.date, status: entry.status },
   });
 

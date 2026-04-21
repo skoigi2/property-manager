@@ -48,26 +48,26 @@ export async function POST(req: Request) {
 
   if (action === "delete") {
     await prisma.expenseEntry.deleteMany({ where: { id: { in: ids } } });
-    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, before: { ids } });
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "DELETE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, before: { ids } });
     return Response.json({ success: true, count: ids.length });
   }
 
   if (action === "retype") {
     const { category } = parsed.data;
     await prisma.expenseEntry.updateMany({ where: { id: { in: ids } }, data: { category } });
-    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, after: { category } });
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, after: { category } });
     return Response.json({ success: true, count: ids.length });
   }
 
   if (action === "mark_sunk") {
     await prisma.expenseEntry.updateMany({ where: { id: { in: ids } }, data: { isSunkCost: true } });
-    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, after: { isSunkCost: true } });
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, after: { isSunkCost: true } });
     return Response.json({ success: true, count: ids.length });
   }
 
   if (action === "mark_operating") {
     await prisma.expenseEntry.updateMany({ where: { id: { in: ids } }, data: { isSunkCost: false } });
-    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, after: { isSunkCost: false } });
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, after: { isSunkCost: false } });
     return Response.json({ success: true, count: ids.length });
   }
 }

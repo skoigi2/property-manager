@@ -83,6 +83,7 @@ export async function POST(req: Request) {
       action:     "CREATE",
       resource:   "TaxConfiguration",
       resourceId: config.id,
+      organizationId: session!.user.organizationId,
       after:      config,
     });
 

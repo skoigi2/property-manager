@@ -168,6 +168,7 @@ export async function POST(req: Request) {
     action:     "CREATE",
     resource:   "OwnerInvoice",
     resourceId: invoice.id,
+    organizationId: session!.user.organizationId,
     after: { invoiceNumber, type: "MANAGEMENT_FEE", totalAmount: mgmtFeeOwing },
   });
 

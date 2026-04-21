@@ -110,6 +110,7 @@ export async function POST(req: Request) {
       action: "CREATE",
       resource: "InsurancePolicy",
       resourceId: policy.id,
+      organizationId: session!.user.organizationId,
       after: { insurer: policy.insurer, type: policy.type, policyNumber: policy.policyNumber },
     });
 

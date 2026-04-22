@@ -35,7 +35,8 @@ export function isLocked(org: {
   if (org.pricingTier === "TRIAL") return isTrialExpired(org);
   return (
     org.subscriptionStatus === "canceled" ||
-    org.subscriptionStatus === "expired"
+    org.subscriptionStatus === "expired"  ||
+    org.subscriptionStatus === "past_due"  // payment failed — block writes until resolved
   );
 }
 
@@ -59,6 +60,37 @@ export async function canAddProperty(orgId: string): Promise<boolean> {
   if (org.freeAccess) return true; // Complimentary PRO — no property limit
   const limit = PROPERTY_LIMITS[org.pricingTier] ?? 2;
   return count < limit;
+}
+
+// ─── Write-gate: call at the top of every POST/PATCH/DELETE handler ──────────
+
+/**
+ * Returns a 402 Response if the org's subscription is locked (trial expired,
+ * past_due, or canceled). Returns null if the org may proceed.
+ *
+ * Usage:
+ *   const locked = await requireActiveSubscription(orgId);
+ *   if (locked) return locked;
+ */
+export async function requireActiveSubscription(
+  orgId: string | null | undefined
+): Promise<Response | null> {
+  if (!orgId) return null; // super-admin has no org, never locked
+  const org = await prisma.organization.findUnique({
+    where:  { id: orgId },
+    select: { pricingTier: true, subscriptionStatus: true, trialEndsAt: true, freeAccess: true },
+  });
+  if (!org) return Response.json({ error: "Organisation not found." }, { status: 404 });
+  if (isLocked(org)) {
+    return Response.json(
+      {
+        error: "Your subscription is inactive. Please upgrade to continue.",
+        code:  "SUBSCRIPTION_LOCKED",
+      },
+      { status: 402 }
+    );
+  }
+  return null;
 }
 
 // ─── Subscription info for billing page ──────────────────────────────────────

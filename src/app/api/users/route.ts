@@ -16,7 +16,8 @@ const createSchema = z.object({
 async function requireManagerSession() {
   const session = await auth();
   if (!session) return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+  const effectiveRole = session.user.orgRole ?? session.user.role;
+  if (effectiveRole !== "ADMIN" && effectiveRole !== "MANAGER" && effectiveRole !== "ACCOUNTANT") {
     return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { session, error: null };
@@ -37,7 +38,7 @@ export async function GET() {
   if (isSuperAdmin) {
     // Super-admin sees all users across all orgs
     whereClause = {};
-  } else if (session!.user.role === "ADMIN") {
+  } else if (session!.user.orgRole === "ADMIN") {
     // Org admin sees all users in their org (super-admins excluded)
     whereClause = { organizationId: orgId, ...excludeSuperAdmins };
   } else {
@@ -105,8 +106,8 @@ export async function POST(req: Request) {
 
   const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
-  // Only ADMIN role (org-admin or super-admin) can create ADMIN users; MANAGERs cannot
-  if (role === "ADMIN" && session!.user.role !== "ADMIN") {
+  // Only ADMIN (org-admin or super-admin) can create ADMIN users; MANAGERs cannot
+  if (role === "ADMIN" && session!.user.orgRole !== "ADMIN" && !isSuperAdmin) {
     return Response.json({ error: "Only admin users can create admin users" }, { status: 403 });
   }
 
@@ -154,12 +155,12 @@ export async function POST(req: Request) {
     select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
   });
 
-  // Upsert org membership for the user's primary org
+  // Upsert org membership for the user's primary org (include per-org role; never billing owner)
   if (newUserOrgId) {
     await prisma.userOrganizationMembership.upsert({
-      where: { userId_organizationId: { userId: user.id, organizationId: newUserOrgId } },
-      create: { userId: user.id, organizationId: newUserOrgId },
-      update: {},
+      where:  { userId_organizationId: { userId: user.id, organizationId: newUserOrgId } },
+      create: { userId: user.id, organizationId: newUserOrgId, role, isBillingOwner: false },
+      update: { role },
     });
   }
 
@@ -173,8 +174,8 @@ export async function POST(req: Request) {
   );
   for (const orgId of extraOrgIds) {
     await prisma.userOrganizationMembership.upsert({
-      where: { userId_organizationId: { userId: user.id, organizationId: orgId } },
-      create: { userId: user.id, organizationId: orgId },
+      where:  { userId_organizationId: { userId: user.id, organizationId: orgId } },
+      create: { userId: user.id, organizationId: orgId, role, isBillingOwner: false },
       update: {},
     });
   }

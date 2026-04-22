@@ -21,7 +21,7 @@ export async function DELETE(
   const isSuperAdmin =
     session!.user.role === "ADMIN" && session!.user.organizationId === null;
   const isOrgAdmin =
-    session!.user.role === "ADMIN" &&
+    session!.user.orgRole === "ADMIN" &&
     session!.user.organizationId === params.id;
 
   if (!isSuperAdmin && !isOrgAdmin) {
@@ -39,6 +39,14 @@ export async function DELETE(
   });
   if (!membership) {
     return Response.json({ error: "Not a member" }, { status: 404 });
+  }
+
+  // Block removal of the billing owner — must transfer first
+  if (membership.isBillingOwner) {
+    return Response.json(
+      { error: "Cannot remove the billing owner. Transfer billing ownership first via Settings → Billing." },
+      { status: 400 }
+    );
   }
 
   // Remove membership

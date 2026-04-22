@@ -1,4 +1,5 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -56,8 +57,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
+  const locked = await requireActiveSubscription(session!.user.organizationId);
+  if (locked) return locked;
 
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });

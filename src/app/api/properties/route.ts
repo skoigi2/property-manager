@@ -1,7 +1,7 @@
 import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { canAddProperty } from "@/lib/subscription";
+import { canAddProperty, requireActiveSubscription } from "@/lib/subscription";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -58,12 +58,14 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+  if (session.user.orgRole !== "ADMIN" && session.user.orgRole !== "MANAGER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // ── Property limit guard ──────────────────────────────────────────────────
+  // ── Subscription lock guard ───────────────────────────────────────────────
   const orgId = session.user.organizationId;
+  const subLocked = await requireActiveSubscription(orgId);
+  if (subLocked) return subLocked;
   if (orgId) {
     const allowed = await canAddProperty(orgId);
     if (!allowed) {

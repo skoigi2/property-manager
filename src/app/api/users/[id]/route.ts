@@ -21,7 +21,8 @@ const accessSchema = z.object({
 async function requireManagerSession() {
   const session = await auth();
   if (!session) return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+  const effectiveRole = session.user.orgRole ?? session.user.role;
+  if (effectiveRole !== "ADMIN" && effectiveRole !== "MANAGER" && effectiveRole !== "ACCOUNTANT") {
     return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { session, error: null };
@@ -31,27 +32,26 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { session, error } = await requireManagerSession();
   if (error) return error;
 
-  // Fetch target to check if they are a super-admin
   const target = await prisma.user.findUnique({
     where: { id: params.id },
     select: { role: true, organizationId: true },
   });
   const targetIsSuperAdmin = target?.role === "ADMIN" && target?.organizationId === null;
   const callerIsSuperAdmin =
-    session!.user.role === "ADMIN" && (session!.user as any).organizationId === null;
+    session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
   // Only super-admin can modify a super-admin
   if (targetIsSuperAdmin && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
-  // Only ADMIN can modify another ADMIN user
-  if (target?.role === "ADMIN" && session!.user.role !== "ADMIN") {
+  // Only ADMIN (org-level) can modify another ADMIN user
+  if (target?.role === "ADMIN" && session!.user.orgRole !== "ADMIN" && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Org-admin can only edit users within their own organisation
-  const callerIsOrgAdmin = session!.user.role === "ADMIN" && !callerIsSuperAdmin;
-  if (callerIsOrgAdmin && target?.organizationId !== (session!.user as any).organizationId) {
+  const callerIsOrgAdmin = session!.user.orgRole === "ADMIN" && !callerIsSuperAdmin;
+  if (callerIsOrgAdmin && target?.organizationId !== session!.user.organizationId) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -86,34 +86,37 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (saError) return saError;
   }
 
-  const { password, organizationId: newOrgId, ...rest } = parsed.data;
+  const { password, organizationId: newOrgId, role: newRole, ...rest } = parsed.data;
   const updateData: Record<string, unknown> = { ...rest };
-  if (password) {
-    updateData.password = await bcrypt.hash(password, 10);
-  }
-  if (newOrgId !== undefined) {
-    updateData.organizationId = newOrgId;
-  }
+  if (password) updateData.password = await bcrypt.hash(password, 10);
+  if (newOrgId !== undefined) updateData.organizationId = newOrgId;
+  if (newRole) updateData.role = newRole;
 
   const user = await prisma.user.update({
     where: { id: params.id },
     data: updateData,
-    select: { id: true, name: true, email: true, role: true, phone: true, isActive: true },
+    select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, organizationId: true },
   });
 
-  // Sync membership table when org changes
+  // Sync membership role when role changes
+  if (newRole && user.organizationId) {
+    await prisma.userOrganizationMembership.updateMany({
+      where: { userId: params.id, organizationId: user.organizationId },
+      data:  { role: newRole },
+    });
+  }
+
+  // Sync membership table when org changes (super-admin only — guarded above)
   if (newOrgId !== undefined) {
-    // Remove old membership so the user doesn't accumulate stale orgs
     if (target?.organizationId && target.organizationId !== newOrgId) {
       await prisma.userOrganizationMembership.deleteMany({
         where: { userId: params.id, organizationId: target.organizationId },
       });
     }
-    // Upsert new membership
     if (newOrgId) {
       await prisma.userOrganizationMembership.upsert({
-        where: { userId_organizationId: { userId: params.id, organizationId: newOrgId } },
-        create: { userId: params.id, organizationId: newOrgId },
+        where:  { userId_organizationId: { userId: params.id, organizationId: newOrgId } },
+        create: { userId: params.id, organizationId: newOrgId, role: user.role, isBillingOwner: false },
         update: {},
       });
     }
@@ -125,26 +128,38 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+  const effectiveRole = session.user.orgRole ?? session.user.role;
+  if (effectiveRole !== "ADMIN" && effectiveRole !== "MANAGER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
   // Prevent self-deletion
   if (session.user.id === params.id) return Response.json({ error: "Cannot delete yourself" }, { status: 400 });
 
-  // Only ADMIN can delete another ADMIN; only super-admin can delete a super-admin
   const target = await prisma.user.findUnique({
     where: { id: params.id },
     select: { role: true, organizationId: true },
   });
   const targetIsSuperAdmin = target?.role === "ADMIN" && target?.organizationId === null;
   const callerIsSuperAdmin =
-    session.user.role === "ADMIN" && (session.user as any).organizationId === null;
+    session.user.role === "ADMIN" && session.user.organizationId === null;
 
   if (targetIsSuperAdmin && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (target?.role === "ADMIN" && session.user.role !== "ADMIN") {
+  if (target?.role === "ADMIN" && session.user.orgRole !== "ADMIN" && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Block deletion if user is the billing owner of any org
+  const billingOwnerMembership = await prisma.userOrganizationMembership.findFirst({
+    where: { userId: params.id, isBillingOwner: true },
+    select: { organizationId: true },
+  });
+  if (billingOwnerMembership) {
+    return Response.json(
+      { error: "Cannot delete a billing owner. Transfer billing ownership first via Settings → Billing." },
+      { status: 400 }
+    );
   }
 
   await prisma.user.delete({ where: { id: params.id } });

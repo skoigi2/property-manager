@@ -22,6 +22,8 @@ export default auth((req) => {
     pathname.startsWith("/api/auth/forgot-password") ||
     pathname.startsWith("/api/auth/reset-password") ||
     pathname.startsWith("/api/webhooks/paddle") ||
+    pathname.startsWith("/api/invitations") ||  // public invite-accept flow
+    pathname.startsWith("/invite/") ||           // invite accept page
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/refund");
@@ -64,6 +66,15 @@ export default auth((req) => {
     const role = req.auth?.user?.role;
     if (role === "OWNER") {
       return NextResponse.redirect(new URL("/report", req.url));
+    }
+  }
+
+  // Billing page — only billing owner or super-admin
+  if (isLoggedIn && pathname.startsWith("/billing")) {
+    const user = req.auth?.user as any;
+    const superAdmin = user?.role === "ADMIN" && !user?.organizationId;
+    if (!superAdmin && !user?.isBillingOwner) {
+      return NextResponse.redirect(new URL("/dashboard?error=billing-owner-only", req.url));
     }
   }
 

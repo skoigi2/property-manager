@@ -36,15 +36,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
-        const membershipCount = await prisma.userOrganizationMembership.count({
-          where: { userId: user.id },
-        });
+        const [membershipCount, membership] = await Promise.all([
+          prisma.userOrganizationMembership.count({ where: { userId: user.id } }),
+          user.organizationId
+            ? prisma.userOrganizationMembership.findUnique({
+                where: {
+                  userId_organizationId: {
+                    userId: user.id,
+                    organizationId: user.organizationId,
+                  },
+                },
+                select: { role: true, isBillingOwner: true },
+              })
+            : null,
+        ]);
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
+          orgRole:        membership?.role ?? user.role,
+          isBillingOwner: membership?.isBillingOwner ?? false,
           organizationId: user.organizationId ?? null,
           membershipCount,
         };
@@ -74,13 +87,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async jwt({ token, user, account, trigger, session }) {
-      // Org-switch / onboarding org creation:
-      // session.update({ organizationId, membershipCount? }) — refresh token only
+      // Org-switch / onboarding org creation: refresh token fields without full re-login
       if (trigger === "update" && session?.organizationId !== undefined) {
         token.organizationId = session.organizationId;
-        if (session?.membershipCount !== undefined) {
-          token.membershipCount = session.membershipCount;
-        }
+        if (session?.membershipCount !== undefined) token.membershipCount = session.membershipCount;
+        if (session?.orgRole        !== undefined) token.orgRole        = session.orgRole;
+        if (session?.isBillingOwner !== undefined) token.isBillingOwner = session.isBillingOwner;
         return token;
       }
 
@@ -94,15 +106,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             where: { id: user.id! },
             select: { role: true, organizationId: true },
           });
+          const [membershipCount, membership] = await Promise.all([
+            prisma.userOrganizationMembership.count({ where: { userId: user.id! } }),
+            dbUser?.organizationId
+              ? prisma.userOrganizationMembership.findUnique({
+                  where: {
+                    userId_organizationId: {
+                      userId: user.id!,
+                      organizationId: dbUser.organizationId,
+                    },
+                  },
+                  select: { role: true, isBillingOwner: true },
+                })
+              : null,
+          ]);
           token.role           = dbUser?.role ?? "ADMIN";
+          token.orgRole        = membership?.role ?? dbUser?.role ?? "ADMIN";
+          token.isBillingOwner = membership?.isBillingOwner ?? false;
           token.organizationId = dbUser?.organizationId ?? null;
-          token.membershipCount = await prisma.userOrganizationMembership.count({
-            where: { userId: user.id! },
-          });
+          token.membershipCount = membershipCount;
         } else {
           // Credentials: all fields already on the user object from authorize()
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           token.role           = (user as any).role;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          token.orgRole        = (user as any).orgRole ?? (user as any).role;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          token.isBillingOwner = (user as any).isBillingOwner ?? false;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           token.organizationId = (user as any).organizationId ?? null;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireManager } from "@/lib/auth-utils";
+import { requireBillingOwner } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function POST() {
-  const { error, session } = await requireManager();
+  const { error, session } = await requireBillingOwner();
   if (error) return error;
 
   const orgId = session!.user.organizationId;

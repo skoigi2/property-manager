@@ -1,4 +1,5 @@
 import { requireManager } from "@/lib/auth-utils";
+import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { VendorCategory } from "@prisma/client";
@@ -56,6 +57,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { session, error } = await requireManager();
   if (error) return error;
+  const locked = await requireActiveSubscription(session!.user.organizationId);
+  if (locked) return locked;
 
   const body = await req.json();
   const parsed = vendorSchema.safeParse(body);

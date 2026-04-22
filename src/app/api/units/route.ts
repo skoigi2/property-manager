@@ -1,4 +1,5 @@
 import { requireAuth, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
@@ -36,7 +37,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (session.user.orgRole !== "ADMIN" && session.user.orgRole !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  const locked = await requireActiveSubscription(session.user.organizationId);
+  if (locked) return locked;
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

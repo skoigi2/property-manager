@@ -49,9 +49,9 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Create the membership record
+      // Create the membership record — org creator is always the initial billing owner
       await tx.userOrganizationMembership.create({
-        data: { userId: newUser.id, organizationId: org.id },
+        data: { userId: newUser.id, organizationId: org.id, role: "ADMIN", isBillingOwner: true },
       });
 
       return { user: newUser, org };

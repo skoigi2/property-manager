@@ -1,4 +1,5 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
@@ -45,10 +46,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
-
-  const session = await auth();
+  const locked = await requireActiveSubscription(session!.user.organizationId);
+  if (locked) return locked;
   const orgId = session?.user ? (session.user as any).organizationId ?? null : null;
 
   const body = await req.json();

@@ -1,4 +1,5 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
 
@@ -36,8 +37,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
+  const locked = await requireActiveSubscription(session!.user.organizationId);
+  if (locked) return locked;
 
   const body = await req.json();
   const parsed = tenantSchema.safeParse(body);

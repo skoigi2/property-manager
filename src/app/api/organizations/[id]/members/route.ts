@@ -9,10 +9,10 @@ const addSchema = z.object({
 
 async function canManageMembers(
   orgId: string,
-  session: { user: { id: string; role: string; organizationId: string | null } }
+  session: { user: { id: string; role: string; orgRole: string; organizationId: string | null } }
 ) {
   const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
-  const isOrgAdmin   = session.user.role === "ADMIN" && session.user.organizationId === orgId;
+  const isOrgAdmin   = session.user.orgRole === "ADMIN" && session.user.organizationId === orgId;
   return isSuperAdmin || isOrgAdmin;
 }
 
@@ -55,10 +55,10 @@ export async function POST(
     }
   }
 
-  // Upsert membership
+  // Upsert membership — new members never become billing owner automatically
   await prisma.userOrganizationMembership.upsert({
     where: { userId_organizationId: { userId, organizationId: params.id } },
-    create: { userId, organizationId: params.id },
+    create: { userId, organizationId: params.id, role: user.role, isBillingOwner: false },
     update: {},
   });
 

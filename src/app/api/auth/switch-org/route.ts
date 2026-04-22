@@ -18,10 +18,16 @@ export async function POST(req: Request) {
   // Verify the user is actually a member of this org
   const membership = await prisma.userOrganizationMembership.findUnique({
     where: { userId_organizationId: { userId: session.user.id, organizationId } },
+    select: { role: true, isBillingOwner: true },
   });
   if (!membership) {
     return Response.json({ error: "You are not a member of this organisation" }, { status: 403 });
   }
+
+  // Count total memberships for the membershipCount field
+  const membershipCount = await prisma.userOrganizationMembership.count({
+    where: { userId: session.user.id },
+  });
 
   // Update the user's active org in the database
   await prisma.user.update({
@@ -29,5 +35,11 @@ export async function POST(req: Request) {
     data: { organizationId },
   });
 
-  return Response.json({ ok: true, organizationId });
+  return Response.json({
+    ok: true,
+    organizationId,
+    orgRole:        membership.role,
+    isBillingOwner: membership.isBillingOwner,
+    membershipCount,
+  });
 }

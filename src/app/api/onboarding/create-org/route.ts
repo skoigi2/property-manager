@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       data:  { organizationId: org.id },
     });
     await prisma.userOrganizationMembership.create({
-      data: { userId: session!.user.id, organizationId: org.id },
+      data: { userId: session!.user.id, organizationId: org.id, role: "ADMIN", isBillingOwner: true },
     });
   } catch (err) {
     // Best-effort rollback — delete the org so we don't leave orphaned data

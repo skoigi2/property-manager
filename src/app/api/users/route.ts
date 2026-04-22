@@ -96,9 +96,9 @@ export async function POST(req: Request) {
 
   const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
-  // Only super-admins can create ADMIN-role users
-  if (role === "ADMIN" && !isSuperAdmin) {
-    return Response.json({ error: "Only super-admins can create admin users" }, { status: 403 });
+  // Only ADMIN role (org-admin or super-admin) can create ADMIN users; MANAGERs cannot
+  if (role === "ADMIN" && session!.user.role !== "ADMIN") {
+    return Response.json({ error: "Only admin users can create admin users" }, { status: 403 });
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });

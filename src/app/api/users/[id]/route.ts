@@ -49,6 +49,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Org-admin can only edit users within their own organisation
+  const callerIsOrgAdmin = session!.user.role === "ADMIN" && !callerIsSuperAdmin;
+  if (callerIsOrgAdmin && target?.organizationId !== (session!.user as any).organizationId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await req.json();
 
   // Handle property access grant/revoke

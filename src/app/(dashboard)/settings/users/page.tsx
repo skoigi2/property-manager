@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
-import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink } from "lucide-react";
+import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,6 +41,13 @@ const createSchema = z.object({
   organizationId: z.string().optional().nullable(),
 });
 type CreateForm = z.infer<typeof createSchema>;
+
+const editSchema = z.object({
+  name: z.string().min(1, "Name required"),
+  phone: z.string().optional(),
+  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
+});
+type EditForm = z.infer<typeof editSchema>;
 
 const resetSchema = z.object({
   password: z.string().min(6, "Min 6 characters"),
@@ -77,6 +84,10 @@ export default function UsersPage() {
   const [resetTarget, setResetTarget] = useState<UserItem | null>(null);
   const [resetting, setResetting] = useState(false);
 
+  // Edit user state
+  const [editTarget, setEditTarget] = useState<UserItem | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
     defaultValues: { role: "MANAGER", propertyIds: [] },
@@ -88,6 +99,13 @@ export default function UsersPage() {
     reset: resetResetForm,
     formState: { errors: resetErrors },
   } = useForm<ResetForm>({ resolver: zodResolver(resetSchema) });
+
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    reset: resetEditForm,
+    formState: { errors: editErrors },
+  } = useForm<EditForm>({ resolver: zodResolver(editSchema) });
 
   const selectedRole = watch("role");
 
@@ -129,6 +147,26 @@ export default function UsersPage() {
       toast.error(e instanceof Error ? e.message : "Failed to create user");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onEditSubmit = async (values: EditForm) => {
+    if (!editTarget) return;
+    setEditSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/${editTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success("User updated");
+      setEditTarget(null);
+      load();
+    } catch {
+      toast.error("Failed to update user");
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -256,6 +294,21 @@ export default function UsersPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {/* Edit user details */}
+                    {canModify && canEdit && (
+                      <button
+                        onClick={() => {
+                          setEditTarget(user);
+                          resetEditForm({ name: user.name ?? "", phone: user.phone ?? "", role: user.role as EditForm["role"] });
+                        }}
+                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-gold transition-colors"
+                        title="Edit user"
+                      >
+                        <Pencil size={13} />
+                        <span>Edit</span>
+                      </button>
+                    )}
+
                     {/* Reset password — ADMIN only, not self, not super-admin target */}
                     {isAdmin && canModify && canEdit && (
                       <button
@@ -384,7 +437,7 @@ export default function UsersPage() {
             <div>
               <label className="form-label">Role *</label>
               <select className="form-input" {...register("role")}>
-                {isSuperAdmin && <option value="ADMIN">Admin</option>}
+                {isAdmin && <option value="ADMIN">Admin</option>}
                 <option value="MANAGER">Manager</option>
                 <option value="ACCOUNTANT">Accountant</option>
                 <option value="OWNER">Owner</option>
@@ -425,6 +478,48 @@ export default function UsersPage() {
             <Button type="submit" loading={submitting}>Create User</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Edit user modal */}
+      <Modal
+        open={!!editTarget}
+        onClose={() => { setEditTarget(null); }}
+        title="Edit User"
+      >
+        {editTarget && (
+          <form onSubmit={handleSubmitEdit(onEditSubmit)} className="space-y-4">
+            <p className="text-sm font-sans text-gray-500">
+              Editing <span className="font-medium text-header">{editTarget.email}</span>
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label">Full Name *</label>
+                <input className="form-input" {...registerEdit("name")} placeholder="Jane Doe" />
+                {editErrors.name && <p className="form-error">{editErrors.name.message}</p>}
+              </div>
+              <div>
+                <label className="form-label">Phone</label>
+                <input className="form-input" {...registerEdit("phone")} placeholder="+1 555 000 0000" />
+              </div>
+            </div>
+
+            <div>
+              <label className="form-label">Role *</label>
+              <select className="form-input" {...registerEdit("role")}>
+                {isAdmin && <option value="ADMIN">Admin</option>}
+                <option value="MANAGER">Manager</option>
+                <option value="ACCOUNTANT">Accountant</option>
+                <option value="OWNER">Owner</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button type="submit" loading={editSubmitting}>Save Changes</Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* Reset password modal */}

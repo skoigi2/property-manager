@@ -16,7 +16,9 @@ export function isSubscriptionActive(org: {
   pricingTier:        string;
   subscriptionStatus: string | null;
   trialEndsAt:        Date | null;
+  freeAccess?:        boolean;
 }): boolean {
+  if (org.freeAccess) return true; // Complimentary PRO — always active
   if (org.pricingTier !== "TRIAL") {
     return org.subscriptionStatus === "active" || org.subscriptionStatus === "trialing";
   }
@@ -27,7 +29,9 @@ export function isLocked(org: {
   pricingTier:        string;
   subscriptionStatus: string | null;
   trialEndsAt:        Date | null;
+  freeAccess?:        boolean;
 }): boolean {
+  if (org.freeAccess) return false; // Complimentary PRO — never locked
   if (org.pricingTier === "TRIAL") return isTrialExpired(org);
   return (
     org.subscriptionStatus === "canceled" ||
@@ -47,11 +51,12 @@ export async function canAddProperty(orgId: string): Promise<boolean> {
   const [org, count] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: orgId },
-      select: { pricingTier: true },
+      select: { pricingTier: true, freeAccess: true },
     }),
     prisma.property.count({ where: { organizationId: orgId } }),
   ]);
   if (!org) return false;
+  if (org.freeAccess) return true; // Complimentary PRO — no property limit
   const limit = PROPERTY_LIMITS[org.pricingTier] ?? 2;
   return count < limit;
 }
@@ -69,13 +74,14 @@ export async function getSubscriptionInfo(orgId: string) {
         currentPeriodEnd:     true,
         paddleCustomerId:     true,
         paddleSubscriptionId: true,
+        freeAccess:           true,
       },
     }),
     prisma.property.count({ where: { organizationId: orgId } }),
   ]);
   if (!org) return null;
 
-  const limit = PROPERTY_LIMITS[org.pricingTier] ?? 2;
+  const limit = org.freeAccess ? Infinity : (PROPERTY_LIMITS[org.pricingTier] ?? 2);
 
   return {
     pricingTier:        org.pricingTier,
@@ -84,6 +90,7 @@ export async function getSubscriptionInfo(orgId: string) {
     currentPeriodEnd:   org.currentPeriodEnd,
     trialDaysLeft:      trialDaysLeft(org.trialEndsAt),
     isLocked:           isLocked(org),
+    freeAccess:         org.freeAccess,
     propertyCount,
     propertyLimit:      limit === Infinity ? null : limit,
     hasSubscription:    !!org.paddleSubscriptionId,

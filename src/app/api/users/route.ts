@@ -71,7 +71,16 @@ export async function GET() {
       phone: true,
       isActive: true,
       organizationId: true,
-      organization: { select: { id: true, name: true } },
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          pricingTier: true,
+          subscriptionStatus: true,
+          trialEndsAt: true,
+          freeAccess: true,
+        },
+      },
       createdAt: true,
       propertyAccess: {
         include: { property: { select: { id: true, name: true } } },

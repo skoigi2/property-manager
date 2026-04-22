@@ -18,7 +18,14 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 
 interface PropertyInfo { id: string; name: string; }
-interface OrgInfo { id: string; name: string; }
+interface OrgInfo {
+  id: string;
+  name: string;
+  pricingTier: string;
+  subscriptionStatus: string | null;
+  trialEndsAt: string | null;
+  freeAccess: boolean;
+}
 interface UserItem {
   id: string;
   name: string | null;
@@ -66,6 +73,23 @@ const roleBadge: Record<string, "green" | "blue" | "amber" | "gold"> = {
   OWNER: "blue",
   ACCOUNTANT: "amber",
 };
+
+function orgSubscriptionBadge(org: OrgInfo | null): { label: string; variant: "green" | "amber" | "red" | "blue" | "gold" | "gray" } | null {
+  if (!org) return null;
+  if (org.freeAccess) return { label: "Free Access", variant: "gold" };
+  if (org.pricingTier !== "TRIAL") {
+    if (org.subscriptionStatus === "active") return { label: org.pricingTier, variant: "green" };
+    if (org.subscriptionStatus === "past_due") return { label: "Past Due", variant: "amber" };
+    if (org.subscriptionStatus === "canceled") return { label: "Canceled", variant: "red" };
+    return { label: org.pricingTier, variant: "gray" };
+  }
+  // TRIAL
+  const daysLeft = org.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(org.trialEndsAt).getTime() - Date.now()) / 86_400_000))
+    : 0;
+  if (daysLeft > 0) return { label: `Trial · ${daysLeft}d`, variant: "blue" };
+  return { label: "Trial Expired", variant: "red" };
+}
 
 export default function UsersPage() {
   const { data: session } = useSession();
@@ -286,11 +310,19 @@ export default function UsersPage() {
                       </div>
                       <p className="text-xs text-gray-400 font-sans">{user.email}</p>
                       {user.phone && <p className="text-xs text-gray-400 font-sans">{user.phone}</p>}
-                      {isSuperAdmin && (
-                        <p className="text-xs text-gray-400 font-sans flex items-center gap-1 mt-0.5">
-                          <Building2 size={10} />
-                          {user.organization?.name ?? <span className="italic">Super-admin</span>}
-                        </p>
+                      {isAdmin && (
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {isSuperAdmin && (
+                            <p className="text-xs text-gray-400 font-sans flex items-center gap-1">
+                              <Building2 size={10} />
+                              {user.organization?.name ?? <span className="italic">Super-admin</span>}
+                            </p>
+                          )}
+                          {(() => {
+                            const sub = orgSubscriptionBadge(user.organization);
+                            return sub ? <Badge variant={sub.variant}>{sub.label}</Badge> : null;
+                          })()}
+                        </div>
                       )}
                     </div>
                   </div>

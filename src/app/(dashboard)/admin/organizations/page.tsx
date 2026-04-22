@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import {
   Building2, Plus, Users, Home, X, Eye, EyeOff,
   Mail, Phone, MapPin, ChevronDown, ChevronRight,
-  Pencil, UserCog, CalendarDays, MoveRight, UserPlus, Trash2,
+  Pencil, UserCog, CalendarDays, MoveRight, UserPlus, Trash2, Sparkles,
 } from "lucide-react";
 
 interface OrgUser {
@@ -40,6 +40,10 @@ interface Org {
   email: string | null;
   website: string | null;
   isActive: boolean;
+  freeAccess: boolean;
+  pricingTier: string;
+  subscriptionStatus: string | null;
+  trialEndsAt: string | null;
   createdAt: string;
   _count: { memberships: number; properties: number };
   properties: OrgProperty[];
@@ -348,6 +352,34 @@ export default function OrganizationsPage() {
     } catch { toast.error("Failed to update"); }
   }
 
+  async function toggleFreeAccess(org: Org) {
+    try {
+      const res = await fetch(`/api/organizations/${org.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freeAccess: !org.freeAccess }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(org.freeAccess ? `Free access removed from "${org.name}"` : `Free access granted to "${org.name}"`);
+      fetchOrgs();
+    } catch { toast.error("Failed to update free access"); }
+  }
+
+  function subscriptionLabel(org: Org): { label: string; variant: "green" | "gold" | "blue" | "amber" | "red" | "gray" } {
+    if (org.freeAccess) return { label: "Free Access", variant: "gold" };
+    if (org.pricingTier !== "TRIAL") {
+      if (org.subscriptionStatus === "active") return { label: org.pricingTier, variant: "green" };
+      if (org.subscriptionStatus === "past_due") return { label: "Past Due", variant: "amber" };
+      if (org.subscriptionStatus === "canceled") return { label: "Canceled", variant: "red" };
+      return { label: org.pricingTier, variant: "gray" };
+    }
+    const daysLeft = org.trialEndsAt
+      ? Math.max(0, Math.ceil((new Date(org.trialEndsAt).getTime() - Date.now()) / 86_400_000))
+      : 0;
+    if (daysLeft > 0) return { label: `Trial · ${daysLeft}d`, variant: "blue" };
+    return { label: "Trial Expired", variant: "red" };
+  }
+
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
   if (!isSuperAdmin && status !== "loading") return null;
 
@@ -404,6 +436,7 @@ export default function OrganizationsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-display text-base text-header">{org.name}</h3>
                         <Badge variant={org.isActive ? "green" : "gray"}>{org.isActive ? "Active" : "Inactive"}</Badge>
+                        {(() => { const s = subscriptionLabel(org); return <Badge variant={s.variant}>{s.label}</Badge>; })()}
                       </div>
                       <div className="flex items-center gap-4 mt-1 flex-wrap">
                         <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
@@ -432,6 +465,13 @@ export default function OrganizationsPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => toggleFreeAccess(org)}
+                        className={`text-xs font-sans transition-colors ${org.freeAccess ? "text-gold hover:text-gold-dark" : "text-gray-300 hover:text-gold"}`}
+                        title={org.freeAccess ? "Revoke free access" : "Grant free access (Complimentary PRO)"}
+                      >
+                        <Sparkles size={15} />
+                      </button>
                       <button
                         onClick={() => openEdit(org)}
                         className="text-xs font-sans text-gray-400 hover:text-gold transition-colors"

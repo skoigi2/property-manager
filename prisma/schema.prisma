@@ -40,6 +40,7 @@ model Organization {
   paddleCustomerId      String?
   paddleSubscriptionId  String?
   paddleEventId         String?                      // last processed webhook event (idempotency)
+  freeAccess            Boolean                      @default(false) // super-admin complimentary override
   users                 User[]
   properties            Property[]
   memberships           UserOrganizationMembership[]

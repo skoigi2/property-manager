@@ -55,6 +55,7 @@ const updateSchema = z.object({
   mpesaAccountNumber:   z.string().optional().nullable(),
   mpesaTill:            z.string().optional().nullable(),
   paymentInstructions:  z.string().optional().nullable(),
+  freeAccess:           z.boolean().optional(), // super-admin only
 });
 
 export async function PATCH(
@@ -78,6 +79,11 @@ export async function PATCH(
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // Only super-admin may toggle the freeAccess override
+  if (parsed.data.freeAccess !== undefined && !isSuperAdmin) {
+    return Response.json({ error: "Only super-admin can change free access" }, { status: 403 });
+  }
 
   const org = await prisma.organization.update({
     where: { id: params.id },

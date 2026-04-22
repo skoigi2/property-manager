@@ -6,6 +6,8 @@ import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
 import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink, Pencil } from "lucide-react";
@@ -397,33 +399,21 @@ export default function UsersPage() {
       {/* Create user modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add User">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="form-label">Full Name *</label>
-              <input className="form-input" {...register("name")} placeholder="Jane Doe" />
-              {errors.name && <p className="form-error">{errors.name.message}</p>}
-            </div>
-            <div>
-              <label className="form-label">Phone</label>
-              <input className="form-input" {...register("phone")} placeholder="+1 555 000 0000" />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Full Name *" {...register("name")} error={errors.name?.message} placeholder="Jane Doe" />
+            <Input label="Phone" {...register("phone")} placeholder="+1 555 000 0000" />
           </div>
 
-          <div>
-            <label className="form-label">Email *</label>
-            <input type="email" className="form-input" {...register("email")} placeholder="user@example.com" />
-            {errors.email && <p className="form-error">{errors.email.message}</p>}
-          </div>
+          <Input label="Email *" type="email" {...register("email")} error={errors.email?.message} placeholder="user@example.com" />
 
           {isSuperAdmin && (
             <div>
-              <label className="form-label">Organisation</label>
-              <select className="form-input" {...register("organizationId")}>
-                <option value="">— None (super-admin) —</option>
-                {allOrgs.map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
+              <Select
+                label="Organisation"
+                {...register("organizationId")}
+                placeholder="— None (super-admin) —"
+                options={allOrgs.map((org) => ({ value: org.id, label: org.name }))}
+              />
               {allOrgs.length === 0 && (
                 <p className="text-xs text-gray-400 font-sans mt-1">
                   No organisations yet.{" "}
@@ -433,39 +423,28 @@ export default function UsersPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="form-label">Role *</label>
-              <select className="form-input" {...register("role")}>
-                {isAdmin && <option value="ADMIN">Admin</option>}
-                <option value="MANAGER">Manager</option>
-                <option value="ACCOUNTANT">Accountant</option>
-                <option value="OWNER">Owner</option>
-              </select>
-            </div>
-            <div>
-              <label className="form-label">Password *</label>
-              <div className="relative">
-                <input type="password" className="form-input pr-8" {...register("password")} placeholder="Min 6 chars" />
-                <KeyRound size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
-              </div>
-              {errors.password && <p className="form-error">{errors.password.message}</p>}
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Role *"
+              {...register("role")}
+              options={[
+                ...(isAdmin ? [{ value: "ADMIN", label: "Admin" }] : []),
+                { value: "MANAGER", label: "Manager" },
+                { value: "ACCOUNTANT", label: "Accountant" },
+                { value: "OWNER", label: "Owner" },
+              ]}
+            />
+            <Input label="Password *" type="password" {...register("password")} error={errors.password?.message} placeholder="Min 6 chars" />
           </div>
 
           {/* Property access for non-owners and non-admins */}
           {selectedRole !== "OWNER" && selectedRole !== "ADMIN" && allProps.length > 0 && (
             <div>
-              <label className="form-label">Property Access</label>
-              <div className="space-y-2 mt-1">
+              <p className="text-sm font-medium text-gray-600 font-sans mb-1.5">Property Access</p>
+              <div className="space-y-2">
                 {allProps.map((p) => (
                   <label key={p.id} className="flex items-center gap-2 text-sm font-sans text-header cursor-pointer">
-                    <input
-                      type="checkbox"
-                      value={p.id}
-                      className="rounded accent-gold"
-                      {...register("propertyIds")}
-                    />
+                    <input type="checkbox" value={p.id} className="rounded accent-gold" {...register("propertyIds")} />
                     {p.name}
                   </label>
                 ))}
@@ -473,9 +452,9 @@ export default function UsersPage() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+          <div className="flex gap-3 pt-2">
             <Button type="submit" loading={submitting}>Create User</Button>
+            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
           </div>
         </form>
       </Modal>
@@ -492,31 +471,25 @@ export default function UsersPage() {
               Editing <span className="font-medium text-header">{editTarget.email}</span>
             </p>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="form-label">Full Name *</label>
-                <input className="form-input" {...registerEdit("name")} placeholder="Jane Doe" />
-                {editErrors.name && <p className="form-error">{editErrors.name.message}</p>}
-              </div>
-              <div>
-                <label className="form-label">Phone</label>
-                <input className="form-input" {...registerEdit("phone")} placeholder="+1 555 000 0000" />
-              </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Full Name *" {...registerEdit("name")} error={editErrors.name?.message} placeholder="Jane Doe" />
+              <Input label="Phone" {...registerEdit("phone")} placeholder="+1 555 000 0000" />
             </div>
 
-            <div>
-              <label className="form-label">Role *</label>
-              <select className="form-input" {...registerEdit("role")}>
-                {isAdmin && <option value="ADMIN">Admin</option>}
-                <option value="MANAGER">Manager</option>
-                <option value="ACCOUNTANT">Accountant</option>
-                <option value="OWNER">Owner</option>
-              </select>
-            </div>
+            <Select
+              label="Role *"
+              {...registerEdit("role")}
+              options={[
+                ...(isAdmin ? [{ value: "ADMIN", label: "Admin" }] : []),
+                { value: "MANAGER", label: "Manager" },
+                { value: "ACCOUNTANT", label: "Accountant" },
+                { value: "OWNER", label: "Owner" },
+              ]}
+            />
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <div className="flex gap-3 pt-2">
               <Button type="submit" loading={editSubmitting}>Save Changes</Button>
+              <Button type="button" variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
             </div>
           </form>
         )}
@@ -534,40 +507,27 @@ export default function UsersPage() {
               Set a new password for <span className="font-medium text-header">{resetTarget.name ?? resetTarget.email}</span>.
             </p>
 
-            <div>
-              <label className="form-label">New Password *</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  className="form-input pr-8"
-                  {...registerReset("password")}
-                  placeholder="Min 6 characters"
-                />
-                <KeyRound size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300" />
-              </div>
-              {resetErrors.password && <p className="form-error">{resetErrors.password.message}</p>}
-            </div>
+            <Input
+              label="New Password *"
+              type="password"
+              {...registerReset("password")}
+              error={resetErrors.password?.message}
+              placeholder="Min 6 characters"
+            />
 
-            <div>
-              <label className="form-label">Confirm Password *</label>
-              <input
-                type="password"
-                className="form-input"
-                {...registerReset("confirmPassword")}
-                placeholder="Repeat password"
-              />
-              {resetErrors.confirmPassword && <p className="form-error">{resetErrors.confirmPassword.message}</p>}
-            </div>
+            <Input
+              label="Confirm Password *"
+              type="password"
+              {...registerReset("confirmPassword")}
+              error={resetErrors.confirmPassword?.message}
+              placeholder="Repeat password"
+            />
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => { setResetTarget(null); resetResetForm(); }}
-              >
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" loading={resetting}>Update Password</Button>
+              <Button type="button" variant="secondary" onClick={() => { setResetTarget(null); resetResetForm(); }}>
                 Cancel
               </Button>
-              <Button type="submit" loading={resetting}>Update Password</Button>
             </div>
           </form>
         )}

@@ -43,13 +43,11 @@ export async function POST(_req: Request, { params }: { params: { token: string 
     update: { role: invitation.role },
   });
 
-  // If user has no active org, assign this one
-  if (!session!.user.organizationId) {
-    await prisma.user.update({
-      where: { id: userId },
-      data:  { organizationId: orgId },
-    });
-  }
+  // Always switch the user's active org to the invited org so DB and JWT stay in sync
+  await prisma.user.update({
+    where: { id: userId },
+    data:  { organizationId: orgId },
+  });
 
   // Mark accepted
   await prisma.orgInvitation.update({

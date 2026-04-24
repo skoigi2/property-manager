@@ -39,8 +39,12 @@ export async function GET() {
     // Super-admin sees all users across all orgs
     whereClause = {};
   } else if (session!.user.orgRole === "ADMIN") {
-    // Org admin sees all users in their org (super-admins excluded)
-    whereClause = { organizationId: orgId, ...excludeSuperAdmins };
+    // Org admin sees all members of their org via the membership table
+    // (User.organizationId is the active-org cursor; membership is the source of truth)
+    whereClause = {
+      memberships: { some: { organizationId: orgId } },
+      ...excludeSuperAdmins,
+    };
   } else {
     // MANAGER sees users sharing at least one property within their org
     const managerAccess = await prisma.propertyAccess.findMany({

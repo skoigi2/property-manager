@@ -101,10 +101,12 @@ function orgSubscriptionBadge(org: OrgInfo | null): { label: string; variant: "g
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
-  // Super-admin: role=ADMIN with no organizationId. Treat undefined/empty string same as null.
-  const sessionOrgId = (session?.user as any)?.organizationId;
-  const isSuperAdmin = isAdmin && (sessionOrgId === null || sessionOrgId === undefined || sessionOrgId === "");
+  const sessionOrgId  = (session?.user as any)?.organizationId;
+  const sessionOrgRole = (session?.user as any)?.orgRole as string | undefined;
+  // Super-admin: global role=ADMIN with no org
+  const isSuperAdmin = session?.user?.role === "ADMIN" && (sessionOrgId === null || sessionOrgId === undefined || sessionOrgId === "");
+  // Org-level admin: either global role carried over OR per-org role from membership
+  const isAdmin = isSuperAdmin || session?.user?.role === "ADMIN" || sessionOrgRole === "ADMIN";
 
   const [users, setUsers] = useState<UserItem[]>([]);
   const [allProps, setAllProps] = useState<PropertyInfo[]>([]);

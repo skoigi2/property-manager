@@ -437,6 +437,8 @@ export default function OrganizationsPage() {
                 ...org.properties.flatMap((p) => p.propertyAccess.map((a) => a.user.id)),
                 ...org.properties.flatMap((p) => p.owner ? [p.owner.id] : []),
               ]);
+              // Per-org role lookup: membership role takes precedence over global user.role
+              const membershipRoleMap = new Map(org.memberships.map((m) => [m.user.id, m.role]));
               const memberUsers = org.memberships.map((m) => m.user);
               const directUsers = memberUsers.filter((u) => !propertyUserIds.has(u.id));
 
@@ -594,7 +596,7 @@ export default function OrganizationsPage() {
                                           <UserCog size={10} className="text-gold" />
                                         </div>
                                         <span className="text-xs font-sans text-gray-700">{user.name ?? user.email}</span>
-                                        <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
+                                        {(() => { const r = membershipRoleMap.get(user.id) ?? user.role; return <Badge variant={roleBadge[r] ?? "gray"}>{r}</Badge>; })()}
                                         {!user.isActive && <Badge variant="red">Inactive</Badge>}
                                         <div className="ml-auto flex items-center gap-1.5">
                                           <MoveRight size={11} className="text-gray-300" />
@@ -636,7 +638,7 @@ export default function OrganizationsPage() {
                                 </div>
                                 <span className="text-xs font-sans text-gray-700">{user.name ?? user.email}</span>
                                 <span className="text-xs text-gray-400 font-sans">{user.email}</span>
-                                <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
+                                {(() => { const r = membershipRoleMap.get(user.id) ?? user.role; return <Badge variant={roleBadge[r] ?? "gray"}>{r}</Badge>; })()}
                                 {!user.isActive && <Badge variant="red">Inactive</Badge>}
                                 <div className="ml-auto flex items-center gap-1.5">
                                   <MoveRight size={11} className="text-gray-300" />

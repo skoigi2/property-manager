@@ -115,6 +115,7 @@ export default function UsersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [togglingAccess, setTogglingAccess] = useState<string | null>(null);
+  const [removingUser, setRemovingUser] = useState<string | null>(null);
 
   // Reset password state
   const [resetTarget, setResetTarget] = useState<UserItem | null>(null);
@@ -321,6 +322,25 @@ export default function UsersPage() {
     }
   };
 
+  const removeFromOrg = async (user: UserItem) => {
+    if (!sessionOrgId) return;
+    if (!confirm(`Remove ${user.name ?? user.email} from this organisation? They will lose access immediately.`)) return;
+    setRemovingUser(user.id);
+    try {
+      const res = await fetch(`/api/organizations/${sessionOrgId}/members/${user.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to remove user");
+      }
+      toast.success(`${user.name ?? user.email} removed from organisation`);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove user");
+    } finally {
+      setRemovingUser(null);
+    }
+  };
+
   return (
     <div>
       <Header
@@ -472,6 +492,23 @@ export default function UsersPage() {
                         className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
                       >
                         {user.isActive ? "Deactivate" : "Activate"}
+                      </button>
+                    )}
+
+                    {/* Remove from org — org-admin only, not self, not super-admin view */}
+                    {isAdmin && !isSuperAdmin && canModify && canEdit && (
+                      <button
+                        onClick={() => removeFromOrg(user)}
+                        disabled={removingUser === user.id}
+                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                        title="Remove from organisation"
+                      >
+                        {removingUser === user.id ? (
+                          <span className="w-3 h-3 rounded-full border-2 border-red-300 border-t-transparent animate-spin" />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
+                        <span>Remove</span>
                       </button>
                     )}
                   </div>

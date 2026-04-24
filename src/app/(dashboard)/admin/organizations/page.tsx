@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import {
   Building2, Plus, Users, Home, X, Eye, EyeOff,
   Mail, Phone, MapPin, ChevronDown, ChevronRight,
-  Pencil, UserCog, CalendarDays, MoveRight, UserPlus, Trash2, Sparkles,
+  Pencil, UserCog, CalendarDays, MoveRight, UserPlus, Trash2, Sparkles, Crown,
 } from "lucide-react";
 
 interface OrgUser {
@@ -47,7 +47,7 @@ interface Org {
   createdAt: string;
   _count: { memberships: number; properties: number };
   properties: OrgProperty[];
-  memberships: { user: OrgUser }[];
+  memberships: { user: OrgUser; role: string; isBillingOwner: boolean }[];
 }
 
 const roleBadge: Record<string, "green" | "blue" | "amber" | "gold" | "gray"> = {
@@ -95,6 +95,7 @@ export default function OrganizationsPage() {
 
   // Reassign users directly
   const [reassigning, setReassigning] = useState<string | null>(null); // "user-{id}"
+  const [assigningBillingOwner, setAssigningBillingOwner] = useState<string | null>(null); // userId
 
   // Property move confirmation flow
   interface PendingMove {
@@ -339,6 +340,27 @@ export default function OrganizationsPage() {
     } catch {
       toast.error("Failed to reassign user");
     } finally { setReassigning(null); }
+  }
+
+  async function assignBillingOwner(orgId: string, newOwnerId: string) {
+    setAssigningBillingOwner(newOwnerId);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/billing-owner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newOwnerId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to assign billing owner");
+      }
+      toast.success("Billing owner updated");
+      const fresh = await fetchOrgs();
+      const updated = fresh.find((o) => o.id === orgId);
+      if (updated) setEditOrg(updated);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to assign billing owner");
+    } finally { setAssigningBillingOwner(null); }
   }
 
   async function toggleActive(org: Org) {
@@ -1011,7 +1033,7 @@ export default function OrganizationsPage() {
                       <p className="text-sm text-gray-400 font-sans italic">No users in this organisation yet.</p>
                     ) : (
                       <div className="space-y-1">
-                        {editOrg.memberships.map(({ user }) => (
+                        {editOrg.memberships.map(({ user, role: memberRole, isBillingOwner }) => (
                           <div
                             key={user.id}
                             className="flex items-center gap-2.5 py-2.5 border-b border-gray-100 last:border-0"
@@ -1027,15 +1049,38 @@ export default function OrganizationsPage() {
                               <p className="text-sm font-sans text-header truncate">{user.name ?? "—"}</p>
                               <p className="text-xs text-gray-400 font-sans truncate">{user.email}</p>
                             </div>
-                            {/* Role badge */}
-                            <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
+                            {/* Badges */}
+                            <Badge variant={roleBadge[memberRole] ?? "gray"}>{memberRole}</Badge>
+                            {isBillingOwner && (
+                              <span
+                                className="flex items-center gap-1 text-xs font-sans text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 shrink-0"
+                                title="Billing owner"
+                              >
+                                <Crown size={10} /> Billing
+                              </span>
+                            )}
                             {!user.isActive && <Badge variant="red">Inactive</Badge>}
+                            {/* Assign billing owner button (shown for non-owners only) */}
+                            {!isBillingOwner && (
+                              <button
+                                onClick={() => assignBillingOwner(editOrg.id, user.id)}
+                                disabled={assigningBillingOwner === user.id}
+                                className="text-gray-300 hover:text-amber-500 transition-colors disabled:opacity-50 shrink-0"
+                                title="Make billing owner"
+                              >
+                                {assigningBillingOwner === user.id ? (
+                                  <span className="w-3.5 h-3.5 rounded-full border-2 border-amber-300 border-t-transparent animate-spin inline-block" />
+                                ) : (
+                                  <Crown size={13} />
+                                )}
+                              </button>
+                            )}
                             {/* Remove button */}
                             <button
                               onClick={() => removeFromOrg(editOrg.id, user.id)}
-                              disabled={removingUser === user.id}
-                              className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 ml-1 shrink-0"
-                              title="Remove from organisation"
+                              disabled={removingUser === user.id || isBillingOwner}
+                              className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 shrink-0"
+                              title={isBillingOwner ? "Transfer billing ownership before removing" : "Remove from organisation"}
                             >
                               {removingUser === user.id ? (
                                 <span className="w-3.5 h-3.5 rounded-full border-2 border-red-300 border-t-transparent animate-spin inline-block" />

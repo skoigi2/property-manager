@@ -36,6 +36,8 @@ export async function GET() {
     },
     memberships: {
       select: {
+        isBillingOwner: true,
+        role: true,
         user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
       },
       orderBy: { user: { name: "asc" as const } },

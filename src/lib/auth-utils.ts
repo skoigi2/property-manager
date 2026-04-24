@@ -130,15 +130,21 @@ export async function getAccessiblePropertyIds(): Promise<string[] | null> {
 
   if (orgRole === "OWNER") {
     const owned = await prisma.property.findMany({
-      where: { ownerId: userId },
+      where: {
+        ownerId: userId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
       select: { id: true },
     });
     return owned.map((p) => p.id);
   }
 
-  // MANAGER / ACCOUNTANT — explicit PropertyAccess grants
+  // MANAGER / ACCOUNTANT — explicit PropertyAccess grants, scoped to active org
   const access = await prisma.propertyAccess.findMany({
-    where: { userId },
+    where: {
+      userId,
+      ...(orgId ? { property: { organizationId: orgId } } : {}),
+    },
     select: { propertyId: true },
   });
   return access.map((a) => a.propertyId);

@@ -46,24 +46,11 @@ export async function GET() {
       ...excludeSuperAdmins,
     };
   } else {
-    // MANAGER sees users sharing at least one property within their org
-    const managerAccess = await prisma.propertyAccess.findMany({
-      where: { userId: session!.user.id },
-      select: { propertyId: true },
-    });
-    const myPropertyIds = managerAccess.map((a) => a.propertyId);
-
-    if (myPropertyIds.length === 0) {
-      whereClause = { id: session!.user.id };
-    } else {
-      const sharedAccess = await prisma.propertyAccess.findMany({
-        where: { propertyId: { in: myPropertyIds } },
-        select: { userId: true },
-      });
-      const shared = new Set(sharedAccess.map((a) => a.userId));
-      shared.add(session!.user.id);
-      whereClause = { id: { in: Array.from(shared) }, ...excludeSuperAdmins };
-    }
+    // MANAGER / ACCOUNTANT — all members of their org (same as org-admin scope)
+    whereClause = {
+      organizationMemberships: { some: { organizationId: orgId } },
+      ...excludeSuperAdmins,
+    };
   }
 
   const users = await prisma.user.findMany({

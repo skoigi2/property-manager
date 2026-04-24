@@ -91,11 +91,27 @@ export async function GET() {
         include: { property: { select: { id: true, name: true } } },
       },
       ownedProperties: { select: { id: true, name: true } },
+      organizationMemberships: {
+        select: { organizationId: true, role: true, isBillingOwner: true },
+      },
     },
     orderBy: { name: "asc" },
   });
 
-  return Response.json(users);
+  // Attach orgRole: the membership role for the viewer's active org (or global role as fallback)
+  const viewerOrgId = orgId;
+  const usersWithOrgRole = users.map((u) => {
+    const membership = viewerOrgId
+      ? u.organizationMemberships.find((m) => m.organizationId === viewerOrgId)
+      : null;
+    return {
+      ...u,
+      orgRole: membership?.role ?? u.role,
+      isBillingOwner: membership?.isBillingOwner ?? false,
+    };
+  });
+
+  return Response.json(usersWithOrgRole);
 }
 
 export async function POST(req: Request) {

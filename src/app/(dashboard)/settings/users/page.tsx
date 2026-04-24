@@ -38,7 +38,9 @@ interface UserItem {
   id: string;
   name: string | null;
   email: string | null;
-  role: string;
+  role: string;      // global role — used only for super-admin detection
+  orgRole: string;   // per-org membership role — use this for display
+  isBillingOwner: boolean;
   phone: string | null;
   isActive: boolean;
   createdAt: string;
@@ -435,7 +437,7 @@ export default function UsersPage() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-header font-sans text-sm">{user.name ?? "—"}</p>
-                        <Badge variant={roleBadge[user.role] ?? "gray"}>{user.role}</Badge>
+                        <Badge variant={roleBadge[user.orgRole] ?? "gray"}>{user.orgRole}</Badge>
                         {!user.isActive && <Badge variant="red">Inactive</Badge>}
                       </div>
                       <p className="text-xs text-gray-400 font-sans">{user.email}</p>
@@ -463,7 +465,7 @@ export default function UsersPage() {
                       <button
                         onClick={() => {
                           setEditTarget(user);
-                          resetEditForm({ name: user.name ?? "", phone: user.phone ?? "", role: user.role as EditForm["role"] });
+                          resetEditForm({ name: user.name ?? "", phone: user.phone ?? "", role: user.orgRole as EditForm["role"] });
                         }}
                         className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-gold transition-colors"
                         title="Edit user"
@@ -515,7 +517,7 @@ export default function UsersPage() {
                 </div>
 
                 {/* Property access (not for OWNER — they're linked via ownerId) */}
-                {user.role !== "OWNER" && user.role !== "ADMIN" && allProps.length > 0 && (
+                {user.orgRole !== "OWNER" && user.orgRole !== "ADMIN" && allProps.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-gray-50">
                     <p className="text-xs text-gray-400 font-sans font-medium uppercase tracking-wide mb-2">Property Access</p>
                     <div className="space-y-1.5">
@@ -552,14 +554,14 @@ export default function UsersPage() {
                 )}
 
                 {/* ADMIN note */}
-                {user.role === "ADMIN" && (
+                {user.orgRole === "ADMIN" && (
                   <div className="mt-3 pt-3 border-t border-gray-50">
                     <p className="text-xs text-gray-400 font-sans italic">Full access to all properties and settings</p>
                   </div>
                 )}
 
                 {/* For OWNERs show their owned properties */}
-                {user.role === "OWNER" && user.ownedProperties.length > 0 && (
+                {user.orgRole === "OWNER" && user.ownedProperties.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-50">
                     <p className="text-xs text-gray-400 font-sans font-medium uppercase tracking-wide mb-1.5">Owns</p>
                     <div className="flex flex-wrap gap-1.5">

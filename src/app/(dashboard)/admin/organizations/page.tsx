@@ -13,6 +13,7 @@ import {
   Building2, Plus, Users, Home, X, Eye, EyeOff,
   Mail, Phone, MapPin, ChevronDown, ChevronRight,
   Pencil, UserCog, CalendarDays, MoveRight, UserPlus, Trash2, Sparkles, Crown,
+  ArrowUp, ArrowLeftRight,
 } from "lucide-react";
 
 interface OrgUser {
@@ -96,6 +97,13 @@ export default function OrganizationsPage() {
   // Reassign users directly
   const [reassigning, setReassigning] = useState<string | null>(null); // "user-{id}"
   const [assigningBillingOwner, setAssigningBillingOwner] = useState<string | null>(null); // userId
+
+  // Org-level ↔ property-level management
+  const [promotingOrgLevel, setPromotingOrgLevel] = useState<string | null>(null); // userId
+  const [movingToOrg, setMovingToOrg] = useState<string | null>(null); // userId whose org-move select is open
+  const [assignPropertyOpen, setAssignPropertyOpen] = useState<string | null>(null); // userId whose property picker is open
+  const [assignPropertyIds, setAssignPropertyIds] = useState<string[]>([]); // selected property IDs for picker
+  const [grantingAccess, setGrantingAccess] = useState<string | null>(null); // userId being granted access
 
   // Property move confirmation flow
   interface PendingMove {
@@ -342,6 +350,40 @@ export default function OrganizationsPage() {
     } finally { setReassigning(null); }
   }
 
+  async function makeOrgLevel(orgId: string, userId: string) {
+    setPromotingOrgLevel(userId);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/members/${userId}/properties`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to promote user to org-level");
+      toast.success("User is now org-level");
+      fetchOrgs();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed");
+    } finally { setPromotingOrgLevel(null); }
+  }
+
+  async function grantPropertyAccess(orgId: string, userId: string, propertyIds: string[]) {
+    if (!propertyIds.length) return;
+    setGrantingAccess(userId);
+    try {
+      await Promise.all(
+        propertyIds.map((propertyId) =>
+          fetch(`/api/users/${userId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ propertyId, grant: true }),
+          })
+        )
+      );
+      toast.success("Property access granted");
+      setAssignPropertyOpen(null);
+      setAssignPropertyIds([]);
+      fetchOrgs();
+    } catch {
+      toast.error("Failed to grant access");
+    } finally { setGrantingAccess(null); }
+  }
+
   async function assignBillingOwner(orgId: string, newOwnerId: string) {
     setAssigningBillingOwner(newOwnerId);
     try {
@@ -439,6 +481,7 @@ export default function OrganizationsPage() {
               ]);
               // Per-org role lookup: membership role takes precedence over global user.role
               const membershipRoleMap = new Map(org.memberships.map((m) => [m.user.id, m.role]));
+              const billingOwnerSet = new Set(org.memberships.filter((m) => m.isBillingOwner).map((m) => m.user.id));
               const memberUsers = org.memberships.map((m) => m.user);
               const directUsers = memberUsers.filter((u) => !propertyUserIds.has(u.id));
 
@@ -597,20 +640,43 @@ export default function OrganizationsPage() {
                                         </div>
                                         <span className="text-xs font-sans text-gray-700">{user.name ?? user.email}</span>
                                         {(() => { const r = membershipRoleMap.get(user.id) ?? user.role; return <Badge variant={roleBadge[r] ?? "gray"}>{r}</Badge>; })()}
+                                        {billingOwnerSet.has(user.id) && <span title="Billing owner"><Crown size={10} className="text-amber-500 shrink-0" /></span>}
                                         {!user.isActive && <Badge variant="red">Inactive</Badge>}
-                                        <div className="ml-auto flex items-center gap-1.5">
-                                          <MoveRight size={11} className="text-gray-300" />
-                                          <select
-                                            className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
-                                            defaultValue=""
-                                            disabled={reassigning === `user-${user.id}`}
-                                            onChange={(e) => { if (e.target.value) reassignUser(user.id, e.target.value); }}
+                                        <div className="ml-auto flex items-center gap-1">
+                                          {/* Promote to org-level */}
+                                          <button
+                                            onClick={() => makeOrgLevel(org.id, user.id)}
+                                            disabled={promotingOrgLevel === user.id}
+                                            className="p-1 text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-50 rounded"
+                                            title="Promote to org-level (remove property access)"
                                           >
-                                            <option value="" disabled>Move to…</option>
-                                            {orgs.filter((o) => o.id !== org.id).map((o) => (
-                                              <option key={o.id} value={o.id}>{o.name}</option>
-                                            ))}
-                                          </select>
+                                            {promotingOrgLevel === user.id
+                                              ? <span className="w-3 h-3 rounded-full border-2 border-blue-300 border-t-transparent animate-spin inline-block" />
+                                              : <ArrowUp size={13} />}
+                                          </button>
+                                          {/* Move to another org */}
+                                          {movingToOrg === user.id ? (
+                                            <select
+                                              autoFocus
+                                              className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                                              defaultValue=""
+                                              onBlur={() => setMovingToOrg(null)}
+                                              onChange={(e) => { if (e.target.value) { reassignUser(user.id, e.target.value); setMovingToOrg(null); } }}
+                                            >
+                                              <option value="" disabled>Move to org…</option>
+                                              {orgs.filter((o) => o.id !== org.id).map((o) => (
+                                                <option key={o.id} value={o.id}>{o.name}</option>
+                                              ))}
+                                            </select>
+                                          ) : (
+                                            <button
+                                              onClick={() => setMovingToOrg(user.id)}
+                                              className="p-1 text-gray-300 hover:text-gray-600 transition-colors rounded"
+                                              title="Move to another organisation"
+                                            >
+                                              <ArrowLeftRight size={13} />
+                                            </button>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
@@ -639,24 +705,76 @@ export default function OrganizationsPage() {
                                 <span className="text-xs font-sans text-gray-700">{user.name ?? user.email}</span>
                                 <span className="text-xs text-gray-400 font-sans">{user.email}</span>
                                 {(() => { const r = membershipRoleMap.get(user.id) ?? user.role; return <Badge variant={roleBadge[r] ?? "gray"}>{r}</Badge>; })()}
+                                {billingOwnerSet.has(user.id) && <span title="Billing owner"><Crown size={10} className="text-amber-500 shrink-0" /></span>}
                                 {!user.isActive && <Badge variant="red">Inactive</Badge>}
-                                <div className="ml-auto flex items-center gap-1.5">
-                                  <MoveRight size={11} className="text-gray-300" />
-                                  <select
-                                    className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
-                                    defaultValue=""
-                                    disabled={reassigning === `user-${user.id}`}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      reassignUser(user.id, val === "__none__" ? null : val);
-                                    }}
-                                  >
-                                    <option value="" disabled>Move to…</option>
-                                    {orgs.filter((o) => o.id !== org.id).map((o) => (
-                                      <option key={o.id} value={o.id}>{o.name}</option>
-                                    ))}
-                                    <option value="__none__">— No organisation (super-admin)</option>
-                                  </select>
+                                <div className="ml-auto flex items-center gap-1">
+                                  {/* Assign to property */}
+                                  {org.properties.length > 0 && (
+                                    assignPropertyOpen === user.id ? (
+                                      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1">
+                                        {org.properties.map((p) => (
+                                          <label key={p.id} className="flex items-center gap-1 cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={assignPropertyIds.includes(p.id)}
+                                              onChange={(e) =>
+                                                setAssignPropertyIds((prev) =>
+                                                  e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                                                )
+                                              }
+                                              className="rounded border-gray-300 accent-gold"
+                                            />
+                                            <span className="text-xs font-sans text-gray-600 whitespace-nowrap">{p.name}</span>
+                                          </label>
+                                        ))}
+                                        <button
+                                          onClick={() => grantPropertyAccess(org.id, user.id, assignPropertyIds)}
+                                          disabled={!assignPropertyIds.length || grantingAccess === user.id}
+                                          className="text-xs font-sans text-gold font-medium hover:text-gold-dark disabled:opacity-40 ml-1 whitespace-nowrap"
+                                        >
+                                          {grantingAccess === user.id ? "…" : "Apply"}
+                                        </button>
+                                        <button onClick={() => { setAssignPropertyOpen(null); setAssignPropertyIds([]); }} className="text-gray-400 hover:text-gray-600 ml-0.5">
+                                          <X size={11} />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => { setAssignPropertyOpen(user.id); setAssignPropertyIds([]); }}
+                                        className="p-1 text-gray-300 hover:text-green-600 transition-colors rounded"
+                                        title="Assign to a property"
+                                      >
+                                        <Home size={13} />
+                                      </button>
+                                    )
+                                  )}
+                                  {/* Move to another org */}
+                                  {movingToOrg === user.id ? (
+                                    <select
+                                      autoFocus
+                                      className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                                      defaultValue=""
+                                      onBlur={() => setMovingToOrg(null)}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val) { reassignUser(user.id, val === "__none__" ? null : val); setMovingToOrg(null); }
+                                      }}
+                                    >
+                                      <option value="" disabled>Move to org…</option>
+                                      {orgs.filter((o) => o.id !== org.id).map((o) => (
+                                        <option key={o.id} value={o.id}>{o.name}</option>
+                                      ))}
+                                      <option value="__none__">— No organisation (super-admin)</option>
+                                    </select>
+                                  ) : (
+                                    <button
+                                      onClick={() => setMovingToOrg(user.id)}
+                                      className="p-1 text-gray-300 hover:text-gray-600 transition-colors rounded"
+                                      title="Move to another organisation"
+                                    >
+                                      <ArrowLeftRight size={13} />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -918,7 +1036,8 @@ export default function OrganizationsPage() {
                             {/* Property access */}
                             {addUserForm.role !== "OWNER" && editOrg.properties.length > 0 && (
                               <div>
-                                <p className="text-xs font-sans text-gray-500 mb-2">Property Access</p>
+                                <p className="text-xs font-sans text-gray-500 mb-1">Property Access</p>
+                                <p className="text-xs font-sans text-gray-400 mb-2">Leave unchecked to add as org-level user (no property-specific access)</p>
                                 <div className="space-y-1.5">
                                   {editOrg.properties.map((prop) => (
                                     <label key={prop.id} className="flex items-center gap-2 cursor-pointer select-none">
@@ -1035,7 +1154,15 @@ export default function OrganizationsPage() {
                       <p className="text-sm text-gray-400 font-sans italic">No users in this organisation yet.</p>
                     ) : (
                       <div className="space-y-1">
-                        {editOrg.memberships.map(({ user, role: memberRole, isBillingOwner }) => (
+                        {(() => {
+                          // Build a set of userIds who have property access in this org
+                          const propertyAccessUserIds = new Set(
+                            editOrg.properties.flatMap((p) => [
+                              ...p.propertyAccess.map((a) => a.user.id),
+                              ...(p.owner ? [p.owner.id] : []),
+                            ])
+                          );
+                          return editOrg.memberships.map(({ user, role: memberRole, isBillingOwner }) => (
                           <div
                             key={user.id}
                             className="flex items-center gap-2.5 py-2.5 border-b border-gray-100 last:border-0"
@@ -1062,6 +1189,27 @@ export default function OrganizationsPage() {
                               </span>
                             )}
                             {!user.isActive && <Badge variant="red">Inactive</Badge>}
+                            {/* Org-level ↔ property-level actions */}
+                            {propertyAccessUserIds.has(user.id) ? (
+                              <button
+                                onClick={() => makeOrgLevel(editOrg.id, user.id)}
+                                disabled={promotingOrgLevel === user.id}
+                                className="text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-50 shrink-0"
+                                title="Make org-level (remove property access)"
+                              >
+                                {promotingOrgLevel === user.id
+                                  ? <span className="w-3.5 h-3.5 rounded-full border-2 border-blue-300 border-t-transparent animate-spin inline-block" />
+                                  : <ArrowUp size={13} />}
+                              </button>
+                            ) : editOrg.properties.length > 0 ? (
+                              <button
+                                onClick={() => { setAssignPropertyOpen(user.id); setAssignPropertyIds([]); }}
+                                className="text-gray-300 hover:text-green-600 transition-colors shrink-0"
+                                title="Assign to a property"
+                              >
+                                <Home size={13} />
+                              </button>
+                            ) : null}
                             {/* Assign billing owner button (shown for non-owners only) */}
                             {!isBillingOwner && (
                               <button
@@ -1091,7 +1239,8 @@ export default function OrganizationsPage() {
                               )}
                             </button>
                           </div>
-                        ))}
+                          ));
+                        })()}
                       </div>
                     )}
                   </div>

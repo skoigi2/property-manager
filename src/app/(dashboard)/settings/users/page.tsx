@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
-import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink, Pencil, Mail, Clock, Trash2 } from "lucide-react";
+import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink, Pencil, Mail, Clock, Trash2, ArrowUp } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -118,6 +118,7 @@ export default function UsersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [togglingAccess, setTogglingAccess] = useState<string | null>(null);
   const [removingUser, setRemovingUser] = useState<string | null>(null);
+  const [makingOrgLevel, setMakingOrgLevel] = useState<string | null>(null);
 
   // Reset password state
   const [resetTarget, setResetTarget] = useState<UserItem | null>(null);
@@ -324,6 +325,23 @@ export default function UsersPage() {
     }
   };
 
+  const makeUserOrgLevel = async (user: UserItem) => {
+    if (!sessionOrgId) return;
+    if (!confirm(`Remove all property access for ${user.name ?? user.email}? They will remain in the organisation but lose property-specific access.`)) return;
+    setMakingOrgLevel(user.id);
+    try {
+      const res = await fetch(`/api/organizations/${sessionOrgId}/members/${user.id}/properties`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed");
+      }
+      toast.success(`${user.name ?? user.email} is now org-level`);
+      setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, propertyAccess: [] } : u));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally { setMakingOrgLevel(null); }
+  };
+
   const removeFromOrg = async (user: UserItem) => {
     if (!sessionOrgId) return;
     if (!confirm(`Remove ${user.name ?? user.email} from this organisation? They will lose access immediately.`)) return;
@@ -494,6 +512,23 @@ export default function UsersPage() {
                         className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
                       >
                         {user.isActive ? "Deactivate" : "Activate"}
+                      </button>
+                    )}
+
+                    {/* Make org-level — org-admin only, only for users with property access */}
+                    {isAdmin && !isSuperAdmin && canModify && canEdit && user.propertyAccess.length > 0 && (
+                      <button
+                        onClick={() => makeUserOrgLevel(user)}
+                        disabled={makingOrgLevel === user.id}
+                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+                        title="Remove all property access (make org-level)"
+                      >
+                        {makingOrgLevel === user.id ? (
+                          <span className="w-3 h-3 rounded-full border-2 border-blue-300 border-t-transparent animate-spin" />
+                        ) : (
+                          <ArrowUp size={13} />
+                        )}
+                        <span>Org-level</span>
                       </button>
                     )}
 

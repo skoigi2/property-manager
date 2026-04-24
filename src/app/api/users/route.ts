@@ -42,7 +42,7 @@ export async function GET() {
     // Org admin sees all members of their org via the membership table
     // (User.organizationId is the active-org cursor; membership is the source of truth)
     whereClause = {
-      memberships: { some: { organizationId: orgId } },
+      organizationMemberships: { some: { organizationId: orgId } },
       ...excludeSuperAdmins,
     };
   } else {

@@ -125,6 +125,6 @@ export async function getSubscriptionInfo(orgId: string) {
     freeAccess:         org.freeAccess,
     propertyCount,
     propertyLimit:      limit === Infinity ? null : limit,
-    hasSubscription:    !!org.paddleSubscriptionId,
+    hasSubscription:    org.freeAccess || !!org.paddleSubscriptionId,
   };
 }

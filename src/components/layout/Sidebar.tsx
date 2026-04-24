@@ -142,10 +142,10 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   const [switching, setSwitching] = useState<string | null>(null);
 
   useEffect(() => {
-    if (membershipCount > 1 && !isSuperAdmin) {
+    if (!isSuperAdmin) {
       fetch("/api/auth/orgs").then((r) => r.json()).then(setOrgOptions).catch(() => {});
     }
-  }, [membershipCount, isSuperAdmin]);
+  }, [organizationId, isSuperAdmin]);
 
   async function switchOrg(orgId: string) {
     if (orgId === organizationId) { setOrgSwitcherOpen(false); return; }
@@ -158,7 +158,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
       if (!res.ok) throw new Error();
       await update({ organizationId: orgId });
       setOrgSwitcherOpen(false);
-      router.refresh();
+      window.location.reload();
     } catch {
       toast.error("Failed to switch organisation");
     } finally { setSwitching(null); }

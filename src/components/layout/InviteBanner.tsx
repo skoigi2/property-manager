@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Mail, X } from "lucide-react";
 
@@ -16,7 +15,6 @@ interface PendingInvite {
 
 export function InviteBanner() {
   const { data: session, update } = useSession();
-  const router = useRouter();
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -48,7 +46,7 @@ export function InviteBanner() {
 
       toast.success(`Joined ${invite.organization.name}`);
       setInvites((prev) => prev.filter((i) => i.id !== invite.id));
-      router.refresh();
+      window.location.reload();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to accept invitation");
     } finally {

@@ -44,10 +44,10 @@ export async function POST(_req: Request, { params }: { params: { token: string 
     update: { role },
   });
 
-  // Sync global User.role + switch active org so DB and JWT stay in sync
+  // Switch active org — never overwrite global User.role (it's only for super-admin detection)
   await prisma.user.update({
     where: { id: userId },
-    data:  { organizationId: orgId, role },
+    data:  { organizationId: orgId },
   });
 
   // Grant PropertyAccess to all org properties for MANAGER / ACCOUNTANT roles.

@@ -41,12 +41,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!newOwnerMembership) {
     return Response.json({ error: "User is not a member of this organisation." }, { status: 404 });
   }
-  if (newOwnerMembership.role !== "ADMIN") {
-    return Response.json(
-      { error: "Billing ownership can only be transferred to an ADMIN member." },
-      { status: 422 }
-    );
-  }
   if (newOwnerMembership.isBillingOwner) {
     return Response.json({ error: "This user is already the billing owner." }, { status: 409 });
   }
@@ -60,17 +54,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Remove billing owner from current owner (if one exists and is not the new owner)
   if (currentOwner && currentOwner.userId !== newOwnerId) {
     await prisma.userOrganizationMembership.update({
-      where: {
-        userId_organizationId: { userId: currentOwner.userId, organizationId: orgId },
-      },
+      where: { userId_organizationId: { userId: currentOwner.userId, organizationId: orgId } },
       data: { isBillingOwner: false },
     });
   }
 
-  // Assign billing owner to new owner
+  // Assign billing owner and ensure they are ADMIN (promote if needed)
   await prisma.userOrganizationMembership.update({
     where: { userId_organizationId: { userId: newOwnerId, organizationId: orgId } },
-    data: { isBillingOwner: true },
+    data: { isBillingOwner: true, role: "ADMIN" },
+  });
+
+  // Sync global User.role to ADMIN so their JWT reflects the promotion
+  await prisma.user.update({
+    where: { id: newOwnerId },
+    data: { role: "ADMIN" },
   });
 
   return Response.json({ ok: true });

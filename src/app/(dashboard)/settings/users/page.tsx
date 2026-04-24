@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
-import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink, Pencil } from "lucide-react";
+import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink, Pencil, Mail, Clock, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,14 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 
 interface PropertyInfo { id: string; name: string; }
+interface PendingInvite {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+  token: string;
+  invitedBy: { name: string | null; email: string | null };
+}
 interface OrgInfo {
   id: string;
   name: string;
@@ -114,6 +122,14 @@ export default function UsersPage() {
   const [editTarget, setEditTarget] = useState<UserItem | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  // Invite state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"ADMIN" | "MANAGER" | "ACCOUNTANT" | "OWNER">("MANAGER");
+  const [inviting, setInviting] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [revoking, setRevoking] = useState<string | null>(null);
+
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
     defaultValues: { role: "MANAGER", propertyIds: [] },
@@ -151,7 +167,51 @@ export default function UsersPage() {
     if (res.ok) setAllOrgs(await res.json());
   };
 
-  useEffect(() => { load(); loadOrgs(); }, [isSuperAdmin]);
+  const loadInvites = async () => {
+    if (!isAdmin) return;
+    const res = await fetch("/api/invitations");
+    if (res.ok) setPendingInvites(await res.json());
+  };
+
+  useEffect(() => { load(); loadOrgs(); loadInvites(); }, [isSuperAdmin]);
+
+  const sendInvite = async () => {
+    if (!inviteEmail) return;
+    setInviting(true);
+    try {
+      const res = await fetch("/api/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to send invitation");
+      }
+      toast.success(`Invitation sent to ${inviteEmail}`);
+      setInviteOpen(false);
+      setInviteEmail("");
+      setInviteRole("MANAGER");
+      loadInvites();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to send invitation");
+    } finally { setInviting(false); }
+  };
+
+  const revokeInvite = async (token: string) => {
+    setRevoking(token);
+    try {
+      const res = await fetch(`/api/invitations/${token}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to revoke invitation");
+      }
+      toast.success("Invitation revoked");
+      setPendingInvites((prev) => prev.filter((i) => i.token !== token));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to revoke");
+    } finally { setRevoking(null); }
+  };
 
   const onSubmit = async (values: CreateForm) => {
     setSubmitting(true);
@@ -266,9 +326,16 @@ export default function UsersPage() {
         userName={session?.user?.name ?? session?.user?.email}
         role={session?.user?.role}
       >
-        <Button size="sm" onClick={() => { reset({ role: "MANAGER", propertyIds: [] }); setModalOpen(true); }}>
-          <Plus size={14} className="mr-1" /> Add User
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && !isSuperAdmin && (
+            <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)}>
+              <Mail size={14} className="mr-1" /> Invite
+            </Button>
+          )}
+          <Button size="sm" onClick={() => { reset({ role: "MANAGER", propertyIds: [] }); setModalOpen(true); }}>
+            <Plus size={14} className="mr-1" /> Add User
+          </Button>
+        </div>
       </Header>
 
       <div className="page-container space-y-4">
@@ -282,6 +349,47 @@ export default function UsersPage() {
               Manage Organisations <ExternalLink size={11} />
             </Link>
           </div>
+        )}
+
+        {/* Pending invitations */}
+        {isAdmin && !isSuperAdmin && pendingInvites.length > 0 && (
+          <Card>
+            <p className="text-xs font-sans font-medium text-gray-400 uppercase tracking-wide mb-3">
+              Pending Invitations ({pendingInvites.length})
+            </p>
+            <div className="space-y-2">
+              {pendingInvites.map((inv) => {
+                const expiresAt = new Date(inv.expiresAt);
+                const hoursLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 3_600_000));
+                return (
+                  <div key={inv.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                    <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                      <Mail size={13} className="text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-sans text-header truncate">{inv.email}</p>
+                      <p className="text-xs text-gray-400 font-sans flex items-center gap-1">
+                        <Clock size={10} /> Expires in {hoursLeft}h · invited as {inv.role}
+                      </p>
+                    </div>
+                    <Badge variant={roleBadge[inv.role] ?? "gray"}>{inv.role}</Badge>
+                    <button
+                      onClick={() => revokeInvite(inv.token)}
+                      disabled={revoking === inv.token}
+                      className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 shrink-0"
+                      title="Revoke invitation"
+                    >
+                      {revoking === inv.token ? (
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-red-300 border-t-transparent animate-spin inline-block" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
         )}
 
         {loading ? (
@@ -525,6 +633,43 @@ export default function UsersPage() {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* Invite user modal */}
+      <Modal open={inviteOpen} onClose={() => { setInviteOpen(false); setInviteEmail(""); setInviteRole("MANAGER"); }} title="Invite Team Member">
+        <div className="space-y-4">
+          <p className="text-sm font-sans text-gray-500">
+            An invitation link valid for 48 hours will be emailed to them.
+          </p>
+          <Input
+            label="Email address *"
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="colleague@example.com"
+          />
+          <div>
+            <label className="block text-xs font-sans text-gray-500 mb-1">Role *</label>
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+            >
+              <option value="ADMIN">Admin</option>
+              <option value="MANAGER">Manager</option>
+              <option value="ACCOUNTANT">Accountant</option>
+              <option value="OWNER">Owner</option>
+            </select>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button onClick={sendInvite} loading={inviting} disabled={!inviteEmail}>
+              <Mail size={14} className="mr-1" /> Send Invitation
+            </Button>
+            <Button variant="secondary" onClick={() => { setInviteOpen(false); setInviteEmail(""); setInviteRole("MANAGER"); }}>
+              Cancel
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Reset password modal */}

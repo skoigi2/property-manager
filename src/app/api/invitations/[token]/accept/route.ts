@@ -35,19 +35,35 @@ export async function POST(_req: Request, { params }: { params: { token: string 
 
   const userId = session!.user.id;
   const orgId  = invitation.organizationId;
+  const role   = invitation.role;
 
   // Upsert membership with the invited role; never make them billing owner
   await prisma.userOrganizationMembership.upsert({
     where:  { userId_organizationId: { userId, organizationId: orgId } },
-    create: { userId, organizationId: orgId, role: invitation.role, isBillingOwner: false },
-    update: { role: invitation.role },
+    create: { userId, organizationId: orgId, role, isBillingOwner: false },
+    update: { role },
   });
 
-  // Always switch the user's active org to the invited org so DB and JWT stay in sync
+  // Sync global User.role + switch active org so DB and JWT stay in sync
   await prisma.user.update({
     where: { id: userId },
-    data:  { organizationId: orgId },
+    data:  { organizationId: orgId, role },
   });
+
+  // Grant PropertyAccess to all org properties for MANAGER / ACCOUNTANT roles.
+  // ADMIN sees all properties automatically; OWNER is scoped to ownedProperties.
+  if (role === "MANAGER" || role === "ACCOUNTANT") {
+    const orgProperties = await prisma.property.findMany({
+      where:  { organizationId: orgId },
+      select: { id: true },
+    });
+    if (orgProperties.length > 0) {
+      await prisma.propertyAccess.createMany({
+        data: orgProperties.map((p) => ({ userId, propertyId: p.id })),
+        skipDuplicates: true,
+      });
+    }
+  }
 
   // Mark accepted
   await prisma.orgInvitation.update({

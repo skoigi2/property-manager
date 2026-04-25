@@ -29,15 +29,17 @@ function Nav() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BrandLogo size={32} />
-          <span className="font-display text-lg text-header">Groundwork PM</span>
-        </div>
+        <div className="flex items-center gap-10">
+          <div className="flex items-center gap-2">
+            <BrandLogo size={32} />
+            <span className="font-display text-lg text-header">Groundwork PM</span>
+          </div>
 
-        <div className="hidden md:flex items-center gap-8 text-sm font-sans">
-          <a href="#outcomes" className="text-gray-500 hover:text-header transition-colors">Features</a>
-          <Link href="/pricing" className="text-gray-500 hover:text-header transition-colors">Pricing</Link>
-          <Link href="/login" className="text-gray-500 hover:text-header transition-colors">Sign in</Link>
+          <div className="hidden md:flex items-center gap-8 text-sm font-sans">
+            <a href="#outcomes" className="text-gray-500 hover:text-header transition-colors">Features</a>
+            <Link href="/pricing" className="text-gray-500 hover:text-header transition-colors">Pricing</Link>
+            <Link href="/login" className="text-gray-500 hover:text-header transition-colors">Sign in</Link>
+          </div>
         </div>
 
         <Link

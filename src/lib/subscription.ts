@@ -8,7 +8,7 @@ export function isTrialExpired(org: {
   trialEndsAt: Date | null;
 }): boolean {
   if (org.pricingTier !== "TRIAL") return false;
-  if (!org.trialEndsAt) return false;
+  if (!org.trialEndsAt) return true; // No end date set — treat as expired
   return org.trialEndsAt < new Date();
 }
 

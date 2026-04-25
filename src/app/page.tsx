@@ -5,21 +5,21 @@ import type { Metadata } from "next";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 
 export const metadata: Metadata = {
-  title: "Groundwork PM — Property Management Analytics & Financial Tracking",
+  title: "Groundwork PM — Professional Property Management Software",
   description:
-    "Track rent, generate owner reports, manage maintenance and compliance for your property portfolio. Property insights. Built on solid groundwork. 30-day free trial.",
+    "Track income, expenses, occupancy, maintenance, and owner reporting in one premium platform. Built for professional property managers worldwide. 30-day free trial.",
   openGraph: {
-    title: "Groundwork PM — Property Management Analytics & Financial Tracking",
+    title: "Groundwork PM — Professional Property Management Software",
     description:
-      "Track rent, invoices, maintenance, and compliance. Built for landlords and agencies worldwide.",
+      "Track income, expenses, occupancy, maintenance, and owner reporting in one premium platform. Built for professional property managers worldwide.",
     url: "https://groundworkpm.com",
     siteName: "Groundwork PM",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Groundwork PM — Property Management Analytics & Financial Tracking",
-    description: "Track rent, invoices, maintenance, and compliance. 30-day free trial.",
+    title: "Groundwork PM — Professional Property Management Software",
+    description: "Professional property management for modern operators. 30-day free trial.",
   },
 };
 
@@ -35,14 +35,14 @@ function Nav() {
         </div>
 
         <div className="hidden md:flex items-center gap-8 text-sm font-sans">
-          <a href="#features" className="text-gray-500 hover:text-header transition-colors">Features</a>
+          <a href="#outcomes" className="text-gray-500 hover:text-header transition-colors">Features</a>
           <Link href="/pricing" className="text-gray-500 hover:text-header transition-colors">Pricing</Link>
           <Link href="/login" className="text-gray-500 hover:text-header transition-colors">Sign in</Link>
         </div>
 
         <Link
           href="/signup"
-          className="bg-header text-white text-sm font-sans font-medium px-5 py-2 rounded-lg hover:bg-header/90 transition-colors"
+          className="bg-header text-white text-sm font-sans font-medium px-6 py-2.5 rounded-lg hover:bg-header/90 transition-colors"
         >
           Start free trial
         </Link>
@@ -51,16 +51,145 @@ function Nav() {
   );
 }
 
-// ─── Feature card ─────────────────────────────────────────────────────────────
+// ─── Trust bar ────────────────────────────────────────────────────────────────
 
-function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+function TrustBar() {
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-      <div className="w-10 h-10 bg-gold/10 rounded-xl flex items-center justify-center mb-4">
+    <section className="py-10 border-y border-gold/10 bg-white">
+      <div className="max-w-3xl mx-auto px-6 text-center">
+        <p className="text-sm font-sans text-gray-500 leading-relaxed">
+          Built for modern property managers worldwide — with instant access to demo properties and a 30-day free trial.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ─── Dashboard mockup ─────────────────────────────────────────────────────────
+
+function DashboardMockup() {
+  return (
+    <div
+      className="rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(26,26,46,0.14)] border border-gray-200/50 pointer-events-none select-none"
+      aria-hidden="true"
+    >
+      {/* Browser chrome */}
+      <div className="bg-header px-4 py-3 flex items-center gap-1.5">
+        <span className="w-2.5 h-2.5 rounded-full bg-white/15 inline-block" />
+        <span className="w-2.5 h-2.5 rounded-full bg-white/25 inline-block" />
+        <span className="w-2.5 h-2.5 rounded-full bg-white/35 inline-block" />
+        <div className="flex-1 mx-4">
+          <div className="bg-header/60 rounded-md py-1 px-3 text-center max-w-xs mx-auto">
+            <span className="text-white/40 text-xs font-mono">app.groundworkpm.com</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Dashboard content */}
+      <div className="bg-cream p-5">
+        {/* Header row */}
+        <div className="flex justify-between items-center mb-5">
+          <span className="font-display text-sm text-header">Dashboard</span>
+          <span className="text-xs font-sans text-gray-400 bg-white px-3 py-1.5 rounded-lg border border-gray-100">
+            April 2025
+          </span>
+        </div>
+
+        {/* KPI tiles */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {/* Monthly Income */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-card">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide font-sans mb-1">Monthly Income</p>
+            <p className="text-xl font-display text-header">KES 487,500</p>
+            <span className="inline-flex items-center gap-1 mt-2 text-[10px] text-income bg-green-50 px-2 py-0.5 rounded-full font-sans">
+              <span className="w-1.5 h-1.5 rounded-full bg-income inline-block" />
+              +8% vs last month
+            </span>
+          </div>
+
+          {/* Occupancy Rate */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-card">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide font-sans mb-1">Occupancy Rate</p>
+            <p className="text-xl font-display text-header">92%</p>
+            <div className="w-full h-1.5 bg-gray-100 rounded-full mt-3 overflow-hidden">
+              <div className="h-full bg-gold rounded-full" style={{ width: "92%" }} />
+            </div>
+          </div>
+
+          {/* Pending Maintenance */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-card">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide font-sans mb-1">Pending Maintenance</p>
+            <p className="text-xl font-display text-gold-dark">3</p>
+            <span className="inline-flex items-center gap-1 mt-2 text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded-full font-sans">
+              2 overdue
+            </span>
+          </div>
+
+          {/* Owner Reports */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-card">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide font-sans mb-1">Owner Reports</p>
+            <p className="text-xl font-display text-header">12</p>
+            <p className="text-[10px] text-gray-400 font-sans mt-2">Sent this month</p>
+          </div>
+        </div>
+
+        {/* Two-panel row */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Recent Income */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-xs font-semibold text-header">Recent Income</span>
+              <span className="text-[10px] text-gold font-sans">View all →</span>
+            </div>
+            {[
+              { unit: "Unit 4A — Rent", amount: "KES 45,000" },
+              { unit: "Unit 2B — Rent", amount: "KES 38,500" },
+              { unit: "Unit 7C — Rent", amount: "KES 52,000" },
+            ].map((row) => (
+              <div key={row.unit} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                <span className="text-xs text-gray-500 font-sans">{row.unit}</span>
+                <span className="text-xs font-semibold text-income font-sans">{row.amount}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Rent Collection */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <p className="text-xs font-semibold text-header mb-3">Rent Collection</p>
+            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
+              <div className="h-full bg-income/70" style={{ flex: 8 }} />
+              <div className="h-full bg-gold/60" style={{ flex: 1 }} />
+              <div className="h-full bg-expense/60" style={{ flex: 1 }} />
+            </div>
+            <div className="flex gap-3 mt-2.5 flex-wrap">
+              {[
+                { color: "bg-income/70", label: "8 paid" },
+                { color: "bg-gold/60", label: "1 pending" },
+                { color: "bg-expense/60", label: "1 overdue" },
+              ].map((item) => (
+                <span key={item.label} className="flex items-center gap-1 text-[10px] text-gray-500 font-sans">
+                  <span className={`w-2 h-2 rounded-full ${item.color} inline-block`} />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Outcome card ─────────────────────────────────────────────────────────────
+
+function OutcomeCard({ icon, heading, body }: { icon: React.ReactNode; heading: string; body: string }) {
+  return (
+    <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] transition-shadow group">
+      <div className="w-14 h-14 bg-gold/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-gold/15 transition-colors">
         {icon}
       </div>
-      <h3 className="font-display text-base text-header mb-2">{title}</h3>
-      <p className="text-sm text-gray-500 font-sans leading-relaxed">{desc}</p>
+      <h3 className="font-display text-xl text-header mb-3 leading-snug">{heading}</h3>
+      <p className="text-sm text-gray-500 font-sans leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -100,7 +229,7 @@ function PricingCard({
       <ul className="space-y-2 mb-8 flex-1">
         {features.map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm font-sans">
-            <svg className={`w-4 h-4 mt-0.5 flex-shrink-0 ${highlight ? "text-gold" : "text-gold"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
             <span className={highlight ? "text-white/80" : "text-gray-600"}>{f}</span>
@@ -124,7 +253,6 @@ function PricingCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function RootPage() {
-  // Redirect logged-in users straight to their dashboard
   const session = await auth();
   if (session) {
     if (session.user.role === "OWNER") redirect("/report");
@@ -136,103 +264,165 @@ export default async function RootPage() {
       <Nav />
 
       {/* ── Hero ── */}
-      <section className="pt-32 pb-20 px-6">
+      <section className="pt-36 pb-16 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <span className="inline-block bg-gold/10 text-gold-dark text-xs font-semibold font-sans px-4 py-1.5 rounded-full mb-6 border border-gold/20">
+          <span className="inline-block bg-gold/10 text-gold-dark text-xs font-semibold font-sans px-4 py-1.5 rounded-full mb-8 border border-gold/20">
             30-day free trial · No credit card required
           </span>
-          <h1 className="font-display text-5xl md:text-6xl text-header leading-tight mb-6">
-            Property management<br />
-            <span className="text-gold">for landlords & agencies</span><br />
-            worldwide
+          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl text-header leading-[1.05] tracking-tight mb-6 max-w-3xl mx-auto">
+            Professional Property Management Software{" "}
+            <span className="text-gold">for Modern Property Managers</span>
           </h1>
-          <p className="text-lg text-gray-500 font-sans leading-relaxed max-w-2xl mx-auto mb-10">
-            Track rent, generate owner reports, manage maintenance and compliance.
-            Built for portfolios of 1 to 100+ units. Multi-currency, multi-property, multi-team.
+          <p className="text-lg md:text-xl text-gray-500 font-sans leading-relaxed max-w-2xl mx-auto mb-10">
+            Track income and expenses, monitor occupancy, manage maintenance, and deliver professional owner reports — all in one platform designed for serious operators.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/signup"
-              className="bg-header text-white px-8 py-3.5 rounded-xl font-semibold text-sm hover:bg-header/90 transition-colors shadow-lg"
+              className="bg-header text-white px-10 py-4 rounded-xl font-semibold text-base hover:bg-header/90 transition-all shadow-[0_4px_20px_rgba(26,26,46,0.25)] hover:shadow-[0_6px_28px_rgba(26,26,46,0.35)] hover:-translate-y-0.5"
             >
-              Start free trial →
+              Start Free Trial →
             </Link>
             <Link
               href="/pricing"
-              className="text-gray-500 hover:text-header px-6 py-3.5 rounded-xl font-medium text-sm transition-colors border border-gray-200 bg-white"
+              className="text-gray-500 hover:text-header px-8 py-4 rounded-xl font-medium text-base transition-colors border border-gray-200 bg-white hover:border-gray-300"
             >
               View pricing
             </Link>
           </div>
-          <p className="text-xs text-gray-400 font-sans mt-4">
+          <p className="text-xs text-gray-400 font-sans mt-5">
             30 days free · No card required · Cancel anytime
           </p>
         </div>
+
+        {/* Dashboard mockup */}
+        <div className="mt-16 max-w-3xl mx-auto">
+          <p className="text-center text-xs text-gray-400 font-sans tracking-widest uppercase mb-4">
+            Live dashboard preview
+          </p>
+          <DashboardMockup />
+        </div>
       </section>
 
-      {/* ── Social proof ── */}
-      <section className="py-8 border-y border-gray-100 bg-white">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-sm text-gray-400 font-sans mb-4">
-            Trusted by property managers across
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm font-semibold text-gray-300 tracking-wide uppercase">
-            {["Kenya", "Uganda", "Tanzania", "United Kingdom", "UAE", "South Africa"].map((c) => (
-              <span key={c}>{c}</span>
+      {/* ── Trust bar ── */}
+      <TrustBar />
+
+      {/* ── Outcomes ── */}
+      <section id="outcomes" className="py-24 px-6 bg-cream-dark">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <h2 className="font-display text-4xl text-header mb-4">
+              What changes when you use Groundwork PM
+            </h2>
+            <p className="text-gray-500 font-sans text-base max-w-xl mx-auto">
+              Built around the outcomes that matter to property managers — not a list of software features.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <OutcomeCard
+              icon={
+                <svg className="w-7 h-7 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
+              heading="Reduce rent collection delays"
+              body="See exactly who has paid, who hasn't, and how long arrears have been outstanding. Chase systematically, not by memory."
+            />
+            <OutcomeCard
+              icon={
+                <svg className="w-7 h-7 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              }
+              heading="Know your true property profitability"
+              body="Income minus expenses per property per month — with automatic management fee deductions and net owner returns calculated for you."
+            />
+            <OutcomeCard
+              icon={
+                <svg className="w-7 h-7 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              }
+              heading="Deliver professional owner reports"
+              body="Generate polished PDF statements for landlords in seconds. Itemised income, expenses, and fees — ready to send from within the platform."
+            />
+            <OutcomeCard
+              icon={
+                <svg className="w-7 h-7 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              }
+              heading="Track maintenance without WhatsApp chaos"
+              body="Log jobs, assign vendors, track costs, and close out tickets — all in one place instead of buried in chat threads."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── How it works ── */}
+      <section className="py-24 px-6 bg-white border-y border-gray-100">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="font-display text-4xl text-header mb-4">
+              Up and running in three steps
+            </h2>
+            <p className="text-gray-500 font-sans text-base max-w-md mx-auto">
+              No lengthy onboarding. No data entry before you can explore. Demo properties are waiting for you from day one.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Connector line — desktop only */}
+            <div className="hidden md:block absolute top-8 left-[calc(16.66%+2rem)] right-[calc(16.66%+2rem)] h-px bg-gold/20" />
+
+            {[
+              {
+                step: "01",
+                title: "Add Your Properties",
+                body: "Import from Excel or add manually. Set currencies, team members, and units in minutes.",
+                icon: (
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                ),
+              },
+              {
+                step: "02",
+                title: "Track Operations Daily",
+                body: "Log income, expenses, maintenance jobs, and tenant changes as they happen.",
+                icon: (
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                ),
+              },
+              {
+                step: "03",
+                title: "Send Professional Reports",
+                body: "Generate owner PDF reports, issue invoices, and share tenant statements from one screen.",
+                icon: (
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                ),
+              },
+            ].map(({ step, title, body, icon }) => (
+              <div key={step} className="flex flex-col items-center text-center relative">
+                <div className="w-16 h-16 bg-header rounded-2xl flex items-center justify-center mb-6 shadow-lg z-10">
+                  {icon}
+                </div>
+                <span className="text-xs font-mono text-gold-dark tracking-widest mb-2">{step}</span>
+                <h3 className="font-display text-xl text-header mb-3">{title}</h3>
+                <p className="text-sm text-gray-500 font-sans leading-relaxed">{body}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Features ── */}
-      <section id="features" className="py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-display text-3xl text-header mb-3">
-              Everything you need to run your portfolio
-            </h2>
-            <p className="text-gray-500 font-sans text-sm max-w-xl mx-auto">
-              No spreadsheets. No chasing paper. One platform for every aspect of your property business.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={<svg className="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-              title="Rent & Income Tracking"
-              desc="Record rent payments, service charges, and other income. Track arrears, generate invoices, and reconcile deposits."
-            />
-            <FeatureCard
-              icon={<svg className="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-              title="Owner Reports & Invoices"
-              desc="Generate professional PDF reports for landlords. Auto-calculate management fees, issue letting invoices, and provide itemised owner statements — monthly or quarterly."
-            />
-            <FeatureCard
-              icon={<svg className="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-              title="Maintenance & Assets"
-              desc="Log maintenance jobs, track asset registers with warranty dates, and schedule recurring maintenance. Link jobs to expenses and vendors automatically."
-            />
-            <FeatureCard
-              icon={<svg className="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-              title="Tenant Management"
-              desc="Track leases, renewal stages, and rent history. Generate tenant invoices and share a read-only portal link so tenants can view their statements anytime."
-            />
-            <FeatureCard
-              icon={<svg className="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" /></svg>}
-              title="Multi-Currency & Tax"
-              desc="Manage portfolios in KES, USD, GBP, AED, and 6 more currencies. Configurable VAT, GST, and WHT rules per property — or leave blank for tax-free operation."
-            />
-            <FeatureCard
-              icon={<svg className="w-5 h-5 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-              title="Forecasting & Compliance"
-              desc="Project cash flow 3, 6, or 12 months ahead. Track insurance renewals, compliance certificates, and lease expiries so nothing slips through the cracks."
-            />
-          </div>
-        </div>
-      </section>
-
       {/* ── Pricing preview ── */}
-      <section className="py-20 px-6 bg-white border-y border-gray-100">
+      <section className="py-20 px-6 bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="font-display text-3xl text-header mb-3">Simple, transparent pricing</h2>
@@ -290,22 +480,22 @@ export default async function RootPage() {
         </div>
       </section>
 
-      {/* ── Bottom CTA ── */}
-      <section className="py-20 px-6">
+      {/* ── Final CTA ── */}
+      <section className="py-28 px-6 bg-cream-dark">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="font-display text-3xl text-header mb-4">
-            Ready to take control of your portfolio?
+          <h2 className="font-display text-4xl md:text-5xl text-header mb-6 leading-tight">
+            Start Managing Smarter<br />From Day One
           </h2>
-          <p className="text-gray-500 font-sans text-sm mb-8">
-            Join property managers worldwide. Set up in minutes, no credit card required.
+          <p className="text-gray-500 font-sans text-base leading-relaxed max-w-lg mx-auto mb-10">
+            Access sample properties instantly, explore the full platform, and experience how professional property management should feel — with your free 30-day trial.
           </p>
           <Link
             href="/signup"
-            className="inline-block bg-header text-white px-10 py-4 rounded-xl font-semibold text-sm hover:bg-header/90 transition-colors shadow-lg"
+            className="inline-block bg-header text-white px-12 py-5 rounded-xl font-semibold text-base hover:bg-header/90 transition-all shadow-[0_4px_20px_rgba(26,26,46,0.25)] hover:shadow-[0_6px_28px_rgba(26,26,46,0.35)] hover:-translate-y-0.5"
           >
-            Start your free 30-day trial →
+            Start Free Trial →
           </Link>
-          <p className="text-xs text-gray-400 font-sans mt-4">
+          <p className="text-xs text-gray-400 font-sans mt-5">
             No credit card · No commitment · Cancel anytime
           </p>
         </div>

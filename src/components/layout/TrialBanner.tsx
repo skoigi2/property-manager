@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 
 interface SubscriptionInfo {
@@ -13,6 +14,8 @@ interface SubscriptionInfo {
 
 export function TrialBanner() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isBillingOwner = (session?.user as any)?.isBillingOwner ?? false;
   const [info, setInfo] = useState<SubscriptionInfo | null>(null);
 
   // Don't render on the billing page itself
@@ -39,16 +42,19 @@ export function TrialBanner() {
           </svg>
           <span>
             {info.pricingTier === "TRIAL"
-              ? "Your free trial has expired. Your data is safe — upgrade to continue."
-              : "Your subscription has been cancelled. Upgrade to restore access."}
+              ? "Your free trial has expired. Your data is safe —"
+              : "Your subscription has been cancelled —"}
+            {isBillingOwner ? " upgrade to continue." : " contact your billing owner to restore access."}
           </span>
         </div>
-        <Link
-          href="/billing"
-          className="flex-shrink-0 bg-white text-red-600 font-semibold px-4 py-1.5 rounded-lg text-xs hover:bg-red-50 transition-colors"
-        >
-          Upgrade now
-        </Link>
+        {isBillingOwner && (
+          <Link
+            href="/billing"
+            className="flex-shrink-0 bg-white text-red-600 font-semibold px-4 py-1.5 rounded-lg text-xs hover:bg-red-50 transition-colors"
+          >
+            Upgrade now
+          </Link>
+        )}
       </div>
     );
   }
@@ -66,15 +72,20 @@ export function TrialBanner() {
             {info.trialDaysLeft === 0
               ? "Your trial expires today."
               : `${info.trialDaysLeft} day${info.trialDaysLeft === 1 ? "" : "s"} left in your free trial.`}
-            {" "}No card required to keep exploring.
+            {" "}
+            {isBillingOwner
+              ? "No card required to keep exploring."
+              : "Contact your billing owner to upgrade."}
           </span>
         </div>
-        <Link
-          href="/billing"
-          className="flex-shrink-0 bg-gold text-header font-semibold px-4 py-1.5 rounded-lg text-xs hover:bg-gold/90 transition-colors"
-        >
-          View plans
-        </Link>
+        {isBillingOwner && (
+          <Link
+            href="/billing"
+            className="flex-shrink-0 bg-gold text-header font-semibold px-4 py-1.5 rounded-lg text-xs hover:bg-gold/90 transition-colors"
+          >
+            View plans
+          </Link>
+        )}
       </div>
     );
   }

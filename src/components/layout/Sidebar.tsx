@@ -43,6 +43,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   roles: string[];
+  billingOwnerOnly?: boolean;
 }
 
 interface NavGroup {
@@ -108,7 +109,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/settings/users", label: "Users",     icon: UserCog,    roles: ["MANAGER"] },
       { href: "/settings/audit", label: "Audit Log", icon: ShieldCheck,roles: ["MANAGER"] },
       { href: "/import",         label: "Import",    icon: Upload,     roles: ["MANAGER"] },
-      { href: "/billing",        label: "Billing",   icon: CreditCard, roles: ["MANAGER"] },
+      { href: "/billing",        label: "Billing",   icon: CreditCard, roles: ["MANAGER"], billingOwnerOnly: true },
     ],
   },
 ];
@@ -136,6 +137,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   const { data: session, update } = useSession();
   const router = useRouter();
   const membershipCount = (session?.user as any)?.membershipCount ?? 1;
+  const isBillingOwner = (session?.user as any)?.isBillingOwner ?? false;
 
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
@@ -269,7 +271,9 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
           if (isGroup(entry)) {
             if (!canSee(entry.roles)) return null;
 
-            const visibleItems = entry.items.filter((i) => canSee(i.roles));
+            const visibleItems = entry.items.filter(
+              (i) => canSee(i.roles) && (!i.billingOwnerOnly || isBillingOwner || isSuperAdmin)
+            );
             if (visibleItems.length === 0) return null;
 
             const isOpen = openGroups.includes(entry.label);

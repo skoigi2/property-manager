@@ -91,8 +91,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (trigger === "update" && session?.organizationId !== undefined) {
         token.organizationId = session.organizationId;
         if (session?.membershipCount !== undefined) token.membershipCount = session.membershipCount;
-        if (session?.orgRole        !== undefined) token.orgRole        = session.orgRole;
-        if (session?.isBillingOwner !== undefined) token.isBillingOwner = session.isBillingOwner;
+
+        // Re-fetch membership so orgRole + isBillingOwner always reflect the current org.
+        // Callers only pass organizationId; the old JWT values are stale for the new org.
+        if (session.organizationId) {
+          const membership = await prisma.userOrganizationMembership.findUnique({
+            where: {
+              userId_organizationId: {
+                userId: token.id as string,
+                organizationId: session.organizationId as string,
+              },
+            },
+            select: { role: true, isBillingOwner: true },
+          });
+          token.orgRole        = membership?.role ?? token.role;
+          token.isBillingOwner = membership?.isBillingOwner ?? false;
+        } else {
+          // Super-admin (no org) — apply only explicitly-passed overrides
+          if (session?.orgRole        !== undefined) token.orgRole        = session.orgRole;
+          if (session?.isBillingOwner !== undefined) token.isBillingOwner = session.isBillingOwner;
+        }
         return token;
       }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { LogOut, User, ChevronDown, Building2 } from "lucide-react";
+import { LogOut, User, ChevronDown, Building2, HelpCircle } from "lucide-react";
 import { useState } from "react";
 import { useProperty } from "@/lib/property-context";
 
@@ -74,6 +74,15 @@ export function Header({ title, userName, role, children }: HeaderProps) {
 
       <div className="flex items-center gap-3">
         {children}
+        <a
+          href="/guide.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Help & User Guide"
+          className="text-white/50 hover:text-white transition-colors"
+        >
+          <HelpCircle size={18} />
+        </a>
         {/* User menu */}
         <div className="relative">
           <button

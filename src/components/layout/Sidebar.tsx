@@ -31,6 +31,7 @@ import {
   ArrowLeftRight,
   LineChart,
   CreditCard,
+  BookOpen,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -359,8 +360,17 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
         })}
       </nav>
 
-      {/* Sign out */}
-      <div className="px-3 py-4 border-t border-white/10">
+      {/* Help + Sign out */}
+      <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
+        <a
+          href="/guide.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans text-white/60 hover:bg-white/10 hover:text-white w-full transition-colors"
+        >
+          <BookOpen size={18} />
+          Help &amp; Guide
+        </a>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans text-white/60 hover:bg-white/10 hover:text-white w-full transition-colors"

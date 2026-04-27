@@ -9,7 +9,7 @@ import {
   Users, Wallet, ScrollText, Wrench, AlertTriangle,
   ShieldPlus, Package, RepeatIcon, Upload, Settings,
   UserCog, ShieldCheck, Building2, MoreHorizontal, X,
-  BarChart3, CalendarDays,
+  BarChart3, CalendarDays, BookOpen,
 } from "lucide-react";
 
 interface NavItem {
@@ -242,6 +242,20 @@ export function MobileNav({ role }: MobileNavProps) {
                   </div>
                 </div>
               ))}
+
+              {/* Help & Guide */}
+              <div className="border-t border-white/10 pt-4">
+                <a
+                  href="/guide.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors text-sm font-sans w-full"
+                >
+                  <BookOpen size={18} />
+                  Help &amp; Guide
+                </a>
+              </div>
             </div>
           </div>
         </>

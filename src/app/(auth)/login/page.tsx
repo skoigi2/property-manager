@@ -49,10 +49,12 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Header Card */}
         <div className="bg-header rounded-t-2xl px-8 py-8 text-center">
-          <div className="mx-auto mb-4 w-fit">
-            <BrandLogo size={56} dark />
-          </div>
-          <h1 className="font-display text-2xl text-white">Groundwork PM</h1>
+          <Link href="/" className="inline-flex flex-col items-center gap-4 group">
+            <div className="mx-auto w-fit">
+              <BrandLogo size={56} dark />
+            </div>
+            <h1 className="font-display text-2xl text-white group-hover:text-white/80 transition-colors">Groundwork PM</h1>
+          </Link>
           <p className="text-white/60 text-sm mt-1 font-sans">Property insights. Built on solid groundwork.</p>
         </div>
 

@@ -3,34 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 
-// ─── Nav (reused from landing) ────────────────────────────────────────────────
-
-function Nav() {
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-header rounded-lg flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          </div>
-          <span className="font-display text-lg text-header">Groundwork PM</span>
-        </Link>
-        <div className="hidden md:flex items-center gap-8 text-sm font-sans">
-          <Link href="/#features" className="text-gray-500 hover:text-header transition-colors">Features</Link>
-          <Link href="/pricing" className="text-header font-medium">Pricing</Link>
-          <Link href="/login" className="text-gray-500 hover:text-header transition-colors">Sign in</Link>
-        </div>
-        <Link href="/signup" className="bg-header text-white text-sm font-sans font-medium px-5 py-2 rounded-lg hover:bg-header/90 transition-colors">
-          Start free trial
-        </Link>
-      </div>
-    </nav>
-  );
-}
-
 // ─── Tick icon ────────────────────────────────────────────────────────────────
 
 function Tick({ muted }: { muted?: boolean }) {
@@ -148,9 +120,7 @@ export default function PricingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-cream font-sans">
-      <Nav />
-
+    <>
       {/* ── Header ── */}
       <section className="pt-32 pb-12 px-6 text-center">
         <h1 className="font-display text-4xl text-header mb-3">Simple, transparent pricing</h1>
@@ -305,21 +275,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer className="border-t border-gray-100 bg-white py-8 px-6">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-header rounded-md flex items-center justify-center">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            </div>
-            <span className="font-display text-sm text-header">Groundwork PM</span>
-          </Link>
-          <p className="text-xs text-gray-300 font-sans">© {new Date().getFullYear()} Groundwork PM</p>
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }

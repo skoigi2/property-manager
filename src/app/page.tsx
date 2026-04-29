@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "Groundwork PM — Professional Property Management Software",
   description:
     "Track income, expenses, occupancy, maintenance, and owner reporting in one premium platform. Built for professional property managers worldwide. 30-day free trial.",
+  alternates: {
+    canonical: "https://groundworkpm.com",
+  },
   openGraph: {
     title: "Groundwork PM — Professional Property Management Software",
     description:
@@ -17,11 +20,20 @@ export const metadata: Metadata = {
     url: "https://groundworkpm.com",
     siteName: "Groundwork PM",
     type: "website",
+    images: [
+      {
+        url: "https://groundworkpm.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Groundwork PM — Professional Property Management Software",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Groundwork PM — Professional Property Management Software",
     description: "Professional property management for modern operators. 30-day free trial.",
+    images: ["https://groundworkpm.com/og-image.png"],
   },
 };
 
@@ -233,8 +245,42 @@ export default async function RootPage() {
     redirect("/dashboard");
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://groundworkpm.com/#organization",
+        name: "Groundwork PM",
+        url: "https://groundworkpm.com",
+        logo: "https://groundworkpm.com/logo.svg",
+        description:
+          "Professional property management software for modern property managers worldwide.",
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://groundworkpm.com/#software",
+        name: "Groundwork PM",
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web",
+        url: "https://groundworkpm.com",
+        publisher: { "@id": "https://groundworkpm.com/#organization" },
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+          description: "30-day free trial, no credit card required",
+        },
+      },
+    ],
+  };
+
   return (
     <LandingThemeProvider>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="min-h-screen bg-cream dark:bg-[#0C1B2E] font-sans">
         <LandingNav />
 

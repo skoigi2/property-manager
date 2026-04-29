@@ -4,6 +4,17 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Refund Policy — Groundwork PM",
   description: "Groundwork PM's refund and cancellation policy for subscriptions.",
+  alternates: {
+    canonical: "https://groundworkpm.com/refund",
+  },
+  openGraph: {
+    title: "Refund Policy — Groundwork PM",
+    description: "Groundwork PM's refund and cancellation policy for subscriptions.",
+    url: "https://groundworkpm.com/refund",
+    siteName: "Groundwork PM",
+    type: "website",
+    images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
+  },
 };
 
 function Nav() {

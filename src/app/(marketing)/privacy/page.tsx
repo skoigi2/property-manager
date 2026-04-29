@@ -4,6 +4,17 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy — Groundwork PM",
   description: "How Groundwork PM collects, uses, and protects your personal data.",
+  alternates: {
+    canonical: "https://groundworkpm.com/privacy",
+  },
+  openGraph: {
+    title: "Privacy Policy — Groundwork PM",
+    description: "How Groundwork PM collects, uses, and protects your personal data.",
+    url: "https://groundworkpm.com/privacy",
+    siteName: "Groundwork PM",
+    type: "website",
+    images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
+  },
 };
 
 function Nav() {

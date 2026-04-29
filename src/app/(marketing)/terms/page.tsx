@@ -4,6 +4,17 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Terms and Conditions — Groundwork PM",
   description: "Terms and Conditions governing use of the Groundwork PM property management platform.",
+  alternates: {
+    canonical: "https://groundworkpm.com/terms",
+  },
+  openGraph: {
+    title: "Terms and Conditions — Groundwork PM",
+    description: "Terms and Conditions governing use of the Groundwork PM property management platform.",
+    url: "https://groundworkpm.com/terms",
+    siteName: "Groundwork PM",
+    type: "website",
+    images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
+  },
 };
 
 function Nav() {

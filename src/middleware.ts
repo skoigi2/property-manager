@@ -26,7 +26,8 @@ export default auth((req) => {
     pathname.startsWith("/invite/") ||           // invite accept page
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
-    pathname.startsWith("/refund");
+    pathname.startsWith("/refund") ||
+    pathname.startsWith("/blog");
 
   if (!isLoggedIn && !isAuthPage && !isPortalPage && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));

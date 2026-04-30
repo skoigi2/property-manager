@@ -25,6 +25,12 @@ export function LandingNav() {
               Features
             </a>
             <Link
+              href="/blog"
+              className="text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white transition-colors"
+            >
+              Blog
+            </Link>
+            <Link
               href="/pricing"
               className="text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white transition-colors"
             >

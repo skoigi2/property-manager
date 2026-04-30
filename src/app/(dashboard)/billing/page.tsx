@@ -37,9 +37,9 @@ const PLANS: Array<{
   team: string;
   highlight: boolean;
 }> = [
-  { key: "STARTER", name: "Starter", monthly: 29,  annualMonthly: 24,  annual: 290,  properties: "Up to 2 properties",    team: "2 team members",         highlight: false },
-  { key: "GROWTH",  name: "Growth",  monthly: 79,  annualMonthly: 66,  annual: 790,  properties: "Up to 10 properties",   team: "10 team members",        highlight: true  },
-  { key: "PRO",     name: "Pro",     monthly: 149, annualMonthly: 124, annual: 1490, properties: "Unlimited properties",  team: "Unlimited team members", highlight: false },
+  { key: "STARTER", name: "Starter", monthly: 79,  annualMonthly: 66,  annual: 790,  properties: "Up to 2 properties",    team: "2 team members",         highlight: false },
+  { key: "GROWTH",  name: "Growth",  monthly: 199, annualMonthly: 166, annual: 1990, properties: "Up to 10 properties",   team: "10 team members",        highlight: true  },
+  { key: "PRO",     name: "Pro",     monthly: 399, annualMonthly: 333, annual: 3990, properties: "Unlimited properties",  team: "Unlimited team members", highlight: false },
 ];
 
 const TIER_DISPLAY: Record<string, string> = {

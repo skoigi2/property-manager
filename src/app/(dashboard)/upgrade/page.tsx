@@ -13,9 +13,9 @@ const PLANS: Array<{
   highlight: boolean;
   features: string[];
 }> = [
-  { key: "starter", name: "Starter", monthly: 29,  annualMonthly: 24,  annual: 290,  highlight: false, features: ["Up to 2 properties", "Core financials", "Tenant management", "Email support"] },
-  { key: "growth",  name: "Growth",  monthly: 79,  annualMonthly: 66,  annual: 790,  highlight: true,  features: ["Up to 10 properties", "Everything in Starter", "Forecasting & compliance", "Owner reports", "Priority support"] },
-  { key: "pro",     name: "Pro",     monthly: 149, annualMonthly: 124, annual: 1490, highlight: false, features: ["Unlimited properties", "Everything in Growth", "Multi-org / white-label", "Dedicated support"] },
+  { key: "starter", name: "Starter", monthly: 79,  annualMonthly: 66,  annual: 790,  highlight: false, features: ["Up to 2 properties", "Core financials", "Tenant management", "Email support"] },
+  { key: "growth",  name: "Growth",  monthly: 199, annualMonthly: 166, annual: 1990, highlight: true,  features: ["Up to 10 properties", "Everything in Starter", "Forecasting & compliance", "Owner reports", "Priority support"] },
+  { key: "pro",     name: "Pro",     monthly: 399, annualMonthly: 333, annual: 3990, highlight: false, features: ["Unlimited properties", "Everything in Growth", "Multi-org / white-label", "Dedicated support"] },
 ];
 
 type PlanKey = "starter" | "growth" | "pro";

@@ -456,8 +456,8 @@ export default async function RootPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
               <PricingCard
                 name="Starter"
-                monthlyPrice={29}
-                annualPrice={290}
+                monthlyPrice={79}
+                annualPrice={790}
                 properties="Up to 2 properties"
                 features={[
                   "Unlimited units per property",
@@ -470,8 +470,8 @@ export default async function RootPage() {
               />
               <PricingCard
                 name="Growth"
-                monthlyPrice={79}
-                annualPrice={790}
+                monthlyPrice={199}
+                annualPrice={1990}
                 properties="Up to 10 properties"
                 highlight
                 features={[
@@ -485,8 +485,8 @@ export default async function RootPage() {
               />
               <PricingCard
                 name="Pro"
-                monthlyPrice={149}
-                annualPrice={1490}
+                monthlyPrice={399}
+                annualPrice={3990}
                 properties="Unlimited properties"
                 features={[
                   "Everything in Growth",

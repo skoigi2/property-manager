@@ -114,9 +114,9 @@ export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
 
   const plans = [
-    { name: "Starter", monthly: 29,  annualMonthly: 24,  annual: 290  },
-    { name: "Growth",  monthly: 79,  annualMonthly: 66,  annual: 790  },
-    { name: "Pro",     monthly: 149, annualMonthly: 124, annual: 1490 },
+    { name: "Starter", monthly: 79,  annualMonthly: 66,  annual: 790  },
+    { name: "Growth",  monthly: 199, annualMonthly: 166, annual: 1990 },
+    { name: "Pro",     monthly: 399, annualMonthly: 333, annual: 3990 },
   ];
 
   return (

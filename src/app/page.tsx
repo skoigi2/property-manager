@@ -66,7 +66,7 @@ function DashboardMockup() {
         <span className="w-2.5 h-2.5 rounded-full bg-white/35 inline-block" />
         <div className="flex-1 mx-4">
           <div className="bg-header/60 rounded-md py-1 px-3 text-center max-w-xs mx-auto">
-            <span className="text-white/40 text-xs font-mono">app.groundworkpm.com</span>
+            <span className="text-white/40 text-xs font-mono">groundworkpm.com</span>
           </div>
         </div>
       </div>
@@ -86,7 +86,7 @@ function DashboardMockup() {
           {/* Monthly Income */}
           <div className="bg-white dark:bg-[#162032] rounded-xl p-4 border border-gray-100 dark:border-white/10 shadow-card">
             <p className="text-[10px] text-gray-400 uppercase tracking-wide font-sans mb-1">Monthly Income</p>
-            <p className="text-xl font-display text-header dark:text-white">KES 487,500</p>
+            <p className="text-xl font-display text-header dark:text-white">$487,500</p>
             <span className="inline-flex items-center gap-1 mt-2 text-[10px] text-income bg-green-50 dark:bg-green-950/50 px-2 py-0.5 rounded-full font-sans">
               <span className="w-1.5 h-1.5 rounded-full bg-income inline-block" />
               +8% vs last month
@@ -128,9 +128,9 @@ function DashboardMockup() {
               <span className="text-[10px] text-gold font-sans">View all →</span>
             </div>
             {[
-              { unit: "Unit 4A — Rent", amount: "KES 45,000" },
-              { unit: "Unit 2B — Rent", amount: "KES 38,500" },
-              { unit: "Unit 7C — Rent", amount: "KES 52,000" },
+              { unit: "Unit 4A — Rent", amount: "$4,500" },
+              { unit: "Unit 2B — Rent", amount: "$3,850" },
+              { unit: "Unit 7C — Rent", amount: "$5,200" },
             ].map((row) => (
               <div key={row.unit} className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-white/5 last:border-0">
                 <span className="text-xs text-gray-500 dark:text-gray-400 font-sans">{row.unit}</span>

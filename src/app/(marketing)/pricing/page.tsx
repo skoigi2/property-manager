@@ -7,7 +7,7 @@ import Link from "next/link";
 
 function Tick({ muted }: { muted?: boolean }) {
   return (
-    <svg className={`w-4 h-4 flex-shrink-0 ${muted ? "text-gray-300" : "text-gold"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <svg className={`w-4 h-4 flex-shrink-0 ${muted ? "text-gray-300 dark:text-white/20" : "text-gold"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -15,7 +15,7 @@ function Tick({ muted }: { muted?: boolean }) {
 
 function Cross() {
   return (
-    <svg className="w-4 h-4 flex-shrink-0 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="w-4 h-4 flex-shrink-0 text-gray-200 dark:text-white/10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
@@ -104,7 +104,7 @@ const FEATURES: { section: string; rows: FeatureRowDef[] }[] = [
 ];
 
 function CellValue({ val }: { val: boolean | string }) {
-  if (typeof val === "string") return <span className="text-xs font-sans text-gray-600">{val}</span>;
+  if (typeof val === "string") return <span className="text-xs font-sans text-gray-600 dark:text-gray-300">{val}</span>;
   return val ? <Tick /> : <Cross />;
 }
 
@@ -123,22 +123,30 @@ export default function PricingPage() {
     <>
       {/* ── Header ── */}
       <section className="pt-32 pb-12 px-6 text-center">
-        <h1 className="font-display text-4xl text-header mb-3">Simple, transparent pricing</h1>
-        <p className="text-gray-500 text-sm max-w-lg mx-auto mb-8">
+        <h1 className="font-display text-4xl text-header dark:text-white mb-3">Simple, transparent pricing</h1>
+        <p className="text-gray-500 dark:text-gray-400 text-sm max-w-lg mx-auto mb-8">
           Start free for 30 days — no credit card required. Upgrade when you&apos;re ready.
         </p>
 
         {/* Billing toggle */}
-        <div className="inline-flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-1">
+        <div className="inline-flex items-center gap-3 bg-white dark:bg-[#111F30] border border-gray-200 dark:border-white/10 rounded-xl p-1">
           <button
             onClick={() => setAnnual(false)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${!annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              !annual
+                ? "bg-header dark:bg-gold text-white dark:text-header"
+                : "text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white"
+            }`}
           >
             Monthly
           </button>
           <button
             onClick={() => setAnnual(true)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              annual
+                ? "bg-header dark:bg-gold text-white dark:text-header"
+                : "text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white"
+            }`}
           >
             Annual
             <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${annual ? "bg-gold text-header" : "bg-gold/10 text-gold-dark"}`}>
@@ -156,20 +164,31 @@ export default function PricingPage() {
             const price = annual ? plan.annualMonthly : plan.monthly;
             const suffix = annual ? "/mo, billed annually" : "/mo";
             return (
-              <div key={plan.name} className={`rounded-2xl p-6 border flex flex-col ${
-                highlight ? "bg-header border-header shadow-xl" : "bg-white border-gray-100 shadow-sm"
-              }`}>
+              <div
+                key={plan.name}
+                className={`rounded-2xl p-6 border flex flex-col ${
+                  highlight
+                    ? "bg-header border-header shadow-xl"
+                    : "bg-white dark:bg-[#111F30] border-gray-100 dark:border-white/10 shadow-sm"
+                }`}
+              >
                 {highlight && (
                   <span className="text-xs font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-3">
                     Most popular
                   </span>
                 )}
-                <h2 className={`font-display text-xl mb-4 ${highlight ? "text-white" : "text-header"}`}>{plan.name}</h2>
+                <h2 className={`font-display text-xl mb-4 ${highlight ? "text-white" : "text-header dark:text-white"}`}>
+                  {plan.name}
+                </h2>
                 <div className="mb-6">
-                  <span className={`text-4xl font-display ${highlight ? "text-white" : "text-header"}`}>${price}</span>
-                  <span className={`text-xs ml-1 ${highlight ? "text-white/50" : "text-gray-400"}`}>{suffix}</span>
+                  <span className={`text-4xl font-display ${highlight ? "text-white" : "text-header dark:text-white"}`}>
+                    ${price}
+                  </span>
+                  <span className={`text-xs ml-1 ${highlight ? "text-white/50" : "text-gray-400 dark:text-gray-500"}`}>
+                    {suffix}
+                  </span>
                   {annual && (
-                    <p className={`text-xs mt-1 ${highlight ? "text-white/40" : "text-gray-300"}`}>
+                    <p className={`text-xs mt-1 ${highlight ? "text-white/40" : "text-gray-300 dark:text-white/30"}`}>
                       ${plan.annual}/year
                     </p>
                   )}
@@ -177,12 +196,14 @@ export default function PricingPage() {
                 <Link
                   href={`/signup?plan=${plan.name.toLowerCase()}&billing=${annual ? "annual" : "monthly"}`}
                   className={`w-full text-center py-2.5 rounded-lg text-sm font-semibold transition-colors mb-4 ${
-                    highlight ? "bg-gold text-header hover:bg-gold/90" : "bg-header text-white hover:bg-header/90"
+                    highlight
+                      ? "bg-gold text-header hover:bg-gold/90"
+                      : "bg-header dark:bg-gold text-white dark:text-header hover:bg-header/90 dark:hover:bg-gold/90"
                   }`}
                 >
                   Start free trial
                 </Link>
-                <p className={`text-xs text-center ${highlight ? "text-white/40" : "text-gray-300"}`}>
+                <p className={`text-xs text-center ${highlight ? "text-white/40" : "text-gray-300 dark:text-white/30"}`}>
                   30 days free · No card required
                 </p>
               </div>
@@ -193,27 +214,27 @@ export default function PricingPage() {
 
       {/* ── Feature comparison table ── */}
       <section className="pb-20 px-6">
-        <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="max-w-4xl mx-auto bg-white dark:bg-[#111F30] rounded-2xl border border-gray-100 dark:border-white/10 shadow-sm overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-4 border-b border-gray-100">
+          <div className="grid grid-cols-4 border-b border-gray-100 dark:border-white/10">
             <div className="p-4" />
             {["Starter", "Growth", "Pro"].map((p) => (
-              <div key={p} className="p-4 text-center border-l border-gray-100">
-                <span className="font-display text-sm text-header">{p}</span>
+              <div key={p} className="p-4 text-center border-l border-gray-100 dark:border-white/10">
+                <span className="font-display text-sm text-header dark:text-white">{p}</span>
               </div>
             ))}
           </div>
 
           {FEATURES.map((section) => (
             <div key={section.section}>
-              <div className="bg-cream px-4 py-2.5 border-b border-gray-100">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{section.section}</span>
+              <div className="bg-cream dark:bg-[#091525] px-4 py-2.5 border-b border-gray-100 dark:border-white/10">
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{section.section}</span>
               </div>
               {section.rows.map((row) => (
-                <div key={row.label} className="grid grid-cols-4 border-b border-gray-50 hover:bg-cream/40 transition-colors">
-                  <div className="p-3 px-4 text-xs text-gray-600 font-sans flex items-center">{row.label}</div>
+                <div key={row.label} className="grid grid-cols-4 border-b border-gray-50 dark:border-white/5 hover:bg-cream/40 dark:hover:bg-white/5 transition-colors">
+                  <div className="p-3 px-4 text-xs text-gray-600 dark:text-gray-300 font-sans flex items-center">{row.label}</div>
                   {(["starter", "growth", "pro"] as const).map((tier) => (
-                    <div key={tier} className="p-3 border-l border-gray-50 flex items-center justify-center">
+                    <div key={tier} className="p-3 border-l border-gray-50 dark:border-white/5 flex items-center justify-center">
                       <CellValue val={row[tier]} />
                     </div>
                   ))}
@@ -225,9 +246,9 @@ export default function PricingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="pb-20 px-6 bg-white border-t border-gray-100">
+      <section className="pb-20 px-6 bg-white dark:bg-[#111F30] border-t border-gray-100 dark:border-white/10">
         <div className="max-w-2xl mx-auto pt-16">
-          <h2 className="font-display text-2xl text-header mb-8 text-center">Frequently asked questions</h2>
+          <h2 className="font-display text-2xl text-header dark:text-white mb-8 text-center">Frequently asked questions</h2>
           <div className="space-y-6">
             {[
               {
@@ -255,9 +276,9 @@ export default function PricingPage() {
                 a: "Yes. Cancel from your billing page at any time. You'll keep access until the end of your paid period.",
               },
             ].map(({ q, a }) => (
-              <div key={q} className="border-b border-gray-100 pb-6">
-                <h3 className="font-sans font-semibold text-header text-sm mb-2">{q}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{a}</p>
+              <div key={q} className="border-b border-gray-100 dark:border-white/10 pb-6">
+                <h3 className="font-sans font-semibold text-header dark:text-white text-sm mb-2">{q}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{a}</p>
               </div>
             ))}
           </div>
@@ -267,14 +288,16 @@ export default function PricingPage() {
       {/* ── Bottom CTA ── */}
       <section className="py-16 px-6">
         <div className="max-w-xl mx-auto text-center">
-          <h2 className="font-display text-2xl text-header mb-3">Ready to get started?</h2>
-          <p className="text-gray-500 text-sm mb-6">30 days free. No credit card. No commitment.</p>
-          <Link href="/signup" className="inline-block bg-header text-white px-8 py-3.5 rounded-xl font-semibold text-sm hover:bg-header/90 transition-colors shadow-lg">
+          <h2 className="font-display text-2xl text-header dark:text-white mb-3">Ready to get started?</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">30 days free. No credit card. No commitment.</p>
+          <Link
+            href="/signup"
+            className="inline-block bg-header dark:bg-gold text-white dark:text-header px-8 py-3.5 rounded-xl font-semibold text-sm hover:bg-header/90 dark:hover:bg-gold/90 transition-colors shadow-lg"
+          >
             Start free trial →
           </Link>
         </div>
       </section>
-
     </>
   );
 }

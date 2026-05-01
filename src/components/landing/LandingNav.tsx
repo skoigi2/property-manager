@@ -10,9 +10,10 @@ export function LandingNav() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const links = [
-    { label: "Features", href: "/#outcomes" },
+    { label: "Features", href: "/#outcomes", anchor: true },
     { label: "Blog", href: "/blog" },
     { label: "Pricing", href: "/pricing" },
+    { label: "Contact", href: "/contact" },
     { label: "Sign in", href: "/login" },
   ];
 
@@ -29,15 +30,25 @@ export function LandingNav() {
 
             {/* Desktop links */}
             <div className="hidden md:flex items-center gap-8 text-sm font-sans">
-              {links.map((l) => (
-                <Link
-                  key={l.label}
-                  href={l.href}
-                  className="text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white transition-colors"
-                >
-                  {l.label}
-                </Link>
-              ))}
+              {links.map((l) =>
+                l.anchor ? (
+                  <a
+                    key={l.label}
+                    href={l.href}
+                    className="text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white transition-colors"
+                  >
+                    {l.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={l.label}
+                    href={l.href}
+                    className="text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white transition-colors"
+                  >
+                    {l.label}
+                  </Link>
+                )
+              )}
             </div>
           </div>
 
@@ -90,16 +101,27 @@ export function LandingNav() {
         {/* Mobile drawer */}
         {menuOpen && (
           <div className="md:hidden border-t border-gray-100 dark:border-white/10 bg-white dark:bg-[#091525] px-6 py-4 flex flex-col gap-4">
-            {links.map((l) => (
-              <Link
-                key={l.label}
-                href={l.href}
-                onClick={() => setMenuOpen(false)}
-                className="text-sm font-sans text-gray-600 dark:text-gray-300 hover:text-header dark:hover:text-white transition-colors py-1"
-              >
-                {l.label}
-              </Link>
-            ))}
+            {links.map((l) =>
+              l.anchor ? (
+                <a
+                  key={l.label}
+                  href={l.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="text-sm font-sans text-gray-600 dark:text-gray-300 hover:text-header dark:hover:text-white transition-colors py-1"
+                >
+                  {l.label}
+                </a>
+              ) : (
+                <Link
+                  key={l.label}
+                  href={l.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="text-sm font-sans text-gray-600 dark:text-gray-300 hover:text-header dark:hover:text-white transition-colors py-1"
+                >
+                  {l.label}
+                </Link>
+              )
+            )}
             <Link
               href="/signup"
               onClick={() => setMenuOpen(false)}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useLandingTheme } from "@/components/landing/LandingThemeProvider";
 
 // ─── Tick icon ────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,12 @@ function CellValue({ val }: { val: boolean | string }) {
 
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
+  const { dark } = useLandingTheme();
+
+  const cardBg    = dark ? "bg-[#111F30] border-white/10"  : "bg-white border-gray-100";
+  const tableBg   = dark ? "bg-[#111F30] border-white/10"  : "bg-white border-gray-100";
+  const sectionBg = dark ? "bg-[#111F30] border-white/10"  : "bg-white border-gray-100";
+  const toggleBg  = dark ? "bg-[#111F30] border-white/10"  : "bg-white border-gray-200";
 
   const plans = [
     { name: "Starter", monthly: 79,  annualMonthly: 66,  annual: 790  },
@@ -129,7 +136,7 @@ export default function PricingPage() {
         </p>
 
         {/* Billing toggle */}
-        <div className="inline-flex items-center gap-3 bg-white dark:bg-[#111F30] border border-gray-200 dark:border-white/10 rounded-xl p-1">
+        <div className={`inline-flex items-center gap-3 border rounded-xl p-1 ${toggleBg}`}>
           <button
             onClick={() => setAnnual(false)}
             className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -169,7 +176,7 @@ export default function PricingPage() {
                 className={`rounded-2xl p-6 border flex flex-col ${
                   highlight
                     ? "bg-header border-header shadow-xl"
-                    : "bg-white dark:bg-[#111F30] border-gray-100 dark:border-white/10 shadow-sm"
+                    : `${cardBg} shadow-sm`
                 }`}
               >
                 {highlight && (
@@ -214,7 +221,7 @@ export default function PricingPage() {
 
       {/* ── Feature comparison table ── */}
       <section className="pb-20 px-6">
-        <div className="max-w-4xl mx-auto bg-white dark:bg-[#111F30] rounded-2xl border border-gray-100 dark:border-white/10 shadow-sm overflow-hidden">
+        <div className={`max-w-4xl mx-auto border rounded-2xl shadow-sm overflow-hidden ${tableBg}`}>
           {/* Table header */}
           <div className="grid grid-cols-4 border-b border-gray-100 dark:border-white/10">
             <div className="p-4" />
@@ -246,7 +253,7 @@ export default function PricingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="pb-20 px-6 bg-white dark:bg-[#111F30] border-t border-gray-100 dark:border-white/10">
+      <section className={`pb-20 px-6 border-t ${sectionBg}`}>
         <div className="max-w-2xl mx-auto pt-16">
           <h2 className="font-display text-2xl text-header dark:text-white mb-8 text-center">Frequently asked questions</h2>
           <div className="space-y-6">

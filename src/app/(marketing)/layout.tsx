@@ -13,6 +13,7 @@ function MarketingFooter() {
         </Link>
         <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400 dark:text-gray-500 font-sans">
           <Link href="/pricing" className="hover:text-header dark:hover:text-white transition-colors">Pricing</Link>
+          <Link href="/contact" className="hover:text-header dark:hover:text-white transition-colors">Contact</Link>
           <Link href="/login" className="hover:text-header dark:hover:text-white transition-colors">Sign in</Link>
           <Link href="/signup" className="hover:text-header dark:hover:text-white transition-colors">Sign up</Link>
           <Link href="/terms" className="hover:text-header dark:hover:text-white transition-colors">Terms</Link>

@@ -101,6 +101,72 @@ export async function sendOrgInvitation(
   });
 }
 
+// ─── Contact form ─────────────────────────────────────────────────────────────
+
+export async function sendContactEmail(
+  name: string,
+  email: string,
+  subject: string,
+  message: string,
+): Promise<void> {
+  const ts = new Date().toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+  });
+
+  // 1. Notify support inbox
+  await getResend().emails.send({
+    from:    FROM,
+    to:      "support@groundworkpm.com",
+    replyTo: email,
+    subject: `[Contact] ${subject} — from ${name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a1a2e; font-size: 20px; margin-bottom: 4px;">New contact form submission</h2>
+        <p style="color: #9ca3af; font-size: 12px; margin-top: 0;">${ts}</p>
+        <table style="width:100%; border-collapse: collapse; font-size: 14px; margin: 16px 0;">
+          <tr><td style="padding: 8px 0; color:#6b7280; width:90px;">Name</td><td style="color:#1a1a2e; font-weight:600;">${name}</td></tr>
+          <tr><td style="padding: 8px 0; color:#6b7280;">Email</td><td><a href="mailto:${email}" style="color:#c9a84c;">${email}</a></td></tr>
+          <tr><td style="padding: 8px 0; color:#6b7280;">Subject</td><td style="color:#1a1a2e;">${subject}</td></tr>
+        </table>
+        <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 16px 0;" />
+        <p style="color: #374151; font-size: 14px; line-height: 1.7; white-space: pre-wrap;">${message}</p>
+        <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Contact form</p>
+      </div>
+    `,
+  });
+
+  // 2. Auto-reply to visitor
+  await getResend().emails.send({
+    from:    FROM,
+    to:      email,
+    subject: "We received your message — Groundwork PM",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Thanks for reaching out, ${name}!</h2>
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+          We've received your message and will reply within <strong>1 business day</strong>.
+        </p>
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+          In the meantime, you can explore Groundwork PM with a free 30-day trial — no credit card required.
+        </p>
+        <a href="${process.env.NEXTAUTH_URL ?? "https://groundworkpm.com"}/signup"
+           style="display: inline-block; margin: 24px 0; background: #c9a84c; color: white;
+                  padding: 12px 28px; border-radius: 8px; text-decoration: none;
+                  font-size: 14px; font-weight: 600;">
+          Start free trial →
+        </a>
+        <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">
+          If your message is urgent, you can also reply directly to this email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Smart property management for landlords &amp; agencies worldwide</p>
+      </div>
+    `,
+  });
+}
+
 // ─── Welcome email ────────────────────────────────────────────────────────────
 
 export async function sendWelcome(email: string, name: string): Promise<void> {

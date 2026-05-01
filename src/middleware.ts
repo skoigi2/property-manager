@@ -27,7 +27,8 @@ export default auth((req) => {
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/refund") ||
-    pathname.startsWith("/blog");
+    pathname.startsWith("/blog") ||
+    pathname.startsWith("/contact");
 
   if (!isLoggedIn && !isAuthPage && !isPortalPage && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));

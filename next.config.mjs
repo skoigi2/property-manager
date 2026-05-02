@@ -35,6 +35,17 @@ const withPWA = withPWAInit({
   ],
 });
 
+// Baseline security headers applied to every response. Keep CSP off (or in
+// Report-Only) for now to avoid breaking Paddle/Resend/Supabase JS in production
+// — turn it on after a soak window where we can review violations.
+const securityHeaders = [
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -42,6 +53,14 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ["@react-pdf/renderer"],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
+    ];
   },
 };
 

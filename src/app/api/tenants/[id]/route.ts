@@ -1,11 +1,24 @@
-import { requireAuth, requireManager } from "@/lib/auth-utils";
+import { requireAuth, requireManager, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
 import { z } from "zod";
 
+async function loadTenantPropertyId(tenantId: string): Promise<string | null> {
+  const t = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { unit: { select: { propertyId: true } } },
+  });
+  return t?.unit.propertyId ?? null;
+}
+
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const { error } = await requireAuth();
   if (error) return error;
+
+  const propertyId = await loadTenantPropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: params.id },
@@ -34,6 +47,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const { error } = await requireManager();
   if (error) return error;
 
+  const propertyId = await loadTenantPropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
+
   const body = await req.json();
   const parsed = tenantSchema.safeParse(body);
   if (!parsed.success) {
@@ -61,6 +79,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { error } = await requireManager();
   if (error) return error;
 
+  const propertyId = await loadTenantPropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
+
   let body: unknown;
   try { body = await req.json(); } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
@@ -83,6 +106,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const { error } = await requireManager();
   if (error) return error;
+
+  const propertyId = await loadTenantPropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   await prisma.tenant.update({
     where: { id: params.id },

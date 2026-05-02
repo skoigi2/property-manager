@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const schema = z.object({ organizationId: z.string() });
@@ -29,10 +30,23 @@ export async function POST(req: Request) {
     where: { userId: session.user.id },
   });
 
+  const previousOrgId = session.user.organizationId ?? null;
+
   // Update the user's active org in the database
   await prisma.user.update({
     where: { id: session.user.id },
     data: { organizationId },
+  });
+
+  await logAudit({
+    userId:    session.user.id,
+    userEmail: session.user.email ?? null,
+    action:    "UPDATE",
+    resource:  "ActiveOrg",
+    resourceId: session.user.id,
+    organizationId,
+    before: { organizationId: previousOrgId },
+    after:  { organizationId },
   });
 
   return Response.json({

@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 /**
  * DELETE /api/organizations/[id]/members/[userId]
@@ -75,6 +76,16 @@ export async function DELETE(
       data: { organizationId: otherMembership?.organizationId ?? null },
     });
   }
+
+  await logAudit({
+    userId:    session!.user.id,
+    userEmail: session!.user.email ?? null,
+    action:    "DELETE",
+    resource:  "OrgMembership",
+    resourceId: `${params.id}:${params.userId}`,
+    organizationId: params.id,
+    before: { role: membership.role, isBillingOwner: membership.isBillingOwner },
+  });
 
   return new Response(null, { status: 204 });
 }

@@ -77,12 +77,46 @@ export async function POST(req: Request) {
     return Response.json({ error: "File must be a .zip handover package" }, { status: 400 });
   }
 
+  // Cap the raw upload size before we even buffer it. Next's default body
+  // limit is small but multipart goes through a different path; be defensive.
+  const MAX_ZIP_BYTES        = 25 * 1024 * 1024; // 25 MB compressed
+  const MAX_DECOMPRESSED     = 100 * 1024 * 1024; // 100 MB total uncompressed
+  const MAX_ENTRY_BYTES      = 50 * 1024 * 1024; // 50 MB per entry
+  const MAX_ENTRIES          = 1000;
+  if (file.size > MAX_ZIP_BYTES) {
+    return Response.json({ error: "ZIP exceeds 25 MB upload limit" }, { status: 413 });
+  }
+
   const zipBuffer = Buffer.from(await file.arrayBuffer());
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(zipBuffer);
   } catch {
     return Response.json({ error: "Could not parse ZIP file" }, { status: 400 });
+  }
+
+  // ZIP-bomb guard: walk every entry, sum uncompressed sizes, reject if any
+  // single entry or the total exceeds limits. Also reject path traversal and
+  // absolute paths in entry names.
+  let entryCount = 0;
+  let totalUncompressed = 0;
+  for (const [name, entry] of Object.entries(zip.files)) {
+    entryCount++;
+    if (entryCount > MAX_ENTRIES) {
+      return Response.json({ error: "ZIP contains too many entries" }, { status: 400 });
+    }
+    if (name.includes("..") || name.startsWith("/") || name.includes("\\")) {
+      return Response.json({ error: "ZIP contains unsafe paths" }, { status: 400 });
+    }
+    // JSZip exposes uncompressed size on the internal _data object
+    const size = (entry as unknown as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize ?? 0;
+    if (size > MAX_ENTRY_BYTES) {
+      return Response.json({ error: "ZIP entry exceeds size limit" }, { status: 400 });
+    }
+    totalUncompressed += size;
+    if (totalUncompressed > MAX_DECOMPRESSED) {
+      return Response.json({ error: "ZIP decompressed size exceeds 100 MB limit" }, { status: 400 });
+    }
   }
 
   // Find the XLSX inside data/

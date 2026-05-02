@@ -1,10 +1,23 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+
+async function loadEntryPropertyId(entryId: string): Promise<string | null> {
+  const e = await prisma.incomeEntry.findUnique({
+    where: { id: entryId },
+    select: { unit: { select: { propertyId: true } } },
+  });
+  return e?.unit?.propertyId ?? null;
+}
 
 export async function GET(_req: Request, { params }: { params: { entryId: string } }) {
   const { error } = await requireManager();
   if (error) return error;
+
+  const propertyId = await loadEntryPropertyId(params.entryId);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   const bookingGuests = await prisma.bookingGuest.findMany({
     where: { incomeEntryId: params.entryId },
@@ -37,6 +50,11 @@ const linkSchema = z.object({
 export async function POST(req: Request, { params }: { params: { entryId: string } }) {
   const { error } = await requireManager();
   if (error) return error;
+
+  const propertyId = await loadEntryPropertyId(params.entryId);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   let body: unknown;
   try { body = await req.json(); } catch {

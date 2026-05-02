@@ -1,13 +1,26 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
+async function loadEntryPropertyId(id: string): Promise<string | null> {
+  const e = await prisma.incomeEntry.findUnique({
+    where: { id },
+    select: { unit: { select: { propertyId: true } } },
+  });
+  return e?.unit?.propertyId ?? null;
+}
+
 // PATCH — mark commission paid / unpaid
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManager();
   if (error) return error;
+
+  const propertyId = await loadEntryPropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   const body = await req.json();
   const parsed = z.object({ commissionPaidAt: z.string().nullable() }).safeParse(body);
@@ -41,6 +54,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const { session, error } = await requireManager();
   if (error) return error;
 
+  const propertyId = await loadEntryPropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
+
   const body = await req.json();
   const parsed = incomeEntrySchema.safeParse(body);
   if (!parsed.success) {
@@ -70,6 +88,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManager();
   if (error) return error;
+
+  const propertyId = await loadEntryPropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   const before = await prisma.incomeEntry.findUnique({ where: { id: params.id }, select: { grossAmount: true, type: true, date: true } });
   await prisma.incomeEntry.delete({ where: { id: params.id } });

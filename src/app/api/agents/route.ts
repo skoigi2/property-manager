@@ -3,16 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 export async function GET(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
+  const orgId = session!.user.organizationId;
+
+  // Super-admin (orgId === null) sees all; org users only see their org's agents.
+  const where: Record<string, unknown> = {};
+  if (orgId) where.organizationId = orgId;
+  if (q) where.name = { contains: q, mode: "insensitive" };
 
   const agents = await prisma.agent.findMany({
-    where: q
-      ? { name: { contains: q, mode: "insensitive" } }
-      : undefined,
+    where,
     orderBy: { name: "asc" },
   });
 
@@ -28,8 +32,16 @@ const createSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
+
+  const orgId = session!.user.organizationId;
+  if (!orgId) {
+    return Response.json(
+      { error: "Super-admin must operate within an organisation context to create agents." },
+      { status: 400 },
+    );
+  }
 
   let body: unknown;
   try { body = await req.json(); } catch {
@@ -41,7 +53,7 @@ export async function POST(req: Request) {
 
   const { email, ...rest } = parsed.data;
   const agent = await prisma.agent.create({
-    data: { ...rest, email: email || null },
+    data: { ...rest, email: email || null, organizationId: orgId },
   });
 
   return Response.json(agent, { status: 201 });

@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
@@ -7,6 +7,14 @@ export async function DELETE(
 ) {
   const { error } = await requireManager();
   if (error) return error;
+
+  const entry = await prisma.incomeEntry.findUnique({
+    where: { id: params.entryId },
+    select: { unit: { select: { propertyId: true } } },
+  });
+  if (!entry?.unit?.propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(entry.unit.propertyId);
+  if (!access.ok) return access.error!;
 
   const record = await prisma.bookingGuest.findUnique({
     where: { guestId_incomeEntryId: { guestId: params.guestId, incomeEntryId: params.entryId } },

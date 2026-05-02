@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { timingSafeEqual } from "crypto";
 import {
   checkLeaseExpiries,
   checkOverdueInvoices,
@@ -8,9 +9,18 @@ import {
   checkUrgentMaintenance,
 } from "@/lib/notifications/checkers";
 
+function authorize(authHeader: string | null): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || !authHeader) return false;
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(authHeader);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authorize(request.headers.get("authorization"))) {
     return new Response("Unauthorized", { status: 401 });
   }
 

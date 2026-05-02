@@ -14,12 +14,35 @@ function getResend(): Resend {
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "Groundwork PM <noreply@groundworkpm.com>";
 
+// ─── HTML escaping ────────────────────────────────────────────────────────────
+// Any user-supplied string interpolated into an email's HTML body MUST go
+// through this — otherwise an attacker can inject arbitrary HTML/JS into the
+// email rendered by the recipient's mail client.
+function esc(s: string | null | undefined): string {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Reject CRLF in any user-supplied address used as a header value (To, Reply-To).
+// `z.string().email()` does not catch this. Throws so the caller surfaces it as a 400.
+function safeAddress(addr: string): string {
+  if (/[\r\n]/.test(addr)) {
+    throw new Error("Invalid email address");
+  }
+  return addr;
+}
+
 // ─── Password reset ───────────────────────────────────────────────────────────
 
 export async function sendPasswordReset(email: string, resetLink: string): Promise<void> {
   await getResend().emails.send({
     from:    FROM,
-    to:      email,
+    to:      safeAddress(email),
     subject: "Reset your Groundwork PM password",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
@@ -52,7 +75,7 @@ export async function sendNotificationEmail(
   subject: string,
   html: string,
 ): Promise<void> {
-  await getResend().emails.send({ from: FROM, to, subject, html });
+  await getResend().emails.send({ from: FROM, to: safeAddress(to), subject, html });
 }
 
 // ─── Organisation invitation ─────────────────────────────────────────────────
@@ -73,23 +96,23 @@ export async function sendOrgInvitation(
 
   await getResend().emails.send({
     from:    FROM,
-    to:      email,
+    to:      safeAddress(email),
     subject: `You've been invited to join ${orgName} on Groundwork PM`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">You're invited to join ${orgName}</h2>
+        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">You're invited to join ${esc(orgName)}</h2>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-          <strong>${inviterName}</strong> has invited you to join <strong>${orgName}</strong>
-          on Groundwork PM as a <strong>${roleLabel}</strong>.
+          <strong>${esc(inviterName)}</strong> has invited you to join <strong>${esc(orgName)}</strong>
+          on Groundwork PM as a <strong>${esc(roleLabel)}</strong>.
         </p>
-        <a href="${acceptUrl}"
+        <a href="${esc(acceptUrl)}"
            style="display: inline-block; margin: 24px 0; background: #1a1a2e; color: white;
                   padding: 12px 28px; border-radius: 8px; text-decoration: none;
                   font-size: 14px; font-weight: 600;">
           Accept invitation →
         </a>
         <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">
-          This invitation expires on ${expiryStr}.
+          This invitation expires on ${esc(expiryStr)}.
         </p>
         <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">
           If you don't have a Groundwork PM account yet, you'll be prompted to create one after clicking the link above.
@@ -114,23 +137,25 @@ export async function sendContactEmail(
     hour: "2-digit", minute: "2-digit", timeZoneName: "short",
   });
 
+  const safeEmail = safeAddress(email);
+
   // 1. Notify support inbox
   await getResend().emails.send({
     from:    FROM,
     to:      "support@groundworkpm.com",
-    replyTo: email,
-    subject: `[Contact] ${subject} — from ${name}`,
+    replyTo: safeEmail,
+    subject: `[Contact] ${subject.replace(/[\r\n]/g, " ")} — from ${name.replace(/[\r\n]/g, " ")}`,
     html: `
       <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 20px; margin-bottom: 4px;">New contact form submission</h2>
-        <p style="color: #9ca3af; font-size: 12px; margin-top: 0;">${ts}</p>
+        <p style="color: #9ca3af; font-size: 12px; margin-top: 0;">${esc(ts)}</p>
         <table style="width:100%; border-collapse: collapse; font-size: 14px; margin: 16px 0;">
-          <tr><td style="padding: 8px 0; color:#6b7280; width:90px;">Name</td><td style="color:#1a1a2e; font-weight:600;">${name}</td></tr>
-          <tr><td style="padding: 8px 0; color:#6b7280;">Email</td><td><a href="mailto:${email}" style="color:#c9a84c;">${email}</a></td></tr>
-          <tr><td style="padding: 8px 0; color:#6b7280;">Subject</td><td style="color:#1a1a2e;">${subject}</td></tr>
+          <tr><td style="padding: 8px 0; color:#6b7280; width:90px;">Name</td><td style="color:#1a1a2e; font-weight:600;">${esc(name)}</td></tr>
+          <tr><td style="padding: 8px 0; color:#6b7280;">Email</td><td><a href="mailto:${encodeURIComponent(safeEmail)}" style="color:#c9a84c;">${esc(safeEmail)}</a></td></tr>
+          <tr><td style="padding: 8px 0; color:#6b7280;">Subject</td><td style="color:#1a1a2e;">${esc(subject)}</td></tr>
         </table>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 16px 0;" />
-        <p style="color: #374151; font-size: 14px; line-height: 1.7; white-space: pre-wrap;">${message}</p>
+        <p style="color: #374151; font-size: 14px; line-height: 1.7; white-space: pre-wrap;">${esc(message)}</p>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
         <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Contact form</p>
       </div>
@@ -140,18 +165,18 @@ export async function sendContactEmail(
   // 2. Auto-reply to visitor
   await getResend().emails.send({
     from:    FROM,
-    to:      email,
+    to:      safeEmail,
     subject: "We received your message — Groundwork PM",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Thanks for reaching out, ${name}!</h2>
+        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Thanks for reaching out, ${esc(name)}!</h2>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
           We've received your message and will reply within <strong>1 business day</strong>.
         </p>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
           In the meantime, you can explore Groundwork PM with a free 30-day trial — no credit card required.
         </p>
-        <a href="${process.env.NEXTAUTH_URL ?? "https://groundworkpm.com"}/signup"
+        <a href="${esc(process.env.NEXTAUTH_URL ?? "https://groundworkpm.com")}/signup"
            style="display: inline-block; margin: 24px 0; background: #c9a84c; color: white;
                   padding: 12px 28px; border-radius: 8px; text-decoration: none;
                   font-size: 14px; font-weight: 600;">
@@ -172,11 +197,11 @@ export async function sendContactEmail(
 export async function sendWelcome(email: string, name: string): Promise<void> {
   await getResend().emails.send({
     from:    FROM,
-    to:      email,
+    to:      safeAddress(email),
     subject: "Welcome to Groundwork PM 🏠",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Welcome, ${name}!</h2>
+        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Welcome, ${esc(name)}!</h2>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
           Your 30-day free trial has started. Here's what you can do:
         </p>

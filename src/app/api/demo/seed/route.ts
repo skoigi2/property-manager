@@ -540,6 +540,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   // ── Agent ────────────────────────────────────────────────────────────────────
   await prisma.agent.create({
     data: {
+      organizationId,
       name: "Bahrain Properties LLC",
       phone: "+973 1700 3344",
       email: "leasing@bahrainproperties.bh",
@@ -1600,6 +1601,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   // ── Agent ────────────────────────────────────────────────────────────────────
   await prisma.agent.create({
     data: {
+      organizationId,
       name: "Seeff Properties Sandton",
       phone: "+27 11 784 8870",
       email: "sandton@seeff.com",

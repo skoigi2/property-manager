@@ -10,12 +10,30 @@ const updateSchema = z.object({
   notes:  z.string().optional().nullable(),
 });
 
+async function loadAgentOrgId(id: string): Promise<string | null | undefined> {
+  const a = await prisma.agent.findUnique({
+    where: { id },
+    select: { organizationId: true },
+  });
+  if (!a) return undefined;
+  return a.organizationId;
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
+
+  const agentOrgId = await loadAgentOrgId(params.id);
+  if (agentOrgId === undefined) return Response.json({ error: "Not found" }, { status: 404 });
+
+  const callerOrgId = session!.user.organizationId;
+  // Org users may only edit agents in their org. Super-admin (callerOrgId === null) may edit any.
+  if (callerOrgId && agentOrgId !== callerOrgId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   let body: unknown;
   try { body = await req.json(); } catch {
@@ -41,8 +59,16 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
+
+  const agentOrgId = await loadAgentOrgId(params.id);
+  if (agentOrgId === undefined) return Response.json({ error: "Not found" }, { status: 404 });
+
+  const callerOrgId = session!.user.organizationId;
+  if (callerOrgId && agentOrgId !== callerOrgId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   await prisma.agent.delete({ where: { id: params.id } });
   return Response.json({ success: true });

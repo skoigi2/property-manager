@@ -1,5 +1,6 @@
 import { requireBillingOwner } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 const transferSchema = z.object({
@@ -69,6 +70,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   await prisma.user.update({
     where: { id: newOwnerId },
     data: { role: "ADMIN" },
+  });
+
+  await logAudit({
+    userId:    session!.user.id,
+    userEmail: session!.user.email ?? null,
+    action:    "UPDATE",
+    resource:  "BillingOwner",
+    resourceId: orgId,
+    organizationId: orgId,
+    before: { previousOwnerId: currentOwner?.userId ?? null },
+    after:  { newOwnerId },
   });
 
   return Response.json({ ok: true });

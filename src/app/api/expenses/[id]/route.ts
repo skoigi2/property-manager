@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
@@ -15,9 +15,26 @@ const EXPENSE_INCLUDE = {
   },
 };
 
+async function loadExpensePropertyId(id: string): Promise<string | null> {
+  const e = await prisma.expenseEntry.findUnique({
+    where: { id },
+    select: {
+      propertyId: true,
+      unit: { select: { propertyId: true } },
+    },
+  });
+  if (!e) return null;
+  return e.propertyId ?? e.unit?.propertyId ?? null;
+}
+
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManager();
   if (error) return error;
+
+  const propertyId = await loadExpensePropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   const body = await req.json();
   const parsed = expenseEntrySchema.safeParse(body);
@@ -129,6 +146,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManager();
   if (error) return error;
+
+  const propertyId = await loadExpensePropertyId(params.id);
+  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
+  const access = await requirePropertyAccess(propertyId);
+  if (!access.ok) return access.error!;
 
   const before = await prisma.expenseEntry.findUnique({
     where: { id: params.id },

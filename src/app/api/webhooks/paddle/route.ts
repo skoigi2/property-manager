@@ -56,19 +56,23 @@ interface PaddleEvent {
 async function handleEvent(event: PaddleEvent) {
   const { event_id, event_type, data } = event;
 
+  // Top-level idempotency check across ALL event types — prevents duplicate
+  // processing if Paddle redelivers the same event for any reason.
+  const alreadyProcessed = await prisma.organization.findFirst({
+    where: { paddleEventId: event_id },
+    select: { id: true },
+  });
+  if (alreadyProcessed) {
+    console.info(`[paddle-webhook] event ${event_id} already processed; skipping`);
+    return;
+  }
+
   switch (event_type) {
 
     // ── Subscription created: first payment succeeded ──────────────────────
     case "subscription.created": {
       const orgId = data.custom_data?.organizationId;
       if (!orgId) break;
-
-      // Idempotency — skip if we've already processed this event
-      const existing = await prisma.organization.findFirst({
-        where: { paddleEventId: event_id },
-        select: { id: true },
-      });
-      if (existing) break;
 
       const priceId = data.items[0]?.price.id ?? "";
       const tier    = tierFromPriceId(priceId) ?? "STARTER";

@@ -33,5 +33,14 @@ export const DEMO_PROPERTIES: DemoDefinition[] = [
     description: "9-unit residential complex in Sandton, Johannesburg — 3 months of income, expenses, tenants & arrears.",
     flag: "🇿🇦",
   },
+  {
+    key: "belsize-court",
+    name: "Belsize Court",
+    country: "United Kingdom",
+    currency: "GBP",
+    units: 10,
+    description: "10-unit residential block in Belsize Park, London — 3 months of income, expenses, arrears & compliance data.",
+    flag: "🇬🇧",
+  },
   // Future demos registered here. Each needs a matching case in /api/demo/seed/route.ts
 ];

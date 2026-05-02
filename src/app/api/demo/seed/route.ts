@@ -6,7 +6,7 @@ import {
   PropertyType, PropertyCategory, UnitType, UnitStatus,
   IncomeType, ExpenseCategory, ExpenseScope, PettyCashType,
   InsuranceType, PremiumFrequency, AssetCategory, MaintenanceFrequency,
-  RecurringFrequency, ArrearsStage, InvoiceStatus,
+  RecurringFrequency, ArrearsStage, InvoiceStatus, RenewalStage,
   MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
   VendorCategory, OwnerInvoiceType, TaxType,
   LineItemCategory, LineItemPaymentStatus,
@@ -2089,6 +2089,572 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Belsize Court — London (UK) demo
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }> {
+  const YEAR = 2026;
+  const MONTHS = [1, 2, 3]; // Feb=1, Mar=2, Apr=3 (0-indexed JS months)
+  const SC = 250; // service charge per unit
+
+  // ── Property ────────────────────────────────────────────────────────────────
+  const property = await prisma.property.create({
+    data: {
+      name: "Belsize Court",
+      type: PropertyType.LONGTERM,
+      category: PropertyCategory.RESIDENTIAL,
+      address: "28 Haverstock Hill, Belsize Park",
+      city: "London",
+      description:
+        "Elegant 3-storey residential block in the heart of Belsize Park, NW3. 10 apartments across three floors with secure entry, communal garden, cycle store, and EV charging. Professionally managed under a Haverstock PM management brief.",
+      serviceChargeDefault: SC,
+      organizationId,
+      currency: "GBP",
+    },
+  });
+
+  // ── Units ───────────────────────────────────────────────────────────────────
+  const unitDefs = [
+    { number: "101", type: UnitType.ONE_BED,   rent: 1750, floor: 1, sqm: 52,  status: UnitStatus.ACTIVE },
+    { number: "102", type: UnitType.ONE_BED,   rent: 1800, floor: 1, sqm: 54,  status: UnitStatus.ACTIVE },
+    { number: "103", type: UnitType.ONE_BED,   rent: 1800, floor: 1, sqm: 54,  status: UnitStatus.ACTIVE },
+    { number: "104", type: UnitType.ONE_BED,   rent: 1850, floor: 1, sqm: 55,  status: UnitStatus.VACANT },
+    { number: "201", type: UnitType.TWO_BED,   rent: 2350, floor: 2, sqm: 78,  status: UnitStatus.ACTIVE },
+    { number: "202", type: UnitType.TWO_BED,   rent: 2400, floor: 2, sqm: 80,  status: UnitStatus.ACTIVE },
+    { number: "203", type: UnitType.TWO_BED,   rent: 2450, floor: 2, sqm: 82,  status: UnitStatus.ACTIVE },
+    { number: "204", type: UnitType.TWO_BED,   rent: 2400, floor: 2, sqm: 80,  status: UnitStatus.ACTIVE },
+    { number: "301", type: UnitType.THREE_BED, rent: 3100, floor: 3, sqm: 110, status: UnitStatus.ACTIVE },
+    { number: "302", type: UnitType.THREE_BED, rent: 3200, floor: 3, sqm: 115, status: UnitStatus.ACTIVE },
+  ];
+
+  const units: Record<string, { id: string }> = {};
+  for (const u of unitDefs) {
+    units[u.number] = await prisma.unit.create({
+      data: {
+        unitNumber: u.number,
+        propertyId: property.id,
+        type: u.type,
+        floor: u.floor,
+        monthlyRent: u.rent,
+        status: u.status,
+        vacantSince: u.status === UnitStatus.VACANT ? d("2026-02-01") : null,
+        sizeSqm: u.sqm,
+        amenities: ["Double glazing", "Gas central heating", "Built-in wardrobes"],
+        description: `${u.type.replace("_", " ")} apartment on floor ${u.floor}`,
+      },
+    });
+  }
+
+  // ── Tenants (9 active; unit 104 vacant) ─────────────────────────────────────
+  const tenantDefs = [
+    { unit: "101", name: "Emily Clarke",     rent: 1750, leaseEnd: "2027-01-31", phone: "+44 7911 000101", email: "emily.clarke@email.co.uk",    nationalId: "NS 12 34 56 A", renewal: RenewalStage.NONE         },
+    { unit: "102", name: "James Hartley",    rent: 1800, leaseEnd: "2027-03-31", phone: "+44 7911 000102", email: "james.hartley@email.co.uk",    nationalId: "NS 23 45 67 B", renewal: RenewalStage.NONE         },
+    { unit: "103", name: "Sophie Bennett",   rent: 1800, leaseEnd: "2026-06-30", phone: "+44 7911 000103", email: "sophie.bennett@email.co.uk",   nationalId: "NS 34 56 78 C", renewal: RenewalStage.NOTICE_SENT  },
+    { unit: "201", name: "Oliver Thompson",  rent: 2350, leaseEnd: "2026-12-31", phone: "+44 7911 000201", email: "oliver.thompson@email.co.uk",  nationalId: "NS 45 67 89 D", renewal: RenewalStage.NONE         },
+    { unit: "202", name: "Charlotte Davies", rent: 2400, leaseEnd: "2027-02-28", phone: "+44 7911 000202", email: "charlotte.davies@email.co.uk", nationalId: "NS 56 78 90 E", renewal: RenewalStage.NONE         },
+    { unit: "203", name: "William Foster",   rent: 2450, leaseEnd: "2026-09-30", phone: "+44 7911 000203", email: "william.foster@email.co.uk",   nationalId: "NS 67 89 01 F", renewal: RenewalStage.NONE         },
+    { unit: "204", name: "Rebecca Morgan",   rent: 2400, leaseEnd: "2027-04-30", phone: "+44 7911 000204", email: "rebecca.morgan@email.co.uk",   nationalId: "NS 78 90 12 G", renewal: RenewalStage.NONE         },
+    { unit: "301", name: "Daniel Walsh",     rent: 3100, leaseEnd: "2026-08-31", phone: "+44 7911 000301", email: "daniel.walsh@email.co.uk",     nationalId: "NS 89 01 23 H", renewal: RenewalStage.NONE         },
+    { unit: "302", name: "Natasha Singh",    rent: 3200, leaseEnd: "2026-12-31", phone: "+44 7911 000302", email: "natasha.singh@email.co.uk",    nationalId: "NS 90 12 34 I", renewal: RenewalStage.NONE         },
+  ];
+
+  const tenants: Record<string, { id: string }> = {};
+  for (const t of tenantDefs) {
+    tenants[t.unit] = await prisma.tenant.create({
+      data: {
+        name: t.name,
+        unitId: units[t.unit].id,
+        depositAmount: t.rent * 2,
+        depositPaidDate: d("2025-01-05"),
+        leaseStart: d("2025-01-01"),
+        leaseEnd: d(t.leaseEnd),
+        monthlyRent: t.rent,
+        serviceCharge: SC,
+        rentDueDay: 1,
+        isActive: true,
+        phone: t.phone,
+        email: t.email,
+        nationalId: t.nationalId,
+        renewalStage: t.renewal,
+        renewalNotes: t.renewal === RenewalStage.NOTICE_SENT
+          ? "Renewal notice sent 1 March 2026. Awaiting tenant response on proposed new rent of £1,890."
+          : null,
+        notes: `AST commenced January 2025. ${t.name.split(" ")[0]} is a reliable tenant in good standing.`,
+      },
+    });
+  }
+
+  // ── Management Fee Configs ───────────────────────────────────────────────────
+  const feeConfigs = [
+    { unit: "101", flat: 175 }, { unit: "102", flat: 180 }, { unit: "103", flat: 180 },
+    { unit: "104", flat: 185 }, { unit: "201", flat: 235 }, { unit: "202", flat: 240 },
+    { unit: "203", flat: 245 }, { unit: "204", flat: 240 }, { unit: "301", flat: 310 },
+    { unit: "302", flat: 320 },
+  ];
+  await prisma.managementFeeConfig.createMany({
+    data: feeConfigs.map((f) => ({
+      unitId: units[f.unit].id,
+      flatAmount: f.flat,
+      ratePercent: 0,
+      effectiveFrom: d("2026-01-01"),
+    })),
+  });
+
+  // ── Vendors (all before expenses) ───────────────────────────────────────────
+  const [
+    vendorMgmt, vendorWater, vendorElec, vendorCleaning, vendorInternet,
+    vendorMaint, vendorElectrical, vendorLift, vendorSecurity, vendorGarden,
+  ] = await Promise.all([
+    prisma.vendor.create({ data: { name: "Haverstock Property Management Ltd", category: VendorCategory.SERVICE_PROVIDER, phone: "+44 20 7946 0101", email: "info@haverstockpm.co.uk",          organizationId, isActive: true, notes: "Managing agent for Belsize Court"                                    } }),
+    prisma.vendor.create({ data: { name: "Thames Water",                       category: VendorCategory.UTILITY_PROVIDER,  phone: "+44 800 316 9800", email: "billing@thameswater.co.uk",           organizationId, isActive: true, notes: "Communal water & sewerage supply"                                   } }),
+    prisma.vendor.create({ data: { name: "UK Power Networks",                  category: VendorCategory.UTILITY_PROVIDER,  phone: "+44 800 029 4285", email: "commercial@ukpn.co.uk",               organizationId, isActive: true, notes: "Common area electricity supply"                                     } }),
+    prisma.vendor.create({ data: { name: "BrightHouse Cleaning Services",      category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0202", email: "contracts@brighthouseclean.co.uk",    organizationId, isActive: true, notes: "Communal cleaning contract"                                         } }),
+    prisma.vendor.create({ data: { name: "Virgin Media Business",              category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 800 052 0800", email: "business@virginmedia.co.uk",          organizationId, isActive: true, notes: "Building WiFi & communications"                                     } }),
+    prisma.vendor.create({ data: { name: "BuildRight Maintenance Ltd",         category: VendorCategory.CONTRACTOR,        phone: "+44 20 7946 0303", email: "jobs@buildrightmaint.co.uk",          organizationId, isActive: true, notes: "General maintenance & void works"                                   } }),
+    prisma.vendor.create({ data: { name: "SparkSafe Electrical Ltd",           category: VendorCategory.CONTRACTOR,        phone: "+44 20 7946 0404", email: "info@sparksafe.co.uk",                organizationId, isActive: true, notes: "Electrical installation & remedial works (NICEIC Approved)"         } }),
+    prisma.vendor.create({ data: { name: "Otis Elevator Company UK",           category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 800 912 8000", email: "service@otis.co.uk",                  organizationId, isActive: true, notes: "Passenger lift maintenance & LOLER inspections"                     } }),
+    prisma.vendor.create({ data: { name: "SecureGuard Systems Ltd",            category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0505", email: "info@secureguard.co.uk",              organizationId, isActive: true, notes: "CCTV, access control & security systems"                            } }),
+    prisma.vendor.create({ data: { name: "GreenThumb Garden Services",         category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0606", email: "hello@greenthumb.co.uk",              organizationId, isActive: true, notes: "Communal garden & grounds maintenance"                              } }),
+  ]);
+
+  // ── Agent ────────────────────────────────────────────────────────────────────
+  await prisma.agent.create({
+    data: {
+      name: "Foxtons Belsize Park",
+      agency: "Foxtons Ltd",
+      phone: "+44 20 7431 9900",
+      email: "belsize@foxtons.co.uk",
+      organizationId,
+      notes: "Letting agent for Belsize Court — standard AST lettings, 8 weeks rent commission for new tenancies",
+    },
+  });
+
+  // ── Income & Invoices ────────────────────────────────────────────────────────
+  // Units with arrears (month indices that are overdue)
+  const arrears: Record<string, number[]> = {
+    "201": [1, 2],     // Oliver Thompson — Feb + Mar overdue → INFORMAL_REMINDER
+    "302": [1, 2, 3],  // Natasha Singh — all 3 months → DEMAND_LETTER
+  };
+
+  const incomeRows: {
+    date: Date; unitId: string; tenantId: string; invoiceId: string;
+    type: IncomeType; grossAmount: number; agentCommission: number;
+  }[] = [];
+
+  for (const month of MONTHS) {
+    const mm = String(month + 1).padStart(2, "0"); // month is 0-indexed; +1 for calendar month
+    for (const t of tenantDefs) {
+      const isArrears = (arrears[t.unit] ?? []).includes(month);
+      const total = t.rent + SC;
+      const inv = await prisma.invoice.create({
+        data: {
+          invoiceNumber: `BC-${t.unit}-2026-${mm}-001`,
+          tenantId: tenants[t.unit].id,
+          periodYear: YEAR,
+          periodMonth: month + 1,
+          rentAmount: t.rent,
+          serviceCharge: SC,
+          totalAmount: total,
+          dueDate: new Date(YEAR, month, 1),
+          status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
+          paidAt: isArrears ? null : new Date(YEAR, month, 5),
+          paidAmount: isArrears ? null : total,
+        },
+      });
+      if (!isArrears) {
+        incomeRows.push({
+          date: new Date(YEAR, month, 5),
+          unitId: units[t.unit].id,
+          tenantId: tenants[t.unit].id,
+          invoiceId: inv.id,
+          type: IncomeType.LONGTERM_RENT,
+          grossAmount: t.rent,
+          agentCommission: 0,
+        });
+      }
+    }
+  }
+  await prisma.incomeEntry.createMany({ data: incomeRows });
+
+  // ── Property-level expenses — step 1: createMany ─────────────────────────────
+  const propExpDefs = [
+    { cat: ExpenseCategory.MANAGEMENT_FEE, amount: 2772, desc: "Monthly management fee — Haverstock PM",      vendorId: vendorMgmt.id     },
+    { cat: ExpenseCategory.WATER,          amount: 456,  desc: "Thames Water — communal water & sewerage",    vendorId: vendorWater.id    },
+    { cat: ExpenseCategory.ELECTRICITY,    amount: 336,  desc: "UK Power Networks — common area electricity", vendorId: vendorElec.id     },
+    { cat: ExpenseCategory.CLEANER,        amount: 864,  desc: "BrightHouse — communal cleaning services",    vendorId: vendorCleaning.id },
+    { cat: ExpenseCategory.WIFI,           amount: 102,  desc: "Virgin Media Business — building WiFi",       vendorId: vendorInternet.id },
+    { cat: ExpenseCategory.OTHER,          amount: 420,  desc: "GreenThumb — grounds & garden maintenance",   vendorId: vendorGarden.id   },
+  ];
+  await prisma.expenseEntry.createMany({
+    data: MONTHS.flatMap((month) =>
+      propExpDefs.map((e) => ({
+        date: monthStart(YEAR, month),
+        propertyId: property.id,
+        scope: ExpenseScope.PROPERTY,
+        category: e.cat,
+        amount: e.amount,
+        description: e.desc,
+        isSunkCost: false,
+        paidFromPettyCash: false,
+        vendorId: e.vendorId,
+      })),
+    ),
+  });
+
+  // ── Unit-level ad-hoc expenses — step 1: createMany ─────────────────────────
+  await prisma.expenseEntry.createMany({
+    data: [
+      { date: monthStart(YEAR, 1), unitId: units["103"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 540,  description: "Emergency burst pipe repair — unit 103",    isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: monthStart(YEAR, 1), unitId: units["201"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 384,  description: "Cracked window replacement — unit 201",     isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: monthStart(YEAR, 2), unitId: units["102"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 216,  description: "Leaking kitchen tap repair — unit 102",     isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: monthStart(YEAR, 2), unitId: units["301"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 1020, description: "Electrical DB board fault — unit 301",      isSunkCost: false, paidFromPettyCash: false, vendorId: vendorElectrical.id },
+      { date: monthStart(YEAR, 3), unitId: units["104"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.REINSTATEMENT, amount: 1440, description: "Carpet replacement — void unit 104",        isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: monthStart(YEAR, 3), unitId: units["104"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.CLEANER,       amount: 336,  description: "Deep clean — void unit 104",                isSunkCost: false, paidFromPettyCash: true,  vendorId: vendorCleaning.id   },
+    ],
+  });
+
+  // ── Expense line items — step 2: fetch IDs, then createMany ─────────────────
+  const [createdPropExpenses, createdUnitExpenses] = await Promise.all([
+    prisma.expenseEntry.findMany({
+      where: { propertyId: property.id },
+      select: { id: true, description: true },
+    }),
+    prisma.expenseEntry.findMany({
+      where: { unitId: { in: Object.values(units).map((u) => u.id) } },
+      select: { id: true, description: true },
+    }),
+  ]);
+
+  type LIRow = {
+    expenseId: string; category: LineItemCategory; description: string;
+    amount: number; isVatable: boolean; paymentStatus: LineItemPaymentStatus; amountPaid: number;
+  };
+
+  // Patterns: { fragment in expense description → line items }
+  const allExpPatterns: { fragment: string; items: { cat: LineItemCategory; desc: string; amount: number; isVatable: boolean }[] }[] = [
+    { fragment: "management fee — Haverstock",    items: [{ cat: LineItemCategory.LABOUR, desc: "Management fee — 10 units @ £231/unit (excl. VAT)", amount: 2310, isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 462,  isVatable: false }] },
+    { fragment: "Thames Water",                   items: [{ cat: LineItemCategory.LABOUR, desc: "Water supply & sewerage charge (excl. VAT)",         amount: 380,  isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 76,   isVatable: false }] },
+    { fragment: "UK Power Networks",              items: [{ cat: LineItemCategory.LABOUR, desc: "Common area electricity supply (excl. VAT)",          amount: 280,  isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 56,   isVatable: false }] },
+    { fragment: "BrightHouse — communal",         items: [{ cat: LineItemCategory.LABOUR, desc: "Communal cleaning services (excl. VAT)",              amount: 720,  isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 144,  isVatable: false }] },
+    { fragment: "Virgin Media",                   items: [{ cat: LineItemCategory.LABOUR, desc: "Business broadband subscription (excl. VAT)",         amount: 85,   isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 17,   isVatable: false }] },
+    { fragment: "GreenThumb",                     items: [{ cat: LineItemCategory.LABOUR, desc: "Grounds & garden maintenance (excl. VAT)",            amount: 350,  isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 70,   isVatable: false }] },
+    { fragment: "burst pipe repair",              items: [{ cat: LineItemCategory.LABOUR, desc: "Emergency plumbing repair — parts & labour (excl. VAT)", amount: 450, isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 90,  isVatable: false }] },
+    { fragment: "Cracked window replacement",     items: [{ cat: LineItemCategory.MATERIAL, desc: "Double-glazed unit supply & fitting (excl. VAT)",   amount: 320,  isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 64,   isVatable: false }] },
+    { fragment: "Leaking kitchen tap repair",     items: [{ cat: LineItemCategory.LABOUR, desc: "Plumbing repair — cartridge & O-ring (excl. VAT)",   amount: 180,  isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 36,   isVatable: false }] },
+    { fragment: "Electrical DB board",            items: [{ cat: LineItemCategory.LABOUR,   desc: "DB board inspection & RCBO replacement (excl. VAT)", amount: 680, isVatable: true  }, { cat: LineItemCategory.MATERIAL, desc: "Parts & materials (excl. VAT)", amount: 170, isVatable: true }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 170, isVatable: false }] },
+    { fragment: "Carpet replacement",             items: [{ cat: LineItemCategory.MATERIAL, desc: "Carpet supply — Berber weave (excl. VAT)",          amount: 900,  isVatable: true  }, { cat: LineItemCategory.LABOUR, desc: "Fitting & gripper installation (excl. VAT)", amount: 300, isVatable: true }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 240, isVatable: false }] },
+    { fragment: "Deep clean — void",              items: [{ cat: LineItemCategory.LABOUR, desc: "Deep cleaning service — void unit (excl. VAT)",       amount: 280,  isVatable: true  }, { cat: LineItemCategory.QUOTE, desc: "VAT @ 20%", amount: 56,   isVatable: false }] },
+  ];
+
+  const lineItemRows: LIRow[] = [];
+  for (const exp of [...createdPropExpenses, ...createdUnitExpenses]) {
+    const desc = exp.description ?? "";
+    for (const { fragment, items } of allExpPatterns) {
+      if (desc.includes(fragment)) {
+        for (const item of items) {
+          lineItemRows.push({ expenseId: exp.id, category: item.cat, description: item.desc, amount: item.amount, isVatable: item.isVatable, paymentStatus: LineItemPaymentStatus.PAID, amountPaid: item.amount });
+        }
+        break;
+      }
+    }
+  }
+  await prisma.expenseLineItem.createMany({ data: lineItemRows });
+
+  // ── Petty Cash ───────────────────────────────────────────────────────────────
+  await prisma.pettyCash.createMany({
+    data: [
+      ...MONTHS.map((month) => ({ date: monthStart(YEAR, month), type: PettyCashType.IN, amount: 400, description: "Monthly petty cash top-up — Belsize Court", propertyId: property.id })),
+      { date: new Date(YEAR, 1,  8), type: PettyCashType.OUT, amount: 45,  description: "Lightbulbs — common area replacements",            propertyId: property.id },
+      { date: new Date(YEAR, 1, 14), type: PettyCashType.OUT, amount: 65,  description: "Notice board replacement — lobby",                  propertyId: property.id },
+      { date: new Date(YEAR, 1, 22), type: PettyCashType.OUT, amount: 28,  description: "Postage — legal correspondence",                    propertyId: property.id },
+      { date: new Date(YEAR, 2,  5), type: PettyCashType.OUT, amount: 35,  description: "Emergency padlock — car park gate",                 propertyId: property.id },
+      { date: new Date(YEAR, 2, 19), type: PettyCashType.OUT, amount: 78,  description: "Drain rods & plunger — maintenance stock",          propertyId: property.id },
+      { date: new Date(YEAR, 2, 28), type: PettyCashType.OUT, amount: 40,  description: "First aid kit restock — building",                  propertyId: property.id },
+      { date: new Date(YEAR, 3,  3), type: PettyCashType.OUT, amount: 24,  description: "Key cutting — unit 104 void preparation",           propertyId: property.id },
+      { date: new Date(YEAR, 3, 15), type: PettyCashType.OUT, amount: 55,  description: "Garden supplies — communal planting",                propertyId: property.id },
+      { date: new Date(YEAR, 3, 22), type: PettyCashType.OUT, amount: 336, description: "Deep clean — void unit 104 (paid from petty cash)", propertyId: property.id },
+    ],
+  });
+
+  // ── Insurance Policies ───────────────────────────────────────────────────────
+  await prisma.insurancePolicy.createMany({
+    data: [
+      { propertyId: property.id, type: InsuranceType.BUILDING,          insurer: "Aviva Insurance Ltd",       policyNumber: "AVI-BC-2026-001", startDate: d("2026-03-01"), endDate: d("2027-03-01"), premiumAmount: 4800, premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 2500000, brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Full buildings reinstatement insurance. Renewed March 2026." },
+      { propertyId: property.id, type: InsuranceType.PUBLIC_LIABILITY,   insurer: "AXA Business Insurance",   policyNumber: "AXA-BC-2026-002", startDate: d("2026-01-01"), endDate: d("2027-01-01"), premiumAmount: 1200, premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 5000000, brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Public liability & employer liability combined policy." },
+      { propertyId: property.id, type: InsuranceType.CONTENTS,           insurer: "Zurich UK",                policyNumber: "ZUR-BC-2025-003", startDate: d("2025-05-15"), endDate: d("2026-05-15"), premiumAmount: 800,  premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 150000,  brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Communal contents & common parts insurance. DUE FOR RENEWAL — expires 15 May 2026." },
+    ],
+  });
+
+  // ── Assets + Maintenance Schedules ──────────────────────────────────────────
+  const assetDefs = [
+    {
+      name: "Otis Gen2 Passenger Lift", category: AssetCategory.LIFT,       serial: "OT-GEN2-NW3-19",    purchaseDate: d("2019-01-15"), purchaseCost: 38000, warrantyExpiry: d("2024-01-15"),
+      serviceProvider: "Otis Elevator Company UK", serviceContact: "+44 800 912 8000",
+      notes: "10-person passenger lift. Annual LOLER inspection due August 2026.",
+      schedule: { taskName: "Quarterly Lift Inspection & Service",  frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-05-10"), estimatedCost: 650 },
+    },
+    {
+      name: "Perkins 80kVA Standby Generator", category: AssetCategory.GENERATOR, serial: "PK-80KVA-2020-NW3", purchaseDate: d("2020-06-01"), purchaseCost: 12500, warrantyExpiry: d("2025-06-01"),
+      serviceProvider: "BuildRight Maintenance Ltd", serviceContact: "+44 20 7946 0303",
+      notes: "Diesel standby generator. Monthly run tests and annual service.",
+      schedule: { taskName: "Monthly Generator Service Check",     frequency: MaintenanceFrequency.MONTHLY,   nextDue: d("2026-05-15"), estimatedCost: 280 },
+    },
+    {
+      name: "Hikvision CCTV System (16-channel)", category: AssetCategory.SECURITY,   serial: "HK-16CH-2021-BC",   purchaseDate: d("2021-03-01"), purchaseCost: 3200,  warrantyExpiry: d("2024-03-01"),
+      serviceProvider: "SecureGuard Systems Ltd", serviceContact: "+44 20 7946 0505",
+      notes: "16-channel NVR system covering entrance, car park, lift and corridors. 30-day recording retention.",
+      schedule: { taskName: "Quarterly CCTV Health Check",          frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-06-01"), estimatedCost: 150 },
+    },
+    {
+      name: "Ideal Evo Max Commercial Boiler", category: AssetCategory.PLUMBING,   serial: "ID-EVOMAX-BC-18",   purchaseDate: d("2018-09-01"), purchaseCost: 8500,  warrantyExpiry: d("2021-09-01"),
+      serviceProvider: "BuildRight Maintenance Ltd", serviceContact: "+44 20 7946 0303",
+      notes: "Central communal heating boiler. Annual Gas Safe service required. Inhibitor checked quarterly.",
+      schedule: { taskName: "Annual Boiler Service & Inspection",    frequency: MaintenanceFrequency.ANNUALLY,  nextDue: d("2026-09-01"), estimatedCost: 480 },
+    },
+    {
+      name: "Pod Point EV Charging Points (x2)", category: AssetCategory.ELECTRICAL, serial: "PP-EV-2-BC-23",     purchaseDate: d("2023-08-01"), purchaseCost: 4800,  warrantyExpiry: d("2026-08-01"),
+      serviceProvider: "Pod Point Ltd", serviceContact: "+44 20 3959 1000",
+      notes: "Two 7kW smart chargers in car park. OZEV funded. Annual service recommended.",
+      schedule: { taskName: "Annual EV Charger Service",             frequency: MaintenanceFrequency.ANNUALLY,  nextDue: d("2026-08-01"), estimatedCost: 220 },
+    },
+  ];
+  for (const a of assetDefs) {
+    const asset = await prisma.asset.create({
+      data: { propertyId: property.id, name: a.name, category: a.category, serialNumber: a.serial, purchaseDate: a.purchaseDate, purchaseCost: a.purchaseCost, warrantyExpiry: a.warrantyExpiry, serviceProvider: a.serviceProvider, serviceContact: a.serviceContact, notes: a.notes },
+    });
+    await prisma.assetMaintenanceSchedule.create({
+      data: { assetId: asset.id, propertyId: property.id, taskName: a.schedule.taskName, frequency: a.schedule.frequency, nextDue: a.schedule.nextDue, isActive: true, estimatedCost: a.schedule.estimatedCost },
+    });
+  }
+
+  // ── Recurring Expenses ───────────────────────────────────────────────────────
+  await prisma.recurringExpense.createMany({
+    data: [
+      { description: "Monthly management fee — Haverstock PM",  category: ExpenseCategory.MANAGEMENT_FEE, amount: 2772, scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorMgmt.id      },
+      { description: "Thames Water — communal water supply",    category: ExpenseCategory.WATER,          amount: 456,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorWater.id     },
+      { description: "UK Power Networks — common areas",        category: ExpenseCategory.ELECTRICITY,    amount: 336,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorElec.id      },
+      { description: "BrightHouse communal cleaning contract",  category: ExpenseCategory.CLEANER,        amount: 864,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorCleaning.id  },
+      { description: "Virgin Media Business — building WiFi",   category: ExpenseCategory.WIFI,           amount: 102,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorInternet.id  },
+      { description: "GreenThumb grounds maintenance",          category: ExpenseCategory.OTHER,          amount: 420,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorGarden.id    },
+      { description: "Quarterly Lift Maintenance — Otis UK",    category: ExpenseCategory.MAINTENANCE,    amount: 650,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: d("2026-05-10"), isActive: true, vendorId: vendorLift.id      },
+      { description: "Quarterly Generator Service — BuildRight",category: ExpenseCategory.MAINTENANCE,    amount: 280,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: d("2026-05-15"), isActive: true, vendorId: vendorMaint.id     },
+      { description: "Annual fire extinguisher service",        category: ExpenseCategory.MAINTENANCE,    amount: 420,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.ANNUAL,    nextDueDate: d("2026-10-01"), isActive: true, vendorId: vendorSecurity.id  },
+    ],
+  });
+
+  // ── Link asset schedules → recurring expenses ────────────────────────────────
+  const [schedRows, recurRows] = await Promise.all([
+    prisma.assetMaintenanceSchedule.findMany({ where: { propertyId: property.id }, select: { id: true, taskName: true } }),
+    prisma.recurringExpense.findMany({ where: { propertyId: property.id }, select: { id: true, description: true } }),
+  ]);
+  for (const { taskFragment, descFragment } of [
+    { taskFragment: "Lift",      descFragment: "Lift Maintenance"      },
+    { taskFragment: "Generator", descFragment: "Generator Service"     },
+  ]) {
+    const sched = schedRows.find((s) => s.taskName.includes(taskFragment));
+    const recur = recurRows.find((r) => r.description.includes(descFragment));
+    if (sched && recur) {
+      await prisma.assetMaintenanceSchedule.update({ where: { id: sched.id }, data: { recurringExpenseId: recur.id } });
+    }
+  }
+
+  // ── Maintenance Jobs ─────────────────────────────────────────────────────────
+  await prisma.maintenanceJob.createMany({
+    data: [
+      // DONE — historical
+      { propertyId: property.id, unitId: units["103"].id, title: "Burst pipe — bathroom ceiling",          description: "Emergency call-out. Overflow pipe burst above bathroom ceiling. Pipe replaced, area dried and resealed.",               category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.URGENT,  status: MaintenanceStatus.DONE,        reportedBy: "Sophie Bennett",          assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-02-03"), scheduledDate: d("2026-02-03"), completedDate: d("2026-02-03"), cost: 540,  vendorId: vendorMaint.id,      isEmergency: true,  submittedViaPortal: false, notes: "Resolved same day. Tenant confirmed resolved." },
+      { propertyId: property.id, unitId: units["201"].id, title: "Cracked double-glazed window — unit 201", description: "Impact crack on inner pane of living room window. Double-glazed unit replaced by BuildRight.",                         category: MaintenanceCategory.STRUCTURAL, priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.DONE,        reportedBy: "Oliver Thompson",         assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-02-10"), scheduledDate: d("2026-02-12"), completedDate: d("2026-02-12"), cost: 384,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Access via concierge key. Tenant confirmed." },
+      { propertyId: property.id, unitId: units["102"].id, title: "Leaking kitchen tap — unit 102",          description: "Dripping monobloc kitchen tap. Cartridge and O-ring replaced.",                                                       category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.LOW,     status: MaintenanceStatus.DONE,        reportedBy: "James Hartley",           assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-03-18"), scheduledDate: d("2026-03-20"), completedDate: d("2026-03-20"), cost: 216,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Routine repair." },
+      { propertyId: property.id, unitId: units["301"].id, title: "DB board fault — fuse tripping (unit 301)",description: "RCD tripping repeatedly. Faulty RCBO identified and replaced. Board tested and certified.",                            category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.HIGH,    status: MaintenanceStatus.DONE,        reportedBy: "Daniel Walsh",            assignedTo: "SparkSafe Electrical Ltd",   reportedDate: d("2026-03-07"), scheduledDate: d("2026-03-08"), completedDate: d("2026-03-08"), cost: 1020, vendorId: vendorElectrical.id, isEmergency: false, submittedViaPortal: false, notes: "EIC certificate issued post-works." },
+      // IN_PROGRESS
+      { propertyId: property.id,                          title: "Quarterly lift inspection — Otis UK",     description: "Scheduled quarterly inspection and lubrication service. Engineer on-site, report pending.",                            category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "Otis Elevator Company UK",   reportedDate: d("2026-04-25"), scheduledDate: d("2026-04-28"),                                                 vendorId: vendorLift.id,       isEmergency: false, submittedViaPortal: false, notes: "Otis engineer to return with replacement door sensor." },
+      { propertyId: property.id, unitId: units["104"].id, title: "Void works — carpet & painting (unit 104)",description: "Full void refurb in progress: carpet fitted, emulsion painting of all rooms underway.",                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-04-10"), scheduledDate: d("2026-04-15"),                                                 vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "ETA completion 9 May 2026." },
+      // OPEN — tenant portal requests
+      { propertyId: property.id, unitId: units["102"].id, title: "Blocked kitchen drain — unit 102",        description: "Kitchen sink draining very slowly. Possible grease build-up.",                                                         category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.OPEN,        reportedBy: "James Hartley (portal)",                                            reportedDate: d("2026-04-20"),                                                                                                             isEmergency: false, submittedViaPortal: true,  notes: "Awaiting scheduling." },
+      { propertyId: property.id, unitId: units["202"].id, title: "Intercom handset not working — unit 202", description: "Intercom rings but tenant cannot hear caller. Handset unit suspected faulty.",                                         category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Charlotte Davies (portal)",                                         reportedDate: d("2026-04-24"),                                                                                                             isEmergency: false, submittedViaPortal: true,  notes: "Non-urgent." },
+      { propertyId: property.id, unitId: units["204"].id, title: "Bathroom extractor fan noisy — unit 204", description: "Extractor fan vibrating loudly when running. Possible bearing failure.",                                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Rebecca Morgan (portal)",                                           reportedDate: d("2026-04-28"),                                                                                                             isEmergency: false, submittedViaPortal: true  },
+      // OPEN — manager logged
+      { propertyId: property.id,                          title: "Repaint 3rd floor corridor",               description: "Scuff marks and paint peeling on 3rd floor corridor walls. Full repaint recommended.",                                category: MaintenanceCategory.PAINTING,   priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Building Manager",                                                  reportedDate: d("2026-04-01"),                                                                                                             isEmergency: false, submittedViaPortal: false, notes: "To be quoted with BuildRight." },
+      { propertyId: property.id,                          title: "CCTV camera 4 offline",                    description: "Camera 4 (car park east side) showing offline on NVR. Possible cable fault.",                                        category: MaintenanceCategory.SECURITY,   priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.OPEN,        reportedBy: "Building Manager",                                                  reportedDate: d("2026-04-18"),                                                  vendorId: vendorSecurity.id, isEmergency: false, submittedViaPortal: false, notes: "SecureGuard to investigate." },
+    ],
+  });
+
+  // ── Compliance Certificates ──────────────────────────────────────────────────
+  await prisma.complianceCertificate.createMany({
+    data: [
+      { propertyId: property.id, organizationId, certificateType: "Gas Safety Certificate",                       certificateNumber: "GSC-BC-2025-004",  issuedBy: "Corgi Homeplan Ltd",                  issueDate: d("2025-04-01"), expiryDate: d("2026-04-01"), notes: "Annual Gas Safety Record (CP12). EXPIRED — renewal overdue. Contact Corgi Homeplan immediately."  },
+      { propertyId: property.id, organizationId, certificateType: "Electrical Installation Condition Report (EICR)", certificateNumber: "EICR-BC-2026-005", issuedBy: "SparkSafe Electrical Ltd (NICEIC)",    issueDate: d("2026-03-15"), expiryDate: d("2031-03-15"), notes: "5-year EICR completed March 2026. Grade C2 observations — remedial works completed. Certificate satisfactory." },
+      { propertyId: property.id, organizationId, certificateType: "Energy Performance Certificate (EPC)",          certificateNumber: "EPC-BC-2020-006",  issuedBy: "Elmhurst Energy",                     issueDate: d("2020-01-10"), expiryDate: d("2030-01-10"), notes: "EPC rating: C (72 SAP points). Valid to 2030."                                                       },
+      { propertyId: property.id, organizationId, certificateType: "Fire Risk Assessment",                          certificateNumber: "FRA-BC-2025-007",  issuedBy: "London Fire Safety Ltd",              issueDate: d("2025-09-01"), expiryDate: d("2026-09-01"), notes: "Annual fire risk assessment. Low risk rating. 3 actions raised — all completed."                     },
+      { propertyId: property.id, organizationId, certificateType: "Legionella Risk Assessment",                    certificateNumber: "LRA-BC-2024-008",  issuedBy: "Hydrosafe UK Ltd",                    issueDate: d("2024-11-01"), expiryDate: d("2025-11-01"), notes: "Legionella L8 assessment — EXPIRED. Annual renewal required. Contact Hydrosafe UK."                  },
+    ],
+  });
+
+  // ── Building Condition Report ────────────────────────────────────────────────
+  await prisma.buildingConditionReport.create({
+    data: {
+      propertyId: property.id,
+      reportDate: d("2026-01-15"),
+      inspector: "Jonathan Miles MRICS",
+      overallCondition: "Good",
+      summary: "Belsize Court is maintained to a good standard overall. The building fabric is sound and communal areas are clean and well-presented. Two items — first floor corridor carpets and third floor corridor decoration — are assessed as Fair and are recommended for attention within the next 6–12 months. Lift, generator and boiler plant are all in good working order.",
+      items: [
+        { area: "Main Entrance Lobby",     condition: "Good", notes: "Clean and well-lit. Intercom system fully functional. Post boxes in good order."            },
+        { area: "Passenger Lift",          condition: "Good", notes: "Recently serviced by Otis. No defects noted. LOLER certificate current."                    },
+        { area: "Stairwells (all floors)", condition: "Good", notes: "Emergency lighting tested and operational. Handrails secure."                                },
+        { area: "1st Floor Corridor",      condition: "Fair", notes: "Carpet showing significant wear. Redecoration with new carpet tiles recommended."            },
+        { area: "2nd Floor Corridor",      condition: "Good", notes: "Decoration in good order. No defects noted."                                                 },
+        { area: "3rd Floor Corridor",      condition: "Fair", notes: "Scuff marks on walls, minor paint peeling near unit 302. Redecoration recommended."          },
+        { area: "Roof & Waterproofing",    condition: "Good", notes: "Felt flat roof in satisfactory condition. No ponding or visible membrane defects."           },
+        { area: "External Facade",         condition: "Good", notes: "Victorian brick in good condition. Pointing intact. No structural cracking noted."           },
+        { area: "Car Park & Cycle Store",  condition: "Good", notes: "Line markings clear. EV chargers operational. Cycle store secure and tidy."                  },
+        { area: "Communal Garden",         condition: "Good", notes: "Lawn and planting well maintained by GreenThumb."                                            },
+        { area: "Boiler Room",             condition: "Good", notes: "Communal boiler serviced September 2025. Chemical inhibitor levels satisfactory."            },
+        { area: "Bin Store",               condition: "Good", notes: "Clean and organised. Recycling segregation compliant with Camden Council requirements."      },
+      ],
+      nextReviewDate: d("2026-07-15"),
+    },
+  });
+
+  // ── Owner Invoices ───────────────────────────────────────────────────────────
+  for (const { month, paid } of [
+    { month: 2, paid: true  },
+    { month: 3, paid: true  },
+    { month: 4, paid: false },
+  ]) {
+    const mm = String(month).padStart(2, "0");
+    const totalAmount = 2772;
+    await prisma.ownerInvoice.create({
+      data: {
+        invoiceNumber: `OWN-BC-2026-${mm}-MGMT`,
+        propertyId: property.id,
+        type: OwnerInvoiceType.MANAGEMENT_FEE,
+        periodYear: YEAR,
+        periodMonth: month,
+        lineItems: [
+          { description: "Management fee — 10 units @ £231.00/unit", units: 10, unitRate: 231.00, amount: 2310.00 },
+          { description: "VAT @ 20%",                                 units: 1,  unitRate: 462.00, amount: 462.00  },
+        ],
+        totalAmount,
+        dueDate: new Date(YEAR, month - 1, 7),
+        status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
+        paidAt: paid ? new Date(YEAR, month - 1, 10) : null,
+        paidAmount: paid ? totalAmount : null,
+        notes: `Monthly property management fee — ${paid ? "paid via BACS" : "awaiting payment"}.`,
+      },
+    });
+  }
+
+  // ── Asset Maintenance Logs ───────────────────────────────────────────────────
+  const allAssets = await prisma.asset.findMany({ where: { propertyId: property.id }, select: { id: true, name: true } });
+  const assetByName: Record<string, string> = Object.fromEntries(allAssets.map((a) => [a.name, a.id]));
+  const generatorId = assetByName["Perkins 80kVA Standby Generator"];
+  const liftId      = assetByName["Otis Gen2 Passenger Lift"];
+  const cctvId      = assetByName["Hikvision CCTV System (16-channel)"];
+  await prisma.assetMaintenanceLog.createMany({
+    data: [
+      { assetId: generatorId, date: d("2026-01-15"), description: "Monthly generator run test & inspection — all systems nominal",    cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "Oil level OK. Battery 12.8V. Run test 15 min."             },
+      { assetId: generatorId, date: d("2026-02-15"), description: "Monthly generator run test & inspection — minor oil top-up",       cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "Oil topped up. Run test 15 min."                           },
+      { assetId: generatorId, date: d("2026-03-15"), description: "Monthly generator run test & inspection — all systems nominal",    cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "All checks passed. Annual service due June 2026."          },
+      { assetId: liftId,      date: d("2026-02-20"), description: "Quarterly lift inspection and lubrication service",                cost: 650, technician: "Otis Field Engineer",       vendorId: vendorLift.id,     notes: "Door operation adjusted. Guide rails lubricated. No defects." },
+      { assetId: cctvId,      date: d("2026-01-20"), description: "Annual CCTV health check and recording verification",              cost: 150, technician: "SecureGuard Systems Ltd",   vendorId: vendorSecurity.id, notes: "All 16 channels verified. 30-day retention confirmed. Camera 12 realigned." },
+    ],
+  });
+
+  // ── Arrears Cases & Escalations ──────────────────────────────────────────────
+  for (const at of [
+    {
+      unit: "201", stage: ArrearsStage.INFORMAL_REMINDER, amountOwed: 5200,
+      notes: "Oliver Thompson — 2 months overdue (Feb + Mar 2026). Total: £5,200 (rent £4,700 + SC £500).",
+      escalations: [
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email & phone call. Tenant cited delayed bank transfer. Promised payment end of February.", createdAt: d("2026-02-08") },
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder issued. Tenant acknowledged arrears. Partial payment of £2,600 promised by 20 March — not received.",                 createdAt: d("2026-03-12") },
+      ],
+    },
+    {
+      unit: "302", stage: ArrearsStage.DEMAND_LETTER, amountOwed: 10350,
+      notes: "Natasha Singh — 3 months overdue (Feb, Mar, Apr 2026). Total: £10,350 (rent £9,600 + SC £750). Demand letter served.",
+      escalations: [
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email and text. No response from tenant.",                                                         createdAt: d("2026-02-08") },
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder. Tenant responded citing financial difficulty. No payment made.",                                    createdAt: d("2026-03-12") },
+        { stage: ArrearsStage.DEMAND_LETTER,     notes: "Section 8 demand letter served via solicitors (Ground 10 & 11). 14-day cure period running.",                       createdAt: d("2026-04-02") },
+      ],
+    },
+  ]) {
+    const arrearsCase = await prisma.arrearsCase.create({
+      data: { tenantId: tenants[at.unit].id, propertyId: property.id, stage: at.stage, amountOwed: at.amountOwed, notes: at.notes },
+    });
+    await prisma.arrearsEscalation.createMany({
+      data: at.escalations.map((e) => ({ caseId: arrearsCase.id, stage: e.stage, notes: e.notes, createdAt: e.createdAt })),
+    });
+  }
+
+  // ── Link maintenance jobs → expense entries ──────────────────────────────────
+  for (const { titleFragment, amount } of [
+    { titleFragment: "Burst pipe",          amount: 540  },
+    { titleFragment: "DB board fault",      amount: 1020 },
+    { titleFragment: "Cracked double-glazed", amount: 384 },
+  ]) {
+    const job = await prisma.maintenanceJob.findFirst({ where: { propertyId: property.id, title: { contains: titleFragment } } });
+    const exp = await prisma.expenseEntry.findFirst({ where: { amount, OR: [{ propertyId: property.id }, { unitId: { in: Object.values(units).map((u) => u.id) } }] } });
+    if (job && exp) {
+      await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
+    }
+  }
+
+  // ── Rent History ─────────────────────────────────────────────────────────────
+  const priorRents: Record<string, number> = { "101": 1695, "102": 1746, "103": 1746, "201": 2275, "202": 2325, "203": 2375, "204": 2325, "301": 3000, "302": 3100 };
+  await prisma.rentHistory.createMany({
+    data: [
+      ...Object.entries(priorRents).map(([unit, rent]) => ({ tenantId: tenants[unit].id, monthlyRent: rent, effectiveDate: d("2025-01-01"), reason: "AST commencement — agreed rent per tenancy agreement"                     })),
+      ...tenantDefs.map((t)                              => ({ tenantId: tenants[t.unit].id, monthlyRent: t.rent, effectiveDate: d("2026-01-01"), reason: "Annual rent review — CPI + 1% increase effective 1 January 2026" })),
+    ],
+  });
+
+  // ── Tax Configurations (UK VAT @ 20%) ────────────────────────────────────────
+  await prisma.taxConfiguration.createMany({
+    data: [
+      { orgId: organizationId, propertyId: property.id, label: "VAT — Management & Agency Fees",      rate: 0.20, type: TaxType.ADDITIVE, appliesTo: ["MANAGEMENT_FEE_INCOME", "LETTING_FEE_INCOME"],                   isInclusive: false, effectiveFrom: d("2020-01-01"), isActive: true },
+      { orgId: organizationId, propertyId: property.id, label: "VAT — Contractor & Vendor Invoices",  rate: 0.20, type: TaxType.ADDITIVE, appliesTo: ["CONTRACTOR_LABOUR", "CONTRACTOR_MATERIALS", "VENDOR_INVOICE"],   isInclusive: true,  effectiveFrom: d("2020-01-01"), isActive: true },
+    ],
+  });
+
+  // ── Management Agreement ─────────────────────────────────────────────────────
+  await prisma.managementAgreement.create({
+    data: {
+      propertyId: property.id,
+      managementFeeRate: 10.0,
+      vacancyFeeRate: 5.0,
+      vacancyFeeThresholdMonths: 9,
+      newLettingFeeRate: 50.0,
+      leaseRenewalFeeFlat: 300,
+      shortTermLettingFeeRate: 0.0,
+      repairAuthorityLimit: 500,
+      rentRemittanceDay: 5,
+      mgmtFeeInvoiceDay: 7,
+      landlordPaymentDays: 2,
+      kpiStartDate: d("2026-01-01"),
+      kpiOccupancyTarget: 90,
+      kpiRentCollectionTarget: 95,
+      kpiExpenseRatioTarget: 80,
+      kpiTenantTurnoverTarget: 85,
+      kpiDaysToLeaseTarget: 21,
+      kpiRenewalRateTarget: 80,
+      kpiMaintenanceCompletionTarget: 95,
+      kpiEmergencyResponseHrs: 4,
+      kpiStandardResponseHrs: 48,
+      mgmtBankName: "Barclays Bank UK PLC",
+      mgmtBankAccountName: "Haverstock Property Management Ltd",
+      mgmtBankAccountNumber: "12345678",
+      mgmtBankBranch: "Finchley Road, London",
+      mgmtPaymentInstructions: "Please pay via BACS quoting your property reference. Invoices settled within 7 working days of issue.",
+    },
+  });
+
+  return property;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Route handler
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2191,6 +2757,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
     } else if (demo.key === "sandton-heights") {
       const property = await seedSandtonHeights(organizationId);
+      await grantAccess(property.id);
+      return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
+    } else if (demo.key === "belsize-court") {
+      const property = await seedBelsizeCourt(organizationId);
       await grantAccess(property.id);
       return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
     } else {

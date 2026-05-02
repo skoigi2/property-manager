@@ -147,6 +147,24 @@ export async function POST(req: Request) {
 
   const hashed = await bcrypt.hash(password, 10);
 
+  // For MANAGER / ACCOUNTANT users created without explicit propertyIds, grant
+  // access to all properties in their org. Mirrors the invitation-accept flow
+  // and prevents new managers from landing on an empty Properties page.
+  // ADMIN sees all org properties via getAccessiblePropertyIds; OWNER is scoped
+  // to ownedProperties — neither needs PropertyAccess rows.
+  let effectivePropertyIds = propertyIds ?? [];
+  if (
+    !effectivePropertyIds.length &&
+    (role === "MANAGER" || role === "ACCOUNTANT") &&
+    newUserOrgId
+  ) {
+    const orgProps = await prisma.property.findMany({
+      where:  { organizationId: newUserOrgId },
+      select: { id: true },
+    });
+    effectivePropertyIds = orgProps.map((p) => p.id);
+  }
+
   const user = await prisma.user.create({
     data: {
       name,
@@ -155,8 +173,8 @@ export async function POST(req: Request) {
       role,
       phone,
       organizationId: newUserOrgId,
-      propertyAccess: propertyIds?.length
-        ? { create: propertyIds.map((propertyId) => ({ propertyId })) }
+      propertyAccess: effectivePropertyIds.length
+        ? { create: effectivePropertyIds.map((propertyId) => ({ propertyId })) }
         : undefined,
     },
     select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },

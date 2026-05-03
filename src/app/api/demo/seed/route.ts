@@ -10,6 +10,7 @@ import {
   MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
   VendorCategory, OwnerInvoiceType, TaxType,
   LineItemCategory, LineItemPaymentStatus,
+  DocumentCategory, CommunicationType,
 } from "@prisma/client";
 
 // Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
@@ -2127,9 +2128,9 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     { number: "302", type: UnitType.THREE_BED, rent: 3200, floor: 3, sqm: 115, status: UnitStatus.ACTIVE },
   ];
 
-  const units: Record<string, { id: string }> = {};
-  for (const u of unitDefs) {
-    units[u.number] = await prisma.unit.create({
+  // Parallel — all units depend only on property.id, not on each other
+  const unitRows = await Promise.all(
+    unitDefs.map((u) => prisma.unit.create({
       data: {
         unitNumber: u.number,
         propertyId: property.id,
@@ -2142,25 +2143,30 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
         amenities: ["Double glazing", "Gas central heating", "Built-in wardrobes"],
         description: `${u.type.replace("_", " ")} apartment on floor ${u.floor}`,
       },
-    });
-  }
+    })),
+  );
+  const units: Record<string, { id: string }> = Object.fromEntries(
+    unitRows.map((u, i) => [unitDefs[i].number, { id: u.id }]),
+  );
 
-  // ── Tenants (9 active; unit 104 vacant) ─────────────────────────────────────
+  // ── Tenants (9 active; unit 104 vacant after a former tenant moved out) ─────
+  // Oliver Thompson (unit 201) is in arrears AND opted into late penalties — demos
+  // the late-penalty workflow. Sophie Bennett (103) is mid-renewal (NOTICE_SENT).
   const tenantDefs = [
-    { unit: "101", name: "Emily Clarke",     rent: 1750, leaseEnd: "2027-01-31", phone: "+44 7911 000101", email: "emily.clarke@email.co.uk",    nationalId: "NS 12 34 56 A", renewal: RenewalStage.NONE         },
-    { unit: "102", name: "James Hartley",    rent: 1800, leaseEnd: "2027-03-31", phone: "+44 7911 000102", email: "james.hartley@email.co.uk",    nationalId: "NS 23 45 67 B", renewal: RenewalStage.NONE         },
-    { unit: "103", name: "Sophie Bennett",   rent: 1800, leaseEnd: "2026-06-30", phone: "+44 7911 000103", email: "sophie.bennett@email.co.uk",   nationalId: "NS 34 56 78 C", renewal: RenewalStage.NOTICE_SENT  },
-    { unit: "201", name: "Oliver Thompson",  rent: 2350, leaseEnd: "2026-12-31", phone: "+44 7911 000201", email: "oliver.thompson@email.co.uk",  nationalId: "NS 45 67 89 D", renewal: RenewalStage.NONE         },
-    { unit: "202", name: "Charlotte Davies", rent: 2400, leaseEnd: "2027-02-28", phone: "+44 7911 000202", email: "charlotte.davies@email.co.uk", nationalId: "NS 56 78 90 E", renewal: RenewalStage.NONE         },
-    { unit: "203", name: "William Foster",   rent: 2450, leaseEnd: "2026-09-30", phone: "+44 7911 000203", email: "william.foster@email.co.uk",   nationalId: "NS 67 89 01 F", renewal: RenewalStage.NONE         },
-    { unit: "204", name: "Rebecca Morgan",   rent: 2400, leaseEnd: "2027-04-30", phone: "+44 7911 000204", email: "rebecca.morgan@email.co.uk",   nationalId: "NS 78 90 12 G", renewal: RenewalStage.NONE         },
-    { unit: "301", name: "Daniel Walsh",     rent: 3100, leaseEnd: "2026-08-31", phone: "+44 7911 000301", email: "daniel.walsh@email.co.uk",     nationalId: "NS 89 01 23 H", renewal: RenewalStage.NONE         },
-    { unit: "302", name: "Natasha Singh",    rent: 3200, leaseEnd: "2026-12-31", phone: "+44 7911 000302", email: "natasha.singh@email.co.uk",    nationalId: "NS 90 12 34 I", renewal: RenewalStage.NONE         },
+    { unit: "101", name: "Emily Clarke",     rent: 1750, leaseEnd: "2027-01-31", phone: "+44 7911 000101", email: "emily.clarke@email.co.uk",    nationalId: "NS 12 34 56 A", renewal: RenewalStage.NONE,        chargeLatePenalty: false, escalationRate: 3.0 },
+    { unit: "102", name: "James Hartley",    rent: 1800, leaseEnd: "2027-03-31", phone: "+44 7911 000102", email: "james.hartley@email.co.uk",    nationalId: "NS 23 45 67 B", renewal: RenewalStage.NONE,        chargeLatePenalty: false, escalationRate: 3.0 },
+    { unit: "103", name: "Sophie Bennett",   rent: 1800, leaseEnd: "2026-06-30", phone: "+44 7911 000103", email: "sophie.bennett@email.co.uk",   nationalId: "NS 34 56 78 C", renewal: RenewalStage.NOTICE_SENT, chargeLatePenalty: false, escalationRate: 3.0 },
+    { unit: "201", name: "Oliver Thompson",  rent: 2350, leaseEnd: "2026-12-31", phone: "+44 7911 000201", email: "oliver.thompson@email.co.uk",  nationalId: "NS 45 67 89 D", renewal: RenewalStage.NONE,        chargeLatePenalty: true,  escalationRate: 4.0 },
+    { unit: "202", name: "Charlotte Davies", rent: 2400, leaseEnd: "2027-02-28", phone: "+44 7911 000202", email: "charlotte.davies@email.co.uk", nationalId: "NS 56 78 90 E", renewal: RenewalStage.NONE,        chargeLatePenalty: false, escalationRate: 3.0 },
+    { unit: "203", name: "William Foster",   rent: 2450, leaseEnd: "2026-09-30", phone: "+44 7911 000203", email: "william.foster@email.co.uk",   nationalId: "NS 67 89 01 F", renewal: RenewalStage.NONE,        chargeLatePenalty: false, escalationRate: 3.0 },
+    { unit: "204", name: "Rebecca Morgan",   rent: 2400, leaseEnd: "2027-04-30", phone: "+44 7911 000204", email: "rebecca.morgan@email.co.uk",   nationalId: "NS 78 90 12 G", renewal: RenewalStage.NONE,        chargeLatePenalty: false, escalationRate: 3.0 },
+    { unit: "301", name: "Daniel Walsh",     rent: 3100, leaseEnd: "2026-08-31", phone: "+44 7911 000301", email: "daniel.walsh@email.co.uk",     nationalId: "NS 89 01 23 H", renewal: RenewalStage.NONE,        chargeLatePenalty: false, escalationRate: 3.0 },
+    { unit: "302", name: "Natasha Singh",    rent: 3200, leaseEnd: "2026-12-31", phone: "+44 7911 000302", email: "natasha.singh@email.co.uk",    nationalId: "NS 90 12 34 I", renewal: RenewalStage.NONE,        chargeLatePenalty: false, escalationRate: 4.0 },
   ];
 
-  const tenants: Record<string, { id: string }> = {};
-  for (const t of tenantDefs) {
-    tenants[t.unit] = await prisma.tenant.create({
+  // Parallel — tenants depend only on unit IDs which already exist
+  const tenantRows = await Promise.all(
+    tenantDefs.map((t) => prisma.tenant.create({
       data: {
         name: t.name,
         unitId: units[t.unit].id,
@@ -2179,10 +2185,39 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
         renewalNotes: t.renewal === RenewalStage.NOTICE_SENT
           ? "Renewal notice sent 1 March 2026. Awaiting tenant response on proposed new rent of £1,890."
           : null,
-        notes: `AST commenced January 2025. ${t.name.split(" ")[0]} is a reliable tenant in good standing.`,
+        chargeLatePenalty: t.chargeLatePenalty,
+        escalationRate: t.escalationRate,
+        notes: `AST commenced January 2025. ${t.name.split(" ")[0]} is a tenant in good standing.`,
       },
-    });
-  }
+    })),
+  );
+  const tenants: Record<string, { id: string }> = Object.fromEntries(
+    tenantRows.map((t, i) => [tenantDefs[i].unit, { id: t.id }]),
+  );
+
+  // Former tenant of unit 104 — vacated 31 Jan 2026, deposit settled. Drives the
+  // DepositSettlement demo (unit 104 itself is now VACANT, awaiting re-let).
+  const formerTenant104 = await prisma.tenant.create({
+    data: {
+      name: "Hannah Pierce",
+      unitId: units["104"].id,
+      depositAmount: 3700,
+      depositPaidDate: d("2024-02-01"),
+      leaseStart: d("2024-02-01"),
+      leaseEnd: d("2026-01-31"),
+      monthlyRent: 1850,
+      serviceCharge: SC,
+      rentDueDay: 1,
+      isActive: false,
+      vacatedDate: d("2026-01-31"),
+      phone: "+44 7911 000104",
+      email: "hannah.pierce@email.co.uk",
+      nationalId: "NS 01 23 45 J",
+      renewalStage: RenewalStage.NONE,
+      chargeLatePenalty: false,
+      notes: "Former tenant. Lease ended 31 January 2026. Deposit settled with deductions for cleaning & wall repair.",
+    },
+  });
 
   // ── Management Fee Configs ───────────────────────────────────────────────────
   const feeConfigs = [
@@ -2229,6 +2264,16 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     },
   });
 
+  // ── Tax Configurations (UK VAT @ 20%) ────────────────────────────────────────
+  // Created early so Income entries below can reference taxConfigId — otherwise
+  // the tax tabs in the UI look empty even though configs exist.
+  const [vatMgmtConfig, vatContractorConfig] = await Promise.all([
+    prisma.taxConfiguration.create({ data: { orgId: organizationId, propertyId: property.id, label: "VAT — Management & Agency Fees",     rate: 0.20, type: TaxType.ADDITIVE, appliesTo: ["MANAGEMENT_FEE_INCOME", "LETTING_FEE_INCOME"],                isInclusive: false, effectiveFrom: d("2020-01-01"), isActive: true } }),
+    prisma.taxConfiguration.create({ data: { orgId: organizationId, propertyId: property.id, label: "VAT — Contractor & Vendor Invoices", rate: 0.20, type: TaxType.ADDITIVE, appliesTo: ["CONTRACTOR_LABOUR", "CONTRACTOR_MATERIALS", "VENDOR_INVOICE"], isInclusive: true,  effectiveFrom: d("2020-01-01"), isActive: true } }),
+  ]);
+  // Suppress unused-var lint for vatContractorConfig — kept for symmetry / future wiring on expense lines
+  void vatContractorConfig;
+
   // ── Income & Invoices ────────────────────────────────────────────────────────
   // Units with arrears (month indices that are overdue)
   const arrears: Record<string, number[]> = {
@@ -2239,11 +2284,14 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   const incomeRows: {
     date: Date; unitId: string; tenantId: string; invoiceId: string;
     type: IncomeType; grossAmount: number; agentCommission: number;
+    taxConfigId?: string; taxRate?: number; taxAmount?: number; taxType?: TaxType;
   }[] = [];
 
+  // Parallel within each month — invoices for different tenants in the same month
+  // are independent. Sequential across months keeps invoice numbering predictable.
   for (const month of MONTHS) {
     const mm = String(month + 1).padStart(2, "0"); // month is 0-indexed; +1 for calendar month
-    for (const t of tenantDefs) {
+    const monthInvoices = await Promise.all(tenantDefs.map(async (t) => {
       const isArrears = (arrears[t.unit] ?? []).includes(month);
       const total = t.rent + SC;
       const inv = await prisma.invoice.create({
@@ -2261,7 +2309,15 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
           paidAmount: isArrears ? null : total,
         },
       });
+      return { inv, t, isArrears };
+    }));
+    for (const { inv, t, isArrears } of monthInvoices) {
       if (!isArrears) {
+        // Wire tax to the management fee component of rent — feeds the tax UI.
+        // Computed as 20% VAT on the unit's flat management fee (additive, not
+        // included in rent shown to tenants).
+        const mgmtFee = feeConfigs.find((f) => f.unit === t.unit)?.flat ?? 0;
+        const taxAmount = Math.round(mgmtFee * 0.20 * 100) / 100;
         incomeRows.push({
           date: new Date(YEAR, month, 5),
           unitId: units[t.unit].id,
@@ -2270,6 +2326,10 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
           type: IncomeType.LONGTERM_RENT,
           grossAmount: t.rent,
           agentCommission: 0,
+          taxConfigId: vatMgmtConfig.id,
+          taxRate: 0.20,
+          taxAmount,
+          taxType: TaxType.ADDITIVE,
         });
       }
     }
@@ -2465,7 +2525,9 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       { propertyId: property.id, unitId: units["103"].id, title: "Burst pipe — bathroom ceiling",          description: "Emergency call-out. Overflow pipe burst above bathroom ceiling. Pipe replaced, area dried and resealed.",               category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.URGENT,  status: MaintenanceStatus.DONE,        reportedBy: "Sophie Bennett",          assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-02-03"), scheduledDate: d("2026-02-03"), completedDate: d("2026-02-03"), cost: 540,  vendorId: vendorMaint.id,      isEmergency: true,  submittedViaPortal: false, notes: "Resolved same day. Tenant confirmed resolved." },
       { propertyId: property.id, unitId: units["201"].id, title: "Cracked double-glazed window — unit 201", description: "Impact crack on inner pane of living room window. Double-glazed unit replaced by BuildRight.",                         category: MaintenanceCategory.STRUCTURAL, priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.DONE,        reportedBy: "Oliver Thompson",         assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-02-10"), scheduledDate: d("2026-02-12"), completedDate: d("2026-02-12"), cost: 384,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Access via concierge key. Tenant confirmed." },
       { propertyId: property.id, unitId: units["102"].id, title: "Leaking kitchen tap — unit 102",          description: "Dripping monobloc kitchen tap. Cartridge and O-ring replaced.",                                                       category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.LOW,     status: MaintenanceStatus.DONE,        reportedBy: "James Hartley",           assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-03-18"), scheduledDate: d("2026-03-20"), completedDate: d("2026-03-20"), cost: 216,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Routine repair." },
-      { propertyId: property.id, unitId: units["301"].id, title: "DB board fault — fuse tripping (unit 301)",description: "RCD tripping repeatedly. Faulty RCBO identified and replaced. Board tested and certified.",                            category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.HIGH,    status: MaintenanceStatus.DONE,        reportedBy: "Daniel Walsh",            assignedTo: "SparkSafe Electrical Ltd",   reportedDate: d("2026-03-07"), scheduledDate: d("2026-03-08"), completedDate: d("2026-03-08"), cost: 1020, vendorId: vendorElectrical.id, isEmergency: false, submittedViaPortal: false, notes: "EIC certificate issued post-works." },
+      // DB board fault cost £1,020 — exceeds repairAuthorityLimit (£500), so it
+      // ran through the owner-approval workflow. Demos requiresApproval/approvedAt.
+      { propertyId: property.id, unitId: units["301"].id, title: "DB board fault — fuse tripping (unit 301)",description: "RCD tripping repeatedly. Faulty RCBO identified and replaced. Board tested and certified.",                            category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.HIGH,    status: MaintenanceStatus.DONE,        reportedBy: "Daniel Walsh",            assignedTo: "SparkSafe Electrical Ltd",   reportedDate: d("2026-03-07"), scheduledDate: d("2026-03-08"), completedDate: d("2026-03-08"), cost: 1020, vendorId: vendorElectrical.id, isEmergency: false, submittedViaPortal: false, requiresApproval: true, acknowledgedAt: d("2026-03-07"), approvedAt: d("2026-03-07"), approvalNotes: "Approved by landlord (J. Smith) via email on 7 March 2026 — quote of £1,020 exceeds standard £500 repair authority but works are urgent (DB safety).", notes: "EIC certificate issued post-works." },
       // IN_PROGRESS
       { propertyId: property.id,                          title: "Quarterly lift inspection — Otis UK",     description: "Scheduled quarterly inspection and lubrication service. Engineer on-site, report pending.",                            category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "Otis Elevator Company UK",   reportedDate: d("2026-04-25"), scheduledDate: d("2026-04-28"),                                                 vendorId: vendorLift.id,       isEmergency: false, submittedViaPortal: false, notes: "Otis engineer to return with replacement door sensor." },
       { propertyId: property.id, unitId: units["104"].id, title: "Void works — carpet & painting (unit 104)",description: "Full void refurb in progress: carpet fitted, emulsion painting of all rooms underway.",                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-04-10"), scheduledDate: d("2026-04-15"),                                                 vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "ETA completion 9 May 2026." },
@@ -2611,12 +2673,67 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     ],
   });
 
-  // ── Tax Configurations (UK VAT @ 20%) ────────────────────────────────────────
-  await prisma.taxConfiguration.createMany({
+  // ── Tenant Documents ─────────────────────────────────────────────────────────
+  // Lease agreement + ID copy for every active tenant. Storage paths are
+  // placeholders — actual file blobs are not seeded.
+  await prisma.tenantDocument.createMany({
+    data: tenantDefs.flatMap((t) => [
+      {
+        tenantId: tenants[t.unit].id,
+        category: DocumentCategory.LEASE_AGREEMENT,
+        label: `AST — ${t.name} (Unit ${t.unit})`,
+        fileName: `lease-belsize-${t.unit}-2025.pdf`,
+        storagePath: `demo/belsize-court/tenants/${t.unit}/lease-belsize-${t.unit}-2025.pdf`,
+        fileSize: 184320,
+        mimeType: "application/pdf",
+      },
+      {
+        tenantId: tenants[t.unit].id,
+        category: DocumentCategory.ID_COPY,
+        label: `Photo ID — ${t.name}`,
+        fileName: `id-${t.unit}.jpg`,
+        storagePath: `demo/belsize-court/tenants/${t.unit}/id-${t.unit}.jpg`,
+        fileSize: 92160,
+        mimeType: "image/jpeg",
+      },
+    ]),
+  });
+
+  // ── Communication Log ────────────────────────────────────────────────────────
+  // Realistic outbound emails — rent receipts, renewal notice, arrears reminders.
+  // One entry has an open follow-up to demo the follow-up tracking workflow.
+  await prisma.communicationLog.createMany({
     data: [
-      { orgId: organizationId, propertyId: property.id, label: "VAT — Management & Agency Fees",      rate: 0.20, type: TaxType.ADDITIVE, appliesTo: ["MANAGEMENT_FEE_INCOME", "LETTING_FEE_INCOME"],                   isInclusive: false, effectiveFrom: d("2020-01-01"), isActive: true },
-      { orgId: organizationId, propertyId: property.id, label: "VAT — Contractor & Vendor Invoices",  rate: 0.20, type: TaxType.ADDITIVE, appliesTo: ["CONTRACTOR_LABOUR", "CONTRACTOR_MATERIALS", "VENDOR_INVOICE"],   isInclusive: true,  effectiveFrom: d("2020-01-01"), isActive: true },
+      // Sophie Bennett (103) — renewal notice
+      { tenantId: tenants["103"].id, type: CommunicationType.EMAIL, subject: "Lease renewal — Belsize Court Unit 103",  body: "Dear Sophie, your current AST expires 30 June 2026. We'd like to offer renewal at a new monthly rent of £1,890 (4.7% increase). Please confirm your intent to renew within 14 days.", templateUsed: "renewal_offer",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-03-01"), followUpDate: d("2026-03-15"), followUpCompleted: false },
+      // Oliver Thompson (201) — arrears reminders (matching the arrears case)
+      { tenantId: tenants["201"].id, type: CommunicationType.EMAIL, subject: "Friendly reminder — February rent outstanding", body: "Hi Oliver, just a quick reminder that February's rent (£2,600) is now overdue. Please confirm payment date at your convenience.",                                                                  templateUsed: "rent_reminder",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-02-08"), followUpCompleted: true  },
+      { tenantId: tenants["201"].id, type: CommunicationType.EMAIL, subject: "Second reminder — March rent now also outstanding", body: "Hi Oliver, March's rent is now also outstanding (combined balance £5,200). Please respond with a payment plan by 20 March.",                                                                  templateUsed: "rent_reminder",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-03-12"), followUpCompleted: true  },
+      // Emily Clarke (101) — payment receipt
+      { tenantId: tenants["101"].id, type: CommunicationType.EMAIL, subject: "March rent — payment received",          body: "Dear Emily, we confirm receipt of £2,000 for March 2026 rent + service charge. Thank you.",                                                                                                              templateUsed: "payment_receipt",     loggedByEmail: "accounts@haverstockpm.co.uk", loggedByName: "Accounts",         sentAt: d("2026-03-05"), followUpCompleted: true  },
+      // James Hartley (102) — maintenance acknowledgement
+      { tenantId: tenants["102"].id, type: CommunicationType.EMAIL, subject: "Re: Blocked kitchen drain (unit 102)",   body: "Hi James, thanks for raising this via the portal. We've scheduled BuildRight to attend Tuesday 28 April between 10am–12pm. Please confirm.",                                                            templateUsed: null,                  loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-04-21"), followUpCompleted: false },
+      // Natasha Singh (302) — demand letter notification
+      { tenantId: tenants["302"].id, type: CommunicationType.EMAIL, subject: "Formal demand — unpaid rent (Unit 302)", body: "Dear Ms Singh, please find attached our formal demand for unpaid rent totalling £10,350 covering February to April 2026. You have 14 days to clear the balance or contact us with a payment plan.", templateUsed: "demand_letter",       loggedByEmail: "legal@haverstockpm.co.uk", loggedByName: "Legal/Compliance",  sentAt: d("2026-04-02"), followUpCompleted: true  },
     ],
+  });
+
+  // ── Deposit Settlement (former tenant of unit 104) ───────────────────────────
+  // Hannah Pierce vacated 31 Jan 2026. Deposit of £3,700 settled with two
+  // deductions — drives the deposit-settlement UI on the vacated tenant page.
+  await prisma.depositSettlement.create({
+    data: {
+      tenantId: formerTenant104.id,
+      depositHeld: 3700,
+      deductions: [
+        { description: "Professional cleaning — exit clean (kitchen + bathroom)", amount: 280 },
+        { description: "Wall repair & repainting — bedroom 1 (picture-hook damage)", amount: 180 },
+      ],
+      totalDeductions: 460,
+      netRefunded: 3240,
+      settledDate: d("2026-02-12"),
+      notes: "Inventory check-out completed 1 February 2026. Deductions agreed with tenant via email. Refund issued via BACS on 12 February.",
+    },
   });
 
   // ── Management Agreement ─────────────────────────────────────────────────────

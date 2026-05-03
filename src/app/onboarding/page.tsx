@@ -372,8 +372,10 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
     if (orgId) {
       await update({ organizationId: orgId, membershipCount: 1 }).catch(() => {});
     }
-    router.push("/dashboard");
-    router.refresh();
+    // Hard navigation guarantees the new JWT cookie is used by the dashboard's
+    // first /api/properties fetch — soft router.push() can race the cookie
+    // write and load the dashboard with stale session state.
+    window.location.href = "/dashboard";
   }
 
   async function goToDashboard() {
@@ -391,17 +393,32 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
         await update({ organizationId: newOrgId, membershipCount: 1 }).catch(() => {});
       }
 
-      const res = await fetch("/api/demo/seed", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        // Send the org explicitly so the seed targets the user's actual org,
-        // not whatever the server's fallback logic resolves to
-        body:    JSON.stringify({
-          demoKey:        selectedDemo,
-          organizationId: newOrgId ?? undefined,
-        }),
+      const body = JSON.stringify({
+        demoKey:        selectedDemo,
+        organizationId: newOrgId ?? undefined,
       });
-      const data = await res.json().catch(() => ({}));
+
+      // Auto-retry once on transient failures. The seed route deletes any
+      // partial property on error so the retry starts clean.
+      const postSeed = async (): Promise<{ res: Response; data: any } | null> => {
+        try {
+          const res = await fetch("/api/demo/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+          const data = await res.json().catch(() => ({}));
+          return { res, data };
+        } catch { return null; }
+      };
+
+      let attempt = await postSeed();
+      const isTransient = !attempt || (!attempt.res.ok && attempt.res.status >= 500);
+      if (isTransient) {
+        await new Promise((r) => setTimeout(r, 1500));
+        attempt = await postSeed();
+      }
+      if (!attempt) {
+        toast.error("Network error. Please check your connection and try again.");
+        return;
+      }
+      const { res, data } = attempt;
       if (!res.ok && data?.reason !== "already_seeded") {
         toast.error(data?.detail ?? data?.error ?? "Could not load sample data.");
         return;
@@ -490,6 +507,11 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
           "Load sample property →"
         )}
       </button>
+      {seedLoading && (
+        <p className="text-xs text-gray-400 font-sans mt-2 text-center">
+          This usually takes 20–30 seconds. Please don&apos;t close this window.
+        </p>
+      )}
 
       <p className="text-xs text-gray-400 font-sans mt-6">
         Need help?{" "}

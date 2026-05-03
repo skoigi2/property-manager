@@ -22,6 +22,8 @@ interface PropertyContextValue {
   setSelectedId: (id: string | null) => void;
   selected: PropertyOption | null;
   loading: boolean;
+  /** Re-fetch the property list from the server. Call after creating/seeding a property. */
+  refresh: () => Promise<void>;
 }
 
 const PropertyContext = createContext<PropertyContextValue>({
@@ -30,6 +32,7 @@ const PropertyContext = createContext<PropertyContextValue>({
   setSelectedId: () => {},
   selected: null,
   loading: true,
+  refresh: async () => {},
 });
 
 export function PropertyProvider({ children }: { children: ReactNode }) {
@@ -37,19 +40,21 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch("/api/properties")
-      .then((r) => r.json())
-      .then((data: PropertyOption[]) => {
-        setProperties(data);
-        // Default to first property (or restore from sessionStorage)
-        const stored = sessionStorage.getItem("selectedPropertyId");
-        const match = data.find((p) => p.id === stored);
-        setSelectedIdState(match ? stored : (data[0]?.id ?? null));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const fetchProperties = useCallback(async () => {
+    try {
+      const r = await fetch("/api/properties", { cache: "no-store" });
+      const data: PropertyOption[] = await r.json();
+      setProperties(data);
+      // Restore from sessionStorage, else fall back to first property
+      const stored = sessionStorage.getItem("selectedPropertyId");
+      const match = data.find((p) => p.id === stored);
+      setSelectedIdState((prev) => match ? stored : (prev && data.find((p) => p.id === prev) ? prev : (data[0]?.id ?? null)));
+    } catch { /* ignore network errors — keep current state */ }
   }, []);
+
+  useEffect(() => {
+    fetchProperties().finally(() => setLoading(false));
+  }, [fetchProperties]);
 
   const setSelectedId = useCallback((id: string | null) => {
     setSelectedIdState(id);
@@ -60,7 +65,7 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
   const selected = properties.find((p) => p.id === selectedId) ?? null;
 
   return (
-    <PropertyContext.Provider value={{ properties, selectedId, setSelectedId, selected, loading }}>
+    <PropertyContext.Provider value={{ properties, selectedId, setSelectedId, selected, loading, refresh: fetchProperties }}>
       {children}
     </PropertyContext.Provider>
   );

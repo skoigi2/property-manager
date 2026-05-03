@@ -2769,6 +2769,24 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[demo/seed] Error seeding demo property:", message);
+
+    // Best-effort cleanup: if the seed function partially created the property
+    // (e.g. Vercel function timeout, pgBouncer connection drop), delete the
+    // partial record so the next attempt starts clean instead of returning
+    // "already_seeded" with incomplete data.
+    try {
+      const partial = await prisma.property.findFirst({
+        where: { name: demo.name, organizationId },
+        select: { id: true },
+      });
+      if (partial) {
+        await prisma.property.delete({ where: { id: partial.id } });
+        console.warn("[demo/seed] Deleted partial property after failure:", partial.id);
+      }
+    } catch (cleanupErr) {
+      console.error("[demo/seed] Cleanup of partial property failed:", cleanupErr);
+    }
+
     return NextResponse.json({ ok: false, error: "Seed failed. Please try again.", detail: message }, { status: 500 });
   }
 }

@@ -22,11 +22,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
+import { useProperty } from "@/lib/property-context";
 
 // ─── Demo empty state ─────────────────────────────────────────────────────────
 
 function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void; emptyState?: boolean }) {
   const { data: session } = useSession();
+  const { refresh: refreshPropertyContext } = useProperty();
   const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");
   const [loading, setLoading] = useState(false);
   // Set to the demoKey when the server says it's already seeded — offers a Reseed option
@@ -36,22 +38,55 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
     if (!selectedDemo) return;
     setLoading(true);
     setAlreadySeededKey(null);
+
+    const body = JSON.stringify({
+      demoKey: selectedDemo,
+      organizationId: session?.user?.organizationId ?? undefined,
+      ...(force ? { force: true } : {}),
+    });
+
+    // Helper that POSTs to the seed route. Auto-retries once on transient
+    // server errors (500/network) — the route deletes any partial property
+    // on failure, so the retry starts from a clean state.
+    const postSeed = async (): Promise<{ res: Response; data: any } | null> => {
+      try {
+        const res = await fetch("/api/demo/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+        const data = await res.json().catch(() => ({}));
+        return { res, data };
+      } catch (err) {
+        console.error("[demo/seed] fetch error:", err);
+        return null;
+      }
+    };
+
     try {
-      const res = await fetch("/api/demo/seed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          demoKey: selectedDemo,
-          organizationId: session?.user?.organizationId ?? undefined,
-          ...(force ? { force: true } : {}),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
+      let attempt = await postSeed();
+      // Retry once on transient failure (network drop, 500). The route's
+      // cleanup-on-failure ensures the second attempt starts clean.
+      const isTransient = !attempt || (!attempt.res.ok && attempt.res.status >= 500);
+      if (isTransient) {
+        await new Promise((r) => setTimeout(r, 1500));
+        attempt = await postSeed();
+      }
+      if (!attempt) {
+        toast.error("Network error loading sample data. Please check your connection and try again.");
+        return;
+      }
+      const { res, data } = attempt;
+
       if (data?.reason === "already_seeded") {
-        // Already seeded — offer reseed instead of silently succeeding
-        setAlreadySeededKey(selectedDemo);
         if (data?.propertyId) sessionStorage.setItem("selectedPropertyId", data.propertyId);
-        onLoaded(); // still refresh the list so the property appears
+        // If the user explicitly clicked "load" again on a property they already
+        // have, surface the reseed option. Otherwise treat it as a successful
+        // load (this also covers the "first attempt succeeded mid-write but
+        // returned success on retry" recovery path).
+        if (force) {
+          setAlreadySeededKey(selectedDemo);
+        } else {
+          toast.success("Sample property loaded.");
+        }
+        await refreshPropertyContext().catch(() => {});
+        onLoaded();
         return;
       }
       if (!res.ok) {
@@ -62,10 +97,11 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         sessionStorage.setItem("selectedPropertyId", data.propertyId);
       }
       toast.success(force ? "Sample property reseeded successfully." : "Sample property loaded.");
+      // Refresh both the page-level list AND the global PropertyContext so
+      // the sidebar selector immediately picks up the new property without a
+      // hard page reload.
+      await refreshPropertyContext().catch(() => {});
       onLoaded();
-    } catch (err) {
-      console.error("[demo/seed] fetch error:", err);
-      toast.error("Could not load sample data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -144,6 +180,11 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
       >
         {loading ? "Loading sample data…" : "Load sample property →"}
       </button>
+      {loading && (
+        <p className="text-xs text-gray-400 font-sans mt-2 text-center">
+          This usually takes 20–30 seconds. Please don&apos;t close this window.
+        </p>
+      )}
     </div>
   );
 }

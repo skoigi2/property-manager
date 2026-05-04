@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { sendNewUserAlert } from "@/lib/email";
 
 /**
  * POST /api/onboarding/create-org
@@ -51,6 +52,12 @@ export async function POST(req: NextRequest) {
     await prisma.organization.delete({ where: { id: org.id } }).catch(() => {});
     throw err;
   }
+
+  sendNewUserAlert(
+    session!.user.email as string,
+    session!.user.name ?? "Unknown",
+    name.trim(),
+  ).catch(console.error);
 
   return NextResponse.json({ orgId: org.id }, { status: 201 });
 }

@@ -192,6 +192,34 @@ export async function sendContactEmail(
   });
 }
 
+// ─── New user signup alert (internal) ────────────────────────────────────────
+
+export async function sendNewUserAlert(userEmail: string, userName: string, orgName: string): Promise<void> {
+  const ts = new Date().toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+  });
+
+  await getResend().emails.send({
+    from:    FROM,
+    to:      "support@groundworkpm.com",
+    subject: `New signup: ${userName.replace(/[\r\n]/g, " ")} (${orgName.replace(/[\r\n]/g, " ")})`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a1a2e; font-size: 20px; margin-bottom: 4px;">New user signed up</h2>
+        <p style="color: #9ca3af; font-size: 12px; margin-top: 0;">${esc(ts)}</p>
+        <table style="width:100%; border-collapse: collapse; font-size: 14px; margin: 16px 0;">
+          <tr><td style="padding: 8px 0; color:#6b7280; width:120px;">Name</td><td style="color:#1a1a2e; font-weight:600;">${esc(userName)}</td></tr>
+          <tr><td style="padding: 8px 0; color:#6b7280;">Email</td><td><a href="mailto:${encodeURIComponent(safeAddress(userEmail))}" style="color:#c9a84c;">${esc(userEmail)}</a></td></tr>
+          <tr><td style="padding: 8px 0; color:#6b7280;">Organisation</td><td style="color:#1a1a2e;">${esc(orgName)}</td></tr>
+        </table>
+        <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
+        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Internal signup notification</p>
+      </div>
+    `,
+  });
+}
+
 // ─── Welcome email ────────────────────────────────────────────────────────────
 
 export async function sendWelcome(email: string, name: string): Promise<void> {

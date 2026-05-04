@@ -1,6 +1,8 @@
 import { requireManager } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
+export const maxDuration = 60;
+
 interface PettyCashRow {
   date?: string;
   type?: string;
@@ -19,6 +21,17 @@ export async function POST(req: Request) {
   let skipped = 0;
   const errors: { row: number; reason: string }[] = [];
 
+  type Cleaned = {
+    rowNum: number;
+    date: Date;
+    dateOnly: string;
+    type: "IN" | "OUT";
+    description: string;
+    amount: number;
+  };
+
+  const cleaned: Cleaned[] = [];
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
@@ -33,58 +46,85 @@ export async function POST(req: Request) {
       skipped++;
       continue;
     }
-
     if (!type || !["IN", "OUT"].includes(type)) {
       errors.push({ row: rowNum, reason: `Type must be IN or OUT, got "${type ?? ""}"` });
       skipped++;
       continue;
     }
-
     if (!description) {
       errors.push({ row: rowNum, reason: "Description is required" });
       skipped++;
       continue;
     }
-
     if (isNaN(amount) || amount <= 0) {
       errors.push({ row: rowNum, reason: "Amount must be a positive number" });
       skipped++;
       continue;
     }
 
-    const date = new Date(dateStr);
     const dateOnly = dateStr.split("T")[0];
-    const startOfDay = new Date(dateOnly + "T00:00:00.000Z");
-    const endOfDay = new Date(dateOnly + "T23:59:59.999Z");
-
-    // Duplicate check: same date + type + description + amount
-    const duplicate = await prisma.pettyCash.findFirst({
-      where: {
-        type: type as "IN" | "OUT",
-        description,
-        amount,
-        date: { gte: startOfDay, lte: endOfDay },
-      },
+    cleaned.push({
+      rowNum,
+      date: new Date(dateOnly + "T00:00:00.000Z"),
+      dateOnly,
+      type: type as "IN" | "OUT",
+      description,
+      amount,
     });
+  }
 
-    if (duplicate) {
+  if (cleaned.length === 0) {
+    return Response.json({ imported, skipped, errors });
+  }
+
+  // Bulk dedupe: fetch all existing rows in the date span of the batch and
+  // build an in-memory key set. Avoids 1 query per row.
+  const minDate = new Date(
+    cleaned.reduce((a, c) => (c.dateOnly < a ? c.dateOnly : a), cleaned[0].dateOnly) +
+      "T00:00:00.000Z"
+  );
+  const maxDate = new Date(
+    cleaned.reduce((a, c) => (c.dateOnly > a ? c.dateOnly : a), cleaned[0].dateOnly) +
+      "T23:59:59.999Z"
+  );
+
+  const existing = await prisma.pettyCash.findMany({
+    where: { date: { gte: minDate, lte: maxDate } },
+    select: { date: true, type: true, description: true, amount: true },
+  });
+
+  const keyOf = (d: Date | string, t: string, desc: string, amt: number) => {
+    const day = (typeof d === "string" ? d : d.toISOString()).slice(0, 10);
+    return `${day}|${t}|${desc}|${amt}`;
+  };
+  const existingKeys = new Set(
+    existing.map((e) => keyOf(e.date, e.type, e.description, e.amount))
+  );
+
+  const toCreate: { date: Date; type: "IN" | "OUT"; description: string; amount: number }[] = [];
+  const seenInBatch = new Set<string>();
+
+  for (const c of cleaned) {
+    const key = keyOf(c.dateOnly, c.type, c.description, c.amount);
+    if (existingKeys.has(key) || seenInBatch.has(key)) {
       skipped++;
       continue;
     }
+    seenInBatch.add(key);
+    toCreate.push({
+      date: c.date,
+      type: c.type,
+      description: c.description,
+      amount: c.amount,
+    });
+  }
 
+  if (toCreate.length > 0) {
     try {
-      await prisma.pettyCash.create({
-        data: {
-          date,
-          type: type as "IN" | "OUT",
-          description,
-          amount,
-        },
-      });
-      imported++;
+      const result = await prisma.pettyCash.createMany({ data: toCreate });
+      imported = result.count;
     } catch (err) {
-      errors.push({ row: rowNum, reason: `Database error: ${(err as Error).message}` });
-      skipped++;
+      errors.push({ row: 0, reason: `Database error: ${(err as Error).message}` });
     }
   }
 

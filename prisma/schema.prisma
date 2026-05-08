@@ -54,6 +54,7 @@ model Organization {
   caseThreads            CaseThread[]
   actionableHints        ActionableHint[]
   checkouts              CheckoutProcess[]
+  conditionReports       ConditionReport[]
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
 }
@@ -314,6 +315,19 @@ enum DocumentCategory {
   OTHER
 }
 
+enum ConditionReportType {
+  MOVE_IN
+  MID_TERM
+  MOVE_OUT
+}
+
+enum ConditionItemStatus {
+  PERFECT
+  GOOD
+  FAIR
+  POOR
+}
+
 enum ExpenseDocumentCategory {
   INVOICE
   RECEIPT
@@ -550,6 +564,7 @@ model Property {
   conditionReports      BuildingConditionReport[]
   ownerInvoices         OwnerInvoice[]
   checkouts             CheckoutProcess[]
+  unitConditionReports  ConditionReport[]
   maintenanceSchedules   AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
   taxConfigurations      TaxConfiguration[]
   complianceCertificates ComplianceCertificate[]
@@ -583,6 +598,7 @@ model Unit {
   assets             Asset[]
   caseThreads        CaseThread[]
   checkouts          CheckoutProcess[]
+  conditionReports   ConditionReport[]
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -625,6 +641,7 @@ model Tenant {
   arrearsCases      ArrearsCase[]
   depositSettlement DepositSettlement?
   checkoutProcess   CheckoutProcess?
+  conditionReports  ConditionReport[]
   rentHistory          RentHistory[]
   communicationLogs    CommunicationLog[]
   portalThreads        PortalMessageThread[]
@@ -1734,4 +1751,49 @@ model CheckoutDeduction {
   checkout    CheckoutProcess           @relation(fields: [checkoutId], references: [id], onDelete: Cascade)
 
   @@index([checkoutId])
+}
+
+// ─── Condition Reports / Move-In Checklist ───────────────────────────────────
+
+model ConditionReport {
+  id               String              @id @default(cuid())
+  unitId           String
+  propertyId       String
+  tenantId         String?
+  organizationId   String?
+  reportDate       DateTime
+  reportType       ConditionReportType
+  items            Json                @default("[]")
+  overallComments  String?
+  signedByTenant   Boolean             @default(false)
+  signedByManager  Boolean             @default(false)
+  tenantDocumentId String?             @unique
+  pdfGeneratedAt   DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  unit         Unit                   @relation(fields: [unitId], references: [id])
+  property     Property               @relation(fields: [propertyId], references: [id])
+  tenant       Tenant?                @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  organization Organization?          @relation(fields: [organizationId], references: [id])
+  photos       ConditionReportPhoto[]
+
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([propertyId, reportType])
+  @@index([reportType])
+}
+
+model ConditionReportPhoto {
+  id          String          @id @default(cuid())
+  reportId    String
+  storagePath String
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  uploadedAt  DateTime        @default(now())
+
+  report      ConditionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
 }

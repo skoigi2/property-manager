@@ -36,7 +36,9 @@ Next.js 14 App Router app. All source code lives in `src/`.
 ### Route groups
 - `src/app/(auth)/` — unauthenticated pages (`/login`, `/signup`, `/forgot-password`, `/reset-password`, `/select-org`)
 - `src/app/(dashboard)/` — all protected pages, share a sidebar layout (`layout.tsx`)
+- `src/app/(marketing)/` — public pages outside the dashboard chrome (`/blog`, `/pricing`, `/contact`, `/privacy`, `/terms`, `/refund`)
 - `src/app/(portal)/` — token-based tenant portal (no auth, no sidebar); bypassed by middleware
+- Top-level routes outside any group: `/` (landing — `src/app/page.tsx`), `/onboarding`, `/invite/[token]`, plus `robots.ts` and `sitemap.ts`
 - `src/app/api/` — Route Handlers only; no server components fetch data directly
 
 ### Auth & access control
@@ -102,23 +104,23 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 
 | File | Purpose |
 |---|---|
+| `audit.ts` | `logAudit({ userId, userEmail, action, resource, resourceId, before?, after? })` — logs CREATE/UPDATE/DELETE with JSON snapshots |
+| `blog-posts.ts` | Static blog post metadata for marketing pages |
 | `calculations.ts` | `calcUnitSummary`, `calcPettyCashBalance`, `calcPettyCashTotal`, `calcManagementFee`, `calcOccupancyRate`. Constants: `RIARA_MGMT_FEE` (flat per unit type), `ALBA_MGMT_FEE_RATE` (10%) |
 | `date-utils.ts` | `getLeaseStatus` (OK/WARNING/CRITICAL/TBC), `daysUntilExpiry`, `getMonthRange` |
-| `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema`, `pettyCashSchema`, `tenantSchema` |
-| `pdf-generator.ts` | Server-only. Property report PDF via `@react-pdf/renderer`. Used only in `POST /api/report` |
+| `email.ts` | Resend wrapper. Every send goes through `sendAndLog()` which writes an `EmailLog` row. Exports `sendPasswordReset`, `sendOrgInvitation`, `sendContactEmail`, `sendNewUserAlert`, `sendWelcome`, `sendNotificationEmail` |
+| `excel-export.ts` | SheetJS multi-sheet Excel export for income/expenses |
+| `forecast-engine.ts` | `buildForecast(tenants, recurringExpenses, insurancePolicies, agreements, horizon)` — projects monthly cash flow for 3/6/12 months. Called by `GET /api/forecast?propertyId=&months=` |
+| `import-templates.ts` | XLSX download template generators for bulk import |
 | `invoice-pdf.tsx` | Server-only. Tenant rent invoice PDF |
 | `owner-invoice-pdf.tsx` | Server-only. Owner fee invoice PDF (letting, mgmt, renewal fees, etc.) |
-| `excel-export.ts` | SheetJS multi-sheet Excel export for income/expenses |
-| `import-templates.ts` | XLSX download template generators for bulk import |
-| `audit.ts` | `logAudit({ userId, userEmail, action, resource, resourceId, before?, after? })` — logs CREATE/UPDATE/DELETE with JSON snapshots |
-| `forecast-engine.ts` | `buildForecast(tenants, recurringExpenses, insurancePolicies, agreements, horizon)` — projects monthly cash flow for 3/6/12 months. Called by `GET /api/forecast?propertyId=&months=` |
-| `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
-| `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
 | `paddle.ts` | Paddle pricing-tier mapping + `PROPERTY_LIMITS`. Used by checkout, webhook handler, and subscription gating |
+| `pdf-generator.ts` | Server-only. Property report PDF via `@react-pdf/renderer`. Used only in `POST /api/report` |
+| `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
 | `stripe.ts` | Lazy Stripe SDK singleton — used by `/api/stripe/status` and billing flows |
 | `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
-| `blog-posts.ts` | Static blog post metadata for marketing pages |
-| `email.ts` | Resend wrapper. Every send goes through `sendAndLog()` which writes an `EmailLog` row. Exports `sendPasswordReset`, `sendOrgInvitation`, `sendContactEmail`, `sendNewUserAlert`, `sendWelcome`, `sendNotificationEmail` |
+| `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
+| `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema`, `pettyCashSchema`, `tenantSchema`, `manualEmailSchema` |
 
 ### Income ↔ Invoice link
 When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route auto-finds an open invoice for that tenant/month and marks it PAID in the same `prisma.$transaction`. Reverse: marking an invoice PAID via `PATCH /api/invoices/[id]` creates an income entry if none exists (`invoiceId` on `IncomeEntry` prevents duplicates).

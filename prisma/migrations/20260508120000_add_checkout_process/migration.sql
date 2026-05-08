@@ -83,3 +83,8 @@ ALTER TABLE "CheckoutProcess" ADD CONSTRAINT "CheckoutProcess_organizationId_fke
 
 -- AddForeignKey
 ALTER TABLE "CheckoutDeduction" ADD CONSTRAINT "CheckoutDeduction_checkoutId_fkey" FOREIGN KEY ("checkoutId") REFERENCES "CheckoutProcess"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Enable RLS so the tables cannot be reached via Supabase anon/authenticated keys.
+-- Prisma (postgres role) bypasses RLS, so app access still works as normal.
+ALTER TABLE "CheckoutProcess" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "CheckoutDeduction" ENABLE ROW LEVEL SECURITY;

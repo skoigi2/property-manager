@@ -190,3 +190,31 @@ export const checkoutProcessSchema = z.object({
 export const checkoutFinalizeSchema = checkoutProcessSchema.extend({
   finalize: z.literal(true),
 });
+
+// ─── Condition Reports / Move-In Checklist ───────────────────────────────────
+
+export const conditionItemSchema = z.object({
+  id:       z.string().min(1),
+  room:     z.string().min(1).max(80),
+  feature:  z.string().min(1).max(80),
+  status:   z.enum(["PERFECT", "GOOD", "FAIR", "POOR"]).nullable().optional(),
+  notes:    z.string().max(2000).optional().default(""),
+  photoIds: z.array(z.string()).default([]),
+});
+
+export const conditionReportCreateSchema = z.object({
+  reportType:      z.enum(["MOVE_IN", "MID_TERM", "MOVE_OUT"]),
+  reportDate:      z.string().min(1, "Report date required"),
+  tenantId:        z.string().optional().nullable(),
+  items:           z.array(conditionItemSchema).default([]),
+  overallComments: z.string().max(5000).optional().nullable(),
+});
+
+export const conditionReportPatchSchema = z.object({
+  reportDate:      z.string().optional(),
+  tenantId:        z.string().optional().nullable(),
+  items:           z.array(conditionItemSchema).optional(),
+  overallComments: z.string().max(5000).optional().nullable(),
+  signedByTenant:  z.boolean().optional(),
+  signedByManager: z.boolean().optional(),
+});

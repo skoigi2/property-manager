@@ -252,6 +252,28 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Calendar** — combined property-event view (lease ends, invoice dues, maintenance, compliance expiries, etc.). API: `GET /api/calendar?propertyId=&from=&to=`. Page: `/calendar`.
 
+### Move-In Checklist / Unit Condition Report
+
+Page: `/units/[id]/condition-report/new` — a mobile-optimised stepper that walks the manager room-by-room through a structured grid (Perfect / Good / Fair / Poor) with inline photo capture (`<input type="file" capture="environment">` opens the rear camera on phone). Default rooms/features come from `src/lib/condition-report-template.ts` and can be edited inline.
+
+Models:
+- **`ConditionReport`** — unit + property + optional tenant. `reportType` is `MOVE_IN | MID_TERM | MOVE_OUT`. `items` is a JSON array with shape `{ id, room, feature, status, notes, photoIds[] }` — **identical** to what move-out reports will use, so a future diff helper can match by `(room, feature)`. Auto-vault stores `tenantDocumentId` once finalized.
+- **`ConditionReportPhoto`** — one row per uploaded photo, points at a path inside the existing `tenant-documents` Supabase bucket under the prefix `condition-reports/<reportId>/...`.
+
+This is **separate** from `BuildingConditionReport` (property-level annual inspection) — incompatible items shapes, different audience.
+
+API (manager-only):
+- `GET/POST /api/units/[id]/condition-reports` — list / create draft.
+- `GET/PATCH/DELETE /api/condition-reports/[id]` — read / update / discard a draft (read-only once `tenantDocumentId` is set).
+- `POST /api/condition-reports/[id]/photos` — multipart image upload (max 8 MB; jpeg/png/webp/heic). Returns `{ id, url }`. Photo uploads are fire-and-forget on the client; finalize is gated until all are done.
+- `DELETE /api/condition-reports/[id]/photos/[photoId]`.
+- `POST /api/condition-reports/[id]/finalize` — generates the PDF, uploads it to `tenants/<tenantId>/...` in the same Supabase bucket, creates a `TenantDocument` with `category=CONDITION_REPORT`, sets `tenantDocumentId` + `pdfGeneratedAt`. `MOVE_IN` / `MOVE_OUT` require a tenant; `MID_TERM` is allowed without one (no vault step). Idempotent — re-finalize returns 409.
+- `GET /api/condition-reports/[id]/pdf` — preview / re-download (`maxDuration = 60`).
+
+PDF: `src/lib/move-in-report-pdf.tsx` (`generateConditionReportPdf()`) — server-only `@react-pdf/renderer` document. Page 1 is the items table grouped by room with coloured status pills + signature blocks; page 2 onward is a Photo Appendix where each image is captioned `Room — Feature`. Photos are fetched via `getSignedUrl()` (1h) and embedded by URL.
+
+`DocumentCategory` enum gained a `CONDITION_REPORT` value so vaulted reports show up cleanly on the tenant's Documents tab.
+
 ### Tenant Checkout / Move-Out Workflow
 
 Replaces the paper "Tenant Check-Out Form". Page: `/tenants/[id]/checkout` (full-page form mirroring the 9-section PDF — condition report, rent balance, itemised deductions, keys returned, utility transfers, refund instructions, notes — plus a sticky live-settlement box).

@@ -126,3 +126,12 @@ export type PettyCashInput = z.infer<typeof pettyCashSchema>;
 export type TenantInput = z.infer<typeof tenantSchema>;
 export type OwnerInvoiceLineItem = z.infer<typeof ownerInvoiceLineItemSchema>;
 export type OwnerInvoiceCreateInput = z.infer<typeof ownerInvoiceCreateSchema>;
+
+// Manual email composer (super-admin /admin/emails)
+export const manualEmailSchema = z.object({
+  to: z.string().email("Valid recipient email is required"),
+  subject: z.string().min(1, "Subject is required").max(200),
+  bodyHtml: z.string().min(1, "Message body is required").max(50_000),
+  replyTo: z.string().email().optional().or(z.literal("")),
+  inReplyToId: z.string().optional(),
+});

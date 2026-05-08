@@ -32,6 +32,7 @@ import {
   LineChart,
   CreditCard,
   BookOpen,
+  Mail,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -265,6 +266,22 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
             >
               <Building2 size={18} />
               Organisations
+            </Link>
+          );
+        })()}
+        {/* Super-admin: Emails link */}
+        {isSuperAdmin && (() => {
+          const isActive = pathname === "/admin/emails" || pathname.startsWith("/admin/emails/");
+          return (
+            <Link
+              href="/admin/emails"
+              className={clsx(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans transition-colors mb-1",
+                isActive ? "bg-gold text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+              )}
+            >
+              <Mail size={18} />
+              Emails
             </Link>
           );
         })()}

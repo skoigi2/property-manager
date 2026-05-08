@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { prisma } from "./prisma";
+import type { EmailKind } from "@prisma/client";
 
 // ─── Lazy Resend singleton ────────────────────────────────────────────────────
 // Initialized on first use so builds succeed even when RESEND_API_KEY is absent.
@@ -15,9 +17,6 @@ function getResend(): Resend {
 const FROM = process.env.RESEND_FROM_EMAIL ?? "Groundwork PM <noreply@groundworkpm.com>";
 
 // ─── HTML escaping ────────────────────────────────────────────────────────────
-// Any user-supplied string interpolated into an email's HTML body MUST go
-// through this — otherwise an attacker can inject arbitrary HTML/JS into the
-// email rendered by the recipient's mail client.
 function esc(s: string | null | undefined): string {
   if (s == null) return "";
   return String(s)
@@ -28,8 +27,6 @@ function esc(s: string | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-// Reject CRLF in any user-supplied address used as a header value (To, Reply-To).
-// `z.string().email()` does not catch this. Throws so the caller surfaces it as a 400.
 function safeAddress(addr: string): string {
   if (/[\r\n]/.test(addr)) {
     throw new Error("Invalid email address");
@@ -37,12 +34,85 @@ function safeAddress(addr: string): string {
   return addr;
 }
 
+// ─── Send + log helper ────────────────────────────────────────────────────────
+// Every outbound email goes through this so it lands in the EmailLog table.
+// On Resend failure we still write a "failed" row, then re-throw.
+
+interface SendAndLogArgs {
+  kind: EmailKind;
+  to: string;
+  subject: string;
+  html: string;
+  replyTo?: string;
+  organizationId?: string | null;
+  userId?: string | null;
+  inReplyToId?: string | null;
+}
+
+export async function sendAndLog(args: SendAndLogArgs): Promise<{ id: string; resendId: string | null }> {
+  const to = safeAddress(args.to);
+  const replyTo = args.replyTo ? safeAddress(args.replyTo) : undefined;
+
+  let resendId: string | null = null;
+  let status = "sent";
+  let errorMessage: string | null = null;
+  let thrown: unknown = null;
+
+  try {
+    const res = await getResend().emails.send({
+      from: FROM,
+      to,
+      subject: args.subject,
+      html: args.html,
+      ...(replyTo ? { replyTo } : {}),
+    });
+    resendId = (res as any)?.data?.id ?? (res as any)?.id ?? null;
+    if ((res as any)?.error) {
+      status = "failed";
+      errorMessage = String((res as any).error?.message ?? (res as any).error);
+    }
+  } catch (err) {
+    status = "failed";
+    errorMessage = err instanceof Error ? err.message : String(err);
+    thrown = err;
+  }
+
+  let logId = "";
+  try {
+    const log = await prisma.emailLog.create({
+      data: {
+        kind: args.kind,
+        fromEmail: FROM,
+        toEmail: to,
+        replyTo: replyTo ?? null,
+        subject: args.subject,
+        bodyHtml: args.html,
+        resendId,
+        status,
+        errorMessage,
+        organizationId: args.organizationId ?? null,
+        userId: args.userId ?? null,
+        inReplyToId: args.inReplyToId ?? null,
+      },
+      select: { id: true },
+    });
+    logId = log.id;
+  } catch (logErr) {
+    // Logging failure must never mask a real send error.
+    console.error("EmailLog write failed:", logErr);
+  }
+
+  if (thrown) throw thrown;
+  return { id: logId, resendId };
+}
+
 // ─── Password reset ───────────────────────────────────────────────────────────
 
-export async function sendPasswordReset(email: string, resetLink: string): Promise<void> {
-  await getResend().emails.send({
-    from:    FROM,
-    to:      safeAddress(email),
+export async function sendPasswordReset(email: string, resetLink: string, userId?: string): Promise<void> {
+  await sendAndLog({
+    kind: "PASSWORD_RESET",
+    to: email,
+    userId: userId ?? null,
     subject: "Reset your Groundwork PM password",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
@@ -74,8 +144,16 @@ export async function sendNotificationEmail(
   to: string,
   subject: string,
   html: string,
+  meta?: { organizationId?: string | null; userId?: string | null },
 ): Promise<void> {
-  await getResend().emails.send({ from: FROM, to: safeAddress(to), subject, html });
+  await sendAndLog({
+    kind: "NOTIFICATION",
+    to,
+    subject,
+    html,
+    organizationId: meta?.organizationId ?? null,
+    userId: meta?.userId ?? null,
+  });
 }
 
 // ─── Organisation invitation ─────────────────────────────────────────────────
@@ -87,6 +165,7 @@ export async function sendOrgInvitation(
   role: string,
   acceptUrl: string,
   expiresAt: Date,
+  meta?: { organizationId?: string | null; userId?: string | null },
 ): Promise<void> {
   const expiryStr = expiresAt.toLocaleString("en-GB", {
     day: "numeric", month: "short", year: "numeric",
@@ -94,9 +173,11 @@ export async function sendOrgInvitation(
   });
   const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
 
-  await getResend().emails.send({
-    from:    FROM,
-    to:      safeAddress(email),
+  await sendAndLog({
+    kind: "ORG_INVITATION",
+    to: email,
+    organizationId: meta?.organizationId ?? null,
+    userId: meta?.userId ?? null,
     subject: `You've been invited to join ${orgName} on Groundwork PM`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
@@ -140,9 +221,9 @@ export async function sendContactEmail(
   const safeEmail = safeAddress(email);
 
   // 1. Notify support inbox
-  await getResend().emails.send({
-    from:    FROM,
-    to:      "support@groundworkpm.com",
+  await sendAndLog({
+    kind: "CONTACT_FORM",
+    to: "support@groundworkpm.com",
     replyTo: safeEmail,
     subject: `[Contact] ${subject.replace(/[\r\n]/g, " ")} — from ${name.replace(/[\r\n]/g, " ")}`,
     html: `
@@ -163,9 +244,9 @@ export async function sendContactEmail(
   });
 
   // 2. Auto-reply to visitor
-  await getResend().emails.send({
-    from:    FROM,
-    to:      safeEmail,
+  await sendAndLog({
+    kind: "CONTACT_AUTOREPLY",
+    to: safeEmail,
     subject: "We received your message — Groundwork PM",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
@@ -194,15 +275,22 @@ export async function sendContactEmail(
 
 // ─── New user signup alert (internal) ────────────────────────────────────────
 
-export async function sendNewUserAlert(userEmail: string, userName: string, orgName: string): Promise<void> {
+export async function sendNewUserAlert(
+  userEmail: string,
+  userName: string,
+  orgName: string,
+  meta?: { organizationId?: string | null; userId?: string | null },
+): Promise<void> {
   const ts = new Date().toLocaleString("en-GB", {
     day: "numeric", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit", timeZoneName: "short",
   });
 
-  await getResend().emails.send({
-    from:    FROM,
-    to:      "support@groundworkpm.com",
+  await sendAndLog({
+    kind: "NEW_USER_ALERT",
+    to: "support@groundworkpm.com",
+    organizationId: meta?.organizationId ?? null,
+    userId: meta?.userId ?? null,
     subject: `New signup: ${userName.replace(/[\r\n]/g, " ")} (${orgName.replace(/[\r\n]/g, " ")})`,
     html: `
       <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -222,10 +310,11 @@ export async function sendNewUserAlert(userEmail: string, userName: string, orgN
 
 // ─── Welcome email ────────────────────────────────────────────────────────────
 
-export async function sendWelcome(email: string, name: string): Promise<void> {
-  await getResend().emails.send({
-    from:    FROM,
-    to:      safeAddress(email),
+export async function sendWelcome(email: string, name: string, userId?: string): Promise<void> {
+  await sendAndLog({
+    kind: "WELCOME",
+    to: email,
+    userId: userId ?? null,
     subject: "Welcome to Groundwork PM 🏠",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">

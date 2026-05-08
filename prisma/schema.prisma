@@ -48,6 +48,7 @@ model Organization {
   taxConfigurations      TaxConfiguration[]
   complianceCertificates ComplianceCertificate[]
   notificationLogs       NotificationLog[]
+  emailLogs              EmailLog[]
   invitations            OrgInvitation[]
   agents                 Agent[]
   createdAt              DateTime                     @default(now())
@@ -98,6 +99,7 @@ model User {
   managedProperties Property[]       @relation("PropertyManager")
   ownerInvoices     OwnerInvoice[]   @relation("OwnerInvoices")
   sentInvitations  OrgInvitation[]  @relation("SentInvitations")
+  emailLogs        EmailLog[]
   accounts         Account[]
   sessions         Session[]
   createdAt        DateTime         @default(now())
@@ -1275,4 +1277,47 @@ model OrgInvitation {
   @@index([token])
   @@index([organizationId])
   @@index([email])
+}
+
+// ─── Email Log (super-admin outbound email history) ──────────────────────────
+
+enum EmailKind {
+  PASSWORD_RESET
+  ORG_INVITATION
+  CONTACT_FORM
+  CONTACT_AUTOREPLY
+  NEW_USER_ALERT
+  WELCOME
+  NOTIFICATION
+  MANUAL
+}
+
+model EmailLog {
+  id             String    @id @default(cuid())
+  kind           EmailKind
+  fromEmail      String
+  toEmail        String
+  replyTo        String?
+  subject        String
+  bodyHtml       String    @db.Text
+  bodyText       String?   @db.Text
+  resendId       String?
+  status         String    @default("sent")
+  errorMessage   String?
+  organizationId String?
+  userId         String?
+  inReplyToId    String?
+  sentAt         DateTime  @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inReplyTo    EmailLog?     @relation("EmailReplies", fields: [inReplyToId], references: [id], onDelete: SetNull)
+  replies      EmailLog[]    @relation("EmailReplies")
+
+  @@index([sentAt])
+  @@index([toEmail])
+  @@index([kind])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([inReplyToId])
 }

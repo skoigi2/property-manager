@@ -43,3 +43,7 @@ CREATE INDEX "EmailLog_inReplyToId_idx" ON "EmailLog"("inReplyToId");
 ALTER TABLE "EmailLog" ADD CONSTRAINT "EmailLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "EmailLog" ADD CONSTRAINT "EmailLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "EmailLog" ADD CONSTRAINT "EmailLog_inReplyToId_fkey" FOREIGN KEY ("inReplyToId") REFERENCES "EmailLog"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Enable RLS so the table cannot be reached via Supabase anon/authenticated keys.
+-- Prisma (postgres role) bypasses RLS, so app access still works as normal.
+ALTER TABLE "EmailLog" ENABLE ROW LEVEL SECURITY;

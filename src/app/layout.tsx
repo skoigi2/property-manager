@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Serif_Display, DM_Mono, DM_Sans } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import { Analytics } from "@vercel/analytics/react";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>{children}</Providers>
+        <Analytics />
         <Toaster
           position="top-right"
           toastOptions={{

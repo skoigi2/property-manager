@@ -135,3 +135,58 @@ export const manualEmailSchema = z.object({
   replyTo: z.string().email().optional().or(z.literal("")),
   inReplyToId: z.string().optional(),
 });
+
+// ─── Checkout / Move-Out ─────────────────────────────────────────────────────
+
+export const checkoutDeductionSchema = z.object({
+  description: z.string().min(1, "Description required").max(200),
+  amount: z.coerce.number().min(0),
+  category: z.enum(["UTILITY", "SERVICE_CHARGE", "RENT_BALANCE", "DAMAGE", "OTHER"]).default("OTHER"),
+});
+
+export const keysReturnedSchema = z.object({
+  mainDoor: z.coerce.number().int().min(0).default(0),
+  bedroom:  z.coerce.number().int().min(0).default(0),
+  gate:     z.coerce.number().int().min(0).default(0),
+  mailbox:  z.coerce.number().int().min(0).default(0),
+});
+
+const utilityTransferSchema = z.object({
+  done: z.boolean().default(false),
+  date: z.string().optional().nullable(),
+});
+
+export const utilityTransfersSchema = z.object({
+  electricity: utilityTransferSchema.default({ done: false }),
+  water:       utilityTransferSchema.default({ done: false }),
+  internet:    utilityTransferSchema.default({ done: false }),
+});
+
+export const refundDetailsSchema = z.object({
+  payableTo:     z.string().optional(),
+  recipientName: z.string().optional(),
+  mobileNumber:  z.string().optional(),
+  accountNumber: z.string().optional(),
+  bankName:      z.string().optional(),
+  accountName:   z.string().optional(),
+});
+
+export const checkoutProcessSchema = z.object({
+  checkOutDate:          z.string().min(1, "Check-out date required"),
+  damageFound:           z.boolean().default(false),
+  inventoryDamageAmount: z.coerce.number().min(0).default(0),
+  inventoryDamageNotes:  z.string().max(2000).optional().nullable(),
+  damageKeptByLandlord:  z.boolean().default(true),
+  rentBalanceOwing:      z.coerce.number().min(0).default(0),
+  rentBalanceSource:     z.enum(["auto", "override"]).optional(),
+  deductions:            z.array(checkoutDeductionSchema).default([]),
+  keysReturned:          keysReturnedSchema.optional(),
+  utilityTransfers:      utilityTransfersSchema.optional(),
+  refundMethod:          z.enum(["CHEQUE", "CASH", "MOBILE_TRANSFER", "BANK_TRANSFER"]).optional().nullable(),
+  refundDetails:         refundDetailsSchema.optional(),
+  notes:                 z.string().max(2000).optional().nullable(),
+});
+
+export const checkoutFinalizeSchema = checkoutProcessSchema.extend({
+  finalize: z.literal(true),
+});

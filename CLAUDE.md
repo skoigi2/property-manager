@@ -252,6 +252,24 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Calendar** — combined property-event view (lease ends, invoice dues, maintenance, compliance expiries, etc.). API: `GET /api/calendar?propertyId=&from=&to=`. Page: `/calendar`.
 
+### Tenant Checkout / Move-Out Workflow
+
+Replaces the paper "Tenant Check-Out Form". Page: `/tenants/[id]/checkout` (full-page form mirroring the 9-section PDF — condition report, rent balance, itemised deductions, keys returned, utility transfers, refund instructions, notes — plus a sticky live-settlement box).
+
+Models:
+- **`CheckoutProcess`** — one per tenant (`tenantId @unique`). Lifecycle via `CheckoutStatus` enum (`IN_PROGRESS → COMPLETED | DISPUTED`). Stores damage flags, rent balance, snapshot of `originalDeposit` / `totalDeductions` / `balanceToRefund`, `keysReturned` JSON, `utilityTransfers` JSON, `refundMethod` (`RefundMethod` enum), `refundDetails` JSON, `expenseEntryId` backref.
+- **`CheckoutDeduction`** — itemised line items keyed to `CheckoutProcess` (cascade), categorised by `CheckoutDeductionCategory`.
+
+API routes (manager-only, scoped via accessible properties):
+- `GET  /api/tenants/[id]/checkout` — prefill: tenant, unit, property, deposit, computed outstanding invoice balance (sum of unpaid `Invoice` rows), existing `CheckoutProcess` if any.
+- `POST /api/tenants/[id]/checkout` — upserts an `IN_PROGRESS` process; replaces deductions atomically.
+- `POST /api/tenants/[id]/checkout/finalize` — atomic close-out: marks process `COMPLETED`, optionally creates an `ExpenseEntry` (category `REINSTATEMENT`, scope `UNIT`) when `damageFound && damageKeptByLandlord`, mirrors a `DepositSettlement` row for legacy reporting (skipped if one exists), sets `Tenant.isActive = false` + `vacatedDate`, sets `Unit.status = VACANT` + `vacantSince`. Two `AuditLog` entries (Tenant, CheckoutProcess) written after the transaction.
+- `GET  /api/checkouts/[id]/pdf` — serves the signature PDF (`maxDuration = 30`); sets `pdfGeneratedAt` on first hit.
+
+PDF generator: `src/lib/checkout-pdf.tsx` (`generateCheckoutPdf()`) — server-only `@react-pdf/renderer` document mirroring the 9-section form with dual signature blocks. Currency via `formatCurrency` using the property's currency.
+
+The "Checkout" button lives in the tenant detail header. Once finalized the checkout page renders read-only with a "Download PDF" link.
+
 ### Email Logging & Super-admin Composer
 
 Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.

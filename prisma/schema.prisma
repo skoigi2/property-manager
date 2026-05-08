@@ -51,6 +51,7 @@ model Organization {
   emailLogs              EmailLog[]
   invitations            OrgInvitation[]
   agents                 Agent[]
+  checkouts              CheckoutProcess[]
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
 }
@@ -255,6 +256,27 @@ enum ExpenseCategory {
   OTHER
 }
 
+enum CheckoutStatus {
+  IN_PROGRESS
+  COMPLETED
+  DISPUTED
+}
+
+enum RefundMethod {
+  CHEQUE
+  CASH
+  MOBILE_TRANSFER
+  BANK_TRANSFER
+}
+
+enum CheckoutDeductionCategory {
+  UTILITY
+  SERVICE_CHARGE
+  RENT_BALANCE
+  DAMAGE
+  OTHER
+}
+
 enum PettyCashType {
   IN
   OUT
@@ -427,6 +449,7 @@ model Property {
   agreement             ManagementAgreement?
   conditionReports      BuildingConditionReport[]
   ownerInvoices         OwnerInvoice[]
+  checkouts             CheckoutProcess[]
   maintenanceSchedules   AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
   taxConfigurations      TaxConfiguration[]
   complianceCertificates ComplianceCertificate[]
@@ -455,6 +478,7 @@ model Unit {
   recurringExpenses  RecurringExpense[]
   expenseAllocations ExpenseUnitAllocation[]
   assets             Asset[]
+  checkouts         CheckoutProcess[]
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -494,6 +518,7 @@ model Tenant {
   documents         TenantDocument[]
   arrearsCases      ArrearsCase[]
   depositSettlement DepositSettlement?
+  checkoutProcess   CheckoutProcess?
   rentHistory          RentHistory[]
   communicationLogs    CommunicationLog[]
   createdAt        DateTime         @default(now())
@@ -1320,4 +1345,59 @@ model EmailLog {
   @@index([organizationId])
   @@index([userId])
   @@index([inReplyToId])
+}
+
+// ─── Checkout / Move-Out ─────────────────────────────────────────────────────
+
+model CheckoutProcess {
+  id                    String         @id @default(cuid())
+  tenantId              String         @unique
+  unitId                String
+  propertyId            String
+  organizationId        String?
+  checkOutDate          DateTime
+  damageFound           Boolean        @default(false)
+  inventoryDamageAmount Float          @default(0)
+  inventoryDamageNotes  String?
+  damageKeptByLandlord  Boolean        @default(true)
+  rentBalanceOwing      Float          @default(0)
+  rentBalanceSource     String?
+  originalDeposit       Float
+  totalDeductions       Float          @default(0)
+  balanceToRefund       Float          @default(0)
+  keysReturned          Json?
+  utilityTransfers      Json?
+  refundMethod          RefundMethod?
+  refundDetails         Json?
+  notes                 String?
+  status                CheckoutStatus @default(IN_PROGRESS)
+  finalizedAt           DateTime?
+  finalizedByUserId     String?
+  pdfGeneratedAt        DateTime?
+  expenseEntryId        String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit         Unit                @relation(fields: [unitId], references: [id])
+  property     Property            @relation(fields: [propertyId], references: [id])
+  organization Organization?       @relation(fields: [organizationId], references: [id])
+  deductions   CheckoutDeduction[]
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([status])
+}
+
+model CheckoutDeduction {
+  id          String                    @id @default(cuid())
+  checkoutId  String
+  description String
+  amount      Float
+  category    CheckoutDeductionCategory @default(OTHER)
+  createdAt   DateTime                  @default(now())
+
+  checkout    CheckoutProcess           @relation(fields: [checkoutId], references: [id], onDelete: Cascade)
+
+  @@index([checkoutId])
 }

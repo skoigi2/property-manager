@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -63,6 +64,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 export default function TenantsPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
+  const router = useRouter();
   const currency = selected?.currency ?? "USD";
 
   // Data
@@ -83,12 +85,6 @@ export default function TenantsPage() {
   // Letting fee prompt (shown after new tenant created)
   const [lettingFeePrompt, setLettingFeePrompt] = useState<{ tenantName: string; tenantId: string; unitId: string; amount: number; propertyId: string } | null>(null);
   const [lettingFeeLogging, setLettingFeeLogging] = useState(false);
-
-  // Vacate modal
-  const [vacateTarget, setVacateTarget] = useState<any>(null);
-  const [vacatedDate, setVacatedDate]   = useState("");
-  const [vacateNotes, setVacateNotes]   = useState("");
-  const [vacating, setVacating]         = useState(false);
 
   // Layout (persisted)
   const [layout, setLayout] = useState<LayoutMode>("grid");
@@ -290,33 +286,6 @@ export default function TenantsPage() {
     setOnboardingTenantName("");
     setOnboardingDocCount(0);
     // lettingFeePrompt was already set in onSubmit — it will now appear
-  }
-
-  function openVacate(tenant: any) {
-    setVacateTarget(tenant);
-    setVacatedDate(new Date().toISOString().split("T")[0]);
-    setVacateNotes("");
-  }
-
-  async function confirmVacate() {
-    if (!vacateTarget) return;
-    setVacating(true);
-    try {
-      const res = await fetch(`/api/tenants/${vacateTarget.id}/vacate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vacatedDate, notes: vacateNotes || null }),
-      });
-      if (!res.ok) throw new Error();
-      const updated = await res.json();
-      setTenants((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-      setVacateTarget(null);
-      toast.success(`${vacateTarget.name} vacated — unit set to Vacant`);
-    } catch {
-      toast.error("Failed to vacate tenant");
-    } finally {
-      setVacating(false);
-    }
   }
 
   // Urgent lease alerts
@@ -578,10 +547,11 @@ export default function TenantsPage() {
                     </button>
                     {tenant.isActive && (
                       <button
-                        onClick={() => openVacate(tenant)}
-                        className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-expense transition-colors"
+                        onClick={() => router.push(`/tenants/${tenant.id}/checkout`)}
+                        className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-amber-600 transition-colors"
+                        title="Begin move-out checkout"
                       >
-                        <LogOut size={13} /> Vacate
+                        <LogOut size={13} /> Checkout
                       </button>
                     )}
                     <Link
@@ -659,10 +629,11 @@ export default function TenantsPage() {
                       </button>
                       {tenant.isActive && (
                         <button
-                          onClick={() => openVacate(tenant)}
-                          className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-expense transition-colors"
+                          onClick={() => router.push(`/tenants/${tenant.id}/checkout`)}
+                          className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-amber-600 transition-colors"
+                          title="Begin move-out checkout"
                         >
-                          <LogOut size={13} /> Vacate
+                          <LogOut size={13} /> Checkout
                         </button>
                       )}
                       <Link
@@ -805,9 +776,9 @@ export default function TenantsPage() {
                             </button>
                             {tenant.isActive && (
                               <button
-                                onClick={() => openVacate(tenant)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-expense hover:bg-red-50 transition-colors"
-                                title="Vacate tenant"
+                                onClick={() => router.push(`/tenants/${tenant.id}/checkout`)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                title="Begin move-out checkout"
                               >
                                 <LogOut size={14} />
                               </button>
@@ -850,49 +821,6 @@ export default function TenantsPage() {
           </div>
         )}
       </div>
-
-      {/* ── Vacate Modal ─────────────────────────────────────────────────── */}
-      <Modal
-        open={!!vacateTarget}
-        onClose={() => setVacateTarget(null)}
-        title="Vacate Tenant"
-        size="sm"
-      >
-        {vacateTarget && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 font-sans">
-              Marking <strong>{vacateTarget.name}</strong> as vacated will set their unit{" "}
-              <span className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">{vacateTarget.unit?.unitNumber}</span>{" "}
-              to <strong>Vacant</strong>.
-            </p>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-sans">Vacated Date</label>
-              <input
-                type="date"
-                value={vacatedDate}
-                onChange={(e) => setVacatedDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 font-sans">Notes (optional)</label>
-              <textarea
-                value={vacateNotes}
-                onChange={(e) => setVacateNotes(e.target.value)}
-                rows={2}
-                placeholder="Reason for vacating, condition notes…"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
-              />
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Button variant="secondary" type="button" onClick={() => setVacateTarget(null)}>Cancel</Button>
-              <Button variant="gold" type="button" loading={vacating} onClick={confirmVacate}>
-                Confirm Vacate
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       {/* ── Add / Edit Modal ─────────────────────────────────────────────── */}
       <Modal

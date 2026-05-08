@@ -14,6 +14,8 @@ npm run db:seed:mayfair  # Seed Mayfair Suites data only
 npm run db:migrate   # Apply pending migrations (uses DIRECT_URL)
 npm run db:studio    # Open Prisma Studio at localhost:5555
 npm run db:seed:bahrain  # Seed Al Seef Residences demo (Bahrain, 20 units)
+# Note: additional demos (sandton-heights, belsize-court) seed via the
+# in-app onboarding picker / POST /api/demo/seed — no dedicated npm script.
 npm start                # Production server (after npm run build)
 npx tsc --noEmit     # Type-check without building
 ```
@@ -53,7 +55,7 @@ Middleware (`src/middleware.ts`) enforces:
 - OWNER role → `/report` only; accessing any manager-only route redirects back to `/report`
 - ADMIN / MANAGER / ACCOUNTANT → full access
 
-Manager-only routes (OWNER is blocked): `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/vendors`, `/airbnb`, `/forecast`, `/compliance`, `/asset-maintenance`.
+Manager-only routes (OWNER is blocked) per `src/middleware.ts`: `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/airbnb`, `/forecast`, `/vendors`. (Note: `/compliance`, `/asset-maintenance`, `/calendar`, `/billing`, `/upgrade` are reachable by all authenticated roles.)
 
 Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
@@ -111,6 +113,12 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `audit.ts` | `logAudit({ userId, userEmail, action, resource, resourceId, before?, after? })` — logs CREATE/UPDATE/DELETE with JSON snapshots |
 | `forecast-engine.ts` | `buildForecast(tenants, recurringExpenses, insurancePolicies, agreements, horizon)` — projects monthly cash flow for 3/6/12 months. Called by `GET /api/forecast?propertyId=&months=` |
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
+| `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
+| `paddle.ts` | Paddle pricing-tier mapping + `PROPERTY_LIMITS`. Used by checkout, webhook handler, and subscription gating |
+| `stripe.ts` | Lazy Stripe SDK singleton — used by `/api/stripe/status` and billing flows |
+| `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
+| `blog-posts.ts` | Static blog post metadata for marketing pages |
+| `email.ts` | Resend wrapper. Every send goes through `sendAndLog()` which writes an `EmailLog` row. Exports `sendPasswordReset`, `sendOrgInvitation`, `sendContactEmail`, `sendNewUserAlert`, `sendWelcome`, `sendNotificationEmail` |
 
 ### Income ↔ Invoice link
 When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route auto-finds an open invoice for that tenant/month and marks it PAID in the same `prisma.$transaction`. Reverse: marking an invoice PAID via `PATCH /api/invoices/[id]` creates an income entry if none exists (`invoiceId` on `IncomeEntry` prevents duplicates).
@@ -230,6 +238,47 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Compliance Certificates** — `ComplianceCertificate` model stores per-property compliance docs (types: free-text string, e.g. "Fire Safety", "Lift Inspection"). Status is computed at query time: `EXPIRED` (days < 0), `EXPIRING_SOON` (days ≤ 30), `VALID`, `ONGOING` (no `expiryDate`). API: `GET/POST /api/compliance/certificates`, `GET/PATCH/DELETE /api/compliance/certificates/[id]`. Page: `/compliance/certificates`.
 
+**Arrears Cases** — `ArrearsCase` (per tenant, with stage `INFORMAL_REMINDER → FORMAL_NOTICE → DEMAND_LETTER → LEGAL_ACTION → SETTLED/CLOSED`) plus `ArrearsEscalation` history rows. API under `/api/arrears`. Page: `/arrears`.
+
+**Tax Configuration** — `TaxConfiguration` model: per-org tax rules (label, rate, applicability) with optional per-property override. API: `/api/tax-configs`. Calculations live in `src/lib/tax-engine.ts`. Surfaced in invoice/income flows when applicable.
+
+**Per-unit Management Fee Override** — `ManagementFeeConfig` model lets a unit deviate from the property-level fee (`ratePercent` or `flatAmount` with `effectiveFrom`). Read in `calculations.ts` ahead of the property defaults.
+
+**Audit Logs** — `AuditLog` rows are written by `src/lib/audit.ts` and exposed at `GET /api/audit-logs` (admin only). UI: `/settings/audit`.
+
+**Agents (commissions)** — separate from `Vendor`. API: `GET/POST /api/agents`, `GET/PATCH/DELETE /api/agents/[id]`. Tied to `IncomeEntry.agentCommission`.
+
+**Calendar** — combined property-event view (lease ends, invoice dues, maintenance, compliance expiries, etc.). API: `GET /api/calendar?propertyId=&from=&to=`. Page: `/calendar`.
+
+### Email Logging & Super-admin Composer
+
+Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.
+
+Super-admin only:
+- Page: `/admin/emails` (`src/app/(dashboard)/admin/emails/page.tsx`) — browses the log with filters, opens detail in a sandboxed iframe, and exposes Reply / Forward / New email via `EmailComposer` (`src/components/admin/EmailComposer.tsx`)
+- API: `GET /api/admin/emails` (list, paginated by `cursor`), `GET /api/admin/emails/[id]` (detail with `replies` + `inReplyTo`), `POST /api/admin/emails` (manual send, kind `MANUAL`, links via `inReplyToId`)
+- Sidebar nav link added in `src/components/layout/Sidebar.tsx` next to "Organisations"
+- Validation: `manualEmailSchema` in `src/lib/validations.ts`
+
+Inbound replies are NOT handled — Resend Inbound (MX + webhook) is not configured. Replies sent from the composer go out via Resend; recipient replies go to whatever address is set in `Reply-To` (default `support@groundworkpm.com`).
+
+### Billing (Paddle + Stripe)
+
+`pricingTier` on `Organization` (`TRIAL → STARTER → PRO → SCALE` etc., see `PricingTier` enum) drives feature gating. Billing helpers:
+- `src/lib/paddle.ts` — price-id → tier mapping, `PROPERTY_LIMITS` per tier
+- `src/lib/stripe.ts` — lazy Stripe SDK singleton
+- `src/lib/subscription.ts` — gating helpers (e.g. property-cap checks, trial state)
+
+Routes:
+- `POST /api/webhooks/paddle` — Paddle subscription events (idempotent via `paddleEventId`)
+- `POST /api/billing/cancel` — initiates cancellation
+- `GET /api/stripe/status` — returns Stripe subscription state
+- Pages: `/billing`, `/upgrade`
+
+### Web Analytics
+
+`@vercel/analytics` is mounted in `src/app/layout.tsx` (`<Analytics />` next to `<Toaster />`). Page-view tracking activates once Web Analytics is enabled in the Vercel project dashboard; nothing fires locally.
+
 ### Tenant Portal
 
 Token-based read-only portal for tenants — no login required, shareable link. Lives in the `(portal)` route group (`src/app/(portal)/portal/[token]/page.tsx`).
@@ -261,7 +310,10 @@ Token-based read-only portal for tenants — no login required, shareable link. 
 **Demo seed system**:
 - `src/lib/demo-definitions.ts` — registry of `DemoDefinition` objects with fields `key`, `name`, `country`, `currency`, `units`, `description`, `flag` (emoji). Adding an entry here automatically surfaces it in the onboarding demo picker and the Properties page empty state. Each new demo also needs a matching `case` in `POST /api/demo/seed` (route file) and a corresponding seed script (e.g. `npm run db:seed:bahrain`).
 - `POST /api/demo/seed` — seeds a full demo property into the caller's active org. Body: `{ demoKey: string, organizationId?: string }`. The client always sends `organizationId` (the active session org) so the server never has to guess from a potentially stale JWT. After seeding, calls `grantAccess()` which bulk-inserts `PropertyAccess` rows for every `UserOrganizationMembership` member of the org (`skipDuplicates: true`) so all users see the property. Returns `{ ok: true, propertyId }` or `{ ok: false, reason: "already_seeded", propertyId }`. Idempotency: checks `_count.units > 0`; if property exists but has no units (partial timeout), deletes and re-seeds. Has `export const maxDuration = 60` (Vercel function timeout).
-- Currently implemented demo: `"al-seef"` → Al Seef Residences (20-unit Bahrain tower, `seedAlSeef()` inside the route file).
+- Implemented demos (registered in `src/lib/demo-definitions.ts` with corresponding `case` branches in `POST /api/demo/seed`):
+  - `"al-seef"` → Al Seef Residences (20-unit Bahrain tower)
+  - `"sandton-heights"` → Sandton Heights (South Africa)
+  - `"belsize-court"` → Belsize Court (UK)
 
 **pgBouncer constraint**: Supabase uses pgBouncer in transaction pooling mode. This makes the callback-form `prisma.$transaction(async (tx) => {...})` incompatible — it silently commits partial work. Always use sequential `await` calls with manual cleanup, or the array-form `prisma.$transaction([op1, op2, ...])` for atomic operations.
 

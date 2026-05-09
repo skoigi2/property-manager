@@ -180,6 +180,9 @@ function docBucket(category: string): "lease" | "receipts" | "id" | "other" {
     case "ID_COPY":
     case "TAX_ID":
       return "id";
+    case "CORRESPONDENCE":
+    case "CONDITION_REPORT":
+    case "OTHER":
     default:
       return "other";
   }

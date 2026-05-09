@@ -10,39 +10,48 @@ export async function GET(
   _req: Request,
   { params }: { params: { tenantId: string } }
 ) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  try {
+    const { error } = await requireAuth();
+    if (error) return error;
 
-  const accessibleIds = await getAccessiblePropertyIds();
-  if (!accessibleIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const accessibleIds = await getAccessiblePropertyIds();
+    if (!accessibleIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: params.tenantId },
-    include: { unit: true },
-  });
-  if (!tenant || !accessibleIds.includes(tenant.unit.propertyId)) {
-    return Response.json({ error: "Not found" }, { status: 404 });
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: params.tenantId },
+      include: { unit: true },
+    });
+    if (!tenant || !accessibleIds.includes(tenant.unit.propertyId)) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const docs = await prisma.tenantDocument.findMany({
+      where: { tenantId: params.tenantId },
+      orderBy: { uploadedAt: "desc" },
+    });
+
+    const withUrls = await Promise.all(
+      docs.map(async (doc) => {
+        let url: string | null = null;
+        try {
+          url = await getSignedUrl(doc.storagePath);
+        } catch {
+          // storage unavailable — return null url, client shows disabled button
+        }
+        return { ...doc, url };
+      })
+    );
+
+    return Response.json(withUrls);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error("[GET /api/documents/[tenantId]]", message, stack);
+    return Response.json(
+      { error: "Server error", detail: message, code: (e as { code?: string })?.code ?? null },
+      { status: 500 }
+    );
   }
-
-  const docs = await prisma.tenantDocument.findMany({
-    where: { tenantId: params.tenantId },
-    orderBy: { uploadedAt: "desc" },
-  });
-
-  // Generate signed URLs for each document
-  const withUrls = await Promise.all(
-    docs.map(async (doc) => {
-      let url: string | null = null;
-      try {
-        url = await getSignedUrl(doc.storagePath);
-      } catch {
-        // storage unavailable — return null url, client shows disabled button
-      }
-      return { ...doc, url };
-    })
-  );
-
-  return Response.json(withUrls);
 }
 
 // ── POST /api/documents/[tenantId] ────────────────────────────────────────────

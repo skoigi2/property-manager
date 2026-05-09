@@ -116,8 +116,11 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `owner-invoice-pdf.tsx` | Server-only. Owner fee invoice PDF (letting, mgmt, renewal fees, etc.) |
 | `paddle.ts` | Paddle pricing-tier mapping + `PROPERTY_LIMITS`. Used by checkout, webhook handler, and subscription gating |
 | `pdf-generator.ts` | Server-only. Property report PDF via `@react-pdf/renderer`. Used only in `POST /api/report` |
+| `portal-auth.ts` | `validatePortalToken(token)` — returns the tenant (with unit/property/org includes) for a portal token, or `null` if missing/expired. Every portal API route's first call |
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
+| `receipt-pdf.tsx` | Server-only. Simplified one-page payment receipt PDF for paid invoices. Used by `/api/portal/[token]/invoices/[invoiceId]/receipt` |
 | `stripe.ts` | Lazy Stripe SDK singleton — used by `/api/stripe/status` and billing flows |
+| `supabase-storage.ts` | Lazy Supabase client. `uploadToStorage(path, buffer, contentType)`, `deleteFromStorage(path)`, `getSignedUrl(path, expiresIn=3600)`. Bucket: `tenant-documents` |
 | `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
 | `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
 | `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema`, `pettyCashSchema`, `tenantSchema`, `manualEmailSchema` |
@@ -133,7 +136,7 @@ When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route
 - Expenses with `isSunkCost: true` appear in reports as "capital items" and are excluded from the P&L
 
 ### PDF generation
-`@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route sets `export const maxDuration = 30` at the top of `src/app/api/report/route.ts` to handle slow PDF renders (`vercel.json` is otherwise empty). Three separate generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices).
+`@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route sets `export const maxDuration = 30` at the top of `src/app/api/report/route.ts` to handle slow PDF renders (`vercel.json` is otherwise empty). Four generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices), `receipt-pdf.tsx` (paid-invoice receipts surfaced via the tenant portal).
 
 The `OrgBranding` type in `invoice-pdf.tsx` carries payment fields (`bankName`, `bankAccountName`, `bankAccountNumber`, `bankBranch`, `mpesaPaybill`, `mpesaAccountNumber`, `mpesaTill`, `paymentInstructions`, `vatRegistrationNumber`) sourced from the `Organization` model. Both PDF routes (`/api/invoices/[id]/pdf` and `/api/portal/[token]/invoices/[invoiceId]/pdf`) must query and pass these fields. Configured in **Settings → Branding → Payment Details**.
 
@@ -283,18 +286,42 @@ Routes:
 
 ### Tenant Portal
 
-Token-based read-only portal for tenants — no login required, shareable link. Lives in the `(portal)` route group (`src/app/(portal)/portal/[token]/page.tsx`).
+Token-based **self-service** portal for tenants — no login required, shareable link. Lives in the `(portal)` route group (`src/app/(portal)/portal/[token]/page.tsx`). Tenant submissions are limited to messages, maintenance requests, and proof-of-payment evidence; no portal route mutates `Invoice.status` or financial records directly.
 
 - `portalToken` (UUID, unique) and `portalTokenExpiresAt` fields on `Tenant` model
 - Middleware allows `/portal/*` without a session
 - Shared auth helper: `src/lib/portal-auth.ts` → `validatePortalToken(token)` — returns the tenant with full unit/property/org includes, or `null` if missing/expired
-- Portal API routes all live under `src/app/api/portal/[token]/`:
-  - `GET /api/portal/[token]` — tenant info, unit, property, last 12 invoices, outstanding balance
-  - `GET /api/portal/[token]/documents` — tenant documents with signed Supabase URLs
-  - `GET /api/portal/[token]/invoices/[invoiceId]/pdf` — PDF download (validates invoice belongs to this tenant)
-  - `GET/POST /api/portal/[token]/maintenance` — GET returns only `submittedViaPortal: true` jobs; POST creates a job with `submittedViaPortal: true`, `priority: MEDIUM`, `status: OPEN`
-- Manager generates/revokes the link from the tenant detail page (`POST/DELETE /api/tenants/[id]/portal-token`)
+- Portal page is mobile-first with **5 tabs**: Overview / Balance / Files / Messages / Request
+
+**Portal API routes** (all under `src/app/api/portal/[token]/`):
+- `GET /api/portal/[token]` — tenant info, unit, property, last 12 invoices, outstanding balance
+- `GET /api/portal/[token]/documents` — tenant documents grouped by `DocumentCategory`, with signed Supabase URLs (per-doc try/catch so a single bad path doesn't 500 the whole route)
+- `GET /api/portal/[token]/ledger` — `{ summary: { totalInvoiced, totalPaid, outstanding }, events, nextCursor }`. `events` unions `INVOICE_ISSUED` rows from `Invoice` and `PAYMENT_RECEIVED` rows from `IncomeEntry`, sorted desc with cursor pagination (`?cursor=&limit=`)
+- `GET /api/portal/[token]/invoices/[invoiceId]/pdf` — full invoice PDF
+- `GET /api/portal/[token]/invoices/[invoiceId]/receipt` — simplified one-page receipt PDF (`src/lib/receipt-pdf.tsx`); only valid for `status === "PAID"` invoices
+- `POST /api/portal/[token]/invoices/[invoiceId]/proof` — **hybrid proof of payment**: accepts `multipart/form-data` with optional `file` (image/PDF, ≤10 MB) and/or `text` (≤2000 chars). Sets `Invoice.status = "PENDING_VERIFICATION"`, populates `proofOfPaymentUrl` (storage path) / `proofOfPaymentText` / `proofOfPaymentType` (`FILE` | `TEXT` | `BOTH`) / `proofSubmittedAt`. Notifies managers via `sendNotificationEmail` with HTML-escaped body
+- `GET/POST /api/portal/[token]/messages`, `GET/POST /api/portal/[token]/messages/[threadId]` — two-way tenant ↔ manager threads. Categories: `LEASE_QUERY`, `PAYMENT_NOTIFICATION`, `PERMISSION_REQUEST`, `GENERAL`. Tenant POST → email to ADMIN/MANAGER recipients
+- `GET/POST /api/portal/[token]/maintenance` — GET returns only `submittedViaPortal: true` jobs; POST creates a job with `submittedViaPortal: true`, `priority: MEDIUM`, `status: OPEN`
+
+**Manager-side routes** (require `requireManager()` + property-access guard):
+- `POST /api/invoices/[id]/verify-proof` — body `{ action: "approve" | "reject", paidAmount?, paidAt?, paymentMethod? }`. On approve: sets `PAID`, ensures matching `IncomeEntry` (creates with `paymentMethod`), and persists the proof to the tenant's `TenantDocument` vault as a `PAYMENT_RECEIPT`, then clears the invoice's proof fields. On reject: deletes the storage file and reverts `status` to `SENT` or `OVERDUE`. Surfaces inline via `ProofVerifyDrawer`
+- `GET /api/invoices/[id]/verify-proof` — drawer fetches a 5-minute signed URL on demand (never embed signed URLs in emails)
+- `GET /api/tenants/[id]/messages`, `GET/POST/PATCH /api/tenants/[id]/messages/[threadId]` — manager view, reply, mark `RESOLVED`. PATCH body `{ status }`. Opening a thread auto-flips `SENT → READ`
+
+**Manager UI**:
+- Tenant detail page (`src/app/(dashboard)/tenants/[id]/page.tsx`) has a **"Portal Msgs"** tab rendering `PortalMessagesTab` (`src/components/tenants/PortalMessagesTab.tsx`) — two-pane on desktop, single-pane on mobile
+- `PENDING_VERIFICATION` invoice badge ("Check Proof", amber) is clickable and opens `ProofVerifyDrawer` (`src/components/invoices/ProofVerifyDrawer.tsx`) — inline image / PDF iframe preview, copy-on-click text panel, paid-amount + payment-method controls
+- Manager generates/revokes the portal link from the tenant detail page (`POST/DELETE /api/tenants/[id]/portal-token`)
+
+**Portal UI components** (`src/components/portal/`):
+- `BottomSheet.tsx` — generic mobile bottom-sheet primitive (used for compose new message + thread detail + proof submission)
+- `PaymentNotificationSheet.tsx` — hybrid file/text proof submission UI
+
+**Email body sanitization**: `proofOfPaymentText` and tenant message bodies are run through `esc()` (exported from `src/lib/email.ts`) before injection into HTML email templates. In React UI they're rendered as plain text inside `<pre>` / JSX text nodes, never via `dangerouslySetInnerHTML`.
+
+**Misc**:
 - Maintenance jobs submitted via portal show a "Tenant Request" badge in the maintenance queue; filterable via `?portalOnly=true` query param on `GET /api/maintenance`
+- `IncomeEntry.paymentMethod` (`PaymentMethod` enum: `BANK_TRANSFER`, `MPESA`, `CASH`, `CARD`, `CHEQUE`, `OTHER`) drives the ledger timeline's "Payment Method" column and the receipt PDF
 
 ### SaaS Onboarding & Demo System
 

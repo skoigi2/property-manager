@@ -16,6 +16,8 @@ import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
 import { RentHistoryTab } from "@/components/tenants/RentHistoryTab";
 import { CommunicationLogTab } from "@/components/tenants/CommunicationLogTab";
+import { PortalMessagesTab } from "@/components/tenants/PortalMessagesTab";
+import ProofVerifyDrawer from "@/components/invoices/ProofVerifyDrawer";
 import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import {
@@ -227,11 +229,12 @@ function SettleDepositModal({
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 const INVOICE_STATUS_CONFIG = {
-  DRAFT:     { label: "Draft",     cls: "bg-gray-100 text-gray-600" },
-  SENT:      { label: "Sent",      cls: "bg-blue-100 text-blue-700" },
-  PAID:      { label: "Paid",      cls: "bg-green-100 text-green-700" },
-  OVERDUE:   { label: "Overdue",   cls: "bg-red-100 text-red-700" },
-  CANCELLED: { label: "Cancelled", cls: "bg-gray-100 text-gray-400" },
+  DRAFT:                 { label: "Draft",       cls: "bg-gray-100 text-gray-600" },
+  SENT:                  { label: "Sent",        cls: "bg-blue-100 text-blue-700" },
+  PENDING_VERIFICATION:  { label: "Check Proof", cls: "bg-amber-100 text-amber-700" },
+  PAID:                  { label: "Paid",        cls: "bg-green-100 text-green-700" },
+  OVERDUE:               { label: "Overdue",     cls: "bg-red-100 text-red-700" },
+  CANCELLED:             { label: "Cancelled",   cls: "bg-gray-100 text-gray-400" },
 } as const;
 
 interface Invoice {
@@ -265,7 +268,7 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
   return rows.reverse();
 }
 
-type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms";
+type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages";
 
 export default function TenantDetailPage() {
   const { data: session } = useSession();
@@ -281,6 +284,7 @@ export default function TenantDetailPage() {
   const [docsLoading, setDocsLoading] = useState(false);
   const [tab,       setTab]       = useState<Tab>("ledger");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [proofInvoiceId, setProofInvoiceId] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
   const [renewalFeePrompt, setRenewalFeePrompt] = useState<{ unitId: string; tenantId: string; propertyId: string; amount: number } | null>(null);
   const [renewalFeeLogging, setRenewalFeeLogging] = useState(false);
@@ -391,6 +395,7 @@ export default function TenantDetailPage() {
     { id: "renewal",   label: "Renewal",      icon: <RefreshCw size={14} /> },
     { id: "deposit",   label: "Deposit",      icon: <Banknote size={14} /> },
     { id: "comms",     label: "Comms",        icon: <MessageSquare size={14} /> },
+    { id: "messages",  label: "Portal Msgs",  icon: <MessageSquare size={14} /> },
   ];
 
   return (
@@ -687,7 +692,16 @@ export default function TenantDetailPage() {
                                       )}
                                     </td>
                                     <td className="px-4 py-3">
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls}`}>{cfg.label}</span>
+                                      {inv.status === "PENDING_VERIFICATION" ? (
+                                        <button
+                                          onClick={() => setProofInvoiceId(inv.id)}
+                                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls} hover:ring-2 hover:ring-amber-300`}
+                                        >
+                                          {cfg.label}
+                                        </button>
+                                      ) : (
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls}`}>{cfg.label}</span>
+                                      )}
                                     </td>
                                     <td className="px-4 py-3">
                                       <button
@@ -858,6 +872,11 @@ export default function TenantDetailPage() {
                   />
                 )}
 
+                {/* ── PORTAL MESSAGES TAB ────────────────────────────────────── */}
+                {tab === "messages" && (
+                  <PortalMessagesTab tenantId={tenantId} />
+                )}
+
                 {/* ── RENEWAL TAB ────────────────────────────────────────────── */}
                 {tab === "renewal" && (
                   <>
@@ -899,6 +918,19 @@ export default function TenantDetailPage() {
           </>
         )}
       </div>
+
+      {/* Proof Verify Drawer */}
+      <ProofVerifyDrawer
+        open={!!proofInvoiceId}
+        onClose={() => setProofInvoiceId(null)}
+        invoiceId={proofInvoiceId ?? ""}
+        onVerified={() => {
+          // Refresh invoices on the tenant page
+          fetch(`/api/invoices?tenantId=${tenantId}`)
+            .then((r) => (r.ok ? r.json() : []))
+            .then((d) => setInvoices(Array.isArray(d) ? d : []));
+        }}
+      />
 
       {/* Settle Deposit Modal */}
       {showSettleModal && tenant && (

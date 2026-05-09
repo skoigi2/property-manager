@@ -4,7 +4,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 
 const updateSchema = z.object({
-  status: z.enum(["DRAFT","SENT","PAID","OVERDUE","CANCELLED"]).optional(),
+  status: z.enum(["DRAFT","SENT","PENDING_VERIFICATION","PAID","OVERDUE","CANCELLED"]).optional(),
   paidAt: z.string().nullable().optional(),
   paidAmount: z.number().nullable().optional(),
   notes: z.string().optional(),

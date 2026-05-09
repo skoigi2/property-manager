@@ -17,7 +17,7 @@ function getResend(): Resend {
 const FROM = process.env.RESEND_FROM_EMAIL ?? "Groundwork PM <noreply@groundworkpm.com>";
 
 // ─── HTML escaping ────────────────────────────────────────────────────────────
-function esc(s: string | null | undefined): string {
+export function esc(s: string | null | undefined): string {
   if (s == null) return "";
   return String(s)
     .replace(/&/g, "&amp;")

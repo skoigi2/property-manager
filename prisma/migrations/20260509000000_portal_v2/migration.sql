@@ -1,14 +1,20 @@
 -- ── Portal v2: proof of payment, payment method, two-way messaging ──
+--
+-- IMPORTANT: when applying this manually in the Supabase SQL Editor, run the
+-- ALTER TYPE statement (Step 1) on its own first, THEN run Step 2. Postgres
+-- forbids "ALTER TYPE ... ADD VALUE" inside a transaction block, and the SQL
+-- Editor wraps multi-statement input in one. Prisma migrate handles this
+-- automatically by committing each statement separately.
 
--- New enums
+-- ── Step 1 (run alone) ────────────────────────────────────────────────────
+ALTER TYPE "InvoiceStatus" ADD VALUE 'PENDING_VERIFICATION';
+
+-- ── Step 2 (everything else) ──────────────────────────────────────────────
 CREATE TYPE "ProofOfPaymentType" AS ENUM ('FILE', 'TEXT', 'BOTH');
 CREATE TYPE "PaymentMethod" AS ENUM ('BANK_TRANSFER', 'MPESA', 'CASH', 'CARD', 'CHEQUE', 'OTHER');
 CREATE TYPE "PortalMessageSender" AS ENUM ('TENANT', 'MANAGER');
 CREATE TYPE "PortalThreadStatus" AS ENUM ('SENT', 'READ', 'RESOLVED');
 CREATE TYPE "PortalMessageCategory" AS ENUM ('LEASE_QUERY', 'PAYMENT_NOTIFICATION', 'PERMISSION_REQUEST', 'GENERAL');
-
--- Extend InvoiceStatus enum (add PENDING_VERIFICATION between SENT and PAID)
-ALTER TYPE "InvoiceStatus" ADD VALUE 'PENDING_VERIFICATION' BEFORE 'PAID';
 
 -- Invoice: proof of payment fields
 ALTER TABLE "Invoice"

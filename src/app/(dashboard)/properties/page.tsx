@@ -1291,6 +1291,7 @@ export default function PropertiesPage() {
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
 
   const [properties, setProperties] = useState<Property[]>([]);
+  const [setupByProp, setSetupByProp] = useState<Record<string, { percent: number }>>({});
   const [owners, setOwners]         = useState<OwnerUser[]>([]);
   const [managers, setManagers]     = useState<OwnerUser[]>([]);
   const [orgs, setOrgs]             = useState<OrgOption[]>([]);
@@ -1345,6 +1346,14 @@ export default function PropertiesPage() {
       .then((r) => r.json())
       .then((d) => { setProperties(d); setLoading(false); })
       .catch(() => setLoading(false));
+    fetch("/api/setup-progress")
+      .then((r) => r.ok ? r.json() : [])
+      .then((arr: Array<{ propertyId: string; percent: number }>) => {
+        const map: Record<string, { percent: number }> = {};
+        for (const p of arr) map[p.propertyId] = { percent: p.percent };
+        setSetupByProp(map);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -1645,6 +1654,11 @@ export default function PropertiesPage() {
                     <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
                       {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
                     </Badge>
+                    {setupByProp[p.id] && (
+                      <Badge variant={setupByProp[p.id].percent === 100 ? "green" : "gold"}>
+                        {setupByProp[p.id].percent}% set up
+                      </Badge>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); setSelectedProperty(p); }} className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors" title="View summary">
                       <ChevronRight size={15} />
                     </button>

@@ -117,6 +117,7 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `paddle.ts` | Paddle pricing-tier mapping + `PROPERTY_LIMITS`. Used by checkout, webhook handler, and subscription gating |
 | `pdf-generator.ts` | Server-only. Property report PDF via `@react-pdf/renderer`. Used only in `POST /api/report` |
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
+| `setup-progress.ts` | `computeSetupProgress(propertyId)` — derives a 0–100% configuration score and per-step ✅/⚠ checklist from live DB state (units, tenants, portal tokens, recurring expenses, insurance, vendors, agreement, org branding, first entry). Items with `applicable: false` (e.g. tenants/portal for AIRBNB) are excluded from the %. Used by the dashboard `SetupChecklist` widget and the Properties-page progress badge |
 | `stripe.ts` | Lazy Stripe SDK singleton — used by `/api/stripe/status` and billing flows |
 | `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
 | `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
@@ -318,6 +319,16 @@ Token-based read-only portal for tenants — no login required, shareable link. 
   - `"belsize-court"` → Belsize Court (UK)
 
 **pgBouncer constraint**: Supabase uses pgBouncer in transaction pooling mode. This makes the callback-form `prisma.$transaction(async (tx) => {...})` incompatible — it silently commits partial work. Always use sequential `await` calls with manual cleanup, or the array-form `prisma.$transaction([op1, op2, ...])` for atomic operations.
+
+### Setup Progress Visibility
+
+Per-property activation checklist that turns a fresh org's "where do I start?" into a measurable % complete. Pure derived state — no DB column, no migration.
+
+- **Logic**: `computeSetupProgress(propertyId)` in `src/lib/setup-progress.ts` runs one `Promise.all` of counts (`units`, active tenants, tenants with `portalToken`, `recurringExpenses`, `insurancePolicies`, org-scoped active `vendors`, `managementAgreement`, income+expense entries) plus an `Organization` read (logo + bank/M-Pesa). Returns `{ propertyId, propertyName, propertyType, percent, completedCount, totalCount, items }`. Items mark `applicable: false` per property type — e.g. `tenants` and `tenant_portal` don't apply to AIRBNB and are excluded from the denominator.
+- **API**: `GET /api/setup-progress` returns an array for every accessible property; `?propertyId=X` returns one. Guarded by `requireAuth()` + `getAccessiblePropertyIds()`.
+- **UI**:
+  - Dashboard widget — `src/components/dashboard/SetupChecklist.tsx` (client). Animated gold progress bar, ✅/⚠ rows with per-item CTA links + hint tooltips, collapsible, motivational microcopy at ≥80%. Dismissal at 100% persists in `localStorage` under `setup-dismissed:{propertyId}` and auto-reappears if the score drops below 100. Mounted in `src/app/(dashboard)/dashboard/page.tsx` above the KPI strip, suppressed for OWNER role.
+  - Properties page — list/grid cards show a `{percent}% set up` Badge (gold <100, green =100) next to the type badge, populated by a single `GET /api/setup-progress` fetch on load.
 
 ## Environment Variables
 

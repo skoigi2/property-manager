@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
+import { useFocusScroll } from "@/lib/use-focus-scroll";
 import {
   ShieldPlus,
   Plus,
@@ -276,6 +277,7 @@ export default function InsurancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "USD";
+  useFocusScroll();
   const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -529,7 +531,8 @@ export default function InsurancePage() {
               const docsOpen = expandedDocPanel === policy.id;
 
               return (
-                <Card key={policy.id} className="p-4">
+                <div key={policy.id} id={`item-${policy.id}`}>
+                <Card className="p-4">
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -608,6 +611,7 @@ export default function InsurancePage() {
                   {/* Document panel */}
                   {docsOpen && <DocumentPanel policyId={policy.id} />}
                 </Card>
+                </div>
               );
             })}
           </div>

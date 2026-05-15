@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { formatCurrency } from "@/lib/currency";
 import { Header } from "@/components/layout/Header";
 import { useProperty } from "@/lib/property-context";
+import { useFocusScroll } from "@/lib/use-focus-scroll";
 import OwnerInvoicesTab from "./OwnerInvoicesTab";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -503,7 +504,7 @@ function InvoiceRow({
   }
 
   return (
-    <tr className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+    <tr id={`item-${invoice.id}`} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
       {/* Invoice # + Period */}
       <td className="px-4 py-3">
         <p className="font-mono text-xs font-medium text-header">{invoice.invoiceNumber}</p>
@@ -813,6 +814,7 @@ export default function InvoicesPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "USD";
+  useFocusScroll();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"tenant" | "owner">(
     searchParams.get("tab") === "owner" ? "owner" : "tenant"
@@ -1050,7 +1052,7 @@ export default function InvoicesPage() {
               {filtered.map((inv) => {
                 const needsSync = inv.status === "PAID" && (inv._count?.incomeEntries ?? 0) === 0;
                 return (
-                  <div key={inv.id} className="px-4 py-3">
+                  <div key={inv.id} id={`item-${inv.id}`} className="px-4 py-3">
                     {/* Invoice # + period + status */}
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>

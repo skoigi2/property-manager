@@ -11,9 +11,12 @@ import { Spinner } from "@/components/ui/Spinner";
 import toast from "react-hot-toast";
 import {
   Wrench, ChevronLeft, MessageSquare, Paperclip,
-  GitBranch, UserCheck, Send,
+  GitBranch, UserCheck, Send, Mail, Briefcase, ShieldQuestion,
 } from "lucide-react";
 import { formatRelative, formatFull } from "@/lib/relative-time";
+import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
+import { VendorEmailModal } from "@/components/cases/VendorEmailModal";
+import { Modal } from "@/components/ui/Modal";
 
 type CaseStatus = "OPEN" | "IN_PROGRESS" | "AWAITING_APPROVAL" | "AWAITING_VENDOR" | "AWAITING_TENANT" | "RESOLVED" | "CLOSED";
 type CaseWaitingOn = "MANAGER" | "OWNER" | "TENANT" | "VENDOR" | "NONE";
@@ -39,10 +42,16 @@ interface CaseDetail {
   stage: string | null;
   waitingOn: CaseWaitingOn;
   assignedToUserId: string | null;
-  property: { id: string; name: string };
+  property: { id: string; name: string; currency: string };
   unit: { id: string; unitNumber: string } | null;
   assignedTo: { id: string; name: string | null; email: string | null } | null;
   events: CaseEvent[];
+  tenantContext: {
+    id: string; name: string; email: string | null;
+    monthlyRent: number; serviceCharge: number;
+    leaseEnd: string | null; proposedRent: number | null; proposedLeaseEnd: string | null;
+  } | null;
+  vendorContext: { id: string; name: string; email: string | null } | null;
 }
 
 const STATUS_BADGE: Record<CaseStatus, "red" | "amber" | "blue" | "gray" | "green" | "gold"> = {
@@ -63,6 +72,9 @@ export default function CaseDetailPage() {
   const [saving, setSaving] = useState(false);
   const [composer, setComposer] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [emailTenantOpen, setEmailTenantOpen] = useState(false);
+  const [emailVendorOpen, setEmailVendorOpen] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
 
   const load = useCallback(() => {
     fetch(`/api/cases/${id}`).then((r) => r.json()).then(setData).catch(() => {});
@@ -254,12 +266,149 @@ export default function CaseDetailPage() {
                 if (v !== (c.stage ?? "")) patch({ stage: v || null });
               }}
             />
-            <div className="text-xs font-sans text-gray-500 pt-2 border-t border-gray-100">
+            <div className="text-xs font-sans text-gray-500 pt-2 border-t border-gray-100 space-y-2">
               <p className="flex items-center gap-1"><UserCheck size={12} /> Assigned: {c.assignedTo?.name ?? c.assignedTo?.email ?? "—"}</p>
+
+              {c.tenantContext && (
+                <button
+                  onClick={() => setEmailTenantOpen(true)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm font-sans hover:bg-gray-50"
+                >
+                  <Mail size={14} /> Email tenant
+                </button>
+              )}
+              {c.vendorContext && (
+                <button
+                  onClick={() => setEmailVendorOpen(true)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm font-sans hover:bg-gray-50"
+                >
+                  <Briefcase size={14} /> Email vendor
+                </button>
+              )}
+              <button
+                onClick={() => setApprovalOpen(true)}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-gold text-white text-sm font-sans hover:bg-gold-dark"
+              >
+                <ShieldQuestion size={14} /> Request approval
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {emailTenantOpen && c.tenantContext && (
+        <EmailDraftModal
+          tenant={c.tenantContext}
+          tenantId={c.tenantContext.id}
+          currency={c.property.currency}
+          caseThreadId={c.id}
+          onClose={() => setEmailTenantOpen(false)}
+        />
+      )}
+      {emailVendorOpen && c.vendorContext && (
+        <VendorEmailModal
+          vendor={c.vendorContext}
+          caseContext={{
+            id: c.id,
+            title: c.title,
+            propertyName: c.property.name,
+            unitNumber: c.unit?.unitNumber ?? null,
+          }}
+          caseThreadId={c.id}
+          onClose={() => setEmailVendorOpen(false)}
+        />
+      )}
+      {approvalOpen && (
+        <RequestApprovalModal
+          caseId={c.id}
+          currency={c.property.currency}
+          onClose={() => setApprovalOpen(false)}
+          onCreated={() => { setApprovalOpen(false); load(); }}
+        />
+      )}
     </>
+  );
+}
+
+function RequestApprovalModal({
+  caseId, currency, onClose, onCreated,
+}: {
+  caseId: string;
+  currency: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [question, setQuestion] = useState("");
+  const [amount, setAmount] = useState("");
+  const [hours, setHours] = useState(72);
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!email || !question) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/cases/${caseId}/approvals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestedFromEmail: email,
+          question,
+          amount: amount ? Number(amount) : undefined,
+          currency: amount ? currency : undefined,
+          expiresInHours: hours,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Approval request sent");
+      onCreated();
+    } catch {
+      toast.error("Failed to send approval request");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Request approval" size="md">
+      <div className="p-5 space-y-3">
+        <Input
+          label="Approver email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="owner@example.com"
+        />
+        <div>
+          <label className="text-sm font-medium text-gray-600 font-sans mb-1 block">Question</label>
+          <textarea
+            rows={4}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="What needs sign-off? Include any context."
+            className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50"
+          />
+        </div>
+        <Input
+          label={`Amount (${currency}) — optional`}
+          type="number"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+        <Input
+          label="Expires in (hours)"
+          type="number"
+          min={1}
+          max={168}
+          value={hours}
+          onChange={(e) => setHours(Math.max(1, Math.min(168, Number(e.target.value) || 72)))}
+        />
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="gold" onClick={submit} loading={saving} disabled={!email || !question}>Send request</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

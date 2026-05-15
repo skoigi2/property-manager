@@ -103,6 +103,7 @@ model User {
   emailLogs        EmailLog[]
   caseAssignments  CaseThread[]     @relation("CaseAssignee")
   caseEvents       CaseEvent[]      @relation("CaseEventActor")
+  approvalRequests ApprovalRequest[] @relation("ApprovalRequester")
   accounts         Account[]
   sessions         Session[]
   createdAt        DateTime         @default(now())
@@ -749,6 +750,9 @@ model CaseThread {
   assignedTo       User?         @relation("CaseAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
   events           CaseEvent[]
   maintenanceJobs  MaintenanceJob[] @relation("CaseThreadMaintenanceJobs")
+  emailLogs        EmailLog[]
+  communicationLogs CommunicationLog[]
+  approvalRequests ApprovalRequest[]
 
   @@index([organizationId, status])
   @@index([propertyId, status])
@@ -773,6 +777,40 @@ model CaseEvent {
   actor          User?         @relation("CaseEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([caseThreadId, createdAt])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISPUTED
+  EXPIRED
+}
+
+model ApprovalRequest {
+  id                 String         @id @default(cuid())
+  caseThreadId       String
+  token              String         @unique @default(cuid())
+  requestedByUserId  String
+  requestedFromEmail String
+  requestedFromName  String?
+  question           String
+  amount             Float?
+  currency           String?
+  status             ApprovalStatus @default(PENDING)
+  expiresAt          DateTime
+  respondedAt        DateTime?
+  respondedByName    String?
+  respondedFromIp    String?
+  disputedAt         DateTime?
+  createdAt          DateTime       @default(now())
+
+  caseThread         CaseThread     @relation(fields: [caseThreadId], references: [id], onDelete: Cascade)
+  requestedBy        User           @relation("ApprovalRequester", fields: [requestedByUserId], references: [id])
+
+  @@index([caseThreadId])
+  @@index([token])
+  @@index([status, expiresAt])
 }
 
 model Invoice {
@@ -1342,9 +1380,12 @@ model CommunicationLog {
   sentAt            DateTime          @default(now())
   followUpDate      DateTime?
   followUpCompleted Boolean           @default(false)
+  caseThreadId      String?
+  caseThread        CaseThread?       @relation(fields: [caseThreadId], references: [id], onDelete: SetNull)
   createdAt         DateTime          @default(now())
 
   @@index([tenantId, sentAt])
+  @@index([caseThreadId])
 }
 
 // ─── SaaS Billing Enum ────────────────────────────────────────────────────────
@@ -1404,12 +1445,14 @@ model EmailLog {
   organizationId String?
   userId         String?
   inReplyToId    String?
+  caseThreadId   String?
   sentAt         DateTime  @default(now())
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   inReplyTo    EmailLog?     @relation("EmailReplies", fields: [inReplyToId], references: [id], onDelete: SetNull)
   replies      EmailLog[]    @relation("EmailReplies")
+  caseThread   CaseThread?   @relation(fields: [caseThreadId], references: [id], onDelete: SetNull)
 
   @@index([sentAt])
   @@index([toEmail])
@@ -1417,4 +1460,5 @@ model EmailLog {
   @@index([organizationId])
   @@index([userId])
   @@index([inReplyToId])
+  @@index([caseThreadId])
 }

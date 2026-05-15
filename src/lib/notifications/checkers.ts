@@ -67,16 +67,29 @@ async function sendToManagers(
   type: NotificationType,
   resourceId: string,
   resourceType: string,
+  caseThreadId?: string | null,
 ): Promise<void> {
   for (const mgr of managers) {
     try {
-      await sendNotificationEmail(mgr.email, subject, html);
+      await sendNotificationEmail(mgr.email, subject, html, { caseThreadId: caseThreadId ?? null });
       await recordSent(organizationId, type, resourceId, resourceType, mgr.email, subject);
     } catch {
       // Log but don't throw — one bad address shouldn't block others
       console.error(`[notifications] Failed to send ${type} to ${mgr.email}`);
     }
   }
+}
+
+/** Look up an existing CaseThread by caseType + subjectId. Returns null when none. */
+async function findCaseThreadId(
+  caseType: "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE",
+  subjectId: string,
+): Promise<string | null> {
+  const t = await prisma.caseThread.findFirst({
+    where: { caseType, subjectId },
+    select: { id: true },
+  });
+  return t?.id ?? null;
 }
 
 // ─── Lease expiry checker ─────────────────────────────────────────────────────
@@ -119,7 +132,8 @@ export async function checkLeaseExpiries(): Promise<{ sent: number; skipped: num
       tenantId:     tenant.id,
     });
 
-    await sendToManagers(managers, subject, html, orgId, type, tenant.id, "Tenant");
+    const caseThreadId = await findCaseThreadId("LEASE_RENEWAL", tenant.id);
+    await sendToManagers(managers, subject, html, orgId, type, tenant.id, "Tenant", caseThreadId);
     sent += managers.length;
   }
 
@@ -172,7 +186,12 @@ export async function checkOverdueInvoices(): Promise<{ sent: number; skipped: n
       invoiceId:     invoice.id,
     });
 
-    await sendToManagers(managers, subject, html, orgId, type, invoice.id, "Invoice");
+    // Try to find an open arrears case for this tenant; otherwise no caseThreadId
+    const caseThreadId = await prisma.caseThread.findFirst({
+      where: { caseType: "ARREARS", subjectId: invoice.tenantId, status: { notIn: ["RESOLVED", "CLOSED"] } },
+      select: { id: true },
+    }).then((t) => t?.id ?? null);
+    await sendToManagers(managers, subject, html, orgId, type, invoice.id, "Invoice", caseThreadId);
     sent += managers.length;
   }
 
@@ -214,7 +233,8 @@ export async function checkComplianceCertificates(): Promise<{ sent: number; ski
       propertyId:      cert.propertyId,
     });
 
-    await sendToManagers(managers, subject, html, cert.organizationId, type, cert.id, "ComplianceCertificate");
+    const caseThreadId = await findCaseThreadId("COMPLIANCE", cert.id);
+    await sendToManagers(managers, subject, html, cert.organizationId, type, cert.id, "ComplianceCertificate", caseThreadId);
     sent += managers.length;
   }
 
@@ -257,7 +277,8 @@ export async function checkInsuranceRenewals(): Promise<{ sent: number; skipped:
       daysLeft:     days,
     });
 
-    await sendToManagers(managers, subject, html, orgId, type, policy.id, "InsurancePolicy");
+    const caseThreadId = await findCaseThreadId("COMPLIANCE", policy.id);
+    await sendToManagers(managers, subject, html, orgId, type, policy.id, "InsurancePolicy", caseThreadId);
     sent += managers.length;
   }
 
@@ -302,7 +323,8 @@ export async function checkUrgentMaintenance(): Promise<{ sent: number; skipped:
       jobId:        job.id,
     });
 
-    await sendToManagers(managers, subject, html, orgId, type, job.id, "MaintenanceJob");
+    // MaintenanceJob has caseThreadId directly (auto-created by POST /api/maintenance)
+    await sendToManagers(managers, subject, html, orgId, type, job.id, "MaintenanceJob", job.caseThreadId);
     sent += managers.length;
   }
 

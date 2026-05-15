@@ -298,6 +298,18 @@ All writes use `requireManager()` + `requirePropertyAccess(case.propertyId)` and
 
 **Supabase storage**: requires a `case-attachments` bucket — must be created manually in Supabase Studio for both dev and prod (private bucket, signed URLs only).
 
+**Communication is dual-written into the timeline.** When a `CaseThread` is linked, `sendAndLog()` writes both an `EmailLog` (with `caseThreadId`) *and* a `CaseEvent` of kind `EMAIL_SENT` (snippet = subject + first 200 chars of stripped body). The same is true for `POST /api/tenants/[id]/communication-log`: pass `caseThreadId` to dual-write into the case timeline. `sendNotificationEmail`'s `meta` arg now accepts `caseThreadId`, so cron-driven notifications (lease expiry, overdue invoice, urgent maintenance, compliance, insurance) automatically land on the case timeline when a linked thread exists. Vendor emails (`VendorEmailModal`) skip `CommunicationLog` (tenant-only) but still write `EmailLog` + a `CaseEvent` (via the `/api/cases/[id]/events` COMMENT path with an embedded snippet).
+
+### In-case approvals
+
+Replaces ad-hoc WhatsApp owner sign-offs. `POST /api/cases/[id]/approvals` (manager-only) creates an `ApprovalRequest` row (UUID `token`, default 72h / max 168h `expiresAt`), emits an `APPROVAL_REQUESTED` `CaseEvent`, sets the thread's `waitingOn = OWNER`, and emails the approver a magic-link `${origin}/approve/${token}` via `sendNotificationEmail`.
+
+- **`/approve/[token]` page** is public (no auth — middleware allow-list, alongside `/portal/*`). The page renders via `GET /api/approvals/[token]` which is **idempotent** so email link-preview scanners don't consume the token. The approver types their name (captured as `respondedByName`) before clicking Approve / Reject. `POST /api/approvals/[token]` records the decision, emits `APPROVAL_GRANTED` / `APPROVAL_REJECTED`, sets `waitingOn = NONE`, and sends a confirmation email back to the approver with a "This wasn't me" link that POSTs `action: "DISPUTE"` → `status = DISPUTED`, restores `waitingOn = MANAGER`, notifies the requesting manager.
+- The response endpoint is rate-limited (20 reqs / IP / hour, in-memory via [src/lib/rate-limit.ts](src/lib/rate-limit.ts)). Tokens are UUIDs (effectively unguessable); rate limit is defense-in-depth.
+- Auth helper [src/lib/approval-auth.ts](src/lib/approval-auth.ts) mirrors [src/lib/portal-auth.ts](src/lib/portal-auth.ts). Tokens are redacted to last 4 chars in audit logs (`redactToken()`).
+- The Operational Inbox shows `APPROVAL_PENDING` items for pending requests older than 24h (severity escalates to URGENT after 3 days).
+- Statuses: `PENDING → APPROVED | REJECTED | EXPIRED`; `APPROVED | REJECTED → DISPUTED` (one-way). Once not PENDING, the token is dead for further APPROVE/REJECT but still accepts `DISPUTE` once.
+
 ### Email Logging & Super-admin Composer
 
 Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.

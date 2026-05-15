@@ -9,6 +9,7 @@ const createSchema = z.object({
   templateUsed: z.string().optional(),
   sentAt:       z.string().optional(),
   followUpDate: z.string().nullable().optional(),
+  caseThreadId: z.string().optional().nullable(),
 });
 
 // ── GET /api/tenants/[id]/communication-log ──────────────────────────────────
@@ -61,21 +62,57 @@ export async function POST(
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { type, subject, body: bodyText, templateUsed, sentAt, followUpDate } = parsed.data;
+  const { type, subject, body: bodyText, templateUsed, sentAt, followUpDate, caseThreadId } = parsed.data;
 
-  const record = await prisma.communicationLog.create({
-    data: {
-      tenantId:      params.id,
-      type,
-      subject,
-      body:          bodyText ?? null,
-      templateUsed:  templateUsed ?? null,
-      loggedByEmail: session!.user.email!,
-      loggedByName:  session!.user.name ?? null,
-      sentAt:        sentAt ? new Date(sentAt) : new Date(),
-      followUpDate:  followUpDate ? new Date(followUpDate) : null,
-    },
-  });
+  // Validate caseThreadId belongs to an accessible property if provided.
+  let validCaseThreadId: string | null = null;
+  if (caseThreadId) {
+    const thread = await prisma.caseThread.findUnique({
+      where: { id: caseThreadId },
+      select: { id: true, propertyId: true },
+    });
+    if (thread && accessibleIds.includes(thread.propertyId)) {
+      validCaseThreadId = thread.id;
+    }
+  }
+
+  const snippet = (bodyText ?? "").slice(0, 200);
+
+  const [record] = await prisma.$transaction([
+    prisma.communicationLog.create({
+      data: {
+        tenantId:      params.id,
+        type,
+        subject,
+        body:          bodyText ?? null,
+        templateUsed:  templateUsed ?? null,
+        loggedByEmail: session!.user.email!,
+        loggedByName:  session!.user.name ?? null,
+        sentAt:        sentAt ? new Date(sentAt) : new Date(),
+        followUpDate:  followUpDate ? new Date(followUpDate) : null,
+        caseThreadId:  validCaseThreadId,
+      },
+    }),
+    ...(validCaseThreadId
+      ? [
+          prisma.caseEvent.create({
+            data: {
+              caseThreadId: validCaseThreadId,
+              kind: "EMAIL_SENT",
+              actorUserId: session!.user.id,
+              actorEmail: session!.user.email ?? null,
+              actorName: session!.user.name ?? null,
+              body: `${subject}\n\n${snippet}`,
+              meta: { templateUsed: templateUsed ?? null, source: "communication-log" },
+            },
+          }),
+          prisma.caseThread.update({
+            where: { id: validCaseThreadId },
+            data: { lastActivityAt: new Date() },
+          }),
+        ]
+      : []),
+  ]);
 
   return Response.json(record, { status: 201 });
 }

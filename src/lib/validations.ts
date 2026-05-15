@@ -158,6 +158,20 @@ export const createCaseEventSchema = z.object({
   body: z.string().min(1).max(20_000),
 });
 
+export const createApprovalSchema = z.object({
+  requestedFromEmail: z.string().email(),
+  requestedFromName:  z.string().max(200).optional(),
+  question:           z.string().min(1).max(2000),
+  amount:             z.number().nonnegative().optional(),
+  currency:           z.string().length(3).optional(),
+  expiresInHours:     z.number().int().min(1).max(168).default(72),
+});
+
+export const respondToApprovalSchema = z.object({
+  action:          z.enum(["APPROVE", "REJECT", "DISPUTE"]),
+  respondedByName: z.string().min(1).max(200),
+});
+
 // Manual email composer (super-admin /admin/emails)
 export const manualEmailSchema = z.object({
   to: z.string().email("Valid recipient email is required"),

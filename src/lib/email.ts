@@ -47,6 +47,11 @@ interface SendAndLogArgs {
   organizationId?: string | null;
   userId?: string | null;
   inReplyToId?: string | null;
+  caseThreadId?: string | null;
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 export async function sendAndLog(args: SendAndLogArgs): Promise<{ id: string; resendId: string | null }> {
@@ -93,10 +98,35 @@ export async function sendAndLog(args: SendAndLogArgs): Promise<{ id: string; re
         organizationId: args.organizationId ?? null,
         userId: args.userId ?? null,
         inReplyToId: args.inReplyToId ?? null,
+        caseThreadId: args.caseThreadId ?? null,
       },
       select: { id: true },
     });
     logId = log.id;
+
+    // Dual-write to the case timeline when a thread is linked.
+    if (args.caseThreadId && status === "sent") {
+      const snippet = stripHtml(args.html).slice(0, 200);
+      try {
+        await prisma.$transaction([
+          prisma.caseEvent.create({
+            data: {
+              caseThreadId: args.caseThreadId,
+              kind: "EMAIL_SENT",
+              actorEmail: FROM,
+              body: `${args.subject}\n\n${snippet}`,
+              meta: { recipient: to, emailLogId: logId, kind: args.kind },
+            },
+          }),
+          prisma.caseThread.update({
+            where: { id: args.caseThreadId },
+            data: { lastActivityAt: new Date() },
+          }),
+        ]);
+      } catch (mirrorErr) {
+        console.error("CaseEvent mirror write failed:", mirrorErr);
+      }
+    }
   } catch (logErr) {
     // Logging failure must never mask a real send error.
     console.error("EmailLog write failed:", logErr);
@@ -144,7 +174,7 @@ export async function sendNotificationEmail(
   to: string,
   subject: string,
   html: string,
-  meta?: { organizationId?: string | null; userId?: string | null },
+  meta?: { organizationId?: string | null; userId?: string | null; caseThreadId?: string | null },
 ): Promise<void> {
   await sendAndLog({
     kind: "NOTIFICATION",
@@ -153,6 +183,7 @@ export async function sendNotificationEmail(
     html,
     organizationId: meta?.organizationId ?? null,
     userId: meta?.userId ?? null,
+    caseThreadId: meta?.caseThreadId ?? null,
   });
 }
 

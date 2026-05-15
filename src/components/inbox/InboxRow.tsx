@@ -10,6 +10,7 @@ import {
   ShieldPlus,
   AlertTriangle,
   Briefcase,
+  ShieldQuestion,
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { InboxItem, InboxType } from "@/lib/inbox";
@@ -24,6 +25,7 @@ const TYPE_ICON: Record<InboxType, React.ElementType> = {
   INSURANCE_EXPIRY: ShieldPlus,
   ARREARS_ESCALATION: AlertTriangle,
   CASE_NEEDS_ATTENTION: Briefcase,
+  APPROVAL_PENDING: ShieldQuestion,
 };
 
 function severityStyles(severity: InboxItem["severity"]) {

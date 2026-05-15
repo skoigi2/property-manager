@@ -13,7 +13,8 @@ export type InboxType =
   | "COMPLIANCE_EXPIRY"
   | "INSURANCE_EXPIRY"
   | "ARREARS_ESCALATION"
-  | "CASE_NEEDS_ATTENTION";
+  | "CASE_NEEDS_ATTENTION"
+  | "APPROVAL_PENDING";
 
 export interface InboxAction {
   label: string;
@@ -81,6 +82,7 @@ export async function buildInbox(
     insurancePolicies,
     arrearsCases,
     cases,
+    pendingApprovals,
   ] = await Promise.all([
     // 1. Overdue invoices
     prisma.invoice.findMany({
@@ -188,7 +190,20 @@ export async function buildInbox(
         unit: { select: { id: true, unitNumber: true } },
       },
     }),
-    // 9. TODO: pending approvals (see Prompt 4)
+    // 9. Pending approvals — PENDING, created > 24h ago, not yet expired
+    prisma.approvalRequest.findMany({
+      where: {
+        status: "PENDING",
+        createdAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        expiresAt: { gt: now },
+        caseThread: { propertyId: { in: propertyIds } },
+      },
+      include: {
+        caseThread: {
+          include: { property: { select: { id: true, name: true, currency: true } } },
+        },
+      },
+    }),
   ]);
 
   const items: InboxItem[] = [];
@@ -410,6 +425,32 @@ export async function buildInbox(
         { label: "Open case", action: `/cases/${c.id}` },
         { label: "Reassign", action: `/api/cases/${c.id}`, method: "PATCH" },
         { label: "Set waiting on", action: `/api/cases/${c.id}`, method: "PATCH" },
+      ],
+    });
+  }
+
+  // 9. Pending approvals (>24h old)
+  for (const a of pendingApprovals) {
+    const daysOld = differenceInDays(now, a.createdAt);
+    const severity: InboxSeverity = daysOld >= 3 ? "URGENT" : "WARNING";
+    const amountStr = a.amount != null ? ` · ${formatCurrency(a.amount, a.currency ?? a.caseThread.property.currency)}` : "";
+    items.push({
+      id: `approval:${a.id}`,
+      refId: a.caseThread.id,
+      type: "APPROVAL_PENDING",
+      severity,
+      title: `Approval pending — ${a.caseThread.title}`,
+      subtitle: `Waiting on ${a.requestedFromEmail} for ${daysOld} day${daysOld === 1 ? "" : "s"}${amountStr}`,
+      propertyId: a.caseThread.property.id,
+      propertyName: a.caseThread.property.name,
+      propertyCurrency: a.caseThread.property.currency,
+      tenantId: null,
+      unitId: a.caseThread.unitId,
+      dueDate: a.expiresAt.toISOString(),
+      daysOverdue: daysOld,
+      href: `/cases/${a.caseThread.id}`,
+      actions: [
+        { label: "Open case", action: `/cases/${a.caseThread.id}` },
       ],
     });
   }

@@ -11,16 +11,48 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const thread = await prisma.caseThread.findUnique({
     where: { id: params.id },
     include: {
-      property: { select: { id: true, name: true } },
+      property: { select: { id: true, name: true, currency: true } },
       unit:     { select: { id: true, unitNumber: true } },
       assignedTo: { select: { id: true, name: true, email: true } },
       events: { orderBy: { createdAt: "asc" } },
+      maintenanceJobs: {
+        select: {
+          id: true,
+          description: true,
+          vendor: { select: { id: true, name: true, email: true } },
+        },
+      },
     },
   });
   if (!thread) return Response.json({ error: "Not found" }, { status: 404 });
 
   const access = await requirePropertyAccess(thread.propertyId);
   if (!access.ok) return access.error!;
+
+  // Look up tenant via unit (if a unit is attached and has an active tenant)
+  let tenantContext: { id: string; name: string; email: string | null; monthlyRent: number; serviceCharge: number; leaseEnd: string | null; proposedRent: number | null; proposedLeaseEnd: string | null } | null = null;
+  if (thread.unitId) {
+    const tenant = await prisma.tenant.findFirst({
+      where: { unitId: thread.unitId, isActive: true },
+      select: {
+        id: true, name: true, email: true, monthlyRent: true, serviceCharge: true,
+        leaseEnd: true, proposedRent: true, proposedLeaseEnd: true,
+      },
+    });
+    if (tenant) {
+      tenantContext = {
+        id: tenant.id,
+        name: tenant.name,
+        email: tenant.email,
+        monthlyRent: tenant.monthlyRent,
+        serviceCharge: tenant.serviceCharge,
+        leaseEnd: tenant.leaseEnd?.toISOString() ?? null,
+        proposedRent: tenant.proposedRent,
+        proposedLeaseEnd: tenant.proposedLeaseEnd?.toISOString() ?? null,
+      };
+    }
+  }
+  const vendorContext = thread.maintenanceJobs[0]?.vendor ?? null;
 
   // Resolve signed URLs for attachments (best effort)
   const events = await Promise.all(
@@ -40,7 +72,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     })
   );
 
-  return Response.json({ ...thread, events });
+  return Response.json({ ...thread, events, tenantContext, vendorContext });
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {

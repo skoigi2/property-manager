@@ -5,6 +5,7 @@ import { format, isPast, parseISO } from "date-fns";
 import {
   Mail, Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
 
@@ -19,6 +20,7 @@ interface CommEntry {
   sentAt:            string;
   followUpDate:      string | null;
   followUpCompleted: boolean;
+  caseThreadId:      string | null;
 }
 
 interface Props {
@@ -217,7 +219,17 @@ export function CommunicationLogTab({ tenantId }: Props) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-header truncate">{entry.subject}</p>
+                      <p className="text-sm font-medium text-header truncate">
+                        {entry.subject}
+                        {entry.caseThreadId && (
+                          <Link
+                            href={`/cases/${entry.caseThreadId}`}
+                            className="text-xs text-gold hover:underline ml-2 font-normal"
+                          >
+                            View case →
+                          </Link>
+                        )}
+                      </p>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {entry.body && (
                           <button

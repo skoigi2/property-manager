@@ -10,6 +10,7 @@ export default auth((req) => {
   const isAuthPage = pathname.startsWith("/login");
   const isSelectOrgPage = pathname.startsWith("/select-org");
   const isPortalPage = pathname.startsWith("/portal/");
+  const isApprovePage = pathname.startsWith("/approve/");
 
   // Public marketing + auth pages — no login required
   const isPublicPage =
@@ -30,7 +31,7 @@ export default auth((req) => {
     pathname.startsWith("/blog") ||
     pathname.startsWith("/contact");
 
-  if (!isLoggedIn && !isAuthPage && !isPortalPage && !isPublicPage) {
+  if (!isLoggedIn && !isAuthPage && !isPortalPage && !isApprovePage && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

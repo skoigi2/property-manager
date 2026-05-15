@@ -5,6 +5,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { respondToApprovalSchema } from "@/lib/validations";
 import { sendNotificationEmail } from "@/lib/email";
 import { formatCurrency } from "@/lib/currency";
+import { tryAutoAdvance } from "@/lib/case-workflows";
 
 /**
  * GET — idempotent read of the approval request. Must NEVER mutate state so
@@ -154,6 +155,11 @@ export async function POST(req: Request, { params }: { params: { token: string }
       data: { waitingOn: "NONE", lastActivityAt: now },
     }),
   ]);
+
+  // Auto-advance the case if it was at "approval_requested"
+  if (newStatus === "APPROVED") {
+    await tryAutoAdvance(request.caseThreadId, { kind: "APPROVAL_GRANTED" });
+  }
 
   // Confirmation email to approver (with "This wasn't me" link)
   const origin = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";

@@ -13,7 +13,9 @@
     "db:seed:bahrain": "ts-node -P tsconfig.seed.json prisma/seed-bahrain.ts",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "cases:backfill": "ts-node -P tsconfig.seed.json scripts/backfill-cases.ts"
+    "cases:backfill":              "ts-node -P tsconfig.seed.json scripts/backfill-cases.ts",
+    "cases:backfill-stages":       "ts-node -P tsconfig.seed.json scripts/backfill-case-stages.ts",
+    "cases:backfill-invoice-links":"ts-node -P tsconfig.seed.json scripts/backfill-invoice-case-links.ts"
   },
   "prisma": {
     "seed": "ts-node -P tsconfig.seed.json prisma/seed.ts"

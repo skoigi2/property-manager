@@ -139,6 +139,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const stageChanged = data.stage !== undefined && data.stage !== thread.stage;
 
+  // Pause-clock math when waitingOn changes between internal/external
+  let pauseUpdate: { waitingPausedSeconds?: number; lastWaitingPauseAt?: Date | null } = {};
+  if (data.waitingOn !== undefined && data.waitingOn !== thread.waitingOn) {
+    const externalBefore = thread.waitingOn !== "MANAGER" && thread.waitingOn !== "NONE";
+    const externalNow = data.waitingOn !== "MANAGER" && data.waitingOn !== "NONE";
+    if (!externalBefore && externalNow) {
+      pauseUpdate = { lastWaitingPauseAt: now };
+    } else if (externalBefore && !externalNow && thread.lastWaitingPauseAt) {
+      const addedSec = Math.floor((now.getTime() - thread.lastWaitingPauseAt.getTime()) / 1000);
+      pauseUpdate = {
+        waitingPausedSeconds: thread.waitingPausedSeconds + addedSec,
+        lastWaitingPauseAt: null,
+      };
+    }
+  }
+
   const [updated] = await prisma.$transaction([
     prisma.caseThread.update({
       where: { id: thread.id },
@@ -146,6 +162,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         ...data,
         lastActivityAt: now,
         ...(stageChanged ? { stageStartedAt: now } : {}),
+        ...pauseUpdate,
       },
     }),
     ...eventCreates.map((d) => prisma.caseEvent.create({ data: d })),

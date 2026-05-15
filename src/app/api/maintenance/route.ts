@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
+import { computeDefaultStageSlaHours, getWorkflow, tryAutoAdvance } from "@/lib/case-workflows";
 
 const createSchema = z.object({
   propertyId:  z.string().min(1),
@@ -92,6 +93,17 @@ export async function POST(req: Request) {
   if (job.property.organizationId) {
     try {
       const now = new Date();
+      // Workflow defaults + per-stage SLA override from the management agreement
+      const wf = getWorkflow("MAINTENANCE");
+      const agreement = await prisma.managementAgreement.findUnique({
+        where: { propertyId: job.propertyId },
+        select: { kpiEmergencyResponseHrs: true, kpiStandardResponseHrs: true },
+      });
+      const stageSlaHours = computeDefaultStageSlaHours(wf, {
+        isEmergency: job.isEmergency,
+        agreement,
+      });
+
       const [thread] = await prisma.$transaction([
         prisma.caseThread.create({
           data: {
@@ -103,6 +115,10 @@ export async function POST(req: Request) {
             title: job.title,
             status: mapMaintenanceStatusToCase(job.status),
             waitingOn: mapMaintenanceWaitingOn(job),
+            stage: wf.stages[0].label,
+            currentStageIndex: 0,
+            workflowKey: wf.key,
+            stageSlaHours,
             stageStartedAt: now,
             lastActivityAt: now,
           },
@@ -124,6 +140,10 @@ export async function POST(req: Request) {
           },
         }),
       ]);
+      // If the job was created with a vendor already assigned, jump past Triaged.
+      if (job.vendorId) {
+        await tryAutoAdvance(thread.id, { kind: "VENDOR_ASSIGNED" });
+      }
     } catch {
       // Case creation is best-effort — backfill script will reconcile.
     }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { auth } from "@/lib/auth";
 import { clearHints } from "@/lib/hints";
+import { tryAutoAdvance } from "@/lib/case-workflows";
 
 const updateSchema = z.object({
   title:            z.string().min(1).optional(),
@@ -211,6 +212,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           }),
           ...events.map((data) => prisma.caseEvent.create({ data })),
         ]);
+      }
+
+      // Auto-advance triggers (best-effort, post-commit)
+      if (vendorChanged && rest.vendorId) {
+        await tryAutoAdvance(job!.caseThreadId, { kind: "VENDOR_ASSIGNED" });
+      }
+      if (statusChanged && rest.status) {
+        await tryAutoAdvance(job!.caseThreadId, { kind: "MAINTENANCE_STATUS", status: rest.status });
       }
     } catch {
       // Mirroring is best-effort

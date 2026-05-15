@@ -310,6 +310,32 @@ Replaces ad-hoc WhatsApp owner sign-offs. `POST /api/cases/[id]/approvals` (mana
 - The Operational Inbox shows `APPROVAL_PENDING` items for pending requests older than 24h (severity escalates to URGENT after 3 days).
 - Statuses: `PENDING → APPROVED | REJECTED | EXPIRED`; `APPROVED | REJECTED → DISPUTED` (one-way). Once not PENDING, the token is dead for further APPROVE/REJECT but still accepts `DISPUTE` once.
 
+### Case workflows + stages
+
+Each `caseType` maps to an ordered workflow defined in [src/lib/case-workflows.ts](src/lib/case-workflows.ts). The source of truth on a case is `currentStageIndex` (Int) — `stage` (String?) is the rendered label and is recomputed on every advance / regress. `workflowKey` (e.g. `MAINTENANCE_V1`) namespaces stage keys so workflows can be revised without colliding with the legacy `Tenant.renewalStage` enum (which remains tenant-scoped).
+
+Stage transitions:
+- `POST /api/cases/[id]/advance` (manager) — `{ to?: number, toKey?: string, note?: string }`. Must be forward-only. Emits `STAGE_CHANGE`, sets `stageStartedAt = now`, recomputes `waitingOn` from the new stage's `requiresAction`, and clears any `SLA_BREACH` hint for the case.
+- `POST /api/cases/[id]/regress` (manager) — `{ reason: string }`. One step back, reason mandatory. Same transaction shape.
+- `POST /api/cases/[id]/sla` (manager) — `{ stageSlaHours?: Record<string, number | null> }` OR `{ slaHours?: number }` (legacy single value applied to the current stage).
+- `POST /api/cases/[id]/link-invoice` (manager) — sets `Invoice.caseThreadId` so subsequent `PAID` flips trigger the `MAINTENANCE.invoiced` auto-advance.
+
+Auto-advance triggers (best-effort, fired *after* the parent transaction commits, never throws — see `tryAutoAdvance` in case-workflows.ts):
+- Vendor assigned at `MAINTENANCE.triaged` → `quote_requested`
+- Approval granted at `MAINTENANCE.approval_requested` → `approved`
+- Maintenance status `DONE` → `MAINTENANCE.completed`; `CANCELLED` → `closed`
+- Invoice `PAID` (only when `Invoice.caseThreadId` is set) → `MAINTENANCE.invoiced`
+
+Auto-advance fires only on records that carry an explicit `caseThreadId` link — no heuristic inference. `Invoice.caseThreadId` is the new column added in this phase; existing rent invoices have it null and don't trigger auto-advance. Use the **Link invoice** button on the Case detail page to retroactively attach.
+
+### Case SLAs (per-stage)
+
+Per-stage SLAs live in `CaseThread.stageSlaHours` (JSON map of `stageKey → hours`). Defaults come from `case-workflows.ts`; MAINTENANCE cases override `triaged` and `quote_requested` with `ManagementAgreement.kpiEmergencyResponseHrs` / `kpiStandardResponseHrs` depending on the job's `isEmergency`.
+
+**Pause logic**: when `waitingOn` flips to `OWNER` / `TENANT` / `VENDOR`, the SLA clock is paused (`lastWaitingPauseAt = now`); on return to `MANAGER` / `NONE` the paused duration accumulates into `waitingPausedSeconds`. The cron's `checkCaseSlaBreaches` computes `elapsed = (now - stageStartedAt - waitingPausedSeconds*1000)` against `stageSlaHours[currentStageKey]` and emits a `SLA_BREACH` `ActionableHint` (`WARNING`, escalating to `URGENT` after 2× the budget). The hint clears automatically when the case advances.
+
+Backfill: `npm run cases:backfill-stages` populates `workflowKey` + `stageSlaHours` (idempotent). `npm run cases:backfill-invoice-links --dry-run` reports linkable invoice-to-case candidates.
+
 ### Smart Reminders (ActionableHints)
 
 The cron at `GET /api/cron/notifications` does two things per run: (1) sends emails through the existing dedup-gated path (`NotificationLog`), and (2) **upserts an `ActionableHint` row** keyed by `(hintType, refId)` so the cron is fully idempotent and the same hint surfaces every run until the underlying condition clears.

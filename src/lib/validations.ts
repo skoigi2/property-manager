@@ -172,6 +172,25 @@ export const respondToApprovalSchema = z.object({
   respondedByName: z.string().min(1).max(200),
 });
 
+export const advanceCaseSchema = z.object({
+  to:    z.number().int().nonnegative().optional(),
+  toKey: z.string().optional(),
+  note:  z.string().max(1000).optional(),
+}).refine((d) => d.to !== undefined || d.toKey !== undefined, { message: "to or toKey is required" });
+
+export const regressCaseSchema = z.object({
+  reason: z.string().min(1).max(1000),
+});
+
+export const setSlaSchema = z.object({
+  stageSlaHours: z.record(z.string(), z.number().int().min(1).max(8760).nullable()).optional(),
+  slaHours:      z.number().int().min(1).max(8760).optional(),
+}).refine((d) => d.stageSlaHours !== undefined || d.slaHours !== undefined, { message: "stageSlaHours or slaHours is required" });
+
+export const linkInvoiceSchema = z.object({
+  invoiceId: z.string().min(1),
+});
+
 // Manual email composer (super-admin /admin/emails)
 export const manualEmailSchema = z.object({
   to: z.string().email("Valid recipient email is required"),

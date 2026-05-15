@@ -21,10 +21,43 @@ interface CaseRow {
   status: CaseStatus;
   waitingOn: CaseWaitingOn;
   stage: string | null;
+  currentStageIndex: number;
   lastActivityAt: string;
   property: { id: string; name: string };
   unit: { id: string; unitNumber: string } | null;
   assignedTo: { id: string; name: string | null; email: string | null } | null;
+}
+
+const WAITING_DOT: Record<CaseWaitingOn, string> = {
+  MANAGER: "bg-gray-400",
+  OWNER:   "bg-blue-500",
+  TENANT:  "bg-amber-500",
+  VENDOR:  "bg-purple-500",
+  NONE:    "bg-gray-200",
+};
+
+const WORKFLOW_LENGTHS: Record<CaseType, number> = {
+  MAINTENANCE:   11,
+  LEASE_RENEWAL: 8,
+  ARREARS:       6,
+  COMPLIANCE:    6,
+  GENERAL:       4,
+};
+
+function ProgressChip({ c }: { c: CaseRow }) {
+  const total = WORKFLOW_LENGTHS[c.caseType] ?? 1;
+  const cur = Math.min(Math.max(c.currentStageIndex + 1, 1), total);
+  const pct = Math.round((cur / total) * 100);
+  const isTerminal = c.status === "RESOLVED" || c.status === "CLOSED";
+  return (
+    <div className="flex items-center gap-2 min-w-[8rem]">
+      <span className={`inline-block w-2 h-2 rounded-full ${WAITING_DOT[c.waitingOn]}`} title={`Waiting: ${c.waitingOn}`} />
+      <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+        <div className={`h-1.5 ${isTerminal ? "bg-green-500" : "bg-gold"}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-[10px] font-mono text-gray-500 shrink-0">{cur}/{total}</span>
+    </div>
+  );
 }
 
 const STATUS_BADGE: Record<CaseStatus, "red" | "amber" | "blue" | "gray" | "green" | "gold"> = {
@@ -152,6 +185,9 @@ export default function CasesPage() {
                     <p className="text-xs text-gray-500 font-sans">
                       {c.property.name}{c.unit ? ` · ${c.unit.unitNumber}` : ""}
                     </p>
+                    <div className="mt-2">
+                      <ProgressChip c={c} />
+                    </div>
                     <div className="flex items-center justify-between mt-2 text-xs font-sans">
                       <span className="text-gray-500">Waiting: {WAITING_LABEL[c.waitingOn]}</span>
                       <span className="text-gray-400" title={t.full}>{t.short}</span>
@@ -169,6 +205,7 @@ export default function CasesPage() {
                     <th className="px-4 py-2">Title</th>
                     <th className="px-4 py-2">Property / unit</th>
                     <th className="px-4 py-2">Status</th>
+                    <th className="px-4 py-2">Progress</th>
                     <th className="px-4 py-2">Waiting on</th>
                     <th className="px-4 py-2">Assigned</th>
                     <th className="px-4 py-2">Last activity</th>
@@ -189,6 +226,7 @@ export default function CasesPage() {
                           {c.property.name}{c.unit ? ` · ${c.unit.unitNumber}` : ""}
                         </td>
                         <td className="px-4 py-2"><Badge variant={STATUS_BADGE[c.status]}>{c.status.replace(/_/g, " ")}</Badge></td>
+                        <td className="px-4 py-2"><ProgressChip c={c} /></td>
                         <td className="px-4 py-2 text-gray-600">{WAITING_LABEL[c.waitingOn]}</td>
                         <td className="px-4 py-2 text-gray-600">{c.assignedTo?.name ?? c.assignedTo?.email ?? "—"}</td>
                         <td className="px-4 py-2 text-gray-400" title={t.full}>{t.short}</td>

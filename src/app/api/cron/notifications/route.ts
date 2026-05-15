@@ -12,6 +12,7 @@ import {
   checkRecurringExpensesDue,
   checkLowPettyCash,
   checkNegativeCashflowForecast,
+  checkCaseSlaBreaches,
 } from "@/lib/notifications/checkers";
 
 function authorize(authHeader: string | null): boolean {
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
 
   const start = Date.now();
 
-  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast] = await Promise.allSettled([
+  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches] = await Promise.allSettled([
     checkLeaseExpiries(),
     checkOverdueInvoices(),
     checkComplianceCertificates(),
@@ -42,6 +43,7 @@ export async function GET(request: Request) {
     checkRecurringExpensesDue(),
     checkLowPettyCash(),
     checkNegativeCashflowForecast(),
+    checkCaseSlaBreaches(),
   ]);
 
   // Auto-expire DISMISSED hints older than 30 days
@@ -63,6 +65,7 @@ export async function GET(request: Request) {
     recurringExpensesDue:    recurring.status   === "fulfilled" ? recurring.value   : { error: String(recurring.reason) },
     lowPettyCash:            pettyCash.status   === "fulfilled" ? pettyCash.value   : { error: String(pettyCash.reason) },
     negativeCashflow:        forecast.status    === "fulfilled" ? forecast.value    : { error: String(forecast.reason) },
+    slaBreaches:             slaBreaches.status === "fulfilled" ? slaBreaches.value : { error: String(slaBreaches.reason) },
     durationMs: Date.now() - start,
   };
 

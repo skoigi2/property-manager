@@ -642,3 +642,53 @@ export async function checkNegativeCashflowForecast(): Promise<{ created: number
   }
   return { created };
 }
+
+/** SLA breach checker. Compares (now - stageStartedAt - waitingPausedSeconds*1000) per case
+ *  against the current stage's slaHours; emits an SLA_BREACH ActionableHint when exceeded.
+ *  Pauses on external waitingOn (OWNER/TENANT/VENDOR) — those cases are skipped. */
+export async function checkCaseSlaBreaches(): Promise<{ created: number }> {
+  const { getWorkflow, getStageByIndex } = await import("@/lib/case-workflows");
+  const cases = await prisma.caseThread.findMany({
+    where: {
+      status: { notIn: ["RESOLVED", "CLOSED"] },
+      waitingOn: { in: ["MANAGER", "NONE"] },
+      stageStartedAt: { not: null },
+    },
+    include: { property: { select: { id: true, name: true } } },
+  });
+
+  let created = 0;
+  const now = Date.now();
+  for (const c of cases) {
+    if (!c.stageStartedAt) continue;
+    const wf = getWorkflow(c.caseType);
+    const stage = getStageByIndex(wf, c.currentStageIndex);
+    if (!stage) continue;
+    const slaMap = (c.stageSlaHours ?? {}) as Record<string, number | null>;
+    const slaHours = slaMap[stage.key];
+    if (!slaHours || slaHours <= 0) continue;
+
+    const elapsedMs = now - c.stageStartedAt.getTime() - c.waitingPausedSeconds * 1000;
+    const elapsedHours = elapsedMs / (60 * 60 * 1000);
+    if (elapsedHours <= slaHours) continue;
+
+    const severity = elapsedHours >= 2 * slaHours ? "URGENT" : "WARNING";
+    await upsertHint({
+      organizationId: c.organizationId,
+      propertyId: c.propertyId,
+      unitId: c.unitId,
+      caseThreadId: c.id,
+      hintType: "SLA_BREACH",
+      refId: c.id,
+      severity,
+      title: `SLA breach — ${c.title}`,
+      subtitle: `Stuck in "${stage.label}" for ${Math.round(elapsedHours)}h (SLA ${slaHours}h)`,
+      suggestedAction: "Advance stage or reassign",
+      actionEndpoint: `/api/cases/${c.id}/advance`,
+      actionMethod: "POST",
+      actionLabel: "Open case",
+    });
+    created++;
+  }
+  return { created };
+}

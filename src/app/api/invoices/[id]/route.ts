@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
+import { tryAutoAdvance } from "@/lib/case-workflows";
 
 const updateSchema = z.object({
   status: z.enum(["DRAFT","SENT","PAID","OVERDUE","CANCELLED"]).optional(),
@@ -129,6 +130,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // Clear INVOICE_OVERDUE hint once invoice is no longer overdue
   if (updated.status === "PAID" || updated.status === "CANCELLED") {
     await clearHints(params.id, "INVOICE_OVERDUE");
+  }
+
+  // Auto-advance the linked case to "Invoiced" on PAID transitions
+  if (updated.status === "PAID" && (updated as { caseThreadId?: string | null }).caseThreadId) {
+    await tryAutoAdvance((updated as { caseThreadId: string }).caseThreadId, { kind: "INVOICE_PAID" });
   }
 
   return Response.json(updated);

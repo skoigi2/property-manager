@@ -730,21 +730,26 @@ model MaintenanceJob {
 }
 
 model CaseThread {
-  id               String        @id @default(cuid())
-  caseType         CaseType
-  subjectId        String
-  propertyId       String
-  unitId           String?
-  organizationId   String
-  title            String
-  status           CaseStatus    @default(OPEN)
-  stage            String?
-  stageStartedAt   DateTime?
-  assignedToUserId String?
-  waitingOn        CaseWaitingOn @default(NONE)
-  lastActivityAt   DateTime      @default(now())
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id                   String        @id @default(cuid())
+  caseType             CaseType
+  subjectId            String
+  propertyId           String
+  unitId               String?
+  organizationId       String
+  title                String
+  status               CaseStatus    @default(OPEN)
+  stage                String?
+  stageStartedAt       DateTime?
+  currentStageIndex    Int           @default(0)
+  workflowKey          String?
+  stageSlaHours        Json?
+  waitingPausedSeconds Int           @default(0)
+  lastWaitingPauseAt   DateTime?
+  assignedToUserId     String?
+  waitingOn            CaseWaitingOn @default(NONE)
+  lastActivityAt       DateTime      @default(now())
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   property         Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit             Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
@@ -756,6 +761,7 @@ model CaseThread {
   communicationLogs CommunicationLog[]
   approvalRequests ApprovalRequest[]
   actionableHints  ActionableHint[]
+  invoices         Invoice[]    @relation("InvoiceCaseThread")
 
   @@index([organizationId, status])
   @@index([propertyId, status])
@@ -806,6 +812,7 @@ enum HintType {
   COMPLIANCE_EXPIRY_7D
   INSURANCE_EXPIRY_30D
   INSURANCE_EXPIRY_7D
+  SLA_BREACH
 }
 
 enum HintSeverity {
@@ -911,7 +918,9 @@ model Invoice {
   paidAt        DateTime?
   paidAmount    Float?
   notes         String?
+  caseThreadId  String?
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  caseThread    CaseThread?   @relation("InvoiceCaseThread", fields: [caseThreadId], references: [id], onDelete: SetNull)
   incomeEntries IncomeEntry[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -919,6 +928,7 @@ model Invoice {
   @@unique([tenantId, periodYear, periodMonth])
   @@index([tenantId])
   @@index([status])
+  @@index([caseThreadId])
 }
 
 model OwnerInvoice {

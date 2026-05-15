@@ -16,7 +16,9 @@ import {
 import { formatRelative, formatFull } from "@/lib/relative-time";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
 import { VendorEmailModal } from "@/components/cases/VendorEmailModal";
+import { StageTracker } from "@/components/cases/StageTracker";
 import { Modal } from "@/components/ui/Modal";
+import { getWorkflow } from "@/lib/case-workflows";
 
 type CaseStatus = "OPEN" | "IN_PROGRESS" | "AWAITING_APPROVAL" | "AWAITING_VENDOR" | "AWAITING_TENANT" | "RESOLVED" | "CLOSED";
 type CaseWaitingOn = "MANAGER" | "OWNER" | "TENANT" | "VENDOR" | "NONE";
@@ -35,11 +37,13 @@ interface CaseEvent {
 
 interface CaseDetail {
   id: string;
-  caseType: string;
+  caseType: "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE" | "GENERAL";
   subjectId: string;
   title: string;
   status: CaseStatus;
   stage: string | null;
+  currentStageIndex: number;
+  workflowKey: string | null;
   waitingOn: CaseWaitingOn;
   assignedToUserId: string | null;
   property: { id: string; name: string; currency: string };
@@ -160,6 +164,35 @@ export default function CaseDetailPage() {
               <Wrench size={12} /> View as maintenance job
             </Link>
           )}
+        </div>
+
+        <div className="mb-4">
+          <StageTracker
+            workflow={getWorkflow(c.caseType)}
+            currentStageIndex={c.currentStageIndex}
+            waitingOn={c.waitingOn}
+            readOnly={c.status === "RESOLVED" || c.status === "CLOSED"}
+            onAdvance={async (toIndex, note) => {
+              const res = await fetch(`/api/cases/${c.id}/advance`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: toIndex, note }),
+              });
+              if (!res.ok) { toast.error("Failed to advance"); return; }
+              toast.success("Stage advanced");
+              load();
+            }}
+            onRegress={async (reason) => {
+              const res = await fetch(`/api/cases/${c.id}/regress`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reason }),
+              });
+              if (!res.ok) { toast.error("Failed to regress"); return; }
+              toast.success("Stage regressed");
+              load();
+            }}
+          />
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">

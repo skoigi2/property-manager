@@ -122,6 +122,24 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
 | `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema`, `pettyCashSchema`, `tenantSchema`, `manualEmailSchema` |
 
+### Operational Inbox
+
+`/inbox` (`src/app/(dashboard)/inbox/`) is the prioritized action queue for managers — first item in both the desktop sidebar and the mobile bottom nav (`MobileNav.tsx`). OWNER role is blocked at the middleware (`managerOnlyPaths`) and falls through to `/report`.
+
+The aggregator lives in `src/lib/inbox.ts` (`buildInbox(propertyIds)`) and runs every source query as one `Promise.all` (reads only — no `prisma.$transaction`). It produces `InboxItem[]` (each with `severity: URGENT|WARNING|INFO`, `daysOverdue`, deep-link `href`, and `actions[]`) plus `counts: { urgent, today, thisWeek }`.
+
+Sources covered:
+1. Overdue `Invoice` rows (status `SENT`/`OVERDUE`, `dueDate < now`)
+2. `Tenant.leaseEnd` within 30 days (severity via `getLeaseStatus`)
+3. `MaintenanceJob` with `priority=URGENT, status=OPEN`
+4. `MaintenanceJob` with `submittedViaPortal=true, status=OPEN, acknowledgedAt=null` (deduped against #3, max severity wins)
+5. `ComplianceCertificate` expiring ≤30 days
+6. `InsurancePolicy.endDate` ≤30 days
+7. `ArrearsCase` with `stage != RESOLVED` and `updatedAt < now-7d` (URGENT for `LEGAL_NOTICE`/`EVICTION`)
+8. Pending approvals — `TODO`
+
+API: `GET /api/inbox` — `requireManager()` + `getAccessiblePropertyIds()` then delegates to `buildInbox`. Returns `{ items, counts }`. The Sidebar polls this every 60 s to render the red urgent-count badge next to the Inbox nav item.
+
 ### Income ↔ Invoice link
 When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route auto-finds an open invoice for that tenant/month and marks it PAID in the same `prisma.$transaction`. Reverse: marking an invoice PAID via `PATCH /api/invoices/[id]` creates an income entry if none exists (`invoiceId` on `IncomeEntry` prevents duplicates).
 

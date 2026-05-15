@@ -17,6 +17,7 @@ import { formatCurrency } from "@/lib/currency";
 import { calcLateInterest } from "@/lib/calculations";
 import { AlertTriangle, ChevronRight, CheckCircle, Plus, Trash2, FileText, Copy, FileDown, TrendingUp } from "lucide-react";
 import { exportArrears } from "@/lib/excel-export";
+import { useFocusScroll } from "@/lib/use-focus-scroll";
 import { clsx } from "clsx";
 import { HelpTip } from "@/components/ui/HelpTip";
 
@@ -384,6 +385,7 @@ export default function ArrearsPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "USD";
+  useFocusScroll();
   const [cases, setCases]       = useState<ArrearsCase[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showOpen, setShowOpen] = useState(false);
@@ -517,7 +519,9 @@ export default function ArrearsPage() {
         ) : (
           <div className="space-y-3">
             {open.map(c => (
-              <CaseCard key={c.id} arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} onAmountEdit={updateAmount} />
+              <div key={c.id} id={`item-${c.id}`}>
+                <CaseCard arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} onAmountEdit={updateAmount} />
+              </div>
             ))}
             {resolved.length > 0 && (
               <div>
@@ -526,7 +530,9 @@ export default function ArrearsPage() {
                   {showResolved ? "Hide" : "Show"} {resolved.length} resolved case{resolved.length!==1?"s":""}
                 </button>
                 {showResolved && resolved.map(c => (
-                  <CaseCard key={c.id} arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} onAmountEdit={updateAmount} />
+                  <div key={c.id} id={`item-${c.id}`}>
+                    <CaseCard arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} onAmountEdit={updateAmount} />
+                  </div>
                 ))}
               </div>
             )}

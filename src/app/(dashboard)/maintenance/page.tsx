@@ -27,6 +27,7 @@ import { VendorSelect } from "@/components/ui/VendorSelect";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
+import { useFocusScroll } from "@/lib/use-focus-scroll";
 import { format } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -552,6 +553,7 @@ export default function MaintenancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "USD";
+  useFocusScroll();
   const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
 
   // ── Tab state ──────────────────────────────────────────────────────────────
@@ -1038,17 +1040,18 @@ export default function MaintenancePage() {
                           </div>
                         ) : (
                           colJobs.map((job) => (
-                            <JobCard
-                              key={job.id}
-                              job={job}
-                              isManager={isManager}
-                              currency={currency}
-                              onEdit={openEdit}
-                              onDelete={setDeleteTarget}
-                              onAdvance={handleAdvance}
-                              onLogExpense={setLogExpenseTarget}
-                              advancing={advancing === job.id}
-                            />
+                            <div key={job.id} id={`item-${job.id}`}>
+                              <JobCard
+                                job={job}
+                                isManager={isManager}
+                                currency={currency}
+                                onEdit={openEdit}
+                                onDelete={setDeleteTarget}
+                                onAdvance={handleAdvance}
+                                onLogExpense={setLogExpenseTarget}
+                                advancing={advancing === job.id}
+                              />
+                            </div>
                           ))
                         )}
                         {isManager && col.status === "OPEN" && (

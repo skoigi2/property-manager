@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/Header";
+import { useProperty } from "@/lib/property-context";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/Spinner";
@@ -41,6 +42,7 @@ const WAITING_LABEL: Record<CaseWaitingOn, string> = {
 };
 
 export default function CasesPage() {
+  const { selectedId } = useProperty();
   const [cases, setCases] = useState<CaseRow[] | null>(null);
   const [status, setStatus] = useState<string>("");
   const [waitingOn, setWaitingOn] = useState<string>("");
@@ -49,6 +51,7 @@ export default function CasesPage() {
 
   useEffect(() => {
     const params = new URLSearchParams();
+    if (selectedId) params.set("propertyId", selectedId);
     if (status) params.set("status", status);
     if (waitingOn) params.set("waitingOn", waitingOn);
     if (caseType) params.set("caseType", caseType);
@@ -58,7 +61,7 @@ export default function CasesPage() {
       .then((r) => r.json())
       .then(setCases)
       .catch(() => setCases([]));
-  }, [status, waitingOn, caseType, assignedToMe]);
+  }, [selectedId, status, waitingOn, caseType, assignedToMe]);
 
   // Read caseType from query string once on mount
   useEffect(() => {

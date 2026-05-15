@@ -22,12 +22,19 @@ export interface InboxAction {
 
 export interface InboxItem {
   id: string;
+  /** The underlying domain record id (e.g. invoice id, tenant id, job id). */
+  refId: string;
   type: InboxType;
   severity: InboxSeverity;
   title: string;
   subtitle: string;
   propertyId: string;
   propertyName: string;
+  propertyCurrency: string;
+  /** Tenant id when the item is rooted in a tenant (invoice, lease, arrears). */
+  tenantId: string | null;
+  /** Unit id when relevant (maintenance, lease, invoice). */
+  unitId: string | null;
   dueDate: string | null;
   daysOverdue: number | null;
   href: string;
@@ -83,9 +90,11 @@ export async function buildInbox(
       include: {
         tenant: {
           select: {
+            id: true,
             name: true,
             unit: {
               select: {
+                id: true,
                 unitNumber: true,
                 property: { select: { id: true, name: true, currency: true } },
               },
@@ -107,8 +116,9 @@ export async function buildInbox(
         leaseEnd: true,
         unit: {
           select: {
+            id: true,
             unitNumber: true,
-            property: { select: { id: true, name: true } },
+            property: { select: { id: true, name: true, currency: true } },
           },
         },
       },
@@ -120,7 +130,7 @@ export async function buildInbox(
         status: "OPEN",
         propertyId: { in: propertyIds },
       },
-      include: { property: { select: { id: true, name: true } } },
+      include: { property: { select: { id: true, name: true, currency: true } } },
     }),
     // 4. Portal-submitted, open, unacknowledged
     prisma.maintenanceJob.findMany({
@@ -130,7 +140,7 @@ export async function buildInbox(
         acknowledgedAt: null,
         propertyId: { in: propertyIds },
       },
-      include: { property: { select: { id: true, name: true } } },
+      include: { property: { select: { id: true, name: true, currency: true } } },
     }),
     // 5. Compliance certificates expiring ≤30d (and not too far in past)
     prisma.complianceCertificate.findMany({
@@ -138,7 +148,7 @@ export async function buildInbox(
         expiryDate: { not: null, gte: ago30, lte: in30 },
         propertyId: { in: propertyIds },
       },
-      include: { property: { select: { id: true, name: true } } },
+      include: { property: { select: { id: true, name: true, currency: true } } },
     }),
     // 6. Insurance policies ending ≤30d
     prisma.insurancePolicy.findMany({
@@ -146,7 +156,7 @@ export async function buildInbox(
         endDate: { gte: ago30, lte: in30 },
         propertyId: { in: propertyIds },
       },
-      include: { property: { select: { id: true, name: true } } },
+      include: { property: { select: { id: true, name: true, currency: true } } },
     }),
     // 7. Arrears cases not RESOLVED and untouched >7d
     prisma.arrearsCase.findMany({
@@ -156,8 +166,8 @@ export async function buildInbox(
         propertyId: { in: propertyIds },
       },
       include: {
-        tenant: { select: { name: true } },
-        property: { select: { id: true, name: true } },
+        tenant: { select: { id: true, name: true } },
+        property: { select: { id: true, name: true, currency: true } },
       },
     }),
     // 8. TODO: pending approvals (see Prompt 4)
@@ -173,12 +183,16 @@ export async function buildInbox(
     const amount = formatCurrency(inv.totalAmount, property.currency);
     items.push({
       id: `invoice:${inv.id}`,
+      refId: inv.id,
       type: "INVOICE_OVERDUE",
       severity,
       title: `Rent overdue — Unit ${inv.tenant.unit.unitNumber}, ${inv.tenant.name}`,
       subtitle: `${amount} · ${dOver} day${dOver === 1 ? "" : "s"} overdue`,
       propertyId: property.id,
       propertyName: property.name,
+      propertyCurrency: property.currency,
+      tenantId: inv.tenant.id,
+      unitId: inv.tenant.unit.id,
       dueDate: inv.dueDate.toISOString(),
       daysOverdue: dOver,
       href: `/invoices?focus=${inv.id}`,
@@ -201,12 +215,16 @@ export async function buildInbox(
         : `Lease ended ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago`;
     items.push({
       id: `lease:${t.id}`,
+      refId: t.id,
       type: "LEASE_EXPIRY",
       severity,
       title: `Lease expiring — Unit ${t.unit.unitNumber}, ${t.name}`,
       subtitle,
       propertyId: property.id,
       propertyName: property.name,
+      propertyCurrency: property.currency,
+      tenantId: t.id,
+      unitId: t.unit.id,
       dueDate: t.leaseEnd.toISOString(),
       daysOverdue: dOver,
       href: `/tenants/${t.id}`,
@@ -219,6 +237,7 @@ export async function buildInbox(
   for (const job of urgentJobs) {
     jobMap.set(job.id, {
       id: `maintenance:${job.id}`,
+      refId: job.id,
       type: "URGENT_MAINTENANCE",
       severity: "URGENT",
       title: `Urgent maintenance — ${job.title}`,
@@ -227,6 +246,9 @@ export async function buildInbox(
         : `Reported ${formatRelative(job.reportedDate)}`,
       propertyId: job.property.id,
       propertyName: job.property.name,
+      propertyCurrency: job.property.currency,
+      tenantId: null,
+      unitId: job.unitId,
       dueDate: job.reportedDate.toISOString(),
       daysOverdue: daysOverdueFrom(job.reportedDate),
       href: `/maintenance?focus=${job.id}`,
@@ -241,12 +263,16 @@ export async function buildInbox(
     }
     jobMap.set(job.id, {
       id: `maintenance:${job.id}`,
+      refId: job.id,
       type: "PORTAL_REQUEST",
       severity: "WARNING",
       title: `Tenant request — ${job.title}`,
       subtitle: `Submitted via portal · ${formatRelative(job.reportedDate)}`,
       propertyId: job.property.id,
       propertyName: job.property.name,
+      propertyCurrency: job.property.currency,
+      tenantId: null,
+      unitId: job.unitId,
       dueDate: job.reportedDate.toISOString(),
       daysOverdue: daysOverdueFrom(job.reportedDate),
       href: `/maintenance?focus=${job.id}`,
@@ -267,12 +293,16 @@ export async function buildInbox(
         : `Expired ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago`;
     items.push({
       id: `compliance:${cert.id}`,
+      refId: cert.id,
       type: "COMPLIANCE_EXPIRY",
       severity,
       title: `${cert.certificateType} expiring`,
       subtitle,
       propertyId: cert.property.id,
       propertyName: cert.property.name,
+      propertyCurrency: cert.property.currency,
+      tenantId: null,
+      unitId: null,
       dueDate: cert.expiryDate.toISOString(),
       daysOverdue: dOver,
       href: `/compliance/certificates?focus=${cert.id}`,
@@ -291,12 +321,16 @@ export async function buildInbox(
         : `Ended ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago · ${pol.insurer}`;
     items.push({
       id: `insurance:${pol.id}`,
+      refId: pol.id,
       type: "INSURANCE_EXPIRY",
       severity,
       title: `Insurance policy expiring — ${pol.type}`,
       subtitle,
       propertyId: pol.property.id,
       propertyName: pol.property.name,
+      propertyCurrency: pol.property.currency,
+      tenantId: null,
+      unitId: null,
       dueDate: pol.endDate.toISOString(),
       daysOverdue: dOver,
       href: `/insurance?focus=${pol.id}`,
@@ -311,12 +345,16 @@ export async function buildInbox(
     const severity: InboxSeverity = escalated ? "URGENT" : "WARNING";
     items.push({
       id: `arrears:${c.id}`,
+      refId: c.id,
       type: "ARREARS_ESCALATION",
       severity,
       title: `Arrears case — ${c.tenant.name}`,
       subtitle: `Stage: ${c.stage.replace(/_/g, " ")} · ${dOver} day${dOver === 1 ? "" : "s"} without update`,
       propertyId: c.property.id,
       propertyName: c.property.name,
+      propertyCurrency: c.property.currency,
+      tenantId: c.tenant.id,
+      unitId: null,
       dueDate: c.updatedAt.toISOString(),
       daysOverdue: dOver,
       href: `/arrears?focus=${c.id}`,

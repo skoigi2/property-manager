@@ -19,6 +19,10 @@ interface Props {
   };
   tenantId?: string;
   currency?: string;
+  /** Pre-select a template (defaults to "rent_reminder"). */
+  initialTemplate?: Template;
+  /** Fires the first time the user copies the body or opens the mail link. */
+  onUsed?: () => void;
   onClose: () => void;
 }
 
@@ -118,12 +122,17 @@ Property Management`,
   }
 }
 
-export function EmailDraftModal({ tenant, tenantId, currency = "USD", onClose }: Props) {
-  const [template, setTemplate]   = useState<Template>("rent_reminder");
+export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTemplate, onUsed, onClose }: Props) {
+  const [template, setTemplate]   = useState<Template>(initialTemplate ?? "rent_reminder");
   const [copied, setCopied]       = useState(false);
+  const [usedFired, setUsedFired] = useState(false);
   const draft = buildDraft(template, tenant, currency);
 
   function autoLog() {
+    if (!usedFired) {
+      setUsedFired(true);
+      onUsed?.();
+    }
     if (!tenantId) return;
     fetch(`/api/tenants/${tenantId}/communication-log`, {
       method:  "POST",

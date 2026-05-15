@@ -252,6 +252,34 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Calendar** — combined property-event view (lease ends, invoice dues, maintenance, compliance expiries, etc.). API: `GET /api/calendar?propertyId=&from=&to=`. Page: `/calendar`.
 
+### Cases (cross-cutting workflow)
+
+A **Case** is a unified workspace per operational issue: status + timeline + comments + attachments in one place. The schema sits *on top of* existing entities — it doesn't replace them.
+
+- `CaseThread` carries the workflow state: `caseType` (`MAINTENANCE | LEASE_RENEWAL | ARREARS | COMPLIANCE | GENERAL`), `subjectId` (id of the underlying record, e.g. `MaintenanceJob.id`), `status` (`OPEN | IN_PROGRESS | AWAITING_APPROVAL | AWAITING_VENDOR | AWAITING_TENANT | RESOLVED | CLOSED`), `stage` (free text), `waitingOn` (`MANAGER | OWNER | TENANT | VENDOR | NONE`), `assignedToUserId`, `lastActivityAt`, `stageStartedAt` (SLA anchor).
+- `CaseEvent` is the unified timeline. `kind` ∈ `COMMENT | STATUS_CHANGE | STAGE_CHANGE | ASSIGNMENT | EMAIL_SENT | DOCUMENT_ADDED | VENDOR_ASSIGNED | APPROVAL_REQUESTED | APPROVAL_GRANTED | APPROVAL_REJECTED | EXTERNAL_UPDATE`. Stores actor, `body`, `meta` (JSON), `attachmentUrls` (Supabase Storage paths in the `case-attachments` bucket).
+
+**Phase 1 only backs `caseType = MAINTENANCE`.** `MaintenanceJob.caseThreadId` is the back-link. `POST /api/maintenance` auto-creates a CaseThread + initial `COMMENT` event. `PATCH /api/maintenance/[id]` mirrors status / vendor / priority changes onto the linked thread (status remapped via `mapMaintenanceStatusToCase` in `src/lib/cases.ts`).
+
+**Status mapping (maintenance → case)**: `OPEN→OPEN`, `IN_PROGRESS→IN_PROGRESS`, `AWAITING_PARTS→AWAITING_VENDOR`, `DONE→RESOLVED`, `CANCELLED→CLOSED`. WaitingOn at backfill: `OPEN → MANAGER`, `IN_PROGRESS` (no vendor) → `MANAGER`, `IN_PROGRESS` (with vendor) / `AWAITING_PARTS` → `VENDOR`, `DONE`/`CANCELLED` → `NONE`.
+
+**API** (all under `src/app/api/cases/`):
+- `GET /api/cases` — filters: `status`, `propertyId`, `waitingOn`, `caseType`, `assignedToMe=true`
+- `POST /api/cases` — manual creation (rarely used; cases are usually auto-created)
+- `GET /api/cases/[id]` — case with events ordered ASC + signed attachment URLs
+- `PATCH /api/cases/[id]` — status/stage/waitingOn/assignment changes mint corresponding CaseEvents in one array-form transaction
+- `POST /api/cases/[id]/events` — comments + multipart attachments (uploaded via `uploadCaseAttachment` in `src/lib/supabase-storage.ts`)
+
+All writes use `requireManager()` + `requirePropertyAccess(case.propertyId)` and call `logAudit({ resource: "CaseThread" | "CaseEvent", ... })`.
+
+**Backfill**: `npm run cases:backfill` (scripts/backfill-cases.ts) — idempotent, creates a CaseThread for every `MaintenanceJob` lacking `caseThreadId`. Sets `stageStartedAt = job.updatedAt` so SLA clocks don't immediately flag every backfilled case as breached.
+
+**Time formatting**: Case timeline + list use `formatRelative` / `formatRelativeWithTooltip` from `src/lib/relative-time.ts` ("5m ago" / "2h ago" / "3d ago" up to 7 days, then explicit date). The rest of the app keeps the existing explicit `formatDate` convention — do not touch financial / audit / invoice dates.
+
+**View duality**: `/maintenance` is the domain-specific view; `/cases` is the cross-cutting workflow view. **They co-exist indefinitely.** A dismissible banner on `/maintenance` (`localStorage` key `cases-banner-dismissed`) deep-links to `/cases?caseType=MAINTENANCE`; each JobCard shows an "Open case →" link when `caseThreadId` is set. From the case detail page (`caseType=MAINTENANCE`) a "View as maintenance job →" link returns to the maintenance view.
+
+**Supabase storage**: requires a `case-attachments` bucket — must be created manually in Supabase Studio for both dev and prod (private bucket, signed URLs only).
+
 ### Email Logging & Super-admin Composer
 
 Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.

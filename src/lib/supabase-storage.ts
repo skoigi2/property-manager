@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export const BUCKET = "tenant-documents";
+export const CASE_BUCKET = "case-attachments";
 
 let _client: SupabaseClient | null = null;
 
@@ -36,6 +37,28 @@ export async function deleteFromStorage(path: string) {
 export async function getSignedUrl(path: string, expiresIn = 3600) {
   const { data, error } = await getClient()
     .storage.from(BUCKET)
+    .createSignedUrl(path, expiresIn);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+export async function uploadCaseAttachment(
+  threadId: string,
+  fileName: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<string> {
+  const path = `${threadId}/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const { error } = await getClient()
+    .storage.from(CASE_BUCKET)
+    .upload(path, buffer, { contentType, upsert: false });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+export async function getCaseAttachmentSignedUrl(path: string, expiresIn = 3600) {
+  const { data, error } = await getClient()
+    .storage.from(CASE_BUCKET)
     .createSignedUrl(path, expiresIn);
   if (error) throw new Error(error.message);
   return data.signedUrl;

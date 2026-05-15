@@ -3,6 +3,7 @@ import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
+import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 
 const createSchema = z.object({
   propertyId:  z.string().min(1),
@@ -79,11 +80,54 @@ export async function POST(req: Request) {
       scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
     },
     include: {
-      property: { select: { id: true, name: true } },
+      property: { select: { id: true, name: true, organizationId: true } },
       unit: { select: { id: true, unitNumber: true } },
       vendor: { select: { id: true, name: true, category: true, phone: true } },
     },
   });
+
+  // Auto-create CaseThread for this maintenance job. Two-step (vs single
+  // transaction) because we need the job's id to set subjectId — acceptable
+  // since case creation failure is non-fatal and recoverable via backfill.
+  if (job.property.organizationId) {
+    try {
+      const now = new Date();
+      const [thread] = await prisma.$transaction([
+        prisma.caseThread.create({
+          data: {
+            caseType: "MAINTENANCE",
+            subjectId: job.id,
+            propertyId: job.propertyId,
+            unitId: job.unitId,
+            organizationId: job.property.organizationId,
+            title: job.title,
+            status: mapMaintenanceStatusToCase(job.status),
+            waitingOn: mapMaintenanceWaitingOn(job),
+            stageStartedAt: now,
+            lastActivityAt: now,
+          },
+        }),
+      ]);
+      await prisma.$transaction([
+        prisma.maintenanceJob.update({
+          where: { id: job.id },
+          data: { caseThreadId: thread.id },
+        }),
+        prisma.caseEvent.create({
+          data: {
+            caseThreadId: thread.id,
+            kind: "COMMENT",
+            actorUserId: session!.user.id,
+            actorEmail: session!.user.email ?? null,
+            actorName: session!.user.name ?? null,
+            body: job.description ?? `Maintenance job created: ${job.title}`,
+          },
+        }),
+      ]);
+    } catch {
+      // Case creation is best-effort — backfill script will reconcile.
+    }
+  }
 
   return Response.json(job, { status: 201 });
 }

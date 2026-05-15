@@ -12,7 +12,8 @@
     "db:seed:mayfair": "ts-node -P tsconfig.seed.json prisma/seed-mayfair.ts",
     "db:seed:bahrain": "ts-node -P tsconfig.seed.json prisma/seed-bahrain.ts",
     "db:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "cases:backfill": "ts-node -P tsconfig.seed.json scripts/backfill-cases.ts"
   },
   "prisma": {
     "seed": "ts-node -P tsconfig.seed.json prisma/seed.ts"

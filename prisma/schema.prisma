@@ -51,6 +51,7 @@ model Organization {
   emailLogs              EmailLog[]
   invitations            OrgInvitation[]
   agents                 Agent[]
+  caseThreads            CaseThread[]
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
 }
@@ -100,6 +101,8 @@ model User {
   ownerInvoices     OwnerInvoice[]   @relation("OwnerInvoices")
   sentInvitations  OrgInvitation[]  @relation("SentInvitations")
   emailLogs        EmailLog[]
+  caseAssignments  CaseThread[]     @relation("CaseAssignee")
+  caseEvents       CaseEvent[]      @relation("CaseEventActor")
   accounts         Account[]
   sessions         Session[]
   createdAt        DateTime         @default(now())
@@ -319,6 +322,46 @@ enum MaintenanceStatus {
   CANCELLED
 }
 
+enum CaseType {
+  MAINTENANCE
+  LEASE_RENEWAL
+  ARREARS
+  COMPLIANCE
+  GENERAL
+}
+
+enum CaseStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  AWAITING_VENDOR
+  AWAITING_TENANT
+  RESOLVED
+  CLOSED
+}
+
+enum CaseWaitingOn {
+  MANAGER
+  OWNER
+  TENANT
+  VENDOR
+  NONE
+}
+
+enum CaseEventKind {
+  COMMENT
+  STATUS_CHANGE
+  STAGE_CHANGE
+  ASSIGNMENT
+  EMAIL_SENT
+  DOCUMENT_ADDED
+  VENDOR_ASSIGNED
+  APPROVAL_REQUESTED
+  APPROVAL_GRANTED
+  APPROVAL_REJECTED
+  EXTERNAL_UPDATE
+}
+
 enum InvoiceStatus {
   DRAFT
   SENT
@@ -430,6 +473,7 @@ model Property {
   maintenanceSchedules   AssetMaintenanceSchedule[] @relation("PropertyMaintenanceSchedules")
   taxConfigurations      TaxConfiguration[]
   complianceCertificates ComplianceCertificate[]
+  caseThreads            CaseThread[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 }
@@ -455,6 +499,7 @@ model Unit {
   recurringExpenses  RecurringExpense[]
   expenseAllocations ExpenseUnitAllocation[]
   assets             Asset[]
+  caseThreads        CaseThread[]
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -668,6 +713,8 @@ model MaintenanceJob {
   requiresApproval   Boolean             @default(false)
   approvedAt       DateTime?
   approvalNotes    String?
+  caseThreadId     String?
+  caseThread       CaseThread?         @relation("CaseThreadMaintenanceJobs", fields: [caseThreadId], references: [id], onDelete: SetNull)
   property         Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   vendor           Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
@@ -676,6 +723,56 @@ model MaintenanceJob {
 
   @@index([propertyId, status])
   @@index([status])
+  @@index([caseThreadId])
+}
+
+model CaseThread {
+  id               String        @id @default(cuid())
+  caseType         CaseType
+  subjectId        String
+  propertyId       String
+  unitId           String?
+  organizationId   String
+  title            String
+  status           CaseStatus    @default(OPEN)
+  stage            String?
+  stageStartedAt   DateTime?
+  assignedToUserId String?
+  waitingOn        CaseWaitingOn @default(NONE)
+  lastActivityAt   DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  property         Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit             Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedTo       User?         @relation("CaseAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  events           CaseEvent[]
+  maintenanceJobs  MaintenanceJob[] @relation("CaseThreadMaintenanceJobs")
+
+  @@index([organizationId, status])
+  @@index([propertyId, status])
+  @@index([caseType, subjectId])
+  @@index([assignedToUserId, status])
+  @@index([lastActivityAt])
+}
+
+model CaseEvent {
+  id             String        @id @default(cuid())
+  caseThreadId   String
+  kind           CaseEventKind
+  actorUserId    String?
+  actorEmail     String?
+  actorName      String?
+  body           String?
+  meta           Json?
+  attachmentUrls String[]
+  createdAt      DateTime      @default(now())
+
+  caseThread     CaseThread    @relation(fields: [caseThreadId], references: [id], onDelete: Cascade)
+  actor          User?         @relation("CaseEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([caseThreadId, createdAt])
 }
 
 model Invoice {

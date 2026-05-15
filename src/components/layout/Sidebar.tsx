@@ -33,6 +33,7 @@ import {
   CreditCard,
   BookOpen,
   Mail,
+  Inbox,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -92,6 +93,7 @@ const sidebarEntries: SidebarEntry[] = [
     icon: Wrench,
     roles: ["MANAGER", "ACCOUNTANT"],
     items: [
+      { href: "/cases",       label: "Cases",       icon: Inbox,     roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/maintenance", label: "Maintenance", icon: Wrench,    roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/assets",      label: "Assets",      icon: Package,   roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/vendors",     label: "Vendors",     icon: Building2, roles: ["MANAGER", "ACCOUNTANT"] },

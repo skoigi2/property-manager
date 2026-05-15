@@ -1,6 +1,8 @@
 import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
+import { auth } from "@/lib/auth";
 
 const updateSchema = z.object({
   title:            z.string().min(1).optional(),
@@ -146,6 +148,68 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       vendor:   { select: { id: true, name: true, category: true, phone: true } },
     },
   });
+
+  // Mirror status/vendor/priority changes onto the linked CaseThread
+  if (job!.caseThreadId) {
+    try {
+      const session = await auth();
+      const actor = {
+        actorUserId: session?.user.id ?? null,
+        actorEmail: session?.user.email ?? null,
+        actorName: session?.user.name ?? null,
+      };
+      const events: Parameters<typeof prisma.caseEvent.create>[0]["data"][] = [];
+      const statusChanged = rest.status !== undefined && rest.status !== job!.status;
+      const vendorChanged = rest.vendorId !== undefined && rest.vendorId !== job!.vendorId;
+      const priorityChanged = rest.priority !== undefined && rest.priority !== job!.priority;
+
+      if (statusChanged) {
+        events.push({
+          caseThreadId: job!.caseThreadId,
+          kind: "STATUS_CHANGE",
+          ...actor,
+          body: `Maintenance status: ${job!.status} → ${rest.status}`,
+          meta: { from: job!.status, to: rest.status },
+        });
+      }
+      if (vendorChanged) {
+        events.push({
+          caseThreadId: job!.caseThreadId,
+          kind: "VENDOR_ASSIGNED",
+          ...actor,
+          body: rest.vendorId ? `Vendor assigned` : `Vendor removed`,
+          meta: { from: job!.vendorId, to: rest.vendorId },
+        });
+      }
+      if (priorityChanged) {
+        events.push({
+          caseThreadId: job!.caseThreadId,
+          kind: "STAGE_CHANGE",
+          ...actor,
+          body: `Priority: ${job!.priority} → ${rest.priority}`,
+          meta: { from: job!.priority, to: rest.priority },
+        });
+      }
+
+      if (events.length > 0 || statusChanged) {
+        const newStatus = mapMaintenanceStatusToCase(updated.status);
+        const newWaitingOn = mapMaintenanceWaitingOn(updated);
+        await prisma.$transaction([
+          prisma.caseThread.update({
+            where: { id: job!.caseThreadId },
+            data: {
+              status: newStatus,
+              waitingOn: newWaitingOn,
+              lastActivityAt: new Date(),
+            },
+          }),
+          ...events.map((data) => prisma.caseEvent.create({ data })),
+        ]);
+      }
+    } catch {
+      // Mirroring is best-effort
+    }
+  }
 
   return Response.json(updated);
 }

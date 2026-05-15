@@ -127,6 +127,37 @@ export type TenantInput = z.infer<typeof tenantSchema>;
 export type OwnerInvoiceLineItem = z.infer<typeof ownerInvoiceLineItemSchema>;
 export type OwnerInvoiceCreateInput = z.infer<typeof ownerInvoiceCreateSchema>;
 
+// Case workflow
+const CASE_TYPES = ["MAINTENANCE", "LEASE_RENEWAL", "ARREARS", "COMPLIANCE", "GENERAL"] as const;
+const CASE_STATUSES = ["OPEN", "IN_PROGRESS", "AWAITING_APPROVAL", "AWAITING_VENDOR", "AWAITING_TENANT", "RESOLVED", "CLOSED"] as const;
+const CASE_WAITING_ON = ["MANAGER", "OWNER", "TENANT", "VENDOR", "NONE"] as const;
+
+export const createCaseSchema = z.object({
+  caseType:         z.enum(CASE_TYPES),
+  subjectId:        z.string().min(1),
+  propertyId:       z.string().min(1),
+  unitId:           z.string().optional().nullable(),
+  title:            z.string().min(1).max(200),
+  status:           z.enum(CASE_STATUSES).optional(),
+  stage:            z.string().optional().nullable(),
+  assignedToUserId: z.string().optional().nullable(),
+  waitingOn:        z.enum(CASE_WAITING_ON).optional(),
+  initialBody:      z.string().optional(),
+});
+
+export const updateCaseSchema = z.object({
+  title:            z.string().min(1).max(200).optional(),
+  status:           z.enum(CASE_STATUSES).optional(),
+  stage:            z.string().nullable().optional(),
+  assignedToUserId: z.string().nullable().optional(),
+  waitingOn:        z.enum(CASE_WAITING_ON).optional(),
+});
+
+export const createCaseEventSchema = z.object({
+  kind: z.enum(["COMMENT", "DOCUMENT_ADDED"]).default("COMMENT"),
+  body: z.string().min(1).max(20_000),
+});
+
 // Manual email composer (super-admin /admin/emails)
 export const manualEmailSchema = z.object({
   to: z.string().email("Valid recipient email is required"),

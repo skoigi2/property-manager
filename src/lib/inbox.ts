@@ -181,8 +181,8 @@ export async function buildInbox(
       propertyName: property.name,
       dueDate: inv.dueDate.toISOString(),
       daysOverdue: dOver,
-      href: `/invoices/${inv.id}`,
-      actions: [{ label: "View", action: `/invoices/${inv.id}` }],
+      href: `/invoices`,
+      actions: [{ label: "View", action: `/invoices` }],
     });
   }
 

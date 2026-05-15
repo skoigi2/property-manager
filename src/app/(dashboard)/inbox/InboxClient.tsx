@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Spinner } from "@/components/ui/Spinner";
 import { InboxRowCard, InboxTableRow } from "@/components/inbox/InboxRow";
 import { AlertOctagon, CalendarClock, CalendarRange, Inbox } from "lucide-react";
+import { useProperty } from "@/lib/property-context";
 import type { InboxItem, InboxCounts } from "@/lib/inbox";
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function InboxClient({ userName, role }: Props) {
+  const { selectedId } = useProperty();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [counts, setCounts] = useState<InboxCounts>({ urgent: 0, today: 0, thisWeek: 0 });
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,8 @@ export function InboxClient({ userName, role }: Props) {
     let cancelled = false;
     const load = async () => {
       try {
-        const r = await fetch("/api/inbox");
+        const qs = selectedId ? `?propertyId=${encodeURIComponent(selectedId)}` : "";
+        const r = await fetch(`/api/inbox${qs}`);
         if (!r.ok) return;
         const data = await r.json();
         if (cancelled) return;
@@ -33,13 +36,14 @@ export function InboxClient({ userName, role }: Props) {
         if (!cancelled) setLoading(false);
       }
     };
+    setLoading(true);
     load();
     const t = setInterval(load, 60_000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, []);
+  }, [selectedId]);
 
   const urgent = items.filter((i) => i.severity === "URGENT");
   const warning = items.filter((i) => i.severity === "WARNING");

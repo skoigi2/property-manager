@@ -41,6 +41,12 @@ export interface InboxItem {
   daysOverdue: number | null;
   href: string;
   actions: InboxAction[];
+  /** True when this row was sourced from an ActionableHint (proactive cron). */
+  isHint?: boolean;
+  /** Database id of the underlying ActionableHint (when isHint=true). */
+  hintId?: string | null;
+  /** Subject grouping key — items sharing this key represent the same person/thing. */
+  subjectKey?: string;
 }
 
 export interface InboxCounts {
@@ -59,6 +65,29 @@ function daysOverdueFrom(date: Date | null | undefined): number | null {
   if (!date) return null;
   // Positive = overdue; negative = upcoming
   return differenceInDays(new Date(), date);
+}
+
+/** Map ActionableHint.hintType → InboxItem.type. Returns null for unmapped types. */
+function mapHintToInboxType(t: string): InboxType | null {
+  switch (t) {
+    case "INVOICE_OVERDUE":          return "INVOICE_OVERDUE";
+    case "LEASE_EXPIRY_7D":
+    case "LEASE_EXPIRY_30D":         return "LEASE_EXPIRY";
+    case "URGENT_OPEN_4H":            return "URGENT_MAINTENANCE";
+    case "COMPLIANCE_EXPIRY_7D":
+    case "COMPLIANCE_EXPIRY_30D":    return "COMPLIANCE_EXPIRY";
+    case "INSURANCE_EXPIRY_7D":
+    case "INSURANCE_EXPIRY_30D":     return "INSURANCE_EXPIRY";
+    // The proactive-only hints don't have an exact computed counterpart — render them as CASE_NEEDS_ATTENTION so existing UI handles them.
+    case "VACANT_OVER_30D":
+    case "DEPOSIT_NOT_SETTLED":
+    case "RECURRING_EXPENSE_DUE":
+    case "LOW_PETTY_CASH":
+    case "NEGATIVE_CASHFLOW_FORECAST":
+    case "RENT_INCREASE_DUE":
+    case "INSPECTION_OVERDUE":       return "CASE_NEEDS_ATTENTION";
+  }
+  return null;
 }
 
 export async function buildInbox(
@@ -453,6 +482,54 @@ export async function buildInbox(
         { label: "Open case", action: `/cases/${a.caseThread.id}` },
       ],
     });
+  }
+
+  // 10. ActionableHint rows (proactive layer). The cron upserts these with a
+  //     deterministic key (hintType + refId) so they don't duplicate the
+  //     computed items above. To avoid double-counting, we drop computed items
+  //     whose (type, refId) tuple matches a hint we already injected.
+  const hints = await prisma.actionableHint.findMany({
+    where: { status: "ACTIVE", propertyId: { in: propertyIds } },
+    include: { property: { select: { id: true, name: true, currency: true } } },
+  });
+  const hintKeys = new Set<string>();
+  for (const h of hints) {
+    if (!h.property) continue;
+    const inboxType: InboxType | null = mapHintToInboxType(h.hintType);
+    if (!inboxType) continue;
+    hintKeys.add(`${inboxType}:${h.refId}`);
+    items.push({
+      id: `hint:${h.id}`,
+      refId: h.refId,
+      type: inboxType,
+      severity: h.severity as InboxSeverity,
+      title: h.title,
+      subtitle: h.subtitle,
+      propertyId: h.property.id,
+      propertyName: h.property.name,
+      propertyCurrency: h.property.currency,
+      tenantId: h.tenantId,
+      unitId: h.unitId,
+      dueDate: h.expiresAt?.toISOString() ?? null,
+      daysOverdue: null,
+      href: h.actionEndpoint && h.actionMethod === "GET" ? h.actionEndpoint : `/inbox?hint=${h.id}`,
+      actions: h.actionLabel && h.actionEndpoint
+        ? [{ label: h.actionLabel, action: h.actionEndpoint, method: (h.actionMethod as "POST" | "PATCH") ?? "PATCH" }]
+        : [],
+      isHint: true,
+      hintId: h.id,
+    });
+  }
+  // De-duplicate: prefer the hint-sourced row when a computed item exists with the same (type, refId).
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.isHint) continue;
+    if (hintKeys.has(`${it.type}:${it.refId}`)) items.splice(i, 1);
+  }
+
+  // Assign subjectKey for grouping (tenantId > unitId > propertyId)
+  for (const it of items) {
+    it.subjectKey = it.tenantId ?? it.unitId ?? it.propertyId;
   }
 
   // Sort: severity DESC, daysOverdue DESC

@@ -35,6 +35,7 @@ import {
   Mail,
   Inbox,
   Briefcase,
+  Sparkles,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -306,6 +307,22 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
             >
               <Mail size={18} />
               Emails
+            </Link>
+          );
+        })()}
+        {/* Super-admin: Hints debug link */}
+        {isSuperAdmin && (() => {
+          const isActive = pathname === "/admin/hints" || pathname.startsWith("/admin/hints/");
+          return (
+            <Link
+              href="/admin/hints"
+              className={clsx(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans transition-colors mb-1",
+                isActive ? "bg-gold text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+              )}
+            >
+              <Sparkles size={18} />
+              Hints
             </Link>
           );
         })()}

@@ -2,6 +2,7 @@ import { requireManager, requireAuth, getAccessiblePropertyIds } from "@/lib/aut
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
+import { clearHints } from "@/lib/hints";
 
 const updateSchema = z.object({
   status: z.enum(["DRAFT","SENT","PAID","OVERDUE","CANCELLED"]).optional(),
@@ -124,6 +125,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
 
   await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "Invoice", resourceId: params.id, organizationId: session!.user.organizationId, after: { status: updated.status, totalAmount: updated.totalAmount } });
+
+  // Clear INVOICE_OVERDUE hint once invoice is no longer overdue
+  if (updated.status === "PAID" || updated.status === "CANCELLED") {
+    await clearHints(params.id, "INVOICE_OVERDUE");
+  }
 
   return Response.json(updated);
 }

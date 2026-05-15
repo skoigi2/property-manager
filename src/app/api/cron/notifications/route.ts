@@ -7,6 +7,11 @@ import {
   checkComplianceCertificates,
   checkInsuranceRenewals,
   checkUrgentMaintenance,
+  checkVacantUnits,
+  checkDepositNotSettled,
+  checkRecurringExpensesDue,
+  checkLowPettyCash,
+  checkNegativeCashflowForecast,
 } from "@/lib/notifications/checkers";
 
 function authorize(authHeader: string | null): boolean {
@@ -26,13 +31,26 @@ export async function GET(request: Request) {
 
   const start = Date.now();
 
-  const [leases, invoices, compliance, insurance, maintenance] = await Promise.allSettled([
+  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast] = await Promise.allSettled([
     checkLeaseExpiries(),
     checkOverdueInvoices(),
     checkComplianceCertificates(),
     checkInsuranceRenewals(),
     checkUrgentMaintenance(),
+    checkVacantUnits(),
+    checkDepositNotSettled(),
+    checkRecurringExpensesDue(),
+    checkLowPettyCash(),
+    checkNegativeCashflowForecast(),
   ]);
+
+  // Auto-expire DISMISSED hints older than 30 days
+  await import("@/lib/prisma").then(({ prisma }) =>
+    prisma.actionableHint.updateMany({
+      where: { status: "DISMISSED", dismissedAt: { lt: new Date(Date.now() - 30 * 86400_000) } },
+      data: { status: "EXPIRED" },
+    })
+  ).catch(() => {});
 
   const summary = {
     leaseExpiries:           leases.status      === "fulfilled" ? leases.value      : { error: String(leases.reason) },
@@ -40,6 +58,11 @@ export async function GET(request: Request) {
     complianceCertificates:  compliance.status  === "fulfilled" ? compliance.value  : { error: String(compliance.reason) },
     insuranceRenewals:       insurance.status   === "fulfilled" ? insurance.value   : { error: String(insurance.reason) },
     urgentMaintenance:       maintenance.status === "fulfilled" ? maintenance.value : { error: String(maintenance.reason) },
+    vacantUnits:             vacant.status      === "fulfilled" ? vacant.value      : { error: String(vacant.reason) },
+    depositNotSettled:       deposit.status     === "fulfilled" ? deposit.value     : { error: String(deposit.reason) },
+    recurringExpensesDue:    recurring.status   === "fulfilled" ? recurring.value   : { error: String(recurring.reason) },
+    lowPettyCash:            pettyCash.status   === "fulfilled" ? pettyCash.value   : { error: String(pettyCash.reason) },
+    negativeCashflow:        forecast.status    === "fulfilled" ? forecast.value    : { error: String(forecast.reason) },
     durationMs: Date.now() - start,
   };
 

@@ -310,6 +310,35 @@ Replaces ad-hoc WhatsApp owner sign-offs. `POST /api/cases/[id]/approvals` (mana
 - The Operational Inbox shows `APPROVAL_PENDING` items for pending requests older than 24h (severity escalates to URGENT after 3 days).
 - Statuses: `PENDING → APPROVED | REJECTED | EXPIRED`; `APPROVED | REJECTED → DISPUTED` (one-way). Once not PENDING, the token is dead for further APPROVE/REJECT but still accepts `DISPUTE` once.
 
+### Smart Reminders (ActionableHints)
+
+The cron at `GET /api/cron/notifications` does two things per run: (1) sends emails through the existing dedup-gated path (`NotificationLog`), and (2) **upserts an `ActionableHint` row** keyed by `(hintType, refId)` so the cron is fully idempotent and the same hint surfaces every run until the underlying condition clears.
+
+**HintTypes** (`HintType` enum):
+- Existing email-paired: `INVOICE_OVERDUE`, `LEASE_EXPIRY_30D`, `LEASE_EXPIRY_7D`, `URGENT_OPEN_4H`, `COMPLIANCE_EXPIRY_*`, `INSURANCE_EXPIRY_*`
+- New hint-only: `VACANT_OVER_30D`, `DEPOSIT_NOT_SETTLED`, `RECURRING_EXPENSE_DUE`, `LOW_PETTY_CASH`, `NEGATIVE_CASHFLOW_FORECAST` (and reserved: `RENT_INCREASE_DUE`, `INSPECTION_OVERDUE`)
+
+**Status transitions**: `ACTIVE → ACTED_ON | DISMISSED | EXPIRED`. Dismissed hints auto-expire after 30 days (the cron itself runs the cleanup).
+
+**Auto-clearing**: when the underlying record changes such that the condition no longer applies, the relevant PATCH route calls `clearHints(refId, hintType?)` from [src/lib/hints.ts](src/lib/hints.ts). Currently wired:
+- `PATCH /api/invoices/[id]` (PAID/CANCELLED) → clears `INVOICE_OVERDUE`
+- `PATCH /api/tenants/[id]/renewal` (RENEWED) → clears both `LEASE_EXPIRY_*`
+- `PATCH /api/maintenance/[id]` (status != OPEN) → clears `URGENT_OPEN_4H`
+
+Adding a checker that should auto-clear means: (a) writing `upsertHint` in the checker, and (b) calling `clearHints(refId, hintType)` from whichever route resolves the condition.
+
+**Operational Inbox integration**: `buildInbox()` merges `ActionableHint(status=ACTIVE)` rows alongside computed inbox items, de-duplicating where `(InboxType, refId)` collide (the hint wins, since it carries the suggested action). Each hint-sourced row shows a small "✨ Suggested" badge plus per-user Dismiss / Snooze (1h / 1d / 1w) controls. Snoozes live in `HintSnooze (hintId, userId, until)` and the inbox API filters them out for the current user.
+
+**Hint UI controls**:
+- `POST /api/hints/[id]/dismiss` — sets `DISMISSED` for everyone (manager-level decision)
+- `POST /api/hints/[id]/snooze` body `{ until: "1h" | "1d" | "1w" | <iso-date> }` — per-user only
+- `POST /api/hints/[id]/act` — optimistic flip to `ACTED_ON` after the client fires the underlying action endpoint
+- `GET /api/hints` — list ACTIVE hints scoped to accessible properties; super-admin sees everything (with `?includeAllStatuses=true`)
+
+**Super-admin debug page**: `/admin/hints` lists raw hint rows with status/severity filters.
+
+**Idempotency contract**: never seed an ActionableHint with a non-deterministic `refId`. The `(hintType, refId)` pair is the upsert key. The recurring-expense checker uses `recurringExpense.id`; the maintenance-job checker uses `job.id`; the petty-cash checker uses `property.id`; etc.
+
 ### Email Logging & Super-admin Composer
 
 Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.

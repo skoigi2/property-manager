@@ -52,6 +52,7 @@ model Organization {
   invitations            OrgInvitation[]
   agents                 Agent[]
   caseThreads            CaseThread[]
+  actionableHints        ActionableHint[]
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
 }
@@ -475,6 +476,7 @@ model Property {
   taxConfigurations      TaxConfiguration[]
   complianceCertificates ComplianceCertificate[]
   caseThreads            CaseThread[]
+  actionableHints        ActionableHint[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 }
@@ -753,6 +755,7 @@ model CaseThread {
   emailLogs        EmailLog[]
   communicationLogs CommunicationLog[]
   approvalRequests ApprovalRequest[]
+  actionableHints  ActionableHint[]
 
   @@index([organizationId, status])
   @@index([propertyId, status])
@@ -785,6 +788,86 @@ enum ApprovalStatus {
   REJECTED
   DISPUTED
   EXPIRED
+}
+
+enum HintType {
+  INVOICE_OVERDUE
+  LEASE_EXPIRY_30D
+  LEASE_EXPIRY_7D
+  URGENT_OPEN_4H
+  VACANT_OVER_30D
+  RENT_INCREASE_DUE
+  INSPECTION_OVERDUE
+  DEPOSIT_NOT_SETTLED
+  RECURRING_EXPENSE_DUE
+  LOW_PETTY_CASH
+  NEGATIVE_CASHFLOW_FORECAST
+  COMPLIANCE_EXPIRY_30D
+  COMPLIANCE_EXPIRY_7D
+  INSURANCE_EXPIRY_30D
+  INSURANCE_EXPIRY_7D
+}
+
+enum HintSeverity {
+  URGENT
+  WARNING
+  INFO
+}
+
+enum HintStatus {
+  ACTIVE
+  ACTED_ON
+  DISMISSED
+  EXPIRED
+}
+
+model ActionableHint {
+  id                String       @id @default(cuid())
+  organizationId    String
+  propertyId        String?
+  unitId            String?
+  tenantId          String?
+  caseThreadId      String?
+  hintType          HintType
+  /// Deterministic ref to the underlying record (e.g. invoiceId, tenantId, jobId).
+  /// Combined with hintType this is the upsert key so cron remains idempotent.
+  refId             String
+  severity          HintSeverity
+  title             String
+  subtitle          String
+  suggestedAction   String?
+  actionEndpoint    String?
+  actionMethod      String?      // "POST" | "PATCH" | "GET"
+  actionBody        Json?
+  actionLabel       String?
+  status            HintStatus   @default(ACTIVE)
+  expiresAt         DateTime?
+  dismissedByUserId String?
+  dismissedAt       DateTime?
+  actedAt           DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property          Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  caseThread        CaseThread?  @relation(fields: [caseThreadId], references: [id], onDelete: SetNull)
+  snoozes           HintSnooze[]
+
+  @@unique([hintType, refId])
+  @@index([organizationId, status, severity])
+  @@index([propertyId, status])
+  @@index([status, expiresAt])
+}
+
+model HintSnooze {
+  id      String         @id @default(cuid())
+  hintId  String
+  userId  String
+  until   DateTime
+  hint    ActionableHint @relation(fields: [hintId], references: [id], onDelete: Cascade)
+
+  @@unique([hintId, userId])
+  @@index([userId, until])
 }
 
 model ApprovalRequest {

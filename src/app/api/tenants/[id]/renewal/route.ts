@@ -2,6 +2,7 @@ import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { RenewalStage } from "@prisma/client";
 import { z } from "zod";
+import { clearHintsAny } from "@/lib/hints";
 
 const renewalSchema = z.object({
   renewalStage:     z.enum(["NONE", "NOTICE_SENT", "TERMS_AGREED", "RENEWED"]),
@@ -87,6 +88,11 @@ export async function PATCH(
 
     return tenant_updated;
   });
+
+  // Clear lease-expiry hints once tenant is RENEWED
+  if (renewalStage === "RENEWED") {
+    await clearHintsAny(params.id, ["LEASE_EXPIRY_7D", "LEASE_EXPIRY_30D"]);
+  }
 
   return Response.json(updated);
 }

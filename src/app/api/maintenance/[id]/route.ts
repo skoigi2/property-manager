@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { auth } from "@/lib/auth";
+import { clearHints } from "@/lib/hints";
 
 const updateSchema = z.object({
   title:            z.string().min(1).optional(),
@@ -148,6 +149,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       vendor:   { select: { id: true, name: true, category: true, phone: true } },
     },
   });
+
+  // Clear URGENT_OPEN_4H hint when status leaves OPEN
+  if (rest.status && rest.status !== "OPEN") {
+    await clearHints(params.id, "URGENT_OPEN_4H");
+  }
 
   // Mirror status/vendor/priority changes onto the linked CaseThread
   if (job!.caseThreadId) {

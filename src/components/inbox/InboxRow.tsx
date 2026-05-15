@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import toast from "react-hot-toast";
 import {
   Receipt,
   CalendarClock,
@@ -11,6 +13,9 @@ import {
   AlertTriangle,
   Briefcase,
   ShieldQuestion,
+  X,
+  Clock,
+  Sparkles,
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { InboxItem, InboxType } from "@/lib/inbox";
@@ -64,6 +69,66 @@ interface RowProps {
   onActionComplete: (itemId: string) => void;
 }
 
+function HintControls({ hintId, onDone }: { hintId: string; onDone: () => void }) {
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+
+  async function dismiss() {
+    try {
+      await fetch(`/api/hints/${hintId}/dismiss`, { method: "POST" });
+      toast.success("Hint dismissed");
+      onDone();
+    } catch {
+      toast.error("Failed to dismiss");
+    }
+  }
+
+  async function snooze(until: "1h" | "1d" | "1w") {
+    try {
+      await fetch(`/api/hints/${hintId}/snooze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ until }),
+      });
+      toast.success(`Snoozed ${until}`);
+      setSnoozeOpen(false);
+      onDone();
+    } catch {
+      toast.error("Failed to snooze");
+    }
+  }
+
+  return (
+    <div className="relative inline-flex items-center gap-1">
+      <span className="inline-flex items-center gap-1 text-[10px] font-medium font-sans px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700">
+        <Sparkles size={10} /> Suggested
+      </span>
+      <button
+        onClick={() => setSnoozeOpen((v) => !v)}
+        className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+        aria-label="Snooze"
+        title="Snooze"
+      >
+        <Clock size={14} />
+      </button>
+      <button
+        onClick={dismiss}
+        className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
+        aria-label="Dismiss"
+        title="Dismiss"
+      >
+        <X size={14} />
+      </button>
+      {snoozeOpen && (
+        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-100 z-50 flex flex-col text-xs font-sans">
+          <button onClick={() => snooze("1h")} className="px-3 py-2 text-left hover:bg-gray-50">1 hour</button>
+          <button onClick={() => snooze("1d")} className="px-3 py-2 text-left hover:bg-gray-50 border-t border-gray-100">1 day</button>
+          <button onClick={() => snooze("1w")} className="px-3 py-2 text-left hover:bg-gray-50 border-t border-gray-100">1 week</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InboxRowCard({ item, selected, onToggleSelected, onActionComplete }: RowProps) {
   const s = severityStyles(item.severity);
   const Icon = TYPE_ICON[item.type];
@@ -97,6 +162,9 @@ export function InboxRowCard({ item, selected, onToggleSelected, onActionComplet
             <span className={clsx("inline-flex items-center text-[10px] font-medium font-sans px-2 py-0.5 rounded-full", s.pill)}>
               {pill}
             </span>
+          )}
+          {item.isHint && item.hintId && (
+            <HintControls hintId={item.hintId} onDone={() => onActionComplete(item.id)} />
           )}
         </div>
       </div>
@@ -142,7 +210,12 @@ export function InboxTableRow({ item, selected, onToggleSelected, onActionComple
         )}
       </td>
       <td className="px-4 py-3 text-right">
-        <InboxActions item={item} onActionComplete={onActionComplete} />
+        <div className="inline-flex items-center gap-2">
+          {item.isHint && item.hintId && (
+            <HintControls hintId={item.hintId} onDone={() => onActionComplete(item.id)} />
+          )}
+          <InboxActions item={item} onActionComplete={onActionComplete} />
+        </div>
       </td>
     </tr>
   );

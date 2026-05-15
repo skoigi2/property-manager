@@ -181,8 +181,8 @@ export async function buildInbox(
       propertyName: property.name,
       dueDate: inv.dueDate.toISOString(),
       daysOverdue: dOver,
-      href: `/invoices`,
-      actions: [{ label: "View", action: `/invoices` }],
+      href: `/invoices?focus=${inv.id}`,
+      actions: [{ label: "View", action: `/invoices?focus=${inv.id}` }],
     });
   }
 
@@ -229,8 +229,8 @@ export async function buildInbox(
       propertyName: job.property.name,
       dueDate: job.reportedDate.toISOString(),
       daysOverdue: daysOverdueFrom(job.reportedDate),
-      href: `/maintenance`,
-      actions: [{ label: "View", action: "/maintenance" }],
+      href: `/maintenance?focus=${job.id}`,
+      actions: [{ label: "View", action: `/maintenance?focus=${job.id}` }],
     });
   }
   for (const job of portalJobs) {
@@ -249,8 +249,8 @@ export async function buildInbox(
       propertyName: job.property.name,
       dueDate: job.reportedDate.toISOString(),
       daysOverdue: daysOverdueFrom(job.reportedDate),
-      href: `/maintenance`,
-      actions: [{ label: "View", action: "/maintenance" }],
+      href: `/maintenance?focus=${job.id}`,
+      actions: [{ label: "View", action: `/maintenance?focus=${job.id}` }],
     });
   }
   items.push(...Array.from(jobMap.values()));
@@ -275,8 +275,8 @@ export async function buildInbox(
       propertyName: cert.property.name,
       dueDate: cert.expiryDate.toISOString(),
       daysOverdue: dOver,
-      href: `/compliance/certificates`,
-      actions: [{ label: "View", action: "/compliance/certificates" }],
+      href: `/compliance/certificates?focus=${cert.id}`,
+      actions: [{ label: "View", action: `/compliance/certificates?focus=${cert.id}` }],
     });
   }
 
@@ -299,8 +299,8 @@ export async function buildInbox(
       propertyName: pol.property.name,
       dueDate: pol.endDate.toISOString(),
       daysOverdue: dOver,
-      href: `/insurance`,
-      actions: [{ label: "View", action: "/insurance" }],
+      href: `/insurance?focus=${pol.id}`,
+      actions: [{ label: "View", action: `/insurance?focus=${pol.id}` }],
     });
   }
 
@@ -319,8 +319,8 @@ export async function buildInbox(
       propertyName: c.property.name,
       dueDate: c.updatedAt.toISOString(),
       daysOverdue: dOver,
-      href: `/arrears`,
-      actions: [{ label: "View", action: "/arrears" }],
+      href: `/arrears?focus=${c.id}`,
+      actions: [{ label: "View", action: `/arrears?focus=${c.id}` }],
     });
   }
 

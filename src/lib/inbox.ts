@@ -1,0 +1,350 @@
+import { prisma } from "@/lib/prisma";
+import { differenceInDays } from "date-fns";
+import { getLeaseStatus } from "@/lib/date-utils";
+import { formatCurrency } from "@/lib/currency";
+
+export type InboxSeverity = "URGENT" | "WARNING" | "INFO";
+
+export type InboxType =
+  | "INVOICE_OVERDUE"
+  | "LEASE_EXPIRY"
+  | "URGENT_MAINTENANCE"
+  | "PORTAL_REQUEST"
+  | "COMPLIANCE_EXPIRY"
+  | "INSURANCE_EXPIRY"
+  | "ARREARS_ESCALATION";
+
+export interface InboxAction {
+  label: string;
+  action: string;
+  method?: "POST" | "PATCH";
+}
+
+export interface InboxItem {
+  id: string;
+  type: InboxType;
+  severity: InboxSeverity;
+  title: string;
+  subtitle: string;
+  propertyId: string;
+  propertyName: string;
+  dueDate: string | null;
+  daysOverdue: number | null;
+  href: string;
+  actions: InboxAction[];
+}
+
+export interface InboxCounts {
+  urgent: number;
+  today: number;
+  thisWeek: number;
+}
+
+const SEVERITY_RANK: Record<InboxSeverity, number> = {
+  URGENT: 3,
+  WARNING: 2,
+  INFO: 1,
+};
+
+function daysOverdueFrom(date: Date | null | undefined): number | null {
+  if (!date) return null;
+  // Positive = overdue; negative = upcoming
+  return differenceInDays(new Date(), date);
+}
+
+export async function buildInbox(
+  propertyIds: string[],
+): Promise<{ items: InboxItem[]; counts: InboxCounts }> {
+  if (propertyIds.length === 0) {
+    return { items: [], counts: { urgent: 0, today: 0, thisWeek: 0 } };
+  }
+
+  const now = new Date();
+  const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const ago7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const ago30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [
+    overdueInvoices,
+    leaseExpiries,
+    urgentJobs,
+    portalJobs,
+    complianceCerts,
+    insurancePolicies,
+    arrearsCases,
+  ] = await Promise.all([
+    // 1. Overdue invoices
+    prisma.invoice.findMany({
+      where: {
+        status: { in: ["SENT", "OVERDUE"] },
+        dueDate: { lt: now },
+        tenant: { unit: { propertyId: { in: propertyIds } } },
+      },
+      include: {
+        tenant: {
+          select: {
+            name: true,
+            unit: {
+              select: {
+                unitNumber: true,
+                property: { select: { id: true, name: true, currency: true } },
+              },
+            },
+          },
+        },
+      },
+    }),
+    // 2. Lease expiries within 30 days (or recently expired up to 7 days back)
+    prisma.tenant.findMany({
+      where: {
+        isActive: true,
+        leaseEnd: { gte: ago7, lte: in30 },
+        unit: { propertyId: { in: propertyIds } },
+      },
+      select: {
+        id: true,
+        name: true,
+        leaseEnd: true,
+        unit: {
+          select: {
+            unitNumber: true,
+            property: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+    // 3. Urgent open maintenance
+    prisma.maintenanceJob.findMany({
+      where: {
+        priority: "URGENT",
+        status: "OPEN",
+        propertyId: { in: propertyIds },
+      },
+      include: { property: { select: { id: true, name: true } } },
+    }),
+    // 4. Portal-submitted, open, unacknowledged
+    prisma.maintenanceJob.findMany({
+      where: {
+        submittedViaPortal: true,
+        status: "OPEN",
+        acknowledgedAt: null,
+        propertyId: { in: propertyIds },
+      },
+      include: { property: { select: { id: true, name: true } } },
+    }),
+    // 5. Compliance certificates expiring ≤30d (and not too far in past)
+    prisma.complianceCertificate.findMany({
+      where: {
+        expiryDate: { not: null, gte: ago30, lte: in30 },
+        propertyId: { in: propertyIds },
+      },
+      include: { property: { select: { id: true, name: true } } },
+    }),
+    // 6. Insurance policies ending ≤30d
+    prisma.insurancePolicy.findMany({
+      where: {
+        endDate: { gte: ago30, lte: in30 },
+        propertyId: { in: propertyIds },
+      },
+      include: { property: { select: { id: true, name: true } } },
+    }),
+    // 7. Arrears cases not RESOLVED and untouched >7d
+    prisma.arrearsCase.findMany({
+      where: {
+        stage: { not: "RESOLVED" },
+        updatedAt: { lt: ago7 },
+        propertyId: { in: propertyIds },
+      },
+      include: {
+        tenant: { select: { name: true } },
+        property: { select: { id: true, name: true } },
+      },
+    }),
+    // 8. TODO: pending approvals (see Prompt 4)
+  ]);
+
+  const items: InboxItem[] = [];
+
+  // 1. Overdue invoices
+  for (const inv of overdueInvoices) {
+    const property = inv.tenant.unit.property;
+    const dOver = daysOverdueFrom(inv.dueDate) ?? 0;
+    const severity: InboxSeverity = dOver >= 7 ? "URGENT" : "WARNING";
+    const amount = formatCurrency(inv.totalAmount, property.currency);
+    items.push({
+      id: `invoice:${inv.id}`,
+      type: "INVOICE_OVERDUE",
+      severity,
+      title: `Rent overdue — Unit ${inv.tenant.unit.unitNumber}, ${inv.tenant.name}`,
+      subtitle: `${amount} · ${dOver} day${dOver === 1 ? "" : "s"} overdue`,
+      propertyId: property.id,
+      propertyName: property.name,
+      dueDate: inv.dueDate.toISOString(),
+      daysOverdue: dOver,
+      href: `/invoices/${inv.id}`,
+      actions: [{ label: "View", action: `/invoices/${inv.id}` }],
+    });
+  }
+
+  // 2. Lease expiries
+  for (const t of leaseExpiries) {
+    if (!t.leaseEnd) continue;
+    const status = getLeaseStatus(t.leaseEnd);
+    if (status !== "WARNING" && status !== "CRITICAL") continue;
+    const dOver = daysOverdueFrom(t.leaseEnd) ?? 0;
+    const severity: InboxSeverity = status === "CRITICAL" ? "URGENT" : "WARNING";
+    const property = t.unit.property;
+    const daysLeft = -dOver;
+    const subtitle =
+      daysLeft >= 0
+        ? `Lease ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+        : `Lease ended ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago`;
+    items.push({
+      id: `lease:${t.id}`,
+      type: "LEASE_EXPIRY",
+      severity,
+      title: `Lease expiring — Unit ${t.unit.unitNumber}, ${t.name}`,
+      subtitle,
+      propertyId: property.id,
+      propertyName: property.name,
+      dueDate: t.leaseEnd.toISOString(),
+      daysOverdue: dOver,
+      href: `/tenants/${t.id}`,
+      actions: [{ label: "View", action: `/tenants/${t.id}` }],
+    });
+  }
+
+  // 3 + 4. Maintenance jobs — dedupe by id, keep stronger severity
+  const jobMap = new Map<string, InboxItem>();
+  for (const job of urgentJobs) {
+    jobMap.set(job.id, {
+      id: `maintenance:${job.id}`,
+      type: "URGENT_MAINTENANCE",
+      severity: "URGENT",
+      title: `Urgent maintenance — ${job.title}`,
+      subtitle: job.submittedViaPortal
+        ? "Tenant request · awaiting triage"
+        : `Reported ${formatRelative(job.reportedDate)}`,
+      propertyId: job.property.id,
+      propertyName: job.property.name,
+      dueDate: job.reportedDate.toISOString(),
+      daysOverdue: daysOverdueFrom(job.reportedDate),
+      href: `/maintenance`,
+      actions: [{ label: "View", action: "/maintenance" }],
+    });
+  }
+  for (const job of portalJobs) {
+    const existing = jobMap.get(job.id);
+    if (existing) {
+      // already URGENT; nothing stronger to do
+      continue;
+    }
+    jobMap.set(job.id, {
+      id: `maintenance:${job.id}`,
+      type: "PORTAL_REQUEST",
+      severity: "WARNING",
+      title: `Tenant request — ${job.title}`,
+      subtitle: `Submitted via portal · ${formatRelative(job.reportedDate)}`,
+      propertyId: job.property.id,
+      propertyName: job.property.name,
+      dueDate: job.reportedDate.toISOString(),
+      daysOverdue: daysOverdueFrom(job.reportedDate),
+      href: `/maintenance`,
+      actions: [{ label: "View", action: "/maintenance" }],
+    });
+  }
+  items.push(...Array.from(jobMap.values()));
+
+  // 5. Compliance certificates
+  for (const cert of complianceCerts) {
+    if (!cert.expiryDate) continue;
+    const dOver = daysOverdueFrom(cert.expiryDate) ?? 0;
+    const severity: InboxSeverity = dOver >= -7 ? "URGENT" : "WARNING";
+    const daysLeft = -dOver;
+    const subtitle =
+      daysLeft >= 0
+        ? `Expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
+        : `Expired ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago`;
+    items.push({
+      id: `compliance:${cert.id}`,
+      type: "COMPLIANCE_EXPIRY",
+      severity,
+      title: `${cert.certificateType} expiring`,
+      subtitle,
+      propertyId: cert.property.id,
+      propertyName: cert.property.name,
+      dueDate: cert.expiryDate.toISOString(),
+      daysOverdue: dOver,
+      href: `/compliance/certificates`,
+      actions: [{ label: "View", action: "/compliance/certificates" }],
+    });
+  }
+
+  // 6. Insurance policies
+  for (const pol of insurancePolicies) {
+    const dOver = daysOverdueFrom(pol.endDate) ?? 0;
+    const severity: InboxSeverity = dOver >= -7 ? "URGENT" : "WARNING";
+    const daysLeft = -dOver;
+    const subtitle =
+      daysLeft >= 0
+        ? `Ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"} · ${pol.insurer}`
+        : `Ended ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago · ${pol.insurer}`;
+    items.push({
+      id: `insurance:${pol.id}`,
+      type: "INSURANCE_EXPIRY",
+      severity,
+      title: `Insurance policy expiring — ${pol.type}`,
+      subtitle,
+      propertyId: pol.property.id,
+      propertyName: pol.property.name,
+      dueDate: pol.endDate.toISOString(),
+      daysOverdue: dOver,
+      href: `/insurance`,
+      actions: [{ label: "View", action: "/insurance" }],
+    });
+  }
+
+  // 7. Arrears cases
+  for (const c of arrearsCases) {
+    const dOver = daysOverdueFrom(c.updatedAt) ?? 0;
+    const escalated = c.stage === "LEGAL_NOTICE" || c.stage === "EVICTION";
+    const severity: InboxSeverity = escalated ? "URGENT" : "WARNING";
+    items.push({
+      id: `arrears:${c.id}`,
+      type: "ARREARS_ESCALATION",
+      severity,
+      title: `Arrears case — ${c.tenant.name}`,
+      subtitle: `Stage: ${c.stage.replace(/_/g, " ")} · ${dOver} day${dOver === 1 ? "" : "s"} without update`,
+      propertyId: c.property.id,
+      propertyName: c.property.name,
+      dueDate: c.updatedAt.toISOString(),
+      daysOverdue: dOver,
+      href: `/arrears`,
+      actions: [{ label: "View", action: "/arrears" }],
+    });
+  }
+
+  // Sort: severity DESC, daysOverdue DESC
+  items.sort((a, b) => {
+    const s = SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity];
+    if (s !== 0) return s;
+    return (b.daysOverdue ?? -Infinity) - (a.daysOverdue ?? -Infinity);
+  });
+
+  const counts: InboxCounts = {
+    urgent: items.filter((i) => i.severity === "URGENT").length,
+    today: items.filter((i) => i.daysOverdue === 0).length,
+    thisWeek: items.filter(
+      (i) => i.daysOverdue !== null && i.daysOverdue >= -7 && i.daysOverdue <= 7,
+    ).length,
+  };
+
+  return { items, counts };
+}
+
+function formatRelative(date: Date): string {
+  const days = differenceInDays(new Date(), date);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}

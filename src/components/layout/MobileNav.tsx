@@ -9,7 +9,7 @@ import {
   Users, Wallet, ScrollText, Wrench, AlertTriangle,
   ShieldPlus, Package, RepeatIcon, Upload, Settings,
   UserCog, ShieldCheck, Building2, MoreHorizontal, X,
-  BarChart3, CalendarDays, BookOpen,
+  BarChart3, CalendarDays, BookOpen, Inbox,
 } from "lucide-react";
 
 interface NavItem {
@@ -25,17 +25,17 @@ interface DrawerSection {
 
 // Bottom bar primary items per role
 const mgrPrimary: NavItem[] = [
+  { href: "/inbox",      label: "Inbox",      icon: Inbox },
   { href: "/dashboard",  label: "Home",       icon: LayoutDashboard },
   { href: "/tenants",    label: "Tenants",    icon: Users },
   { href: "/income",     label: "Income",     icon: TrendingUp },
-  { href: "/airbnb",     label: "Airbnb",     icon: CalendarDays },
 ];
 
 const accountantPrimary: NavItem[] = [
+  { href: "/inbox",      label: "Inbox",      icon: Inbox },
   { href: "/dashboard",  label: "Home",       icon: LayoutDashboard },
   { href: "/tenants",    label: "Tenants",    icon: Users },
   { href: "/income",     label: "Income",     icon: TrendingUp },
-  { href: "/airbnb",     label: "Airbnb",     icon: CalendarDays },
 ];
 
 const ownerItems: NavItem[] = [
@@ -48,6 +48,7 @@ const mgrDrawerSections: DrawerSection[] = [
     heading: "Overview",
     items: [
       { href: "/properties", label: "Properties", icon: Building2 },
+      { href: "/airbnb",     label: "Airbnb",     icon: CalendarDays },
       { href: "/report",     label: "Report",     icon: FileText },
     ],
   },
@@ -92,6 +93,7 @@ const accountantDrawerSections: DrawerSection[] = [
     heading: "Overview",
     items: [
       { href: "/properties", label: "Properties", icon: Building2 },
+      { href: "/airbnb",     label: "Airbnb",     icon: CalendarDays },
       { href: "/report",     label: "Report",     icon: FileText },
     ],
   },

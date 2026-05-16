@@ -396,16 +396,30 @@ Inbound replies are NOT handled — Resend Inbound (MX + webhook) is not configu
 
 ### Billing (Paddle + Stripe)
 
-`pricingTier` on `Organization` (`TRIAL → STARTER → PRO → SCALE` etc., see `PricingTier` enum) drives feature gating. Billing helpers:
-- `src/lib/paddle.ts` — price-id → tier mapping, `PROPERTY_LIMITS` per tier
+`pricingTier` on `Organization` (`TRIAL → STARTER → GROWTH → PRO`, see `PricingTier` enum) drives capacity gating. Billing helpers:
+- `src/lib/paddle.ts` — price-id → tier mapping, `PROPERTY_LIMITS` + `TEAM_LIMITS` per tier
 - `src/lib/stripe.ts` — lazy Stripe SDK singleton
-- `src/lib/subscription.ts` — gating helpers (e.g. property-cap checks, trial state)
+- `src/lib/subscription.ts` — gating helpers (`canAddProperty`, `canAddUser`, `requireActiveSubscription`, trial state)
 
 Routes:
 - `POST /api/webhooks/paddle` — Paddle subscription events (idempotent via `paddleEventId`)
 - `POST /api/billing/cancel` — initiates cancellation
 - `GET /api/stripe/status` — returns Stripe subscription state
 - Pages: `/billing`, `/upgrade`
+
+### Pricing & gating (capacity only)
+
+There are **only two capacity gates** in the codebase, plus a subscription-state write-lock:
+
+| Gate | Cap | Enforcement |
+|---|---|---|
+| Property count | TRIAL=2 · STARTER=2 · GROWTH=10 · PRO=∞ | `PROPERTY_LIMITS` in paddle.ts → `canAddProperty()` → POST /api/properties |
+| Team-member count | TRIAL=1 · STARTER=1 · GROWTH=10 · PRO=∞ | `TEAM_LIMITS` in paddle.ts → `canAddUser()` → POST /api/users |
+| Write-lock | trial-expired / cancelled / expired / past-due → HTTP 402 | `requireActiveSubscription()` called from every mutating route |
+
+**There is no per-feature gating.** Every other capability — Airbnb tracking, tax rules, cashflow forecast, asset register, insurance, compliance, audit log, multi-org, etc. — is universally available to any active org regardless of tier. This is intentional and is the foundation of the `/pricing` page's "Why no feature gates?" positioning. Marketing copy on `/pricing` MUST reflect this rule until any per-feature gate is added in code — do not advertise gates that don't exist. See [docs/pricing-gating-roadmap.md](docs/pricing-gating-roadmap.md) for the candidate list of features that could plausibly be gated in future.
+
+When adding a new gate: mirror the existing two — cap map in paddle.ts, helper in subscription.ts, guard at the API route returning HTTP 402 with a `code` field, then update `/pricing/page.tsx` to surface the new gate as a real tier-differentiated matrix row.
 
 ### Web Analytics
 

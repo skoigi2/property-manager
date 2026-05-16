@@ -38,7 +38,7 @@ Next.js 14 App Router app. All source code lives in `src/`.
 - `src/app/(dashboard)/` — all protected pages, share a sidebar layout (`layout.tsx`)
 - `src/app/(marketing)/` — public pages outside the dashboard chrome (`/blog`, `/pricing`, `/contact`, `/privacy`, `/terms`, `/refund`)
 - `src/app/(portal)/` — token-based tenant portal (no auth, no sidebar); bypassed by middleware
-- Top-level routes outside any group: `/` (landing — `src/app/page.tsx`), `/onboarding`, `/invite/[token]`, plus `robots.ts` and `sitemap.ts`
+- Top-level routes outside any group: `/onboarding`, `/invite/[token]`, plus `robots.ts` and `sitemap.ts`. The landing page `/` lives inside `(marketing)` as `src/app/(marketing)/page.tsx` so it inherits the shared nav + footer from `(marketing)/layout.tsx`
 - `src/app/api/` — Route Handlers only; no server components fetch data directly
 
 ### Auth & access control
@@ -183,7 +183,7 @@ Three properties are seeded:
 - Vendor fields use `<VendorSelect>` (controlled: `value: string | null`, `onChange: (id: string | null) => void`) — never a plain text input for contractor/supplier fields
 - **HelpTip**: `<HelpTip text="..." position="above|below" />` (`src/components/ui/HelpTip.tsx`) — small ℹ icon that shows a dark tooltip on hover. Default position is `"above"`; use `"below"` for elements near the top of the page (KPI cards, summary strips). Render inside label rows as `<span className="flex items-center gap-1.5"><span>Label</span><HelpTip text="..." /></span>`. The `Input`, `Select`, and `VendorSelect` components accept a `tooltip` prop that wires this up automatically.
 - **Mobile table pattern**: pages with data tables use `md:hidden` stacked card list + `hidden md:block overflow-x-auto` desktop table. The `<main>` in `src/app/(dashboard)/layout.tsx` carries `overflow-x-hidden` to prevent any overflowing child from creating a page-level horizontal scroll (which shifts the fixed bottom nav). `MobileNav` bar items require `min-w-0` on each flex child and `truncate w-full` on each label `<span>` to prevent long labels pushing items off-screen on narrow devices.
-- Components are organised under `src/components/` by feature: `dashboard/`, `expenses/`, `forecast/`, `guests/`, `income/`, `layout/`, `petty-cash/`, `report/`, `settings/`, `tenants/`, `ui/`
+- Components are organised under `src/components/` by feature: `dashboard/`, `expenses/`, `forecast/`, `guests/`, `income/`, `landing/` (marketing-page sections like MarketingHero / InboxMock / SpreadsheetComparison / Pricing — used by `(marketing)/page.tsx`), `layout/`, `petty-cash/`, `report/`, `settings/`, `tenants/`, `ui/`
 
 ### Document Storage
 

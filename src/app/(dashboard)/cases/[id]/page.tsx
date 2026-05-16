@@ -44,6 +44,8 @@ interface CaseDetail {
   stage: string | null;
   currentStageIndex: number;
   workflowKey: string | null;
+  terminalReason: "COMPLETED_NORMALLY" | "BYPASSED" | "CANCELLED" | null;
+  bypassedAtStage: string | null;
   waitingOn: CaseWaitingOn;
   assignedToUserId: string | null;
   property: { id: string; name: string; currency: string };
@@ -171,6 +173,8 @@ export default function CaseDetailPage() {
             workflow={getWorkflow(c.caseType)}
             currentStageIndex={c.currentStageIndex}
             waitingOn={c.waitingOn}
+            terminalReason={c.terminalReason}
+            bypassedAtStage={c.bypassedAtStage}
             readOnly={c.status === "RESOLVED" || c.status === "CLOSED"}
             onAdvance={async (toIndex, note) => {
               const res = await fetch(`/api/cases/${c.id}/advance`, {
@@ -290,15 +294,23 @@ export default function CaseDetailPage() {
                 { value: "NONE", label: "Nobody" },
               ]}
             />
-            <Input
-              label="Stage"
-              defaultValue={c.stage ?? ""}
-              placeholder="e.g. Quote requested"
-              onBlur={(e) => {
-                const v = e.target.value;
-                if (v !== (c.stage ?? "")) patch({ stage: v || null });
-              }}
-            />
+            <div>
+              <label className="text-sm font-medium text-gray-600 font-sans">Stage</label>
+              <div className="mt-1 text-sm font-sans">
+                {c.terminalReason === "BYPASSED" || c.terminalReason === "CANCELLED" ? (
+                  <span className="text-amber-700">
+                    {c.terminalReason === "CANCELLED" ? "Cancelled" : "Bypassed"}
+                    {c.bypassedAtStage && (() => {
+                      const wf = getWorkflow(c.caseType);
+                      const s = wf.stages.find((st) => st.key === c.bypassedAtStage);
+                      return s ? <> <span className="text-gray-500">(was at: {s.label})</span></> : null;
+                    })()}
+                  </span>
+                ) : (
+                  <span className="text-gray-700">{c.stage ?? "—"}</span>
+                )}
+              </div>
+            </div>
             <div className="text-xs font-sans text-gray-500 pt-2 border-t border-gray-100 space-y-2">
               <p className="flex items-center gap-1"><UserCheck size={12} /> Assigned: {c.assignedTo?.name ?? c.assignedTo?.email ?? "—"}</p>
 

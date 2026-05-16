@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { regressCaseSchema } from "@/lib/validations";
 import { getStageByIndex, getWorkflow } from "@/lib/case-workflows";
-import type { CaseWaitingOn, Prisma } from "@prisma/client";
+import type { CaseStatus, CaseWaitingOn, Prisma } from "@prisma/client";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManager();
@@ -40,6 +40,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     lastWaitingPauseAt = now;
   }
 
+  // Regressing out of a terminal stage clears terminalReason and re-opens the case
+  const wasTerminalStage = !!getStageByIndex(wf, thread.currentStageIndex)?.terminalStatus;
+  const statusUnsnap: { status?: CaseStatus; terminalReason?: null; bypassedAtStage?: null } = {};
+  if (wasTerminalStage && (thread.status === "RESOLVED" || thread.status === "CLOSED")) {
+    statusUnsnap.status = "IN_PROGRESS";
+    statusUnsnap.terminalReason = null;
+    statusUnsnap.bypassedAtStage = null;
+  }
+
   await prisma.$transaction([
     prisma.caseThread.update({
       where: { id: thread.id },
@@ -51,6 +60,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         waitingOn: newWaitingOn,
         waitingPausedSeconds,
         lastWaitingPauseAt,
+        ...statusUnsnap,
       },
     }),
     prisma.caseEvent.create({

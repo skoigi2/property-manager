@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { updateCaseSchema } from "@/lib/validations";
 import { getCaseAttachmentSignedUrl } from "@/lib/supabase-storage";
+import { getWorkflow, getStageByIndex } from "@/lib/case-workflows";
+import type { CaseTerminalReason } from "@prisma/client";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const { error } = await requireAuth();
@@ -139,6 +141,44 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const stageChanged = data.stage !== undefined && data.stage !== thread.stage;
 
+  // Status → terminal-reason logic. When status flips to RESOLVED/CLOSED:
+  //   - if currentStageIndex >= naturalCompletionIndex → COMPLETED_NORMALLY
+  //   - else → BYPASSED + record bypassedAtStage. Stage is NOT mutated (history preserved).
+  // When status flips OUT of a terminal status → clear terminalReason + bypassedAtStage.
+  let terminalUpdate: { terminalReason?: CaseTerminalReason | null; bypassedAtStage?: string | null } = {};
+  if (data.status !== undefined && data.status !== thread.status) {
+    const wasTerminal = thread.status === "RESOLVED" || thread.status === "CLOSED";
+    const isTerminal  = data.status === "RESOLVED" || data.status === "CLOSED";
+    if (isTerminal && !wasTerminal) {
+      const wf = getWorkflow(thread.caseType);
+      const curStage = getStageByIndex(wf, thread.currentStageIndex);
+      const reachedNatural = thread.currentStageIndex >= wf.naturalCompletionIndex;
+      if (reachedNatural) {
+        terminalUpdate = { terminalReason: "COMPLETED_NORMALLY", bypassedAtStage: null };
+      } else {
+        terminalUpdate = {
+          terminalReason: "BYPASSED",
+          bypassedAtStage: curStage?.key ?? null,
+        };
+      }
+      eventCreates.push({
+        caseThreadId: thread.id,
+        kind: "EXTERNAL_UPDATE",
+        ...actor,
+        body: reachedNatural
+          ? `Workflow completed — closed at "${curStage?.label ?? "unknown"}"`
+          : `Workflow bypassed — was at "${curStage?.label ?? "unknown"}"`,
+        meta: {
+          terminalReason: terminalUpdate.terminalReason,
+          bypassedAtStage: terminalUpdate.bypassedAtStage,
+          atIndex: thread.currentStageIndex,
+        },
+      });
+    } else if (!isTerminal && wasTerminal) {
+      terminalUpdate = { terminalReason: null, bypassedAtStage: null };
+    }
+  }
+
   // Pause-clock math when waitingOn changes between internal/external
   let pauseUpdate: { waitingPausedSeconds?: number; lastWaitingPauseAt?: Date | null } = {};
   if (data.waitingOn !== undefined && data.waitingOn !== thread.waitingOn) {
@@ -163,6 +203,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         lastActivityAt: now,
         ...(stageChanged ? { stageStartedAt: now } : {}),
         ...pauseUpdate,
+        ...terminalUpdate,
       },
     }),
     ...eventCreates.map((d) => prisma.caseEvent.create({ data: d })),

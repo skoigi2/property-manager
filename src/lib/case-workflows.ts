@@ -1,10 +1,12 @@
-import type { CaseType, CaseWaitingOn, Prisma } from "@prisma/client";
+import type { CaseStatus, CaseType, CaseWaitingOn, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export interface CaseStage {
   key: string;
   label: string;
   terminal?: boolean;
+  /** When the user manually advances *to* this stage, snap status to this value. */
+  terminalStatus?: CaseStatus;
   requiresAction?: CaseWaitingOn;
   /** null = no SLA for this stage; undefined = workflow source decides */
   defaultSlaHours?: number | null;
@@ -14,6 +16,12 @@ export interface CaseWorkflow {
   key: string;
   caseType: CaseType;
   stages: CaseStage[];
+  /**
+   * The earliest stage index that counts as "natural completion". When status
+   * is flipped to RESOLVED/CLOSED while the case is at or past this index,
+   * terminalReason becomes COMPLETED_NORMALLY. Before this index, BYPASSED.
+   */
+  naturalCompletionIndex: number;
 }
 
 // ─── Workflow definitions ────────────────────────────────────────────────────
@@ -21,6 +29,7 @@ export interface CaseWorkflow {
 const MAINTENANCE_V1: CaseWorkflow = {
   key: "MAINTENANCE_V1",
   caseType: "MAINTENANCE",
+  naturalCompletionIndex: 8, // `completed`
   stages: [
     { key: "reported",            label: "Reported" },
     // triaged + quote_requested SLAs are overridden from the management agreement
@@ -31,15 +40,16 @@ const MAINTENANCE_V1: CaseWorkflow = {
     { key: "approved",            label: "Approved",           defaultSlaHours: 48 },
     { key: "scheduled",           label: "Scheduled",          defaultSlaHours: null },
     { key: "in_progress",         label: "In progress",        defaultSlaHours: 168 },
-    { key: "completed",           label: "Completed",          defaultSlaHours: 168 },
+    { key: "completed",           label: "Completed",          defaultSlaHours: 168, terminalStatus: "RESOLVED" },
     { key: "invoiced",            label: "Invoiced",           defaultSlaHours: 336 },
-    { key: "closed",              label: "Closed",             terminal: true },
+    { key: "closed",              label: "Closed",             terminal: true, terminalStatus: "CLOSED" },
   ],
 };
 
 const LEASE_RENEWAL_V1: CaseWorkflow = {
   key: "LEASE_RENEWAL_V1",
   caseType: "LEASE_RENEWAL",
+  naturalCompletionIndex: 6, // `documents_signed`
   stages: [
     { key: "notice_due",       label: "Notice due",       defaultSlaHours: 168 },
     { key: "notice_sent",      label: "Notice sent",      defaultSlaHours: 336, requiresAction: "TENANT" },
@@ -48,44 +58,47 @@ const LEASE_RENEWAL_V1: CaseWorkflow = {
     { key: "negotiating",      label: "Negotiating",      defaultSlaHours: 504 },
     { key: "terms_agreed",     label: "Terms agreed",     defaultSlaHours: 168 },
     { key: "documents_signed", label: "Documents signed", defaultSlaHours: 72 },
-    { key: "renewed",          label: "Renewed",          terminal: true },
+    { key: "renewed",          label: "Renewed",          terminal: true, terminalStatus: "RESOLVED" },
   ],
 };
 
 const ARREARS_V1: CaseWorkflow = {
   key: "ARREARS_V1",
   caseType: "ARREARS",
+  naturalCompletionIndex: 3, // `legal_action` (i.e. went through the escalation ladder)
   stages: [
     { key: "informal_reminder", label: "Informal reminder", defaultSlaHours: 72 },
     { key: "formal_notice",     label: "Formal notice",     defaultSlaHours: 168 },
     { key: "demand_letter",     label: "Demand letter",     defaultSlaHours: 336 },
     { key: "legal_action",      label: "Legal action",      defaultSlaHours: null },
-    { key: "settled",           label: "Settled",           terminal: true },
-    { key: "closed",            label: "Closed",            terminal: true },
+    { key: "settled",           label: "Settled",           terminal: true, terminalStatus: "RESOLVED" },
+    { key: "closed",            label: "Closed",            terminal: true, terminalStatus: "CLOSED" },
   ],
 };
 
 const COMPLIANCE_V1: CaseWorkflow = {
   key: "COMPLIANCE_V1",
   caseType: "COMPLIANCE",
+  naturalCompletionIndex: 4, // `certificate_received`
   stages: [
     { key: "identified",           label: "Identified",           defaultSlaHours: 168 },
     { key: "quote_requested",      label: "Quote requested",      defaultSlaHours: 168, requiresAction: "VENDOR" },
     { key: "scheduled",            label: "Scheduled",            defaultSlaHours: null },
     { key: "in_progress",          label: "In progress",          defaultSlaHours: 336 },
     { key: "certificate_received", label: "Certificate received", defaultSlaHours: 72 },
-    { key: "filed",                label: "Filed",                terminal: true },
+    { key: "filed",                label: "Filed",                terminal: true, terminalStatus: "RESOLVED" },
   ],
 };
 
 const GENERAL_V1: CaseWorkflow = {
   key: "GENERAL_V1",
   caseType: "GENERAL",
+  naturalCompletionIndex: 1, // `in_progress`
   stages: [
     { key: "open",        label: "Open",        defaultSlaHours: null },
     { key: "in_progress", label: "In progress", defaultSlaHours: null },
-    { key: "resolved",    label: "Resolved",    terminal: true },
-    { key: "closed",      label: "Closed",      terminal: true },
+    { key: "resolved",    label: "Resolved",    terminal: true, terminalStatus: "RESOLVED" },
+    { key: "closed",      label: "Closed",      terminal: true, terminalStatus: "CLOSED" },
   ],
 };
 
@@ -250,6 +263,14 @@ export async function advanceCase(caseId: string, toIndex: number, actor: Advanc
     newLastWaitingPauseAt = now;
   }
 
+  // If advancing TO a stage with terminalStatus, snap CaseThread.status accordingly
+  // and mark terminalReason = COMPLETED_NORMALLY (the user explicitly walked the workflow).
+  const statusSnap: { status?: CaseStatus; terminalReason?: "COMPLETED_NORMALLY" } = {};
+  if (targetStage.terminalStatus) {
+    statusSnap.status = targetStage.terminalStatus;
+    statusSnap.terminalReason = "COMPLETED_NORMALLY";
+  }
+
   await prisma.$transaction([
     prisma.caseThread.update({
       where: { id: caseId },
@@ -261,6 +282,7 @@ export async function advanceCase(caseId: string, toIndex: number, actor: Advanc
         waitingOn: newWaitingOn,
         waitingPausedSeconds: newWaitingPausedSeconds,
         lastWaitingPauseAt: newLastWaitingPauseAt,
+        ...statusSnap,
       },
     }),
     prisma.caseEvent.create({

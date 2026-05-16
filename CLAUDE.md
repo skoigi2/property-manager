@@ -336,6 +336,23 @@ Per-stage SLAs live in `CaseThread.stageSlaHours` (JSON map of `stageKey → hou
 
 Backfill: `npm run cases:backfill-stages` populates `workflowKey` + `stageSlaHours` (idempotent). `npm run cases:backfill-invoice-links --dry-run` reports linkable invoice-to-case candidates.
 
+### Status ↔ Stage coupling (terminal reasons)
+
+`CaseThread.status` and `CaseThread.currentStageIndex` are coupled at terminal points but distinguish "workflow completed" from "workflow bypassed":
+
+- **Status → stage**: flipping `status` to `RESOLVED` / `CLOSED` does **not** mutate `currentStageIndex` (historical record preserved). Instead the PATCH route sets `terminalReason`:
+  - `currentStageIndex >= workflow.naturalCompletionIndex` → `COMPLETED_NORMALLY`
+  - otherwise → `BYPASSED` and records `bypassedAtStage = <current stage key>`
+  - Each workflow declares its own `naturalCompletionIndex` in [src/lib/case-workflows.ts](src/lib/case-workflows.ts) (MAINTENANCE=8 / "completed", LEASE_RENEWAL=6 / "documents_signed", ARREARS=3 / "legal_action", COMPLIANCE=4 / "certificate_received", GENERAL=1 / "in_progress").
+- **Stage → status**: advancing to a stage with `terminalStatus` (e.g. `MAINTENANCE.closed`) snaps `status` to that value AND sets `terminalReason=COMPLETED_NORMALLY`.
+- **Regress** out of a terminal stage clears `terminalReason` + `bypassedAtStage` and sets `status=IN_PROGRESS`.
+
+The `StageTracker` UI renders BYPASSED cases with an amber "Bypassed at: *[stage]*" banner; stages past the bypass point appear faded with a dashed border + strikethrough label. The right-panel Stage display shows "Bypassed (was at: *[stage]*)" instead of the workflow label.
+
+`enum CaseTerminalReason { COMPLETED_NORMALLY, BYPASSED, CANCELLED }` — `CANCELLED` is reserved for explicit cancellation (different from passive bypass); the current PATCH path always emits `BYPASSED` for non-natural terminals, but the visual + bookkeeping treats both the same way.
+
+Backfill: `npm run cases:backfill-terminal-reasons` populates `terminalReason` for existing terminal cases without mutating `currentStageIndex`. Idempotent (skips rows where `terminalReason IS NOT NULL`). Writes a per-run report to `scripts/backfill-output-<timestamp>.md`.
+
 ### Smart Reminders (ActionableHints)
 
 The cron at `GET /api/cron/notifications` does two things per run: (1) sends emails through the existing dedup-gated path (`NotificationLog`), and (2) **upserts an `ActionableHint` row** keyed by `(hintType, refId)` so the cron is fully idempotent and the same hint surfaces every run until the underlying condition clears.

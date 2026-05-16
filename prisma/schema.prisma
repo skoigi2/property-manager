@@ -350,6 +350,12 @@ enum CaseWaitingOn {
   NONE
 }
 
+enum CaseTerminalReason {
+  COMPLETED_NORMALLY
+  BYPASSED
+  CANCELLED
+}
+
 enum CaseEventKind {
   COMMENT
   STATUS_CHANGE
@@ -745,6 +751,8 @@ model CaseThread {
   stageSlaHours        Json?
   waitingPausedSeconds Int           @default(0)
   lastWaitingPauseAt   DateTime?
+  terminalReason       CaseTerminalReason?
+  bypassedAtStage      String?
   assignedToUserId     String?
   waitingOn            CaseWaitingOn @default(NONE)
   lastActivityAt       DateTime      @default(now())

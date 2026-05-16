@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Check, MoreHorizontal } from "lucide-react";
+import { Check, MoreHorizontal, AlertTriangle, X } from "lucide-react";
 import { clsx } from "clsx";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -10,12 +10,14 @@ interface Props {
   workflow: CaseWorkflow;
   currentStageIndex: number;
   waitingOn: string;
+  terminalReason?: "COMPLETED_NORMALLY" | "BYPASSED" | "CANCELLED" | null;
+  bypassedAtStage?: string | null;
   onAdvance: (toIndex: number, note?: string) => Promise<void> | void;
   onRegress: (reason: string) => Promise<void> | void;
   readOnly?: boolean;
 }
 
-export function StageTracker({ workflow, currentStageIndex, onAdvance, onRegress, readOnly }: Props) {
+export function StageTracker({ workflow, currentStageIndex, terminalReason, bypassedAtStage, onAdvance, onRegress, readOnly }: Props) {
   const [confirmIndex, setConfirmIndex] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [regressOpen, setRegressOpen] = useState(false);
@@ -56,6 +58,13 @@ export function StageTracker({ workflow, currentStageIndex, onAdvance, onRegress
   const stages = workflow.stages;
   const targetStage = confirmIndex !== null ? stages[confirmIndex] : null;
 
+  const isBypassed  = terminalReason === "BYPASSED";
+  const isCancelled = terminalReason === "CANCELLED";
+  const bypassIdx   = isBypassed && bypassedAtStage
+    ? stages.findIndex((s) => s.key === bypassedAtStage)
+    : -1;
+  const bypassLabel = bypassIdx >= 0 ? stages[bypassIdx].label : null;
+
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
@@ -84,13 +93,27 @@ export function StageTracker({ workflow, currentStageIndex, onAdvance, onRegress
         )}
       </div>
 
+      {(isBypassed || isCancelled) && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-sans text-amber-800">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>
+            <strong>{isCancelled ? "Cancelled" : "Bypassed"}</strong>
+            {bypassLabel && <> at <em>{bypassLabel}</em></>}
+            {" "}— workflow did not complete normally.
+          </span>
+        </div>
+      )}
+
       {/* Horizontal stepper (md+) */}
       <div className="hidden md:flex items-center overflow-x-auto">
         {stages.map((s, idx) => {
-          const isDone = idx < currentStageIndex;
-          const isCurrent = idx === currentStageIndex;
-          const isFuture = idx > currentStageIndex;
-          const clickable = !readOnly && isFuture;
+          // When bypassed, treat stages strictly past the bypass point as "skipped"
+          const stoppedAt = bypassIdx >= 0 ? bypassIdx : (isBypassed || isCancelled ? currentStageIndex : -1);
+          const isSkipped = stoppedAt >= 0 && idx > stoppedAt;
+          const isDone = idx < currentStageIndex && !isSkipped;
+          const isCurrent = idx === currentStageIndex && !isSkipped;
+          const isFuture = idx > currentStageIndex && !isSkipped;
+          const clickable = !readOnly && isFuture && !isBypassed && !isCancelled;
           return (
             <div key={s.key} className="flex items-center shrink-0">
               <button
@@ -106,18 +129,22 @@ export function StageTracker({ workflow, currentStageIndex, onAdvance, onRegress
                   className={clsx(
                     "w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium font-sans",
                     isDone && "bg-green-500 text-white",
-                    isCurrent && "bg-gold text-white ring-4 ring-gold/20",
-                    isFuture && "bg-gray-200 text-gray-500",
+                    isCurrent && !isBypassed && !isCancelled && "bg-gold text-white ring-4 ring-gold/20",
+                    isCurrent && (isBypassed || isCancelled) && "bg-amber-500 text-white ring-4 ring-amber-200",
+                    isSkipped && "bg-gray-100 text-gray-300 border border-dashed border-gray-300",
+                    isFuture && !isSkipped && "bg-gray-200 text-gray-500",
                   )}
                 >
-                  {isDone ? <Check size={14} /> : idx + 1}
+                  {isDone ? <Check size={14} /> : isSkipped ? <X size={12} /> : idx + 1}
                 </span>
                 <span
                   className={clsx(
                     "text-[11px] text-center leading-tight font-sans px-1",
-                    isCurrent && "text-gold font-medium",
+                    isCurrent && !isBypassed && !isCancelled && "text-gold font-medium",
+                    isCurrent && (isBypassed || isCancelled) && "text-amber-700 font-medium",
                     isDone && "text-gray-600",
-                    isFuture && "text-gray-400",
+                    isSkipped && "text-gray-300 line-through",
+                    isFuture && !isSkipped && "text-gray-400",
                   )}
                 >
                   {s.label}
@@ -134,10 +161,12 @@ export function StageTracker({ workflow, currentStageIndex, onAdvance, onRegress
       {/* Vertical stepper (mobile) */}
       <div className="md:hidden space-y-2">
         {stages.map((s, idx) => {
-          const isDone = idx < currentStageIndex;
-          const isCurrent = idx === currentStageIndex;
-          const isFuture = idx > currentStageIndex;
-          const clickable = !readOnly && isFuture;
+          const stoppedAt = bypassIdx >= 0 ? bypassIdx : (isBypassed || isCancelled ? currentStageIndex : -1);
+          const isSkipped = stoppedAt >= 0 && idx > stoppedAt;
+          const isDone = idx < currentStageIndex && !isSkipped;
+          const isCurrent = idx === currentStageIndex && !isSkipped;
+          const isFuture = idx > currentStageIndex && !isSkipped;
+          const clickable = !readOnly && isFuture && !isBypassed && !isCancelled;
           return (
             <button
               key={s.key}
@@ -152,18 +181,22 @@ export function StageTracker({ workflow, currentStageIndex, onAdvance, onRegress
                 className={clsx(
                   "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium font-sans shrink-0",
                   isDone && "bg-green-500 text-white",
-                  isCurrent && "bg-gold text-white",
-                  isFuture && "bg-gray-200 text-gray-500",
+                  isCurrent && !isBypassed && !isCancelled && "bg-gold text-white",
+                  isCurrent && (isBypassed || isCancelled) && "bg-amber-500 text-white",
+                  isSkipped && "bg-gray-100 text-gray-300 border border-dashed border-gray-300",
+                  isFuture && !isSkipped && "bg-gray-200 text-gray-500",
                 )}
               >
-                {isDone ? <Check size={12} /> : idx + 1}
+                {isDone ? <Check size={12} /> : isSkipped ? <X size={10} /> : idx + 1}
               </span>
               <span
                 className={clsx(
                   "text-sm font-sans",
-                  isCurrent && "text-gold font-medium",
+                  isCurrent && !isBypassed && !isCancelled && "text-gold font-medium",
+                  isCurrent && (isBypassed || isCancelled) && "text-amber-700 font-medium",
                   isDone && "text-gray-600",
-                  isFuture && "text-gray-400",
+                  isSkipped && "text-gray-300 line-through",
+                  isFuture && !isSkipped && "text-gray-400",
                 )}
               >
                 {s.label}

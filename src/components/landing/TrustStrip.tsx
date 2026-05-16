@@ -16,16 +16,6 @@ export function TrustStrip() {
           ))}
         </ul>
 
-        {/* Placeholder logo slots — user fills these later */}
-        <ul className="flex flex-wrap items-center justify-center gap-6 pt-4 opacity-50" aria-hidden="true">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <li
-              key={i}
-              className="w-20 h-8 rounded-md border border-dashed border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5"
-            />
-          ))}
-        </ul>
-
         <p className="text-xs font-sans text-gray-400 dark:text-gray-500 italic pt-2">
           Used by agencies with one shared standard: every owner gets a current statement, every month.
         </p>

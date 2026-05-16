@@ -36,9 +36,15 @@
   #sidebar-logo {
     display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
+    text-decoration: none; transition: background 0.15s;
   }
+  #sidebar-logo:hover { background: rgba(255,255,255,0.04); }
   #sidebar-logo img { width: 32px; height: 32px; border-radius: 6px; }
   #sidebar-logo span { color: #fff; font-weight: 700; font-size: 15px; font-family: 'DM Serif Display', serif; }
+  #sidebar-logo .back-hint {
+    color: rgba(255,255,255,0.35); font-size: 10px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase; margin-left: auto;
+  }
   .toc-label {
     color: rgba(255,255,255,0.35); font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
     text-transform: uppercase; padding: 20px 20px 6px;
@@ -216,26 +222,29 @@
      SIDEBAR
 ══════════════════════════════════════════════════════════ -->
 <nav id="sidebar">
-  <div id="sidebar-logo">
+  <a id="sidebar-logo" href="/" title="Back to homepage">
     <img src="/icons/icon-192.png" alt="GroundWorkPM" onerror="this.style.display='none'">
     <span>GroundWorkPM</span>
-  </div>
+    <span class="back-hint">← Home</span>
+  </a>
   <div class="toc-label">User Guide</div>
   <a class="toc-link active" href="#intro"><span class="num">00</span>Introduction</a>
   <a class="toc-link" href="#roles"><span class="num">01</span>User Roles</a>
   <a class="toc-link" href="#getting-started"><span class="num">02</span>Getting Started</a>
   <a class="toc-link" href="#dashboard"><span class="num">03</span>Dashboard</a>
-  <a class="toc-link" href="#properties"><span class="num">04</span>Properties &amp; Units</a>
-  <a class="toc-link" href="#tenants"><span class="num">05</span>Tenant Management</a>
-  <a class="toc-link" href="#income"><span class="num">06</span>Income &amp; Invoices</a>
-  <a class="toc-link" href="#expenses"><span class="num">07</span>Expenses &amp; Petty Cash</a>
-  <a class="toc-link" href="#maintenance"><span class="num">08</span>Maintenance</a>
-  <a class="toc-link" href="#reports"><span class="num">09</span>Reports</a>
-  <a class="toc-link" href="#operations"><span class="num">10</span>Operations</a>
-  <a class="toc-link" href="#settings"><span class="num">11</span>Settings &amp; Team</a>
-  <a class="toc-link" href="#portal"><span class="num">12</span>Tenant Portal</a>
-  <a class="toc-link" href="#billing"><span class="num">13</span>Billing &amp; Plans</a>
-  <a class="toc-link" href="#appendix"><span class="num">14</span>Appendix</a>
+  <a class="toc-link" href="#inbox"><span class="num">04</span>Operational Inbox</a>
+  <a class="toc-link" href="#cases"><span class="num">05</span>Cases &amp; Approvals</a>
+  <a class="toc-link" href="#properties"><span class="num">06</span>Properties &amp; Units</a>
+  <a class="toc-link" href="#tenants"><span class="num">07</span>Tenant Management</a>
+  <a class="toc-link" href="#income"><span class="num">08</span>Income &amp; Invoices</a>
+  <a class="toc-link" href="#expenses"><span class="num">09</span>Expenses &amp; Petty Cash</a>
+  <a class="toc-link" href="#maintenance"><span class="num">10</span>Maintenance</a>
+  <a class="toc-link" href="#reports"><span class="num">11</span>Reports</a>
+  <a class="toc-link" href="#operations"><span class="num">12</span>Operations</a>
+  <a class="toc-link" href="#settings"><span class="num">13</span>Settings &amp; Team</a>
+  <a class="toc-link" href="#portal"><span class="num">14</span>Tenant Portal</a>
+  <a class="toc-link" href="#billing"><span class="num">15</span>Billing &amp; Plans</a>
+  <a class="toc-link" href="#appendix"><span class="num">16</span>Appendix</a>
 </nav>
 
 <!-- ══════════════════════════════════════════════════════════
@@ -524,6 +533,18 @@
       <p>The month picker (top right of the dashboard header) controls which month's data is shown. Click the left/right arrows to move months or click the month label to jump to a specific date. A <em>Back to current</em> link appears when you're viewing a past month.</p>
     </div>
 
+    <div class="sub-section">
+      <h3>Setup Progress widget</h3>
+      <p>When a property is selected, an activation checklist appears above the KPI strip. It shows a 0–100% setup score plus a row-by-row ✅ / ⚠ checklist (units, tenants, portal links, recurring expenses, insurance, vendors, agreement, branding, first entry). Each incomplete row has a one-click CTA. Hidden for OWNER role. At 100% you can dismiss it — it reappears automatically if the score drops.</p>
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <strong>AIRBNB properties</strong>
+          Tenant and tenant-portal rows don't apply, so they're excluded from the denominator — a fully-set-up Airbnb still reads 100%.
+        </div>
+      </div>
+    </div>
+
     <div class="callout note">
       <span class="callout-icon">ℹ️</span>
       <div class="callout-body">
@@ -534,11 +555,139 @@
   </div>
 
   <!-- ══════════════════════
-       4. PROPERTIES
+       4. OPERATIONAL INBOX
+  ══════════════════════ -->
+  <div id="inbox" class="section">
+    <div class="section-header">
+      <div class="section-num">04 — Operational Inbox</div>
+      <h2>Operational Inbox</h2>
+      <p class="intro">A single prioritised queue of everything that needs your attention today. Managers and accountants land here first. It's the daily landing surface and the only screen that promises "if it's not here, you don't need to act on it."</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>What appears in the inbox</h3>
+      <p>Each row is a real event the system detected — not a configurable filter or a saved view. The inbox aggregates from nine sources:</p>
+      <ul class="feature-list">
+        <li><strong>Overdue invoices</strong> — any invoice <code>SENT</code> or <code>OVERDUE</code> with a due date in the past</li>
+        <li><strong>Lease expiries</strong> — tenants with a lease ending in ≤30 days (urgent inside 7 days)</li>
+        <li><strong>Urgent maintenance</strong> — jobs marked <code>URGENT</code> still <code>OPEN</code></li>
+        <li><strong>Tenant portal requests</strong> — maintenance jobs submitted by tenants, not yet acknowledged</li>
+        <li><strong>Compliance certificates</strong> expiring in ≤30 days</li>
+        <li><strong>Insurance policies</strong> ending in ≤30 days</li>
+        <li><strong>Arrears cases</strong> not <code>RESOLVED</code> and untouched for &gt;7 days</li>
+        <li><strong>Approvals pending</strong> — magic-link approvals open more than 24 hours (escalates to URGENT after 3 days)</li>
+        <li><strong>Smart Reminders</strong> — proactive suggestions written by the daily cron (see below)</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>Severity, action, dismiss, snooze</h3>
+      <p>Every row carries one of three severity dots: <span class="badge badge-red">URGENT</span> <span class="badge badge-amber">WARNING</span> <span class="badge badge-blue">INFO</span>. Rows are sorted by severity then by days-overdue. Inline actions resolve the underlying issue without leaving the inbox — "Mark paid" on an overdue invoice, "Assign vendor" on an urgent job, "Send renewal offer" on a lease expiry, and so on. Hint-sourced rows show a <strong>✨ Suggested</strong> badge plus a small ⏰ snooze (1h / 1d / 1w, per-user) and × dismiss control.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Smart Reminders (proactive cron)</h3>
+      <p>Every morning at 07:00 UTC the cron checks for things you couldn't know about yet:</p>
+      <ul class="feature-list">
+        <li><strong>Vacant unit &gt; 30 days</strong> — suggests "Mark as listed"</li>
+        <li><strong>Deposit not settled &gt; 14 days after move-out</strong> — opens the settlement flow</li>
+        <li><strong>Recurring expense due within 3 days</strong> — one-click to materialise this month's entry</li>
+        <li><strong>Low petty cash</strong> — balance &lt; 20% of last 90-day average outflow</li>
+        <li><strong>Negative cashflow forecast</strong> — next 3 months shows a month going negative</li>
+        <li><strong>SLA breach</strong> — a case stage has stalled past its budget (see Cases below)</li>
+      </ul>
+      <p>Hints clear automatically when the underlying state changes. Dismissed hints expire after 30 days unless they recur.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Mobile</h3>
+      <p>The inbox is the first item in the mobile bottom navigation. The same rows render as stacked cards with a checkbox, severity dot, action menu, and the inline snooze / dismiss controls.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       5. CASES & APPROVALS
+  ══════════════════════ -->
+  <div id="cases" class="section">
+    <div class="section-header">
+      <div class="section-num">05 — Cases &amp; Approvals</div>
+      <h2>Cases &amp; Approvals</h2>
+      <p class="intro">Every operational issue gets a workspace — a timeline of comments, emails, attachments, status changes, and approvals — anchored to a visible workflow with per-stage SLA budgets. Replaces the WhatsApp + email + screenshot loop.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>When a case is created</h3>
+      <p>Cases are created automatically the moment a backing record exists. Today the only backed type is <strong>MAINTENANCE</strong> — every maintenance job auto-creates a case with the job description as its first comment. The workflow types <em>LEASE_RENEWAL</em>, <em>ARREARS</em>, <em>COMPLIANCE</em>, and <em>GENERAL</em> are defined and ready in code but don't auto-create yet; that's a follow-up phase.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>The stage tracker (visible workflow)</h3>
+      <p>Each case carries an ordered set of stages. A <strong>MAINTENANCE</strong> case moves through: <em>Reported → Triaged → Quote requested → Quote received → Approval requested → Approved → Scheduled → In progress → Completed → Invoiced → Closed</em>. The tracker at the top of each case page shows your current position. Completed stages render green; the current stage is gold; future stages are gray. Click a future stage to advance with an optional note; the overflow menu offers regress-with-reason for fixing slips.</p>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Auto-advance</strong>
+          The system advances stages for you when the underlying event happens — assign a vendor at Triaged → jumps to Quote requested; owner approves → jumps to Approved; mark the job DONE → jumps to Completed; the linked invoice gets paid → jumps to Invoiced. You only touch a case manually when the system can't infer the move.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Bypassed vs completed</h3>
+      <p>If you set <em>Status</em> to RESOLVED / CLOSED before walking the workflow, the stepper shows an amber "Bypassed at <em>[stage]</em>" banner — the timeline never lies. Stages past the abandon point render faded with a dashed border. Reaching the natural completion stage and then closing shows a clean green "Completed" instead.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Per-stage SLAs</h3>
+      <p>Each stage has its own budget in hours. Defaults come from the workflow definition; for MAINTENANCE the first two stages (Triaged, Quote requested) override from the property's Management Agreement (<em>Emergency response hours</em> when the job is emergency, otherwise <em>Standard</em>). The clock <strong>pauses automatically</strong> when the case is waiting on an external party — Owner, Tenant, or Vendor — so you're not penalised for someone else's delay. When a stage stalls past its budget, a SLA breach hint surfaces in your inbox (WARNING, escalating to URGENT at 2× the budget).</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Communication unified in the timeline</h3>
+      <p>Three communication systems all dual-write into the case timeline:</p>
+      <ul class="feature-list">
+        <li><strong>System-sent emails</strong> (cron notifications, password resets, contact-form replies) — write to <code>EmailLog</code> AND post an <em>EMAIL_SENT</em> event on the linked case</li>
+        <li><strong>Tenant comm log entries</strong> (the existing per-tenant log) — post an <em>EMAIL_SENT</em> event AND a "View case →" backlink appears on the tenant's Comms tab</li>
+        <li><strong>Vendor emails</strong> (drafted from the case detail page) — write to <code>EmailLog</code> + post an <em>EMAIL_SENT</em> event</li>
+      </ul>
+      <p>Open any case and you see the full operational history in one chronological feed — no inbox-hopping.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Magic-link approvals</h3>
+      <p>Click <strong>Request approval</strong> on the case action panel. Fill in the approver's email, the question, an optional amount + currency, and an expiry window (default 72 hours, max 7 days). The system:</p>
+      <ul class="feature-list">
+        <li>Generates a single-use token and emails the approver a magic link to <code>/approve/[token]</code></li>
+        <li>Sets the case's <em>waitingOn</em> to OWNER (the SLA clock pauses automatically)</li>
+        <li>Logs an <em>APPROVAL_REQUESTED</em> event on the timeline</li>
+      </ul>
+      <p>The approver clicks the link — no login required, no portal training. They type their name (captured for the audit trail as <em>respondedByName</em>), then click Approve or Reject. The case auto-advances; a confirmation email goes back to the approver with a "This wasn't me — flag for review" link that triggers a DISPUTE state and notifies you.</p>
+      <div class="callout tip">
+        <span class="callout-icon">🔒</span>
+        <div class="callout-body">
+          <strong>Security posture</strong>
+          Tokens are UUIDs (effectively unguessable). The GET on <code>/api/approvals/[token]</code> is idempotent — email scanners can't accidentally consume an approval. The POST handler is rate-limited at 20 requests / IP / hour. Tokens are redacted to their last 4 characters in audit logs.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Cases list</h3>
+      <p><code>/cases</code> shows every case across your accessible properties with filters for status, waiting-on, type, and "assigned to me." Each row has a thin progress bar (e.g. <em>4 / 11</em>) plus a coloured dot indicating who the case is waiting on. Click any row to open the case detail.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Maintenance ↔ Cases co-existence</h3>
+      <p>The <code>/maintenance</code> page still exists — it's the domain-specific view (job board with status columns). <code>/cases</code> is the cross-cutting workflow view (timeline + comments + approvals). Each Maintenance job card has an <em>Open case →</em> link; each Case detail page has a <em>View as maintenance job →</em> link. Use whichever fits the moment.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       6. PROPERTIES
   ══════════════════════ -->
   <div id="properties" class="section">
     <div class="section-header">
-      <div class="section-num">04 — Properties &amp; Units</div>
+      <div class="section-num">06 — Properties &amp; Units</div>
       <h2>Properties &amp; Units</h2>
       <p class="intro">Manage your property portfolio — add properties, configure currencies, add units, and view property-level settings.</p>
     </div>
@@ -582,7 +731,7 @@
   ══════════════════════ -->
   <div id="tenants" class="section">
     <div class="section-header">
-      <div class="section-num">05 — Tenant Management</div>
+      <div class="section-num">07 — Tenant Management</div>
       <h2>Tenant Management</h2>
       <p class="intro">The full tenant lifecycle — from adding a new tenant and issuing their first invoice, to lease renewal, deposit settlement, and vacating.</p>
     </div>
@@ -675,7 +824,7 @@
   ══════════════════════ -->
   <div id="income" class="section">
     <div class="section-header">
-      <div class="section-num">06 — Income &amp; Invoices</div>
+      <div class="section-num">08 — Income &amp; Invoices</div>
       <h2>Income &amp; Invoices</h2>
       <p class="intro">Track all rental income per property per month. The invoice system bridges the gap between what's expected and what's been received — giving you a real-time rent collection rate.</p>
     </div>
@@ -750,7 +899,7 @@
   ══════════════════════ -->
   <div id="expenses" class="section">
     <div class="section-header">
-      <div class="section-num">07 — Expenses &amp; Petty Cash</div>
+      <div class="section-num">09 — Expenses &amp; Petty Cash</div>
       <h2>Expenses &amp; Petty Cash</h2>
       <p class="intro">Log every property expense with category, scope, vendor, tax, and payment method. Expenses are separated between operating costs (P&amp;L) and capital/sunk costs (balance sheet).</p>
     </div>
@@ -800,7 +949,7 @@
   ══════════════════════ -->
   <div id="maintenance" class="section">
     <div class="section-header">
-      <div class="section-num">08 — Maintenance</div>
+      <div class="section-num">10 — Maintenance</div>
       <h2>Maintenance Management</h2>
       <p class="intro">A Kanban-based job tracker that takes maintenance from reported to resolved — with vendor assignment, priority management, and automatic expense logging.</p>
     </div>
@@ -871,7 +1020,7 @@
   ══════════════════════ -->
   <div id="reports" class="section">
     <div class="section-header">
-      <div class="section-num">09 — Reports</div>
+      <div class="section-num">11 — Reports</div>
       <h2>Reports &amp; Owner Statements</h2>
       <p class="intro">Generate professional monthly P&amp;L reports and owner statements. The report page is accessible to Managers, Accountants, and Owners (with Owners seeing only the owner-facing statement).</p>
     </div>
@@ -930,9 +1079,9 @@
   ══════════════════════ -->
   <div id="operations" class="section">
     <div class="section-header">
-      <div class="section-num">10 — Operations</div>
+      <div class="section-num">12 — Operations</div>
       <h2>Operations</h2>
-      <p class="intro">Supporting modules that keep your portfolio compliant, insured, and organised — forecast, vendors, insurance, compliance, assets, and calendar.</p>
+      <p class="intro">Supporting modules that keep your portfolio compliant, insured, and organised — forecast, vendors, insurance, compliance, assets, and calendar. The proactive layer that surfaces issues from these modules (vacant units, low petty cash, negative cashflow forecasts, expiring policies) lives in the <a href="#inbox">Operational Inbox</a> as Smart Reminders.</p>
     </div>
 
     <div class="screenshot-grid">
@@ -1012,7 +1161,7 @@
   ══════════════════════ -->
   <div id="settings" class="section">
     <div class="section-header">
-      <div class="section-num">11 — Settings &amp; Team</div>
+      <div class="section-num">13 — Settings &amp; Team</div>
       <h2>Settings &amp; Team Management</h2>
       <p class="intro">Configure your organisation, properties, management fees, branding, and team members. Settings are accessible to Manager and Admin roles only.</p>
     </div>
@@ -1065,7 +1214,7 @@
   ══════════════════════ -->
   <div id="portal" class="section">
     <div class="section-header">
-      <div class="section-num">12 — Tenant Portal</div>
+      <div class="section-num">14 — Tenant Portal</div>
       <h2>Tenant Self-Service Portal</h2>
       <p class="intro">A public, token-based portal for tenants. No account creation required — tenants access their information via a unique shareable link generated by their manager.</p>
     </div>
@@ -1110,7 +1259,7 @@
   ══════════════════════ -->
   <div id="billing" class="section">
     <div class="section-header">
-      <div class="section-num">13 — Billing &amp; Plans</div>
+      <div class="section-num">15 — Billing &amp; Plans</div>
       <h2>Billing &amp; Subscription</h2>
       <p class="intro">GroundWorkPM offers a 30-day free trial with no credit card required. After the trial, choose a plan that fits your portfolio size.</p>
     </div>
@@ -1157,7 +1306,7 @@
   ══════════════════════ -->
   <div id="appendix" class="section">
     <div class="section-header">
-      <div class="section-num">14 — Appendix</div>
+      <div class="section-num">16 — Appendix</div>
       <h2>Appendix</h2>
       <p class="intro">Role access matrix, mobile navigation, automated notifications, and multi-organisation setup.</p>
     </div>

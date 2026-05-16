@@ -5,6 +5,7 @@ import { MonthPicker } from "@/components/ui/MonthPicker";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { KPICard } from "@/components/dashboard/KPICard";
+import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
 import { RentStatusTable } from "@/components/dashboard/RentStatusTable";
 import { AlbaRevenueTable } from "@/components/dashboard/AlbaRevenueTable";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
@@ -164,6 +165,10 @@ export default function DashboardPage() {
       />
 
       <div className="page-container space-y-6">
+        {selectedId && session?.user?.role !== "OWNER" && (
+          <SetupChecklist propertyId={selectedId} />
+        )}
+
         {/* Month selector */}
         <div className="flex items-center gap-3">
           <MonthPicker value={month} onChange={setMonth} max={new Date()} />

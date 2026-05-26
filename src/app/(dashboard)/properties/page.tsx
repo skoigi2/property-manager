@@ -16,7 +16,7 @@ import { HelpTip } from "@/components/ui/HelpTip";
 import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -281,6 +281,7 @@ const propertySchema = z.object({
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).optional()
   ),
+  currency: z.preprocess(emptyToUndef, z.string().optional()),
 });
 type PropertyForm = z.infer<typeof propertySchema>;
 
@@ -469,13 +470,22 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
         />
       </div>
 
-      <Input
-        label="Default Service Charge"
-        tooltip="Default charge applied to each unit for shared costs (utilities, cleaning, etc.). Tenants can have individual amounts set on their profile."
-        type="number"
-        {...register("serviceChargeDefault")}
-        placeholder="5000"
-      />
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Default Service Charge"
+          tooltip="Default charge applied to each unit for shared costs (utilities, cleaning, etc.). Tenants can have individual amounts set on their profile."
+          type="number"
+          {...register("serviceChargeDefault")}
+          placeholder="5000"
+        />
+        <Select
+          label="Currency"
+          tooltip="Currency used to display all amounts for this property. You can change it later — existing amounts are not converted."
+          placeholder="— Select currency —"
+          {...register("currency")}
+          options={SUPPORTED_CURRENCIES.map((c) => ({ value: c.code, label: c.label }))}
+        />
+      </div>
 
       {owners.length > 0 && (
         <Select
@@ -1449,6 +1459,7 @@ export default function PropertiesPage() {
       managementFeeRate: p.managementFeeRate ?? undefined,
       managementFeeFlat: p.managementFeeFlat ?? undefined,
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
+      currency: p.currency ?? undefined,
     });
     setPropModalOpen(true);
   };

@@ -718,6 +718,8 @@ model Invoice {
   @@unique([tenantId, periodYear, periodMonth])
   @@index([tenantId])
   @@index([status])
+  @@index([dueDate])
+  @@index([status, dueDate])
 }
 
 model OwnerInvoice {

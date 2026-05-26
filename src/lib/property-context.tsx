@@ -54,7 +54,10 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
 
   const fetchProperties = useCallback(async () => {
     try {
-      const r = await fetch("/api/properties", { cache: "no-store" });
+      // ?minimal=true returns only { id, name, type, currency } — much smaller
+      // payload for the header selector. The Properties page uses the full
+      // endpoint when it actually needs unit metadata.
+      const r = await fetch("/api/properties?minimal=true", { cache: "no-store" });
       const data: PropertyOption[] = await r.json();
       setProperties(data);
       // Restore from sessionStorage, else fall back to first property

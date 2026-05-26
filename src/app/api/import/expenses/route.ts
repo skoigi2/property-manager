@@ -135,8 +135,10 @@ export async function POST(req: Request) {
     }
 
     try {
-      await prisma.$transaction(async (tx) => {
-        const expense = await tx.expenseEntry.create({
+      // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ops: any[] = [
+        prisma.expenseEntry.create({
           data: {
             date,
             category: category as never,
@@ -148,22 +150,20 @@ export async function POST(req: Request) {
             isSunkCost,
             paidFromPettyCash,
           },
-        });
-
-        if (paidFromPettyCash) {
-          await tx.pettyCash.create({
-            data: {
-              date,
-              type: "OUT",
-              amount,
-              description: description ?? `${category} expense`,
-              propertyId: pettyCashPropertyId,
-            },
-          });
-        }
-
-        return expense;
-      });
+        }),
+      ];
+      if (paidFromPettyCash) {
+        ops.push(prisma.pettyCash.create({
+          data: {
+            date,
+            type: "OUT",
+            amount,
+            description: description ?? `${category} expense`,
+            propertyId: pettyCashPropertyId,
+          },
+        }));
+      }
+      await prisma.$transaction(ops);
 
       imported++;
     } catch (err) {

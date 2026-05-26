@@ -15,6 +15,12 @@ interface UseCachedFetchResult<T> {
   loading: boolean;
   /** Force an immediate refresh; updates `data` and the cache when it resolves. */
   refresh: () => Promise<void>;
+  /**
+   * Optimistically mutate the cached value. Accepts a setter function (in the React style)
+   * and also writes the new value back to sessionStorage so the next mount shows the updated
+   * data. Use after a successful PATCH / DELETE to keep the UI in sync without a refetch.
+   */
+  setData: (updater: (prev: T | null) => T | null) => void;
 }
 
 /**
@@ -82,7 +88,16 @@ export function useCachedFetch<T>(
     return () => clearInterval(id);
   }, [fetchAndStore, storageKey, ttlMs]);
 
-  return { data, loading, refresh: fetchAndStore };
+  const setDataCallback = useCallback((updater: (prev: T | null) => T | null) => {
+    setData((prev) => {
+      const next = updater(prev);
+      if (next !== null) writeCache<T>(storageKey, next);
+      else if (typeof window !== "undefined") window.sessionStorage.removeItem(storageKey);
+      return next;
+    });
+  }, [storageKey]);
+
+  return { data, loading, refresh: fetchAndStore, setData: setDataCallback };
 }
 
 function readCache<T>(key: string): CachedEntry<T> | null {

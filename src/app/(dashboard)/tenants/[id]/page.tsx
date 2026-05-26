@@ -272,9 +272,13 @@ export default function TenantDetailPage() {
   const params  = useParams();
   const router  = useRouter();
   const { selected } = useProperty();
-  const currency = useProperty().currency;
-
+  // The page is reached via deep-link from anywhere, so the header property
+  // selector is often pointing at a DIFFERENT property than this tenant's.
+  // Always show amounts in the tenant's own property currency — fall back
+  // to the header-selected scope only while the tenant is still loading.
+  const headerCurrency = useProperty().currency;
   const [tenant,    setTenant]    = useState<any>(null);
+  const currency: string = tenant?.unit?.property?.currency ?? headerCurrency;
   const [loading,   setLoading]   = useState(true);
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);

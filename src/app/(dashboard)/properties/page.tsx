@@ -245,17 +245,24 @@ const CATEGORY_BADGE: Record<string, "blue"|"amber"|"gray"|"green"|"gold"|"red">
   OTHER:       "gray",
 };
 
+// The <Select> placeholder option submits as "" — coerce that to undefined
+// before Zod validates, so .optional() actually means "not picked".
+const emptyToUndef = (v: unknown) => (v === "" || v == null ? undefined : v);
+
 const propertySchema = z.object({
   name: z.string().min(1, "Name required"),
   type: z.enum(["AIRBNB", "LONGTERM"]),
-  category: z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "OTHER"]).optional(),
+  category: z.preprocess(
+    emptyToUndef,
+    z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "OTHER"]).optional(),
+  ),
   categoryOther: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
-  ownerId:        z.string().optional(),
-  managerId:      z.string().optional(),
-  organizationId: z.string().optional(),
+  ownerId:        z.preprocess(emptyToUndef, z.string().optional()),
+  managerId:      z.preprocess(emptyToUndef, z.string().optional()),
+  organizationId: z.preprocess(emptyToUndef, z.string().optional()),
   managementFeeRate: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).max(100).optional()

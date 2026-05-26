@@ -2,6 +2,35 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Delivery workflow (READ FIRST)
+
+Production deploys ship from `main`. Pushing a `claude/*` branch does **NOT** trigger a deploy — the user has to merge a PR into `main`. A previous session built the Operational Inbox and another built Setup Progress, each pushed their branch, and neither opened a PR — the features sat dormant for weeks while the user wondered why their deploy was missing them.
+
+Rules for every session:
+
+1. **Always open a PR when work is "complete".** Pushing the branch is *not* shipping. Use:
+   ```bash
+   gh pr create --base main --head <branch> --title "<short>" --body "$(cat <<'EOF' …EOF)"
+   ```
+   Even a one-line fix gets a PR. The user merges. The deploy runs.
+
+2. **Before claiming a feature "doesn't exist", check unmerged branches:**
+   ```bash
+   git branch -r | grep claude/   # list every claude/* branch on origin
+   git log --oneline origin/main..origin/<branch>   # see what's on each
+   git fetch origin <branch> && git log --oneline origin/main..FETCH_HEAD
+   ```
+   A grep across `src/` only proves the feature isn't on the current worktree's branch — it doesn't prove the feature was never built. Multiple sessions running in parallel each commit to their own branch; work that "isn't there" is usually just unmerged.
+
+3. **When the user reports "feature X is missing after a deploy":**
+   - Don't assume regression. Most of the time `main` simply doesn't have it because no PR was opened.
+   - Compare `origin/main` to the worktree branch with `git log --oneline origin/main..HEAD`. If commits exist there, the feature was built but never merged.
+   - List unmerged `claude/*` branches in case the feature is on a different one.
+
+4. **`worktree` branches are not stable identity.** Each Claude Code worktree has its own branch (e.g. `claude/admiring-pike-523182`). Don't assume your branch holds all in-flight work — check other branches before declaring scope.
+
+5. **Rebase onto sibling features before merge** when two branches touch the same files, so the user can merge in any order without conflicts. Example: `git rebase origin/<other-feature-branch>` then `git push --force-with-lease`.
+
 ## Commands
 
 ```bash

@@ -25,12 +25,24 @@ const createSchema = z.object({
   organizationId: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   const { error } = await requireAuth();
   if (error) return error;
 
   const ids = await getAccessiblePropertyIds();
   if (ids === null) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Slim payload for the header property selector + currency calc.
+  // Drops ~25 KB of unit metadata that PropertyProvider doesn't need on every nav.
+  const minimal = new URL(req.url).searchParams.get("minimal") === "true";
+  if (minimal) {
+    const slim = await prisma.property.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, type: true, currency: true },
+      orderBy: { name: "asc" },
+    });
+    return Response.json(slim);
+  }
 
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayEnd   = new Date(todayStart.getTime() + 86400000);

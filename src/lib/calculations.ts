@@ -94,9 +94,12 @@ export function calcLateInterest(
 }
 
 /** Summary stats for a unit in a given period */
+// Loosened input types so callers can pass slimmer Prisma selects without
+// needing every IncomeEntry / ExpenseEntry column — only the fields actually
+// read below are required.
 export function calcUnitSummary(
-  incomeEntries: IncomeEntry[],
-  expenseEntries: ExpenseEntry[]
+  incomeEntries: Pick<IncomeEntry, "grossAmount" | "agentCommission">[],
+  expenseEntries: Pick<ExpenseEntry, "category" | "amount" | "isSunkCost">[]
 ) {
   const grossIncome = incomeEntries.reduce((s, e) => s + e.grossAmount, 0);
   const totalCommissions = incomeEntries.reduce((s, e) => s + e.agentCommission, 0);

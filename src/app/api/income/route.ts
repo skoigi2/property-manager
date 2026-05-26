@@ -116,8 +116,10 @@ export async function POST(req: Request) {
     }
   }
 
-  const entry = await prisma.$transaction(async (tx) => {
-    const newEntry = await tx.incomeEntry.create({
+  // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [
+    prisma.incomeEntry.create({
       data: {
         ...rest,
         tenantId: resolvedTenantId,
@@ -132,22 +134,22 @@ export async function POST(req: Request) {
         tenant: { select: { id: true, name: true } },
         invoice: { select: { id: true, invoiceNumber: true } },
       },
-    });
-
-    // Auto-mark the linked invoice as PAID
-    if (resolvedInvoiceId) {
-      await tx.invoice.update({
+    }),
+  ];
+  if (resolvedInvoiceId) {
+    ops.push(
+      prisma.invoice.update({
         where: { id: resolvedInvoiceId },
         data: {
           status: "PAID",
           paidAt: new Date(date),
           paidAmount: rest.grossAmount,
         },
-      });
-    }
-
-    return newEntry;
-  });
+      }),
+    );
+  }
+  const txResults = await prisma.$transaction(ops);
+  const entry = txResults[0];
 
   await logAudit({
     userId: session!.user.id,

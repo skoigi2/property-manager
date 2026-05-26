@@ -55,38 +55,74 @@ function buildTemplate(config: {
 
 export function downloadTenantsTemplate() {
   const cols: ColDef[] = [
-    { header: "Name",           required: true,  width: 22 },
-    { header: "Unit Number",    required: true,  width: 14 },
-    { header: "Monthly Rent",   required: true,  width: 14 },
-    { header: "Lease Start",    required: true,  width: 14 },
-    { header: "Property Name",  required: false, width: 20 },
-    { header: "Service Charge", required: false, width: 16 },
-    { header: "Deposit",        required: false, width: 14 },
-    { header: "Lease End",      required: false, width: 14 },
-    { header: "Email",          required: false, width: 28 },
-    { header: "Phone",          required: false, width: 16 },
+    { header: "Name",              required: true,  width: 22 },
+    { header: "Unit Number",       required: true,  width: 14 },
+    { header: "Monthly Rent",      required: true,  width: 14 },
+    { header: "Lease Start",       required: true,  width: 14 },
+    { header: "Property Name",     required: false, width: 20 },
+    { header: "Service Charge",    required: false, width: 16 },
+    { header: "Deposit",           required: false, width: 14 },
+    { header: "Lease End",         required: false, width: 14 },
+    { header: "Email",             required: false, width: 28 },
+    { header: "Phone",             required: false, width: 16 },
+    { header: "Payment Frequency", required: false, width: 18 },
+    { header: "Escalation Rate",   required: false, width: 16 },
+    { header: "Parking Fee",       required: false, width: 14 },
+    { header: "Notes",             required: false, width: 40 },
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678"],
-    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432"],
-    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111"],
+    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678", "MONTHLY",   5,  "",   ""],
+    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432", "QUARTERLY", "", "",   "Pays Q1+Q2 together"],
+    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111", "MONTHLY",   10, 5000, "Parking bay 14 included"],
   ];
 
   const instructions: (string | number)[][] = [
-    ["Name",           "Yes", "Text",         "Full legal name of the tenant or company"],
-    ["Unit Number",    "Yes", "Text (e.g. A1, 2B, 101)", "Must match an existing unit in the system"],
-    ["Monthly Rent",   "Yes", "Number (no commas or currency symbols)", "Rent in the property's currency"],
-    ["Lease Start",    "Yes", "YYYY-MM-DD",   "Lease commencement date"],
-    ["Property Name",  "No",  "Text",         "Disambiguates unit if the same number appears in multiple properties"],
-    ["Service Charge", "No",  "Number",       "Monthly service charge — leave blank or 0 if none"],
-    ["Deposit",        "No",  "Number",       "Security deposit amount — leave blank or 0 if none"],
-    ["Lease End",      "No",  "YYYY-MM-DD",   "Leave blank for open-ended / periodic tenancies"],
-    ["Email",          "No",  "Email address","Tenant contact email"],
-    ["Phone",          "No",  "Phone number", "e.g. 0712345678 or +254712345678"],
+    ["Name",              "Yes", "Text",         "Full legal name of the tenant or company"],
+    ["Unit Number",       "Yes", "Text (e.g. A1, 2B, 101)", "Must match an existing unit in the system"],
+    ["Monthly Rent",      "Yes", "Number (no commas or currency symbols)", "Rent in the property's currency"],
+    ["Lease Start",       "Yes", "YYYY-MM-DD",   "Lease commencement date"],
+    ["Property Name",     "No",  "Text",         "Disambiguates unit if the same number appears in multiple properties"],
+    ["Service Charge",    "No",  "Number",       "Monthly service charge — leave blank or 0 if none"],
+    ["Deposit",           "No",  "Number",       "Security deposit amount — leave blank or 0 if none"],
+    ["Lease End",         "No",  "YYYY-MM-DD",   "Leave blank for open-ended / periodic tenancies"],
+    ["Email",             "No",  "Email address","Tenant contact email"],
+    ["Phone",             "No",  "Phone number", "e.g. 0712345678 or +254712345678"],
+    ["Payment Frequency", "No",  "MONTHLY, QUARTERLY, BIANNUAL, ANNUAL", "Rent billing cadence — defaults to MONTHLY if blank"],
+    ["Escalation Rate",   "No",  "Number (%)",   "Annual rent escalation — e.g. 5 for 5% per year"],
+    ["Parking Fee",       "No",  "Number",       "Monthly parking line on the lease, if separate from rent"],
+    ["Notes",             "No",  "Text",         "Free-text notes — special clauses, status caveats, anything not captured above"],
   ];
 
   buildTemplate({ cols, sampleRows, instructions, filename: "import-template-tenants.xlsx" });
+}
+
+export function downloadRentHistoryTemplate() {
+  const cols: ColDef[] = [
+    { header: "Tenant Name",    required: true,  width: 24 },
+    { header: "Unit Number",    required: true,  width: 14 },
+    { header: "Monthly Rent",   required: true,  width: 14 },
+    { header: "Effective Date", required: true,  width: 14 },
+    { header: "Property Name",  required: false, width: 20 },
+    { header: "Reason",         required: false, width: 36 },
+  ];
+
+  const sampleRows: (string | number)[][] = [
+    ["Jane Smith",    "A1", 23000, "2024-01-01", "Riara One", "Initial rent"],
+    ["Jane Smith",    "A1", 25000, "2025-01-01", "Riara One", "5% annual escalation"],
+    ["Apex Corp Ltd", "G1", 80000, "2024-06-01", "Riara One", "Original lease term"],
+  ];
+
+  const instructions: (string | number)[][] = [
+    ["Tenant Name",    "Yes", "Text",         "Must match an existing tenant on the unit (case-insensitive)"],
+    ["Unit Number",    "Yes", "Text",         "Must match an existing unit"],
+    ["Monthly Rent",   "Yes", "Number",       "Rent that was in effect from this date"],
+    ["Effective Date", "Yes", "YYYY-MM-DD",   "Date the rent change took effect"],
+    ["Property Name",  "No",  "Text",         "Disambiguates unit if the same number appears in multiple properties"],
+    ["Reason",         "No",  "Text (≤200 chars)", "e.g. 'Initial lease', 'Annual escalation', 'Renewal'"],
+  ];
+
+  buildTemplate({ cols, sampleRows, instructions, filename: "import-template-rent-history.xlsx" });
 }
 
 export function downloadIncomeTemplate() {

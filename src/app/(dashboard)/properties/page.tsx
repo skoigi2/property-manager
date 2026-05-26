@@ -200,6 +200,7 @@ interface Unit {
   floor: number | null;
   sizeSqm: number | null;
   description: string | null;
+  titleReference: string | null;
   _count?: { tenants: number };
   incomeEntries?: { id: string; checkIn: string; checkOut: string }[];
 }
@@ -219,6 +220,10 @@ interface Property {
   managementFeeFlat: number | null;
   serviceChargeDefault: number | null;
   currency: string | null;
+  landlordEntity:    string | null;
+  bankName:          string | null;
+  bankAccountName:   string | null;
+  bankAccountNumber: string | null;
   units: Unit[];
   owner:   { id: string; name: string | null; email: string | null } | null;
   manager: { id: string; name: string | null; email: string | null } | null;
@@ -282,6 +287,10 @@ const propertySchema = z.object({
     z.number().min(0).optional()
   ),
   currency: z.preprocess(emptyToUndef, z.string().optional()),
+  landlordEntity:    z.string().optional(),
+  bankName:          z.string().optional(),
+  bankAccountName:   z.string().optional(),
+  bankAccountNumber: z.string().optional(),
 });
 type PropertyForm = z.infer<typeof propertySchema>;
 
@@ -302,6 +311,7 @@ const unitSchema = z.object({
     z.number().min(0).optional()
   ),
   description: z.string().optional(),
+  titleReference: z.string().optional(),
 });
 type UnitForm = z.infer<typeof unitSchema>;
 
@@ -443,6 +453,27 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
         <Input label="City"    {...register("city")}    placeholder="City" />
       </div>
 
+      {/* Landlord & banking — per-property overrides for invoice + receipt details */}
+      <div className="rounded-xl border border-gray-100 p-3 space-y-3 bg-cream/30">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans">Landlord & Banking</p>
+        <Input
+          label="Landlord Entity"
+          tooltip="The legal entity that owns or holds the property (e.g. Kentmere Flora Ltd). Appears on invoices and lease agreements."
+          {...register("landlordEntity")}
+          placeholder="e.g. Acme Holdings Ltd"
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Bank Name"          {...register("bankName")}          placeholder="e.g. KCB Bank" />
+          <Input label="Bank Account Name"  {...register("bankAccountName")}   placeholder="e.g. Acme Holdings Ltd" />
+        </div>
+        <Input
+          label="Bank Account Number"
+          tooltip="Where rent should be paid. If left blank, the organisation-level account is used instead."
+          {...register("bankAccountNumber")}
+          placeholder="e.g. 1234567890"
+        />
+      </div>
+
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-600 font-sans">Description</label>
         <textarea
@@ -518,6 +549,15 @@ function UnitFormFields({ register, errors, propertyType }: { register: any; err
           placeholder="e.g. 101, A1, G1"
           error={errors.unitNumber?.message}
         />
+        <Input
+          label="Title Reference"
+          tooltip="Land Reference / title-deed number for this unit (e.g. 2951/664). Useful when a property has individually titled units."
+          {...register("titleReference")}
+          placeholder="e.g. 2951/664"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <Input
           label="Floor"
           type="number"
@@ -1460,6 +1500,10 @@ export default function PropertiesPage() {
       managementFeeFlat: p.managementFeeFlat ?? undefined,
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
       currency: p.currency ?? undefined,
+      landlordEntity:    p.landlordEntity    ?? "",
+      bankName:          p.bankName          ?? "",
+      bankAccountName:   p.bankAccountName   ?? "",
+      bankAccountNumber: p.bankAccountNumber ?? "",
     });
     setPropModalOpen(true);
   };
@@ -1524,6 +1568,7 @@ export default function PropertiesPage() {
       floor: unit.floor ?? undefined,
       sizeSqm: unit.sizeSqm ?? undefined,
       description: unit.description ?? "",
+      titleReference: unit.titleReference ?? "",
     });
     setUnitModalOpen(true);
   };

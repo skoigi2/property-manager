@@ -34,11 +34,12 @@ import {
   downloadUnitsTemplate,
   downloadMaintenanceTemplate,
   downloadVendorsTemplate,
+  downloadRentHistoryTemplate,
 } from "@/lib/import-templates";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "tenants" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors";
+type Tab = "tenants" | "rent-history" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors";
 
 interface ParsedRow {
   rowIndex: number;
@@ -65,6 +66,19 @@ const TENANT_COLS = [
   "Lease End",
   "Email",
   "Phone",
+  "Payment Frequency",
+  "Escalation Rate",
+  "Parking Fee",
+  "Notes",
+];
+
+const RENT_HISTORY_COLS = [
+  "Tenant Name",
+  "Unit Number",
+  "Monthly Rent",
+  "Effective Date",
+  "Property Name",
+  "Reason",
 ];
 
 const INCOME_COLS = [
@@ -189,6 +203,8 @@ const VALID_VENDOR_CATEGORIES = [
   "SERVICE_PROVIDER", "CONSULTANT", "OTHER",
 ];
 
+const VALID_PAYMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"];
+
 function validateTenantRow(row: Record<string, string>): string[] {
   const errors: string[] = [];
   if (!row["Name"]?.trim()) errors.push("Name is required");
@@ -199,6 +215,22 @@ function validateTenantRow(row: Record<string, string>): string[] {
   if (!row["Lease Start"]?.trim()) errors.push("Lease Start is required");
   else if (isNaN(Date.parse(row["Lease Start"])))
     errors.push("Lease Start is not a valid date");
+  const freq = row["Payment Frequency"]?.trim()?.toUpperCase();
+  if (freq && !VALID_PAYMENT_FREQUENCIES.includes(freq))
+    errors.push(`Invalid Payment Frequency "${row["Payment Frequency"]}" — must be one of: ${VALID_PAYMENT_FREQUENCIES.join(", ")}`);
+  return errors;
+}
+
+function validateRentHistoryRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Tenant Name"]?.trim()) errors.push("Tenant Name is required");
+  if (!row["Unit Number"]?.trim()) errors.push("Unit Number is required");
+  const rent = parseFloat(row["Monthly Rent"] ?? "");
+  if (!row["Monthly Rent"] || isNaN(rent) || rent <= 0)
+    errors.push("Monthly Rent must be a positive number");
+  if (!row["Effective Date"]?.trim()) errors.push("Effective Date is required");
+  else if (isNaN(Date.parse(row["Effective Date"])))
+    errors.push("Effective Date is not a valid date");
   return errors;
 }
 
@@ -354,16 +386,31 @@ function parseFile(
 
 function mapTenantRowToApi(row: Record<string, string>) {
   return {
-    name:          row["Name"],
+    name:             row["Name"],
+    unitNumber:       row["Unit Number"],
+    propertyName:     row["Property Name"],
+    monthlyRent:      row["Monthly Rent"],
+    serviceCharge:    row["Service Charge"],
+    depositAmount:    row["Deposit"],
+    leaseStart:       row["Lease Start"],
+    leaseEnd:         row["Lease End"],
+    email:            row["Email"],
+    phone:            row["Phone"],
+    paymentFrequency: row["Payment Frequency"],
+    escalationRate:   row["Escalation Rate"],
+    parkingFee:       row["Parking Fee"],
+    notes:            row["Notes"],
+  };
+}
+
+function mapRentHistoryRowToApi(row: Record<string, string>) {
+  return {
+    tenantName:    row["Tenant Name"],
     unitNumber:    row["Unit Number"],
     propertyName:  row["Property Name"],
     monthlyRent:   row["Monthly Rent"],
-    serviceCharge: row["Service Charge"],
-    depositAmount: row["Deposit"],
-    leaseStart:    row["Lease Start"],
-    leaseEnd:      row["Lease End"],
-    email:         row["Email"],
-    phone:         row["Phone"],
+    effectiveDate: row["Effective Date"],
+    reason:        row["Reason"],
   };
 }
 
@@ -821,13 +868,14 @@ export default function ImportPage() {
   const [tab, setTab] = useState<Tab>("tenants");
 
   const tabs: [Tab, string, React.ElementType][] = [
-    ["tenants",     "Tenants",     Users],
-    ["income",      "Income",      TrendingUp],
-    ["expenses",    "Expenses",    Receipt],
-    ["petty-cash",  "Petty Cash",  Wallet],
-    ["units",       "Units",       Building2],
-    ["maintenance", "Maintenance", Wrench],
-    ["vendors",     "Vendors",     Store],
+    ["tenants",      "Tenants",      Users],
+    ["rent-history", "Rent History", RefreshCw],
+    ["income",       "Income",       TrendingUp],
+    ["expenses",     "Expenses",     Receipt],
+    ["petty-cash",   "Petty Cash",   Wallet],
+    ["units",        "Units",        Building2],
+    ["maintenance",  "Maintenance",  Wrench],
+    ["vendors",      "Vendors",      Store],
   ];
 
   return (
@@ -878,6 +926,19 @@ export default function ImportPage() {
             onDownloadTemplate={downloadTenantsTemplate}
             templateName="Tenants"
             mapRowToApi={mapTenantRowToApi}
+          />
+        )}
+
+        {tab === "rent-history" && (
+          <ImportSection
+            title="Import Rent History"
+            description="Download the template, fill in prior lease periods, then upload. Tenants are resolved by name + unit. Duplicate entries with the same tenant, effective date and amount are skipped."
+            cols={RENT_HISTORY_COLS}
+            validate={validateRentHistoryRow}
+            apiPath="/api/import/rent-history"
+            onDownloadTemplate={downloadRentHistoryTemplate}
+            templateName="Rent History"
+            mapRowToApi={mapRentHistoryRowToApi}
           />
         )}
 

@@ -139,12 +139,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json(property);
   }
 
-  const property = await prisma.property.update({
-    where: { id: params.id },
-    data: parsed.data,
-  });
-
-  return Response.json(property);
+  try {
+    const property = await prisma.property.update({
+      where: { id: params.id },
+      data: parsed.data,
+    });
+    return Response.json(property);
+  } catch (err) {
+    console.error("[PATCH /api/properties/[id]] update failed:", err);
+    return Response.json(
+      { error: "Property update failed", detail: (err as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {

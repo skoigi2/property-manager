@@ -86,14 +86,24 @@ export async function POST(req: Request) {
     : (session.user.organizationId ?? null);
 
   const { organizationId: _orgId, ...propertyData } = parsed.data;
-  const property = await prisma.property.create({
-    data: { ...propertyData, organizationId: resolvedOrgId },
-  });
+  try {
+    const property = await prisma.property.create({
+      data: { ...propertyData, organizationId: resolvedOrgId },
+    });
 
-  // Automatically grant the creating manager access
-  await prisma.propertyAccess.create({
-    data: { userId: session.user.id, propertyId: property.id },
-  });
+    // Automatically grant the creating manager access (idempotent — ignore if it already exists)
+    await prisma.propertyAccess.upsert({
+      where: { userId_propertyId: { userId: session.user.id, propertyId: property.id } },
+      create: { userId: session.user.id, propertyId: property.id },
+      update: {},
+    });
 
-  return Response.json(property, { status: 201 });
+    return Response.json(property, { status: 201 });
+  } catch (err) {
+    console.error("[POST /api/properties] create failed:", err);
+    return Response.json(
+      { error: "Property create failed", detail: (err as Error).message },
+      { status: 500 },
+    );
+  }
 }

@@ -204,7 +204,7 @@ interface Unit {
   incomeEntries?: { id: string; checkIn: string; checkOut: string }[];
 }
 
-type PropertyCategory = "RESIDENTIAL" | "OFFICE" | "INDUSTRIAL" | "RETAIL" | "MIXED_USE" | "OTHER";
+type PropertyCategory = "RESIDENTIAL" | "OFFICE" | "INDUSTRIAL" | "RETAIL" | "MIXED_USE" | "LAND" | "GROUND_LEASE" | "COMMERCIAL_SPECIAL_USE" | "OTHER";
 
 interface Property {
   id: string;
@@ -228,21 +228,27 @@ interface Property {
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const CATEGORY_LABELS: Record<string, string> = {
-  RESIDENTIAL: "Residential",
-  OFFICE:      "Office",
-  INDUSTRIAL:  "Industrial",
-  RETAIL:      "Retail",
-  MIXED_USE:   "Mixed Use",
-  OTHER:       "Other",
+  RESIDENTIAL:            "Residential",
+  OFFICE:                 "Office",
+  INDUSTRIAL:             "Industrial",
+  RETAIL:                 "Retail",
+  MIXED_USE:              "Mixed Use",
+  LAND:                   "Land",
+  GROUND_LEASE:           "Ground Lease",
+  COMMERCIAL_SPECIAL_USE: "Commercial / Special Use",
+  OTHER:                  "Other",
 };
 
 const CATEGORY_BADGE: Record<string, "blue"|"amber"|"gray"|"green"|"gold"|"red"> = {
-  RESIDENTIAL: "blue",
-  OFFICE:      "gold",
-  INDUSTRIAL:  "gray",
-  RETAIL:      "green",
-  MIXED_USE:   "amber",
-  OTHER:       "gray",
+  RESIDENTIAL:            "blue",
+  OFFICE:                 "gold",
+  INDUSTRIAL:             "gray",
+  RETAIL:                 "green",
+  MIXED_USE:              "amber",
+  LAND:                   "green",
+  GROUND_LEASE:           "amber",
+  COMMERCIAL_SPECIAL_USE: "gold",
+  OTHER:                  "gray",
 };
 
 // The <Select> placeholder option submits as "" — coerce that to undefined
@@ -254,7 +260,7 @@ const propertySchema = z.object({
   type: z.enum(["AIRBNB", "LONGTERM"]),
   category: z.preprocess(
     emptyToUndef,
-    z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "OTHER"]).optional(),
+    z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "LAND", "GROUND_LEASE", "COMMERCIAL_SPECIAL_USE", "OTHER"]).optional(),
   ),
   categoryOther: z.string().optional(),
   address: z.string().optional(),
@@ -410,12 +416,15 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
           placeholder="— Select category —"
           {...register("category")}
           options={[
-            { value: "RESIDENTIAL", label: "Residential" },
-            { value: "OFFICE",      label: "Office" },
-            { value: "INDUSTRIAL",  label: "Industrial" },
-            { value: "RETAIL",      label: "Retail" },
-            { value: "MIXED_USE",   label: "Mixed Use" },
-            { value: "OTHER",       label: "Other (specify)" },
+            { value: "RESIDENTIAL",            label: "Residential" },
+            { value: "OFFICE",                 label: "Office" },
+            { value: "INDUSTRIAL",             label: "Industrial" },
+            { value: "RETAIL",                 label: "Retail" },
+            { value: "MIXED_USE",              label: "Mixed Use" },
+            { value: "LAND",                   label: "Land" },
+            { value: "GROUND_LEASE",           label: "Ground Lease" },
+            { value: "COMMERCIAL_SPECIAL_USE", label: "Commercial / Special Use" },
+            { value: "OTHER",                  label: "Other (specify)" },
           ]}
         />
       </div>
@@ -886,22 +895,26 @@ function PropertiesTable({
   isManager,
   onSelect,
   onEdit,
+  onAddUnit,
   activeUnits,
   vacantUnits,
+  setupByProp,
 }: {
   properties: Property[];
   isManager: boolean;
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
+  onAddUnit: (p: Property) => void;
   activeUnits: (units: Property["units"], propertyType: string) => number;
   vacantUnits: (units: Property["units"]) => number;
+  setupByProp: Record<string, { percent: number }>;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-100">
       <table className="min-w-full divide-y divide-gray-100">
         <thead className="bg-gray-50/60">
           <tr>
-            {["Property", "Category", "Type", "Units", "Mgmt Fee", "Owner", "Manager", ""].map((h) => (
+            {["Property", "Category", "Type", "Units", "Setup", "Mgmt Fee", "Owner", "Manager", ""].map((h) => (
               <th
                 key={h}
                 className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans whitespace-nowrap"
@@ -965,6 +978,17 @@ function PropertiesTable({
                   <span className="text-yellow-500">{vacant}</span>
                 </td>
 
+                {/* Setup % */}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {setupByProp[p.id] ? (
+                    <Badge variant={setupByProp[p.id].percent === 100 ? "green" : "gold"}>
+                      {setupByProp[p.id].percent}%
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
+
                 {/* Mgmt fee */}
                 <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-500">
                   {feeText}
@@ -985,6 +1009,13 @@ function PropertiesTable({
                   <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {isManager && (
                       <>
+                        <button
+                          onClick={() => onAddUnit(p)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                          title="Add unit"
+                        >
+                          <Plus size={14} />
+                        </button>
                         <Link
                           href={`/properties/${p.id}/agreement`}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
@@ -1294,6 +1325,7 @@ function ImportHandoverModal({ onClose, onImported }: { onClose: () => void; onI
 
 export default function PropertiesPage() {
   const { data: session } = useSession();
+  const { refresh: refreshPropertyContext } = useProperty();
   const isManager = session?.user?.role === "MANAGER" || session?.user?.role === "ADMIN";
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
 
@@ -1374,7 +1406,10 @@ export default function PropertiesPage() {
       .then((r) => r.json())
       .then((d: any[]) => {
         setOwners(d.filter((u) => u.role === "OWNER"));
-        setManagers(d.filter((u) => u.role === "MANAGER" || u.role === "ACCOUNTANT"));
+        // Lead Manager pool: ADMIN (org-admin), MANAGER, or ACCOUNTANT.
+        // /api/users already strips super-admins (role=ADMIN, organizationId=null), so this
+        // safely includes org-admins who in practice often act as the lead manager.
+        setManagers(d.filter((u) => u.role === "ADMIN" || u.role === "MANAGER" || u.role === "ACCOUNTANT"));
       })
       .catch(() => {});
     if (isSuperAdmin) {
@@ -1427,6 +1462,7 @@ export default function PropertiesPage() {
       setProperties((prev) => prev.filter((p) => p.id !== deletingProperty.id));
       if (selectedProperty?.id === deletingProperty.id) setSelectedProperty(null);
       toast.success(`"${deletingProperty.name}" deleted.`);
+      refreshPropertyContext().catch(() => {});
     } catch {
       toast.error("Failed to delete property.");
     } finally {
@@ -1449,6 +1485,7 @@ export default function PropertiesPage() {
       toast.success(editProp ? "Property updated" : "Property created");
       setPropModalOpen(false);
       load();
+      refreshPropertyContext().catch(() => {});
     } catch {
       toast.error("Failed to save property");
     } finally {
@@ -1499,6 +1536,7 @@ export default function PropertiesPage() {
       toast.success(editUnit ? "Unit updated" : "Unit added");
       setUnitModalOpen(false);
       load();
+      refreshPropertyContext().catch(() => {});
     } catch (e: any) {
       toast.error(e.message ?? "Failed to save unit");
     } finally {
@@ -1614,8 +1652,10 @@ export default function PropertiesPage() {
                 isManager={isManager}
                 onSelect={setSelectedProperty}
                 onEdit={openEditProperty}
+                onAddUnit={openAddUnit}
                 activeUnits={activeUnits}
                 vacantUnits={vacantUnits}
+                setupByProp={setupByProp}
               />
             </div>
             {/* Mobile: compact stacked list — no horizontal scroll */}

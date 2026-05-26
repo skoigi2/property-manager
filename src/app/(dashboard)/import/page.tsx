@@ -49,6 +49,7 @@ interface ParsedRow {
 
 interface ImportResult {
   imported: number;
+  updated?: number;
   skipped: number;
   errors: { row: number; reason: string }[];
 }
@@ -512,6 +513,8 @@ interface ImportSectionProps {
   onDownloadTemplate: () => void;
   templateName: string;
   mapRowToApi: (row: Record<string, string>) => Record<string, string>;
+  /** When true, render an "Update existing records" toggle that sends `mode: "upsert"`. */
+  supportsUpsert?: boolean;
 }
 
 function ImportSection({
@@ -523,6 +526,7 @@ function ImportSection({
   onDownloadTemplate,
   templateName,
   mapRowToApi,
+  supportsUpsert = false,
 }: ImportSectionProps) {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
@@ -531,6 +535,7 @@ function ImportSection({
   const [errorsExpanded, setErrorsExpanded] = useState(false);
   const [serverErrorsExpanded, setServerErrorsExpanded] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [upsertMode, setUpsertMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback(
@@ -579,9 +584,21 @@ function ImportSection({
       const res = await fetch(apiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: validRows.map((r) => mapRowToApi(r.data)) }),
+        body: JSON.stringify({
+          rows: validRows.map((r) => mapRowToApi(r.data)),
+          ...(supportsUpsert && upsertMode ? { mode: "upsert" } : {}),
+        }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        // Server returned a non-2xx — surface the actual error message.
+        setResult({
+          imported: 0,
+          skipped: 0,
+          errors: [{ row: 0, reason: data?.detail || data?.error || `Server error (${res.status})` }],
+        });
+        return;
+      }
       setResult(data);
     } catch {
       setResult({ imported: 0, skipped: 0, errors: [{ row: 0, reason: "Network error" }] });
@@ -795,15 +812,27 @@ function ImportSection({
               {importing ? (
                 <>
                   <Spinner size="sm" className="mr-2" />
-                  Importing…
+                  {upsertMode ? "Updating…" : "Importing…"}
                 </>
               ) : (
                 <>
                   <Upload size={15} className="mr-1.5" />
-                  Import {validRows.length} valid row{validRows.length !== 1 ? "s" : ""}
+                  {upsertMode ? "Update" : "Import"} {validRows.length} valid row{validRows.length !== 1 ? "s" : ""}
                 </>
               )}
             </Button>
+          )}
+
+          {supportsUpsert && validRows.length > 0 && (
+            <label className="flex items-center gap-2 text-sm font-sans text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={upsertMode}
+                onChange={(e) => setUpsertMode(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-gold focus:ring-gold/40"
+              />
+              Update existing records (re-upload to refresh fields)
+            </label>
           )}
 
           <Button variant="ghost" size="sm" onClick={handleReset}>
@@ -819,7 +848,9 @@ function ImportSection({
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} className="text-green-500 shrink-0" />
             <p className="text-sm font-medium text-green-700 font-sans">
-              {result.imported} record{result.imported !== 1 ? "s" : ""} imported successfully
+              {result.imported} record{result.imported !== 1 ? "s" : ""} imported
+              {result.updated ? `, ${result.updated} updated` : ""}
+              {" "}successfully
             </p>
           </div>
 
@@ -919,13 +950,14 @@ export default function ImportPage() {
         {tab === "tenants" && (
           <ImportSection
             title="Import Tenants"
-            description="Download the template, fill in tenant details, then upload to bulk-create tenants. Existing active tenants with the same name and unit are skipped."
+            description="Download the template, fill in tenant details, then upload to bulk-create tenants. Toggle 'Update existing records' to refresh tenants that are already in the system — useful for re-uploading after schema changes."
             cols={TENANT_COLS}
             validate={validateTenantRow}
             apiPath="/api/import/tenants"
             onDownloadTemplate={downloadTenantsTemplate}
             templateName="Tenants"
             mapRowToApi={mapTenantRowToApi}
+            supportsUpsert
           />
         )}
 

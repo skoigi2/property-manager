@@ -519,7 +519,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
 export default function MaintenancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   useFocusScroll();
   const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
 

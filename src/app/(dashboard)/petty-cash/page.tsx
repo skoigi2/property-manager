@@ -31,7 +31,7 @@ import { HelpTip } from "@/components/ui/HelpTip";
 export default function PettyCashPage() {
   const { data: session } = useSession();
   const { selectedId, selected, properties } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
 
   const [entries, setEntries] = useState<any[]>([]);
   const [limitsByProperty, setLimitsByProperty] = useState<Record<string, number>>({});

@@ -384,7 +384,7 @@ function OpenCaseModal({ open, onClose, onCreated }: {
 export default function ArrearsPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   useFocusScroll();
   const [cases, setCases]       = useState<ArrearsCase[]>([]);
   const [loading, setLoading]   = useState(true);

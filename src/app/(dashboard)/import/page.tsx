@@ -964,13 +964,14 @@ export default function ImportPage() {
         {tab === "rent-history" && (
           <ImportSection
             title="Import Rent History"
-            description="Download the template, fill in prior lease periods, then upload. Tenants are resolved by name + unit. Duplicate entries with the same tenant, effective date and amount are skipped."
+            description="Download the template, fill in prior lease periods, then upload. Tenants are resolved by name + unit. Toggle 'Update existing records' to overwrite rows that share the same tenant + effective date — useful when correcting historical figures."
             cols={RENT_HISTORY_COLS}
             validate={validateRentHistoryRow}
             apiPath="/api/import/rent-history"
             onDownloadTemplate={downloadRentHistoryTemplate}
             templateName="Rent History"
             mapRowToApi={mapRentHistoryRowToApi}
+            supportsUpsert
           />
         )}
 

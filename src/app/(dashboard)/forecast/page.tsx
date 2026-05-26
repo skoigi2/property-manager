@@ -67,7 +67,7 @@ function MonthDetailRow({
   onToggle: () => void;
 }) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const net = month.netCashflow;
   return (
     <>
@@ -315,7 +315,7 @@ export default function ForecastPage() {
   const [loading, setLoading] = useState(true);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
 
   useEffect(() => {
     setLoading(true);

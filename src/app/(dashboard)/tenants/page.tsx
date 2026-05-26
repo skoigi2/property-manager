@@ -215,16 +215,20 @@ export default function TenantsPage() {
   function openEdit(tenant: any) {
     setEditingTenant(tenant);
     reset({
-      name:          tenant.name,
-      email:         tenant.email ?? "",
-      phone:         tenant.phone ?? "",
-      unitId:        tenant.unitId,
-      depositAmount: tenant.depositAmount,
-      leaseStart:    tenant.leaseStart?.split("T")[0] ?? "",
-      leaseEnd:      tenant.leaseEnd?.split("T")[0] ?? "",
-      monthlyRent:   tenant.monthlyRent,
-      serviceCharge: tenant.serviceCharge,
-      isActive:      tenant.isActive,
+      name:             tenant.name,
+      email:            tenant.email ?? "",
+      phone:            tenant.phone ?? "",
+      unitId:           tenant.unitId,
+      depositAmount:    tenant.depositAmount,
+      leaseStart:       tenant.leaseStart?.split("T")[0] ?? "",
+      leaseEnd:         tenant.leaseEnd?.split("T")[0] ?? "",
+      monthlyRent:      tenant.monthlyRent,
+      serviceCharge:    tenant.serviceCharge,
+      isActive:         tenant.isActive,
+      notes:            tenant.notes ?? "",
+      paymentFrequency: tenant.paymentFrequency ?? undefined,
+      escalationRate:   tenant.escalationRate ?? undefined,
+      parkingFee:       tenant.parkingFee ?? undefined,
     });
     setModalOpen(true);
   }
@@ -948,16 +952,41 @@ export default function TenantsPage() {
             />
             <div className="grid grid-cols-2 gap-4">
               <Input label="Monthly Rent" tooltip="The base rent amount, not including service charge. This is what's tracked in your rent roll and invoices." type="number" {...register("monthlyRent")} error={errors.monthlyRent?.message} />
+              <Input label="Escalation Rate (%)" tooltip="Annual rent increase as a percentage. Used to project future rent in the forecast. Leave blank if rent is flat." type="number" step="0.1" {...register("escalationRate")} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <Input label="Service Charge" tooltip="Shared building costs passed to the tenant — utilities, cleaning, maintenance. Keep separate from rent for clear reporting." type="number" {...register("serviceCharge")} />
+              <Input label="Parking Fee" tooltip="Monthly parking line on the lease, billed alongside rent. Leave blank if not applicable." type="number" {...register("parkingFee")} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Deposit" tooltip="Security held against potential damage or unpaid rent. Not counted as income — it's returned at lease end minus any deductions." type="number" {...register("depositAmount")} error={errors.depositAmount?.message} />
+              <Select
+                label="Payment Frequency"
+                tooltip="How often the tenant pays — most common is Monthly. Quarterly / Bi-annual / Annual leases pay rent in advance for that period."
+                placeholder="— Select cadence —"
+                {...register("paymentFrequency")}
+                options={[
+                  { value: "MONTHLY",   label: "Monthly" },
+                  { value: "QUARTERLY", label: "Quarterly" },
+                  { value: "BIANNUAL",  label: "Bi-annual" },
+                  { value: "ANNUAL",    label: "Annual" },
+                ]}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
               <Input label="Lease End" tooltip="Leave blank if the end date isn't agreed yet. The tenant will show as 'Lease TBC' until a date is set." type="date" {...register("leaseEnd")} />
             </div>
             <p className="text-xs text-gray-400 font-sans">Leave Lease End blank to mark as TBC</p>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-600 font-sans">Notes</label>
+              <textarea
+                rows={3}
+                placeholder="Any lease detail not captured in the structured fields — special clauses, banking notes, status caveats…"
+                className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                {...register("notes")}
+              />
+            </div>
             <div className="flex gap-3 pt-2">
               <Button type="submit" loading={submitting}>
                 {editingTenant ? "Update" : "Add Tenant"}

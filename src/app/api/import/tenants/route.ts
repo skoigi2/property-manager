@@ -12,7 +12,14 @@ interface TenantRow {
   leaseEnd?: string;
   email?: string;
   phone?: string;
+  paymentFrequency?: string;
+  escalationRate?: string | number;
+  parkingFee?: string | number;
+  notes?: string;
 }
+
+const VALID_PAYMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"] as const;
+type PaymentFrequency = typeof VALID_PAYMENT_FREQUENCIES[number];
 
 export async function POST(req: Request) {
   const { error } = await requireManager();
@@ -89,6 +96,16 @@ export async function POST(req: Request) {
       const leaseStart = row.leaseStart ? new Date(row.leaseStart) : new Date();
       const leaseEnd = row.leaseEnd ? new Date(row.leaseEnd) : null;
 
+      // Optional new fields — silently drop if invalid rather than failing the row
+      const freqRaw = row.paymentFrequency?.trim()?.toUpperCase();
+      const paymentFrequency = (freqRaw && (VALID_PAYMENT_FREQUENCIES as readonly string[]).includes(freqRaw))
+        ? (freqRaw as PaymentFrequency)
+        : null;
+      const escalationRateRaw = parseFloat(String(row.escalationRate ?? ""));
+      const escalationRate = !isNaN(escalationRateRaw) && escalationRateRaw >= 0 ? escalationRateRaw : null;
+      const parkingFeeRaw = parseFloat(String(row.parkingFee ?? ""));
+      const parkingFee = !isNaN(parkingFeeRaw) && parkingFeeRaw >= 0 ? parkingFeeRaw : null;
+
       await prisma.$transaction([
         prisma.tenant.create({
           data: {
@@ -101,6 +118,10 @@ export async function POST(req: Request) {
             leaseEnd,
             email: row.email?.trim() || null,
             phone: row.phone?.trim() || null,
+            paymentFrequency,
+            escalationRate,
+            parkingFee,
+            notes: row.notes?.trim() || null,
             isActive: true,
           },
         }),

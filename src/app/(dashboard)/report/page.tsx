@@ -96,7 +96,7 @@ function AmountCell({ value, strikethrough = false, currency = "USD" }: { value:
 
 function PLPreview({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const fmt = (n: number) => formatCurrency(n, currency);
   const [data, setData]       = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -502,7 +502,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
 
 function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string | null }) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const fmt = (n: number) => formatCurrency(n, currency);
   const [months, setMonths]   = useState<MonthSummary[]>([]);
   const [loading, setLoading] = useState(true);

@@ -159,7 +159,7 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
 export default function IncomePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
 
   // Tab & collection mode
   const [tab, setTab]                         = useState<Tab>("collection");

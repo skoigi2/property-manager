@@ -276,7 +276,7 @@ function DocumentPanel({ policyId }: { policyId: string }) {
 export default function InsurancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   useFocusScroll();
   const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);

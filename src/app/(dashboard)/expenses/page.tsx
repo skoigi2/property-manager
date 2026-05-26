@@ -329,7 +329,7 @@ function LineItemsEditor({
 export default function ExpensesPage() {
   const { data: session } = useSession();
   const { selectedId, selected, properties } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);

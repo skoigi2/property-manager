@@ -329,7 +329,7 @@ function DocumentPanel({ assetId }: { assetId: string }) {
 
 function MaintenancePanel({ assetId }: { assetId: string }) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -715,7 +715,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 export default function AssetsPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const [assets, setAssets] = useState<Asset[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);

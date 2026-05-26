@@ -813,7 +813,7 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 export default function InvoicesPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   useFocusScroll();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"tenant" | "owner">(

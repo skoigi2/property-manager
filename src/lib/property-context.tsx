@@ -22,6 +22,17 @@ interface PropertyContextValue {
   setSelectedId: (id: string | null) => void;
   selected: PropertyOption | null;
   loading: boolean;
+  /**
+   * Display currency for the current scope.
+   *
+   * - If a property is selected → that property's currency.
+   * - Else if every accessible property shares the same currency → that shared currency.
+   * - Else (mixed-currency portfolio) → "USD" as a safe fallback.
+   *
+   * Use this instead of `selected?.currency ?? "USD"` so the "All properties"
+   * view doesn't silently revert to dollars when the org uses (e.g.) KES.
+   */
+  currency: string;
   /** Re-fetch the property list from the server. Call after creating/seeding a property. */
   refresh: () => Promise<void>;
 }
@@ -32,6 +43,7 @@ const PropertyContext = createContext<PropertyContextValue>({
   setSelectedId: () => {},
   selected: null,
   loading: true,
+  currency: "USD",
   refresh: async () => {},
 });
 
@@ -64,8 +76,17 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
 
   const selected = properties.find((p) => p.id === selectedId) ?? null;
 
+  // Compute display currency once per render — selected wins, else the shared
+  // currency across all properties if there's exactly one, else USD.
+  const currency = (() => {
+    if (selected) return selected.currency;
+    if (properties.length === 0) return "USD";
+    const first = properties[0].currency;
+    return properties.every((p) => p.currency === first) ? first : "USD";
+  })();
+
   return (
-    <PropertyContext.Provider value={{ properties, selectedId, setSelectedId, selected, loading, refresh: fetchProperties }}>
+    <PropertyContext.Provider value={{ properties, selectedId, setSelectedId, selected, loading, currency, refresh: fetchProperties }}>
       {children}
     </PropertyContext.Provider>
   );

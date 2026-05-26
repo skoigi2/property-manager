@@ -272,7 +272,7 @@ export default function TenantDetailPage() {
   const params  = useParams();
   const router  = useRouter();
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
 
   const [tenant,    setTenant]    = useState<any>(null);
   const [loading,   setLoading]   = useState(true);

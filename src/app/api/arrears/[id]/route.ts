@@ -28,8 +28,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const { stage, notes, ...rest } = parsed.data;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const u = await tx.arrearsCase.update({
+  // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [
+    prisma.arrearsCase.update({
       where: { id: params.id },
       data: {
         ...rest,
@@ -41,16 +43,25 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         property: { select: { name: true } },
         escalations: { orderBy: { createdAt: "desc" } },
       },
-    });
-
-    if (stage && stage !== arrearsCase.stage) {
-      await tx.arrearsEscalation.create({
-        data: { caseId: params.id, stage: stage as Stage, notes: notes ?? null },
-      });
-    }
-
-    return u;
-  });
+    }),
+  ];
+  if (stage && stage !== arrearsCase.stage) {
+    ops.push(prisma.arrearsEscalation.create({
+      data: { caseId: params.id, stage: stage as Stage, notes: notes ?? null },
+    }));
+  }
+  const txResults = await prisma.$transaction(ops);
+  // Re-read the case with escalations so the response includes the new row.
+  const updated = (stage && stage !== arrearsCase.stage)
+    ? await prisma.arrearsCase.findUnique({
+        where: { id: params.id },
+        include: {
+          tenant: { select: { id: true, name: true, phone: true, email: true, unit: { select: { unitNumber: true } } } },
+          property: { select: { name: true } },
+          escalations: { orderBy: { createdAt: "desc" } },
+        },
+      })
+    : txResults[0];
 
   return Response.json(updated);
 }

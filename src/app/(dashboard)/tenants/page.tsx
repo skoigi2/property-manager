@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useProperty } from "@/lib/property-context";
+import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -66,8 +67,17 @@ export default function TenantsPage() {
   const currency = useProperty().currency;
 
   // Data
-  const [tenants, setTenants]       = useState<any[]>([]);
-  const [properties, setProperties] = useState<any[]>([]);
+  // Tenants + properties come from useCachedFetch so repeat visits render the
+  // last response from sessionStorage immediately while a background fetch
+  // refreshes the data. The setData callbacks let downstream handlers do the
+  // existing optimistic updates (rename / vacate / delete in place).
+  const propParam = selectedId ? `?propertyId=${selectedId}` : "";
+  const { data: tenantsData, setData: setTenants, loading: tenantsLoading } =
+    useCachedFetch<any[]>(`tenants:${selectedId ?? "all"}`, `/api/tenants${propParam}`);
+  const { data: propertiesData, setData: setProperties, loading: propertiesLoading } =
+    useCachedFetch<any[]>("properties:full", "/api/properties");
+  const tenants = tenantsData ?? [];
+  const properties = propertiesData ?? [];
   const [loading, setLoading]       = useState(true);
 
   // Modal
@@ -121,17 +131,10 @@ export default function TenantsPage() {
     if (saved === "grid" || saved === "table") setLayout(saved);
   }, []);
 
+  // useCachedFetch drives loading; reflect into the page's `loading` flag.
   useEffect(() => {
-    const propParam = selectedId ? `?propertyId=${selectedId}` : "";
-    Promise.all([
-      fetch(`/api/tenants${propParam}`).then((r) => r.json()),
-      fetch("/api/properties").then((r) => r.json()),
-    ]).then(([t, p]) => {
-      setTenants(Array.isArray(t) ? t : []);
-      setProperties(Array.isArray(p) ? p : []);
-      setLoading(false);
-    });
-  }, [selectedId]);
+    setLoading(tenantsLoading || propertiesLoading);
+  }, [tenantsLoading, propertiesLoading]);
 
   function switchLayout(mode: LayoutMode) {
     setLayout(mode);
@@ -251,11 +254,12 @@ export default function TenantsPage() {
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
-      setTenants((prev) =>
-        editingTenant
-          ? prev.map((t) => (t.id === updated.id ? updated : t))
-          : [updated, ...prev]
-      );
+      setTenants((prev) => {
+        const list = prev ?? [];
+        return editingTenant
+          ? list.map((t) => (t.id === updated.id ? updated : t))
+          : [updated, ...list];
+      });
       toast.success(editingTenant ? "Tenant updated" : "Tenant added");
       if (editingTenant) {
         // Edit: close immediately
@@ -313,7 +317,7 @@ export default function TenantsPage() {
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
-      setTenants((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setTenants((prev) => (prev ?? []).map((t) => (t.id === updated.id ? updated : t)));
       setVacateTarget(null);
       toast.success(`${vacateTarget.name} vacated — unit set to Vacant`);
     } catch {

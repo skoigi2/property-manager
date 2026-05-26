@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -1379,12 +1380,23 @@ export default function PropertiesPage() {
   const isManager = session?.user?.role === "MANAGER" || session?.user?.role === "ADMIN";
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
 
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [setupByProp, setSetupByProp] = useState<Record<string, { percent: number }>>({});
+  // SWR-from-sessionStorage for the two heaviest fetches.
+  // owners/managers/orgs are loaded once and rarely change — leave as plain state.
+  const { data: propertiesData, setData: setProperties, loading: propertiesLoading, refresh: refreshProperties } =
+    useCachedFetch<Property[]>("properties:full", "/api/properties");
+  const { data: setupArr, refresh: refreshSetup } =
+    useCachedFetch<Array<{ propertyId: string; percent: number }>>("setup-progress:all", "/api/setup-progress");
+  const properties = propertiesData ?? [];
+  const setupByProp = useMemo(() => {
+    const map: Record<string, { percent: number }> = {};
+    for (const p of setupArr ?? []) map[p.propertyId] = { percent: p.percent };
+    return map;
+  }, [setupArr]);
+
   const [owners, setOwners]         = useState<OwnerUser[]>([]);
   const [managers, setManagers]     = useState<OwnerUser[]>([]);
   const [orgs, setOrgs]             = useState<OrgOption[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const loading = propertiesLoading;
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [layout, setLayout] = useState<LayoutMode>("grid");
 
@@ -1430,19 +1442,10 @@ export default function PropertiesPage() {
 
   // ── Load ────────────────────────────────────────────────────────────────────
 
+  // Force a refresh of the cached fetches — called by handlers after create / edit / delete.
   const load = () => {
-    fetch("/api/properties")
-      .then((r) => r.json())
-      .then((d) => { setProperties(d); setLoading(false); })
-      .catch(() => setLoading(false));
-    fetch("/api/setup-progress")
-      .then((r) => r.ok ? r.json() : [])
-      .then((arr: Array<{ propertyId: string; percent: number }>) => {
-        const map: Record<string, { percent: number }> = {};
-        for (const p of arr) map[p.propertyId] = { percent: p.percent };
-        setSetupByProp(map);
-      })
-      .catch(() => {});
+    refreshProperties().catch(() => {});
+    refreshSetup().catch(() => {});
   };
 
   useEffect(() => {
@@ -1451,7 +1454,8 @@ export default function PropertiesPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    // properties/setup-progress are auto-fetched by useCachedFetch; just load
+    // the rarely-changing supplemental lists here.
     fetch("/api/users")
       .then((r) => r.json())
       .then((d: any[]) => {
@@ -1514,7 +1518,7 @@ export default function PropertiesPage() {
     try {
       const res = await fetch(`/api/properties/${deletingProperty.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      setProperties((prev) => prev.filter((p) => p.id !== deletingProperty.id));
+      setProperties((prev) => (prev ?? []).filter((p) => p.id !== deletingProperty.id));
       if (selectedProperty?.id === deletingProperty.id) setSelectedProperty(null);
       toast.success(`"${deletingProperty.name}" deleted.`);
       refreshPropertyContext().catch(() => {});

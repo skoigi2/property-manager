@@ -61,57 +61,64 @@ export async function POST(
   }
 
   try {
-    const [log] = await prisma.$transaction(async (tx) => {
-      // Auto-create an ExpenseEntry when a cost is provided
-      let expenseId: string | null = null;
-      if (cost && cost > 0) {
-        const hasUnit = !!asset.unitId;
-        const expenseDesc = `${asset.name} — ${existing.taskName}: ${description}`;
-        const expense = await tx.expenseEntry.create({
-          data: {
-            date: new Date(date),
-            amount: cost,
-            category: "MAINTENANCE",
-            scope: hasUnit ? "UNIT" : "PROPERTY",
-            propertyId: asset.propertyId,
-            ...(hasUnit ? { unitId: asset.unitId! } : {}),
-            description: expenseDesc,
-          },
-        });
-        expenseId = expense.id;
-      }
-
-      const createdLog = await tx.assetMaintenanceLog.create({
-        data: {
-          assetId: params.id,
-          scheduleId: params.scheduleId,
-          expenseId,
-          date: new Date(date),
-          description,
-          cost: cost ?? null,
-          technician: technician ?? null,
-          vendorId: vendorId ?? null,
-          notes: notes ?? null,
-        },
-      });
-
-      const schedule = await tx.assetMaintenanceSchedule.findUnique({
-        where: { id: params.scheduleId },
-        select: { frequency: true },
-      });
-
-      if (schedule) {
-        await tx.assetMaintenanceSchedule.update({
-          where: { id: params.scheduleId },
-          data: {
-            lastDone: new Date(date),
-            nextDue: calcNextDue(new Date(date), schedule.frequency),
-          },
-        });
-      }
-
-      return [createdLog];
+    // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+    // Pre-read the schedule frequency so we can compute nextDue without nesting
+    // a read inside the transaction. Frequency doesn't change here so this is safe.
+    const schedule = await prisma.assetMaintenanceSchedule.findUnique({
+      where: { id: params.scheduleId },
+      select: { frequency: true },
     });
+
+    const hasUnit = !!asset.unitId;
+    const logData = {
+      assetId: params.id,
+      scheduleId: params.scheduleId,
+      date: new Date(date),
+      description,
+      cost: cost ?? null,
+      technician: technician ?? null,
+      vendorId: vendorId ?? null,
+      notes: notes ?? null,
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ops: any[] = [];
+    if (cost && cost > 0) {
+      // Nested write: create the expense and its linked maintenance log atomically.
+      // Returns the expense — drill in for the created log via include.
+      ops.push(prisma.expenseEntry.create({
+        data: {
+          date: new Date(date),
+          amount: cost,
+          category: "MAINTENANCE",
+          scope: hasUnit ? "UNIT" : "PROPERTY",
+          propertyId: asset.propertyId,
+          ...(hasUnit ? { unitId: asset.unitId! } : {}),
+          description: `${asset.name} — ${existing.taskName}: ${description}`,
+          maintenanceLogs: { create: [logData] },
+        },
+        include: { maintenanceLogs: true },
+      }));
+    } else {
+      // No cost → create the log alone, no linked expense.
+      ops.push(prisma.assetMaintenanceLog.create({ data: { ...logData, expenseId: null } }));
+    }
+
+    if (schedule) {
+      ops.push(prisma.assetMaintenanceSchedule.update({
+        where: { id: params.scheduleId },
+        data: {
+          lastDone: new Date(date),
+          nextDue: calcNextDue(new Date(date), schedule.frequency),
+        },
+      }));
+    }
+
+    const txResults = await prisma.$transaction(ops);
+    // When the expense path ran, the log is nested under maintenanceLogs[0].
+    const log = (cost && cost > 0)
+      ? (txResults[0] as { maintenanceLogs: unknown[] }).maintenanceLogs[0]
+      : txResults[0];
 
     return Response.json(log, { status: 201 });
   } catch (err: any) {

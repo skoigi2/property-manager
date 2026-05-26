@@ -48,8 +48,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const newTotal = resolvedLineItems.reduce((s, i) => s + i.amount, 0);
   const resolvedPaidAt = paidAt !== undefined ? (paidAt ? new Date(paidAt) : null) : invoice!.paidAt;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const updatedInvoice = await tx.ownerInvoice.update({
+  // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+  // Pre-read the data we need to plan ops (existence check + fallback unit).
+  const willEnsureIncome = (status === "PAID" || invoice!.status === "PAID");
+  const [existingIncome, fallbackUnit] = willEnsureIncome
+    ? await Promise.all([
+        prisma.incomeEntry.findFirst({ where: { ownerInvoiceId: params.id } }),
+        prisma.unit.findFirst({ where: { propertyId: invoice!.propertyId }, select: { id: true } }),
+      ])
+    : [null, null];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [
+    prisma.ownerInvoice.update({
       where: { id: params.id },
       data: {
         ...(status     ? { status }                         : {}),
@@ -62,45 +73,30 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       include: {
         property: { select: { id: true, name: true } },
       },
-    });
+    }),
+  ];
 
-    // When status is PAID, auto-create income entries — idempotent
-    if (status === "PAID" || updatedInvoice.status === "PAID") {
-      const existing = await tx.incomeEntry.findFirst({
-        where: { ownerInvoiceId: params.id },
-      });
-      if (!existing) {
-        const payDate = resolvedPaidAt ?? new Date();
-        const items = updatedInvoice.lineItems as OwnerInvoiceLineItem[];
-
-        // Fallback unit for line items without a unitId
-        const fallbackUnit = await tx.unit.findFirst({
-          where: { propertyId: updatedInvoice.propertyId },
-          select: { id: true },
-        });
-
-        for (const item of items) {
-          const resolvedUnitId = item.unitId ?? fallbackUnit?.id;
-          if (!resolvedUnitId) continue;
-
-          await tx.incomeEntry.create({
-            data: {
-              date:           payDate,
-              unitId:         resolvedUnitId,
-              tenantId:       item.tenantId ?? null,
-              ownerInvoiceId: params.id,
-              type:           item.incomeType,
-              grossAmount:    item.amount,
-              agentCommission: 0,
-              note: `Auto-created from owner invoice ${updatedInvoice.invoiceNumber}`,
-            },
-          });
-        }
-      }
+  if (willEnsureIncome && !existingIncome) {
+    const payDate = resolvedPaidAt ?? new Date();
+    for (const item of resolvedLineItems) {
+      const resolvedUnitId = item.unitId ?? fallbackUnit?.id;
+      if (!resolvedUnitId) continue;
+      ops.push(prisma.incomeEntry.create({
+        data: {
+          date:           payDate,
+          unitId:         resolvedUnitId,
+          tenantId:       item.tenantId ?? null,
+          ownerInvoiceId: params.id,
+          type:           item.incomeType,
+          grossAmount:    item.amount,
+          agentCommission: 0,
+          note: `Auto-created from owner invoice ${invoice!.invoiceNumber}`,
+        },
+      }));
     }
-
-    return updatedInvoice;
-  });
+  }
+  const txResults = await prisma.$transaction(ops);
+  const updated = txResults[0];
 
   await logAudit({
     userId:    session!.user.id,

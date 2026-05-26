@@ -10,7 +10,13 @@ import { VendorSelect } from "@/components/ui/VendorSelect";
 import { InboxRowCard, InboxTableRow } from "@/components/inbox/InboxRow";
 import { AlertOctagon, CalendarClock, CalendarRange, Inbox, Mail, Wrench, X } from "lucide-react";
 import { useProperty } from "@/lib/property-context";
+import { useCachedFetch } from "@/lib/use-cached-fetch";
 import type { InboxItem, InboxCounts } from "@/lib/inbox";
+
+interface InboxPayload {
+  items: InboxItem[];
+  counts: InboxCounts;
+}
 
 interface Props {
   userName?: string | null;
@@ -19,46 +25,36 @@ interface Props {
 
 export function InboxClient({ userName, role }: Props) {
   const { selectedId } = useProperty();
-  const [items, setItems] = useState<InboxItem[]>([]);
-  const [counts, setCounts] = useState<InboxCounts>({ urgent: 0, today: 0, thisWeek: 0 });
-  const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkModal, setBulkModal] = useState<null | "send-reminders" | "assign-vendor">(null);
 
-  const load = useCallback(async () => {
-    try {
-      const qs = selectedId ? `?propertyId=${encodeURIComponent(selectedId)}` : "";
-      const r = await fetch(`/api/inbox${qs}`);
-      if (!r.ok) return;
-      const data = await r.json();
-      setItems(data.items ?? []);
-      setCounts(data.counts ?? { urgent: 0, today: 0, thisWeek: 0 });
-    } catch {
-      // swallow
-    } finally {
-      setLoading(false);
-    }
+  // SWR-from-sessionStorage — instant hydrate on repeat visits, background refresh.
+  const qs = selectedId ? `?propertyId=${encodeURIComponent(selectedId)}` : "";
+  const { data, loading, refresh, setData } =
+    useCachedFetch<InboxPayload>(`inbox:${selectedId ?? "all"}`, `/api/inbox${qs}`);
+  const items = data?.items ?? [];
+  const counts = data?.counts ?? { urgent: 0, today: 0, thisWeek: 0 };
+
+  // Clear selections when the property filter changes (cache hook re-keys, but
+  // the user's row selections shouldn't carry across scopes).
+  useEffect(() => {
+    setSelectedIds(new Set());
   }, [selectedId]);
 
-  useEffect(() => {
-    setLoading(true);
-    setSelectedIds(new Set());
-    load();
-    const t = setInterval(load, 60_000);
-    return () => clearInterval(t);
-  }, [load]);
-
   const handleActionComplete = useCallback((itemId: string) => {
-    // Optimistic removal — refetch in the background to reconcile
-    setItems((prev) => prev.filter((it) => it.id !== itemId));
+    // Optimistic removal — drop the row from the cached value immediately and
+    // refetch in the background to reconcile.
+    setData((prev) => prev
+      ? { ...prev, items: prev.items.filter((it) => it.id !== itemId) }
+      : prev);
     setSelectedIds((prev) => {
       if (!prev.has(itemId)) return prev;
       const next = new Set(prev);
       next.delete(itemId);
       return next;
     });
-    load();
-  }, [load]);
+    refresh();
+  }, [setData, refresh]);
 
   const toggleSelected = useCallback((itemId: string) => {
     setSelectedIds((prev) => {

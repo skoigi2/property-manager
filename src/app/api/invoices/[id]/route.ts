@@ -70,58 +70,63 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const newTotal = newRent + newService + newOther;
   const resolvedPaidAt = paidAt !== undefined ? (paidAt ? new Date(paidAt) : null) : invoice!.paidAt;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const updatedInvoice = await tx.invoice.update({
-      where: { id: params.id },
-      data: {
-        ...rest,
-        status,
-        rentAmount: newRent,
-        serviceCharge: newService,
-        otherCharges: newOther,
-        totalAmount: newTotal,
-        ...(paidAt !== undefined ? { paidAt: resolvedPaidAt } : {}),
-        ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
-      },
-      include: {
-        tenant: {
-          select: {
-            id: true, name: true, email: true, phone: true,
-            unit: {
-              select: {
-                id: true, unitNumber: true, type: true,
-                property: { select: { id: true, name: true, address: true, city: true } },
-              },
+  // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+  // The "ensure income entry exists" check reads before the transaction; the
+  // race window is identical to the prior callback form (pgBouncer doesn't
+  // isolate concurrent reads either) but at least the writes are now
+  // guaranteed to commit together.
+  const willEnsureIncome = (status === "PAID" || invoice!.status === "PAID");
+  const existingIncome = willEnsureIncome
+    ? await prisma.incomeEntry.findFirst({ where: { invoiceId: params.id } })
+    : null;
+
+  const invoiceUpdate = prisma.invoice.update({
+    where: { id: params.id },
+    data: {
+      ...rest,
+      status,
+      rentAmount: newRent,
+      serviceCharge: newService,
+      otherCharges: newOther,
+      totalAmount: newTotal,
+      ...(paidAt !== undefined ? { paidAt: resolvedPaidAt } : {}),
+      ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
+    },
+    include: {
+      tenant: {
+        select: {
+          id: true, name: true, email: true, phone: true,
+          unit: {
+            select: {
+              id: true, unitNumber: true, type: true,
+              property: { select: { id: true, name: true, address: true, city: true } },
             },
           },
         },
       },
-    });
-
-    // When status is PAID (new or already), ensure an income entry exists — idempotent
-    if (status === "PAID" || updatedInvoice.status === "PAID") {
-      const existing = await tx.incomeEntry.findFirst({
-        where: { invoiceId: params.id },
-      });
-      if (!existing) {
-        const payDate = resolvedPaidAt ?? updatedInvoice.paidAt ?? new Date();
-        await tx.incomeEntry.create({
-          data: {
-            date: payDate,
-            unitId: updatedInvoice.tenant.unit.id,
-            tenantId: updatedInvoice.tenant.id,
-            invoiceId: params.id,
-            type: "LONGTERM_RENT",
-            grossAmount: parsed.data.paidAmount ?? updatedInvoice.paidAmount ?? newTotal,
-            agentCommission: 0,
-            note: `Auto-created from invoice ${updatedInvoice.invoiceNumber}`,
-          },
-        });
-      }
-    }
-
-    return updatedInvoice;
+    },
   });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [invoiceUpdate];
+  if (willEnsureIncome && !existingIncome) {
+    const payDate = resolvedPaidAt ?? invoice!.paidAt ?? new Date();
+    ops.push(prisma.incomeEntry.create({
+      data: {
+        date: payDate,
+        // invoice.tenant.unit comes pre-loaded by getInvoiceWithAccess above.
+        unitId: invoice!.tenant.unit.id,
+        tenantId: invoice!.tenant.id,
+        invoiceId: params.id,
+        type: "LONGTERM_RENT",
+        grossAmount: parsed.data.paidAmount ?? invoice!.paidAmount ?? newTotal,
+        agentCommission: 0,
+        note: `Auto-created from invoice ${invoice!.invoiceNumber}`,
+      },
+    }));
+  }
+  const txResults = await prisma.$transaction(ops);
+  const updated = txResults[0];
 
   await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "Invoice", resourceId: params.id, organizationId: session!.user.organizationId, after: { status: updated.status, totalAmount: updated.totalAmount } });
 

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { canAddUser } from "@/lib/subscription";
 
 const createSchema = z.object({
   name: z.string().min(1),
@@ -125,6 +126,17 @@ export async function POST(req: Request) {
   const newUserOrgId = isSuperAdmin
     ? (bodyOrgId ?? null)
     : session!.user.organizationId ?? null;
+
+  // Team-member cap per tier (TEAM_LIMITS in paddle.ts). Super-admin is exempt.
+  if (!isSuperAdmin && newUserOrgId) {
+    const allowed = await canAddUser(newUserOrgId);
+    if (!allowed) {
+      return Response.json(
+        { error: "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
+        { status: 402 },
+      );
+    }
+  }
 
   // Validate & look up granted properties before writing anything
   let grantedProperties: { id: string; organizationId: string | null }[] = [];

@@ -7,9 +7,14 @@ function MarketingFooter() {
   return (
     <footer className="border-t border-gray-100 dark:border-white/10 bg-white dark:bg-[#091525] py-10 px-6">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2">
-          <BrandLogo size={24} />
-          <span className="font-display text-sm text-header dark:text-white">Groundwork PM</span>
+        <Link href="/" className="flex flex-col items-start gap-1">
+          <span className="flex items-center gap-2">
+            <BrandLogo size={24} />
+            <span className="font-display text-sm text-header dark:text-white">Groundwork PM</span>
+          </span>
+          <span className="text-xs font-sans text-gray-400 dark:text-gray-500">
+            The operating system for modern property management teams.
+          </span>
         </Link>
         <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400 dark:text-gray-500 font-sans">
           <Link href="/pricing" className="hover:text-header dark:hover:text-white transition-colors">Pricing</Link>

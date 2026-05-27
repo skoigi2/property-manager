@@ -38,7 +38,7 @@ Next.js 14 App Router app. All source code lives in `src/`.
 - `src/app/(dashboard)/` — all protected pages, share a sidebar layout (`layout.tsx`)
 - `src/app/(marketing)/` — public pages outside the dashboard chrome (`/blog`, `/pricing`, `/contact`, `/privacy`, `/terms`, `/refund`)
 - `src/app/(portal)/` — token-based tenant portal (no auth, no sidebar); bypassed by middleware
-- Top-level routes outside any group: `/` (landing — `src/app/page.tsx`), `/onboarding`, `/invite/[token]`, plus `robots.ts` and `sitemap.ts`
+- Top-level routes outside any group: `/onboarding`, `/invite/[token]`, plus `robots.ts` and `sitemap.ts`. The landing page `/` lives inside `(marketing)` as `src/app/(marketing)/page.tsx` so it inherits the shared nav + footer from `(marketing)/layout.tsx`
 - `src/app/api/` — Route Handlers only; no server components fetch data directly
 
 ### Auth & access control
@@ -117,10 +117,29 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `paddle.ts` | Paddle pricing-tier mapping + `PROPERTY_LIMITS`. Used by checkout, webhook handler, and subscription gating |
 | `pdf-generator.ts` | Server-only. Property report PDF via `@react-pdf/renderer`. Used only in `POST /api/report` |
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
+| `setup-progress.ts` | `computeSetupProgress(propertyId)` — derives a 0–100% configuration score and per-step ✅/⚠ checklist from live DB state (units, tenants, portal tokens, recurring expenses, insurance, vendors, agreement, org branding, first entry). Items with `applicable: false` (e.g. tenants/portal for AIRBNB) are excluded from the %. Used by the dashboard `SetupChecklist` widget and the Properties-page progress badge |
 | `stripe.ts` | Lazy Stripe SDK singleton — used by `/api/stripe/status` and billing flows |
 | `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
 | `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
 | `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema`, `pettyCashSchema`, `tenantSchema`, `manualEmailSchema` |
+
+### Operational Inbox
+
+`/inbox` (`src/app/(dashboard)/inbox/`) is the prioritized action queue for managers — first item in both the desktop sidebar and the mobile bottom nav (`MobileNav.tsx`). OWNER role is blocked at the middleware (`managerOnlyPaths`) and falls through to `/report`.
+
+The aggregator lives in `src/lib/inbox.ts` (`buildInbox(propertyIds)`) and runs every source query as one `Promise.all` (reads only — no `prisma.$transaction`). It produces `InboxItem[]` (each with `severity: URGENT|WARNING|INFO`, `daysOverdue`, deep-link `href`, and `actions[]`) plus `counts: { urgent, today, thisWeek }`.
+
+Sources covered:
+1. Overdue `Invoice` rows (status `SENT`/`OVERDUE`, `dueDate < now`)
+2. `Tenant.leaseEnd` within 30 days (severity via `getLeaseStatus`)
+3. `MaintenanceJob` with `priority=URGENT, status=OPEN`
+4. `MaintenanceJob` with `submittedViaPortal=true, status=OPEN, acknowledgedAt=null` (deduped against #3, max severity wins)
+5. `ComplianceCertificate` expiring ≤30 days
+6. `InsurancePolicy.endDate` ≤30 days
+7. `ArrearsCase` with `stage != RESOLVED` and `updatedAt < now-7d` (URGENT for `LEGAL_NOTICE`/`EVICTION`)
+8. Pending approvals — `TODO`
+
+API: `GET /api/inbox` — `requireManager()` + `getAccessiblePropertyIds()` then delegates to `buildInbox`. Returns `{ items, counts }`. The Sidebar polls this every 60 s to render the red urgent-count badge next to the Inbox nav item.
 
 ### Income ↔ Invoice link
 When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route auto-finds an open invoice for that tenant/month and marks it PAID in the same `prisma.$transaction`. Reverse: marking an invoice PAID via `PATCH /api/invoices/[id]` creates an income entry if none exists (`invoiceId` on `IncomeEntry` prevents duplicates).
@@ -165,7 +184,7 @@ Three properties are seeded:
 - Vendor fields use `<VendorSelect>` (controlled: `value: string | null`, `onChange: (id: string | null) => void`) — never a plain text input for contractor/supplier fields
 - **HelpTip**: `<HelpTip text="..." position="above|below" />` (`src/components/ui/HelpTip.tsx`) — small ℹ icon that shows a dark tooltip on hover. Default position is `"above"`; use `"below"` for elements near the top of the page (KPI cards, summary strips). Render inside label rows as `<span className="flex items-center gap-1.5"><span>Label</span><HelpTip text="..." /></span>`. The `Input`, `Select`, and `VendorSelect` components accept a `tooltip` prop that wires this up automatically.
 - **Mobile table pattern**: pages with data tables use `md:hidden` stacked card list + `hidden md:block overflow-x-auto` desktop table. The `<main>` in `src/app/(dashboard)/layout.tsx` carries `overflow-x-hidden` to prevent any overflowing child from creating a page-level horizontal scroll (which shifts the fixed bottom nav). `MobileNav` bar items require `min-w-0` on each flex child and `truncate w-full` on each label `<span>` to prevent long labels pushing items off-screen on narrow devices.
-- Components are organised under `src/components/` by feature: `dashboard/`, `expenses/`, `forecast/`, `guests/`, `income/`, `layout/`, `petty-cash/`, `report/`, `settings/`, `tenants/`, `ui/`
+- Components are organised under `src/components/` by feature: `dashboard/`, `expenses/`, `forecast/`, `guests/`, `income/`, `landing/` (marketing-page sections like MarketingHero / InboxMock / SpreadsheetComparison / Pricing — used by `(marketing)/page.tsx`), `layout/`, `petty-cash/`, `report/`, `settings/`, `tenants/`, `ui/`
 
 ### Document Storage
 
@@ -252,6 +271,118 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Calendar** — combined property-event view (lease ends, invoice dues, maintenance, compliance expiries, etc.). API: `GET /api/calendar?propertyId=&from=&to=`. Page: `/calendar`.
 
+### Cases (cross-cutting workflow)
+
+A **Case** is a unified workspace per operational issue: status + timeline + comments + attachments in one place. The schema sits *on top of* existing entities — it doesn't replace them.
+
+- `CaseThread` carries the workflow state: `caseType` (`MAINTENANCE | LEASE_RENEWAL | ARREARS | COMPLIANCE | GENERAL`), `subjectId` (id of the underlying record, e.g. `MaintenanceJob.id`), `status` (`OPEN | IN_PROGRESS | AWAITING_APPROVAL | AWAITING_VENDOR | AWAITING_TENANT | RESOLVED | CLOSED`), `stage` (free text), `waitingOn` (`MANAGER | OWNER | TENANT | VENDOR | NONE`), `assignedToUserId`, `lastActivityAt`, `stageStartedAt` (SLA anchor).
+- `CaseEvent` is the unified timeline. `kind` ∈ `COMMENT | STATUS_CHANGE | STAGE_CHANGE | ASSIGNMENT | EMAIL_SENT | DOCUMENT_ADDED | VENDOR_ASSIGNED | APPROVAL_REQUESTED | APPROVAL_GRANTED | APPROVAL_REJECTED | EXTERNAL_UPDATE`. Stores actor, `body`, `meta` (JSON), `attachmentUrls` (Supabase Storage paths in the `case-attachments` bucket).
+
+**Phase 1 only backs `caseType = MAINTENANCE`.** `MaintenanceJob.caseThreadId` is the back-link. `POST /api/maintenance` auto-creates a CaseThread + initial `COMMENT` event. `PATCH /api/maintenance/[id]` mirrors status / vendor / priority changes onto the linked thread (status remapped via `mapMaintenanceStatusToCase` in `src/lib/cases.ts`).
+
+**Status mapping (maintenance → case)**: `OPEN→OPEN`, `IN_PROGRESS→IN_PROGRESS`, `AWAITING_PARTS→AWAITING_VENDOR`, `DONE→RESOLVED`, `CANCELLED→CLOSED`. WaitingOn at backfill: `OPEN → MANAGER`, `IN_PROGRESS` (no vendor) → `MANAGER`, `IN_PROGRESS` (with vendor) / `AWAITING_PARTS` → `VENDOR`, `DONE`/`CANCELLED` → `NONE`.
+
+**API** (all under `src/app/api/cases/`):
+- `GET /api/cases` — filters: `status`, `propertyId`, `waitingOn`, `caseType`, `assignedToMe=true`
+- `POST /api/cases` — manual creation (rarely used; cases are usually auto-created)
+- `GET /api/cases/[id]` — case with events ordered ASC + signed attachment URLs
+- `PATCH /api/cases/[id]` — status/stage/waitingOn/assignment changes mint corresponding CaseEvents in one array-form transaction
+- `POST /api/cases/[id]/events` — comments + multipart attachments (uploaded via `uploadCaseAttachment` in `src/lib/supabase-storage.ts`)
+
+All writes use `requireManager()` + `requirePropertyAccess(case.propertyId)` and call `logAudit({ resource: "CaseThread" | "CaseEvent", ... })`.
+
+**Backfill**: `npm run cases:backfill` (scripts/backfill-cases.ts) — idempotent, creates a CaseThread for every `MaintenanceJob` lacking `caseThreadId`. Sets `stageStartedAt = job.updatedAt` so SLA clocks don't immediately flag every backfilled case as breached.
+
+**Time formatting**: Case timeline + list use `formatRelative` / `formatRelativeWithTooltip` from `src/lib/relative-time.ts` ("5m ago" / "2h ago" / "3d ago" up to 7 days, then explicit date). The rest of the app keeps the existing explicit `formatDate` convention — do not touch financial / audit / invoice dates.
+
+**View duality**: `/maintenance` is the domain-specific view; `/cases` is the cross-cutting workflow view. **They co-exist indefinitely.** A dismissible banner on `/maintenance` (`localStorage` key `cases-banner-dismissed`) deep-links to `/cases?caseType=MAINTENANCE`; each JobCard shows an "Open case →" link when `caseThreadId` is set. From the case detail page (`caseType=MAINTENANCE`) a "View as maintenance job →" link returns to the maintenance view.
+
+**Supabase storage**: requires a `case-attachments` bucket — must be created manually in Supabase Studio for both dev and prod (private bucket, signed URLs only).
+
+**Communication is dual-written into the timeline.** When a `CaseThread` is linked, `sendAndLog()` writes both an `EmailLog` (with `caseThreadId`) *and* a `CaseEvent` of kind `EMAIL_SENT` (snippet = subject + first 200 chars of stripped body). The same is true for `POST /api/tenants/[id]/communication-log`: pass `caseThreadId` to dual-write into the case timeline. `sendNotificationEmail`'s `meta` arg now accepts `caseThreadId`, so cron-driven notifications (lease expiry, overdue invoice, urgent maintenance, compliance, insurance) automatically land on the case timeline when a linked thread exists. Vendor emails (`VendorEmailModal`) skip `CommunicationLog` (tenant-only) but still write `EmailLog` + a `CaseEvent` (via the `/api/cases/[id]/events` COMMENT path with an embedded snippet).
+
+### In-case approvals
+
+Replaces ad-hoc WhatsApp owner sign-offs. `POST /api/cases/[id]/approvals` (manager-only) creates an `ApprovalRequest` row (UUID `token`, default 72h / max 168h `expiresAt`), emits an `APPROVAL_REQUESTED` `CaseEvent`, sets the thread's `waitingOn = OWNER`, and emails the approver a magic-link `${origin}/approve/${token}` via `sendNotificationEmail`.
+
+- **`/approve/[token]` page** is public (no auth — middleware allow-list, alongside `/portal/*`). The page renders via `GET /api/approvals/[token]` which is **idempotent** so email link-preview scanners don't consume the token. The approver types their name (captured as `respondedByName`) before clicking Approve / Reject. `POST /api/approvals/[token]` records the decision, emits `APPROVAL_GRANTED` / `APPROVAL_REJECTED`, sets `waitingOn = NONE`, and sends a confirmation email back to the approver with a "This wasn't me" link that POSTs `action: "DISPUTE"` → `status = DISPUTED`, restores `waitingOn = MANAGER`, notifies the requesting manager.
+- The response endpoint is rate-limited (20 reqs / IP / hour, in-memory via [src/lib/rate-limit.ts](src/lib/rate-limit.ts)). Tokens are UUIDs (effectively unguessable); rate limit is defense-in-depth.
+- Auth helper [src/lib/approval-auth.ts](src/lib/approval-auth.ts) mirrors [src/lib/portal-auth.ts](src/lib/portal-auth.ts). Tokens are redacted to last 4 chars in audit logs (`redactToken()`).
+- The Operational Inbox shows `APPROVAL_PENDING` items for pending requests older than 24h (severity escalates to URGENT after 3 days).
+- Statuses: `PENDING → APPROVED | REJECTED | EXPIRED`; `APPROVED | REJECTED → DISPUTED` (one-way). Once not PENDING, the token is dead for further APPROVE/REJECT but still accepts `DISPUTE` once.
+
+### Case workflows + stages
+
+Each `caseType` maps to an ordered workflow defined in [src/lib/case-workflows.ts](src/lib/case-workflows.ts). The source of truth on a case is `currentStageIndex` (Int) — `stage` (String?) is the rendered label and is recomputed on every advance / regress. `workflowKey` (e.g. `MAINTENANCE_V1`) namespaces stage keys so workflows can be revised without colliding with the legacy `Tenant.renewalStage` enum (which remains tenant-scoped).
+
+Stage transitions:
+- `POST /api/cases/[id]/advance` (manager) — `{ to?: number, toKey?: string, note?: string }`. Must be forward-only. Emits `STAGE_CHANGE`, sets `stageStartedAt = now`, recomputes `waitingOn` from the new stage's `requiresAction`, and clears any `SLA_BREACH` hint for the case.
+- `POST /api/cases/[id]/regress` (manager) — `{ reason: string }`. One step back, reason mandatory. Same transaction shape.
+- `POST /api/cases/[id]/sla` (manager) — `{ stageSlaHours?: Record<string, number | null> }` OR `{ slaHours?: number }` (legacy single value applied to the current stage).
+- `POST /api/cases/[id]/link-invoice` (manager) — sets `Invoice.caseThreadId` so subsequent `PAID` flips trigger the `MAINTENANCE.invoiced` auto-advance.
+
+Auto-advance triggers (best-effort, fired *after* the parent transaction commits, never throws — see `tryAutoAdvance` in case-workflows.ts):
+- Vendor assigned at `MAINTENANCE.triaged` → `quote_requested`
+- Approval granted at `MAINTENANCE.approval_requested` → `approved`
+- Maintenance status `DONE` → `MAINTENANCE.completed`; `CANCELLED` → `closed`
+- Invoice `PAID` (only when `Invoice.caseThreadId` is set) → `MAINTENANCE.invoiced`
+
+Auto-advance fires only on records that carry an explicit `caseThreadId` link — no heuristic inference. `Invoice.caseThreadId` is the new column added in this phase; existing rent invoices have it null and don't trigger auto-advance. Use the **Link invoice** button on the Case detail page to retroactively attach.
+
+### Case SLAs (per-stage)
+
+Per-stage SLAs live in `CaseThread.stageSlaHours` (JSON map of `stageKey → hours`). Defaults come from `case-workflows.ts`; MAINTENANCE cases override `triaged` and `quote_requested` with `ManagementAgreement.kpiEmergencyResponseHrs` / `kpiStandardResponseHrs` depending on the job's `isEmergency`.
+
+**Pause logic**: when `waitingOn` flips to `OWNER` / `TENANT` / `VENDOR`, the SLA clock is paused (`lastWaitingPauseAt = now`); on return to `MANAGER` / `NONE` the paused duration accumulates into `waitingPausedSeconds`. The cron's `checkCaseSlaBreaches` computes `elapsed = (now - stageStartedAt - waitingPausedSeconds*1000)` against `stageSlaHours[currentStageKey]` and emits a `SLA_BREACH` `ActionableHint` (`WARNING`, escalating to `URGENT` after 2× the budget). The hint clears automatically when the case advances.
+
+Backfill: `npm run cases:backfill-stages` populates `workflowKey` + `stageSlaHours` (idempotent). `npm run cases:backfill-invoice-links --dry-run` reports linkable invoice-to-case candidates.
+
+### Status ↔ Stage coupling (terminal reasons)
+
+`CaseThread.status` and `CaseThread.currentStageIndex` are coupled at terminal points but distinguish "workflow completed" from "workflow bypassed":
+
+- **Status → stage**: flipping `status` to `RESOLVED` / `CLOSED` does **not** mutate `currentStageIndex` (historical record preserved). Instead the PATCH route sets `terminalReason`:
+  - `currentStageIndex >= workflow.naturalCompletionIndex` → `COMPLETED_NORMALLY`
+  - otherwise → `BYPASSED` and records `bypassedAtStage = <current stage key>`
+  - Each workflow declares its own `naturalCompletionIndex` in [src/lib/case-workflows.ts](src/lib/case-workflows.ts) (MAINTENANCE=8 / "completed", LEASE_RENEWAL=6 / "documents_signed", ARREARS=3 / "legal_action", COMPLIANCE=4 / "certificate_received", GENERAL=1 / "in_progress").
+- **Stage → status**: advancing to a stage with `terminalStatus` (e.g. `MAINTENANCE.closed`) snaps `status` to that value AND sets `terminalReason=COMPLETED_NORMALLY`.
+- **Regress** out of a terminal stage clears `terminalReason` + `bypassedAtStage` and sets `status=IN_PROGRESS`.
+
+The `StageTracker` UI renders BYPASSED cases with an amber "Bypassed at: *[stage]*" banner; stages past the bypass point appear faded with a dashed border + strikethrough label. The right-panel Stage display shows "Bypassed (was at: *[stage]*)" instead of the workflow label.
+
+`enum CaseTerminalReason { COMPLETED_NORMALLY, BYPASSED, CANCELLED }` — `CANCELLED` is reserved for explicit cancellation (different from passive bypass); the current PATCH path always emits `BYPASSED` for non-natural terminals, but the visual + bookkeeping treats both the same way.
+
+Backfill: `npm run cases:backfill-terminal-reasons` populates `terminalReason` for existing terminal cases without mutating `currentStageIndex`. Idempotent (skips rows where `terminalReason IS NOT NULL`). Writes a per-run report to `scripts/backfill-output-<timestamp>.md`.
+
+### Smart Reminders (ActionableHints)
+
+The cron at `GET /api/cron/notifications` does two things per run: (1) sends emails through the existing dedup-gated path (`NotificationLog`), and (2) **upserts an `ActionableHint` row** keyed by `(hintType, refId)` so the cron is fully idempotent and the same hint surfaces every run until the underlying condition clears.
+
+**HintTypes** (`HintType` enum):
+- Existing email-paired: `INVOICE_OVERDUE`, `LEASE_EXPIRY_30D`, `LEASE_EXPIRY_7D`, `URGENT_OPEN_4H`, `COMPLIANCE_EXPIRY_*`, `INSURANCE_EXPIRY_*`
+- New hint-only: `VACANT_OVER_30D`, `DEPOSIT_NOT_SETTLED`, `RECURRING_EXPENSE_DUE`, `LOW_PETTY_CASH`, `NEGATIVE_CASHFLOW_FORECAST` (and reserved: `RENT_INCREASE_DUE`, `INSPECTION_OVERDUE`)
+
+**Status transitions**: `ACTIVE → ACTED_ON | DISMISSED | EXPIRED`. Dismissed hints auto-expire after 30 days (the cron itself runs the cleanup).
+
+**Auto-clearing**: when the underlying record changes such that the condition no longer applies, the relevant PATCH route calls `clearHints(refId, hintType?)` from [src/lib/hints.ts](src/lib/hints.ts). Currently wired:
+- `PATCH /api/invoices/[id]` (PAID/CANCELLED) → clears `INVOICE_OVERDUE`
+- `PATCH /api/tenants/[id]/renewal` (RENEWED) → clears both `LEASE_EXPIRY_*`
+- `PATCH /api/maintenance/[id]` (status != OPEN) → clears `URGENT_OPEN_4H`
+
+Adding a checker that should auto-clear means: (a) writing `upsertHint` in the checker, and (b) calling `clearHints(refId, hintType)` from whichever route resolves the condition.
+
+**Operational Inbox integration**: `buildInbox()` merges `ActionableHint(status=ACTIVE)` rows alongside computed inbox items, de-duplicating where `(InboxType, refId)` collide (the hint wins, since it carries the suggested action). Each hint-sourced row shows a small "✨ Suggested" badge plus per-user Dismiss / Snooze (1h / 1d / 1w) controls. Snoozes live in `HintSnooze (hintId, userId, until)` and the inbox API filters them out for the current user.
+
+**Hint UI controls**:
+- `POST /api/hints/[id]/dismiss` — sets `DISMISSED` for everyone (manager-level decision)
+- `POST /api/hints/[id]/snooze` body `{ until: "1h" | "1d" | "1w" | <iso-date> }` — per-user only
+- `POST /api/hints/[id]/act` — optimistic flip to `ACTED_ON` after the client fires the underlying action endpoint
+- `GET /api/hints` — list ACTIVE hints scoped to accessible properties; super-admin sees everything (with `?includeAllStatuses=true`)
+
+**Super-admin debug page**: `/admin/hints` lists raw hint rows with status/severity filters.
+
+**Idempotency contract**: never seed an ActionableHint with a non-deterministic `refId`. The `(hintType, refId)` pair is the upsert key. The recurring-expense checker uses `recurringExpense.id`; the maintenance-job checker uses `job.id`; the petty-cash checker uses `property.id`; etc.
+
 ### Email Logging & Super-admin Composer
 
 Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.
@@ -266,16 +397,30 @@ Inbound replies are NOT handled — Resend Inbound (MX + webhook) is not configu
 
 ### Billing (Paddle + Stripe)
 
-`pricingTier` on `Organization` (`TRIAL → STARTER → PRO → SCALE` etc., see `PricingTier` enum) drives feature gating. Billing helpers:
-- `src/lib/paddle.ts` — price-id → tier mapping, `PROPERTY_LIMITS` per tier
+`pricingTier` on `Organization` (`TRIAL → STARTER → GROWTH → PRO`, see `PricingTier` enum) drives capacity gating. Billing helpers:
+- `src/lib/paddle.ts` — price-id → tier mapping, `PROPERTY_LIMITS` + `TEAM_LIMITS` per tier
 - `src/lib/stripe.ts` — lazy Stripe SDK singleton
-- `src/lib/subscription.ts` — gating helpers (e.g. property-cap checks, trial state)
+- `src/lib/subscription.ts` — gating helpers (`canAddProperty`, `canAddUser`, `requireActiveSubscription`, trial state)
 
 Routes:
 - `POST /api/webhooks/paddle` — Paddle subscription events (idempotent via `paddleEventId`)
 - `POST /api/billing/cancel` — initiates cancellation
 - `GET /api/stripe/status` — returns Stripe subscription state
 - Pages: `/billing`, `/upgrade`
+
+### Pricing & gating (capacity only)
+
+There are **only two capacity gates** in the codebase, plus a subscription-state write-lock:
+
+| Gate | Cap | Enforcement |
+|---|---|---|
+| Property count | TRIAL=2 · STARTER=2 · GROWTH=10 · PRO=∞ | `PROPERTY_LIMITS` in paddle.ts → `canAddProperty()` → POST /api/properties |
+| Team-member count | TRIAL=1 · STARTER=1 · GROWTH=10 · PRO=∞ | `TEAM_LIMITS` in paddle.ts → `canAddUser()` → POST /api/users |
+| Write-lock | trial-expired / cancelled / expired / past-due → HTTP 402 | `requireActiveSubscription()` called from every mutating route |
+
+**There is no per-feature gating.** Every other capability — Airbnb tracking, tax rules, cashflow forecast, asset register, insurance, compliance, audit log, multi-org, etc. — is universally available to any active org regardless of tier. This is intentional and is the foundation of the `/pricing` page's "Why no feature gates?" positioning. Marketing copy on `/pricing` MUST reflect this rule until any per-feature gate is added in code — do not advertise gates that don't exist. See [docs/pricing-gating-roadmap.md](docs/pricing-gating-roadmap.md) for the candidate list of features that could plausibly be gated in future.
+
+When adding a new gate: mirror the existing two — cap map in paddle.ts, helper in subscription.ts, guard at the API route returning HTTP 402 with a `code` field, then update `/pricing/page.tsx` to surface the new gate as a real tier-differentiated matrix row.
 
 ### Web Analytics
 
@@ -318,6 +463,16 @@ Token-based read-only portal for tenants — no login required, shareable link. 
   - `"belsize-court"` → Belsize Court (UK)
 
 **pgBouncer constraint**: Supabase uses pgBouncer in transaction pooling mode. This makes the callback-form `prisma.$transaction(async (tx) => {...})` incompatible — it silently commits partial work. Always use sequential `await` calls with manual cleanup, or the array-form `prisma.$transaction([op1, op2, ...])` for atomic operations.
+
+### Setup Progress Visibility
+
+Per-property activation checklist that turns a fresh org's "where do I start?" into a measurable % complete. Pure derived state — no DB column, no migration.
+
+- **Logic**: `computeSetupProgress(propertyId)` in `src/lib/setup-progress.ts` runs one `Promise.all` of counts (`units`, active tenants, tenants with `portalToken`, `recurringExpenses`, `insurancePolicies`, org-scoped active `vendors`, `managementAgreement`, income+expense entries) plus an `Organization` read (logo + bank/M-Pesa). Returns `{ propertyId, propertyName, propertyType, percent, completedCount, totalCount, items }`. Items mark `applicable: false` per property type — e.g. `tenants` and `tenant_portal` don't apply to AIRBNB and are excluded from the denominator.
+- **API**: `GET /api/setup-progress` returns an array for every accessible property; `?propertyId=X` returns one. Guarded by `requireAuth()` + `getAccessiblePropertyIds()`.
+- **UI**:
+  - Dashboard widget — `src/components/dashboard/SetupChecklist.tsx` (client). Animated gold progress bar, ✅/⚠ rows with per-item CTA links + hint tooltips, collapsible, motivational microcopy at ≥80%. Dismissal at 100% persists in `localStorage` under `setup-dismissed:{propertyId}` and auto-reappears if the score drops below 100. Mounted in `src/app/(dashboard)/dashboard/page.tsx` above the KPI strip, suppressed for OWNER role.
+  - Properties page — list/grid cards show a `{percent}% set up` Badge (gold <100, green =100) next to the type badge, populated by a single `GET /api/setup-progress` fetch on load.
 
 ## Environment Variables
 

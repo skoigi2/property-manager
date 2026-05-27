@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  // Default to variant (b) — no-gates promise as the hook. Two variants listed
+  // in the plan for selection: see the post-implementation report.
   title: "Pricing — Groundwork PM",
   description:
-    "Simple, transparent pricing for professional property managers. Start your 30-day free trial — no credit card required.",
+    "Three tiers, one platform. Automatic rent posting, magic-link approvals, expiry alerts, and owner statements that update themselves. 30-day free trial.",
   alternates: {
     canonical: "https://groundworkpm.com/pricing",
   },
   openGraph: {
     title: "Pricing — Groundwork PM",
     description:
-      "Simple, transparent pricing for professional property managers. Start your 30-day free trial — no credit card required.",
+      "Every tier includes the full feature set. Tiers differ by portfolio size and team headcount. 30-day free trial, no card.",
     url: "https://groundworkpm.com/pricing",
     siteName: "Groundwork PM",
     type: "website",
@@ -27,7 +29,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Pricing — Groundwork PM",
     description:
-      "Simple, transparent pricing for professional property managers. Start your 30-day free trial.",
+      "Three tiers, one platform. Same automation in every plan. 30-day free trial, no card.",
     images: ["https://groundworkpm.com/og-image.png"],
   },
 };
@@ -41,7 +43,7 @@ const faqSchema = {
       name: "What happens when my trial ends?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Your account moves to read-only mode — you can view all your data but cannot add or edit records. Your data is never deleted. Simply upgrade to continue.",
+        text: "Your account moves to read-only access. Your data is never deleted. Upgrade to resume writes.",
       },
     },
     {
@@ -73,7 +75,7 @@ const faqSchema = {
       name: "Is my data safe?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes. All data is stored in Supabase (PostgreSQL) with row-level security, encrypted in transit and at rest. We never share or sell your data.",
+        text: "PostgreSQL with row-level security, encrypted in transit and at rest, hosted on enterprise-grade infrastructure with daily backups. Your data is never shared or sold.",
       },
     },
     {

@@ -66,6 +66,16 @@ export const PROPERTY_LIMITS: Record<string, number> = {
   PRO:     Infinity,
 };
 
+// Team-member caps per tier. Enforced by `canAddUser()` in subscription.ts,
+// called from POST /api/users. Trial + Starter are single-operator; Growth
+// allows up to 10 teammates; Pro is unlimited.
+export const TEAM_LIMITS: Record<string, number> = {
+  TRIAL:   1,
+  STARTER: 1,
+  GROWTH:  10,
+  PRO:     Infinity,
+};
+
 // ── Price IDs for client-side checkout ────────────────────────────────────
 // These are safe to expose — they're public price identifiers.
 export const PRICE_IDS = {

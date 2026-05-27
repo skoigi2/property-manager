@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { ShieldCheck, Plus, X, Edit2, Trash2 } from "lucide-react";
+import { useFocusScroll } from "@/lib/use-focus-scroll";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -252,6 +253,7 @@ function CertModal({
 export default function CertificatesPage() {
   const { data: session } = useSession();
   const { selectedId } = useProperty();
+  useFocusScroll();
 
   const [certs, setCerts]       = useState<Cert[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -395,7 +397,7 @@ export default function CertificatesPage() {
               {visible.map((cert) => {
                 const s = STATUS_CONFIG[cert.status];
                 return (
-                  <div key={cert.id} className="px-5 py-4 flex items-start justify-between gap-4">
+                  <div key={cert.id} id={`item-${cert.id}`} className="px-5 py-4 flex items-start justify-between gap-4 transition-shadow">
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium text-header font-sans">{cert.certificateType}</p>

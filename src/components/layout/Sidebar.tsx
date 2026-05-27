@@ -33,6 +33,9 @@ import {
   CreditCard,
   BookOpen,
   Mail,
+  Inbox,
+  Briefcase,
+  Sparkles,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -46,6 +49,7 @@ interface NavItem {
   icon: React.ElementType;
   roles: string[];
   billingOwnerOnly?: boolean;
+  superAdminOnly?: boolean;
 }
 
 interface NavGroup {
@@ -58,6 +62,7 @@ interface NavGroup {
 type SidebarEntry = NavItem | ({ type: "group" } & NavGroup);
 
 const sidebarEntries: SidebarEntry[] = [
+  { href: "/inbox",      label: "Inbox",      icon: Inbox,           roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard, roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/properties", label: "Properties", icon: Building2,        roles: ["MANAGER", "ACCOUNTANT"] },
   { href: "/airbnb",    label: "Airbnb",    icon: CalendarDays, roles: ["MANAGER", "ACCOUNTANT"] },
@@ -92,6 +97,7 @@ const sidebarEntries: SidebarEntry[] = [
     icon: Wrench,
     roles: ["MANAGER", "ACCOUNTANT"],
     items: [
+      { href: "/cases",       label: "Cases",       icon: Briefcase, roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/maintenance", label: "Maintenance", icon: Wrench,    roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/assets",      label: "Assets",      icon: Package,   roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/vendors",     label: "Vendors",     icon: Building2, roles: ["MANAGER", "ACCOUNTANT"] },
@@ -112,6 +118,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/settings/audit", label: "Audit Log", icon: ShieldCheck,roles: ["MANAGER"] },
       { href: "/import",         label: "Import",    icon: Upload,     roles: ["MANAGER"] },
       { href: "/billing",        label: "Billing",   icon: CreditCard, roles: ["MANAGER"], billingOwnerOnly: true },
+      { href: "/admin/hints",    label: "Hints",     icon: Sparkles,   roles: ["MANAGER"], superAdminOnly: true },
     ],
   },
 ];
@@ -144,6 +151,26 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [urgentCount, setUrgentCount] = useState(0);
+
+  useEffect(() => {
+    if (role === "OWNER") return;
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/inbox")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!cancelled && d?.counts) setUrgentCount(d.counts.urgent ?? 0);
+        })
+        .catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [role]);
 
   useEffect(() => {
     if (!isSuperAdmin) {
@@ -290,7 +317,10 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
             if (!canSee(entry.roles)) return null;
 
             const visibleItems = entry.items.filter(
-              (i) => canSee(i.roles) && (!i.billingOwnerOnly || isBillingOwner || isSuperAdmin)
+              (i) =>
+                canSee(i.roles) &&
+                (!i.billingOwnerOnly || isBillingOwner || isSuperAdmin) &&
+                (!i.superAdminOnly || isSuperAdmin)
             );
             if (visibleItems.length === 0) return null;
 
@@ -359,6 +389,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
           const Icon = entry.icon;
           const isActive =
             pathname === entry.href || pathname.startsWith(entry.href + "/");
+          const showInboxBadge = entry.href === "/inbox" && urgentCount > 0;
           return (
             <Link
               key={entry.href}
@@ -371,7 +402,12 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
               )}
             >
               <Icon size={18} />
-              {entry.label}
+              <span className="flex-1">{entry.label}</span>
+              {showInboxBadge && (
+                <span className="bg-red-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full leading-none">
+                  {urgentCount}
+                </span>
+              )}
             </Link>
           );
         })}

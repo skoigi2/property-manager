@@ -27,6 +27,7 @@ import { VendorSelect } from "@/components/ui/VendorSelect";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
+import { useFocusScroll } from "@/lib/use-focus-scroll";
 import { format } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ type Category = "PLUMBING" | "ELECTRICAL" | "STRUCTURAL" | "APPLIANCE" | "PAINTI
 
 interface Job {
   id:            string;
+  caseThreadId?: string | null;
   title:         string;
   description?:  string | null;
   category:      Category;
@@ -155,6 +157,32 @@ function daysUntil(dateStr: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
   return Math.round((d.getTime() - today.getTime()) / 86400000);
+}
+
+function CasesBanner() {
+  const [dismissed, setDismissed] = useState<boolean | null>(null);
+  useEffect(() => {
+    setDismissed(typeof window !== "undefined" && localStorage.getItem("cases-banner-dismissed") === "1");
+  }, []);
+  if (dismissed !== false) return null;
+  return (
+    <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm font-sans">
+      <span className="text-header">
+        💡 Looking for the full timeline, comments, and approvals?{" "}
+        <a href="/cases?caseType=MAINTENANCE" className="text-gold underline">Open this in the new Cases view →</a>
+      </span>
+      <button
+        onClick={() => {
+          localStorage.setItem("cases-banner-dismissed", "1");
+          setDismissed(true);
+        }}
+        className="text-gray-400 hover:text-gray-600 text-xs"
+        aria-label="Dismiss"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
 }
 
 type TaskStatus = {
@@ -382,6 +410,12 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
         </Badge>
       </div>
 
+      {job.caseThreadId && (
+        <a href={`/cases/${job.caseThreadId}`} className="text-xs text-gold hover:underline inline-flex items-center gap-1">
+          Open case →
+        </a>
+      )}
+
       {/* Meta chips */}
       <div className="flex items-center gap-1.5 text-xs text-gray-400 font-sans flex-wrap">
         <span className="bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded">
@@ -519,6 +553,7 @@ export default function MaintenancePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = selected?.currency ?? "USD";
+  useFocusScroll();
   const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
 
   // ── Tab state ──────────────────────────────────────────────────────────────
@@ -865,6 +900,8 @@ export default function MaintenancePage() {
         )}
       </Header>
 
+      <CasesBanner />
+
       {/* Tab switcher */}
       <div className="border-b border-gray-200 bg-white px-6">
         <nav className="flex gap-1">
@@ -1003,17 +1040,18 @@ export default function MaintenancePage() {
                           </div>
                         ) : (
                           colJobs.map((job) => (
-                            <JobCard
-                              key={job.id}
-                              job={job}
-                              isManager={isManager}
-                              currency={currency}
-                              onEdit={openEdit}
-                              onDelete={setDeleteTarget}
-                              onAdvance={handleAdvance}
-                              onLogExpense={setLogExpenseTarget}
-                              advancing={advancing === job.id}
-                            />
+                            <div key={job.id} id={`item-${job.id}`}>
+                              <JobCard
+                                job={job}
+                                isManager={isManager}
+                                currency={currency}
+                                onEdit={openEdit}
+                                onDelete={setDeleteTarget}
+                                onAdvance={handleAdvance}
+                                onLogExpense={setLogExpenseTarget}
+                                advancing={advancing === job.id}
+                              />
+                            </div>
                           ))
                         )}
                         {isManager && col.status === "OPEN" && (

@@ -10,6 +10,7 @@ export default auth((req) => {
   const isAuthPage = pathname.startsWith("/login");
   const isSelectOrgPage = pathname.startsWith("/select-org");
   const isPortalPage = pathname.startsWith("/portal/");
+  const isApprovePage = pathname.startsWith("/approve/");
 
   // Public marketing + auth pages — no login required
   const isPublicPage =
@@ -30,7 +31,7 @@ export default auth((req) => {
     pathname.startsWith("/blog") ||
     pathname.startsWith("/contact");
 
-  if (!isLoggedIn && !isAuthPage && !isPortalPage && !isPublicPage) {
+  if (!isLoggedIn && !isAuthPage && !isPortalPage && !isApprovePage && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
@@ -63,7 +64,7 @@ export default auth((req) => {
   }
 
   // Manager-only routes (OWNER is blocked)
-  const managerOnlyPaths = ["/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors"];
+  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors", "/cases"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
     const role = req.auth?.user?.role;
     if (role === "OWNER") {

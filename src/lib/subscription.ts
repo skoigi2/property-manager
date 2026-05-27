@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { PROPERTY_LIMITS } from "@/lib/paddle";
+import { PROPERTY_LIMITS, TEAM_LIMITS } from "@/lib/paddle";
 
 // ─── Trial & subscription status helpers ─────────────────────────────────────
 
@@ -59,6 +59,25 @@ export async function canAddProperty(orgId: string): Promise<boolean> {
   if (!org) return false;
   if (org.freeAccess) return true; // Complimentary PRO — no property limit
   const limit = PROPERTY_LIMITS[org.pricingTier] ?? 2;
+  return count < limit;
+}
+
+/**
+ * Returns true if the org can add another team member given its tier's
+ * TEAM_LIMITS cap. Org members are counted via UserOrganizationMembership
+ * (the source of truth for org membership).
+ */
+export async function canAddUser(orgId: string): Promise<boolean> {
+  const [org, count] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { pricingTier: true, freeAccess: true },
+    }),
+    prisma.userOrganizationMembership.count({ where: { organizationId: orgId } }),
+  ]);
+  if (!org) return false;
+  if (org.freeAccess) return true; // Complimentary PRO — no team limit
+  const limit = TEAM_LIMITS[org.pricingTier] ?? 1;
   return count < limit;
 }
 

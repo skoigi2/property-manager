@@ -78,7 +78,7 @@ function avgNightlyRate(entries: any[]): number {
 export default function AirbnbPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const [tab, setTab]     = useState<Tab>("calendar");
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 

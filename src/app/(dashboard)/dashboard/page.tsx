@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
@@ -8,9 +9,16 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
 import { RentStatusTable } from "@/components/dashboard/RentStatusTable";
 import { AlbaRevenueTable } from "@/components/dashboard/AlbaRevenueTable";
-import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { Header } from "@/components/layout/Header";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
+import { useCachedFetch } from "@/lib/use-cached-fetch";
+
+// recharts is ~200 KB gzipped — keep it out of the initial dashboard chunk so
+// the KPI cards render before the chart bundle is parsed.
+const RevenueChart = dynamic(
+  () => import("@/components/dashboard/RevenueChart").then((m) => m.RevenueChart),
+  { ssr: false, loading: () => <div className="h-72 bg-gray-50 rounded-xl animate-pulse" /> },
+);
 import {
   TrendingUp, Wallet, Receipt, AlertTriangle, DollarSign,
   Calendar, ScrollText, Wrench, AlertCircle, ChevronRight,
@@ -58,43 +66,22 @@ function ActionCard({ icon, title, severity, lines, href }: {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [opsData, setOpsData] = useState<any>(null);
-  const [opsLoading, setOpsLoading] = useState(true);
   const [tab, setTab] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    setOpsLoading(true);
-    const params = new URLSearchParams({
-      year: String(month.getFullYear()),
-      month: String(month.getMonth() + 1),
-    });
-    if (selectedId) params.set("propertyId", selectedId);
+  const params = new URLSearchParams({
+    year: String(month.getFullYear()),
+    month: String(month.getMonth() + 1),
+  });
+  if (selectedId) params.set("propertyId", selectedId);
 
-    // Fire both fetches concurrently — critical data controls the main spinner
-    fetch(`/api/dashboard?${params}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setData(d);
-        if (d.properties?.length > 0) {
-          setTab((prev) => prev ?? d.properties[0].id);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-
-    fetch(`/api/dashboard/ops?${params}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setOpsData(d);
-        setOpsLoading(false);
-      })
-      .catch(() => setOpsLoading(false));
-  }, [month, selectedId]);
+  // Cache key reflects every input that affects the result — month + property
+  // scope. Switching either reads a different cache slot, so going back to a
+  // previously-visited combination is instant.
+  const cacheScope = `${month.getFullYear()}-${month.getMonth() + 1}:${selectedId ?? "all"}`;
+  const { data, loading } = useCachedFetch<any>(`dashboard:${cacheScope}`, `/api/dashboard?${params}`);
+  const { data: opsData, loading: opsLoading } = useCachedFetch<any>(`dashboard-ops:${cacheScope}`, `/api/dashboard/ops?${params}`);
 
   // Reset tab when properties change
   useEffect(() => {
@@ -102,7 +89,7 @@ export default function DashboardPage() {
       const ids = data.properties.map((p: any) => p.id);
       if (!ids.includes(tab)) setTab(ids[0]);
     }
-  }, [data?.properties]);
+  }, [data?.properties, tab]);
 
   const activeProperty = data?.properties?.find((p: any) => p.id === tab);
 

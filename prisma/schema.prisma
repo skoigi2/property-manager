@@ -160,7 +160,17 @@ enum PropertyCategory {
   INDUSTRIAL
   RETAIL
   MIXED_USE
+  LAND
+  GROUND_LEASE
+  COMMERCIAL_SPECIAL_USE
   OTHER
+}
+
+enum PaymentFrequency {
+  MONTHLY
+  QUARTERLY
+  BIANNUAL
+  ANNUAL
 }
 
 enum InsuranceType {
@@ -466,6 +476,10 @@ model Property {
   serviceChargeDefault Float?
   currency              String            @default("USD")
   vatRegistrationNumber String?
+  landlordEntity        String?
+  bankName              String?
+  bankAccountName       String?
+  bankAccountNumber     String?
   units                 Unit[]
   expenses              ExpenseEntry[]
   propertyAccess        PropertyAccess[]
@@ -499,6 +513,7 @@ model Unit {
   vacantSince   DateTime?
   description   String?
   amenities     String[]
+  titleReference String?
   property      Property              @relation(fields: [propertyId], references: [id])
   tenants           Tenant[]
   incomeEntries     IncomeEntry[]
@@ -540,6 +555,8 @@ model Tenant {
   escalationRate   Float?
   chargeLatePenalty Boolean         @default(false)
   isTaxExempt      Boolean         @default(false)
+  paymentFrequency PaymentFrequency?
+  parkingFee       Float?
   portalToken          String?          @unique
   portalTokenExpiresAt DateTime?
   unit             Unit             @relation(fields: [unitId], references: [id])
@@ -937,6 +954,8 @@ model Invoice {
   @@index([tenantId])
   @@index([status])
   @@index([caseThreadId])
+  @@index([dueDate])
+  @@index([status, dueDate])
 }
 
 model OwnerInvoice {

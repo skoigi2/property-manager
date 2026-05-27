@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
+import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -16,7 +17,7 @@ import { HelpTip } from "@/components/ui/HelpTip";
 import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -200,11 +201,12 @@ interface Unit {
   floor: number | null;
   sizeSqm: number | null;
   description: string | null;
+  titleReference: string | null;
   _count?: { tenants: number };
   incomeEntries?: { id: string; checkIn: string; checkOut: string }[];
 }
 
-type PropertyCategory = "RESIDENTIAL" | "OFFICE" | "INDUSTRIAL" | "RETAIL" | "MIXED_USE" | "OTHER";
+type PropertyCategory = "RESIDENTIAL" | "OFFICE" | "INDUSTRIAL" | "RETAIL" | "MIXED_USE" | "LAND" | "GROUND_LEASE" | "COMMERCIAL_SPECIAL_USE" | "OTHER";
 
 interface Property {
   id: string;
@@ -219,6 +221,10 @@ interface Property {
   managementFeeFlat: number | null;
   serviceChargeDefault: number | null;
   currency: string | null;
+  landlordEntity:    string | null;
+  bankName:          string | null;
+  bankAccountName:   string | null;
+  bankAccountNumber: string | null;
   units: Unit[];
   owner:   { id: string; name: string | null; email: string | null } | null;
   manager: { id: string; name: string | null; email: string | null } | null;
@@ -228,34 +234,47 @@ interface Property {
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const CATEGORY_LABELS: Record<string, string> = {
-  RESIDENTIAL: "Residential",
-  OFFICE:      "Office",
-  INDUSTRIAL:  "Industrial",
-  RETAIL:      "Retail",
-  MIXED_USE:   "Mixed Use",
-  OTHER:       "Other",
+  RESIDENTIAL:            "Residential",
+  OFFICE:                 "Office",
+  INDUSTRIAL:             "Industrial",
+  RETAIL:                 "Retail",
+  MIXED_USE:              "Mixed Use",
+  LAND:                   "Land",
+  GROUND_LEASE:           "Ground Lease",
+  COMMERCIAL_SPECIAL_USE: "Commercial / Special Use",
+  OTHER:                  "Other",
 };
 
 const CATEGORY_BADGE: Record<string, "blue"|"amber"|"gray"|"green"|"gold"|"red"> = {
-  RESIDENTIAL: "blue",
-  OFFICE:      "gold",
-  INDUSTRIAL:  "gray",
-  RETAIL:      "green",
-  MIXED_USE:   "amber",
-  OTHER:       "gray",
+  RESIDENTIAL:            "blue",
+  OFFICE:                 "gold",
+  INDUSTRIAL:             "gray",
+  RETAIL:                 "green",
+  MIXED_USE:              "amber",
+  LAND:                   "green",
+  GROUND_LEASE:           "amber",
+  COMMERCIAL_SPECIAL_USE: "gold",
+  OTHER:                  "gray",
 };
+
+// The <Select> placeholder option submits as "" — coerce that to undefined
+// before Zod validates, so .optional() actually means "not picked".
+const emptyToUndef = (v: unknown) => (v === "" || v == null ? undefined : v);
 
 const propertySchema = z.object({
   name: z.string().min(1, "Name required"),
   type: z.enum(["AIRBNB", "LONGTERM"]),
-  category: z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "OTHER"]).optional(),
+  category: z.preprocess(
+    emptyToUndef,
+    z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "LAND", "GROUND_LEASE", "COMMERCIAL_SPECIAL_USE", "OTHER"]).optional(),
+  ),
   categoryOther: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
-  ownerId:        z.string().optional(),
-  managerId:      z.string().optional(),
-  organizationId: z.string().optional(),
+  ownerId:        z.preprocess(emptyToUndef, z.string().optional()),
+  managerId:      z.preprocess(emptyToUndef, z.string().optional()),
+  organizationId: z.preprocess(emptyToUndef, z.string().optional()),
   managementFeeRate: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).max(100).optional()
@@ -268,6 +287,11 @@ const propertySchema = z.object({
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).optional()
   ),
+  currency: z.preprocess(emptyToUndef, z.string().optional()),
+  landlordEntity:    z.string().optional(),
+  bankName:          z.string().optional(),
+  bankAccountName:   z.string().optional(),
+  bankAccountNumber: z.string().optional(),
 });
 type PropertyForm = z.infer<typeof propertySchema>;
 
@@ -288,6 +312,7 @@ const unitSchema = z.object({
     z.number().min(0).optional()
   ),
   description: z.string().optional(),
+  titleReference: z.string().optional(),
 });
 type UnitForm = z.infer<typeof unitSchema>;
 
@@ -403,12 +428,15 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
           placeholder="— Select category —"
           {...register("category")}
           options={[
-            { value: "RESIDENTIAL", label: "Residential" },
-            { value: "OFFICE",      label: "Office" },
-            { value: "INDUSTRIAL",  label: "Industrial" },
-            { value: "RETAIL",      label: "Retail" },
-            { value: "MIXED_USE",   label: "Mixed Use" },
-            { value: "OTHER",       label: "Other (specify)" },
+            { value: "RESIDENTIAL",            label: "Residential" },
+            { value: "OFFICE",                 label: "Office" },
+            { value: "INDUSTRIAL",             label: "Industrial" },
+            { value: "RETAIL",                 label: "Retail" },
+            { value: "MIXED_USE",              label: "Mixed Use" },
+            { value: "LAND",                   label: "Land" },
+            { value: "GROUND_LEASE",           label: "Ground Lease" },
+            { value: "COMMERCIAL_SPECIAL_USE", label: "Commercial / Special Use" },
+            { value: "OTHER",                  label: "Other (specify)" },
           ]}
         />
       </div>
@@ -424,6 +452,27 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
       <div className="grid grid-cols-2 gap-4">
         <Input label="Address" {...register("address")} placeholder="Street address" />
         <Input label="City"    {...register("city")}    placeholder="City" />
+      </div>
+
+      {/* Landlord & banking — per-property overrides for invoice + receipt details */}
+      <div className="rounded-xl border border-gray-100 p-3 space-y-3 bg-cream/30">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans">Landlord & Banking</p>
+        <Input
+          label="Landlord Entity"
+          tooltip="The legal entity that owns or holds the property (e.g. Kentmere Flora Ltd). Appears on invoices and lease agreements."
+          {...register("landlordEntity")}
+          placeholder="e.g. Acme Holdings Ltd"
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Bank Name"          {...register("bankName")}          placeholder="e.g. KCB Bank" />
+          <Input label="Bank Account Name"  {...register("bankAccountName")}   placeholder="e.g. Acme Holdings Ltd" />
+        </div>
+        <Input
+          label="Bank Account Number"
+          tooltip="Where rent should be paid. If left blank, the organisation-level account is used instead."
+          {...register("bankAccountNumber")}
+          placeholder="e.g. 1234567890"
+        />
       </div>
 
       <div className="flex flex-col gap-1">
@@ -453,22 +502,30 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
         />
       </div>
 
-      <Input
-        label="Default Service Charge"
-        tooltip="Default charge applied to each unit for shared costs (utilities, cleaning, etc.). Tenants can have individual amounts set on their profile."
-        type="number"
-        {...register("serviceChargeDefault")}
-        placeholder="5000"
-      />
-
-      {owners.length > 0 && (
-        <Select
-          label="Property Owner"
-          placeholder="— Unassigned —"
-          {...register("ownerId")}
-          options={owners.map((o) => ({ value: o.id, label: o.name ?? o.email ?? o.id }))}
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Default Service Charge"
+          tooltip="Default charge applied to each unit for shared costs (utilities, cleaning, etc.). Tenants can have individual amounts set on their profile."
+          type="number"
+          {...register("serviceChargeDefault")}
+          placeholder="5000"
         />
-      )}
+        <Select
+          label="Currency"
+          tooltip="Currency used to display all amounts for this property. You can change it later — existing amounts are not converted."
+          placeholder="— Select currency —"
+          {...register("currency")}
+          options={SUPPORTED_CURRENCIES.map((c) => ({ value: c.code, label: c.label }))}
+        />
+      </div>
+
+      <Select
+        label="Property Owner"
+        tooltip="The landlord / beneficial owner this property belongs to. Only users with the OWNER role appear here — invite one from Settings → Users if the list is empty."
+        placeholder={owners.length > 0 ? "— Unassigned —" : "No owner accounts yet"}
+        {...register("ownerId")}
+        options={owners.map((o) => ({ value: o.id, label: o.name ?? o.email ?? o.id }))}
+      />
 
       {managers.length > 0 && (
         <Select
@@ -492,6 +549,15 @@ function UnitFormFields({ register, errors, propertyType }: { register: any; err
           placeholder="e.g. 101, A1, G1"
           error={errors.unitNumber?.message}
         />
+        <Input
+          label="Title Reference"
+          tooltip="Land Reference / title-deed number for this unit (e.g. 2951/664). Useful when a property has individually titled units."
+          {...register("titleReference")}
+          placeholder="e.g. 2951/664"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <Input
           label="Floor"
           type="number"
@@ -879,24 +945,37 @@ function PropertiesTable({
   isManager,
   onSelect,
   onEdit,
+  onAddUnit,
+  onEditUnit,
+  onDeleteUnit,
   activeUnits,
   vacantUnits,
+  setupByProp,
 }: {
   properties: Property[];
   isManager: boolean;
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
+  onAddUnit: (p: Property) => void;
+  onEditUnit: (property: Property, unit: Unit) => void;
+  onDeleteUnit: (unit: Unit) => void;
   activeUnits: (units: Property["units"], propertyType: string) => number;
   vacantUnits: (units: Property["units"]) => number;
+  setupByProp: Record<string, { percent: number }>;
 }) {
+  // Track which property's units row is expanded so the user can edit units
+  // inline from the table view (parity with the grid view's UnitPanel).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const COL_COUNT = 10;
+
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-100">
       <table className="min-w-full divide-y divide-gray-100">
         <thead className="bg-gray-50/60">
           <tr>
-            {["Property", "Category", "Type", "Units", "Mgmt Fee", "Owner", "Manager", ""].map((h) => (
+            {["", "Property", "Category", "Type", "Units", "Setup", "Mgmt Fee", "Owner", "Manager", ""].map((h, i) => (
               <th
-                key={h}
+                key={`${h}-${i}`}
                 className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans whitespace-nowrap"
               >
                 {h}
@@ -915,12 +994,24 @@ function PropertiesTable({
               ? formatCurrency(p.managementFeeFlat, p.currency ?? "USD")
               : "—";
 
+            const isExpanded = expandedId === p.id;
             return (
+              <Fragment key={p.id}>
               <tr
-                key={p.id}
                 onClick={() => onSelect(p)}
                 className={`cursor-pointer hover:bg-gray-50/60 transition-colors ${i % 2 === 1 ? "bg-gray-50/30" : ""}`}
               >
+                {/* Expand toggle */}
+                <td className="px-2 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                    className="p-1 rounded-md text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                    title={isExpanded ? "Hide units" : "Show units"}
+                    aria-expanded={isExpanded}
+                  >
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+                </td>
                 {/* Property name + address */}
                 <td className="px-4 py-3 min-w-[160px]">
                   <p className="font-sans font-semibold text-header text-sm">{p.name}</p>
@@ -958,6 +1049,17 @@ function PropertiesTable({
                   <span className="text-yellow-500">{vacant}</span>
                 </td>
 
+                {/* Setup % */}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {setupByProp[p.id] ? (
+                    <Badge variant={setupByProp[p.id].percent === 100 ? "green" : "gold"}>
+                      {setupByProp[p.id].percent}%
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
+
                 {/* Mgmt fee */}
                 <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-500">
                   {feeText}
@@ -978,6 +1080,13 @@ function PropertiesTable({
                   <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {isManager && (
                       <>
+                        <button
+                          onClick={() => onAddUnit(p)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                          title="Add unit"
+                        >
+                          <Plus size={14} />
+                        </button>
                         <Link
                           href={`/properties/${p.id}/agreement`}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
@@ -1011,6 +1120,20 @@ function PropertiesTable({
                   </div>
                 </td>
               </tr>
+              {isExpanded && (
+                <tr className="bg-gray-50/50">
+                  <td colSpan={COL_COUNT} className="px-4 py-4 border-b border-gray-100">
+                    <UnitPanel
+                      property={p}
+                      isManager={isManager}
+                      onAddUnit={onAddUnit}
+                      onEditUnit={onEditUnit}
+                      onDeleteUnit={onDeleteUnit}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>
@@ -1132,170 +1255,35 @@ function PropertiesMobileList({
   );
 }
 
-// ─── Import Handover Modal ────────────────────────────────────────────────────
+// Import Handover lives on /import now (Handover tab). See
+// src/components/import/ImportHandoverModal.tsx.
 
-interface ImportSummary {
-  propertyId: string;
-  propertyName: string;
-  summary: { units: number; tenants: number; incomeEntries: number; expenseEntries: number; pettyCash: number; ownerInvoices: number; documents: number };
-  errors: { sheet: string; row: number; reason: string }[];
-}
-
-function ImportHandoverModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
-  const [file,    setFile]    = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [result,  setResult]  = useState<ImportSummary | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    if (!file) { toast.error("Select a ZIP file"); return; }
-    setLoading(true);
-    setApiError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/import/handover", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) { setApiError(data.error ?? "Import failed"); return; }
-      setResult(data);
-      onImported();
-    } catch {
-      setApiError("Network error — import failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 my-8">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <PackageOpen size={18} className="text-gold shrink-0" />
-            <div>
-              <h3 className="font-display text-header text-lg">Import from Handover Package</h3>
-              <p className="text-xs text-gray-400 font-sans mt-0.5">Restores a property from a .zip handover export</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
-        </div>
-
-        {!result ? (
-          <>
-            {/* File picker */}
-            <div>
-              <label className="text-xs text-gray-500 font-sans uppercase tracking-wide font-medium block mb-2">
-                Handover ZIP file
-              </label>
-              <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-8 cursor-pointer transition-colors ${file ? "border-gold/40 bg-gold/5" : "border-gray-200 hover:border-gold/40"}`}>
-                <PackageOpen size={28} className={file ? "text-gold" : "text-gray-300"} />
-                <span className="text-sm font-sans text-gray-500">
-                  {file ? file.name : "Click to select a .zip handover package"}
-                </span>
-                {file && <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>}
-                <input
-                  type="file"
-                  accept=".zip"
-                  className="hidden"
-                  onChange={(e) => { setFile(e.target.files?.[0] ?? null); setApiError(null); }}
-                />
-              </label>
-            </div>
-
-            {apiError && (
-              <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-2 text-xs text-expense font-sans">
-                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                {apiError}
-              </div>
-            )}
-
-            <p className="text-xs text-gray-400 font-sans">
-              Will import: property, units, tenants, income, expenses, petty cash, owner invoices, and tenant documents.
-              Management agreement settings must be configured manually after import.
-            </p>
-
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={handleSubmit}
-                disabled={loading || !file}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
-              >
-                {loading ? <><Loader2 size={14} className="animate-spin" /> Importing…</> : <><PackageOpen size={14} /> Import Property</>}
-              </button>
-              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
-                Cancel
-              </button>
-            </div>
-          </>
-        ) : (
-          /* Success summary */
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle size={16} className="text-income" />
-                <p className="text-sm font-sans font-semibold text-income">{result.propertyName} imported successfully</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-sans text-gray-600">
-                {[
-                  ["Units",           result.summary.units],
-                  ["Tenants",         result.summary.tenants],
-                  ["Income entries",  result.summary.incomeEntries],
-                  ["Expense entries", result.summary.expenseEntries],
-                  ["Petty cash",      result.summary.pettyCash],
-                  ["Owner invoices",  result.summary.ownerInvoices],
-                  ["Documents",       result.summary.documents],
-                ].map(([label, count]) => (
-                  <div key={String(label)} className="flex justify-between">
-                    <span>{label}</span>
-                    <span className="font-mono font-semibold text-header">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {result.errors.length > 0 && (
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 max-h-36 overflow-y-auto">
-                <p className="text-xs font-sans font-semibold text-amber-800 mb-1">{result.errors.length} row(s) skipped:</p>
-                {result.errors.map((e, i) => (
-                  <p key={i} className="text-xs text-amber-700 font-sans">
-                    {e.sheet} row {e.row}: {e.reason}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <a
-                href={`/properties`}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark"
-              >
-                <Building2 size={14} /> View Properties
-              </a>
-              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PropertiesPage() {
   const { data: session } = useSession();
+  const { refresh: refreshPropertyContext } = useProperty();
   const isManager = session?.user?.role === "MANAGER" || session?.user?.role === "ADMIN";
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
 
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [setupByProp, setSetupByProp] = useState<Record<string, { percent: number }>>({});
+  // SWR-from-sessionStorage for the two heaviest fetches.
+  // owners/managers/orgs are loaded once and rarely change — leave as plain state.
+  const { data: propertiesData, setData: setProperties, loading: propertiesLoading, refresh: refreshProperties } =
+    useCachedFetch<Property[]>("properties:full", "/api/properties");
+  const { data: setupArr, refresh: refreshSetup } =
+    useCachedFetch<Array<{ propertyId: string; percent: number }>>("setup-progress:all", "/api/setup-progress");
+  const properties = propertiesData ?? [];
+  const setupByProp = useMemo(() => {
+    const map: Record<string, { percent: number }> = {};
+    for (const p of setupArr ?? []) map[p.propertyId] = { percent: p.percent };
+    return map;
+  }, [setupArr]);
+
   const [owners, setOwners]         = useState<OwnerUser[]>([]);
   const [managers, setManagers]     = useState<OwnerUser[]>([]);
   const [orgs, setOrgs]             = useState<OrgOption[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const loading = propertiesLoading;
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [layout, setLayout] = useState<LayoutMode>("grid");
 
@@ -1320,7 +1308,7 @@ export default function PropertiesPage() {
   const [deleting, setDeleting] = useState(false);
 
   // Import handover
-  const [showImport, setShowImport] = useState(false);
+  // Import handover lives on /import now — no local state needed here.
 
   // Demo loader modal
   const [showDemoModal, setShowDemoModal] = useState(false);
@@ -1341,19 +1329,10 @@ export default function PropertiesPage() {
 
   // ── Load ────────────────────────────────────────────────────────────────────
 
+  // Force a refresh of the cached fetches — called by handlers after create / edit / delete.
   const load = () => {
-    fetch("/api/properties")
-      .then((r) => r.json())
-      .then((d) => { setProperties(d); setLoading(false); })
-      .catch(() => setLoading(false));
-    fetch("/api/setup-progress")
-      .then((r) => r.ok ? r.json() : [])
-      .then((arr: Array<{ propertyId: string; percent: number }>) => {
-        const map: Record<string, { percent: number }> = {};
-        for (const p of arr) map[p.propertyId] = { percent: p.percent };
-        setSetupByProp(map);
-      })
-      .catch(() => {});
+    refreshProperties().catch(() => {});
+    refreshSetup().catch(() => {});
   };
 
   useEffect(() => {
@@ -1362,12 +1341,16 @@ export default function PropertiesPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    // properties/setup-progress are auto-fetched by useCachedFetch; just load
+    // the rarely-changing supplemental lists here.
     fetch("/api/users")
       .then((r) => r.json())
       .then((d: any[]) => {
         setOwners(d.filter((u) => u.role === "OWNER"));
-        setManagers(d.filter((u) => u.role === "MANAGER" || u.role === "ACCOUNTANT"));
+        // Lead Manager pool: ADMIN (org-admin), MANAGER, or ACCOUNTANT.
+        // /api/users already strips super-admins (role=ADMIN, organizationId=null), so this
+        // safely includes org-admins who in practice often act as the lead manager.
+        setManagers(d.filter((u) => u.role === "ADMIN" || u.role === "MANAGER" || u.role === "ACCOUNTANT"));
       })
       .catch(() => {});
     if (isSuperAdmin) {
@@ -1407,6 +1390,11 @@ export default function PropertiesPage() {
       managementFeeRate: p.managementFeeRate ?? undefined,
       managementFeeFlat: p.managementFeeFlat ?? undefined,
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
+      currency: p.currency ?? undefined,
+      landlordEntity:    p.landlordEntity    ?? "",
+      bankName:          p.bankName          ?? "",
+      bankAccountName:   p.bankAccountName   ?? "",
+      bankAccountNumber: p.bankAccountNumber ?? "",
     });
     setPropModalOpen(true);
   };
@@ -1417,9 +1405,10 @@ export default function PropertiesPage() {
     try {
       const res = await fetch(`/api/properties/${deletingProperty.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      setProperties((prev) => prev.filter((p) => p.id !== deletingProperty.id));
+      setProperties((prev) => (prev ?? []).filter((p) => p.id !== deletingProperty.id));
       if (selectedProperty?.id === deletingProperty.id) setSelectedProperty(null);
       toast.success(`"${deletingProperty.name}" deleted.`);
+      refreshPropertyContext().catch(() => {});
     } catch {
       toast.error("Failed to delete property.");
     } finally {
@@ -1442,6 +1431,7 @@ export default function PropertiesPage() {
       toast.success(editProp ? "Property updated" : "Property created");
       setPropModalOpen(false);
       load();
+      refreshPropertyContext().catch(() => {});
     } catch {
       toast.error("Failed to save property");
     } finally {
@@ -1469,6 +1459,7 @@ export default function PropertiesPage() {
       floor: unit.floor ?? undefined,
       sizeSqm: unit.sizeSqm ?? undefined,
       description: unit.description ?? "",
+      titleReference: unit.titleReference ?? "",
     });
     setUnitModalOpen(true);
   };
@@ -1492,6 +1483,7 @@ export default function PropertiesPage() {
       toast.success(editUnit ? "Unit updated" : "Unit added");
       setUnitModalOpen(false);
       load();
+      refreshPropertyContext().catch(() => {});
     } catch (e: any) {
       toast.error(e.message ?? "Failed to save unit");
     } finally {
@@ -1546,12 +1538,7 @@ export default function PropertiesPage() {
             </button>
           </div>
         )}
-        {/* Desktop only: Import button */}
-        {isManager && (
-          <Button size="sm" variant="secondary" className="hidden lg:flex" onClick={() => setShowImport(true)}>
-            <PackageOpen size={14} className="mr-1" /> Import from Handover
-          </Button>
-        )}
+        {/* "Import from Handover" moved to Settings → Import (Handover tab). */}
         {isManager && (
           <Button size="sm" variant="secondary" className="hidden lg:flex" onClick={() => setShowDemoModal(true)}>
             <Sparkles size={14} className="mr-1" /> Load sample
@@ -1585,11 +1572,7 @@ export default function PropertiesPage() {
                 <List size={15} />
               </button>
             </div>
-            {isManager && (
-              <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
-                <PackageOpen size={14} className="mr-1" /> Import from Handover
-              </Button>
-            )}
+            {/* "Import from Handover" moved to Settings → Import (Handover tab). */}
           </div>
         )}
         {loading ? (
@@ -1607,8 +1590,12 @@ export default function PropertiesPage() {
                 isManager={isManager}
                 onSelect={setSelectedProperty}
                 onEdit={openEditProperty}
+                onAddUnit={openAddUnit}
+                onEditUnit={openEditUnit}
+                onDeleteUnit={(u) => setDeleteUnit(u)}
                 activeUnits={activeUnits}
                 vacantUnits={vacantUnits}
+                setupByProp={setupByProp}
               />
             </div>
             {/* Mobile: compact stacked list — no horizontal scroll */}
@@ -1815,12 +1802,6 @@ export default function PropertiesPage() {
 
       <PropertySummaryPanel property={selectedProperty} onClose={() => setSelectedProperty(null)} />
 
-      {showImport && (
-        <ImportHandoverModal
-          onClose={() => setShowImport(false)}
-          onImported={load}
-        />
-      )}
 
       {/* Demo loader modal */}
       <Modal open={showDemoModal} title="Load sample property" onClose={() => setShowDemoModal(false)}>

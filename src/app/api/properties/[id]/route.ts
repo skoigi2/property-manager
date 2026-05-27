@@ -6,11 +6,15 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
-  category: z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "OTHER"]).nullable().optional(),
+  category: z.enum(["RESIDENTIAL", "OFFICE", "INDUSTRIAL", "RETAIL", "MIXED_USE", "LAND", "GROUND_LEASE", "COMMERCIAL_SPECIAL_USE", "OTHER"]).nullable().optional(),
   categoryOther: z.string().nullable().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
+  landlordEntity: z.string().nullable().optional(),
+  bankName: z.string().nullable().optional(),
+  bankAccountName: z.string().nullable().optional(),
+  bankAccountNumber: z.string().nullable().optional(),
   ownerId:   z.string().nullable().optional(),
   managerId: z.string().nullable().optional(),
   managementFeeRate: z.number().nullable().optional(),
@@ -139,12 +143,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json(property);
   }
 
-  const property = await prisma.property.update({
-    where: { id: params.id },
-    data: parsed.data,
-  });
-
-  return Response.json(property);
+  try {
+    const property = await prisma.property.update({
+      where: { id: params.id },
+      data: parsed.data,
+    });
+    return Response.json(property);
+  } catch (err) {
+    console.error("[PATCH /api/properties/[id]] update failed:", err);
+    return Response.json(
+      { error: "Property update failed", detail: (err as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {

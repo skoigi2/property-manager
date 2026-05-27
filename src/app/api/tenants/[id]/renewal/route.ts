@@ -57,8 +57,10 @@ export async function PATCH(
     renewalStage === "NOTICE_SENT" ? "UNDER_NOTICE" :
     renewalStage === "RENEWED"     ? "ACTIVE"       : null;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const tenant_updated = await tx.tenant.update({
+  // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [
+    prisma.tenant.update({
       where: { id: params.id },
       data: {
         renewalStage:     renewalStage as RenewalStage,
@@ -69,25 +71,23 @@ export async function PATCH(
         ...extraUpdates,
       },
       include: { unit: { include: { property: true } } },
-    });
-
-    if (unitStatusSync) {
-      await tx.unit.update({ where: { id: tenant.unitId }, data: { status: unitStatusSync } });
-    }
-
-    if (renewalStage === "RENEWED" && newRent !== tenant.monthlyRent) {
-      await tx.rentHistory.create({
-        data: {
-          tenantId:      params.id,
-          monthlyRent:   newRent,
-          effectiveDate: proposedLeaseEnd ? new Date(proposedLeaseEnd) : new Date(),
-          reason:        rentHistoryReason ?? "Annual escalation",
-        },
-      });
-    }
-
-    return tenant_updated;
-  });
+    }),
+  ];
+  if (unitStatusSync) {
+    ops.push(prisma.unit.update({ where: { id: tenant.unitId }, data: { status: unitStatusSync } }));
+  }
+  if (renewalStage === "RENEWED" && newRent !== tenant.monthlyRent) {
+    ops.push(prisma.rentHistory.create({
+      data: {
+        tenantId:      params.id,
+        monthlyRent:   newRent,
+        effectiveDate: proposedLeaseEnd ? new Date(proposedLeaseEnd) : new Date(),
+        reason:        rentHistoryReason ?? "Annual escalation",
+      },
+    }));
+  }
+  const txResults = await prisma.$transaction(ops);
+  const updated = txResults[0];
 
   // Clear lease-expiry hints once tenant is RENEWED
   if (renewalStage === "RENEWED") {

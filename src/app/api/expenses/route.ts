@@ -123,8 +123,29 @@ export async function POST(req: Request) {
   const shareAmount =
     isMultiUnit && unitIds ? computedAmount / unitIds.length : computedAmount;
 
-  const [entry] = await prisma.$transaction(async (tx) => {
-    const expense = await tx.expenseEntry.create({
+  // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+  // Nested writes (unitAllocations / lineItems via `create`) let us atomically
+  // create the children without needing the parent id in the callback.
+  const lineItemRows = lineItems?.map(({ id: _id, ...item }) => {
+    const isVatable = item.isVatable ?? false;
+    const taxSnapshot = isVatable
+      ? buildTaxSnapshot(item.amount, matchConfig(taxConfigs, lineItemCategoryToAppliesTo(item.category)))
+      : { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
+    return {
+      category: item.category,
+      description: item.description,
+      amount: item.amount,
+      isVatable,
+      paymentStatus: item.paymentStatus ?? "UNPAID",
+      amountPaid: item.amountPaid ?? 0,
+      paymentReference: item.paymentReference,
+      ...taxSnapshot,
+    };
+  }) ?? [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [
+    prisma.expenseEntry.create({
       data: {
         date: parsedDate,
         scope: rest.scope,
@@ -136,47 +157,17 @@ export async function POST(req: Request) {
         vendorId: vendorId || null,
         unitId: resolvedUnitId,
         propertyId: resolvedPropertyId,
+        ...(unitIds && unitIds.length > 0
+          ? { unitAllocations: { create: unitIds.map((uid) => ({ unitId: uid, shareAmount })) } }
+          : {}),
+        ...(lineItemRows.length > 0 ? { lineItems: { create: lineItemRows } } : {}),
       },
       include: EXPENSE_INCLUDE,
-    });
-
-    // Create unit allocations for multi-unit expenses
-    if (unitIds && unitIds.length > 0) {
-      await tx.expenseUnitAllocation.createMany({
-        data: unitIds.map((uid) => ({
-          expenseId: expense.id,
-          unitId: uid,
-          shareAmount,
-        })),
-      });
-    }
-
-    // Create line items
-    if (lineItems && lineItems.length > 0) {
-      await tx.expenseLineItem.createMany({
-        data: lineItems.map(({ id: _id, ...item }) => {
-          const isVatable = item.isVatable ?? false;
-          const taxSnapshot = isVatable
-            ? buildTaxSnapshot(item.amount, matchConfig(taxConfigs, lineItemCategoryToAppliesTo(item.category)))
-            : { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
-          return {
-            expenseId: expense.id,
-            category: item.category,
-            description: item.description,
-            amount: item.amount,
-            isVatable,
-            paymentStatus: item.paymentStatus ?? "UNPAID",
-            amountPaid: item.amountPaid ?? 0,
-            paymentReference: item.paymentReference,
-            ...taxSnapshot,
-          };
-        }),
-      });
-    }
-
-    // Petty cash OUT entry
-    if (paidFromPettyCash) {
-      await tx.pettyCash.create({
+    }),
+  ];
+  if (paidFromPettyCash) {
+    ops.push(
+      prisma.pettyCash.create({
         data: {
           date: parsedDate,
           type: "OUT",
@@ -184,11 +175,11 @@ export async function POST(req: Request) {
           description: rest.description ?? `${rest.category} expense`,
           propertyId: pettyCashPropertyId,
         },
-      });
-    }
-
-    return [expense];
-  });
+      }),
+    );
+  }
+  const txResults = await prisma.$transaction(ops);
+  const entry = txResults[0];
 
   // Re-fetch with all relations
   const full = await prisma.expenseEntry.findUnique({

@@ -76,9 +76,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     select: { category: true, amount: true, date: true },
   });
 
-  await prisma.$transaction(async (tx) => {
-    // Update main expense record
-    await tx.expenseEntry.update({
+  // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ops: any[] = [
+    prisma.expenseEntry.update({
       where: { id: params.id },
       data: {
         date: parsedDate,
@@ -92,37 +93,32 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         unitId: resolvedUnitId ?? null,
         propertyId: resolvedPropertyId ?? null,
       },
-    });
-
-    // Replace unit allocations
-    await tx.expenseUnitAllocation.deleteMany({ where: { expenseId: params.id } });
-    if (unitIds && unitIds.length > 0) {
-      await tx.expenseUnitAllocation.createMany({
-        data: unitIds.map((uid) => ({
-          expenseId: params.id,
-          unitId: uid,
-          shareAmount,
-        })),
-      });
-    }
-
-    // Replace line items — delete all existing, re-create
-    await tx.expenseLineItem.deleteMany({ where: { expenseId: params.id } });
-    if (lineItems && lineItems.length > 0) {
-      await tx.expenseLineItem.createMany({
-        data: lineItems.map(({ id: _id, ...item }) => ({
-          expenseId: params.id,
-          category: item.category,
-          description: item.description,
-          amount: item.amount,
-          isVatable: item.isVatable ?? false,
-          paymentStatus: item.paymentStatus ?? "UNPAID",
-          amountPaid: item.amountPaid ?? 0,
-          paymentReference: item.paymentReference,
-        })),
-      });
-    }
-  });
+    }),
+    // Replace unit allocations — delete then (optionally) recreate.
+    prisma.expenseUnitAllocation.deleteMany({ where: { expenseId: params.id } }),
+    // Replace line items — same idea.
+    prisma.expenseLineItem.deleteMany({ where: { expenseId: params.id } }),
+  ];
+  if (unitIds && unitIds.length > 0) {
+    ops.push(prisma.expenseUnitAllocation.createMany({
+      data: unitIds.map((uid) => ({ expenseId: params.id, unitId: uid, shareAmount })),
+    }));
+  }
+  if (lineItems && lineItems.length > 0) {
+    ops.push(prisma.expenseLineItem.createMany({
+      data: lineItems.map(({ id: _id, ...item }) => ({
+        expenseId: params.id,
+        category: item.category,
+        description: item.description,
+        amount: item.amount,
+        isVatable: item.isVatable ?? false,
+        paymentStatus: item.paymentStatus ?? "UNPAID",
+        amountPaid: item.amountPaid ?? 0,
+        paymentReference: item.paymentReference,
+      })),
+    }));
+  }
+  await prisma.$transaction(ops);
 
   const entry = await prisma.expenseEntry.findUnique({
     where: { id: params.id },

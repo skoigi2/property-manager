@@ -123,7 +123,7 @@ function SettleDepositModal({
           {/* Deposit held */}
           <div className="bg-cream-dark rounded-xl p-4 flex items-center justify-between">
             <p className="text-sm font-sans text-gray-500">Deposit held</p>
-            <CurrencyDisplay amount={depositAmount} size="lg" className="text-header font-medium" />
+            <CurrencyDisplay currency={currency} amount={depositAmount} size="lg" className="text-header font-medium" />
           </div>
 
           {/* Settlement date */}
@@ -190,7 +190,7 @@ function SettleDepositModal({
             )}
             <div className="flex justify-between font-medium text-header border-t border-gray-200 pt-2 mt-1">
               <span>Net refunded to tenant</span>
-              <CurrencyDisplay amount={netRefunded} size="md" className={netRefunded >= 0 ? "text-income" : "text-expense"} />
+              <CurrencyDisplay currency={currency} amount={netRefunded} size="md" className={netRefunded >= 0 ? "text-income" : "text-expense"} />
             </div>
           </div>
 
@@ -272,9 +272,13 @@ export default function TenantDetailPage() {
   const params  = useParams();
   const router  = useRouter();
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
-
+  // The page is reached via deep-link from anywhere, so the header property
+  // selector is often pointing at a DIFFERENT property than this tenant's.
+  // Always show amounts in the tenant's own property currency — fall back
+  // to the header-selected scope only while the tenant is still loading.
+  const headerCurrency = useProperty().currency;
   const [tenant,    setTenant]    = useState<any>(null);
+  const currency: string = tenant?.unit?.property?.currency ?? headerCurrency;
   const [loading,   setLoading]   = useState(true);
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
@@ -501,7 +505,7 @@ export default function TenantDetailPage() {
                 ].map((item) => (
                   <div key={item.label}>
                     <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">{item.label}</p>
-                    <CurrencyDisplay amount={item.value} size="md" />
+                    <CurrencyDisplay currency={currency} amount={item.value} size="md" />
                   </div>
                 ))}
               </div>
@@ -528,24 +532,24 @@ export default function TenantDetailPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Expected</p>
-                <CurrencyDisplay amount={totalExpected} className="block mt-1 text-gray-600" size="lg" />
+                <CurrencyDisplay currency={currency} amount={totalExpected} className="block mt-1 text-gray-600" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-1">{ledger.length} month{ledger.length !== 1 ? "s" : ""}</p>
               </Card>
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Received</p>
-                <CurrencyDisplay amount={totalReceived} className="block mt-1 text-income" size="lg" />
+                <CurrencyDisplay currency={currency} amount={totalReceived} className="block mt-1 text-income" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-1">{tenantEntries.filter((e) => e.type === "LONGTERM_RENT").length} payment{tenantEntries.length !== 1 ? "s" : ""}</p>
               </Card>
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Balance</p>
-                <CurrencyDisplay amount={totalArrears} className={`block mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`} size="lg" />
+                <CurrencyDisplay currency={currency} amount={totalArrears} className={`block mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`} size="lg" />
                 <p className={`text-xs font-sans mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`}>
                   {totalArrears >= 0 ? "Overpaid / Advance" : "In arrears"}
                 </p>
               </Card>
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Deposit</p>
-                <CurrencyDisplay amount={tenant.depositAmount} className="block mt-1 text-gray-600" size="lg" />
+                <CurrencyDisplay currency={currency} amount={tenant.depositAmount} className="block mt-1 text-gray-600" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-1">
                   {tenant.depositPaidDate ? `Paid ${formatDate(tenant.depositPaidDate)}` : "Date unknown"}
                 </p>
@@ -607,10 +611,10 @@ export default function TenantDetailPage() {
                             {ledger.map((row) => (
                               <tr key={row.monthLabel} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
                                 <td className="px-4 py-3 text-sm font-sans font-medium text-header">{row.monthLabel}</td>
-                                <td className="px-4 py-3 text-right"><CurrencyDisplay amount={row.expected} size="sm" className="text-gray-500" /></td>
-                                <td className="px-4 py-3 text-right"><CurrencyDisplay amount={row.received} size="sm" colorize /></td>
+                                <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={row.expected} size="sm" className="text-gray-500" /></td>
+                                <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize /></td>
                                 <td className="px-4 py-3 text-right">
-                                  <CurrencyDisplay amount={row.variance} size="sm" className={row.variance >= 0 ? "text-income" : "text-expense"} />
+                                  <CurrencyDisplay currency={currency} amount={row.variance} size="sm" className={row.variance >= 0 ? "text-income" : "text-expense"} />
                                 </td>
                                 <td className="px-4 py-3">
                                   {row.received === 0 ? (
@@ -675,7 +679,7 @@ export default function TenantDetailPage() {
                                     <td className="px-4 py-3"><span className="font-mono text-xs font-medium text-header">{inv.invoiceNumber}</span></td>
                                     <td className="px-4 py-3 text-sm font-sans text-gray-600">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</td>
                                     <td className="px-4 py-3 text-right">
-                                      <CurrencyDisplay amount={inv.totalAmount} size="sm" className="text-gray-700" />
+                                      <CurrencyDisplay currency={currency} amount={inv.totalAmount} size="sm" className="text-gray-700" />
                                       {inv.status === "PAID" && inv.paidAmount && inv.paidAmount !== inv.totalAmount && (
                                         <span className="block text-xs text-green-600 font-sans mt-0.5">Paid: {formatCurrency(inv.paidAmount, currency)}</span>
                                       )}
@@ -765,7 +769,7 @@ export default function TenantDetailPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="bg-cream-dark rounded-xl p-4">
                             <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Deposit Held</p>
-                            <CurrencyDisplay amount={tenant?.depositAmount ?? 0} size="lg" className="text-header font-medium" />
+                            <CurrencyDisplay currency={currency} amount={tenant?.depositAmount ?? 0} size="lg" className="text-header font-medium" />
                           </div>
                           <div className="bg-cream-dark rounded-xl p-4">
                             <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Date Received</p>
@@ -833,7 +837,7 @@ export default function TenantDetailPage() {
                               <tr className="border-t-2 border-gray-200 bg-cream-dark">
                                 <td className="px-4 py-3 font-sans font-medium text-header">Net refunded to tenant</td>
                                 <td className="px-4 py-3 text-right">
-                                  <CurrencyDisplay amount={settlement.netRefunded} size="md" className={settlement.netRefunded >= 0 ? "text-income font-medium" : "text-expense font-medium"} />
+                                  <CurrencyDisplay currency={currency} amount={settlement.netRefunded} size="md" className={settlement.netRefunded >= 0 ? "text-income font-medium" : "text-expense font-medium"} />
                                 </td>
                               </tr>
                             </tbody>

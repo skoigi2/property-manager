@@ -68,17 +68,29 @@ export const pettyCashApproveSchema = z.object({
   rejectionReason: z.string().optional(),
 });
 
+// Coerce empty Select/Input strings to undefined before Zod validates,
+// so `.optional()` actually means "not picked" (mirrors the same helper used
+// in the property form — see src/app/(dashboard)/properties/page.tsx).
+const emptyToUndef = (v: unknown) => (v === "" || v == null ? undefined : v);
+
 export const tenantSchema = z.object({
-  name:          z.string().min(1, "Name is required"),
-  email:         z.string().email("Invalid email").optional().or(z.literal("")),
-  phone:         z.string().optional(),
-  unitId:        z.string().min(1, "Unit is required"),
-  depositAmount: z.coerce.number().min(0),
-  leaseStart:    z.string().min(1, "Lease start date is required"),
-  leaseEnd:      z.string().optional(),
-  monthlyRent:   z.coerce.number().positive("Rent must be positive"),
-  serviceCharge: z.coerce.number().min(0).default(0),
-  isActive:      z.boolean().default(true),
+  name:             z.string().min(1, "Name is required"),
+  email:            z.string().email("Invalid email").optional().or(z.literal("")),
+  phone:            z.string().optional(),
+  unitId:           z.string().min(1, "Unit is required"),
+  depositAmount:    z.coerce.number().min(0),
+  leaseStart:       z.string().min(1, "Lease start date is required"),
+  leaseEnd:         z.string().optional(),
+  monthlyRent:      z.coerce.number().positive("Rent must be positive"),
+  serviceCharge:    z.coerce.number().min(0).default(0),
+  isActive:         z.boolean().default(true),
+  notes:            z.string().optional(),
+  paymentFrequency: z.preprocess(
+    emptyToUndef,
+    z.enum(["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"]).optional(),
+  ),
+  escalationRate:   z.preprocess(emptyToUndef, z.coerce.number().min(0).max(100).optional()),
+  parkingFee:       z.preprocess(emptyToUndef, z.coerce.number().min(0).optional()),
 });
 
 export const managementFeeConfigSchema = z.object({

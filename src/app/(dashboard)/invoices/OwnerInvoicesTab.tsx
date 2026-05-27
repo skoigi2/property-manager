@@ -773,7 +773,7 @@ function NewOwnerInvoiceModal({
 
 export default function OwnerInvoicesTab() {
   const { selectedId, selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
 
   const [invoices,       setInvoices]       = useState<OwnerInvoice[]>([]);
   const [properties,     setProperties]     = useState<{ id: string; name: string; type: string }[]>([]);

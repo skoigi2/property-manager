@@ -81,7 +81,7 @@ function exportTaxSummary(
 
 export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
   const { selected } = useProperty();
-  const currency = selected?.currency ?? "USD";
+  const currency = useProperty().currency;
 
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);

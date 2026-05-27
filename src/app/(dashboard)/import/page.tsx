@@ -34,11 +34,14 @@ import {
   downloadUnitsTemplate,
   downloadMaintenanceTemplate,
   downloadVendorsTemplate,
+  downloadRentHistoryTemplate,
 } from "@/lib/import-templates";
+import { ImportHandoverModal } from "@/components/import/ImportHandoverModal";
+import { PackageOpen } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "tenants" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors";
+type Tab = "tenants" | "rent-history" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors" | "handover";
 
 interface ParsedRow {
   rowIndex: number;
@@ -48,6 +51,7 @@ interface ParsedRow {
 
 interface ImportResult {
   imported: number;
+  updated?: number;
   skipped: number;
   errors: { row: number; reason: string }[];
 }
@@ -65,6 +69,19 @@ const TENANT_COLS = [
   "Lease End",
   "Email",
   "Phone",
+  "Payment Frequency",
+  "Escalation Rate",
+  "Parking Fee",
+  "Notes",
+];
+
+const RENT_HISTORY_COLS = [
+  "Tenant Name",
+  "Unit Number",
+  "Monthly Rent",
+  "Effective Date",
+  "Property Name",
+  "Reason",
 ];
 
 const INCOME_COLS = [
@@ -189,6 +206,8 @@ const VALID_VENDOR_CATEGORIES = [
   "SERVICE_PROVIDER", "CONSULTANT", "OTHER",
 ];
 
+const VALID_PAYMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"];
+
 function validateTenantRow(row: Record<string, string>): string[] {
   const errors: string[] = [];
   if (!row["Name"]?.trim()) errors.push("Name is required");
@@ -199,6 +218,22 @@ function validateTenantRow(row: Record<string, string>): string[] {
   if (!row["Lease Start"]?.trim()) errors.push("Lease Start is required");
   else if (isNaN(Date.parse(row["Lease Start"])))
     errors.push("Lease Start is not a valid date");
+  const freq = row["Payment Frequency"]?.trim()?.toUpperCase();
+  if (freq && !VALID_PAYMENT_FREQUENCIES.includes(freq))
+    errors.push(`Invalid Payment Frequency "${row["Payment Frequency"]}" — must be one of: ${VALID_PAYMENT_FREQUENCIES.join(", ")}`);
+  return errors;
+}
+
+function validateRentHistoryRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Tenant Name"]?.trim()) errors.push("Tenant Name is required");
+  if (!row["Unit Number"]?.trim()) errors.push("Unit Number is required");
+  const rent = parseFloat(row["Monthly Rent"] ?? "");
+  if (!row["Monthly Rent"] || isNaN(rent) || rent <= 0)
+    errors.push("Monthly Rent must be a positive number");
+  if (!row["Effective Date"]?.trim()) errors.push("Effective Date is required");
+  else if (isNaN(Date.parse(row["Effective Date"])))
+    errors.push("Effective Date is not a valid date");
   return errors;
 }
 
@@ -354,16 +389,31 @@ function parseFile(
 
 function mapTenantRowToApi(row: Record<string, string>) {
   return {
-    name:          row["Name"],
+    name:             row["Name"],
+    unitNumber:       row["Unit Number"],
+    propertyName:     row["Property Name"],
+    monthlyRent:      row["Monthly Rent"],
+    serviceCharge:    row["Service Charge"],
+    depositAmount:    row["Deposit"],
+    leaseStart:       row["Lease Start"],
+    leaseEnd:         row["Lease End"],
+    email:            row["Email"],
+    phone:            row["Phone"],
+    paymentFrequency: row["Payment Frequency"],
+    escalationRate:   row["Escalation Rate"],
+    parkingFee:       row["Parking Fee"],
+    notes:            row["Notes"],
+  };
+}
+
+function mapRentHistoryRowToApi(row: Record<string, string>) {
+  return {
+    tenantName:    row["Tenant Name"],
     unitNumber:    row["Unit Number"],
     propertyName:  row["Property Name"],
     monthlyRent:   row["Monthly Rent"],
-    serviceCharge: row["Service Charge"],
-    depositAmount: row["Deposit"],
-    leaseStart:    row["Lease Start"],
-    leaseEnd:      row["Lease End"],
-    email:         row["Email"],
-    phone:         row["Phone"],
+    effectiveDate: row["Effective Date"],
+    reason:        row["Reason"],
   };
 }
 
@@ -465,6 +515,8 @@ interface ImportSectionProps {
   onDownloadTemplate: () => void;
   templateName: string;
   mapRowToApi: (row: Record<string, string>) => Record<string, string>;
+  /** When true, render an "Update existing records" toggle that sends `mode: "upsert"`. */
+  supportsUpsert?: boolean;
 }
 
 function ImportSection({
@@ -476,6 +528,7 @@ function ImportSection({
   onDownloadTemplate,
   templateName,
   mapRowToApi,
+  supportsUpsert = false,
 }: ImportSectionProps) {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
@@ -484,6 +537,7 @@ function ImportSection({
   const [errorsExpanded, setErrorsExpanded] = useState(false);
   const [serverErrorsExpanded, setServerErrorsExpanded] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [upsertMode, setUpsertMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback(
@@ -532,9 +586,21 @@ function ImportSection({
       const res = await fetch(apiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: validRows.map((r) => mapRowToApi(r.data)) }),
+        body: JSON.stringify({
+          rows: validRows.map((r) => mapRowToApi(r.data)),
+          ...(supportsUpsert && upsertMode ? { mode: "upsert" } : {}),
+        }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        // Server returned a non-2xx — surface the actual error message.
+        setResult({
+          imported: 0,
+          skipped: 0,
+          errors: [{ row: 0, reason: data?.detail || data?.error || `Server error (${res.status})` }],
+        });
+        return;
+      }
       setResult(data);
     } catch {
       setResult({ imported: 0, skipped: 0, errors: [{ row: 0, reason: "Network error" }] });
@@ -748,15 +814,27 @@ function ImportSection({
               {importing ? (
                 <>
                   <Spinner size="sm" className="mr-2" />
-                  Importing…
+                  {upsertMode ? "Updating…" : "Importing…"}
                 </>
               ) : (
                 <>
                   <Upload size={15} className="mr-1.5" />
-                  Import {validRows.length} valid row{validRows.length !== 1 ? "s" : ""}
+                  {upsertMode ? "Update" : "Import"} {validRows.length} valid row{validRows.length !== 1 ? "s" : ""}
                 </>
               )}
             </Button>
+          )}
+
+          {supportsUpsert && validRows.length > 0 && (
+            <label className="flex items-center gap-2 text-sm font-sans text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={upsertMode}
+                onChange={(e) => setUpsertMode(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-gold focus:ring-gold/40"
+              />
+              Update existing records (re-upload to refresh fields)
+            </label>
           )}
 
           <Button variant="ghost" size="sm" onClick={handleReset}>
@@ -772,7 +850,9 @@ function ImportSection({
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} className="text-green-500 shrink-0" />
             <p className="text-sm font-medium text-green-700 font-sans">
-              {result.imported} record{result.imported !== 1 ? "s" : ""} imported successfully
+              {result.imported} record{result.imported !== 1 ? "s" : ""} imported
+              {result.updated ? `, ${result.updated} updated` : ""}
+              {" "}successfully
             </p>
           </div>
 
@@ -821,14 +901,20 @@ export default function ImportPage() {
   const [tab, setTab] = useState<Tab>("tenants");
 
   const tabs: [Tab, string, React.ElementType][] = [
-    ["tenants",     "Tenants",     Users],
-    ["income",      "Income",      TrendingUp],
-    ["expenses",    "Expenses",    Receipt],
-    ["petty-cash",  "Petty Cash",  Wallet],
-    ["units",       "Units",       Building2],
-    ["maintenance", "Maintenance", Wrench],
-    ["vendors",     "Vendors",     Store],
+    ["tenants",      "Tenants",      Users],
+    ["rent-history", "Rent History", RefreshCw],
+    ["income",       "Income",       TrendingUp],
+    ["expenses",     "Expenses",     Receipt],
+    ["petty-cash",   "Petty Cash",   Wallet],
+    ["units",        "Units",        Building2],
+    ["maintenance",  "Maintenance",  Wrench],
+    ["vendors",      "Vendors",      Store],
+    ["handover",     "Handover",     PackageOpen],
   ];
+
+  // Handover uses a single-file ZIP uploader (different from the row-based
+  // ImportSection flow), so it owns its own visibility state.
+  const [handoverOpen, setHandoverOpen] = useState(false);
 
   return (
     <div>
@@ -871,13 +957,28 @@ export default function ImportPage() {
         {tab === "tenants" && (
           <ImportSection
             title="Import Tenants"
-            description="Download the template, fill in tenant details, then upload to bulk-create tenants. Existing active tenants with the same name and unit are skipped."
+            description="Download the template, fill in tenant details, then upload to bulk-create tenants. Toggle 'Update existing records' to refresh tenants that are already in the system — useful for re-uploading after schema changes."
             cols={TENANT_COLS}
             validate={validateTenantRow}
             apiPath="/api/import/tenants"
             onDownloadTemplate={downloadTenantsTemplate}
             templateName="Tenants"
             mapRowToApi={mapTenantRowToApi}
+            supportsUpsert
+          />
+        )}
+
+        {tab === "rent-history" && (
+          <ImportSection
+            title="Import Rent History"
+            description="Download the template, fill in prior lease periods, then upload. Tenants are resolved by name + unit. Toggle 'Update existing records' to overwrite rows that share the same tenant + effective date — useful when correcting historical figures."
+            cols={RENT_HISTORY_COLS}
+            validate={validateRentHistoryRow}
+            apiPath="/api/import/rent-history"
+            onDownloadTemplate={downloadRentHistoryTemplate}
+            templateName="Rent History"
+            mapRowToApi={mapRentHistoryRowToApi}
+            supportsUpsert
           />
         )}
 
@@ -957,6 +1058,34 @@ export default function ImportPage() {
             templateName="Vendors"
             mapRowToApi={mapVendorRowToApi}
           />
+        )}
+
+        {tab === "handover" && (
+          <Card className="border border-gray-100 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                <PackageOpen size={20} className="text-gold" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-header font-sans">Import from Handover Package</p>
+                <p className="text-xs text-gray-500 font-sans mt-0.5">
+                  Restores a property from a .zip handover export — pulls in property metadata, units, tenants, income, expenses, petty cash, owner invoices, and tenant documents in one shot.
+                </p>
+                <p className="text-xs text-gray-400 font-sans mt-2">
+                  Management agreement settings must be configured manually after import.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => setHandoverOpen(true)}>
+                <PackageOpen size={14} className="mr-1.5" /> Select ZIP and import
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {handoverOpen && (
+          <ImportHandoverModal onClose={() => setHandoverOpen(false)} />
         )}
       </div>
     </div>

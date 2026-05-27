@@ -13,6 +13,7 @@ const createSchema = z.object({
   floor: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().int().optional()),
   sizeSqm: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),
   description: z.string().optional(),
+  titleReference: z.string().optional(),
 });
 
 export async function GET(req: Request) {

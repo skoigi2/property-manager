@@ -23,7 +23,7 @@ import toast from "react-hot-toast";
 import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
   Download, FileText, Loader2, ScrollText, FolderOpen, RefreshCw, Mail,
-  ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy, History, MessageSquare,
+  ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy, History, MessageSquare, LogOut, ClipboardCheck,
 } from "lucide-react";
 import { differenceInMonths, startOfMonth, addMonths, format } from "date-fns";
 
@@ -459,6 +459,23 @@ export default function TenantDetailPage() {
                       : "Renewed"}
                     </Badge>
                   )}
+                  {/* Move-In Report button */}
+                  {tenant.unit?.id && tenant.isActive && (
+                    <button
+                      onClick={() => router.push(`/units/${tenant.unit.id}/condition-report/new`)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 text-xs font-sans rounded-lg transition-colors"
+                      title="Walk through the unit and record its condition"
+                    >
+                      <ClipboardCheck size={13} /> Move-In Report
+                    </button>
+                  )}
+                  {/* Checkout button */}
+                  <button
+                    onClick={() => router.push(`/tenants/${tenantId}/checkout`)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300 text-xs font-sans rounded-lg transition-colors"
+                  >
+                    <LogOut size={13} /> Checkout
+                  </button>
                   {/* Email button */}
                   <button
                     onClick={() => setShowEmail(true)}

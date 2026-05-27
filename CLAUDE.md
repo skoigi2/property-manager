@@ -415,6 +415,46 @@ Adding a checker that should auto-clear means: (a) writing `upsertHint` in the c
 
 **Idempotency contract**: never seed an ActionableHint with a non-deterministic `refId`. The `(hintType, refId)` pair is the upsert key. The recurring-expense checker uses `recurringExpense.id`; the maintenance-job checker uses `job.id`; the petty-cash checker uses `property.id`; etc.
 
+### Move-In Checklist / Unit Condition Report
+
+Page: `/units/[id]/condition-report/new` — a mobile-optimised stepper that walks the manager room-by-room through a structured grid (Perfect / Good / Fair / Poor) with inline photo capture (`<input type="file" capture="environment">` opens the rear camera on phone). Default rooms/features come from `src/lib/condition-report-template.ts` and can be edited inline.
+
+Models:
+- **`ConditionReport`** — unit + property + optional tenant. `reportType` is `MOVE_IN | MID_TERM | MOVE_OUT`. `items` is a JSON array with shape `{ id, room, feature, status, notes, photoIds[] }` — **identical** to what move-out reports will use, so a future diff helper can match by `(room, feature)`. Auto-vault stores `tenantDocumentId` once finalized.
+- **`ConditionReportPhoto`** — one row per uploaded photo, points at a path inside the existing `tenant-documents` Supabase bucket under the prefix `condition-reports/<reportId>/...`.
+
+This is **separate** from `BuildingConditionReport` (property-level annual inspection) — incompatible items shapes, different audience.
+
+API (manager-only):
+- `GET/POST /api/units/[id]/condition-reports` — list / create draft.
+- `GET/PATCH/DELETE /api/condition-reports/[id]` — read / update / discard a draft (read-only once `tenantDocumentId` is set).
+- `POST /api/condition-reports/[id]/photos` — multipart image upload (max 8 MB; jpeg/png/webp/heic). Returns `{ id, url }`. Photo uploads are fire-and-forget on the client; finalize is gated until all are done.
+- `DELETE /api/condition-reports/[id]/photos/[photoId]`.
+- `POST /api/condition-reports/[id]/finalize` — generates the PDF, uploads it to `tenants/<tenantId>/...` in the same Supabase bucket, creates a `TenantDocument` with `category=CONDITION_REPORT`, sets `tenantDocumentId` + `pdfGeneratedAt`. `MOVE_IN` / `MOVE_OUT` require a tenant; `MID_TERM` is allowed without one (no vault step). Idempotent — re-finalize returns 409.
+- `GET /api/condition-reports/[id]/pdf` — preview / re-download (`maxDuration = 60`).
+
+PDF: `src/lib/move-in-report-pdf.tsx` (`generateConditionReportPdf()`) — server-only `@react-pdf/renderer` document. Page 1 is the items table grouped by room with coloured status pills + signature blocks; page 2 onward is a Photo Appendix where each image is captioned `Room — Feature`. Photos are fetched via `getSignedUrl()` (1h) and embedded by URL.
+
+`DocumentCategory` enum gained a `CONDITION_REPORT` value so vaulted reports show up cleanly on the tenant's Documents tab.
+
+### Tenant Checkout / Move-Out Workflow
+
+Replaces the paper "Tenant Check-Out Form". Page: `/tenants/[id]/checkout` (full-page form mirroring the 9-section PDF — condition report, rent balance, itemised deductions, keys returned, utility transfers, refund instructions, notes — plus a sticky live-settlement box).
+
+Models:
+- **`CheckoutProcess`** — one per tenant (`tenantId @unique`). Lifecycle via `CheckoutStatus` enum (`IN_PROGRESS → COMPLETED | DISPUTED`). Stores damage flags, rent balance, snapshot of `originalDeposit` / `totalDeductions` / `balanceToRefund`, `keysReturned` JSON, `utilityTransfers` JSON, `refundMethod` (`RefundMethod` enum), `refundDetails` JSON, `expenseEntryId` backref.
+- **`CheckoutDeduction`** — itemised line items keyed to `CheckoutProcess` (cascade), categorised by `CheckoutDeductionCategory`.
+
+API routes (manager-only, scoped via accessible properties):
+- `GET  /api/tenants/[id]/checkout` — prefill: tenant, unit, property, deposit, computed outstanding invoice balance (sum of unpaid `Invoice` rows), existing `CheckoutProcess` if any.
+- `POST /api/tenants/[id]/checkout` — upserts an `IN_PROGRESS` process; replaces deductions atomically.
+- `POST /api/tenants/[id]/checkout/finalize` — atomic close-out: marks process `COMPLETED`, optionally creates an `ExpenseEntry` (category `REINSTATEMENT`, scope `UNIT`) when `damageFound && damageKeptByLandlord`, mirrors a `DepositSettlement` row for legacy reporting (skipped if one exists), sets `Tenant.isActive = false` + `vacatedDate`, sets `Unit.status = VACANT` + `vacantSince`. Two `AuditLog` entries (Tenant, CheckoutProcess) written after the transaction.
+- `GET  /api/checkouts/[id]/pdf` — serves the signature PDF (`maxDuration = 30`); sets `pdfGeneratedAt` on first hit.
+
+PDF generator: `src/lib/checkout-pdf.tsx` (`generateCheckoutPdf()`) — server-only `@react-pdf/renderer` document mirroring the 9-section form with dual signature blocks. Currency via `formatCurrency` using the property's currency.
+
+The "Checkout" button lives in the tenant detail header. Once finalized the checkout page renders read-only with a "Download PDF" link.
+
 ### Email Logging & Super-admin Composer
 
 Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.

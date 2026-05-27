@@ -288,6 +288,7 @@ enum DocumentCategory {
   PAYMENT_RECEIPT
   RENEWAL_NOTICE
   CORRESPONDENCE
+  CONDITION_REPORT
   OTHER
 }
 
@@ -383,9 +384,43 @@ enum CaseEventKind {
 enum InvoiceStatus {
   DRAFT
   SENT
+  PENDING_VERIFICATION
   PAID
   OVERDUE
   CANCELLED
+}
+
+enum ProofOfPaymentType {
+  FILE
+  TEXT
+  BOTH
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  MPESA
+  CASH
+  CARD
+  CHEQUE
+  OTHER
+}
+
+enum PortalMessageSender {
+  TENANT
+  MANAGER
+}
+
+enum PortalThreadStatus {
+  SENT
+  READ
+  RESOLVED
+}
+
+enum PortalMessageCategory {
+  LEASE_QUERY
+  PAYMENT_NOTIFICATION
+  PERMISSION_REQUEST
+  GENERAL
 }
 
 enum OwnerInvoiceType {
@@ -567,6 +602,7 @@ model Tenant {
   depositSettlement DepositSettlement?
   rentHistory          RentHistory[]
   communicationLogs    CommunicationLog[]
+  portalThreads        PortalMessageThread[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -611,6 +647,7 @@ model IncomeEntry {
   taxRate           Float?
   taxAmount         Float?
   taxType           TaxType?
+  paymentMethod     PaymentMethod?
   unit              Unit         @relation(fields: [unitId], references: [id])
   tenant            Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -944,6 +981,10 @@ model Invoice {
   paidAmount    Float?
   notes         String?
   caseThreadId  String?
+  proofOfPaymentUrl  String?
+  proofOfPaymentText String?
+  proofOfPaymentType ProofOfPaymentType?
+  proofSubmittedAt   DateTime?
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   caseThread    CaseThread?   @relation("InvoiceCaseThread", fields: [caseThreadId], references: [id], onDelete: SetNull)
   incomeEntries IncomeEntry[]
@@ -1506,6 +1547,38 @@ model CommunicationLog {
 
   @@index([tenantId, sentAt])
   @@index([caseThreadId])
+}
+
+// ─── Portal Messaging (two-way tenant ↔ manager) ─────────────────────────────
+
+model PortalMessageThread {
+  id            String                @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subject       String
+  category      PortalMessageCategory
+  status        PortalThreadStatus    @default(SENT)
+  lastMessageAt DateTime              @default(now())
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  messages      PortalMessage[]
+
+  @@index([tenantId, lastMessageAt])
+  @@index([status])
+}
+
+model PortalMessage {
+  id              String              @id @default(cuid())
+  threadId        String
+  thread          PortalMessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  body            String
+  sender          PortalMessageSender
+  authorUserId    String?
+  readByManagerAt DateTime?
+  readByTenantAt  DateTime?
+  createdAt       DateTime            @default(now())
+
+  @@index([threadId, createdAt])
 }
 
 // ─── SaaS Billing Enum ────────────────────────────────────────────────────────

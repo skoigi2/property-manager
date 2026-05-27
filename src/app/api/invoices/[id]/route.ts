@@ -6,7 +6,7 @@ import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
 
 const updateSchema = z.object({
-  status: z.enum(["DRAFT","SENT","PAID","OVERDUE","CANCELLED"]).optional(),
+  status: z.enum(["DRAFT","SENT","PENDING_VERIFICATION","PAID","OVERDUE","CANCELLED"]).optional(),
   paidAt: z.string().nullable().optional(),
   paidAmount: z.number().nullable().optional(),
   notes: z.string().optional(),

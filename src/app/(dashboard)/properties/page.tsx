@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -519,14 +519,13 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
         />
       </div>
 
-      {owners.length > 0 && (
-        <Select
-          label="Property Owner"
-          placeholder="— Unassigned —"
-          {...register("ownerId")}
-          options={owners.map((o) => ({ value: o.id, label: o.name ?? o.email ?? o.id }))}
-        />
-      )}
+      <Select
+        label="Property Owner"
+        tooltip="The landlord / beneficial owner this property belongs to. Only users with the OWNER role appear here — invite one from Settings → Users if the list is empty."
+        placeholder={owners.length > 0 ? "— Unassigned —" : "No owner accounts yet"}
+        {...register("ownerId")}
+        options={owners.map((o) => ({ value: o.id, label: o.name ?? o.email ?? o.id }))}
+      />
 
       {managers.length > 0 && (
         <Select
@@ -947,6 +946,8 @@ function PropertiesTable({
   onSelect,
   onEdit,
   onAddUnit,
+  onEditUnit,
+  onDeleteUnit,
   activeUnits,
   vacantUnits,
   setupByProp,
@@ -956,18 +957,25 @@ function PropertiesTable({
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
   onAddUnit: (p: Property) => void;
+  onEditUnit: (property: Property, unit: Unit) => void;
+  onDeleteUnit: (unit: Unit) => void;
   activeUnits: (units: Property["units"], propertyType: string) => number;
   vacantUnits: (units: Property["units"]) => number;
   setupByProp: Record<string, { percent: number }>;
 }) {
+  // Track which property's units row is expanded so the user can edit units
+  // inline from the table view (parity with the grid view's UnitPanel).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const COL_COUNT = 10;
+
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-100">
       <table className="min-w-full divide-y divide-gray-100">
         <thead className="bg-gray-50/60">
           <tr>
-            {["Property", "Category", "Type", "Units", "Setup", "Mgmt Fee", "Owner", "Manager", ""].map((h) => (
+            {["", "Property", "Category", "Type", "Units", "Setup", "Mgmt Fee", "Owner", "Manager", ""].map((h, i) => (
               <th
-                key={h}
+                key={`${h}-${i}`}
                 className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans whitespace-nowrap"
               >
                 {h}
@@ -986,12 +994,24 @@ function PropertiesTable({
               ? formatCurrency(p.managementFeeFlat, p.currency ?? "USD")
               : "—";
 
+            const isExpanded = expandedId === p.id;
             return (
+              <Fragment key={p.id}>
               <tr
-                key={p.id}
                 onClick={() => onSelect(p)}
                 className={`cursor-pointer hover:bg-gray-50/60 transition-colors ${i % 2 === 1 ? "bg-gray-50/30" : ""}`}
               >
+                {/* Expand toggle */}
+                <td className="px-2 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                    className="p-1 rounded-md text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                    title={isExpanded ? "Hide units" : "Show units"}
+                    aria-expanded={isExpanded}
+                  >
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+                </td>
                 {/* Property name + address */}
                 <td className="px-4 py-3 min-w-[160px]">
                   <p className="font-sans font-semibold text-header text-sm">{p.name}</p>
@@ -1100,6 +1120,20 @@ function PropertiesTable({
                   </div>
                 </td>
               </tr>
+              {isExpanded && (
+                <tr className="bg-gray-50/50">
+                  <td colSpan={COL_COUNT} className="px-4 py-4 border-b border-gray-100">
+                    <UnitPanel
+                      property={p}
+                      isManager={isManager}
+                      onAddUnit={onAddUnit}
+                      onEditUnit={onEditUnit}
+                      onDeleteUnit={onDeleteUnit}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>
@@ -1221,156 +1255,9 @@ function PropertiesMobileList({
   );
 }
 
-// ─── Import Handover Modal ────────────────────────────────────────────────────
+// Import Handover lives on /import now (Handover tab). See
+// src/components/import/ImportHandoverModal.tsx.
 
-interface ImportSummary {
-  propertyId: string;
-  propertyName: string;
-  summary: { units: number; tenants: number; incomeEntries: number; expenseEntries: number; pettyCash: number; ownerInvoices: number; documents: number };
-  errors: { sheet: string; row: number; reason: string }[];
-}
-
-function ImportHandoverModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
-  const [file,    setFile]    = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [result,  setResult]  = useState<ImportSummary | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    if (!file) { toast.error("Select a ZIP file"); return; }
-    setLoading(true);
-    setApiError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/import/handover", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) { setApiError(data.error ?? "Import failed"); return; }
-      setResult(data);
-      onImported();
-    } catch {
-      setApiError("Network error — import failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 my-8">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <PackageOpen size={18} className="text-gold shrink-0" />
-            <div>
-              <h3 className="font-display text-header text-lg">Import from Handover Package</h3>
-              <p className="text-xs text-gray-400 font-sans mt-0.5">Restores a property from a .zip handover export</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
-        </div>
-
-        {!result ? (
-          <>
-            {/* File picker */}
-            <div>
-              <label className="text-xs text-gray-500 font-sans uppercase tracking-wide font-medium block mb-2">
-                Handover ZIP file
-              </label>
-              <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-8 cursor-pointer transition-colors ${file ? "border-gold/40 bg-gold/5" : "border-gray-200 hover:border-gold/40"}`}>
-                <PackageOpen size={28} className={file ? "text-gold" : "text-gray-300"} />
-                <span className="text-sm font-sans text-gray-500">
-                  {file ? file.name : "Click to select a .zip handover package"}
-                </span>
-                {file && <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>}
-                <input
-                  type="file"
-                  accept=".zip"
-                  className="hidden"
-                  onChange={(e) => { setFile(e.target.files?.[0] ?? null); setApiError(null); }}
-                />
-              </label>
-            </div>
-
-            {apiError && (
-              <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-2 text-xs text-expense font-sans">
-                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                {apiError}
-              </div>
-            )}
-
-            <p className="text-xs text-gray-400 font-sans">
-              Will import: property, units, tenants, income, expenses, petty cash, owner invoices, and tenant documents.
-              Management agreement settings must be configured manually after import.
-            </p>
-
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={handleSubmit}
-                disabled={loading || !file}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
-              >
-                {loading ? <><Loader2 size={14} className="animate-spin" /> Importing…</> : <><PackageOpen size={14} /> Import Property</>}
-              </button>
-              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
-                Cancel
-              </button>
-            </div>
-          </>
-        ) : (
-          /* Success summary */
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle size={16} className="text-income" />
-                <p className="text-sm font-sans font-semibold text-income">{result.propertyName} imported successfully</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-sans text-gray-600">
-                {[
-                  ["Units",           result.summary.units],
-                  ["Tenants",         result.summary.tenants],
-                  ["Income entries",  result.summary.incomeEntries],
-                  ["Expense entries", result.summary.expenseEntries],
-                  ["Petty cash",      result.summary.pettyCash],
-                  ["Owner invoices",  result.summary.ownerInvoices],
-                  ["Documents",       result.summary.documents],
-                ].map(([label, count]) => (
-                  <div key={String(label)} className="flex justify-between">
-                    <span>{label}</span>
-                    <span className="font-mono font-semibold text-header">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {result.errors.length > 0 && (
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 max-h-36 overflow-y-auto">
-                <p className="text-xs font-sans font-semibold text-amber-800 mb-1">{result.errors.length} row(s) skipped:</p>
-                {result.errors.map((e, i) => (
-                  <p key={i} className="text-xs text-amber-700 font-sans">
-                    {e.sheet} row {e.row}: {e.reason}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <a
-                href={`/properties`}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark"
-              >
-                <Building2 size={14} /> View Properties
-              </a>
-              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -1421,7 +1308,7 @@ export default function PropertiesPage() {
   const [deleting, setDeleting] = useState(false);
 
   // Import handover
-  const [showImport, setShowImport] = useState(false);
+  // Import handover lives on /import now — no local state needed here.
 
   // Demo loader modal
   const [showDemoModal, setShowDemoModal] = useState(false);
@@ -1651,12 +1538,7 @@ export default function PropertiesPage() {
             </button>
           </div>
         )}
-        {/* Desktop only: Import button */}
-        {isManager && (
-          <Button size="sm" variant="secondary" className="hidden lg:flex" onClick={() => setShowImport(true)}>
-            <PackageOpen size={14} className="mr-1" /> Import from Handover
-          </Button>
-        )}
+        {/* "Import from Handover" moved to Settings → Import (Handover tab). */}
         {isManager && (
           <Button size="sm" variant="secondary" className="hidden lg:flex" onClick={() => setShowDemoModal(true)}>
             <Sparkles size={14} className="mr-1" /> Load sample
@@ -1690,11 +1572,7 @@ export default function PropertiesPage() {
                 <List size={15} />
               </button>
             </div>
-            {isManager && (
-              <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
-                <PackageOpen size={14} className="mr-1" /> Import from Handover
-              </Button>
-            )}
+            {/* "Import from Handover" moved to Settings → Import (Handover tab). */}
           </div>
         )}
         {loading ? (
@@ -1713,6 +1591,8 @@ export default function PropertiesPage() {
                 onSelect={setSelectedProperty}
                 onEdit={openEditProperty}
                 onAddUnit={openAddUnit}
+                onEditUnit={openEditUnit}
+                onDeleteUnit={(u) => setDeleteUnit(u)}
                 activeUnits={activeUnits}
                 vacantUnits={vacantUnits}
                 setupByProp={setupByProp}
@@ -1922,12 +1802,6 @@ export default function PropertiesPage() {
 
       <PropertySummaryPanel property={selectedProperty} onClose={() => setSelectedProperty(null)} />
 
-      {showImport && (
-        <ImportHandoverModal
-          onClose={() => setShowImport(false)}
-          onImported={load}
-        />
-      )}
 
       {/* Demo loader modal */}
       <Modal open={showDemoModal} title="Load sample property" onClose={() => setShowDemoModal(false)}>

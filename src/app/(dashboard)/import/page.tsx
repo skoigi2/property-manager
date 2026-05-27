@@ -36,10 +36,12 @@ import {
   downloadVendorsTemplate,
   downloadRentHistoryTemplate,
 } from "@/lib/import-templates";
+import { ImportHandoverModal } from "@/components/import/ImportHandoverModal";
+import { PackageOpen } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "tenants" | "rent-history" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors";
+type Tab = "tenants" | "rent-history" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors" | "handover";
 
 interface ParsedRow {
   rowIndex: number;
@@ -907,7 +909,12 @@ export default function ImportPage() {
     ["units",        "Units",        Building2],
     ["maintenance",  "Maintenance",  Wrench],
     ["vendors",      "Vendors",      Store],
+    ["handover",     "Handover",     PackageOpen],
   ];
+
+  // Handover uses a single-file ZIP uploader (different from the row-based
+  // ImportSection flow), so it owns its own visibility state.
+  const [handoverOpen, setHandoverOpen] = useState(false);
 
   return (
     <div>
@@ -1051,6 +1058,34 @@ export default function ImportPage() {
             templateName="Vendors"
             mapRowToApi={mapVendorRowToApi}
           />
+        )}
+
+        {tab === "handover" && (
+          <Card className="border border-gray-100 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                <PackageOpen size={20} className="text-gold" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-header font-sans">Import from Handover Package</p>
+                <p className="text-xs text-gray-500 font-sans mt-0.5">
+                  Restores a property from a .zip handover export — pulls in property metadata, units, tenants, income, expenses, petty cash, owner invoices, and tenant documents in one shot.
+                </p>
+                <p className="text-xs text-gray-400 font-sans mt-2">
+                  Management agreement settings must be configured manually after import.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => setHandoverOpen(true)}>
+                <PackageOpen size={14} className="mr-1.5" /> Select ZIP and import
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {handoverOpen && (
+          <ImportHandoverModal onClose={() => setHandoverOpen(false)} />
         )}
       </div>
     </div>

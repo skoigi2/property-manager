@@ -113,6 +113,10 @@ const EXPENSE_COLS = [
   "Vendor Name",
   "Amount Paid",
   "Due Date",
+  "Payment Method",
+  "Payment Reference",
+  "Payment Date",
+  "Notes",
 ];
 
 const PC_COLS = ["Date", "Type", "Description", "Amount", "Property Name"];
@@ -182,6 +186,17 @@ const VALID_EXPENSE_CATEGORIES = [
   "MAINTENANCE",
   "REINSTATEMENT",
   "CAPITAL",
+  "SECURITY",
+  "GARBAGE_COLLECTION",
+  "LANDSCAPING",
+  "PEST_CONTROL",
+  "INSURANCE",
+  "PROPERTY_TAX",
+  "LEGAL_FEES",
+  "LICENSE_PERMIT",
+  "MARKETING",
+  "BANK_CHARGES",
+  "STAFF_WAGES",
   "OTHER",
 ];
 
@@ -274,6 +289,8 @@ function validateExpenseRow(row: Record<string, string>): string[] {
   }
   if (row["Due Date"]?.trim() && isNaN(Date.parse(row["Due Date"])))
     errors.push("Due Date is not a valid date");
+  if (row["Payment Date"]?.trim() && isNaN(Date.parse(row["Payment Date"])))
+    errors.push("Payment Date is not a valid date");
   return errors;
 }
 
@@ -458,6 +475,10 @@ function mapExpenseRowToApi(row: Record<string, string>) {
     vendorName:   row["Vendor Name"],
     amountPaid:   row["Amount Paid"],
     dueDate:      row["Due Date"],
+    paymentMethod:    row["Payment Method"],
+    paymentReference: row["Payment Reference"],
+    paymentDate:      row["Payment Date"],
+    notes:            row["Notes"],
   };
 }
 
@@ -1009,7 +1030,7 @@ export default function ImportPage() {
         {tab === "expenses" && (
           <ImportSection
             title="Import Expenses"
-            description="Download the template, fill in expense records, then upload. Duplicate rows (same date, category, amount, property and description) are skipped. Vendor names are matched against existing vendor records. Optional Amount Paid / Due Date columns populate outstanding balances. Toggle 'Update existing records' to refresh payment status, due date or vendor on a re-upload."
+            description="Download the template, fill in expense records, then upload. Duplicate rows (same date, category, amount, property and description) are skipped. Vendor names are matched against existing vendor records. Optional columns capture payment detail — Amount Paid, Due Date, Payment Method, Payment Reference, Payment Date and Notes — and populate outstanding balances. Toggle 'Update existing records' to refresh payment detail on a re-upload."
             cols={EXPENSE_COLS}
             validate={validateExpenseRow}
             apiPath="/api/import/expenses"

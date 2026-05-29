@@ -174,7 +174,10 @@ export function downloadIncomeTemplate() {
 export function downloadExpensesTemplate() {
   const validCategories =
     "SERVICE_CHARGE, MANAGEMENT_FEE, WIFI, WATER, ELECTRICITY, CLEANER, " +
-    "CONSUMABLES, MAINTENANCE, REINSTATEMENT, CAPITAL, OTHER";
+    "CONSUMABLES, MAINTENANCE, REINSTATEMENT, CAPITAL, SECURITY, " +
+    "GARBAGE_COLLECTION, LANDSCAPING, PEST_CONTROL, INSURANCE, PROPERTY_TAX, " +
+    "LEGAL_FEES, LICENSE_PERMIT, MARKETING, BANK_CHARGES, STAFF_WAGES, OTHER";
+  const validPaymentMethods = "BANK_TRANSFER, MPESA, CASH, CARD, CHEQUE, OTHER";
 
   const cols: ColDef[] = [
     { header: "Date",          required: true,  width: 14 },
@@ -187,14 +190,18 @@ export function downloadExpensesTemplate() {
     { header: "Sunk Cost",     required: false, width: 12 },
     { header: "Petty Cash",    required: false, width: 12 },
     { header: "Vendor Name",   required: false, width: 24 },
-    { header: "Amount Paid",   required: false, width: 14 },
-    { header: "Due Date",      required: false, width: 14 },
+    { header: "Amount Paid",       required: false, width: 14 },
+    { header: "Due Date",          required: false, width: 14 },
+    { header: "Payment Method",    required: false, width: 16 },
+    { header: "Payment Reference", required: false, width: 20 },
+    { header: "Payment Date",      required: false, width: 14 },
+    { header: "Notes",             required: false, width: 28 },
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["2026-01-08", "MAINTENANCE",  4500,   "UNIT",      "Fix leaking tap",       "Riara One", "A1", "No", "No",  "ABC Plumbers", 4500, ""],
-    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05"],
-    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01"],
+    ["2026-01-08", "SECURITY",     4500,   "PROPERTY",  "Monthly guard service", "Riara One", "",   "No", "No",  "ABC Security", 4500, "",           "MPESA",  "QGH7X2P1", "2026-01-08", "Paid in full"],
+    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05", "",       "",         "",           "Awaiting funds"],
+    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01", "CHEQUE", "001234",   "2026-01-25", "Owner paid deposit only"],
   ];
 
   const instructions: (string | number)[][] = [
@@ -208,8 +215,12 @@ export function downloadExpensesTemplate() {
     ["Sunk Cost",     "No",  "Yes / No",            "Yes = capital/one-off cost excluded from P&L (default No)"],
     ["Petty Cash",    "No",  "Yes / No",            "Yes = paid from petty cash fund (default No)"],
     ["Vendor Name",   "No",  "Text",                "Matched against existing vendor records by name"],
-    ["Amount Paid",   "No",  "Number",              "How much has been paid so far (default 0). Leave blank/0 for an unpaid bill — the balance shows as outstanding"],
-    ["Due Date",      "No",  "YYYY-MM-DD",          "When payment is due. Past-due rows with a balance are flagged overdue"],
+    ["Amount Paid",       "No", "Number",            "How much has been paid so far (default 0). Leave blank/0 for an unpaid bill — the balance shows as outstanding"],
+    ["Due Date",          "No", "YYYY-MM-DD",        "When payment is due. Past-due rows with a balance are flagged overdue"],
+    ["Payment Method",    "No", validPaymentMethods, "How it was paid. Free text like 'Mpesa' or 'Cheque' is matched automatically"],
+    ["Payment Reference", "No", "Text",              "Cheque number, M-Pesa code, or bank reference"],
+    ["Payment Date",      "No", "YYYY-MM-DD",        "The date payment was actually made (may differ from the invoice date)"],
+    ["Notes",             "No", "Text",              "Internal comments — not shown to owners or tenants"],
   ];
 
   buildTemplate({ cols, sampleRows, instructions, filename: "import-template-expenses.xlsx" });

@@ -65,13 +65,26 @@ function computeTaxAmount(amount: number, config: TaxConfigMeta): number {
 
 const CATEGORIES = [
   "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY",
-  "CLEANER","CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL","OTHER",
+  "CLEANER","CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL",
+  "SECURITY","GARBAGE_COLLECTION","LANDSCAPING","PEST_CONTROL","INSURANCE",
+  "PROPERTY_TAX","LEGAL_FEES","LICENSE_PERMIT","MARKETING","BANK_CHARGES","STAFF_WAGES",
+  "OTHER",
 ];
 const CAT_LABELS: Record<string, string> = {
   SERVICE_CHARGE: "Service Charge", MANAGEMENT_FEE: "Management Fee",
   WIFI: "Wi-Fi", WATER: "Water", ELECTRICITY: "Electricity",
   CLEANER: "Cleaner", CONSUMABLES: "Consumables", MAINTENANCE: "Maintenance",
-  REINSTATEMENT: "Reinstatement", CAPITAL: "Capital Item", OTHER: "Other",
+  REINSTATEMENT: "Reinstatement", CAPITAL: "Capital Item",
+  SECURITY: "Security", GARBAGE_COLLECTION: "Garbage Collection",
+  LANDSCAPING: "Landscaping", PEST_CONTROL: "Pest Control", INSURANCE: "Insurance",
+  PROPERTY_TAX: "Property Tax / Rates", LEGAL_FEES: "Legal Fees",
+  LICENSE_PERMIT: "Licenses & Permits", MARKETING: "Marketing",
+  BANK_CHARGES: "Bank Charges", STAFF_WAGES: "Staff Wages", OTHER: "Other",
+};
+const PAYMENT_METHODS = ["BANK_TRANSFER", "MPESA", "CASH", "CARD", "CHEQUE", "OTHER"];
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  BANK_TRANSFER: "Bank Transfer", MPESA: "M-Pesa", CASH: "Cash",
+  CARD: "Card", CHEQUE: "Cheque", OTHER: "Other",
 };
 const LINE_CATEGORIES = ["LABOUR", "MATERIAL", "QUOTE"] as const;
 type LineCat = typeof LINE_CATEGORIES[number];
@@ -461,6 +474,10 @@ export default function ExpensesPage() {
       paidFromPettyCash: e.paidFromPettyCash,
       amountPaid: e.amountPaid ?? 0,
       dueDate: e.dueDate ? new Date(e.dueDate).toISOString().split("T")[0] : "",
+      paymentMethod: e.paymentMethod ?? undefined,
+      paymentReference: e.paymentReference ?? "",
+      paymentDate: e.paymentDate ? new Date(e.paymentDate).toISOString().split("T")[0] : "",
+      notes: e.notes ?? "",
     });
     // Unit IDs
     if (e.unitAllocations?.length > 0) {
@@ -1127,23 +1144,48 @@ export default function ExpensesPage() {
 
               {/* Payment tracking — only for single-amount expenses (line items track their own paid amounts) */}
               {!hasLineItems && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4 rounded-xl border border-gray-100 bg-cream/40 p-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Amount Paid"
+                      tooltip="How much of this expense has been settled. Leave at 0 for an unpaid bill; the difference shows as an outstanding balance."
+                      type="number" step="0.01" min="0"
+                      {...register("amountPaid")}
+                      error={errors.amountPaid?.message}
+                    />
+                    <Input
+                      label="Due Date"
+                      tooltip="When payment is due. Expenses past their due date with a balance owing are flagged as overdue."
+                      type="date"
+                      {...register("dueDate")}
+                      error={errors.dueDate?.message}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select
+                      label="Payment Method"
+                      placeholder="—"
+                      {...register("paymentMethod")}
+                      options={PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))}
+                    />
+                    <Input
+                      label="Payment Date"
+                      tooltip="The date the payment was actually made (may differ from the invoice date)."
+                      type="date"
+                      {...register("paymentDate")}
+                      error={errors.paymentDate?.message}
+                    />
+                  </div>
                   <Input
-                    label="Amount Paid"
-                    tooltip="How much of this expense has been settled. Leave at 0 for an unpaid bill; the difference shows as an outstanding balance."
-                    type="number" step="0.01" min="0"
-                    {...register("amountPaid")}
-                    error={errors.amountPaid?.message}
-                  />
-                  <Input
-                    label="Due Date"
-                    tooltip="When payment is due. Expenses past their due date with a balance owing are flagged as overdue."
-                    type="date"
-                    {...register("dueDate")}
-                    error={errors.dueDate?.message}
+                    label="Payment Reference"
+                    tooltip="Cheque number, M-Pesa code, or bank reference for this payment."
+                    {...register("paymentReference")}
+                    placeholder="e.g. M-Pesa code / cheque no."
                   />
                 </div>
               )}
+
+              <Input label="Notes" tooltip="Internal comments about this expense — not shown to owners or tenants." {...register("notes")} placeholder="Optional comments..." />
 
               {/* Sunk cost */}
               <label className="flex items-center gap-3 cursor-pointer select-none">

@@ -157,6 +157,10 @@ export async function POST(req: Request) {
         // Line items, when present, are the source of truth for paid amounts.
         amountPaid: lineItemRows.length > 0 ? 0 : rest.amountPaid ?? 0,
         dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
+        paymentMethod: rest.paymentMethod ?? null,
+        paymentReference: rest.paymentReference || null,
+        paymentDate: rest.paymentDate ? new Date(rest.paymentDate) : null,
+        notes: rest.notes || null,
         vendorId: vendorId || null,
         unitId: resolvedUnitId,
         propertyId: resolvedPropertyId,

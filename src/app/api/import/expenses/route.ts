@@ -14,6 +14,23 @@ interface ExpenseRow {
   vendorName?: string;
   amountPaid?: string | number;
   dueDate?: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+  paymentDate?: string;
+  notes?: string;
+}
+
+const PAYMENT_METHODS = ["BANK_TRANSFER", "MPESA", "CASH", "CARD", "CHEQUE", "OTHER"];
+
+/** Map free-text payment mode (e.g. "Mpesa", "Cheque", "Bank") to the enum, or null. */
+function normalizePaymentMethod(raw?: string): string | null {
+  if (!raw) return null;
+  const v = raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (PAYMENT_METHODS.includes(v)) return v;
+  if (v === "M_PESA" || v === "MPESA") return "MPESA";
+  if (v.startsWith("BANK")) return "BANK_TRANSFER";
+  if (v === "CARD" || v.includes("CREDIT") || v.includes("DEBIT")) return "CARD";
+  return "OTHER";
 }
 
 export async function POST(req: Request) {
@@ -73,6 +90,11 @@ export async function POST(req: Request) {
     const amountPaid = isNaN(amountPaidRaw) || amountPaidRaw < 0 ? 0 : amountPaidRaw;
     const dueStr = row.dueDate?.trim();
     const dueDate = dueStr && !isNaN(Date.parse(dueStr)) ? new Date(dueStr) : null;
+    const paymentMethod = normalizePaymentMethod(row.paymentMethod);
+    const paymentReference = row.paymentReference?.trim() || null;
+    const payStr = row.paymentDate?.trim();
+    const paymentDate = payStr && !isNaN(Date.parse(payStr)) ? new Date(payStr) : null;
+    const notes = row.notes?.trim() || null;
 
     if (!dateStr || isNaN(Date.parse(dateStr))) {
       errors.push({ row: rowNum, reason: "Invalid or missing date" });
@@ -163,6 +185,10 @@ export async function POST(req: Request) {
           data: {
             amountPaid,
             dueDate,
+            paymentMethod: paymentMethod as never,
+            paymentReference,
+            paymentDate,
+            notes,
             vendorId: resolvedVendorId,
             isSunkCost,
             paidFromPettyCash,
@@ -202,6 +228,10 @@ export async function POST(req: Request) {
             amount,
             amountPaid,
             dueDate,
+            paymentMethod: paymentMethod as never,
+            paymentReference,
+            paymentDate,
+            notes,
             vendorId: resolvedVendorId,
             isSunkCost,
             paidFromPettyCash,

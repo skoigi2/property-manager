@@ -178,7 +178,7 @@ export const styles = StyleSheet.create({
   // ── KPI cards — semantic variants ─────────────────────────────────────────
   kpiRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
     marginBottom: 16,
   },
   // Shared card base
@@ -186,23 +186,23 @@ export const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 6,
     padding: 12,
-    minHeight: 55,
+    minHeight: 64,
     flexDirection: "column",
     justifyContent: "flex-start",
   },
   // Background variants
-  kpiBox:         { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.LIGHT },
-  kpiBoxIncome:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.GOLD_LT },
-  kpiBoxCost:     { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.AMBER_BG },
-  kpiBoxProfit:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.GREEN_BG },
-  kpiBoxProfitNeg:{ flex: 1, borderRadius: 6, padding: 12, minHeight: 55, backgroundColor: C.RED_BG },
+  kpiBox:         { flex: 1, borderRadius: 6, padding: 12, minHeight: 64, backgroundColor: C.LIGHT },
+  kpiBoxIncome:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 64, backgroundColor: C.GOLD_LT },
+  kpiBoxCost:     { flex: 1, borderRadius: 6, padding: 12, minHeight: 64, backgroundColor: C.AMBER_BG },
+  kpiBoxProfit:   { flex: 1, borderRadius: 6, padding: 12, minHeight: 64, backgroundColor: C.GREEN_BG },
+  kpiBoxProfitNeg:{ flex: 1, borderRadius: 6, padding: 12, minHeight: 64, backgroundColor: C.RED_BG },
   // Occupancy card — centred
   kpiBoxOccupancy: {
     flex: 1,
     backgroundColor: C.GOLD_LT,
     borderRadius: 6,
     padding: 12,
-    minHeight: 55,
+    minHeight: 64,
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
@@ -242,32 +242,32 @@ export const styles = StyleSheet.create({
   },
   // Amount line — large, dominant
   kpiValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Helvetica-Bold",
     color: C.INK,
     lineHeight: 1.1,
   },
   kpiValueCost: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Helvetica-Bold",
     color: C.AMBER,
     lineHeight: 1.1,
   },
   kpiValueProfit: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Helvetica-Bold",
     color: C.GREEN,
     lineHeight: 1.1,
   },
   kpiValueProfitNeg: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Helvetica-Bold",
     color: C.RED,
     lineHeight: 1.1,
   },
   // Occupancy percentage — large, centred
   kpiOccupancyPct: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: "Helvetica-Bold",
     color: C.INK,
     textAlign: "center",
@@ -352,6 +352,13 @@ export const styles = StyleSheet.create({
   pillTextExpired:      { fontSize: 7, fontFamily: "Helvetica-Bold", color: C.RED },
 
   // ── P&L / Reconciliation panels ───────────────────────────────────────────
+  reconRow: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  reconCol: {
+    flex: 1,
+  },
   plPanel: {
     borderLeftWidth: 3,
     borderLeftColor: C.INK,

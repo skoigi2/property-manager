@@ -221,7 +221,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
       </Page>
 
       {/* ── PAGE 1: Executive Summary + Rent Collection ────── */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <PageHeader {...footerProps} />
         <View style={styles.pageContent}>
 
@@ -282,39 +282,46 @@ export function ReportDocument({ data }: { data: ReportData }) {
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
                   {[
-                    { h: "Tenant",    f: 2.5 },
-                    { h: "Unit",      f: 0.8 },
-                    { h: "Type",      f: 1.2 },
-                    { h: "Expected",  f: 2 },
-                    { h: "Received",  f: 2 },
-                    { h: "Variance",  f: 2 },
-                    { h: "Status",    f: 1.8 },
-                    { h: "Lease End", f: 1.8 },
+                    { h: "Tenant",       f: 3 },
+                    { h: "Unit",         f: 0.8 },
+                    { h: "Type",         f: 1.2 },
+                    { h: "Expected",     f: 2 },
+                    { h: "Received",     f: 2 },
+                    { h: "Variance",     f: 2 },
+                    { h: "Collection %", f: 1.6 },
+                    { h: "Status",       f: 1.8 },
+                    { h: "Lease End",    f: 1.8 },
                   ].map(({ h, f }) => (
                     <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
                   ))}
                 </View>
-                {data.rentCollection.map((t, idx) => (
+                {data.rentCollection.map((t, idx) => {
+                  const due = t.expectedRent + t.serviceCharge;
+                  const collectionPct = due > 0 ? Math.round((t.received / due) * 100) : null;
+                  return (
                   <View key={t.unit} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
-                    <Text style={[styles.tableCell, { flex: 2.5 }]}>{t.tenantName}</Text>
+                    <Text style={[styles.tableCell, { flex: 3 }]}>{t.tenantName}</Text>
                     <Text style={[styles.tableCell, { flex: 0.8 }]}>{t.unit}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{UNIT_LABEL[t.type] ?? t.type}</Text>
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(t.expectedRent + t.serviceCharge)}</Text>
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(t.received)}</Text>
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }, t.variance < 0 ? styles.negative : t.variance > 0 ? styles.positive : {}]}>{fmt(t.variance)}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 1.6, textAlign: "right" }, collectionPct !== null && collectionPct < 100 ? styles.negative : collectionPct !== null ? styles.positive : styles.muted]}>{collectionPct !== null ? `${collectionPct}%` : "—"}</Text>
                     <View style={{ flex: 1.8, alignItems: "center" }}>
                       <StatusPill variance={t.variance} status={t.status} leaseEnd={t.leaseEnd} />
                     </View>
                     <Text style={[styles.tableCell, { flex: 1.8 }, t.leaseEnd ? {} : styles.muted]}>{t.leaseEnd ?? "—"}</Text>
                   </View>
-                ))}
+                  );
+                })}
                 <View style={styles.tableRowTotal}>
-                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 2.5 }]}>TOTAL</Text>
+                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 3 }]}>TOTAL</Text>
                   <Text style={[styles.tableCell, { flex: 0.8 }]} />
                   <Text style={[styles.tableCell, { flex: 1.2 }]} />
                   <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(totalRentExpected)}</Text>
                   <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(totalRentReceived)}</Text>
                   <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }, totalRentReceived - totalRentExpected < 0 ? styles.negative : styles.positive]}>{fmt(totalRentReceived - totalRentExpected)}</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.6, textAlign: "right" }, totalRentExpected > 0 && totalRentReceived < totalRentExpected ? styles.negative : styles.positive]}>{totalRentExpected > 0 ? `${Math.round((totalRentReceived / totalRentExpected) * 100)}%` : "—"}</Text>
                   <Text style={[styles.tableCell, { flex: 1.8 }]} />
                   <Text style={[styles.tableCell, { flex: 1.8 }]} />
                 </View>
@@ -327,7 +334,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
       </Page>
 
       {/* ── PAGE 2: Short-Let + Expenses ───────────────────── */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <PageHeader {...footerProps} />
         <View style={styles.pageContent}>
 
@@ -417,7 +424,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
       </Page>
 
       {/* ── PAGE 3: P&L + Reconciliations + Vendors + Tax + Alerts ── */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" orientation="landscape" style={styles.page}>
         <PageHeader {...footerProps} />
         <View style={styles.pageContent}>
 
@@ -444,47 +451,52 @@ export function ReportDocument({ data }: { data: ReportData }) {
             </View>
           </View>
 
-          {/* Section: Petty Cash */}
-          <SectionHeading num={SEC.pettyCash} title="Petty Cash Reconciliation" />
-          <View style={styles.pettyCashPanel}>
-            {[
-              { label: "Petty cash received", value: data.pettyCash.totalIn },
-              { label: "Cash spent",          value: -data.pettyCash.totalOut },
-            ].map((row, i) => (
-              <View key={i} style={styles.plRow}>
-                <Text style={styles.plLabel}>{row.label}</Text>
-                <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{fmt(row.value)}</Text>
+          {/* Sections: Petty Cash + Management Fee — side by side */}
+          <View style={styles.reconRow}>
+            <View style={styles.reconCol}>
+              <SectionHeading num={SEC.pettyCash} title="Petty Cash Reconciliation" />
+              <View style={styles.pettyCashPanel}>
+                {[
+                  { label: "Petty cash received", value: data.pettyCash.totalIn },
+                  { label: "Cash spent",          value: -data.pettyCash.totalOut },
+                ].map((row, i) => (
+                  <View key={i} style={styles.plRow}>
+                    <Text style={styles.plLabel}>{row.label}</Text>
+                    <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{fmt(row.value)}</Text>
+                  </View>
+                ))}
+                <View style={data.pettyCash.balance >= 0 ? styles.plRowTotalGreen : styles.plRowTotalAmber}>
+                  <Text style={styles.plLabelTotalDark}>
+                    {data.pettyCash.balance >= 0 ? "Petty Cash Surplus" : "Petty Cash DEFICIT"}
+                  </Text>
+                  <Text style={data.pettyCash.balance >= 0 ? styles.plValueTotalGreen : styles.plValueTotalRed}>
+                    {fmt(data.pettyCash.balance)}
+                  </Text>
+                </View>
               </View>
-            ))}
-            <View style={data.pettyCash.balance >= 0 ? styles.plRowTotalGreen : styles.plRowTotalAmber}>
-              <Text style={styles.plLabelTotalDark}>
-                {data.pettyCash.balance >= 0 ? "Petty Cash Surplus" : "Petty Cash DEFICIT"}
-              </Text>
-              <Text style={data.pettyCash.balance >= 0 ? styles.plValueTotalGreen : styles.plValueTotalRed}>
-                {fmt(data.pettyCash.balance)}
-              </Text>
             </View>
-          </View>
 
-          {/* Section: Management Fee */}
-          <SectionHeading num={SEC.mgmtFee} title="Management Fee Reconciliation" />
-          <View style={styles.mgmtFeePanel}>
-            {[
-              { label: "Fees owing this month", value: -data.mgmtFee.owing },
-              { label: "Fees paid",             value: data.mgmtFee.paid },
-            ].map((row, i) => (
-              <View key={i} style={styles.plRow}>
-                <Text style={styles.plLabel}>{row.label}</Text>
-                <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{fmt(Math.abs(row.value))}</Text>
+            <View style={styles.reconCol}>
+              <SectionHeading num={SEC.mgmtFee} title="Management Fee Reconciliation" />
+              <View style={styles.mgmtFeePanel}>
+                {[
+                  { label: "Fees owing this month", value: -data.mgmtFee.owing },
+                  { label: "Fees paid",             value: data.mgmtFee.paid },
+                ].map((row, i) => (
+                  <View key={i} style={styles.plRow}>
+                    <Text style={styles.plLabel}>{row.label}</Text>
+                    <Text style={[styles.plValue, row.value < 0 ? styles.negative : styles.positive]}>{fmt(Math.abs(row.value))}</Text>
+                  </View>
+                ))}
+                <View style={data.mgmtFee.balance >= 0 ? styles.plRowTotalGreen : styles.plRowTotalAmber}>
+                  <Text style={styles.plLabelTotalDark}>
+                    {data.mgmtFee.balance >= 0 ? "Surplus / Overpaid" : "Outstanding Balance"}
+                  </Text>
+                  <Text style={data.mgmtFee.balance >= 0 ? styles.plValueTotalGreen : styles.plValueTotalRed}>
+                    {fmt(data.mgmtFee.balance)}
+                  </Text>
+                </View>
               </View>
-            ))}
-            <View style={data.mgmtFee.balance >= 0 ? styles.plRowTotalGreen : styles.plRowTotalAmber}>
-              <Text style={styles.plLabelTotalDark}>
-                {data.mgmtFee.balance >= 0 ? "Surplus / Overpaid" : "Outstanding Balance"}
-              </Text>
-              <Text style={data.mgmtFee.balance >= 0 ? styles.plValueTotalGreen : styles.plValueTotalRed}>
-                {fmt(data.mgmtFee.balance)}
-              </Text>
             </View>
           </View>
 

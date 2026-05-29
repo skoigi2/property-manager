@@ -4,32 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Delivery workflow (READ FIRST)
 
-Production deploys ship from `main`. Pushing a `claude/*` branch does **NOT** trigger a deploy — the user has to merge a PR into `main`. A previous session built the Operational Inbox and another built Setup Progress, each pushed their branch, and neither opened a PR — the features sat dormant for weeks while the user wondered why their deploy was missing them.
+Production deploys ship from `main`. **The user's current policy (stated 2026-05) is to commit and push directly to `main` — no `claude/*` feature branches, no PRs.** Pushing `main` is the deploy trigger; the user merges nothing.
 
 Rules for every session:
 
-1. **Always open a PR when work is "complete".** Pushing the branch is *not* shipping. Use:
+1. **Commit straight to `main` and push when work is complete.** Don't wait for a separate "push" instruction — staging, a descriptive commit, and `git push origin main` are the final step of every task.
    ```bash
-   gh pr create --base main --head <branch> --title "<short>" --body "$(cat <<'EOF' …EOF)"
+   git checkout main && git pull
+   git add <only the files relevant to this task>
+   git commit -m "<short summary>"
+   git push origin main
    ```
-   Even a one-line fix gets a PR. The user merges. The deploy runs.
+   Do **not** run `gh pr create` or create `claude/*` branches unless the user explicitly asks. (Older commits used a branch-and-PR flow; that is superseded.)
 
-2. **Before claiming a feature "doesn't exist", check unmerged branches:**
-   ```bash
-   git branch -r | grep claude/   # list every claude/* branch on origin
-   git log --oneline origin/main..origin/<branch>   # see what's on each
-   git fetch origin <branch> && git log --oneline origin/main..FETCH_HEAD
-   ```
-   A grep across `src/` only proves the feature isn't on the current worktree's branch — it doesn't prove the feature was never built. Multiple sessions running in parallel each commit to their own branch; work that "isn't there" is usually just unmerged.
+2. **Stage selectively.** This working tree carries unrelated marketing/logo/asset changes that must stay unstaged — never `git add -A`. Add only the source files your task touched.
 
-3. **When the user reports "feature X is missing after a deploy":**
-   - Don't assume regression. Most of the time `main` simply doesn't have it because no PR was opened.
-   - Compare `origin/main` to the worktree branch with `git log --oneline origin/main..HEAD`. If commits exist there, the feature was built but never merged.
-   - List unmerged `claude/*` branches in case the feature is on a different one.
+3. **End-of-task checklist:** `npm run build` passes → commit → push `main` → tell the user what shipped and (if a schema change) which migration SQL to run in Supabase prod.
 
-4. **`worktree` branches are not stable identity.** Each Claude Code worktree has its own branch (e.g. `claude/admiring-pike-523182`). Don't assume your branch holds all in-flight work — check other branches before declaring scope.
-
-5. **Rebase onto sibling features before merge** when two branches touch the same files, so the user can merge in any order without conflicts. Example: `git rebase origin/<other-feature-branch>` then `git push --force-with-lease`.
+> If you ever find work that looks missing, check `git log origin/main` first; with the direct-to-main flow there should be no unmerged `claude/*` branches to hunt through.
 
 ## Commands
 
@@ -135,7 +127,7 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 |---|---|
 | `audit.ts` | `logAudit({ userId, userEmail, action, resource, resourceId, before?, after? })` — logs CREATE/UPDATE/DELETE with JSON snapshots |
 | `blog-posts.ts` | Static blog post metadata for marketing pages |
-| `calculations.ts` | `calcUnitSummary`, `calcPettyCashBalance`, `calcPettyCashTotal`, `calcManagementFee`, `calcOccupancyRate`. Constants: `RIARA_MGMT_FEE` (flat per unit type), `ALBA_MGMT_FEE_RATE` (10%) |
+| `calculations.ts` | `calcUnitSummary`, `calcPettyCashBalance`, `calcPettyCashTotal`, `calcManagementFee`, `calcOccupancyRate`, `calcExpensePayment` (derived paid/outstanding/status per expense). Constants: `RIARA_MGMT_FEE` (flat per unit type), `ALBA_MGMT_FEE_RATE` (10%) |
 | `date-utils.ts` | `getLeaseStatus` (OK/WARNING/CRITICAL/TBC), `daysUntilExpiry`, `getMonthRange` |
 | `email.ts` | Resend wrapper. Every send goes through `sendAndLog()` which writes an `EmailLog` row. Exports `sendPasswordReset`, `sendOrgInvitation`, `sendContactEmail`, `sendNewUserAlert`, `sendWelcome`, `sendNotificationEmail` |
 | `excel-export.ts` | SheetJS multi-sheet Excel export for income/expenses |
@@ -153,7 +145,7 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `supabase-storage.ts` | Lazy Supabase client. `uploadToStorage(path, buffer, contentType)`, `deleteFromStorage(path)`, `getSignedUrl(path, expiresIn=3600)`. Bucket: `tenant-documents` |
 | `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
 | `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
-| `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema`, `pettyCashSchema`, `tenantSchema`, `manualEmailSchema` |
+| `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema` (incl. `amountPaid`/`dueDate`/`vatAmount`/`paymentMethod`/`paymentReference`/`paymentDate`/`notes`), `pettyCashSchema`, `tenantSchema`, `manualEmailSchema` |
 
 ### Operational Inbox
 
@@ -180,6 +172,7 @@ When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route
 - **Gross income** always excludes `DEPOSIT` type entries
 - **Net profit** = Gross − Agent Commissions − Operating Expenses (sunk costs excluded from P&L)
 - **Petty cash balance** is always recomputed from all entries, never stored
+- **Expense payment status / outstanding balance** are derived via `calcExpensePayment`, never stored (see Domain Model). `amount` is always **net of VAT**; `vatAmount` is separate.
 - **Management fee**: Riara One = flat amount per unit type (configured in `RIARA_MGMT_FEE` constant in `calculations.ts`); Alba Gardens = 10% of gross revenue (`ALBA_MGMT_FEE_RATE`)
 - Expenses with `isSunkCost: true` appear in reports as "capital items" and are excluded from the P&L
 
@@ -203,6 +196,10 @@ Three properties are seeded:
 `IncomeEntry` has a `type` field (`LONGTERM_RENT`, `AIRBNB`, `DEPOSIT`, `SERVICE_CHARGE`, `UTILITY_RECOVERY`, `OTHER`) and optional `checkIn`/`checkOut`, `nightlyRate`, and `platform` (`AIRBNB`, `BOOKING_COM`, `DIRECT`, `AGENT`) for Airbnb bookings.
 
 `ExpenseEntry` has a `scope` (`UNIT`, `PROPERTY`, `PORTFOLIO`) — the `propertyId` / `unitId` fields are populated based on scope.
+
+**ExpenseCategory** (extended for property ops): `SERVICE_CHARGE, MANAGEMENT_FEE, WIFI, WATER, ELECTRICITY, CLEANER, CONSUMABLES, MAINTENANCE, REINSTATEMENT, CAPITAL, SECURITY, GARBAGE_COLLECTION, LANDSCAPING, PEST_CONTROL, INSURANCE, PROPERTY_TAX, LEGAL_FEES, LICENSE_PERMIT, MARKETING, BANK_CHARGES, STAFF_WAGES, OTHER`. The same list applies to `RecurringExpense.category` — when adding a category, update the enum + every hard-coded list (expenses page, recurring-expenses page + its POST/PATCH zod schemas, the import route/page `VALID_EXPENSE_CATEGORIES`, and `import-templates.ts`).
+
+**Expense payment / outstanding-balance fields** (single-amount expenses; line items carry their own per-item payment + tax): `amountPaid` (Float, default 0), `dueDate`, `vatAmount` (net `amount` stays pre-VAT — VAT is tracked separately, never folded into `amount`), `paymentMethod` (`PaymentMethod` enum), `paymentReference`, `paymentDate`, `notes`. Payment **status + outstanding balance are derived, never stored** — use `calcExpensePayment(expense)` from `calculations.ts`, which sums line-item `amountPaid` when present, else uses expense-level `amountPaid`, returning `{ total, paid, outstanding, status: PAID|PARTIAL|UNPAID }`. The Expenses page surfaces a Balance + Due column, an overdue (past `dueDate`) banner, and the add/edit form's payment block; an expense with `dueDate < today` and a balance owing is "overdue".
 
 ## UI Conventions
 
@@ -250,6 +247,19 @@ PDF: `GET /api/owner-invoices/[id]/pdf` (uses `owner-invoice-pdf.tsx`).
 - `GET /api/properties/[id]/export` — exports full property data as a ZIP containing an XLSX workbook (sheets: summary, units, tenants, income, expenses, petty-cash, owner-invoices, documents)
 - `POST /api/import/handover` — imports a property from a handover ZIP; validates and upserts all sheets, creates an audit log entry on completion
 
+### Bulk row importers (`/import` page)
+
+The Data Import page (`src/app/(dashboard)/import/page.tsx`) hosts tabbed, row-based importers, each a `<ImportSection>` (download template → upload XLSX → client-side validate → POST rows). Templates come from `src/lib/import-templates.ts`; routes live under `src/app/api/import/<entity>/`. Tabs: tenants, rent-history, income, expenses, **recurring**, petty-cash, units, maintenance, vendors, handover.
+
+Shared importer conventions (mirror these when adding/editing one):
+- **`supportsUpsert`** prop renders an "Update existing records" toggle and sends `mode: "upsert"`; the route returns `{ imported, updated, skipped, errors }`. Without it, matches are skipped (create-only). Tenants, rent-history, **expenses, petty-cash, recurring** support upsert.
+- **Match/dedupe key is a content fingerprint and MUST be property-scoped** (the cross-property collision bug: two properties with the same date/amount/etc. must not collide). Expenses: `date(day)+category+amount+property+description`. Petty-cash: `date+type+description+amount+property`. Recurring: `description+category+amount+property+frequency`.
+- **Resolve names → ids in the route** (don't just accept them): `propertyName`→`propertyId` (case-insensitive), `vendorName`→`vendorId` (org-scoped active vendors), `unitNumber`→`unitId`. Unmatched names are **non-fatal** — the row imports unlinked with a warning pushed to `errors`. (Historical bug: a column existed in the template but the route ignored it — e.g. Vendor Name on expenses, Property Name on petty-cash — leaving rows unlinked. Always wire the column through.)
+- **Performance:** pre-load existing rows + reference data once and match in memory; bulk `createMany` + chunked `update`s — never one query per row. Set `export const maxDuration = 60`. On DB failure return a real JSON error (`{ error, detail, hint }`) instead of letting it 500 into a generic "Network error".
+- **Expenses importer** columns include the full payment block: `Amount Paid, Due Date, VAT Amount, Payment Method` (free-text "Mpesa"/"Cheque" normalised to the enum), `Payment Reference, Payment Date, Notes`.
+- **Petty-cash importer** links `Property Name` and captures `Receipt Ref`.
+- **Recurring-expenses importer** (`/api/import/recurring-expenses`) loads `RecurringExpense` templates (Description, Category, Amount, Scope, Frequency, Next Due Date, Property Name, Unit Number, Vendor Name, Active) so standing costs feed `buildForecast()` — frequency free-text is normalised to the enum.
+
 ### Management Agreement & KPIs
 
 Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/agreement`) storing:
@@ -268,7 +278,7 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Vendor Registry** — org-scoped vendor/contractor records (`VendorCategory`: `CONTRACTOR`, `SUPPLIER`, `UTILITY_PROVIDER`, `SERVICE_PROVIDER`, `CONSULTANT`, `OTHER`) with phone, email, KRA PIN, bank details, and `isActive` toggle. `vendorId` FK exists on `ExpenseEntry`, `MaintenanceJob`, `AssetMaintenanceLog`, `RecurringExpense`, and `Asset`. API: `GET/POST /api/vendors`, `GET/PATCH/DELETE /api/vendors/[id]` — DELETE returns 409 with `linkedCount` if records are linked (deactivate instead). The `VendorSelect` combobox component (`src/components/ui/VendorSelect.tsx`) uses a module-level cache (`vendorCache`) and supports inline quick-create; use it wherever a vendor field is needed rather than a plain text input.
 
-**Recurring Expenses** — standing cost templates with frequency (`MONTHLY`, `QUARTERLY`, `BIANNUAL`, `ANNUAL`) and `nextDueDate`. `POST /api/recurring-expenses/apply` (body: `{ year, month }`) materialises all due entries as real `ExpenseEntry` rows and advances `nextDueDate`. API: `GET/POST /api/recurring-expenses`, `GET/PATCH/DELETE /api/recurring-expenses/[id]`.
+**Recurring Expenses** — standing cost templates with frequency (`MONTHLY`, `QUARTERLY`, `BIANNUAL`, `ANNUAL`), `nextDueDate`, and optional `vendorId`. `POST /api/recurring-expenses/apply` (body: `{ year, month }`) materialises all due entries as real `ExpenseEntry` rows (carrying `vendorId`), advances `nextDueDate`, and **clears the `RECURRING_EXPENSE_DUE` inbox hint** for each applied item. API: `GET/POST /api/recurring-expenses`, `GET/PATCH/DELETE /api/recurring-expenses/[id]`; bulk import via `/api/import/recurring-expenses`. These feed the cash-flow forecast (`buildForecast`) and the `RECURRING_EXPENSE_DUE` smart-reminder.
 
 **Standalone Maintenance Schedules** — property/unit-level (not asset-linked) recurring maintenance tasks. API: `GET/POST /api/maintenance/schedules`, `GET/PATCH/DELETE /api/maintenance/schedules/[scheduleId]`. Asset-linked schedules use a separate path: `/api/assets/[id]/schedules/[scheduleId]`. Auth: `requireAuth` for reads, `requireManager` for writes; 403 is returned if a non-manager tries to edit/delete an asset-linked schedule.
 
@@ -396,12 +406,15 @@ The cron at `GET /api/cron/notifications` does two things per run: (1) sends ema
 
 **Status transitions**: `ACTIVE → ACTED_ON | DISMISSED | EXPIRED`. Dismissed hints auto-expire after 30 days (the cron itself runs the cleanup).
 
-**Auto-clearing**: when the underlying record changes such that the condition no longer applies, the relevant PATCH route calls `clearHints(refId, hintType?)` from [src/lib/hints.ts](src/lib/hints.ts). Currently wired:
+**Auto-clearing**: when the underlying record changes such that the condition no longer applies, the relevant route calls `clearHints(refId, hintType?)` from [src/lib/hints.ts](src/lib/hints.ts) (flips matching ACTIVE hints to `ACTED_ON`). Currently wired:
 - `PATCH /api/invoices/[id]` (PAID/CANCELLED) → clears `INVOICE_OVERDUE`
 - `PATCH /api/tenants/[id]/renewal` (RENEWED) → clears both `LEASE_EXPIRY_*`
 - `PATCH /api/maintenance/[id]` (status != OPEN) → clears `URGENT_OPEN_4H`
+- `POST /api/recurring-expenses/apply` → clears `RECURRING_EXPENSE_DUE` for each applied item
 
-Adding a checker that should auto-clear means: (a) writing `upsertHint` in the checker, and (b) calling `clearHints(refId, hintType)` from whichever route resolves the condition.
+Two checkers also **self-clear inside the cron** (no mutation route resolves them): `checkRecurringExpensesDue` deactivates any ACTIVE `RECURRING_EXPENSE_DUE` whose recurring expense is no longer due (applied/paused/deleted/date-advanced), and `checkNegativeCashflowForecast` deactivates `NEGATIVE_CASHFLOW_FORECAST` for properties no longer forecast-negative — both via an `updateMany(... refId notIn <currently-firing set>)` sweep at the end of the checker.
+
+Adding a checker that should auto-clear means: (a) `upsertHint` in the checker, and (b) either call `clearHints(refId, hintType)` from the route that resolves the condition, or add a `notIn` sweep in the checker when there is no such route.
 
 **Operational Inbox integration**: `buildInbox()` merges `ActionableHint(status=ACTIVE)` rows alongside computed inbox items, de-duplicating where `(InboxType, refId)` collide (the hint wins, since it carries the suggested action). Each hint-sourced row shows a small "✨ Suggested" badge plus per-user Dismiss / Snooze (1h / 1d / 1w) controls. Snoozes live in `HintSnooze (hintId, userId, until)` and the inbox API filters them out for the current user.
 

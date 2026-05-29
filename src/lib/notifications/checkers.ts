@@ -522,6 +522,7 @@ export async function checkRecurringExpensesDue(): Promise<{ created: number }> 
   });
 
   let created = 0;
+  const dueIds: string[] = [];
   for (const r of items) {
     const prop = r.property ?? r.unit?.property ?? null;
     if (!prop?.organizationId) continue;
@@ -544,8 +545,16 @@ export async function checkRecurringExpensesDue(): Promise<{ created: number }> 
       actionLabel: `Apply for ${formatDate(r.nextDueDate)}`,
       expiresAt: new Date(r.nextDueDate.getTime() + 30 * 86400_000),
     });
+    dueIds.push(r.id);
     created++;
   }
+
+  // Self-clear: any active reminder whose recurring expense is no longer due
+  // (applied, paused, deleted, or date advanced) is resolved.
+  await prisma.actionableHint.updateMany({
+    where: { hintType: "RECURRING_EXPENSE_DUE", status: "ACTIVE", refId: { notIn: dueIds } },
+    data: { status: "ACTED_ON", actedAt: new Date() },
+  });
   return { created };
 }
 
@@ -599,6 +608,7 @@ export async function checkNegativeCashflowForecast(): Promise<{ created: number
   });
 
   let created = 0;
+  const negativeIds: string[] = [];
   for (const p of props) {
     if (!p.organizationId) continue;
     try {
@@ -635,11 +645,18 @@ export async function checkNegativeCashflowForecast(): Promise<{ created: number
         actionMethod: "GET",
         actionLabel: "Open forecast",
       });
+      negativeIds.push(p.id);
       created++;
     } catch {
       // forecast engine failed for this property — skip silently
     }
   }
+
+  // Self-clear: properties whose forecast is no longer negative.
+  await prisma.actionableHint.updateMany({
+    where: { hintType: "NEGATIVE_CASHFLOW_FORECAST", status: "ACTIVE", refId: { notIn: negativeIds } },
+    data: { status: "ACTED_ON", actedAt: new Date() },
+  });
   return { created };
 }
 

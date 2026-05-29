@@ -1,6 +1,7 @@
 import { requireManager } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { clearHints } from "@/lib/hints";
 import { z } from "zod";
 import { addMonths, addQuarters, addYears } from "date-fns";
 
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
         description: `[Recurring] ${item.description}`,
         propertyId: item.propertyId ?? undefined,
         unitId: item.unitId ?? undefined,
+        vendorId: item.vendorId ?? undefined,
         isSunkCost: false,
         paidFromPettyCash: false,
       },
@@ -66,6 +68,9 @@ export async function POST(req: Request) {
       where: { id: item.id },
       data: { nextDueDate: next },
     });
+
+    // The "recurring expense due" inbox reminder is now resolved for this period.
+    await clearHints(item.id, "RECURRING_EXPENSE_DUE");
   }
 
   return Response.json({ applied: created.length, expenseIds: created });

@@ -30,6 +30,7 @@ import {
   downloadTenantsTemplate,
   downloadIncomeTemplate,
   downloadExpensesTemplate,
+  downloadRecurringExpensesTemplate,
   downloadPettyCashTemplate,
   downloadUnitsTemplate,
   downloadMaintenanceTemplate,
@@ -41,7 +42,7 @@ import { PackageOpen } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "tenants" | "rent-history" | "income" | "expenses" | "petty-cash" | "units" | "maintenance" | "vendors" | "handover";
+type Tab = "tenants" | "rent-history" | "income" | "expenses" | "recurring" | "petty-cash" | "units" | "maintenance" | "vendors" | "handover";
 
 interface ParsedRow {
   rowIndex: number;
@@ -121,6 +122,20 @@ const EXPENSE_COLS = [
 ];
 
 const PC_COLS = ["Date", "Type", "Description", "Amount", "Property Name", "Receipt Ref"];
+
+const RECUR_COLS = [
+  "Description",
+  "Category",
+  "Amount",
+  "Scope",
+  "Frequency",
+  "Next Due Date",
+  "Property Name",
+  "Unit Number",
+  "Vendor Name",
+  "Active",
+];
+const VALID_FREQUENCIES = ["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"];
 
 const UNIT_COLS = [
   "Unit Number",
@@ -296,6 +311,25 @@ function validateExpenseRow(row: Record<string, string>): string[] {
     const vat = parseFloat(row["VAT Amount"]);
     if (isNaN(vat) || vat < 0) errors.push("VAT Amount must be a non-negative number");
   }
+  return errors;
+}
+
+function validateRecurringRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Description"]?.trim()) errors.push("Description is required");
+  if (!row["Category"]?.trim()) errors.push("Category is required");
+  else if (!VALID_EXPENSE_CATEGORIES.includes(row["Category"].trim().toUpperCase()))
+    errors.push(`Invalid category "${row["Category"]}"`);
+  const amt = parseFloat(row["Amount"] ?? "");
+  if (!row["Amount"] || isNaN(amt) || amt <= 0) errors.push("Amount must be a positive number");
+  const scope = row["Scope"]?.trim()?.toUpperCase();
+  if (!scope) errors.push("Scope is required");
+  else if (!VALID_EXPENSE_SCOPES.includes(scope)) errors.push(`Invalid scope "${row["Scope"]}" — must be UNIT, PROPERTY or PORTFOLIO`);
+  const freq = row["Frequency"]?.trim()?.toUpperCase();
+  if (!freq) errors.push("Frequency is required");
+  else if (!VALID_FREQUENCIES.includes(freq)) errors.push(`Invalid frequency "${row["Frequency"]}" — must be MONTHLY, QUARTERLY, BIANNUAL or ANNUAL`);
+  if (!row["Next Due Date"]?.trim()) errors.push("Next Due Date is required");
+  else if (isNaN(Date.parse(row["Next Due Date"]))) errors.push("Next Due Date is not a valid date");
   return errors;
 }
 
@@ -485,6 +519,21 @@ function mapExpenseRowToApi(row: Record<string, string>) {
     paymentReference: row["Payment Reference"],
     paymentDate:      row["Payment Date"],
     notes:            row["Notes"],
+  };
+}
+
+function mapRecurringRowToApi(row: Record<string, string>) {
+  return {
+    description:  row["Description"],
+    category:     row["Category"],
+    amount:       row["Amount"],
+    scope:        row["Scope"],
+    frequency:    row["Frequency"],
+    nextDueDate:  row["Next Due Date"],
+    propertyName: row["Property Name"],
+    unitNumber:   row["Unit Number"],
+    vendorName:   row["Vendor Name"],
+    isActive:     row["Active"],
   };
 }
 
@@ -944,6 +993,7 @@ export default function ImportPage() {
     ["rent-history", "Rent History", RefreshCw],
     ["income",       "Income",       TrendingUp],
     ["expenses",     "Expenses",     Receipt],
+    ["recurring",    "Recurring",    RefreshCw],
     ["petty-cash",   "Petty Cash",   Wallet],
     ["units",        "Units",        Building2],
     ["maintenance",  "Maintenance",  Wrench],
@@ -1044,6 +1094,20 @@ export default function ImportPage() {
             onDownloadTemplate={downloadExpensesTemplate}
             templateName="Expenses"
             mapRowToApi={mapExpenseRowToApi}
+            supportsUpsert
+          />
+        )}
+
+        {tab === "recurring" && (
+          <ImportSection
+            title="Import Recurring Expenses"
+            description="Bulk-load standing costs (security, garbage, service charge, water, rates, pool, etc.) so they appear in the cash-flow forecast and are auto-applied each period. Set Frequency (MONTHLY / QUARTERLY / BIANNUAL / ANNUAL) and the Next Due Date. Duplicates (same description, category, amount, property and frequency) are skipped. Toggle 'Update existing records' to refresh next-due / amount / vendor on a re-upload."
+            cols={RECUR_COLS}
+            validate={validateRecurringRow}
+            apiPath="/api/import/recurring-expenses"
+            onDownloadTemplate={downloadRecurringExpensesTemplate}
+            templateName="Recurring Expenses"
+            mapRowToApi={mapRecurringRowToApi}
             supportsUpsert
           />
         )}

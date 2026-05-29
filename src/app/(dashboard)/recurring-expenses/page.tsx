@@ -23,13 +23,19 @@ import Link from "next/link";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 
 const CATEGORIES = [
-  "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY",
-  "CLEANER","CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL","OTHER",
+  "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY","CLEANER",
+  "CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL","SECURITY",
+  "GARBAGE_COLLECTION","LANDSCAPING","PEST_CONTROL","INSURANCE","PROPERTY_TAX",
+  "LEGAL_FEES","LICENSE_PERMIT","MARKETING","BANK_CHARGES","STAFF_WAGES","OTHER",
 ];
 const CAT_LABELS: Record<string,string> = {
   SERVICE_CHARGE:"Service Charge", MANAGEMENT_FEE:"Management Fee", WIFI:"Wi-Fi",
   WATER:"Water", ELECTRICITY:"Electricity", CLEANER:"Cleaner", CONSUMABLES:"Consumables",
-  MAINTENANCE:"Maintenance", REINSTATEMENT:"Reinstatement", CAPITAL:"Capital Item", OTHER:"Other",
+  MAINTENANCE:"Maintenance", REINSTATEMENT:"Reinstatement", CAPITAL:"Capital Item",
+  SECURITY:"Security", GARBAGE_COLLECTION:"Garbage Collection", LANDSCAPING:"Landscaping",
+  PEST_CONTROL:"Pest Control", INSURANCE:"Insurance", PROPERTY_TAX:"Property Tax / Rates",
+  LEGAL_FEES:"Legal Fees", LICENSE_PERMIT:"Licenses & Permits", MARKETING:"Marketing",
+  BANK_CHARGES:"Bank Charges", STAFF_WAGES:"Staff Wages", OTHER:"Other",
 };
 const FREQ_LABELS: Record<string,string> = { MONTHLY:"Monthly", QUARTERLY:"Quarterly", ANNUAL:"Annual", BIANNUAL:"Bi-annually" };
 const FREQ_BADGE: Record<string, "green"|"blue"|"amber"> = { MONTHLY:"green", QUARTERLY:"blue", ANNUAL:"amber", BIANNUAL:"amber" };

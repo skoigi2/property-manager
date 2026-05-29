@@ -228,6 +228,49 @@ export function downloadExpensesTemplate() {
   buildTemplate({ cols, sampleRows, instructions, filename: "import-template-expenses.xlsx" });
 }
 
+export function downloadRecurringExpensesTemplate() {
+  const validCategories =
+    "SERVICE_CHARGE, MANAGEMENT_FEE, WIFI, WATER, ELECTRICITY, CLEANER, " +
+    "CONSUMABLES, MAINTENANCE, REINSTATEMENT, CAPITAL, SECURITY, " +
+    "GARBAGE_COLLECTION, LANDSCAPING, PEST_CONTROL, INSURANCE, PROPERTY_TAX, " +
+    "LEGAL_FEES, LICENSE_PERMIT, MARKETING, BANK_CHARGES, STAFF_WAGES, OTHER";
+  const validFreq = "MONTHLY, QUARTERLY, BIANNUAL, ANNUAL";
+
+  const cols: ColDef[] = [
+    { header: "Description",   required: true,  width: 32 },
+    { header: "Category",      required: true,  width: 18 },
+    { header: "Amount",        required: true,  width: 14 },
+    { header: "Scope",         required: true,  width: 12 },
+    { header: "Frequency",     required: true,  width: 14 },
+    { header: "Next Due Date", required: true,  width: 14 },
+    { header: "Property Name", required: false, width: 20 },
+    { header: "Unit Number",   required: false, width: 14 },
+    { header: "Vendor Name",   required: false, width: 24 },
+    { header: "Active",        required: false, width: 10 },
+  ];
+
+  const sampleRows: (string | number)[][] = [
+    ["Monthly guard service", "SECURITY",      65000, "PROPERTY", "MONTHLY",   "2026-06-01", "Riara One", "", "ABC Security", "Yes"],
+    ["Annual land rates",      "PROPERTY_TAX",  120000,"PROPERTY", "ANNUAL",    "2027-01-01", "Riara One", "", "Nairobi City Council", "Yes"],
+    ["Pool chemicals",         "MAINTENANCE",   7380,  "PROPERTY", "QUARTERLY", "2026-07-01", "Riara One", "", "Poolshop EA", "Yes"],
+  ];
+
+  const instructions: (string | number)[][] = [
+    ["Description",   "Yes", "Text",          "What the standing cost is for"],
+    ["Category",      "Yes", validCategories, "Expense category — must match exactly"],
+    ["Amount",        "Yes", "Number",        "Net amount charged each period (pre-VAT)"],
+    ["Scope",         "Yes", "UNIT, PROPERTY, PORTFOLIO", "Usually PROPERTY for standing costs"],
+    ["Frequency",     "Yes", validFreq,       "How often the cost recurs"],
+    ["Next Due Date", "Yes", "YYYY-MM-DD",    "The next date this cost falls due — drives the cash-flow forecast"],
+    ["Property Name", "No",  "Text",          "Which property the cost belongs to — must match a property name exactly"],
+    ["Unit Number",   "No",  "Text",          "Only for UNIT scope"],
+    ["Vendor Name",   "No",  "Text",          "Matched against existing vendor records by name"],
+    ["Active",        "No",  "Yes / No",      "No = paused (won't forecast or auto-apply). Default Yes"],
+  ];
+
+  buildTemplate({ cols, sampleRows, instructions, filename: "import-template-recurring-expenses.xlsx" });
+}
+
 export function downloadPettyCashTemplate() {
   const cols: ColDef[] = [
     { header: "Date",          required: true,  width: 14 },

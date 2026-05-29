@@ -28,6 +28,33 @@ export function calcPettyCashTotal(entries: PettyCash[]): number {
     .reduce((acc, e) => acc + (e.type === "IN" ? e.amount : -e.amount), 0);
 }
 
+export type ExpensePaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
+
+export interface ExpensePayment {
+  total: number;
+  paid: number;
+  outstanding: number;
+  status: ExpensePaymentStatus;
+}
+
+/** Unified payment/outstanding-balance for an expense. Line items, when present,
+ *  are the source of truth (sum their amountPaid); otherwise the expense-level
+ *  amountPaid is used. Status is derived, never stored. */
+export function calcExpensePayment(expense: {
+  amount: number;
+  amountPaid?: number | null;
+  lineItems?: { amountPaid?: number | null }[] | null;
+}): ExpensePayment {
+  const total = expense.amount;
+  const paid = expense.lineItems?.length
+    ? expense.lineItems.reduce((s, li) => s + (li.amountPaid ?? 0), 0)
+    : expense.amountPaid ?? 0;
+  const outstanding = Math.max(total - paid, 0);
+  const status: ExpensePaymentStatus =
+    paid <= 0 ? "UNPAID" : paid >= total ? "PAID" : "PARTIAL";
+  return { total, paid, outstanding, status };
+}
+
 /** Net income = gross income - agent commissions - operating expenses (excl sunk costs) */
 export function calcNetIncome(
   grossIncome: number,

@@ -28,6 +28,7 @@ import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { exportExpenses } from "@/lib/excel-export";
 import { formatCurrency, formatNumber } from "@/lib/currency";
+import { calcExpensePayment } from "@/lib/calculations";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 
@@ -94,14 +95,6 @@ function blankLine(): LineItemDraft {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function aggregatePayment(lineItems: any[]): PayStatus | null {
-  if (!lineItems?.length) return null;
-  const statuses = lineItems.map((i: any) => i.paymentStatus as PayStatus);
-  if (statuses.every((s) => s === "PAID")) return "PAID";
-  if (statuses.every((s) => s === "UNPAID")) return "UNPAID";
-  return "PARTIAL";
-}
 
 function PayBadge({ status }: { status: PayStatus | null }) {
   if (!status) return null;
@@ -366,12 +359,17 @@ export default function ExpensesPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Column order (draggable), persisted to localStorage
-  const DEFAULT_COL_ORDER = ["date", "unit", "property", "category", "description", "amount", "payment"];
+  const DEFAULT_COL_ORDER = ["date", "unit", "property", "category", "description", "amount", "payment", "balance", "due"];
   const [colOrder, setColOrder] = useState<string[]>(() => {
     if (typeof window === "undefined") return DEFAULT_COL_ORDER;
     try {
       const saved = localStorage.getItem("expenses-col-order");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved);
+        // Append any newly-added default columns the saved order predates.
+        const merged = [...parsed, ...DEFAULT_COL_ORDER.filter((c) => !parsed.includes(c))];
+        return merged;
+      }
     } catch { /* ignore */ }
     return DEFAULT_COL_ORDER;
   });
@@ -461,6 +459,8 @@ export default function ExpensesPage() {
       description: e.description ?? "",
       isSunkCost: e.isSunkCost,
       paidFromPettyCash: e.paidFromPettyCash,
+      amountPaid: e.amountPaid ?? 0,
+      dueDate: e.dueDate ? new Date(e.dueDate).toISOString().split("T")[0] : "",
     });
     // Unit IDs
     if (e.unitAllocations?.length > 0) {
@@ -675,9 +675,7 @@ export default function ExpensesPage() {
       .filter((e: any) => !filterSunk || (filterSunk === "op" ? !e.isSunkCost : e.isSunkCost))
       .filter((e: any) => {
         if (!filterPayment) return true;
-        const status = aggregatePayment(e.lineItems);
-        if (status === null) return true; // no line items → always show
-        return status === filterPayment;
+        return calcExpensePayment(e).status === filterPayment;
       });
 
     if (sortCol) {
@@ -695,9 +693,15 @@ export default function ExpensesPage() {
           cmp = (a.description ?? "").localeCompare(b.description ?? "");
         } else if (sortCol === "payment") {
           const order = { PAID: 0, PARTIAL: 1, UNPAID: 2 };
-          const sa = aggregatePayment(a.lineItems);
-          const sb = aggregatePayment(b.lineItems);
+          const sa = calcExpensePayment(a).status;
+          const sb = calcExpensePayment(b).status;
           cmp = (order[sa as keyof typeof order] ?? 3) - (order[sb as keyof typeof order] ?? 3);
+        } else if (sortCol === "balance") {
+          cmp = calcExpensePayment(a).outstanding - calcExpensePayment(b).outstanding;
+        } else if (sortCol === "due") {
+          const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+          const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+          cmp = da - db;
         }
         return sortDir === "asc" ? cmp : -cmp;
       });
@@ -709,21 +713,22 @@ export default function ExpensesPage() {
   const hasFilters = !!(filterSearch || filterCategory || filterScope || filterPayment || filterSunk);
 
   // Outstanding payments
-  const unpaidEntries = entries.filter((e: any) => {
-    const s = aggregatePayment(e.lineItems);
-    return s === "UNPAID" || s === "PARTIAL";
-  });
-  const unpaidTotal = unpaidEntries.reduce((s: number, e: any) => s + e.amount, 0);
+  const unpaidEntries = entries.filter((e: any) => calcExpensePayment(e).status !== "PAID");
+  const unpaidTotal = unpaidEntries.reduce((s: number, e: any) => s + calcExpensePayment(e).outstanding, 0);
+  const now = Date.now();
+  const overdueEntries = unpaidEntries.filter((e: any) => e.dueDate && new Date(e.dueDate).getTime() < now);
+  const overdueTotal = overdueEntries.reduce((s: number, e: any) => s + calcExpensePayment(e).outstanding, 0);
 
   const hasLineItems = lineItems.length > 0;
   const computedTotal = hasLineItems
     ? lineItems.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
     : null;
 
-  const SORTABLE_COLS = new Set(["date", "property", "category", "description", "amount", "payment"]);
+  const SORTABLE_COLS = new Set(["date", "property", "category", "description", "amount", "payment", "balance", "due"]);
   const COL_LABELS: Record<string, string> = {
     date: "Date", unit: "Unit/Scope", property: "Property",
     category: "Category", description: "Description", amount: "Amount", payment: "Payment",
+    balance: "Balance", due: "Due",
   };
 
   function renderColHeader(key: string) {
@@ -796,8 +801,10 @@ export default function ExpensesPage() {
   }
 
   function renderColCell(key: string, e: any) {
-    const payStatus = aggregatePayment(e.lineItems);
+    const pay = calcExpensePayment(e);
+    const payStatus = pay.status;
     const propName = propertyLabel(e);
+    const isOverdue = e.dueDate && pay.status !== "PAID" && new Date(e.dueDate).getTime() < Date.now();
     switch (key) {
       case "date":
         return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>;
@@ -834,6 +841,22 @@ export default function ExpensesPage() {
         );
       case "payment":
         return <td key={key} className="px-4 py-3"><PayBadge status={payStatus} /></td>;
+      case "balance":
+        return (
+          <td key={key} className="px-4 py-3 text-right">
+            {pay.outstanding > 0
+              ? <span className="text-sm font-mono text-expense">{formatCurrency(pay.outstanding, currency)}</span>
+              : <span className="text-xs text-gray-300">—</span>}
+          </td>
+        );
+      case "due":
+        return (
+          <td key={key} className="px-4 py-3 text-sm font-sans whitespace-nowrap">
+            {e.dueDate
+              ? <span className={isOverdue ? "text-expense font-medium" : "text-gray-500"}>{formatDate(e.dueDate)}{isOverdue && " ⚠"}</span>
+              : <span className="text-xs text-gray-300">—</span>}
+          </td>
+        );
       default:
         return <td key={key} />;
     }
@@ -941,12 +964,19 @@ export default function ExpensesPage() {
         {unpaidEntries.length > 0 && !filterPayment && (
           <button
             onClick={() => setFilterPayment("UNPAID")}
-            className="w-full flex items-center gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-left hover:bg-amber-100 transition-colors"
+            className={clsx(
+              "w-full flex items-center gap-2.5 px-4 py-3 border rounded-xl text-left transition-colors",
+              overdueEntries.length > 0
+                ? "bg-expense/5 border-expense/30 hover:bg-expense/10"
+                : "bg-amber-50 border-amber-200 hover:bg-amber-100"
+            )}
           >
-            <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
-            <span className="text-sm font-sans text-amber-800">
+            <AlertTriangle size={15} className={clsx("flex-shrink-0", overdueEntries.length > 0 ? "text-expense" : "text-amber-600")} />
+            <span className={clsx("text-sm font-sans", overdueEntries.length > 0 ? "text-expense" : "text-amber-800")}>
               <span className="font-semibold">{unpaidEntries.length} {unpaidEntries.length === 1 ? "expense has" : "expenses have"} outstanding payments</span>
-              {" "}totalling {formatCurrency(unpaidTotal, currency)} — click to filter
+              {" "}totalling {formatCurrency(unpaidTotal, currency)}
+              {overdueEntries.length > 0 && <> — including <span className="font-semibold">{formatCurrency(overdueTotal, currency)} overdue</span></>}
+              {" "}— click to filter
             </span>
           </button>
         )}
@@ -1095,6 +1125,26 @@ export default function ExpensesPage() {
 
               <Input label="Description" {...register("description")} placeholder="Optional description..." />
 
+              {/* Payment tracking — only for single-amount expenses (line items track their own paid amounts) */}
+              {!hasLineItems && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Amount Paid"
+                    tooltip="How much of this expense has been settled. Leave at 0 for an unpaid bill; the difference shows as an outstanding balance."
+                    type="number" step="0.01" min="0"
+                    {...register("amountPaid")}
+                    error={errors.amountPaid?.message}
+                  />
+                  <Input
+                    label="Due Date"
+                    tooltip="When payment is due. Expenses past their due date with a balance owing are flagged as overdue."
+                    type="date"
+                    {...register("dueDate")}
+                    error={errors.dueDate?.message}
+                  />
+                </div>
+              )}
+
               {/* Sunk cost */}
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input type="checkbox" {...register("isSunkCost")} className="w-4 h-4 rounded border-gray-300 accent-gold" />
@@ -1162,7 +1212,9 @@ export default function ExpensesPage() {
             {/* Mobile: stacked cards */}
             <div className="md:hidden divide-y divide-gray-50">
               {displayEntries.map((e: any) => {
-                const payStatus = aggregatePayment(e.lineItems);
+                const pay = calcExpensePayment(e);
+                const payStatus = pay.status;
+                const mIsOverdue = e.dueDate && pay.status !== "PAID" && new Date(e.dueDate).getTime() < Date.now();
                 return (
                   <div key={e.id} className="px-4 py-3">
                     {/* Top row: date + category badge */}
@@ -1184,6 +1236,20 @@ export default function ExpensesPage() {
                       </span>
                       <PayBadge status={payStatus} />
                     </div>
+
+                    {/* Outstanding balance + due date */}
+                    {(pay.outstanding > 0 || e.dueDate) && (
+                      <div className="flex items-center justify-between mt-1 text-xs font-sans">
+                        {pay.outstanding > 0
+                          ? <span className="text-expense">Balance {formatCurrency(pay.outstanding, currency)}</span>
+                          : <span />}
+                        {e.dueDate && (
+                          <span className={mIsOverdue ? "text-expense font-medium" : "text-gray-400"}>
+                            Due {formatDate(e.dueDate)}{mIsOverdue && " ⚠"}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 border-t border-gray-50 mt-2 pt-2">

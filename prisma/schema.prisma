@@ -717,6 +717,8 @@ model ExpenseEntry {
   description       String?
   isSunkCost        Boolean         @default(false)
   paidFromPettyCash Boolean         @default(false)
+  amountPaid        Float           @default(0)
+  dueDate           DateTime?
   vendorId          String?
   unit              Unit?                    @relation(fields: [unitId], references: [id])
   property          Property?                @relation(fields: [propertyId], references: [id])

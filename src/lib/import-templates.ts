@@ -187,12 +187,14 @@ export function downloadExpensesTemplate() {
     { header: "Sunk Cost",     required: false, width: 12 },
     { header: "Petty Cash",    required: false, width: 12 },
     { header: "Vendor Name",   required: false, width: 24 },
+    { header: "Amount Paid",   required: false, width: 14 },
+    { header: "Due Date",      required: false, width: 14 },
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["2026-01-08", "MAINTENANCE",  4500,   "UNIT",      "Fix leaking tap",       "Riara One", "A1", "No", "No",  "ABC Plumbers"],
-    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power"],
-    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  ""],
+    ["2026-01-08", "MAINTENANCE",  4500,   "UNIT",      "Fix leaking tap",       "Riara One", "A1", "No", "No",  "ABC Plumbers", 4500, ""],
+    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05"],
+    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01"],
   ];
 
   const instructions: (string | number)[][] = [
@@ -206,6 +208,8 @@ export function downloadExpensesTemplate() {
     ["Sunk Cost",     "No",  "Yes / No",            "Yes = capital/one-off cost excluded from P&L (default No)"],
     ["Petty Cash",    "No",  "Yes / No",            "Yes = paid from petty cash fund (default No)"],
     ["Vendor Name",   "No",  "Text",                "Matched against existing vendor records by name"],
+    ["Amount Paid",   "No",  "Number",              "How much has been paid so far (default 0). Leave blank/0 for an unpaid bill — the balance shows as outstanding"],
+    ["Due Date",      "No",  "YYYY-MM-DD",          "When payment is due. Past-due rows with a balance are flagged overdue"],
   ];
 
   buildTemplate({ cols, sampleRows, instructions, filename: "import-template-expenses.xlsx" });

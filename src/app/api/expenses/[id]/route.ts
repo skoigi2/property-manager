@@ -89,6 +89,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         description: rest.description,
         isSunkCost: rest.isSunkCost ?? false,
         paidFromPettyCash: paidFromPettyCash ?? false,
+        // Line items, when present, are the source of truth for paid amounts.
+        amountPaid: lineItems && lineItems.length > 0 ? 0 : rest.amountPaid ?? 0,
+        dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
         vendorId: vendorId !== undefined ? (vendorId || null) : undefined,
         unitId: resolvedUnitId ?? null,
         propertyId: resolvedPropertyId ?? null,

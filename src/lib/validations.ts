@@ -50,6 +50,8 @@ export const expenseEntrySchema = z.object({
   description: z.string().optional(),
   isSunkCost: z.boolean().optional(),
   paidFromPettyCash: z.boolean().optional(),
+  amountPaid: z.coerce.number().min(0).optional(),
+  dueDate: z.string().optional(),
   lineItems: z.array(expenseLineItemSchema).optional(),
 });
 

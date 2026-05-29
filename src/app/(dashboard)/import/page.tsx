@@ -111,6 +111,8 @@ const EXPENSE_COLS = [
   "Sunk Cost",
   "Petty Cash",
   "Vendor Name",
+  "Amount Paid",
+  "Due Date",
 ];
 
 const PC_COLS = ["Date", "Type", "Description", "Amount", "Property Name"];
@@ -265,6 +267,13 @@ function validateExpenseRow(row: Record<string, string>): string[] {
   const amt = parseFloat(row["Amount"] ?? "");
   if (!row["Amount"] || isNaN(amt) || amt <= 0)
     errors.push("Amount must be a positive number");
+  if (row["Amount Paid"]?.trim()) {
+    const paid = parseFloat(row["Amount Paid"]);
+    if (isNaN(paid) || paid < 0) errors.push("Amount Paid must be a non-negative number");
+    else if (!isNaN(amt) && paid > amt) errors.push("Amount Paid cannot exceed Amount");
+  }
+  if (row["Due Date"]?.trim() && isNaN(Date.parse(row["Due Date"])))
+    errors.push("Due Date is not a valid date");
   return errors;
 }
 
@@ -447,6 +456,8 @@ function mapExpenseRowToApi(row: Record<string, string>) {
     sunkCost:     row["Sunk Cost"],
     pettyCash:    row["Petty Cash"],
     vendorName:   row["Vendor Name"],
+    amountPaid:   row["Amount Paid"],
+    dueDate:      row["Due Date"],
   };
 }
 
@@ -998,13 +1009,14 @@ export default function ImportPage() {
         {tab === "expenses" && (
           <ImportSection
             title="Import Expenses"
-            description="Download the template, fill in expense records, then upload. Duplicate entries with the same date, category and amount are skipped. Vendor names are matched against existing vendor records."
+            description="Download the template, fill in expense records, then upload. Duplicate rows (same date, category, amount, property and description) are skipped. Vendor names are matched against existing vendor records. Optional Amount Paid / Due Date columns populate outstanding balances. Toggle 'Update existing records' to refresh payment status, due date or vendor on a re-upload."
             cols={EXPENSE_COLS}
             validate={validateExpenseRow}
             apiPath="/api/import/expenses"
             onDownloadTemplate={downloadExpensesTemplate}
             templateName="Expenses"
             mapRowToApi={mapExpenseRowToApi}
+            supportsUpsert
           />
         )}
 

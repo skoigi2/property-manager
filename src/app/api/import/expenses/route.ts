@@ -11,10 +11,13 @@ interface ExpenseRow {
   amount?: string | number;
   sunkCost?: string;
   pettyCash?: string;
+  vendorName?: string;
+  amountPaid?: string | number;
+  dueDate?: string;
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
@@ -22,6 +25,10 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const rows: ExpenseRow[] = body.rows ?? [];
+  // "create" (default) skips rows that already exist (by content fingerprint).
+  // "upsert" updates the matched row in place — use for a re-upload to refresh
+  // payment status / due date / vendor without creating duplicates.
+  const mode: "create" | "upsert" = body.mode === "upsert" ? "upsert" : "create";
 
   // Load units + properties for accessible propertyIds
   const units = await prisma.unit.findMany({
@@ -34,7 +41,17 @@ export async function POST(req: Request) {
     select: { id: true, name: true },
   });
 
+  // Org-scoped active vendors for name → id linking (case-insensitive).
+  const orgId = session!.user.organizationId;
+  const vendors = orgId
+    ? await prisma.vendor.findMany({
+        where: { organizationId: orgId, isActive: true },
+        select: { id: true, name: true },
+      })
+    : [];
+
   let imported = 0;
+  let updated = 0;
   let skipped = 0;
   const errors: { row: number; reason: string }[] = [];
 
@@ -51,6 +68,11 @@ export async function POST(req: Request) {
     const amount = parseFloat(String(row.amount ?? "0"));
     const isSunkCost = row.sunkCost?.trim().toLowerCase() === "yes";
     const paidFromPettyCash = row.pettyCash?.trim().toLowerCase() === "yes";
+    const vendorName = row.vendorName?.trim();
+    const amountPaidRaw = parseFloat(String(row.amountPaid ?? "0"));
+    const amountPaid = isNaN(amountPaidRaw) || amountPaidRaw < 0 ? 0 : amountPaidRaw;
+    const dueStr = row.dueDate?.trim();
+    const dueDate = dueStr && !isNaN(Date.parse(dueStr)) ? new Date(dueStr) : null;
 
     if (!dateStr || isNaN(Date.parse(dateStr))) {
       errors.push({ row: rowNum, reason: "Invalid or missing date" });
@@ -81,20 +103,6 @@ export async function POST(req: Request) {
     const startOfDay = new Date(dateOnly + "T00:00:00.000Z");
     const endOfDay = new Date(dateOnly + "T23:59:59.999Z");
 
-    // Duplicate check: same date + category + amount
-    const duplicate = await prisma.expenseEntry.findFirst({
-      where: {
-        category: category as never,
-        amount,
-        date: { gte: startOfDay, lte: endOfDay },
-      },
-    });
-
-    if (duplicate) {
-      skipped++;
-      continue;
-    }
-
     // Resolve propertyId
     let resolvedPropertyId: string | undefined;
     if (propertyName) {
@@ -123,6 +131,51 @@ export async function POST(req: Request) {
       }
     }
 
+    // Resolve vendor by name (case-insensitive). Unmatched names are non-fatal.
+    let resolvedVendorId: string | null = null;
+    if (vendorName) {
+      const v = vendors.find((vd) => vd.name.toLowerCase() === vendorName.toLowerCase());
+      if (v) resolvedVendorId = v.id;
+      else errors.push({ row: rowNum, reason: `Vendor "${vendorName}" not found — imported without vendor link` });
+    }
+
+    // Content fingerprint: date(day) + category + amount + property + description.
+    // Property-scoped so two properties' same-day/same-amount rows don't collide.
+    const match = await prisma.expenseEntry.findFirst({
+      where: {
+        category: category as never,
+        amount,
+        date: { gte: startOfDay, lte: endOfDay },
+        propertyId: resolvedPropertyId || null,
+        description: description || null,
+      },
+    });
+
+    if (match) {
+      if (mode === "create") {
+        skipped++;
+        continue;
+      }
+      // upsert → refresh payment / vendor / classification on the matched row
+      try {
+        await prisma.expenseEntry.update({
+          where: { id: match.id },
+          data: {
+            amountPaid,
+            dueDate,
+            vendorId: resolvedVendorId,
+            isSunkCost,
+            paidFromPettyCash,
+          },
+        });
+        updated++;
+      } catch (err) {
+        errors.push({ row: rowNum, reason: `Database error: ${(err as Error).message}` });
+        skipped++;
+      }
+      continue;
+    }
+
     // For petty cash, determine which property to link
     let pettyCashPropertyId: string | null = null;
     if (paidFromPettyCash) {
@@ -147,6 +200,9 @@ export async function POST(req: Request) {
             propertyId: resolvedPropertyId || null,
             unitId: resolvedUnitId || null,
             amount,
+            amountPaid,
+            dueDate,
+            vendorId: resolvedVendorId,
             isSunkCost,
             paidFromPettyCash,
           },
@@ -172,5 +228,5 @@ export async function POST(req: Request) {
     }
   }
 
-  return Response.json({ imported, skipped, errors });
+  return Response.json({ imported, updated, skipped, errors });
 }

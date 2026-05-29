@@ -506,6 +506,7 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
   const fmt = (n: number) => formatCurrency(n, currency);
   const [months, setMonths]   = useState<MonthSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -515,6 +516,30 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
       .then((d) => { setMonths(d.months ?? []); setLoading(false); })
       .catch(() => setLoading(false));
   }, [year, selectedId]);
+
+  async function handleDownloadPDF() {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "annual", year, ...(selectedId ? { propertyId: selectedId } : {}) }),
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `property-report-${year}-annual.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Annual report downloaded!");
+    } catch {
+      toast.error("Failed to generate annual report. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   if (loading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
 
@@ -532,14 +557,21 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
 
   return (
     <div className="space-y-5">
-      {/* Export button */}
+      {/* Export buttons */}
       {months.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <button
             onClick={() => exportAnnualSummary(months, year)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
           >
             <FileDown size={13} /> Export to Excel
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={generating}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-gold/50 hover:text-gold-dark hover:bg-gold/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download size={13} /> {generating ? "Generating…" : "Download PDF"}
           </button>
         </div>
       )}

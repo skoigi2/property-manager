@@ -203,16 +203,21 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   };
 }
 
-// ── Quarterly data builder ─────────────────────────────────────────────────────
+// ── Range data builder (quarterly + annual) ─────────────────────────────────────
+//
+// Aggregates a multi-month period into a single ReportData. `monthsMult` scales the
+// per-month expected rent / flat management fee (3 for a quarter, 12 for a year);
+// `daysInRange` is the calendar-day count used for Airbnb occupancy.
 
-async function buildQuarterlyReportData(year: number, quarter: number, session: any, propertyIds: string[]): Promise<ReportData> {
-  const startMonth    = (quarter - 1) * 3 + 1;
-  const from          = new Date(year, startMonth - 1, 1);
-  const to            = new Date(year, startMonth - 1 + 3, 1); // exclusive
-  const quarterLabel  = `Q${quarter} ${year}`;
-  const periodLabel   = `${quarterLabel} Summary`;
-  const daysInQuarter = [0, 1, 2].reduce((s, i) => s + getDaysInMonth(new Date(year, startMonth - 1 + i, 1)), 0);
-
+async function buildRangeReportData(
+  from: Date,
+  to: Date,
+  periodLabel: string,
+  monthsMult: number,
+  daysInRange: number,
+  session: any,
+  propertyIds: string[],
+): Promise<ReportData> {
   const [properties, tenants, incomeEntries, expenseEntries, pettyCash] = await Promise.all([
     prisma.property.findMany({
       where: { id: { in: propertyIds } },
@@ -239,7 +244,10 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
           { propertyId: { in: propertyIds } },
         ],
       },
-      include: { lineItems: { select: { taxAmount: true, taxType: true, isVatable: true } } },
+      include: {
+        vendor: { select: { id: true, name: true, category: true } },
+        lineItems: { select: { taxAmount: true, taxType: true, isVatable: true } },
+      },
     }),
     prisma.pettyCash.findMany({ where: { propertyId: { in: propertyIds } }, orderBy: { date: "asc" } }),
   ]);
@@ -262,7 +270,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   const longTermNameQ = properties.filter((p) => p.type === "LONGTERM").map((p) => p.name).join(" & ") || "Long-Term Rent";
   const shortLetNameQ = properties.filter((p) => p.type === "AIRBNB").map((p) => p.name).join(" & ")  || "Short-Let Performance";
 
-  // Rent collection — 3 months expected
+  // Rent collection — expected scaled across the period
   const rentCollection = riaraTenants.map((t) => {
     const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
@@ -270,10 +278,10 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
       tenantName:    t.name,
       unit:          t.unit.unitNumber,
       type:          t.unit.type,
-      expectedRent:  t.monthlyRent * 3,
-      serviceCharge: t.serviceCharge * 3,
+      expectedRent:  t.monthlyRent * monthsMult,
+      serviceCharge: t.serviceCharge * monthsMult,
       received,
-      variance:      received - (t.monthlyRent * 3 + t.serviceCharge * 3),
+      variance:      received - (t.monthlyRent * monthsMult + t.serviceCharge * monthsMult),
       status:        getLeaseStatus(t.leaseEnd),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };
@@ -294,7 +302,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
       unitNumber: unit.unitNumber, type: unit.type,
       grossRevenue: summary.grossIncome, commissions: summary.totalCommissions,
       fixedCosts: summary.fixedExpenses, variableCosts: summary.variableExpenses,
-      netRevenue: summary.netRevenue, bookedNights, daysInMonth: daysInQuarter,
+      netRevenue: summary.netRevenue, bookedNights, daysInMonth: daysInRange,
     };
   });
 
@@ -310,14 +318,29 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
   const pcIn  = pettyCash.filter((e) => e.type === "IN").reduce((s, e) => s + e.amount, 0);
   const pcOut = pettyCash.filter((e) => e.type === "OUT").reduce((s, e) => s + e.amount, 0);
 
-  // Management fee — 3 months for Riara flat rate
+  // Management fee — Riara flat rate scaled across the period
   const mgmtOwing =
-    riaraTenants.reduce((s, t) => s + (RIARA_MGMT_FEE[t.unit.type] ?? 0), 0) * 3 +
+    riaraTenants.reduce((s, t) => s + (RIARA_MGMT_FEE[t.unit.type] ?? 0), 0) * monthsMult +
     albaUnitsQ.reduce((s, unit) => {
       const unitIncome = incomeEntries.filter((e) => e.unitId === unit.id);
       return s + unitIncome.reduce((sum, e) => sum + e.grossAmount, 0) * 0.1;
     }, 0);
   const mgmtPaid = expenseEntries.filter((e) => e.category === "MANAGEMENT_FEE").reduce((s, e) => s + e.amount, 0);
+
+  // Vendor spend
+  const vendorSpendMap: Record<string, { name: string; category: string; totalSpend: number; expenseCount: number }> = {};
+  for (const e of expenseEntries) {
+    if (!(e as any).vendor) continue;
+    const v = (e as any).vendor;
+    if (!vendorSpendMap[v.id]) {
+      vendorSpendMap[v.id] = { name: v.name, category: v.category, totalSpend: 0, expenseCount: 0 };
+    }
+    vendorSpendMap[v.id].totalSpend += e.amount;
+    vendorSpendMap[v.id].expenseCount += 1;
+  }
+  const vendorSpend = Object.entries(vendorSpendMap)
+    .map(([vendorId, data]) => ({ vendorId, ...data }))
+    .sort((a, b) => b.totalSpend - a.totalSpend);
 
   // Alerts
   const alerts: string[] = [];
@@ -348,7 +371,7 @@ async function buildQuarterlyReportData(year: number, quarter: number, session: 
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",
     kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate },
-    rentCollection, albaPerformance, expenses,
+    rentCollection, albaPerformance, expenses, vendorSpend,
     pettyCash: {
       totalIn: pcIn, totalOut: pcOut, balance: pcIn - pcOut,
       entries: pettyCash.map((e) => ({ date: formatDate(e.date), description: e.description, type: e.type, amount: e.amount })),
@@ -430,14 +453,34 @@ export async function POST(req: Request) {
 
   // Quarterly PDF
   if (body.type === "quarterly") {
-    const q    = parseInt(body.quarter);
-    const y    = parseInt(body.year);
-    const data = await buildQuarterlyReportData(y, q, session, scopedIds);
-    const buf  = await generateReportPDF(data);
+    const q          = parseInt(body.quarter);
+    const y          = parseInt(body.year);
+    const startMonth = (q - 1) * 3 + 1;
+    const from       = new Date(y, startMonth - 1, 1);
+    const to         = new Date(y, startMonth - 1 + 3, 1); // exclusive
+    const days       = [0, 1, 2].reduce((s, i) => s + getDaysInMonth(new Date(y, startMonth - 1 + i, 1)), 0);
+    const data       = await buildRangeReportData(from, to, `Q${q} ${y} Summary`, 3, days, session, scopedIds);
+    const buf        = await generateReportPDF(data);
     return new Response(new Uint8Array(buf), {
       headers: {
         "Content-Type":        "application/pdf",
         "Content-Disposition": `attachment; filename="property-report-Q${q}-${y}.pdf"`,
+      },
+    });
+  }
+
+  // Annual PDF
+  if (body.type === "annual") {
+    const y    = parseInt(body.year);
+    const from = new Date(y, 0, 1);
+    const to   = new Date(y + 1, 0, 1); // exclusive
+    const days = Array.from({ length: 12 }, (_, i) => getDaysInMonth(new Date(y, i, 1))).reduce((s, d) => s + d, 0);
+    const data = await buildRangeReportData(from, to, `${y} Annual Summary`, 12, days, session, scopedIds);
+    const buf  = await generateReportPDF(data);
+    return new Response(new Uint8Array(buf), {
+      headers: {
+        "Content-Type":        "application/pdf",
+        "Content-Disposition": `attachment; filename="property-report-${y}-annual.pdf"`,
       },
     });
   }

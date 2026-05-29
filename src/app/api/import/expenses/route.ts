@@ -1,6 +1,9 @@
 import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
+// Large handover imports (hundreds of rows) need more than the default budget.
+export const maxDuration = 60;
+
 interface ExpenseRow {
   date?: string;
   category?: string;
@@ -33,6 +36,24 @@ function normalizePaymentMethod(raw?: string): string | null {
   return "OTHER";
 }
 
+/** Content fingerprint shared by dedup (create) and matching (upsert):
+ *  date(day) + category + amount + property + description. */
+function fingerprint(parts: {
+  dateOnly: string;
+  category: string;
+  amount: number;
+  propertyId: string | null;
+  description: string | null;
+}): string {
+  return [
+    parts.dateOnly,
+    parts.category,
+    parts.amount,
+    parts.propertyId ?? "",
+    (parts.description ?? "").toLowerCase(),
+  ].join("|");
+}
+
 export async function POST(req: Request) {
   const { session, error } = await requireManager();
   if (error) return error;
@@ -47,16 +68,22 @@ export async function POST(req: Request) {
   // payment status / due date / vendor without creating duplicates.
   const mode: "create" | "upsert" = body.mode === "upsert" ? "upsert" : "create";
 
-  // Load units + properties for accessible propertyIds
-  const units = await prisma.unit.findMany({
-    where: { propertyId: { in: propertyIds } },
-    include: { property: { select: { name: true } } },
-  });
-
-  const properties = await prisma.property.findMany({
-    where: { id: { in: propertyIds } },
-    select: { id: true, name: true },
-  });
+  const [units, properties, existing] = await Promise.all([
+    prisma.unit.findMany({
+      where: { propertyId: { in: propertyIds } },
+      include: { property: { select: { name: true } } },
+    }),
+    prisma.property.findMany({
+      where: { id: { in: propertyIds } },
+      select: { id: true, name: true },
+    }),
+    // Pre-load existing expenses once so we match fingerprints in memory
+    // instead of one DB round-trip per row (which times out on large files).
+    prisma.expenseEntry.findMany({
+      where: { OR: [{ propertyId: { in: propertyIds } }, { propertyId: null }] },
+      select: { id: true, date: true, category: true, amount: true, propertyId: true, description: true },
+    }),
+  ]);
 
   // Org-scoped active vendors for name → id linking (case-insensitive).
   const orgId = session!.user.organizationId;
@@ -67,17 +94,38 @@ export async function POST(req: Request) {
       })
     : [];
 
+  const existingByFp = new Map<string, string>();
+  for (const e of existing) {
+    existingByFp.set(
+      fingerprint({
+        dateOnly: e.date.toISOString().slice(0, 10),
+        category: e.category as string,
+        amount: e.amount,
+        propertyId: e.propertyId ?? null,
+        description: e.description ?? null,
+      }),
+      e.id,
+    );
+  }
+
   let imported = 0;
   let updated = 0;
   let skipped = 0;
   const errors: { row: number; reason: string }[] = [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createData: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pettyData: any[] = [];
+  const updateOps: { id: string; data: Record<string, unknown> }[] = [];
+  const queuedFps = new Set<string>(); // dedupe within this file
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const rowNum = i + 1;
 
     const dateStr = row.date?.trim();
-    const category = row.category?.trim();
+    const category = row.category?.trim()?.toUpperCase();
     const description = row.description?.trim();
     const scope = row.scope?.trim()?.toUpperCase();
     const propertyName = row.propertyName?.trim();
@@ -101,19 +149,16 @@ export async function POST(req: Request) {
       skipped++;
       continue;
     }
-
     if (!category) {
       errors.push({ row: rowNum, reason: "Category is required" });
       skipped++;
       continue;
     }
-
     if (!scope || !["UNIT", "PROPERTY", "PORTFOLIO"].includes(scope)) {
       errors.push({ row: rowNum, reason: `Invalid scope "${scope ?? ""}". Must be UNIT, PROPERTY, or PORTFOLIO` });
       skipped++;
       continue;
     }
-
     if (isNaN(amount) || amount <= 0) {
       errors.push({ row: rowNum, reason: "Amount must be a positive number" });
       skipped++;
@@ -122,15 +167,11 @@ export async function POST(req: Request) {
 
     const date = new Date(dateStr);
     const dateOnly = dateStr.split("T")[0];
-    const startOfDay = new Date(dateOnly + "T00:00:00.000Z");
-    const endOfDay = new Date(dateOnly + "T23:59:59.999Z");
 
     // Resolve propertyId
     let resolvedPropertyId: string | undefined;
     if (propertyName) {
-      const prop = properties.find(
-        (p) => p.name.toLowerCase() === propertyName.toLowerCase()
-      );
+      const prop = properties.find((p) => p.name.toLowerCase() === propertyName.toLowerCase());
       resolvedPropertyId = prop?.id;
     }
 
@@ -138,19 +179,11 @@ export async function POST(req: Request) {
     let resolvedUnitId: string | undefined;
     if (scope === "UNIT" && unitNumber) {
       const unit = units.find((u) => {
-        const unitMatch = u.unitNumber.toLowerCase() === unitNumber.toLowerCase();
-        if (!unitMatch) return false;
-        if (resolvedPropertyId) {
-          return u.propertyId === resolvedPropertyId;
-        }
-        return true;
+        if (u.unitNumber.toLowerCase() !== unitNumber.toLowerCase()) return false;
+        return resolvedPropertyId ? u.propertyId === resolvedPropertyId : true;
       });
       resolvedUnitId = unit?.id;
-
-      // If we still don't have a propertyId, derive it from the unit
-      if (!resolvedPropertyId && unit) {
-        resolvedPropertyId = unit.propertyId;
-      }
+      if (!resolvedPropertyId && unit) resolvedPropertyId = unit.propertyId;
     }
 
     // Resolve vendor by name (case-insensitive). Unmatched names are non-fatal.
@@ -161,101 +194,90 @@ export async function POST(req: Request) {
       else errors.push({ row: rowNum, reason: `Vendor "${vendorName}" not found — imported without vendor link` });
     }
 
-    // Content fingerprint: date(day) + category + amount + property + description.
-    // Property-scoped so two properties' same-day/same-amount rows don't collide.
-    const match = await prisma.expenseEntry.findFirst({
-      where: {
-        category: category as never,
-        amount,
-        date: { gte: startOfDay, lte: endOfDay },
-        propertyId: resolvedPropertyId || null,
-        description: description || null,
-      },
+    const fp = fingerprint({
+      dateOnly,
+      category,
+      amount,
+      propertyId: resolvedPropertyId ?? null,
+      description: description || null,
     });
+    const existingId = existingByFp.get(fp);
 
-    if (match) {
-      if (mode === "create") {
-        skipped++;
-        continue;
-      }
-      // upsert → refresh payment / vendor / classification on the matched row
-      try {
-        await prisma.expenseEntry.update({
-          where: { id: match.id },
-          data: {
-            amountPaid,
-            dueDate,
-            paymentMethod: paymentMethod as never,
-            paymentReference,
-            paymentDate,
-            notes,
-            vendorId: resolvedVendorId,
-            isSunkCost,
-            paidFromPettyCash,
-          },
+    if (existingId || queuedFps.has(fp)) {
+      if (mode === "upsert" && existingId) {
+        updateOps.push({
+          id: existingId,
+          data: { amountPaid, dueDate, paymentMethod, paymentReference, paymentDate, notes, vendorId: resolvedVendorId, isSunkCost, paidFromPettyCash },
         });
-        updated++;
-      } catch (err) {
-        errors.push({ row: rowNum, reason: `Database error: ${(err as Error).message}` });
+      } else {
         skipped++;
       }
       continue;
     }
+    queuedFps.add(fp);
 
-    // For petty cash, determine which property to link
-    let pettyCashPropertyId: string | null = null;
+    createData.push({
+      date,
+      category,
+      description: description || null,
+      scope,
+      propertyId: resolvedPropertyId || null,
+      unitId: resolvedUnitId || null,
+      amount,
+      amountPaid,
+      dueDate,
+      paymentMethod,
+      paymentReference,
+      paymentDate,
+      notes,
+      vendorId: resolvedVendorId,
+      isSunkCost,
+      paidFromPettyCash,
+    });
+
     if (paidFromPettyCash) {
-      if (resolvedPropertyId) {
-        pettyCashPropertyId = resolvedPropertyId;
-      } else if (resolvedUnitId) {
-        const unit = units.find((u) => u.id === resolvedUnitId);
-        pettyCashPropertyId = unit?.propertyId ?? null;
+      let pettyCashPropertyId: string | null = resolvedPropertyId ?? null;
+      if (!pettyCashPropertyId && resolvedUnitId) {
+        pettyCashPropertyId = units.find((u) => u.id === resolvedUnitId)?.propertyId ?? null;
       }
+      pettyData.push({
+        date,
+        type: "OUT",
+        amount,
+        description: description ?? `${category} expense`,
+        propertyId: pettyCashPropertyId,
+      });
     }
+  }
 
-    try {
-      // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ops: any[] = [
-        prisma.expenseEntry.create({
-          data: {
-            date,
-            category: category as never,
-            description: description || null,
-            scope: scope as never,
-            propertyId: resolvedPropertyId || null,
-            unitId: resolvedUnitId || null,
-            amount,
-            amountPaid,
-            dueDate,
-            paymentMethod: paymentMethod as never,
-            paymentReference,
-            paymentDate,
-            notes,
-            vendorId: resolvedVendorId,
-            isSunkCost,
-            paidFromPettyCash,
-          },
-        }),
-      ];
-      if (paidFromPettyCash) {
-        ops.push(prisma.pettyCash.create({
-          data: {
-            date,
-            type: "OUT",
-            amount,
-            description: description ?? `${category} expense`,
-            propertyId: pettyCashPropertyId,
-          },
-        }));
-      }
-      await prisma.$transaction(ops);
-
-      imported++;
-    } catch (err) {
-      errors.push({ row: rowNum, reason: `Database error: ${(err as Error).message}` });
-      skipped++;
+  try {
+    if (createData.length > 0) {
+      await prisma.expenseEntry.createMany({ data: createData });
+      imported = createData.length;
     }
+    if (pettyData.length > 0) {
+      await prisma.pettyCash.createMany({ data: pettyData });
+    }
+    // Updates can't be batched into one statement; run in small concurrent chunks.
+    for (let j = 0; j < updateOps.length; j += 25) {
+      const chunk = updateOps.slice(j, j + 25);
+      await Promise.all(
+        chunk.map((u) => prisma.expenseEntry.update({ where: { id: u.id }, data: u.data })),
+      );
+      updated += chunk.length;
+    }
+  } catch (err) {
+    const detail = (err as Error).message;
+    return Response.json(
+      {
+        error: "Import failed while writing to the database.",
+        detail,
+        hint: detail.includes("column") || detail.toLowerCase().includes("enum")
+          ? "The database may be missing a recent migration — run the pending expense migrations in Supabase."
+          : undefined,
+      },
+      { status: 500 },
+    );
   }
 
   return Response.json({ imported, updated, skipped, errors });

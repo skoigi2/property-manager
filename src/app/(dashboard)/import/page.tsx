@@ -120,7 +120,7 @@ const EXPENSE_COLS = [
   "Notes",
 ];
 
-const PC_COLS = ["Date", "Type", "Description", "Amount", "Property Name"];
+const PC_COLS = ["Date", "Type", "Description", "Amount", "Property Name", "Receipt Ref"];
 
 const UNIT_COLS = [
   "Unit Number",
@@ -495,6 +495,7 @@ function mapPettyCashRowToApi(row: Record<string, string>) {
     description:  row["Description"],
     amount:       row["Amount"],
     propertyName: row["Property Name"],
+    receiptRef:   row["Receipt Ref"],
   };
 }
 
@@ -1050,13 +1051,14 @@ export default function ImportPage() {
         {tab === "petty-cash" && (
           <ImportSection
             title="Import Petty Cash"
-            description="Download the template, fill in petty cash entries, then upload. Duplicate entries with the same date, type, description and amount are skipped."
+            description="Download the template, fill in petty cash entries, then upload. Duplicate entries (same date, type, description, amount and property) are skipped. Property Name links each entry to that property's petty cash fund; an optional Receipt Ref captures the voucher number. Toggle 'Update existing records' to refresh receipt ref / property on a re-upload."
             cols={PC_COLS}
             validate={validatePettyCashRow}
             apiPath="/api/import/petty-cash"
             onDownloadTemplate={downloadPettyCashTemplate}
             templateName="Petty Cash"
             mapRowToApi={mapPettyCashRowToApi}
+            supportsUpsert
           />
         )}
 

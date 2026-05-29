@@ -235,11 +235,12 @@ export function downloadPettyCashTemplate() {
     { header: "Description",   required: true,  width: 34 },
     { header: "Amount",        required: true,  width: 14 },
     { header: "Property Name", required: false, width: 20 },
+    { header: "Receipt Ref",   required: false, width: 18 },
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["2026-01-03", "OUT", "Cleaning supplies — mops and detergent", 1500,  "Riara One"],
-    ["2026-01-10", "IN",  "Cash top-up from management office",     20000, "Riara One"],
+    ["2026-01-03", "OUT", "Cleaning supplies — mops and detergent", 1500,  "Riara One", "RCT-0012"],
+    ["2026-01-10", "IN",  "Cash top-up from management office",     20000, "Riara One", ""],
   ];
 
   const instructions: (string | number)[][] = [
@@ -247,7 +248,8 @@ export function downloadPettyCashTemplate() {
     ["Type",          "Yes", "IN, OUT",     "IN = adding funds to petty cash; OUT = spending from petty cash"],
     ["Description",   "Yes", "Text",        "What the money was used for (or where it came from for IN entries)"],
     ["Amount",        "Yes", "Number",      "Amount — always positive regardless of type"],
-    ["Property Name", "No",  "Text",        "Identifies which property's petty cash fund is affected"],
+    ["Property Name", "No",  "Text",        "Identifies which property's petty cash fund is affected — must match a property name exactly"],
+    ["Receipt Ref",   "No",  "Text",        "Voucher / receipt number for the transaction"],
   ];
 
   buildTemplate({ cols, sampleRows, instructions, filename: "import-template-petty-cash.xlsx" });

@@ -309,10 +309,11 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }
 
 // ── Open case modal ────────────────────────────────────────────────────────────
 
-function OpenCaseModal({ open, onClose, onCreated }: {
+function OpenCaseModal({ open, onClose, onCreated, prefill }: {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  prefill?: { tenantId: string; amount: number } | null;
 }) {
   const [tenants, setTenants]   = useState<any[]>([]);
   const [tenantId, setTenantId] = useState("");
@@ -323,6 +324,14 @@ function OpenCaseModal({ open, onClose, onCreated }: {
   useEffect(() => {
     if (open) fetch("/api/tenants").then(r=>r.json()).then(d => setTenants(d.filter((t:any) => t.isActive)));
   }, [open]);
+
+  // Seed from an aging row when the modal is opened via "Create case".
+  useEffect(() => {
+    if (open && prefill) {
+      setTenantId(prefill.tenantId);
+      setAmount(prefill.amount ? String(prefill.amount) : "");
+    }
+  }, [open, prefill]);
 
   const selectedTenant = tenants.find((t:any) => t.id === tenantId);
 
@@ -379,6 +388,191 @@ function OpenCaseModal({ open, onClose, onCreated }: {
   );
 }
 
+// ── Aging & Collections panel ───────────────────────────────────────────────────
+
+type BucketKey = "current" | "d1_30" | "d31_60" | "d61_90" | "d90plus";
+interface AgingRow {
+  tenantId: string; tenantName: string; unitNumber: string;
+  propertyId: string; propertyName: string; currency: string;
+  outstanding: number; oldestDueDate: string | null; oldestAgeDays: number;
+  bucket: BucketKey; invoiceCount: number; hasOpenCase: boolean; openCaseId: string | null;
+}
+interface AgingData {
+  summary: { totalOutstanding: number; totalCount: number; buckets: Record<BucketKey, { amount: number; count: number }> };
+  rows: AgingRow[];
+  collection: { period: { year: number; month: number } | null; billed: number; collected: number; rate: number | null; target: number; trend: { year: number; month: number; billed: number; collected: number; rate: number | null }[] };
+}
+
+const BUCKET_META: { key: BucketKey; label: string; tone: string }[] = [
+  { key: "current", label: "Not yet due", tone: "text-gray-500" },
+  { key: "d1_30",   label: "1–30 days",   tone: "text-amber-600" },
+  { key: "d31_60",  label: "31–60 days",  tone: "text-amber-600" },
+  { key: "d61_90",  label: "61–90 days",  tone: "text-orange-600" },
+  { key: "d90plus", label: "90+ days",    tone: "text-expense" },
+];
+const BUCKET_BADGE: Record<BucketKey, "gray"|"amber"|"red"> = {
+  current: "gray", d1_30: "amber", d31_60: "amber", d61_90: "amber", d90plus: "red",
+};
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function AgingPanel({ data, currency, bucketFilter, onBucketFilter, onCreateCase, onOpenCase }: {
+  data: AgingData | null;
+  currency: string;
+  bucketFilter: BucketKey | null;
+  onBucketFilter: (b: BucketKey | null) => void;
+  onCreateCase: (row: AgingRow) => void;
+  onOpenCase: (caseId: string) => void;
+}) {
+  if (!data) return null;
+  const { summary, rows, collection } = data;
+  const hasAny = summary.totalCount > 0;
+  const rate = collection.rate;
+  const meetsTarget = rate != null && rate >= collection.target;
+  const filteredRows = bucketFilter ? rows.filter((r) => r.bucket === bucketFilter) : rows;
+
+  return (
+    <div className="space-y-4">
+      {/* Aging bucket strip */}
+      <div>
+        <p className="text-sm font-medium text-header font-sans mb-2 flex items-center gap-1.5">
+          Arrears aging
+          <HelpTip text="Outstanding invoice balances grouped by how long they've been overdue. The 90+ bucket is the highest collection risk." />
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <Card padding="sm" className="border-l-4 border-header">
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">Total outstanding</p>
+            <CurrencyDisplay currency={currency} amount={summary.totalOutstanding} size="lg" className="text-header font-medium mt-1" />
+            <p className="text-xs text-gray-400 font-sans mt-0.5">{summary.totalCount} tenant{summary.totalCount !== 1 ? "s" : ""}</p>
+          </Card>
+          {BUCKET_META.map((b) => {
+            const cell = summary.buckets[b.key];
+            const active = bucketFilter === b.key;
+            return (
+              <button
+                key={b.key}
+                onClick={() => onBucketFilter(active ? null : b.key)}
+                className={clsx(
+                  "text-left rounded-xl border p-3 transition-colors",
+                  active ? "border-gold bg-gold/5" : "border-gray-100 hover:border-gray-200 bg-white",
+                )}
+              >
+                <p className="text-xs text-gray-400 uppercase tracking-wide font-sans">{b.label}</p>
+                <span className={clsx("block mt-1 font-mono text-sm font-medium", cell.amount > 0 ? b.tone : "text-gray-300")}>
+                  {formatCurrency(cell.amount, currency)}
+                </span>
+                <p className="text-xs text-gray-400 font-sans mt-0.5">{cell.count} inv</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Collection rate vs target */}
+      <Card padding="sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-sans flex items-center gap-1.5">
+              Rent collection — this month
+              <HelpTip text="Collected ÷ billed for the current period. Target comes from the property's management agreement KPI." position="below" />
+            </p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={clsx("text-2xl font-display", rate == null ? "text-gray-300" : meetsTarget ? "text-income" : "text-expense")}>
+                {rate == null ? "—" : `${rate.toFixed(0)}%`}
+              </span>
+              <Badge variant={rate == null ? "gray" : meetsTarget ? "green" : "amber"}>
+                target {collection.target.toFixed(0)}%
+              </Badge>
+            </div>
+            <p className="text-xs text-gray-400 font-sans mt-0.5">
+              {formatCurrency(collection.collected, currency)} of {formatCurrency(collection.billed, currency)} billed
+            </p>
+          </div>
+          {/* 6-month trend */}
+          <div className="flex items-end gap-1.5 h-16">
+            {collection.trend.map((t) => {
+              const h = t.rate == null ? 0 : Math.max(4, Math.round((t.rate / 100) * 56));
+              const good = t.rate != null && t.rate >= collection.target;
+              return (
+                <div key={`${t.year}-${t.month}`} className="flex flex-col items-center gap-1" title={`${MONTH_ABBR[t.month-1]} ${t.year}: ${t.rate == null ? "n/a" : t.rate.toFixed(0)+"%"}`}>
+                  <div className="w-5 bg-gray-100 rounded-sm flex items-end" style={{ height: 56 }}>
+                    <div className={clsx("w-full rounded-sm", good ? "bg-income" : "bg-amber-400")} style={{ height: h }} />
+                  </div>
+                  <span className="text-[9px] text-gray-400 font-sans">{MONTH_ABBR[t.month-1]}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
+
+      {/* Per-tenant arrears table */}
+      {hasAny && (
+        <Card padding="none">
+          <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+            <p className="text-sm font-medium text-header font-sans">
+              Tenants in arrears{bucketFilter ? ` · ${BUCKET_META.find(b=>b.key===bucketFilter)?.label}` : ""}
+            </p>
+            {bucketFilter && (
+              <button onClick={() => onBucketFilter(null)} className="text-xs text-gray-400 hover:text-gray-600">Clear filter</button>
+            )}
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-gray-50">
+            {filteredRows.map((r) => (
+              <div key={r.tenantId} className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-header">{r.tenantName}</p>
+                  <span className="font-mono text-sm text-expense">{formatCurrency(r.outstanding, r.currency)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-gray-400 font-sans">Unit {r.unitNumber} · {r.propertyName}</span>
+                  <Badge variant={BUCKET_BADGE[r.bucket]}>{r.oldestAgeDays > 0 ? `${r.oldestAgeDays}d` : "current"}</Badge>
+                </div>
+                <div className="mt-2">
+                  {r.hasOpenCase
+                    ? <button onClick={() => onOpenCase(r.openCaseId!)} className="text-xs text-gold font-medium">Open case →</button>
+                    : <button onClick={() => onCreateCase(r)} className="text-xs text-gold font-medium">Create case</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans border-b border-gray-50">
+                  <th className="px-4 py-3">Tenant</th>
+                  <th className="px-4 py-3">Unit / Property</th>
+                  <th className="px-4 py-3 text-right">Outstanding</th>
+                  <th className="px-4 py-3">Oldest</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredRows.map((r) => (
+                  <tr key={r.tenantId} className="hover:bg-gray-50/50">
+                    <td className="px-4 py-3 text-sm text-header font-sans">{r.tenantName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 font-sans">Unit {r.unitNumber} · {r.propertyName}</td>
+                    <td className="px-4 py-3 text-right font-mono text-sm text-expense">{formatCurrency(r.outstanding, r.currency)}</td>
+                    <td className="px-4 py-3"><Badge variant={BUCKET_BADGE[r.bucket]}>{r.oldestAgeDays > 0 ? `${r.oldestAgeDays}d overdue` : "not due"}</Badge></td>
+                    <td className="px-4 py-3 text-right">
+                      {r.hasOpenCase
+                        ? <button onClick={() => onOpenCase(r.openCaseId!)} className="text-xs text-gold font-medium hover:underline">Open case →</button>
+                        : <button onClick={() => onCreateCase(r)} className="text-xs text-gold font-medium hover:underline">Create case</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ArrearsPage() {
@@ -392,15 +586,24 @@ export default function ArrearsPage() {
   const [deleteId, setDeleteId] = useState<string|null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
+  const [aging, setAging]       = useState<AgingData | null>(null);
+  const [bucketFilter, setBucketFilter] = useState<BucketKey | null>(null);
+  const [casePrefill, setCasePrefill]   = useState<{ tenantId: string; amount: number } | null>(null);
   const isManager = session?.user?.role === "MANAGER";
 
   const load = useCallback(() => {
     setLoading(true);
     const propParam = selectedId ? `?propertyId=${selectedId}` : "";
     fetch(`/api/arrears${propParam}`).then(r=>r.json()).then(d => setCases(Array.isArray(d) ? d : [])).finally(()=>setLoading(false));
+    fetch(`/api/arrears/aging${propParam}`).then(r=>r.json()).then(d => setAging(d)).catch(() => setAging(null));
   }, [selectedId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const openExistingCase = (caseId: string) => {
+    const el = document.getElementById(`item-${caseId}`);
+    if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("ring-2", "ring-gold", "rounded-2xl"); setTimeout(() => el.classList.remove("ring-2", "ring-gold", "rounded-2xl"), 2000); }
+  };
 
   const escalate = async (arrearsCase: ArrearsCase, stage: Stage, notes?: string) => {
     const res = await fetch(`/api/arrears/${arrearsCase.id}`, {
@@ -445,6 +648,16 @@ export default function ArrearsPage() {
     <div>
       <Header title="Arrears Collection" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
+
+        {/* Aging & collections (derived from invoices) */}
+        <AgingPanel
+          data={aging}
+          currency={currency}
+          bucketFilter={bucketFilter}
+          onBucketFilter={setBucketFilter}
+          onCreateCase={(row) => { setCasePrefill({ tenantId: row.tenantId, amount: row.outstanding }); setShowOpen(true); }}
+          onOpenCase={openExistingCase}
+        />
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -540,7 +753,7 @@ export default function ArrearsPage() {
         )}
       </div>
 
-      <OpenCaseModal open={showOpen} onClose={() => setShowOpen(false)} onCreated={load} />
+      <OpenCaseModal open={showOpen} onClose={() => { setShowOpen(false); setCasePrefill(null); }} onCreated={load} prefill={casePrefill} />
       <ConfirmDialog
         open={!!deleteId}
         title="Close arrears case?"

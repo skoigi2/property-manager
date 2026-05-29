@@ -63,6 +63,7 @@ export const expenseEntrySchema = z.object({
   paidFromPettyCash: z.boolean().optional(),
   amountPaid: z.coerce.number().min(0).optional(),
   dueDate: z.string().optional(),
+  vatAmount: z.coerce.number().min(0).optional(),
   paymentMethod: z.preprocess(
     (v) => (v === "" || v == null ? undefined : v),
     z.enum(["BANK_TRANSFER", "MPESA", "CASH", "CARD", "CHEQUE", "OTHER"]).optional(),

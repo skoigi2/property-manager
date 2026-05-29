@@ -113,6 +113,7 @@ const EXPENSE_COLS = [
   "Vendor Name",
   "Amount Paid",
   "Due Date",
+  "VAT Amount",
   "Payment Method",
   "Payment Reference",
   "Payment Date",
@@ -291,6 +292,10 @@ function validateExpenseRow(row: Record<string, string>): string[] {
     errors.push("Due Date is not a valid date");
   if (row["Payment Date"]?.trim() && isNaN(Date.parse(row["Payment Date"])))
     errors.push("Payment Date is not a valid date");
+  if (row["VAT Amount"]?.trim()) {
+    const vat = parseFloat(row["VAT Amount"]);
+    if (isNaN(vat) || vat < 0) errors.push("VAT Amount must be a non-negative number");
+  }
   return errors;
 }
 
@@ -475,6 +480,7 @@ function mapExpenseRowToApi(row: Record<string, string>) {
     vendorName:   row["Vendor Name"],
     amountPaid:   row["Amount Paid"],
     dueDate:      row["Due Date"],
+    vatAmount:    row["VAT Amount"],
     paymentMethod:    row["Payment Method"],
     paymentReference: row["Payment Reference"],
     paymentDate:      row["Payment Date"],
@@ -1030,7 +1036,7 @@ export default function ImportPage() {
         {tab === "expenses" && (
           <ImportSection
             title="Import Expenses"
-            description="Download the template, fill in expense records, then upload. Duplicate rows (same date, category, amount, property and description) are skipped. Vendor names are matched against existing vendor records. Optional columns capture payment detail — Amount Paid, Due Date, Payment Method, Payment Reference, Payment Date and Notes — and populate outstanding balances. Toggle 'Update existing records' to refresh payment detail on a re-upload."
+            description="Download the template, fill in expense records, then upload. Duplicate rows (same date, category, amount, property and description) are skipped. Vendor names are matched against existing vendor records. Optional columns capture VAT Amount and payment detail — Amount Paid, Due Date, Payment Method, Payment Reference, Payment Date and Notes — and populate outstanding balances. Toggle 'Update existing records' to refresh payment detail on a re-upload."
             cols={EXPENSE_COLS}
             validate={validateExpenseRow}
             apiPath="/api/import/expenses"

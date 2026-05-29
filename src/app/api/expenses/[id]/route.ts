@@ -89,9 +89,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         description: rest.description,
         isSunkCost: rest.isSunkCost ?? false,
         paidFromPettyCash: paidFromPettyCash ?? false,
-        // Line items, when present, are the source of truth for paid amounts.
+        // Line items, when present, are the source of truth for paid amounts + tax.
         amountPaid: lineItems && lineItems.length > 0 ? 0 : rest.amountPaid ?? 0,
         dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
+        vatAmount: lineItems && lineItems.length > 0 ? null : rest.vatAmount ?? null,
         paymentMethod: rest.paymentMethod ?? null,
         paymentReference: rest.paymentReference || null,
         paymentDate: rest.paymentDate ? new Date(rest.paymentDate) : null,

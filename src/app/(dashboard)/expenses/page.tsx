@@ -474,6 +474,7 @@ export default function ExpensesPage() {
       paidFromPettyCash: e.paidFromPettyCash,
       amountPaid: e.amountPaid ?? 0,
       dueDate: e.dueDate ? new Date(e.dueDate).toISOString().split("T")[0] : "",
+      vatAmount: e.vatAmount ?? undefined,
       paymentMethod: e.paymentMethod ?? undefined,
       paymentReference: e.paymentReference ?? "",
       paymentDate: e.paymentDate ? new Date(e.paymentDate).toISOString().split("T")[0] : "",
@@ -849,6 +850,9 @@ export default function ExpensesPage() {
         return (
           <td key={key} className="px-4 py-3 text-right">
             <CurrencyDisplay currency={currency} amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
+            {e.vatAmount > 0 && (
+              <p className="text-xs text-gray-400 font-sans mt-0.5">+ VAT {formatCurrency(e.vatAmount, currency)}</p>
+            )}
             {e.unitAllocations?.length > 1 && (
               <p className="text-xs text-gray-400 font-sans mt-0.5">
                 {formatCurrency(e.amount / e.unitAllocations.length, currency)} / unit
@@ -1176,12 +1180,21 @@ export default function ExpensesPage() {
                       error={errors.paymentDate?.message}
                     />
                   </div>
-                  <Input
-                    label="Payment Reference"
-                    tooltip="Cheque number, M-Pesa code, or bank reference for this payment."
-                    {...register("paymentReference")}
-                    placeholder="e.g. M-Pesa code / cheque no."
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Payment Reference"
+                      tooltip="Cheque number, M-Pesa code, or bank reference for this payment."
+                      {...register("paymentReference")}
+                      placeholder="e.g. M-Pesa code / cheque no."
+                    />
+                    <Input
+                      label="VAT Amount"
+                      tooltip="The VAT/tax portion of this expense. Amount stays net (pre-VAT); this is recorded separately."
+                      type="number" step="0.01" min="0"
+                      {...register("vatAmount")}
+                      error={errors.vatAmount?.message}
+                    />
+                  </div>
                 </div>
               )}
 

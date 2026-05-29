@@ -192,6 +192,7 @@ export function downloadExpensesTemplate() {
     { header: "Vendor Name",   required: false, width: 24 },
     { header: "Amount Paid",       required: false, width: 14 },
     { header: "Due Date",          required: false, width: 14 },
+    { header: "VAT Amount",        required: false, width: 14 },
     { header: "Payment Method",    required: false, width: 16 },
     { header: "Payment Reference", required: false, width: 20 },
     { header: "Payment Date",      required: false, width: 14 },
@@ -199,9 +200,9 @@ export function downloadExpensesTemplate() {
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["2026-01-08", "SECURITY",     4500,   "PROPERTY",  "Monthly guard service", "Riara One", "",   "No", "No",  "ABC Security", 4500, "",           "MPESA",  "QGH7X2P1", "2026-01-08", "Paid in full"],
-    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05", "",       "",         "",           "Awaiting funds"],
-    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01", "CHEQUE", "001234",   "2026-01-25", "Owner paid deposit only"],
+    ["2026-01-08", "SECURITY",     4500,   "PROPERTY",  "Monthly guard service", "Riara One", "",   "No", "No",  "ABC Security", 4500, "",           720,   "MPESA",  "QGH7X2P1", "2026-01-08", "Paid in full"],
+    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05", 1920,  "",       "",         "",           "Awaiting funds"],
+    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01", 40000, "CHEQUE", "001234",   "2026-01-25", "Owner paid deposit only"],
   ];
 
   const instructions: (string | number)[][] = [
@@ -217,6 +218,7 @@ export function downloadExpensesTemplate() {
     ["Vendor Name",   "No",  "Text",                "Matched against existing vendor records by name"],
     ["Amount Paid",       "No", "Number",            "How much has been paid so far (default 0). Leave blank/0 for an unpaid bill — the balance shows as outstanding"],
     ["Due Date",          "No", "YYYY-MM-DD",        "When payment is due. Past-due rows with a balance are flagged overdue"],
+    ["VAT Amount",        "No", "Number",            "The VAT/tax portion. Amount stays net (pre-VAT); record VAT here separately"],
     ["Payment Method",    "No", validPaymentMethods, "How it was paid. Free text like 'Mpesa' or 'Cheque' is matched automatically"],
     ["Payment Reference", "No", "Text",              "Cheque number, M-Pesa code, or bank reference"],
     ["Payment Date",      "No", "YYYY-MM-DD",        "The date payment was actually made (may differ from the invoice date)"],

@@ -17,6 +17,7 @@ interface ExpenseRow {
   vendorName?: string;
   amountPaid?: string | number;
   dueDate?: string;
+  vatAmount?: string | number;
   paymentMethod?: string;
   paymentReference?: string;
   paymentDate?: string;
@@ -138,6 +139,8 @@ export async function POST(req: Request) {
     const amountPaid = isNaN(amountPaidRaw) || amountPaidRaw < 0 ? 0 : amountPaidRaw;
     const dueStr = row.dueDate?.trim();
     const dueDate = dueStr && !isNaN(Date.parse(dueStr)) ? new Date(dueStr) : null;
+    const vatRaw = parseFloat(String(row.vatAmount ?? ""));
+    const vatAmount = isNaN(vatRaw) || vatRaw < 0 ? null : vatRaw;
     const paymentMethod = normalizePaymentMethod(row.paymentMethod);
     const paymentReference = row.paymentReference?.trim() || null;
     const payStr = row.paymentDate?.trim();
@@ -207,7 +210,7 @@ export async function POST(req: Request) {
       if (mode === "upsert" && existingId) {
         updateOps.push({
           id: existingId,
-          data: { amountPaid, dueDate, paymentMethod, paymentReference, paymentDate, notes, vendorId: resolvedVendorId, isSunkCost, paidFromPettyCash },
+          data: { amountPaid, dueDate, vatAmount, paymentMethod, paymentReference, paymentDate, notes, vendorId: resolvedVendorId, isSunkCost, paidFromPettyCash },
         });
       } else {
         skipped++;
@@ -226,6 +229,7 @@ export async function POST(req: Request) {
       amount,
       amountPaid,
       dueDate,
+      vatAmount,
       paymentMethod,
       paymentReference,
       paymentDate,

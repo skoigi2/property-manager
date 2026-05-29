@@ -730,6 +730,7 @@ model ExpenseEntry {
   paidFromPettyCash Boolean         @default(false)
   amountPaid        Float           @default(0)
   dueDate           DateTime?
+  vatAmount         Float?
   paymentMethod     PaymentMethod?
   paymentReference  String?
   paymentDate       DateTime?

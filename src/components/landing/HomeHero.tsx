@@ -25,7 +25,7 @@ export function HomeHero() {
             Start free trial →
           </Link>
           <Link
-            href="/contact"
+            href="/contact?intent=demo"
             className="text-gray-500 dark:text-gray-300 hover:text-header dark:hover:text-white px-8 py-4 rounded-xl font-medium text-base transition-colors border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 hover:border-gray-300 dark:hover:border-white/25"
           >
             Book a 15-minute demo

@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 
+const DEMO_SUBJECT = "Book a demo";
+
 const SUBJECTS = [
+  DEMO_SUBJECT,
   "General enquiry",
   "Feature request",
   "Billing",
@@ -10,10 +13,15 @@ const SUBJECTS = [
   "Partnership",
 ];
 
-export function ContactForm() {
+const TIME_WINDOWS = ["Mornings (8am–12pm)", "Afternoons (12–5pm)", "Evenings (after 5pm)"];
+
+export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [subject, setSubject] = useState(defaultDemo ? DEMO_SUBJECT : "");
+
+  const isDemo = subject === DEMO_SUBJECT;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -21,11 +29,33 @@ export function ContactForm() {
     setLoading(true);
 
     const fd = new FormData(e.currentTarget);
+    const notes = ((fd.get("message") as string) ?? "").trim();
+
+    // For demo requests, compose a structured message from the scheduling
+    // fields so the support inbox has everything needed to confirm a slot.
+    // This also guarantees the API's 20-char minimum even if notes are short.
+    let message = notes;
+    if (isDemo) {
+      const times = fd.getAll("preferredTime").join(", ") || "Not specified";
+      const timezone = ((fd.get("timezone") as string) ?? "").trim() || "Not specified";
+      const portfolio = ((fd.get("portfolio") as string) ?? "").trim() || "Not specified";
+      const phone = ((fd.get("phone") as string) ?? "").trim() || "—";
+      message = [
+        "Demo request.",
+        `Preferred times: ${times}`,
+        `Time zone: ${timezone}`,
+        `Portfolio size: ${portfolio}`,
+        `Phone / WhatsApp: ${phone}`,
+        "",
+        `Notes: ${notes || "(none)"}`,
+      ].join("\n");
+    }
+
     const body = {
       name:    fd.get("name") as string,
       email:   fd.get("email") as string,
-      subject: fd.get("subject") as string,
-      message: fd.get("message") as string,
+      subject,
+      message,
     };
 
     try {
@@ -55,9 +85,13 @@ export function ContactForm() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="font-display text-2xl text-header dark:text-white mb-3">Message sent!</h3>
+        <h3 className="font-display text-2xl text-header dark:text-white mb-3">
+          {isDemo ? "Demo request received!" : "Message sent!"}
+        </h3>
         <p className="text-gray-500 dark:text-gray-400 font-sans text-sm leading-relaxed max-w-sm mx-auto">
-          Thanks for reaching out. We&apos;ll reply within 1 business day. Check your inbox for a confirmation.
+          {isDemo
+            ? "Thanks! We'll email you 2–3 time options that fit your availability within 1 business day. Check your inbox for a confirmation."
+            : "Thanks for reaching out. We'll reply within 1 business day. Check your inbox for a confirmation."}
         </p>
       </div>
     );
@@ -99,7 +133,13 @@ export function ContactForm() {
         <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
           Subject <span className="text-red-400">*</span>
         </label>
-        <select name="subject" required defaultValue="" className={inputClass}>
+        <select
+          name="subject"
+          required
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          className={inputClass}
+        >
           <option value="" disabled>Select a subject…</option>
           {SUBJECTS.map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -107,16 +147,64 @@ export function ContactForm() {
         </select>
       </div>
 
+      {/* Demo scheduling fields — only for "Book a demo" */}
+      {isDemo && (
+        <div className="space-y-5 rounded-xl border border-gold/30 bg-gold/5 dark:bg-gold/10 p-5">
+          <div>
+            <span className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2.5 uppercase tracking-wide">
+              When suits you? <span className="font-normal normal-case tracking-normal text-gray-400">(pick any)</span>
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {TIME_WINDOWS.map((t) => (
+                <label
+                  key={t}
+                  className="flex items-center gap-2 text-sm font-sans text-header dark:text-white bg-white dark:bg-[#111F30] border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 cursor-pointer hover:border-gold/50 transition-colors"
+                >
+                  <input type="checkbox" name="preferredTime" value={t} className="accent-gold" />
+                  {t}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+                Time zone
+              </label>
+              <input name="timezone" type="text" placeholder="e.g. EAT (GMT+3)" className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+                Portfolio size
+              </label>
+              <input name="portfolio" type="text" placeholder="e.g. 25 properties" className={inputClass} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+              Phone / WhatsApp <span className="font-normal normal-case tracking-normal text-gray-400">(optional)</span>
+            </label>
+            <input name="phone" type="tel" placeholder="+254 700 000 000" className={inputClass} />
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
-          Message <span className="text-red-400">*</span>
+          {isDemo ? (
+            <>Anything specific you&apos;d like to see? <span className="font-normal normal-case tracking-normal text-gray-400">(optional)</span></>
+          ) : (
+            <>Message <span className="text-red-400">*</span></>
+          )}
         </label>
         <textarea
           name="message"
-          required
-          minLength={20}
-          rows={6}
-          placeholder="Tell us what you need help with…"
+          required={!isDemo}
+          minLength={isDemo ? undefined : 20}
+          rows={isDemo ? 4 : 6}
+          placeholder={isDemo ? "e.g. owner reporting, arrears workflow, multi-currency…" : "Tell us what you need help with…"}
           className={`${inputClass} resize-none`}
         />
       </div>
@@ -141,12 +229,14 @@ export function ContactForm() {
             Sending…
           </>
         ) : (
-          "Send message →"
+          isDemo ? "Request my demo →" : "Send message →"
         )}
       </button>
 
       <p className="text-center text-xs text-gray-400 font-sans">
-        We typically reply within 1 business day.
+        {isDemo
+          ? "We'll email you a few time options within 1 business day."
+          : "We typically reply within 1 business day."}
       </p>
     </form>
   );

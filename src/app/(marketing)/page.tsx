@@ -1,28 +1,23 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
-import { MarketingHero } from "@/components/landing/MarketingHero";
-import { TrustStrip } from "@/components/landing/TrustStrip";
-import { ShiftSection } from "@/components/landing/ShiftSection";
-import { AutomationCards } from "@/components/landing/AutomationCards";
-import { InboxMock } from "@/components/landing/InboxMock";
-import { WeeklyRhythm } from "@/components/landing/WeeklyRhythm";
-import { DashboardPreview } from "@/components/landing/DashboardPreview";
-import { SpreadsheetComparison } from "@/components/landing/SpreadsheetComparison";
-import { Pricing } from "@/components/landing/Pricing";
-import { FinalCTA } from "@/components/landing/FinalCTA";
+import { HomeHero } from "@/components/landing/HomeHero";
+import { HomeProblems } from "@/components/landing/HomeProblems";
+import { HomeSolutions } from "@/components/landing/HomeSolutions";
+import { HomeDifferentiator } from "@/components/landing/HomeDifferentiator";
+import { HomeFinalCTA } from "@/components/landing/HomeFinalCTA";
 
 export const metadata: Metadata = {
-  title: "Groundwork PM — The property platform that updates itself.",
+  title: "Groundwork PM — Run property operations from one system.",
   description:
-    "Mark an invoice paid and the owner statement is current. Assign a vendor and the case advances itself. Built for agencies managing portfolios across emerging and established markets.",
+    "Stop running property operations through WhatsApp and spreadsheets. Track rent, maintenance, owner approvals, renewals and reporting in one operational system. Book a 15-minute demo.",
   alternates: {
     canonical: "https://groundworkpm.com",
   },
   openGraph: {
-    title: "Groundwork PM — The property platform that updates itself.",
+    title: "Groundwork PM — Run property operations from one system.",
     description:
-      "Mark an invoice paid and the owner statement is current. Assign a vendor and the case advances itself. No manual refresh.",
+      "Track rent, maintenance, owner approvals, renewals and reporting in one operational system — so nothing falls through the cracks as your portfolio grows.",
     url: "https://groundworkpm.com",
     siteName: "Groundwork PM",
     type: "website",
@@ -37,9 +32,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Groundwork PM — The property platform that updates itself.",
+    title: "Groundwork PM — Run property operations from one system.",
     description:
-      "Built for agencies running portfolios for multiple owners across emerging and established markets. 30-day free trial.",
+      "Track rent, maintenance, owner approvals, renewals and reporting in one operational system. 30-day free trial.",
     images: ["https://groundworkpm.com/og-image.png"],
   },
 };
@@ -87,16 +82,11 @@ export default async function RootPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <MarketingHero />
-      <TrustStrip />
-      <ShiftSection />
-      <AutomationCards />
-      <InboxMock />
-      <WeeklyRhythm />
-      <DashboardPreview />
-      <SpreadsheetComparison />
-      <Pricing />
-      <FinalCTA />
+      <HomeHero />
+      <HomeProblems />
+      <HomeSolutions />
+      <HomeDifferentiator />
+      <HomeFinalCTA />
     </>
   );
 }

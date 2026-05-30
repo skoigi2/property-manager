@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
+import { useSession } from "next-auth/react";
+import toast from "react-hot-toast";
 import {
   LayoutDashboard, TrendingUp, Receipt, FileText,
   Users, Wallet, ScrollText, Wrench, AlertTriangle,
   ShieldPlus, Package, RepeatIcon, Upload, Settings,
   UserCog, ShieldCheck, Building2, MoreHorizontal, X,
   BarChart3, CalendarDays, BookOpen, Inbox, Briefcase,
+  ArrowLeftRight,
 } from "lucide-react";
 
 interface NavItem {
@@ -130,6 +133,43 @@ export function MobileNav({ role }: MobileNavProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // ── Org switcher (mobile home for multi-org users; Sidebar is hidden < lg) ──
+  const { data: session, update } = useSession();
+  const sessionUser = session?.user as { organizationId?: string | null; role?: string; membershipCount?: number } | undefined;
+  const organizationId = sessionUser?.organizationId ?? null;
+  const isSuperAdmin = (role ?? sessionUser?.role) === "ADMIN" && organizationId === null;
+  const membershipCount = sessionUser?.membershipCount ?? 1;
+  const [orgOptions, setOrgOptions] = useState<{ id: string; name: string }[]>([]);
+  const [switchingOrg, setSwitchingOrg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSuperAdmin && membershipCount > 1) {
+      fetch("/api/auth/orgs").then((r) => r.json()).then(setOrgOptions).catch(() => {});
+    }
+  }, [organizationId, isSuperAdmin, membershipCount]);
+
+  const showOrgSwitcher = !isSuperAdmin && membershipCount > 1 && orgOptions.length > 0;
+
+  async function switchOrg(orgId: string) {
+    if (orgId === organizationId) { setDrawerOpen(false); return; }
+    setSwitchingOrg(orgId);
+    try {
+      const res = await fetch("/api/auth/switch-org", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: orgId }),
+      });
+      if (!res.ok) throw new Error();
+      await update({ organizationId: orgId });
+      setDrawerOpen(false);
+      window.location.reload();
+    } catch {
+      toast.error("Failed to switch organisation");
+    } finally {
+      setSwitchingOrg(null);
+    }
+  }
+
   if (role === "OWNER") {
     return (
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-header border-t border-white/10 z-40 safe-b overflow-hidden">
@@ -246,6 +286,40 @@ export function MobileNav({ role }: MobileNavProps) {
                   </div>
                 </div>
               ))}
+
+              {/* Organisation switcher — multi-org users (Sidebar is hidden on mobile) */}
+              {showOrgSwitcher && (
+                <div>
+                  <p className="text-white/30 text-xs font-sans uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+                    <ArrowLeftRight size={11} /> Organisation
+                  </p>
+                  <div className="bg-white/5 rounded-xl overflow-hidden">
+                    {orgOptions.map((org) => {
+                      const isActive = org.id === organizationId;
+                      const busy = switchingOrg === org.id;
+                      return (
+                        <button
+                          key={org.id}
+                          onClick={() => switchOrg(org.id)}
+                          disabled={busy || isActive}
+                          className={clsx(
+                            "flex items-center gap-2.5 w-full px-4 py-3 text-left text-sm font-sans transition-colors disabled:cursor-default",
+                            isActive ? "text-gold" : "text-white/70 hover:text-white hover:bg-white/5",
+                          )}
+                        >
+                          {busy ? (
+                            <span className="w-4 h-4 rounded-full border-2 border-gold border-t-transparent animate-spin shrink-0" />
+                          ) : (
+                            <Building2 size={16} className={isActive ? "text-gold shrink-0" : "text-white/40 shrink-0"} />
+                          )}
+                          <span className="truncate flex-1">{org.name}</span>
+                          {isActive && <span className="text-[10px] text-gold shrink-0">Active</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Help & Guide */}
               <div className="border-t border-white/10 pt-4">

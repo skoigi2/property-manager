@@ -12,7 +12,7 @@ import {
   ShieldPlus, Package, RepeatIcon, Upload, Settings,
   UserCog, ShieldCheck, Building2, MoreHorizontal, X,
   BarChart3, CalendarDays, BookOpen, Inbox, Briefcase,
-  ArrowLeftRight,
+  ArrowLeftRight, Mail, Sparkles,
 } from "lucide-react";
 
 interface NavItem {
@@ -123,6 +123,13 @@ const accountantDrawerSections: DrawerSection[] = [
       { href: "/compliance",  label: "Compliance",  icon: BarChart3 },
     ],
   },
+];
+
+// Super-admin only links (mirrors the Sidebar's Organisations / Emails / Hints)
+const superAdminItems: NavItem[] = [
+  { href: "/admin/organizations", label: "Organisations", icon: Building2 },
+  { href: "/admin/emails",        label: "Emails",        icon: Mail },
+  { href: "/admin/hints",         label: "Hints",         icon: Sparkles },
 ];
 
 interface MobileNavProps {
@@ -256,6 +263,38 @@ export function MobileNav({ role }: MobileNavProps) {
             </div>
 
             <div className="px-4 py-3 space-y-5">
+              {/* Admin — super-admin only (Sidebar is hidden on mobile) */}
+              {isSuperAdmin && (
+                <div>
+                  <p className="text-white/30 text-xs font-sans uppercase tracking-widest mb-2 px-1">
+                    Admin
+                  </p>
+                  <div className="grid grid-cols-3 gap-px bg-white/5 rounded-xl overflow-hidden">
+                    {superAdminItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive =
+                        pathname === item.href || pathname.startsWith(item.href + "/");
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setDrawerOpen(false)}
+                          className={clsx(
+                            "flex flex-col items-center gap-2 py-4 bg-header transition-colors",
+                            isActive ? "text-gold" : "text-white/60 hover:text-white"
+                          )}
+                        >
+                          <Icon size={20} />
+                          <span className="text-xs font-sans text-center leading-tight">
+                            {item.label}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {drawerSections.map((section) => (
                 <div key={section.heading}>
                   <p className="text-white/30 text-xs font-sans uppercase tracking-widest mb-2 px-1">

@@ -1,6 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+
+// useLayoutEffect runs before paint on the client (no flash) but warns during SSR.
+// Fall back to useEffect on the server so the cache-hydration step stays warning-free.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface CachedEntry<T> {
   data: T;
@@ -44,14 +48,25 @@ export function useCachedFetch<T>(
 ): UseCachedFetchResult<T> {
   const storageKey = `cache:${key}`;
 
-  // Synchronous hydration from sessionStorage so the first render already has data.
-  const initialEntry = readCache<T>(storageKey);
-  const [data, setData] = useState<T | null>(initialEntry?.data ?? null);
-  const [loading, setLoading] = useState<boolean>(initialEntry === null);
+  // IMPORTANT: initial state must be identical on the server and the client's first
+  // render, or React throws hydration errors (#418/#423). We therefore start empty
+  // and read sessionStorage in a client-only layout effect below (runs before paint,
+  // so a warm cache still renders without a visible spinner flash).
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   // Hold the current url in a ref so refresh() always fetches the latest, not a stale capture.
   const urlRef = useRef(url);
   urlRef.current = url;
+
+  // Hydrate from the sessionStorage cache after mount (client only).
+  useIsomorphicLayoutEffect(() => {
+    const entry = readCache<T>(storageKey);
+    if (entry) {
+      setData(entry.data);
+      setLoading(false);
+    }
+  }, [storageKey]);
 
   const fetchAndStore = useCallback(async () => {
     try {

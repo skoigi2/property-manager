@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { SeedProgress } from "@/components/ui/SeedProgress";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 import toast from "react-hot-toast";
 
@@ -507,11 +508,7 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
           "Load sample property →"
         )}
       </button>
-      {seedLoading && (
-        <p className="text-xs text-gray-400 font-sans mt-2 text-center">
-          This usually takes 20–30 seconds. Please don&apos;t close this window.
-        </p>
-      )}
+      {seedLoading && <SeedProgress />}
 
       <p className="text-xs text-gray-400 font-sans mt-6">
         Need help?{" "}

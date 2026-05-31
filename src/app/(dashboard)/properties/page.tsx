@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText, PackageOpen, Loader2, CheckCircle, AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
+import { Building2, Plus, Users, PencilLine, ChevronDown, ChevronUp, Trash2, Home, X, TrendingUp, Receipt, DollarSign, ChevronRight, LayoutGrid, List, FileText, PackageOpen, CheckCircle, AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { HelpTip } from "@/components/ui/HelpTip";
@@ -24,6 +24,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 import { useProperty } from "@/lib/property-context";
+import { SeedProgress } from "@/components/ui/SeedProgress";
 
 // ─── Demo empty state ─────────────────────────────────────────────────────────
 
@@ -181,11 +182,7 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
       >
         {loading ? "Loading sample data…" : "Load sample property →"}
       </button>
-      {loading && (
-        <p className="text-xs text-gray-400 font-sans mt-2 text-center">
-          This usually takes 20–30 seconds. Please don&apos;t close this window.
-        </p>
-      )}
+      {loading && <SeedProgress />}
     </div>
   );
 }

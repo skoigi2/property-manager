@@ -17,11 +17,21 @@ import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases
 import { getWorkflow, getStageByIndex, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { startOfMonth, subMonths } from "date-fns";
 
-// Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
-export const maxDuration = 60;
+// Seeding does hundreds of inserts; on Vercel (higher per-query latency than
+// local) this can exceed 60 s. Raise to the platform max and run independent
+// inserts in parallel chunks (see runChunked) to keep wall-clock well under it.
+export const maxDuration = 300;
 
 function d(dateStr: string) { return new Date(dateStr); }
 function monthStart(year: number, month: number) { return new Date(year, month, 1); }
+
+/** Run `fn` over `items` in parallel chunks — cuts wall-clock on high-latency
+ *  DB connections while bounding concurrency against the connection pool. */
+async function runChunked<T>(items: T[], size: number, fn: (item: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < items.length; i += size) {
+    await Promise.all(items.slice(i, i + size).map(fn));
+  }
+}
 
 // ── Rolling-window date helpers ───────────────────────────────────────────────
 // Demos anchor their data to the seed time so numbers always show in the current
@@ -68,7 +78,7 @@ async function seedMaintenanceJobsWithCases(opts: {
   const stdSla = computeDefaultStageSlaHours(wf, { agreement });
   const emgSla = computeDefaultStageSlaHours(wf, { isEmergency: true, agreement });
 
-  for (const j of jobs) {
+  await runChunked(jobs, 8, async (j) => {
     const job = await prisma.maintenanceJob.create({
       data: {
         propertyId, unitId: j.unitId ?? null, title: j.title, description: j.description,
@@ -109,7 +119,7 @@ async function seedMaintenanceJobsWithCases(opts: {
     await prisma.caseEvent.createMany({
       data: events.map((e) => ({ caseThreadId: thread.id, kind: e.kind, actorName: "Property Manager", body: e.body, createdAt: e.createdAt })),
     });
-  }
+  });
 }
 
 /** Create a standalone ARREARS / LEASE_RENEWAL CaseThread with an opening comment. */
@@ -150,7 +160,7 @@ async function backfillMaintenanceCases(
     where: { propertyId, caseThreadId: null },
     select: { id: true, title: true, status: true, vendorId: true, isEmergency: true, unitId: true, reportedDate: true, scheduledDate: true, completedDate: true, description: true, reportedBy: true },
   });
-  for (const job of jobs) {
+  await runChunked(jobs, 8, async (job) => {
     const caseStatus = mapMaintenanceStatusToCase(job.status);
     const waitingOn = mapMaintenanceWaitingOn({ status: job.status, vendorId: job.vendorId });
     const stageIdx = MAINT_STAGE_FOR_STATUS[job.status] ?? 1;
@@ -170,7 +180,7 @@ async function backfillMaintenanceCases(
     await prisma.caseEvent.create({
       data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: `Reported by ${job.reportedBy ?? "tenant"}: ${job.description ?? job.title}`, createdAt: job.reportedDate ?? nowTs },
     });
-  }
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

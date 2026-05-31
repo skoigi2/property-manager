@@ -11,7 +11,10 @@ import {
   VendorCategory, OwnerInvoiceType, TaxType,
   LineItemCategory, LineItemPaymentStatus,
   DocumentCategory, CommunicationType,
+  CaseEventKind,
 } from "@prisma/client";
+import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
+import { getWorkflow, getStageByIndex, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 
 // Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
 export const maxDuration = 60;
@@ -964,6 +967,680 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         appliesTo: ["CONTRACTOR_LABOUR", "CONTRACTOR_MATERIALS", "VENDOR_INVOICE"],
         isInclusive: true,
         effectiveFrom: d("2022-01-01"),
+        isActive: true,
+      },
+    ],
+  });
+
+  return property;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Kilimani Court — Kenya demo (10 units, long-term, Jan–Mar 2026, incl. Cases)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }> {
+  const YEAR = 2026;
+  const MONTHS = [0, 1, 2]; // Jan, Feb, Mar
+
+  // ── Property ────────────────────────────────────────────────────────────────
+  const property = await prisma.property.create({
+    data: {
+      name: "Kilimani Court",
+      type: PropertyType.LONGTERM,
+      category: PropertyCategory.RESIDENTIAL,
+      address: "Ngong Road, Kilimani",
+      city: "Nairobi",
+      description:
+        "Modern 3-storey residential block in Kilimani, Nairobi. 10 well-appointed apartments with borehole water, standby generator, lift, secure parking and 24/7 manned security.",
+      serviceChargeDefault: 5000,
+      organizationId,
+      currency: "KES",
+    },
+  });
+  const propCode = property.id.slice(-6).toUpperCase();
+
+  // ── Units (9 occupied + 1 vacant) ────────────────────────────────────────────
+  const unitDefs = [
+    { number: "G01", type: UnitType.BEDSITTER, rent: 28000,  floor: 0, sqm: 32  },
+    { number: "G02", type: UnitType.ONE_BED,   rent: 50000,  floor: 0, sqm: 48  },
+    { number: "101", type: UnitType.ONE_BED,   rent: 55000,  floor: 1, sqm: 50  },
+    { number: "102", type: UnitType.TWO_BED,   rent: 85000,  floor: 1, sqm: 82  },
+    { number: "103", type: UnitType.TWO_BED,   rent: 85000,  floor: 1, sqm: 82  },
+    { number: "201", type: UnitType.ONE_BED,   rent: 55000,  floor: 2, sqm: 50  },
+    { number: "202", type: UnitType.TWO_BED,   rent: 90000,  floor: 2, sqm: 88  },
+    { number: "203", type: UnitType.THREE_BED, rent: 130000, floor: 2, sqm: 120 },
+    { number: "301", type: UnitType.TWO_BED,   rent: 95000,  floor: 3, sqm: 90  }, // VACANT
+    { number: "302", type: UnitType.THREE_BED, rent: 140000, floor: 3, sqm: 125 },
+  ];
+  const VACANT = "301";
+
+  const typeLabel = (t: UnitType) =>
+    t === UnitType.BEDSITTER ? "Bedsitter" : t === UnitType.ONE_BED ? "1-bedroom" : t === UnitType.TWO_BED ? "2-bedroom" : "3-bedroom";
+
+  const units: Record<string, { id: string }> = {};
+  for (const u of unitDefs) {
+    units[u.number] = await prisma.unit.create({
+      data: {
+        unitNumber: u.number,
+        propertyId: property.id,
+        type: u.type,
+        floor: u.floor,
+        monthlyRent: u.rent,
+        status: u.number === VACANT ? UnitStatus.VACANT : UnitStatus.ACTIVE,
+        vacantSince: u.number === VACANT ? d("2026-02-15") : null,
+        amenities: [
+          "Borehole Water",
+          "Standby Generator",
+          "Secure Parking",
+          "24/7 Security",
+          ...(u.floor >= 2 ? ["Balcony", "City View"] : []),
+        ],
+        description: `${typeLabel(u.type)} apartment on floor ${u.floor}`,
+        sizeSqm: u.sqm,
+      },
+    });
+  }
+
+  // Service charge + flat management fee by unit type (KES)
+  const scFor = (t: UnitType) => (t === UnitType.BEDSITTER ? 3000 : t === UnitType.ONE_BED ? 5000 : t === UnitType.TWO_BED ? 8000 : 12000);
+  const mgmtFor = (t: UnitType) => (t === UnitType.BEDSITTER ? 2500 : t === UnitType.ONE_BED ? 4000 : t === UnitType.TWO_BED ? 6000 : 8000);
+  const sc = (unitNumber: string) => scFor(unitDefs.find((x) => x.number === unitNumber)!.type);
+
+  // ── Tenants (9 — unit 301 left vacant) ───────────────────────────────────────
+  const tenantDefs = [
+    { unit: "G01", name: "Brian Otieno",            leaseEnd: "2026-12-31", phone: "+254 722 100 101", email: "brian.otieno@gmail.com",   nationalId: "28456712", portal: true },
+    { unit: "G02", name: "Mercy Wanjiru",           leaseEnd: "2027-05-31", phone: "+254 723 100 102", email: "mercy.wanjiru@gmail.com",  nationalId: "31245678" },
+    { unit: "101", name: "Kevin Mwangi",            leaseEnd: "2026-11-30", phone: "+254 724 100 103", email: "kevin.mwangi@gmail.com",   nationalId: "29345612" },
+    { unit: "102", name: "Grace & Daniel Kamau",    leaseEnd: "2027-01-31", phone: "+254 725 100 104", email: "gd.kamau@gmail.com",       nationalId: "34561230", portal: true },
+    { unit: "103", name: "Faith Chebet",            leaseEnd: "2026-12-31", phone: "+254 726 100 105", email: "faith.chebet@gmail.com",   nationalId: "32156789", arrears: true },
+    { unit: "201", name: "Samuel Kiprono",          leaseEnd: "2027-03-31", phone: "+254 727 100 106", email: "samuel.kiprono@gmail.com", nationalId: "35678901" },
+    { unit: "202", name: "Aisha Mohamed",           leaseEnd: "2027-02-28", phone: "+254 728 100 107", email: "aisha.mohamed@gmail.com",  nationalId: "27890123" },
+    { unit: "203", name: "James & Lucy Njoroge",    leaseEnd: "2026-08-31", phone: "+254 729 100 108", email: "jl.njoroge@gmail.com",     nationalId: "33012345", renewal: true },
+    { unit: "302", name: "Peter Omondi",            leaseEnd: "2027-04-30", phone: "+254 731 100 110", email: "peter.omondi@gmail.com",   nationalId: "30234567" },
+  ] as { unit: string; name: string; leaseEnd: string; phone: string; email: string; nationalId: string; portal?: boolean; arrears?: boolean; renewal?: boolean }[];
+
+  const tenants: Record<string, { id: string }> = {};
+  for (const t of tenantDefs) {
+    const u = unitDefs.find((x) => x.number === t.unit)!;
+    tenants[t.unit] = await prisma.tenant.create({
+      data: {
+        name: t.name,
+        unitId: units[t.unit].id,
+        depositAmount: u.rent * 2,
+        depositPaidDate: d("2026-01-01"),
+        leaseStart: d("2026-01-01"),
+        leaseEnd: d(t.leaseEnd),
+        monthlyRent: u.rent,
+        serviceCharge: scFor(u.type),
+        rentDueDay: 5,
+        isActive: true,
+        phone: t.phone,
+        email: t.email,
+        nationalId: t.nationalId,
+        renewalStage: t.renewal ? RenewalStage.NOTICE_SENT : RenewalStage.NONE,
+        proposedRent: t.renewal ? Math.round(u.rent * 1.08) : null,
+        proposedLeaseEnd: t.renewal ? d("2027-08-31") : null,
+        notes: t.renewal ? "Lease ends Aug 2026. Renewal notice sent — proposed 8% escalation. Awaiting tenant response." : null,
+        portalToken: t.portal ? crypto.randomUUID() : null,
+        portalTokenExpiresAt: t.portal ? d("2027-01-01") : null,
+      },
+    });
+  }
+
+  // ── Per-unit management fee configs ──────────────────────────────────────────
+  await prisma.managementFeeConfig.createMany({
+    data: unitDefs.map((u) => ({
+      unitId: units[u.number].id,
+      flatAmount: mgmtFor(u.type),
+      ratePercent: 0,
+      effectiveFrom: d("2026-01-01"),
+    })),
+  });
+
+  // ── Income & invoices (Jan–Mar) ──────────────────────────────────────────────
+  // Arrears: Faith Chebet (103) misses Feb + Mar.
+  const arrears: Record<string, number[]> = { "103": [1, 2] };
+  let invoiceSeq = 1;
+  const incomeEntryData: {
+    date: Date; unitId: string; tenantId: string; invoiceId: string;
+    type: IncomeType; grossAmount: number; agentCommission: number; paymentMethod: "MPESA" | "BANK_TRANSFER";
+  }[] = [];
+
+  for (const month of MONTHS) {
+    for (const t of tenantDefs) {
+      const u = unitDefs.find((x) => x.number === t.unit)!;
+      const serviceCharge = scFor(u.type);
+      const grossAmount = u.rent + serviceCharge;
+      const isArrears = (arrears[t.unit] ?? []).includes(month);
+
+      const invoice = await prisma.invoice.create({
+        data: {
+          invoiceNumber: `KMC-${propCode}-${YEAR}-${String(month + 1).padStart(2, "0")}-${String(invoiceSeq++).padStart(3, "0")}`,
+          tenantId: tenants[t.unit].id,
+          periodYear: YEAR,
+          periodMonth: month + 1,
+          rentAmount: u.rent,
+          serviceCharge,
+          totalAmount: grossAmount,
+          dueDate: new Date(YEAR, month, 5),
+          status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
+          paidAt: isArrears ? null : new Date(YEAR, month, 3),
+          paidAmount: isArrears ? null : grossAmount,
+        },
+      });
+
+      if (!isArrears) {
+        incomeEntryData.push({
+          date: monthStart(YEAR, month),
+          unitId: units[t.unit].id,
+          tenantId: tenants[t.unit].id,
+          invoiceId: invoice.id,
+          type: IncomeType.LONGTERM_RENT,
+          grossAmount,
+          agentCommission: 0,
+          paymentMethod: t.unit === "G01" || t.unit === "102" ? "MPESA" : "BANK_TRANSFER",
+        });
+      }
+    }
+  }
+  await prisma.incomeEntry.createMany({ data: incomeEntryData });
+
+  // ── Property-level monthly expenses ──────────────────────────────────────────
+  const monthlyPropExpenses = [
+    { category: ExpenseCategory.MANAGEMENT_FEE,     amount: 48000, desc: "Monthly management fee — Kilimani Court" },
+    { category: ExpenseCategory.WATER,              amount: 18000, desc: "Nairobi Water & Sewerage — building supply" },
+    { category: ExpenseCategory.ELECTRICITY,        amount: 24000, desc: "KPLC — common areas, lift, borehole pump & security lighting" },
+    { category: ExpenseCategory.WIFI,               amount: 12000, desc: "Safaricom Fibre — building internet" },
+    { category: ExpenseCategory.SECURITY,           amount: 45000, desc: "Lavington Security Ltd — 3 guards, 24/7 cover" },
+    { category: ExpenseCategory.GARBAGE_COLLECTION, amount: 8000,  desc: "Taka Taka Solutions — weekly waste collection" },
+    { category: ExpenseCategory.CLEANER,            amount: 22000, desc: "Common area cleaning — 2 staff" },
+  ];
+  await prisma.expenseEntry.createMany({
+    data: MONTHS.flatMap((month) =>
+      monthlyPropExpenses.map((e) => ({
+        date: monthStart(YEAR, month),
+        propertyId: property.id,
+        scope: ExpenseScope.PROPERTY,
+        category: e.category,
+        amount: e.amount,
+        description: e.desc,
+        isSunkCost: false,
+        paidFromPettyCash: false,
+      }))
+    ),
+  });
+
+  // ── Unit-level ad-hoc expenses ───────────────────────────────────────────────
+  await prisma.expenseEntry.createMany({
+    data: [
+      { month: 0, unit: "102", cat: ExpenseCategory.MAINTENANCE,   amount: 6500,  desc: "Plumbing — kitchen mixer tap replacement",       sunk: false },
+      { month: 1, unit: "201", cat: ExpenseCategory.MAINTENANCE,   amount: 4200,  desc: "Electrical — socket & circuit repair",            sunk: false },
+      { month: 1, unit: "302", cat: ExpenseCategory.MAINTENANCE,   amount: 18500, desc: "Water heater replacement — master ensuite",       sunk: true  },
+      { month: 2, unit: "301", cat: ExpenseCategory.REINSTATEMENT, amount: 32000, desc: "Repaint & deep clean — turnover of vacated unit",  sunk: true  },
+    ].map((e) => ({
+      date: monthStart(YEAR, e.month),
+      unitId: units[e.unit].id,
+      scope: ExpenseScope.UNIT,
+      category: e.cat,
+      amount: e.amount,
+      description: e.desc,
+      isSunkCost: e.sunk,
+      paidFromPettyCash: false,
+    })),
+  });
+
+  // ── Petty cash ───────────────────────────────────────────────────────────────
+  await prisma.pettyCash.createMany({
+    data: [
+      ...MONTHS.map((month) => ({
+        date: monthStart(YEAR, month),
+        type: PettyCashType.IN,
+        amount: 15000,
+        description: "Monthly petty cash top-up",
+        propertyId: property.id,
+      })),
+      ...([
+        { month: 0, day: 7,  amount: 1200, desc: "Light bulbs & fittings — corridors" },
+        { month: 0, day: 16, amount: 3500, desc: "Emergency plumber call-out — G02 blockage" },
+        { month: 0, day: 24, amount: 800,  desc: "Stationery & notice printing" },
+        { month: 1, day: 5,  amount: 2600, desc: "Cleaning materials restock" },
+        { month: 1, day: 14, amount: 4500, desc: "Generator diesel top-up" },
+        { month: 1, day: 21, amount: 1500, desc: "Replacement padlocks — gate & store" },
+        { month: 2, day: 8,  amount: 3000, desc: "Garden tools & landscaping supplies" },
+        { month: 2, day: 18, amount: 2200, desc: "Minor plumbing repairs — common WC" },
+        { month: 2, day: 26, amount: 900,  desc: "Courier & lease document printing" },
+      ] as { month: number; day: number; amount: number; desc: string }[]).map((p) => ({
+        date: new Date(YEAR, p.month, p.day),
+        type: PettyCashType.OUT,
+        amount: p.amount,
+        description: p.desc,
+        propertyId: property.id,
+      })),
+    ],
+  });
+
+  // ── Insurance policies ───────────────────────────────────────────────────────
+  await prisma.insurancePolicy.createMany({
+    data: [
+      {
+        propertyId: property.id,
+        type: InsuranceType.BUILDING,
+        insurer: "Jubilee Insurance",
+        policyNumber: "JUB-BLD-2026-0451",
+        startDate: d("2026-01-01"),
+        endDate: d("2026-12-31"),
+        premiumAmount: 320000,
+        premiumFrequency: PremiumFrequency.ANNUALLY,
+        coverageAmount: 180000000,
+        brokerName: "ICEA Lion Brokers",
+        brokerContact: "+254 20 275 0000",
+        notes: "Full building structure & fixtures cover. Renewal due Jan 2027.",
+      },
+      {
+        propertyId: property.id,
+        type: InsuranceType.PUBLIC_LIABILITY,
+        insurer: "Britam General Insurance",
+        policyNumber: "BRT-PL-2026-0218",
+        startDate: d("2026-01-01"),
+        endDate: d("2026-12-31"),
+        premiumAmount: 85000,
+        premiumFrequency: PremiumFrequency.ANNUALLY,
+        coverageAmount: 20000000,
+        brokerName: "ICEA Lion Brokers",
+        brokerContact: "+254 20 275 0000",
+        notes: "Third-party injury & property damage within common areas.",
+      },
+    ],
+  });
+
+  // ── Vendors ──────────────────────────────────────────────────────────────────
+  const [vPlumb, vElec, vSec, vGen] = await Promise.all([
+    prisma.vendor.create({ data: { name: "MajiFix Plumbers", category: VendorCategory.CONTRACTOR, phone: "+254 720 334 455", email: "jobs@majifix.co.ke", taxId: "P051234567A", bankDetails: "M-Pesa Paybill 400200", organizationId, isActive: true, notes: "Plumbing & drainage contractor." } }),
+    prisma.vendor.create({ data: { name: "Brightline Electrical", category: VendorCategory.CONTRACTOR, phone: "+254 721 556 677", email: "info@brightline.co.ke", taxId: "P052345678B", organizationId, isActive: true, notes: "Licensed electrical contractor." } }),
+    prisma.vendor.create({ data: { name: "Lavington Security Ltd", category: VendorCategory.SERVICE_PROVIDER, phone: "+254 733 778 899", email: "ops@lavsec.co.ke", taxId: "P053456789C", organizationId, isActive: true, notes: "Manned guarding — 24/7 cover." } }),
+    prisma.vendor.create({ data: { name: "PowerGen Kenya", category: VendorCategory.CONTRACTOR, phone: "+254 722 889 900", email: "service@powergen.co.ke", taxId: "P054567890D", organizationId, isActive: true, notes: "Standby generator service & repairs." } }),
+  ]);
+
+  // ── Agent ────────────────────────────────────────────────────────────────────
+  await prisma.agent.create({
+    data: {
+      organizationId,
+      name: "Nairobi Lettings Co.",
+      phone: "+254 709 100 200",
+      email: "lettings@nairobilettings.co.ke",
+      agency: "Nairobi Lettings Co.",
+      notes: "Primary letting agent for Kilimani Court.",
+    },
+  });
+
+  // ── Management agreement (KPI + SLA targets feed case SLAs) ──────────────────
+  await prisma.managementAgreement.create({
+    data: {
+      propertyId: property.id,
+      managementFeeRate: 10.0,
+      vacancyFeeRate: 5.0,
+      vacancyFeeThresholdMonths: 6,
+      newLettingFeeRate: 50.0,
+      leaseRenewalFeeFlat: 8000,
+      repairAuthorityLimit: 20000,
+      rentRemittanceDay: 7,
+      mgmtFeeInvoiceDay: 5,
+      landlordPaymentDays: 3,
+      kpiStartDate: d("2026-01-01"),
+      kpiOccupancyTarget: 90,
+      kpiRentCollectionTarget: 92,
+      kpiExpenseRatioTarget: 80,
+      kpiDaysToLeaseTarget: 30,
+      kpiRenewalRateTarget: 80,
+      kpiMaintenanceCompletionTarget: 95,
+      kpiEmergencyResponseHrs: 4,
+      kpiStandardResponseHrs: 48,
+    },
+  });
+
+  // ── Rent history ─────────────────────────────────────────────────────────────
+  await prisma.rentHistory.createMany({
+    data: [
+      { tenantId: tenants["G02"].id, monthlyRent: 47000,  effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["102"].id, monthlyRent: 80000,  effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["203"].id, monthlyRent: 122000, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      { tenantId: tenants["302"].id, monthlyRent: 132000, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
+      ...tenantDefs.map((t) => ({
+        tenantId: tenants[t.unit].id,
+        monthlyRent: unitDefs.find((x) => x.number === t.unit)!.rent,
+        effectiveDate: d("2026-01-01"),
+        reason: "Lease commencement / annual review",
+      })),
+    ],
+  });
+
+  // ── Assets + maintenance schedules ───────────────────────────────────────────
+  const assetDefs = [
+    { name: "Grundfos Borehole Pump", category: AssetCategory.PLUMBING,  serial: "GRF-BH-2023-0091", cost: 280000, provider: "MajiFix Plumbers",     contact: "+254 720 334 455", sched: { taskName: "Quarterly Borehole Pump Service", frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-06-01"), estimatedCost: 12000 } },
+    { name: "Perkins 60kVA Standby Generator", category: AssetCategory.GENERATOR, serial: "PRK-60-2022-0033", cost: 1450000, provider: "PowerGen Kenya", contact: "+254 722 889 900", sched: { taskName: "Monthly Generator Service Check", frequency: MaintenanceFrequency.MONTHLY, nextDue: d("2026-06-10"), estimatedCost: 8000 } },
+    { name: "Kone Passenger Lift", category: AssetCategory.LIFT, serial: "KON-MRL-2021-KE-007", cost: 3200000, provider: "Kone East Africa", contact: "+254 20 386 1000", sched: { taskName: "Quarterly Lift Servicing", frequency: MaintenanceFrequency.QUARTERLY, nextDue: d("2026-06-01"), estimatedCost: 18000 } },
+    { name: "Hikvision 8-Channel CCTV", category: AssetCategory.SECURITY, serial: "HIK-8CH-2023-KE", cost: 145000, provider: "Lavington Security Ltd", contact: "+254 733 778 899", sched: { taskName: "Annual CCTV Maintenance", frequency: MaintenanceFrequency.ANNUALLY, nextDue: d("2026-09-01"), estimatedCost: 15000 } },
+  ];
+  for (const a of assetDefs) {
+    const asset = await prisma.asset.create({
+      data: {
+        propertyId: property.id,
+        name: a.name,
+        category: a.category,
+        serialNumber: a.serial,
+        purchaseDate: d("2022-01-01"),
+        purchaseCost: a.cost,
+        serviceProvider: a.provider,
+        serviceContact: a.contact,
+      },
+    });
+    await prisma.assetMaintenanceSchedule.create({
+      data: {
+        assetId: asset.id,
+        propertyId: property.id,
+        taskName: a.sched.taskName,
+        frequency: a.sched.frequency,
+        nextDue: a.sched.nextDue,
+        isActive: true,
+        estimatedCost: a.sched.estimatedCost,
+      },
+    });
+  }
+
+  // ── Recurring expenses ───────────────────────────────────────────────────────
+  await prisma.recurringExpense.createMany({
+    data: [
+      { description: "Manned Security — Lavington Security Ltd", category: ExpenseCategory.SECURITY,           amount: 45000, scope: ExpenseScope.PROPERTY, propertyId: property.id, vendorId: vSec.id,  frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-04-01"), isActive: true },
+      { description: "Garbage Collection — Taka Taka Solutions",  category: ExpenseCategory.GARBAGE_COLLECTION, amount: 8000,  scope: ExpenseScope.PROPERTY, propertyId: property.id,                    frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-04-01"), isActive: true },
+      { description: "Landscaping & Grounds Maintenance",          category: ExpenseCategory.LANDSCAPING,        amount: 10000, scope: ExpenseScope.PROPERTY, propertyId: property.id,                    frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-04-01"), isActive: true },
+      { description: "Quarterly Generator Service — PowerGen",     category: ExpenseCategory.MAINTENANCE,        amount: 24000, scope: ExpenseScope.PROPERTY, propertyId: property.id, vendorId: vGen.id,  frequency: RecurringFrequency.QUARTERLY, nextDueDate: d("2026-06-01"), isActive: true },
+    ],
+  });
+
+  // ── Arrears case + escalations (Faith Chebet, unit 103) ──────────────────────
+  const arrearsCase = await prisma.arrearsCase.create({
+    data: {
+      tenantId: tenants["103"].id,
+      propertyId: property.id,
+      stage: ArrearsStage.DEMAND_LETTER,
+      amountOwed: (85000 + 8000) * 2,
+      notes: "Rent unpaid for Feb & Mar 2026 (KES 93,000 × 2). Informal reminders ignored. Demand letter issued 18 Mar 2026.",
+    },
+  });
+  await prisma.arrearsEscalation.createMany({
+    data: [
+      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "M-Pesa reminder & call 8 Feb 2026. Tenant cited delayed salary.", createdAt: d("2026-02-08") },
+      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "Follow-up 20 Feb. Promised payment by month-end — not received.",   createdAt: d("2026-02-20") },
+      { caseId: arrearsCase.id, stage: ArrearsStage.DEMAND_LETTER,     notes: "Demand letter hand-delivered 18 Mar 2026. 14-day window given.",       createdAt: d("2026-03-18") },
+    ],
+  });
+
+  // ── Compliance certificates ──────────────────────────────────────────────────
+  await prisma.complianceCertificate.createMany({
+    data: [
+      { propertyId: property.id, organizationId, certificateType: "Fire Safety Certificate", certificateNumber: "FSC-NRB-2025-3391", issuedBy: "Nairobi City County Fire Brigade", issueDate: d("2025-06-01"), expiryDate: d("2026-05-31"), notes: "Annual fire safety inspection. Extinguishers & hose reels compliant. Renewal due." },
+      { propertyId: property.id, organizationId, certificateType: "Single Business Permit", certificateNumber: "SBP-NRB-2026-1180", issuedBy: "Nairobi City County", issueDate: d("2026-01-15"), expiryDate: d("2026-12-31"), notes: "County business permit for rental operations." },
+      { propertyId: property.id, organizationId, certificateType: "Occupancy Certificate", certificateNumber: "OCC-NRB-2021-0455", issuedBy: "Nairobi City County — Development Control", issueDate: d("2021-08-01"), notes: "Original occupancy certificate. No expiry." },
+    ],
+  });
+
+  // ── Building condition report ────────────────────────────────────────────────
+  await prisma.buildingConditionReport.create({
+    data: {
+      propertyId: property.id,
+      reportDate: d("2026-03-01"),
+      inspector: "Eng. Wanjiku Maina, Registered Inspector",
+      overallCondition: "Good",
+      summary:
+        "Kilimani Court is in good overall condition. Structure, common areas and services are well-maintained. Borehole pump and generator serviced. Fire safety certificate renewal due May 2026. One unit (301) vacant and being turned around.",
+      nextReviewDate: d("2026-09-01"),
+      items: [
+        { area: "Roof & Gutters",         condition: "Good",      notes: "No leaks. Gutters cleared." },
+        { area: "Exterior & Paint",       condition: "Good",      notes: "Facade clean. Minor touch-ups scheduled." },
+        { area: "Common Areas",           condition: "Very Good", notes: "Well-lit and clean." },
+        { area: "Lift & Machine Room",    condition: "Good",      notes: "Serviced; next quarterly service June 2026." },
+        { area: "Borehole & Water",       condition: "Good",      notes: "Pump within spec; tanks clean." },
+        { area: "Generator",              condition: "Good",      notes: "Load-tested monthly. Diesel topped up." },
+        { area: "Parking & Grounds",      condition: "Fair",      notes: "Resurfacing of one bay recommended." },
+        { area: "Fire Safety",            condition: "Good",      notes: "Certificate valid to May 2026 — renew." },
+        { area: "Security & CCTV",        condition: "Good",      notes: "8 cameras operational; guards 24/7." },
+      ],
+    },
+  });
+
+  // ── Owner invoices (management fee Jan–Mar) ──────────────────────────────────
+  const mgmtTotal = unitDefs.reduce((s, u) => s + mgmtFor(u.type), 0);
+  for (const { month, paid } of [{ month: 1, paid: true }, { month: 2, paid: true }, { month: 3, paid: false }]) {
+    await prisma.ownerInvoice.create({
+      data: {
+        invoiceNumber: `OWN-KMC-${propCode}-2026-${String(month).padStart(2, "0")}-MGMT`,
+        propertyId: property.id,
+        type: OwnerInvoiceType.MANAGEMENT_FEE,
+        periodYear: YEAR,
+        periodMonth: month,
+        lineItems: [
+          { description: "Management fee — 1 bedsitter",     units: 1, unitRate: 2500, amount: 2500  },
+          { description: "Management fee — 3 one-bedroom",   units: 3, unitRate: 4000, amount: 12000 },
+          { description: "Management fee — 4 two-bedroom",   units: 4, unitRate: 6000, amount: 24000 },
+          { description: "Management fee — 2 three-bedroom", units: 2, unitRate: 8000, amount: 16000 },
+        ],
+        totalAmount: mgmtTotal,
+        dueDate: new Date(YEAR, month - 1, 5),
+        status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
+        paidAt: paid ? new Date(YEAR, month - 1, 7) : null,
+        paidAmount: paid ? mgmtTotal : null,
+        notes: `Monthly management fee — ${new Date(YEAR, month - 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
+      },
+    });
+  }
+
+  // ── Maintenance jobs + linked Cases ──────────────────────────────────────────
+  const wf = getWorkflow("MAINTENANCE");
+  const stdSla = computeDefaultStageSlaHours(wf, { agreement: { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 } });
+  const emgSla = computeDefaultStageSlaHours(wf, { isEmergency: true, agreement: { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 } });
+  const STAGE_FOR_STATUS: Record<string, number> = {
+    OPEN: 1,          // triaged
+    IN_PROGRESS: 7,   // in_progress
+    AWAITING_PARTS: 6,// scheduled
+    DONE: 8,          // completed
+    CANCELLED: 10,    // closed
+  };
+
+  const jobDefs: {
+    title: string; description: string; category: MaintenanceCategory; priority: MaintenancePriority;
+    status: MaintenanceStatus; reportedBy: string; assignedTo?: string; unit?: string;
+    reportedDate: Date; scheduledDate?: Date; completedDate?: Date; cost?: number;
+    vendorId?: string; isEmergency: boolean; portal: boolean; stageStartedAt: Date; vendorName?: string;
+  }[] = [
+    {
+      title: "Kitchen mixer tap replacement — unit 102", description: "Mixer tap dripping continuously. Tenant reported via call.",
+      category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+      reportedBy: "Grace Kamau (unit 102)", assignedTo: "MajiFix Plumbers", unit: "102",
+      reportedDate: new Date(2026, 0, 12), scheduledDate: new Date(2026, 0, 14), completedDate: new Date(2026, 0, 14),
+      cost: 6500, vendorId: vPlumb.id, vendorName: "MajiFix Plumbers", isEmergency: false, portal: false, stageStartedAt: new Date(2026, 0, 14),
+    },
+    {
+      title: "Socket & circuit repair — unit 201", description: "Bedroom sockets dead after a trip. Suspected loose wiring.",
+      category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+      reportedBy: "Samuel Kiprono (unit 201)", assignedTo: "Brightline Electrical", unit: "201",
+      reportedDate: new Date(2026, 1, 6), scheduledDate: new Date(2026, 1, 8), completedDate: new Date(2026, 1, 8),
+      cost: 4200, vendorId: vElec.id, vendorName: "Brightline Electrical", isEmergency: false, portal: false, stageStartedAt: new Date(2026, 1, 8),
+    },
+    {
+      title: "Water heater replacement — unit 302", description: "Instant water heater failed in master ensuite. No hot water.",
+      category: MaintenanceCategory.APPLIANCE, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
+      reportedBy: "Peter Omondi (unit 302)", assignedTo: "Brightline Electrical", unit: "302",
+      reportedDate: new Date(2026, 1, 18), scheduledDate: new Date(2026, 1, 20), completedDate: new Date(2026, 1, 21),
+      cost: 18500, vendorId: vElec.id, vendorName: "Brightline Electrical", isEmergency: true, portal: false, stageStartedAt: new Date(2026, 1, 21),
+    },
+    {
+      title: "Lift intermittent door fault", description: "Lift door occasionally fails to close on floor 2. Reported by several tenants.",
+      category: MaintenanceCategory.OTHER, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.IN_PROGRESS,
+      reportedBy: "Building caretaker", assignedTo: "Kone East Africa",
+      reportedDate: new Date(2026, 4, 24), scheduledDate: new Date(2026, 4, 29),
+      isEmergency: false, portal: false, stageStartedAt: new Date(2026, 4, 28),
+    },
+    {
+      title: "Borehole pump losing pressure", description: "Upper-floor units reporting low water pressure mornings. Pump inspection needed.",
+      category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.IN_PROGRESS,
+      reportedBy: "Caretaker", assignedTo: "MajiFix Plumbers",
+      reportedDate: new Date(2026, 4, 26), scheduledDate: new Date(2026, 4, 30),
+      vendorId: vPlumb.id, vendorName: "MajiFix Plumbers", isEmergency: false, portal: false, stageStartedAt: new Date(2026, 4, 27),
+    },
+    {
+      title: "Leaking shower head — unit G01", description: "Shower head drips even when fully closed. Worsening.",
+      category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.LOW, status: MaintenanceStatus.OPEN,
+      reportedBy: "Brian Otieno", unit: "G01",
+      reportedDate: new Date(2026, 4, 24), isEmergency: false, portal: true, stageStartedAt: new Date(2026, 4, 24),
+    },
+    {
+      title: "Bedroom light flickering — unit 203", description: "Main bedroom ceiling light flickers. Suspected loose connection.",
+      category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.OPEN,
+      reportedBy: "Lucy Njoroge", unit: "203",
+      reportedDate: new Date(2026, 4, 30), isEmergency: false, portal: true, stageStartedAt: new Date(2026, 4, 30),
+    },
+  ];
+
+  // Link DONE jobs → their existing unit expense entries (by amount)
+  const allUnitIds = Object.values(units).map((u) => u.id);
+
+  for (const j of jobDefs) {
+    const job = await prisma.maintenanceJob.create({
+      data: {
+        propertyId: property.id,
+        unitId: j.unit ? units[j.unit].id : null,
+        title: j.title,
+        description: j.description,
+        category: j.category,
+        priority: j.priority,
+        status: j.status,
+        reportedBy: j.reportedBy,
+        assignedTo: j.assignedTo ?? null,
+        reportedDate: j.reportedDate,
+        scheduledDate: j.scheduledDate ?? null,
+        completedDate: j.completedDate ?? null,
+        cost: j.cost ?? null,
+        vendorId: j.vendorId ?? null,
+        isEmergency: j.isEmergency,
+        submittedViaPortal: j.portal,
+      },
+    });
+
+    // Link DONE job → matching expense entry
+    if (j.status === MaintenanceStatus.DONE && j.cost) {
+      const exp = await prisma.expenseEntry.findFirst({
+        where: { amount: j.cost, OR: [{ propertyId: property.id }, { unitId: { in: allUnitIds } }] },
+      });
+      if (exp) await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
+    }
+
+    // Linked Case
+    const caseStatus = mapMaintenanceStatusToCase(j.status);
+    const waitingOn = mapMaintenanceWaitingOn({ status: j.status, vendorId: j.vendorId ?? null });
+    const stageIdx = STAGE_FOR_STATUS[j.status] ?? 1;
+    const stage = getStageByIndex(wf, stageIdx);
+    const thread = await prisma.caseThread.create({
+      data: {
+        caseType: "MAINTENANCE",
+        subjectId: job.id,
+        propertyId: property.id,
+        unitId: j.unit ? units[j.unit].id : null,
+        organizationId,
+        title: j.title,
+        status: caseStatus,
+        stage: stage?.label ?? null,
+        currentStageIndex: stageIdx,
+        workflowKey: "MAINTENANCE_V1",
+        stageSlaHours: j.isEmergency ? emgSla : stdSla,
+        waitingOn,
+        stageStartedAt: j.stageStartedAt,
+        lastActivityAt: j.completedDate ?? j.scheduledDate ?? j.reportedDate,
+      },
+    });
+    await prisma.maintenanceJob.update({ where: { id: job.id }, data: { caseThreadId: thread.id } });
+
+    // Timeline events
+    const events: { kind: CaseEventKind; body: string; createdAt: Date }[] = [
+      { kind: CaseEventKind.COMMENT, body: `Reported by ${j.reportedBy}: ${j.description}`, createdAt: j.reportedDate },
+    ];
+    if (j.vendorName) {
+      events.push({ kind: CaseEventKind.VENDOR_ASSIGNED, body: `Assigned to ${j.vendorName}.`, createdAt: j.scheduledDate ?? j.reportedDate });
+    }
+    if (j.status === MaintenanceStatus.DONE) {
+      events.push({ kind: CaseEventKind.STATUS_CHANGE, body: `Work completed${j.cost ? ` — cost KES ${j.cost.toLocaleString()}` : ""}. Case resolved.`, createdAt: j.completedDate ?? j.reportedDate });
+    }
+    await prisma.caseEvent.createMany({
+      data: events.map((e) => ({ caseThreadId: thread.id, kind: e.kind, actorName: "Property Manager", body: e.body, createdAt: e.createdAt })),
+    });
+  }
+
+  // ── Standalone ARREARS case (Faith Chebet) ───────────────────────────────────
+  {
+    const stageIdx = 1; // formal_notice
+    const stage = getStageByIndex(getWorkflow("ARREARS"), stageIdx);
+    const thread = await prisma.caseThread.create({
+      data: {
+        caseType: "ARREARS",
+        subjectId: arrearsCase.id,
+        propertyId: property.id,
+        unitId: units["103"].id,
+        organizationId,
+        title: "Rent arrears — Faith Chebet (unit 103)",
+        status: "AWAITING_TENANT",
+        stage: stage?.label ?? null,
+        currentStageIndex: stageIdx,
+        workflowKey: "ARREARS_V1",
+        stageSlaHours: computeDefaultStageSlaHours(getWorkflow("ARREARS")),
+        waitingOn: "TENANT",
+        stageStartedAt: new Date(2026, 4, 20),
+        lastActivityAt: new Date(2026, 4, 20),
+      },
+    });
+    await prisma.caseEvent.create({
+      data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: "Feb & Mar rent outstanding (KES 186,000). Formal notice issued; awaiting tenant response.", createdAt: new Date(2026, 4, 20) },
+    });
+  }
+
+  // ── Standalone LEASE_RENEWAL case (James & Lucy Njoroge) ─────────────────────
+  {
+    const stageIdx = 3; // terms_sent
+    const stage = getStageByIndex(getWorkflow("LEASE_RENEWAL"), stageIdx);
+    const thread = await prisma.caseThread.create({
+      data: {
+        caseType: "LEASE_RENEWAL",
+        subjectId: tenants["203"].id,
+        propertyId: property.id,
+        unitId: units["203"].id,
+        organizationId,
+        title: "Lease renewal — James & Lucy Njoroge (unit 203)",
+        status: "AWAITING_TENANT",
+        stage: stage?.label ?? null,
+        currentStageIndex: stageIdx,
+        workflowKey: "LEASE_RENEWAL_V1",
+        stageSlaHours: computeDefaultStageSlaHours(getWorkflow("LEASE_RENEWAL")),
+        waitingOn: "TENANT",
+        stageStartedAt: new Date(2026, 4, 22),
+        lastActivityAt: new Date(2026, 4, 22),
+      },
+    });
+    await prisma.caseEvent.create({
+      data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: "Lease ends Aug 2026. Renewal terms sent with proposed 8% escalation. Awaiting tenant decision.", createdAt: new Date(2026, 4, 22) },
+    });
+  }
+
+  // ── Tax configuration (Kenya VAT 16%) ────────────────────────────────────────
+  await prisma.taxConfiguration.createMany({
+    data: [
+      {
+        orgId: organizationId,
+        propertyId: property.id,
+        label: "VAT — Management & Letting Fees",
+        rate: 0.16,
+        type: TaxType.ADDITIVE,
+        appliesTo: ["MANAGEMENT_FEE_INCOME", "LETTING_FEE_INCOME"],
+        isInclusive: false,
+        effectiveFrom: d("2026-01-01"),
         isActive: true,
       },
     ],
@@ -2878,6 +3555,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
     } else if (demo.key === "belsize-court") {
       const property = await seedBelsizeCourt(organizationId);
+      await grantAccess(property.id);
+      return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
+    } else if (demo.key === "kilimani-court") {
+      const property = await seedKilimaniCourt(organizationId);
       await grantAccess(property.id);
       return NextResponse.json({ ok: true, propertyId: property.id, organizationId });
     } else {

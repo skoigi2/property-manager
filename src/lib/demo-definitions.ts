@@ -42,5 +42,14 @@ export const DEMO_PROPERTIES: DemoDefinition[] = [
     description: "10-unit residential block in Belsize Park, London — 3 months of income, expenses, arrears & compliance data.",
     flag: "🇬🇧",
   },
+  {
+    key: "kilimani-court",
+    name: "Kilimani Court",
+    country: "Kenya",
+    currency: "KES",
+    units: 10,
+    description: "10-unit residential block in Kilimani, Nairobi — 3 months of income, expenses, tenants, vendors, maintenance cases & arrears.",
+    flag: "🇰🇪",
+  },
   // Future demos registered here. Each needs a matching case in /api/demo/seed/route.ts
 ];

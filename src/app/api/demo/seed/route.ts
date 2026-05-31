@@ -15,6 +15,7 @@ import {
 } from "@prisma/client";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { getWorkflow, getStageByIndex, computeDefaultStageSlaHours } from "@/lib/case-workflows";
+import { startOfMonth, subMonths } from "date-fns";
 
 // Seed route can take 30–60 s with 200+ sequential DB inserts — raise the function timeout
 export const maxDuration = 60;
@@ -22,12 +23,165 @@ export const maxDuration = 60;
 function d(dateStr: string) { return new Date(dateStr); }
 function monthStart(year: number, month: number) { return new Date(year, month, 1); }
 
+// ── Rolling-window date helpers ───────────────────────────────────────────────
+// Demos anchor their data to the seed time so numbers always show in the current
+// month. `recentMonths(3)` = [two-months-ago, last-month, current-month].
+type WMonth = { y: number; m: number };
+function recentMonths(count: number, now: Date = new Date()): WMonth[] {
+  const base = startOfMonth(now);
+  const out: WMonth[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const dt = subMonths(base, i);
+    out.push({ y: dt.getFullYear(), m: dt.getMonth() });
+  }
+  return out;
+}
+function wDate(win: WMonth[], i: number, day = 1): Date { return new Date(win[i].y, win[i].m, day); }
+function addM(now: Date, months: number): Date { return new Date(now.getFullYear(), now.getMonth() + months, now.getDate()); }
+function addD(now: Date, days: number): Date { const x = new Date(now); x.setDate(x.getDate() + days); return x; }
+function subY(now: Date, years: number): Date { return new Date(now.getFullYear() - years, now.getMonth(), now.getDate()); }
+
+// ── Shared maintenance + Cases seeding ────────────────────────────────────────
+const MAINT_STAGE_FOR_STATUS: Record<string, number> = {
+  OPEN: 1,           // triaged
+  IN_PROGRESS: 7,    // in_progress
+  AWAITING_PARTS: 6, // scheduled
+  DONE: 8,           // completed
+  CANCELLED: 10,     // closed
+};
+
+interface DemoJob {
+  title: string; description: string; category: MaintenanceCategory; priority: MaintenancePriority;
+  status: MaintenanceStatus; reportedBy: string; assignedTo?: string; unitId?: string | null;
+  reportedDate: Date; scheduledDate?: Date; completedDate?: Date; cost?: number;
+  vendorId?: string; vendorName?: string; isEmergency: boolean; portal?: boolean; stageStartedAt: Date;
+}
+
+/** Create each maintenance job + a linked MAINTENANCE CaseThread (status/stage/SLA/events). */
+async function seedMaintenanceJobsWithCases(opts: {
+  organizationId: string; propertyId: string; allUnitIds: string[];
+  jobs: DemoJob[];
+  agreement: { kpiEmergencyResponseHrs: number; kpiStandardResponseHrs: number };
+}) {
+  const { organizationId, propertyId, allUnitIds, jobs, agreement } = opts;
+  const wf = getWorkflow("MAINTENANCE");
+  const stdSla = computeDefaultStageSlaHours(wf, { agreement });
+  const emgSla = computeDefaultStageSlaHours(wf, { isEmergency: true, agreement });
+
+  for (const j of jobs) {
+    const job = await prisma.maintenanceJob.create({
+      data: {
+        propertyId, unitId: j.unitId ?? null, title: j.title, description: j.description,
+        category: j.category, priority: j.priority, status: j.status, reportedBy: j.reportedBy,
+        assignedTo: j.assignedTo ?? null, reportedDate: j.reportedDate, scheduledDate: j.scheduledDate ?? null,
+        completedDate: j.completedDate ?? null, cost: j.cost ?? null, vendorId: j.vendorId ?? null,
+        isEmergency: j.isEmergency, submittedViaPortal: j.portal ?? false,
+      },
+    });
+
+    if (j.status === MaintenanceStatus.DONE && j.cost) {
+      const exp = await prisma.expenseEntry.findFirst({
+        where: { amount: j.cost, OR: [{ propertyId }, { unitId: { in: allUnitIds } }] },
+      });
+      if (exp) await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
+    }
+
+    const caseStatus = mapMaintenanceStatusToCase(j.status);
+    const waitingOn = mapMaintenanceWaitingOn({ status: j.status, vendorId: j.vendorId ?? null });
+    const stageIdx = MAINT_STAGE_FOR_STATUS[j.status] ?? 1;
+    const stage = getStageByIndex(wf, stageIdx);
+    const thread = await prisma.caseThread.create({
+      data: {
+        caseType: "MAINTENANCE", subjectId: job.id, propertyId, unitId: j.unitId ?? null,
+        organizationId, title: j.title, status: caseStatus, stage: stage?.label ?? null,
+        currentStageIndex: stageIdx, workflowKey: "MAINTENANCE_V1",
+        stageSlaHours: j.isEmergency ? emgSla : stdSla, waitingOn,
+        stageStartedAt: j.stageStartedAt, lastActivityAt: j.completedDate ?? j.scheduledDate ?? j.reportedDate,
+      },
+    });
+    await prisma.maintenanceJob.update({ where: { id: job.id }, data: { caseThreadId: thread.id } });
+
+    const events: { kind: CaseEventKind; body: string; createdAt: Date }[] = [
+      { kind: CaseEventKind.COMMENT, body: `Reported by ${j.reportedBy}: ${j.description}`, createdAt: j.reportedDate },
+    ];
+    if (j.vendorName) events.push({ kind: CaseEventKind.VENDOR_ASSIGNED, body: `Assigned to ${j.vendorName}.`, createdAt: j.scheduledDate ?? j.reportedDate });
+    if (j.status === MaintenanceStatus.DONE) events.push({ kind: CaseEventKind.STATUS_CHANGE, body: "Work completed. Case resolved.", createdAt: j.completedDate ?? j.reportedDate });
+    await prisma.caseEvent.createMany({
+      data: events.map((e) => ({ caseThreadId: thread.id, kind: e.kind, actorName: "Property Manager", body: e.body, createdAt: e.createdAt })),
+    });
+  }
+}
+
+/** Create a standalone ARREARS / LEASE_RENEWAL CaseThread with an opening comment. */
+async function seedStandaloneCase(opts: {
+  caseType: "ARREARS" | "LEASE_RENEWAL"; subjectId: string; organizationId: string;
+  propertyId: string; unitId?: string | null; title: string; status: string;
+  stageIndex: number; waitingOn: string; stageStartedAt: Date; commentBody: string;
+}) {
+  const wf = getWorkflow(opts.caseType as never);
+  const stage = getStageByIndex(wf, opts.stageIndex);
+  const thread = await prisma.caseThread.create({
+    data: {
+      caseType: opts.caseType as never, subjectId: opts.subjectId, propertyId: opts.propertyId,
+      unitId: opts.unitId ?? null, organizationId: opts.organizationId, title: opts.title,
+      status: opts.status as never, stage: stage?.label ?? null, currentStageIndex: opts.stageIndex,
+      workflowKey: opts.caseType === "ARREARS" ? "ARREARS_V1" : "LEASE_RENEWAL_V1",
+      stageSlaHours: computeDefaultStageSlaHours(wf), waitingOn: opts.waitingOn as never,
+      stageStartedAt: opts.stageStartedAt, lastActivityAt: opts.stageStartedAt,
+    },
+  });
+  await prisma.caseEvent.create({
+    data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: opts.commentBody, createdAt: opts.stageStartedAt },
+  });
+}
+
+/** Create a linked MAINTENANCE CaseThread for every job on a property that lacks one.
+ *  Used when jobs are created via createMany (e.g. with approval-workflow fields). */
+async function backfillMaintenanceCases(
+  propertyId: string,
+  organizationId: string,
+  agreement: { kpiEmergencyResponseHrs: number; kpiStandardResponseHrs: number },
+) {
+  const wf = getWorkflow("MAINTENANCE");
+  const stdSla = computeDefaultStageSlaHours(wf, { agreement });
+  const emgSla = computeDefaultStageSlaHours(wf, { isEmergency: true, agreement });
+  const nowTs = new Date();
+  const jobs = await prisma.maintenanceJob.findMany({
+    where: { propertyId, caseThreadId: null },
+    select: { id: true, title: true, status: true, vendorId: true, isEmergency: true, unitId: true, reportedDate: true, scheduledDate: true, completedDate: true, description: true, reportedBy: true },
+  });
+  for (const job of jobs) {
+    const caseStatus = mapMaintenanceStatusToCase(job.status);
+    const waitingOn = mapMaintenanceWaitingOn({ status: job.status, vendorId: job.vendorId });
+    const stageIdx = MAINT_STAGE_FOR_STATUS[job.status] ?? 1;
+    const stage = getStageByIndex(wf, stageIdx);
+    const active = job.status === "OPEN" || job.status === "IN_PROGRESS" || job.status === "AWAITING_PARTS";
+    const stageStartedAt = active ? addD(nowTs, -3) : (job.completedDate ?? job.reportedDate ?? nowTs);
+    const thread = await prisma.caseThread.create({
+      data: {
+        caseType: "MAINTENANCE", subjectId: job.id, propertyId, unitId: job.unitId,
+        organizationId, title: job.title, status: caseStatus, stage: stage?.label ?? null,
+        currentStageIndex: stageIdx, workflowKey: "MAINTENANCE_V1",
+        stageSlaHours: job.isEmergency ? emgSla : stdSla, waitingOn,
+        stageStartedAt, lastActivityAt: job.completedDate ?? job.scheduledDate ?? job.reportedDate ?? nowTs,
+      },
+    });
+    await prisma.maintenanceJob.update({ where: { id: job.id }, data: { caseThreadId: thread.id } });
+    await prisma.caseEvent.create({
+      data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: `Reported by ${job.reportedBy ?? "tenant"}: ${job.description ?? job.title}`, createdAt: job.reportedDate ?? nowTs },
+    });
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Al Seef Residences — Bahrain demo
 // Adapted from prisma/seed-bahrain.ts (no hardcoded org/users/PropertyAccess)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
+  const now = new Date();
+  const WIN = recentMonths(3, now); // [2 months ago, last month, current month]
+
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
     data: {
@@ -136,9 +290,9 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         name: t.name,
         unitId: units[t.unit].id,
         depositAmount: t.rent * 2,
-        depositPaidDate: d("2026-01-01"),
-        leaseStart: d("2026-01-01"),
-        leaseEnd: d(t.leaseEnd),
+        depositPaidDate: wDate(WIN, 0),
+        leaseStart: subY(now, 1),
+        leaseEnd: t.unit === "304" ? addM(now, 2) : t.unit === "102" ? addM(now, 8) : addM(now, 13),
         monthlyRent: t.rent,
         serviceCharge: sc(t.unit),
         rentDueDay: 1,
@@ -147,9 +301,11 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         email: t.email,
         nationalId: t.nationalId,
         renewalStage: t.unit === "304" ? "NOTICE_SENT" : "NONE",
+        proposedRent: t.unit === "304" ? Math.round(t.rent * 1.05) : null,
+        proposedLeaseEnd: t.unit === "304" ? addM(now, 14) : null,
         notes:
           t.unit === "304"
-            ? "Tenant has given notice. Plans to relocate at lease end Dec 2026."
+            ? "Tenant has given notice / mid-renewal. Awaiting decision on proposed terms."
             : null,
       },
     });
@@ -161,14 +317,12 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       unitId: units[u.number].id,
       flatAmount: u.type === UnitType.ONE_BED ? 50 : u.type === UnitType.TWO_BED ? 75 : 100,
       ratePercent: 0,
-      effectiveFrom: d("2026-01-01"),
+      effectiveFrom: wDate(WIN, 0),
     })),
   });
 
-  // ── Income & invoices ───────────────────────────────────────────────────────
-  const MONTHS = [0, 1, 2]; // Jan, Feb, Mar
-  const YEAR = 2026;
-  // Arrears: unit 102 misses Feb + Mar; unit 304 misses Mar
+  // ── Income & invoices (rolling 3-month window) ───────────────────────────────
+  // Arrears: unit 102 misses the latest 2 months; unit 304 misses the current month
   const arrears: Record<string, number[]> = { "102": [1, 2], "304": [2] };
   let invoiceSeq = 1;
   // Use last 6 chars of propertyId to namespace invoice numbers globally unique
@@ -180,15 +334,15 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     type: IncomeType; grossAmount: number; agentCommission: number;
   }[] = [];
 
-  for (const month of MONTHS) {
+  for (let i = 0; i < WIN.length; i++) {
     for (const t of tenantDefs) {
       const unit = units[t.unit];
       const tenant = tenants[t.unit];
       const serviceCharge = sc(t.unit);
       const grossAmount = t.rent + serviceCharge;
-      const isArrears = (arrears[t.unit] ?? []).includes(month);
+      const isArrears = (arrears[t.unit] ?? []).includes(i);
 
-      const invoiceNum = `ASR-${propCode}-${YEAR}-${String(month + 1).padStart(2, "0")}-${String(
+      const invoiceNum = `ASR-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-${String(
         invoiceSeq++
       ).padStart(3, "0")}`;
 
@@ -196,21 +350,21 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         data: {
           invoiceNumber: invoiceNum,
           tenantId: tenant.id,
-          periodYear: YEAR,
-          periodMonth: month + 1,
+          periodYear: WIN[i].y,
+          periodMonth: WIN[i].m + 1,
           rentAmount: t.rent,
           serviceCharge,
           totalAmount: grossAmount,
-          dueDate: new Date(YEAR, month, 5),
+          dueDate: wDate(WIN, i, 5),
           status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : new Date(YEAR, month, 1),
+          paidAt: isArrears ? null : wDate(WIN, i, 1),
           paidAmount: isArrears ? null : grossAmount,
         },
       });
 
       if (!isArrears) {
         incomeEntryData.push({
-          date: monthStart(YEAR, month),
+          date: wDate(WIN, i),
           unitId: unit.id,
           tenantId: tenant.id,
           invoiceId: invoice.id,
@@ -235,9 +389,9 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   ];
 
   await prisma.expenseEntry.createMany({
-    data: MONTHS.flatMap((month) =>
+    data: WIN.flatMap((_, i) =>
       monthlyPropExpenses.map((e) => ({
-        date: monthStart(YEAR, month),
+        date: wDate(WIN, i),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
         category: e.category,
@@ -257,7 +411,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       { month: 1, unit: "404", cat: ExpenseCategory.MAINTENANCE,   amount: 310, desc: "A/C compressor replacement — master bedroom",  sunk: true  },
       { month: 2, unit: "302", cat: ExpenseCategory.REINSTATEMENT, amount: 420, desc: "Deep clean & repainting — post-notice unit",   sunk: true  },
     ].map((e) => ({
-      date: monthStart(YEAR, e.month),
+      date: wDate(WIN, e.month),
       unitId: units[e.unit].id,
       scope: ExpenseScope.UNIT,
       category: e.cat,
@@ -272,8 +426,8 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   await prisma.pettyCash.createMany({
     data: [
       // Monthly top-ups (IN)
-      ...MONTHS.map((month) => ({
-        date: monthStart(YEAR, month),
+      ...WIN.map((_, i) => ({
+        date: wDate(WIN, i),
         type: PettyCashType.IN,
         amount: 500,
         description: "Monthly petty cash top-up",
@@ -291,7 +445,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         { month: 2, day: 17, amount: 65, desc: "Minor plumbing repairs — common area bathrooms"        },
         { month: 2, day: 25, amount: 12, desc: "Postage & courier — lease correspondence"              },
       ] as { month: number; day: number; amount: number; desc: string }[]).map((p) => ({
-        date: new Date(YEAR, p.month, p.day),
+        date: wDate(WIN, p.month, p.day),
         type: PettyCashType.OUT,
         amount: p.amount,
         description: p.desc,
@@ -307,23 +461,23 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         propertyId: property.id,
         type: InsuranceType.BUILDING,
         insurer: "Gulf Union Insurance",
-        policyNumber: "GUI-BLD-2025-1142",
-        startDate: d("2025-01-01"),
-        endDate: d("2025-12-31"),
+        policyNumber: "GUI-BLD-1142",
+        startDate: addM(now, -6),
+        endDate: addM(now, 6),
         premiumAmount: 2400,
         premiumFrequency: PremiumFrequency.ANNUALLY,
         coverageAmount: 2000000,
         brokerName: "Bahrain Insurance Brokers",
         brokerContact: "+973 1700 4455",
-        notes: "Full building structure coverage. Renewal due January 2026.",
+        notes: "Full building structure coverage.",
       },
       {
         propertyId: property.id,
         type: InsuranceType.PUBLIC_LIABILITY,
         insurer: "AXA Gulf",
-        policyNumber: "AXA-PL-2025-0881",
-        startDate: d("2025-06-01"),
-        endDate: d("2026-05-31"),
+        policyNumber: "AXA-PL-0881",
+        startDate: addM(now, -5),
+        endDate: addD(now, 25),
         premiumAmount: 480,
         premiumFrequency: PremiumFrequency.BIANNUALLY,
         coverageAmount: 500000,
@@ -393,7 +547,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         name: a.name,
         category: a.category,
         serialNumber: a.serialNumber,
-        purchaseDate: a.purchaseDate,
+        purchaseDate: subY(now, 3),
         purchaseCost: a.purchaseCost,
         warrantyExpiry: a.warrantyExpiry,
         serviceProvider: a.serviceProvider,
@@ -407,7 +561,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         propertyId: property.id,
         taskName: a.schedule.taskName,
         frequency: a.schedule.frequency,
-        nextDue: a.schedule.nextDue,
+        nextDue: addM(now, 1),
         isActive: true,
         estimatedCost: a.schedule.estimatedCost,
       },
@@ -424,7 +578,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.MONTHLY,
-        nextDueDate: d("2026-04-01"),
+        nextDueDate: addM(now, 1),
         isActive: true,
       },
       {
@@ -434,7 +588,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.MONTHLY,
-        nextDueDate: d("2026-04-01"),
+        nextDueDate: addM(now, 1),
         isActive: true,
       },
       {
@@ -444,7 +598,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.QUARTERLY,
-        nextDueDate: d("2026-06-01"),
+        nextDueDate: addM(now, 2),
         isActive: true,
       },
       {
@@ -454,7 +608,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.ANNUAL,
-        nextDueDate: d("2026-12-01"),
+        nextDueDate: addM(now, 6),
         isActive: true,
       },
     ],
@@ -489,7 +643,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       stage: ArrearsStage.INFORMAL_REMINDER,
       amountOwed: 800,
       notes:
-        "Tenant has not paid rent for February and March 2026 (BD 400 × 2 months). Called on 15 March — promised to clear by end of month. Follow up required.",
+        "Tenant has not paid rent for the last two months (BD 400 × 2). Called recently — promised to clear by end of month. Follow up required.",
     },
   });
 
@@ -500,7 +654,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       stage: ArrearsStage.INFORMAL_REMINDER,
       amountOwed: 595,
       notes:
-        "March 2026 rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent 10 March. Tenant has given notice — chase payment before lease-end.",
+        "Current-month rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent. Tenant mid-renewal — chase payment.",
     },
   });
 
@@ -566,7 +720,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       rentRemittanceDay: 5,
       mgmtFeeInvoiceDay: 7,
       landlordPaymentDays: 2,
-      kpiStartDate: d("2026-01-01"),
+      kpiStartDate: subY(now, 1),
       kpiOccupancyTarget: 90,
       kpiRentCollectionTarget: 92,
       kpiExpenseRatioTarget: 85,
@@ -582,194 +736,95 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   await prisma.rentHistory.createMany({
     data: [
       // Prior-year rate for long-term tenants (showing annual escalation)
-      { tenantId: tenants["101"].id, monthlyRent: 330, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      { tenantId: tenants["103"].id, monthlyRent: 480, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      { tenantId: tenants["205"].id, monthlyRent: 700, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      { tenantId: tenants["305"].id, monthlyRent: 700, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      { tenantId: tenants["401"].id, monthlyRent: 370, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      // Lease commencement / annual review records (all tenants, Jan 2026)
+      { tenantId: tenants["101"].id, monthlyRent: 330, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      { tenantId: tenants["103"].id, monthlyRent: 480, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      { tenantId: tenants["205"].id, monthlyRent: 700, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      { tenantId: tenants["305"].id, monthlyRent: 700, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      { tenantId: tenants["401"].id, monthlyRent: 370, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      // Lease commencement / annual review records
       ...tenantDefs.map((t) => ({
         tenantId: tenants[t.unit].id,
         monthlyRent: t.rent,
-        effectiveDate: d("2026-01-01"),
+        effectiveDate: wDate(WIN, 0),
         reason: "Lease commencement / annual review",
       })),
     ],
   });
 
-  // ── Maintenance jobs ────────────────────────────────────────────────────────
-  await prisma.maintenanceJob.createMany({
-    data: [
+  // ── Maintenance jobs + linked Cases ──────────────────────────────────────────
+  await seedMaintenanceJobsWithCases({
+    organizationId, propertyId: property.id, allUnitIds: Object.values(units).map((u) => u.id),
+    agreement: { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 },
+    jobs: [
       {
-        propertyId: property.id,
-        unitId: units["103"].id,
-        title: "Bathroom tap replacement — unit 103",
-        description: "Mixer tap dripping constantly. Tenant reported via WhatsApp.",
-        category: MaintenanceCategory.PLUMBING,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Mohammed Al-Mannai (unit 103)",
-        assignedTo: "Gulf Maintenance Services",
-        reportedDate: new Date(2026, 0, 10),
-        scheduledDate: new Date(2026, 0, 12),
-        completedDate: new Date(2026, 0, 12),
-        cost: 120,
-        vendorId: vendorMaint.id,
-        notes: "Replaced mixer tap with Grohe unit. Tenant confirmed resolved.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "Bathroom tap replacement — unit 103", description: "Mixer tap dripping constantly. Tenant reported via WhatsApp.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+        reportedBy: "Mohammed Al-Mannai (unit 103)", assignedTo: "Gulf Maintenance Services", unitId: units["103"].id,
+        reportedDate: wDate(WIN, 0, 10), scheduledDate: wDate(WIN, 0, 12), completedDate: wDate(WIN, 0, 12),
+        cost: 120, vendorId: vendorMaint.id, vendorName: "Gulf Maintenance Services", isEmergency: false, stageStartedAt: wDate(WIN, 0, 12),
       },
       {
-        propertyId: property.id,
-        title: "Lift — door sensor fault (floor 2)",
-        description: "Lift door not closing properly on floor 2. Reported by multiple tenants.",
-        category: MaintenanceCategory.OTHER,
-        priority: MaintenancePriority.HIGH,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Multiple tenants",
-        assignedTo: "ThyssenKrupp Elevator Bahrain",
-        reportedDate: new Date(2026, 0, 18),
-        scheduledDate: new Date(2026, 0, 20),
-        completedDate: new Date(2026, 0, 21),
-        cost: 340,
-        notes: "Door sensor replaced. Full door cycle test completed. Back in service.",
-        isEmergency: true,
-        submittedViaPortal: false,
+        title: "Lift — door sensor fault (floor 2)", description: "Lift door not closing properly on floor 2. Reported by multiple tenants.",
+        category: MaintenanceCategory.OTHER, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
+        reportedBy: "Multiple tenants", assignedTo: "ThyssenKrupp Elevator Bahrain",
+        reportedDate: wDate(WIN, 0, 18), scheduledDate: wDate(WIN, 0, 20), completedDate: wDate(WIN, 0, 21),
+        cost: 340, isEmergency: true, stageStartedAt: wDate(WIN, 0, 21),
       },
       {
-        propertyId: property.id,
-        unitId: units["201"].id,
-        title: "Kitchen circuit breaker tripping — unit 201",
-        description: "Breaker trips after microwave use. Suspected undersized circuit.",
-        category: MaintenanceCategory.ELECTRICAL,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Fatima Al-Khalifa (unit 201)",
-        assignedTo: "Al Baraka Electrical",
-        reportedDate: new Date(2026, 1, 6),
-        scheduledDate: new Date(2026, 1, 8),
-        completedDate: new Date(2026, 1, 8),
-        cost: 85,
-        vendorId: vendorElec.id,
-        notes: "Uprated circuit breaker installed. Fault confirmed resolved.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "Kitchen circuit breaker tripping — unit 201", description: "Breaker trips after microwave use. Suspected undersized circuit.",
+        category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+        reportedBy: "Fatima Al-Khalifa (unit 201)", assignedTo: "Al Baraka Electrical", unitId: units["201"].id,
+        reportedDate: wDate(WIN, 1, 6), scheduledDate: wDate(WIN, 1, 8), completedDate: wDate(WIN, 1, 8),
+        cost: 85, vendorId: vendorElec.id, vendorName: "Al Baraka Electrical", isEmergency: false, stageStartedAt: wDate(WIN, 1, 8),
       },
       {
-        propertyId: property.id,
-        unitId: units["404"].id,
-        title: "A/C compressor failure — master bedroom unit 404",
-        description: "A/C compressor stopped working. No cooling in master bedroom.",
-        category: MaintenanceCategory.APPLIANCE,
-        priority: MaintenancePriority.HIGH,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Abdullah Al-Maktoum (unit 404)",
-        assignedTo: "Gulf Maintenance Services",
-        reportedDate: new Date(2026, 1, 13),
-        scheduledDate: new Date(2026, 1, 15),
-        completedDate: new Date(2026, 1, 16),
-        cost: 310,
-        vendorId: vendorMaint.id,
-        notes: "Compressor replaced. Full system test passed.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "A/C compressor failure — master bedroom unit 404", description: "A/C compressor stopped working. No cooling in master bedroom.",
+        category: MaintenanceCategory.APPLIANCE, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
+        reportedBy: "Abdullah Al-Maktoum (unit 404)", assignedTo: "Gulf Maintenance Services", unitId: units["404"].id,
+        reportedDate: wDate(WIN, 1, 13), scheduledDate: wDate(WIN, 1, 15), completedDate: wDate(WIN, 1, 16),
+        cost: 310, vendorId: vendorMaint.id, vendorName: "Gulf Maintenance Services", isEmergency: false, stageStartedAt: wDate(WIN, 1, 16),
       },
       {
-        propertyId: property.id,
-        title: "CCTV camera offline — car park north corner",
-        description: "Camera 12 (north car park) offline since 28 Feb. Possible cable fault.",
-        category: MaintenanceCategory.SECURITY,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.IN_PROGRESS,
-        reportedBy: "Security guard",
-        assignedTo: "Techno Systems Bahrain",
-        reportedDate: new Date(2026, 2, 1),
-        scheduledDate: new Date(2026, 2, 10),
-        notes: "Technician booked for 10 March. Cable run inspection required.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "CCTV camera offline — car park north corner", description: "Camera 12 (north car park) offline. Possible cable fault.",
+        category: MaintenanceCategory.SECURITY, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.IN_PROGRESS,
+        reportedBy: "Security guard", assignedTo: "Techno Systems Bahrain",
+        reportedDate: addD(now, -6), scheduledDate: addD(now, 2), isEmergency: false, stageStartedAt: addD(now, -4),
       },
       {
-        propertyId: property.id,
-        title: "Rooftop terrace — cracked floor tiles",
-        description: "Section of tiles near water feature cracked and lifted. Trip hazard.",
-        category: MaintenanceCategory.STRUCTURAL,
-        priority: MaintenancePriority.LOW,
-        status: MaintenanceStatus.OPEN,
+        title: "Rooftop terrace — cracked floor tiles", description: "Section of tiles near water feature cracked and lifted. Trip hazard.",
+        category: MaintenanceCategory.STRUCTURAL, priority: MaintenancePriority.LOW, status: MaintenanceStatus.OPEN,
         reportedBy: "Building manager",
-        reportedDate: new Date(2026, 2, 15),
-        notes: "Non-urgent. Area cordoned off. Quote requested from contractor.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        reportedDate: addD(now, -2), isEmergency: false, stageStartedAt: addD(now, -2),
+      },
+      {
+        title: "Leaking shower head — unit 102", description: "Shower head dripping even when fully off. Getting worse.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.LOW, status: MaintenanceStatus.OPEN,
+        reportedBy: "Priya Sharma", unitId: units["102"].id,
+        reportedDate: addD(now, -3), isEmergency: false, portal: true, stageStartedAt: addD(now, -3),
+      },
+      {
+        title: "Bedroom light fixture flickering — unit 305", description: "Main bedroom ceiling light flickers intermittently. Suspected loose connection.",
+        category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.OPEN,
+        reportedBy: "Khalid Al-Rumaihi", unitId: units["305"].id,
+        reportedDate: addD(now, -1), isEmergency: false, portal: true, stageStartedAt: addD(now, -1),
       },
     ],
   });
 
-  // Portal-submitted tenant maintenance requests
-  await prisma.maintenanceJob.createMany({
-    data: [
-      {
-        propertyId: property.id,
-        unitId: units["102"].id,
-        title: "Leaking shower head — unit 102",
-        description: "Shower head dripping even when fully off. Getting worse.",
-        category: MaintenanceCategory.PLUMBING,
-        priority: MaintenancePriority.LOW,
-        status: MaintenanceStatus.OPEN,
-        reportedBy: "Noor Al-Rashid",
-        reportedDate: new Date(2026, 2, 22),
-        isEmergency: false,
-        submittedViaPortal: true,
-      },
-      {
-        propertyId: property.id,
-        unitId: units["305"].id,
-        title: "Bedroom light fixture flickering — unit 305",
-        description: "Main bedroom ceiling light flickers intermittently. Suspected loose connection.",
-        category: MaintenanceCategory.ELECTRICAL,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.OPEN,
-        reportedBy: "Sara Al-Zayed",
-        reportedDate: new Date(2026, 3, 2),
-        isEmergency: false,
-        submittedViaPortal: true,
-      },
-      {
-        propertyId: property.id,
-        unitId: units["401"].id,
-        title: "Balcony door lock stiff — unit 401",
-        description: "Balcony sliding door lock is very stiff and hard to operate. Security concern.",
-        category: MaintenanceCategory.OTHER,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.OPEN,
-        reportedBy: "Khalid Al-Dosari",
-        reportedDate: new Date(2026, 3, 7),
-        isEmergency: false,
-        submittedViaPortal: true,
-      },
-    ],
-  });
-
-  // ── Link DONE maintenance jobs → their expense entries ─────────────────────
+  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
   {
-    const asJobExpLinks = [
-      { titleFragment: "Bathroom tap replacement", amount: 120 },
-      { titleFragment: "Kitchen circuit breaker",  amount: 85  },
-      { titleFragment: "A/C compressor failure",   amount: 310 },
-    ];
-    const asUnitIds = Object.values(units).map((u) => u.id);
-    for (const link of asJobExpLinks) {
-      const job = await prisma.maintenanceJob.findFirst({
-        where: { propertyId: property.id, title: { contains: link.titleFragment } },
-      });
-      const exp = await prisma.expenseEntry.findFirst({
-        where: { amount: link.amount, OR: [{ propertyId: property.id }, { unitId: { in: asUnitIds } }] },
-      });
-      if (job && exp) {
-        await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
-      }
-    }
+    const arr = await prisma.arrearsCase.findFirst({ where: { propertyId: property.id, tenantId: tenants["102"].id }, select: { id: true } });
+    if (arr) await seedStandaloneCase({
+      caseType: "ARREARS", subjectId: arr.id, organizationId, propertyId: property.id, unitId: units["102"].id,
+      title: "Rent arrears — Priya Sharma (unit 102)", status: "AWAITING_TENANT", stageIndex: 2, waitingOn: "TENANT",
+      stageStartedAt: addD(now, -9), commentBody: "Two months' rent outstanding (BD 800). Demand letter issued; awaiting tenant response.",
+    });
   }
+  await seedStandaloneCase({
+    caseType: "LEASE_RENEWAL", subjectId: tenants["304"].id, organizationId, propertyId: property.id, unitId: units["304"].id,
+    title: "Lease renewal — Deepak & Meera Pillai (unit 304)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",
+    stageStartedAt: addD(now, -7), commentBody: "Lease ending soon. Renewal terms sent. Awaiting tenant decision.",
+  });
 
   // ── Compliance certificates ─────────────────────────────────────────────────
   await prisma.complianceCertificate.createMany({
@@ -778,29 +833,29 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         propertyId: property.id,
         organizationId,
         certificateType: "Fire Safety Certificate",
-        certificateNumber: "FSC-BH-2025-1142",
+        certificateNumber: "FSC-BH-1142",
         issuedBy: "Bahrain Civil Defence Directorate",
-        issueDate: d("2025-03-15"),
-        expiryDate: d("2026-03-14"),
-        notes: "Annual fire safety inspection passed. Extinguishers, alarms & evacuation routes compliant.",
+        issueDate: addM(now, -11),
+        expiryDate: addD(now, 20),
+        notes: "Annual fire safety inspection passed. Renewal due soon.",
       },
       {
         propertyId: property.id,
         organizationId,
         certificateType: "Lift Safety Certificate",
-        certificateNumber: "LSC-BH-2025-0443",
+        certificateNumber: "LSC-BH-0443",
         issuedBy: "Ministry of Works — Lift Inspectorate",
-        issueDate: d("2025-09-01"),
-        expiryDate: d("2026-08-31"),
+        issueDate: addM(now, -4),
+        expiryDate: addM(now, 8),
         notes: "Annual statutory lift inspection. ThyssenKrupp lift certified safe for occupancy.",
       },
       {
         propertyId: property.id,
         organizationId,
         certificateType: "Building Completion Certificate",
-        certificateNumber: "BCC-MAN-2020-0078",
+        certificateNumber: "BCC-MAN-0078",
         issuedBy: "Bahrain Survey & Land Registration Bureau",
-        issueDate: d("2020-10-01"),
+        issueDate: subY(now, 5),
         notes: "Original completion certificate. No expiry date.",
       },
     ],
@@ -810,12 +865,12 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   await prisma.buildingConditionReport.create({
     data: {
       propertyId: property.id,
-      reportDate: d("2026-03-01"),
+      reportDate: wDate(WIN, 2, 1),
       inspector: "Khalid Al-Saffar, RICS Registered Inspector",
       overallCondition: "Good",
       summary:
         "Al Seef Residences is in good overall condition. Building structure, common areas, and mechanical systems are well-maintained. Minor cosmetic work recommended on the car park floor. CCTV camera fault currently being addressed.",
-      nextReviewDate: d("2026-09-01"),
+      nextReviewDate: addM(now, 6),
       items: [
         { area: "Roof & Rooftop Terrace",   condition: "Good",      notes: "No water ingress. Cracked tiles flagged for repair." },
         { area: "Exterior Facade",          condition: "Good",      notes: "Clean finish. No spalling or efflorescence observed." },
@@ -831,30 +886,27 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     },
   });
 
-  // ── Owner invoices (management fee — Jan–Mar 2026) ──────────────────────────
-  for (const { month, paid } of [
-    { month: 1, paid: true  },
-    { month: 2, paid: true  },
-    { month: 3, paid: false },
-  ]) {
+  // ── Owner invoices (management fee — rolling window) ─────────────────────────
+  for (let i = 0; i < WIN.length; i++) {
+    const paid = i < WIN.length - 1; // current month still SENT
     await prisma.ownerInvoice.create({
       data: {
-        invoiceNumber: `OWN-ASR-${propCode}-2026-${String(month).padStart(2, "0")}-MGMT`,
+        invoiceNumber: `OWN-ASR-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-MGMT`,
         propertyId: property.id,
         type: OwnerInvoiceType.MANAGEMENT_FEE,
-        periodYear: YEAR,
-        periodMonth: month,
+        periodYear: WIN[i].y,
+        periodMonth: WIN[i].m + 1,
         lineItems: [
           { description: "Management fee — 8 one-bedroom units",   units: 8, unitRate: 50,  amount: 400  },
           { description: "Management fee — 9 two-bedroom units",   units: 9, unitRate: 75,  amount: 675  },
           { description: "Management fee — 3 three-bedroom units", units: 3, unitRate: 100, amount: 300  },
         ],
         totalAmount: 1375,
-        dueDate: new Date(YEAR, month - 1, 10),
+        dueDate: wDate(WIN, i, 10),
         status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
-        paidAt: paid ? new Date(YEAR, month - 1, 12) : null,
+        paidAt: paid ? wDate(WIN, i, 12) : null,
         paidAmount: paid ? 1375 : null,
-        notes: `Monthly property management fee — ${new Date(YEAR, month - 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
+        notes: `Monthly property management fee — ${new Date(WIN[i].y, WIN[i].m).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
       },
     });
   }
@@ -870,25 +922,25 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     data: [
       {
         assetId: asrAssetMap["Cummins Standby Generator"],
-        date: d("2026-01-10"),
+        date: wDate(WIN, 0, 10),
         description: "Monthly service check — oil level, coolant, battery voltage, 30-min load test",
         cost: 65,
         technician: "Ahmed Khalil, Cummins Bahrain",
         vendorId: vendorMaint.id,
-        notes: "All systems nominal. Next service due 10 Feb 2026.",
+        notes: "All systems nominal.",
       },
       {
         assetId: asrAssetMap["Cummins Standby Generator"],
-        date: d("2026-02-10"),
+        date: wDate(WIN, 1, 10),
         description: "Monthly service check — routine inspection and load test passed",
         cost: 65,
         technician: "Ahmed Khalil, Cummins Bahrain",
         vendorId: vendorMaint.id,
-        notes: "No faults found. Next service due 10 Mar 2026.",
+        notes: "No faults found.",
       },
       {
         assetId: asrAssetMap["ThyssenKrupp Passenger Lift"],
-        date: d("2026-01-21"),
+        date: wDate(WIN, 0, 21),
         description: "Unscheduled repair — door sensor replacement, floor 2",
         cost: 340,
         technician: "ThyssenKrupp service technician",
@@ -896,7 +948,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       },
       {
         assetId: asrAssetMap["Grundfos Water Pump"],
-        date: d("2026-02-14"),
+        date: wDate(WIN, 1, 14),
         description: "Biannual inspection — pressure test, seals check, flow rate measurement",
         cost: 110,
         technician: "Aqua Systems Bahrain technician",
@@ -918,27 +970,27 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
       {
         caseId: asrCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "WhatsApp reminder sent 3 Feb 2026. Tenant acknowledged but did not pay.",
-        createdAt: d("2026-02-03"),
+        notes: "WhatsApp reminder sent. Tenant acknowledged but did not pay.",
+        createdAt: wDate(WIN, 1, 3),
       },
       {
         caseId: asrCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "Follow-up call 15 Feb 2026. Tenant promised to pay by month-end. March also missed.",
-        createdAt: d("2026-02-15"),
+        notes: "Follow-up call. Tenant promised to pay by month-end. Current month also missed.",
+        createdAt: wDate(WIN, 1, 15),
       },
       {
         caseId: asrCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.DEMAND_LETTER,
-        notes: "Formal demand letter issued 18 Mar 2026 via registered post. 7-day payment window given.",
-        createdAt: d("2026-03-18"),
+        notes: "Formal demand letter issued via registered post. 7-day payment window given.",
+        createdAt: wDate(WIN, 2, 2),
       },
-      // Deepak & Meera Pillai (unit 304) — March rent outstanding
+      // Deepak & Meera Pillai (unit 304) — current-month rent outstanding
       {
         caseId: asrCaseByTenant[tenants["304"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "SMS reminder sent 10 Mar 2026. Tenant has given notice — chase payment before lease-end.",
-        createdAt: d("2026-03-10"),
+        notes: "SMS reminder sent. Tenant mid-renewal — chase payment.",
+        createdAt: wDate(WIN, 2, 4),
       },
     ],
   });
@@ -980,8 +1032,8 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }> {
-  const YEAR = 2026;
-  const MONTHS = [0, 1, 2]; // Jan, Feb, Mar
+  const now = new Date();
+  const WIN = recentMonths(3, now); // [2 months ago, last month, current month]
 
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
@@ -1028,7 +1080,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         floor: u.floor,
         monthlyRent: u.rent,
         status: u.number === VACANT ? UnitStatus.VACANT : UnitStatus.ACTIVE,
-        vacantSince: u.number === VACANT ? d("2026-02-15") : null,
+        vacantSince: u.number === VACANT ? wDate(WIN, 1, 15) : null,
         amenities: [
           "Borehole Water",
           "Standby Generator",
@@ -1068,9 +1120,9 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         name: t.name,
         unitId: units[t.unit].id,
         depositAmount: u.rent * 2,
-        depositPaidDate: d("2026-01-01"),
-        leaseStart: d("2026-01-01"),
-        leaseEnd: d(t.leaseEnd),
+        depositPaidDate: wDate(WIN, 0),
+        leaseStart: subY(now, 1),
+        leaseEnd: t.renewal ? addM(now, 2) : t.arrears ? addM(now, 8) : addM(now, 13),
         monthlyRent: u.rent,
         serviceCharge: scFor(u.type),
         rentDueDay: 5,
@@ -1080,10 +1132,10 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         nationalId: t.nationalId,
         renewalStage: t.renewal ? RenewalStage.NOTICE_SENT : RenewalStage.NONE,
         proposedRent: t.renewal ? Math.round(u.rent * 1.08) : null,
-        proposedLeaseEnd: t.renewal ? d("2027-08-31") : null,
-        notes: t.renewal ? "Lease ends Aug 2026. Renewal notice sent — proposed 8% escalation. Awaiting tenant response." : null,
+        proposedLeaseEnd: t.renewal ? addM(now, 14) : null,
+        notes: t.renewal ? "Lease ending soon. Renewal notice sent — proposed 8% escalation. Awaiting tenant response." : null,
         portalToken: t.portal ? crypto.randomUUID() : null,
-        portalTokenExpiresAt: t.portal ? d("2027-01-01") : null,
+        portalTokenExpiresAt: t.portal ? addM(now, 12) : null,
       },
     });
   }
@@ -1094,12 +1146,12 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
       unitId: units[u.number].id,
       flatAmount: mgmtFor(u.type),
       ratePercent: 0,
-      effectiveFrom: d("2026-01-01"),
+      effectiveFrom: wDate(WIN, 0),
     })),
   });
 
-  // ── Income & invoices (Jan–Mar) ──────────────────────────────────────────────
-  // Arrears: Faith Chebet (103) misses Feb + Mar.
+  // ── Income & invoices (rolling 3-month window) ───────────────────────────────
+  // Arrears: Faith Chebet (103) misses the latest 2 months (incl. current).
   const arrears: Record<string, number[]> = { "103": [1, 2] };
   let invoiceSeq = 1;
   const incomeEntryData: {
@@ -1107,32 +1159,32 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
     type: IncomeType; grossAmount: number; agentCommission: number; paymentMethod: "MPESA" | "BANK_TRANSFER";
   }[] = [];
 
-  for (const month of MONTHS) {
+  for (let i = 0; i < WIN.length; i++) {
     for (const t of tenantDefs) {
       const u = unitDefs.find((x) => x.number === t.unit)!;
       const serviceCharge = scFor(u.type);
       const grossAmount = u.rent + serviceCharge;
-      const isArrears = (arrears[t.unit] ?? []).includes(month);
+      const isArrears = (arrears[t.unit] ?? []).includes(i);
 
       const invoice = await prisma.invoice.create({
         data: {
-          invoiceNumber: `KMC-${propCode}-${YEAR}-${String(month + 1).padStart(2, "0")}-${String(invoiceSeq++).padStart(3, "0")}`,
+          invoiceNumber: `KMC-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-${String(invoiceSeq++).padStart(3, "0")}`,
           tenantId: tenants[t.unit].id,
-          periodYear: YEAR,
-          periodMonth: month + 1,
+          periodYear: WIN[i].y,
+          periodMonth: WIN[i].m + 1,
           rentAmount: u.rent,
           serviceCharge,
           totalAmount: grossAmount,
-          dueDate: new Date(YEAR, month, 5),
+          dueDate: wDate(WIN, i, 5),
           status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : new Date(YEAR, month, 3),
+          paidAt: isArrears ? null : wDate(WIN, i, 3),
           paidAmount: isArrears ? null : grossAmount,
         },
       });
 
       if (!isArrears) {
         incomeEntryData.push({
-          date: monthStart(YEAR, month),
+          date: wDate(WIN, i),
           unitId: units[t.unit].id,
           tenantId: tenants[t.unit].id,
           invoiceId: invoice.id,
@@ -1157,9 +1209,9 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
     { category: ExpenseCategory.CLEANER,            amount: 22000, desc: "Common area cleaning — 2 staff" },
   ];
   await prisma.expenseEntry.createMany({
-    data: MONTHS.flatMap((month) =>
+    data: WIN.flatMap((_, i) =>
       monthlyPropExpenses.map((e) => ({
-        date: monthStart(YEAR, month),
+        date: wDate(WIN, i),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
         category: e.category,
@@ -1179,7 +1231,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
       { month: 1, unit: "302", cat: ExpenseCategory.MAINTENANCE,   amount: 18500, desc: "Water heater replacement — master ensuite",       sunk: true  },
       { month: 2, unit: "301", cat: ExpenseCategory.REINSTATEMENT, amount: 32000, desc: "Repaint & deep clean — turnover of vacated unit",  sunk: true  },
     ].map((e) => ({
-      date: monthStart(YEAR, e.month),
+      date: wDate(WIN, e.month),
       unitId: units[e.unit].id,
       scope: ExpenseScope.UNIT,
       category: e.cat,
@@ -1193,8 +1245,8 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
   // ── Petty cash ───────────────────────────────────────────────────────────────
   await prisma.pettyCash.createMany({
     data: [
-      ...MONTHS.map((month) => ({
-        date: monthStart(YEAR, month),
+      ...WIN.map((_, i) => ({
+        date: wDate(WIN, i),
         type: PettyCashType.IN,
         amount: 15000,
         description: "Monthly petty cash top-up",
@@ -1211,7 +1263,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         { month: 2, day: 18, amount: 2200, desc: "Minor plumbing repairs — common WC" },
         { month: 2, day: 26, amount: 900,  desc: "Courier & lease document printing" },
       ] as { month: number; day: number; amount: number; desc: string }[]).map((p) => ({
-        date: new Date(YEAR, p.month, p.day),
+        date: wDate(WIN, p.month, p.day),
         type: PettyCashType.OUT,
         amount: p.amount,
         description: p.desc,
@@ -1227,23 +1279,23 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         propertyId: property.id,
         type: InsuranceType.BUILDING,
         insurer: "Jubilee Insurance",
-        policyNumber: "JUB-BLD-2026-0451",
-        startDate: d("2026-01-01"),
-        endDate: d("2026-12-31"),
+        policyNumber: "JUB-BLD-0451",
+        startDate: addM(now, -6),
+        endDate: addM(now, 6),
         premiumAmount: 320000,
         premiumFrequency: PremiumFrequency.ANNUALLY,
         coverageAmount: 180000000,
         brokerName: "ICEA Lion Brokers",
         brokerContact: "+254 20 275 0000",
-        notes: "Full building structure & fixtures cover. Renewal due Jan 2027.",
+        notes: "Full building structure & fixtures cover.",
       },
       {
         propertyId: property.id,
         type: InsuranceType.PUBLIC_LIABILITY,
         insurer: "Britam General Insurance",
-        policyNumber: "BRT-PL-2026-0218",
-        startDate: d("2026-01-01"),
-        endDate: d("2026-12-31"),
+        policyNumber: "BRT-PL-0218",
+        startDate: addM(now, -11),
+        endDate: addD(now, 25),
         premiumAmount: 85000,
         premiumFrequency: PremiumFrequency.ANNUALLY,
         coverageAmount: 20000000,
@@ -1287,7 +1339,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
       rentRemittanceDay: 7,
       mgmtFeeInvoiceDay: 5,
       landlordPaymentDays: 3,
-      kpiStartDate: d("2026-01-01"),
+      kpiStartDate: subY(now, 1),
       kpiOccupancyTarget: 90,
       kpiRentCollectionTarget: 92,
       kpiExpenseRatioTarget: 80,
@@ -1329,7 +1381,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         name: a.name,
         category: a.category,
         serialNumber: a.serial,
-        purchaseDate: d("2022-01-01"),
+        purchaseDate: subY(now, 3),
         purchaseCost: a.cost,
         serviceProvider: a.provider,
         serviceContact: a.contact,
@@ -1341,7 +1393,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         propertyId: property.id,
         taskName: a.sched.taskName,
         frequency: a.sched.frequency,
-        nextDue: a.sched.nextDue,
+        nextDue: addM(now, 1),
         isActive: true,
         estimatedCost: a.sched.estimatedCost,
       },
@@ -1351,10 +1403,10 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
   // ── Recurring expenses ───────────────────────────────────────────────────────
   await prisma.recurringExpense.createMany({
     data: [
-      { description: "Manned Security — Lavington Security Ltd", category: ExpenseCategory.SECURITY,           amount: 45000, scope: ExpenseScope.PROPERTY, propertyId: property.id, vendorId: vSec.id,  frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-04-01"), isActive: true },
-      { description: "Garbage Collection — Taka Taka Solutions",  category: ExpenseCategory.GARBAGE_COLLECTION, amount: 8000,  scope: ExpenseScope.PROPERTY, propertyId: property.id,                    frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-04-01"), isActive: true },
-      { description: "Landscaping & Grounds Maintenance",          category: ExpenseCategory.LANDSCAPING,        amount: 10000, scope: ExpenseScope.PROPERTY, propertyId: property.id,                    frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-04-01"), isActive: true },
-      { description: "Quarterly Generator Service — PowerGen",     category: ExpenseCategory.MAINTENANCE,        amount: 24000, scope: ExpenseScope.PROPERTY, propertyId: property.id, vendorId: vGen.id,  frequency: RecurringFrequency.QUARTERLY, nextDueDate: d("2026-06-01"), isActive: true },
+      { description: "Manned Security — Lavington Security Ltd", category: ExpenseCategory.SECURITY,           amount: 45000, scope: ExpenseScope.PROPERTY, propertyId: property.id, vendorId: vSec.id,  frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true },
+      { description: "Garbage Collection — Taka Taka Solutions",  category: ExpenseCategory.GARBAGE_COLLECTION, amount: 8000,  scope: ExpenseScope.PROPERTY, propertyId: property.id,                    frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true },
+      { description: "Landscaping & Grounds Maintenance",          category: ExpenseCategory.LANDSCAPING,        amount: 10000, scope: ExpenseScope.PROPERTY, propertyId: property.id,                    frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true },
+      { description: "Quarterly Generator Service — PowerGen",     category: ExpenseCategory.MAINTENANCE,        amount: 24000, scope: ExpenseScope.PROPERTY, propertyId: property.id, vendorId: vGen.id,  frequency: RecurringFrequency.QUARTERLY, nextDueDate: addM(now, 2), isActive: true },
     ],
   });
 
@@ -1365,23 +1417,23 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
       propertyId: property.id,
       stage: ArrearsStage.DEMAND_LETTER,
       amountOwed: (85000 + 8000) * 2,
-      notes: "Rent unpaid for Feb & Mar 2026 (KES 93,000 × 2). Informal reminders ignored. Demand letter issued 18 Mar 2026.",
+      notes: "Rent unpaid for the last two months (KES 93,000 × 2). Informal reminders ignored. Demand letter issued.",
     },
   });
   await prisma.arrearsEscalation.createMany({
     data: [
-      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "M-Pesa reminder & call 8 Feb 2026. Tenant cited delayed salary.", createdAt: d("2026-02-08") },
-      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "Follow-up 20 Feb. Promised payment by month-end — not received.",   createdAt: d("2026-02-20") },
-      { caseId: arrearsCase.id, stage: ArrearsStage.DEMAND_LETTER,     notes: "Demand letter hand-delivered 18 Mar 2026. 14-day window given.",       createdAt: d("2026-03-18") },
+      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "M-Pesa reminder & call. Tenant cited delayed salary.",          createdAt: wDate(WIN, 1, 8) },
+      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "Follow-up call. Promised payment by month-end — not received.", createdAt: wDate(WIN, 1, 20) },
+      { caseId: arrearsCase.id, stage: ArrearsStage.DEMAND_LETTER,     notes: "Demand letter hand-delivered. 14-day window given.",            createdAt: wDate(WIN, 2, 2) },
     ],
   });
 
   // ── Compliance certificates ──────────────────────────────────────────────────
   await prisma.complianceCertificate.createMany({
     data: [
-      { propertyId: property.id, organizationId, certificateType: "Fire Safety Certificate", certificateNumber: "FSC-NRB-2025-3391", issuedBy: "Nairobi City County Fire Brigade", issueDate: d("2025-06-01"), expiryDate: d("2026-05-31"), notes: "Annual fire safety inspection. Extinguishers & hose reels compliant. Renewal due." },
-      { propertyId: property.id, organizationId, certificateType: "Single Business Permit", certificateNumber: "SBP-NRB-2026-1180", issuedBy: "Nairobi City County", issueDate: d("2026-01-15"), expiryDate: d("2026-12-31"), notes: "County business permit for rental operations." },
-      { propertyId: property.id, organizationId, certificateType: "Occupancy Certificate", certificateNumber: "OCC-NRB-2021-0455", issuedBy: "Nairobi City County — Development Control", issueDate: d("2021-08-01"), notes: "Original occupancy certificate. No expiry." },
+      { propertyId: property.id, organizationId, certificateType: "Fire Safety Certificate", certificateNumber: "FSC-NRB-3391", issuedBy: "Nairobi City County Fire Brigade", issueDate: addM(now, -11), expiryDate: addD(now, 20), notes: "Annual fire safety inspection. Extinguishers & hose reels compliant. Renewal due soon." },
+      { propertyId: property.id, organizationId, certificateType: "Single Business Permit", certificateNumber: "SBP-NRB-1180", issuedBy: "Nairobi City County", issueDate: addM(now, -4), expiryDate: addM(now, 8), notes: "County business permit for rental operations." },
+      { propertyId: property.id, organizationId, certificateType: "Occupancy Certificate", certificateNumber: "OCC-NRB-0455", issuedBy: "Nairobi City County — Development Control", issueDate: subY(now, 5), notes: "Original occupancy certificate. No expiry." },
     ],
   });
 
@@ -1389,36 +1441,37 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
   await prisma.buildingConditionReport.create({
     data: {
       propertyId: property.id,
-      reportDate: d("2026-03-01"),
+      reportDate: wDate(WIN, 2, 1),
       inspector: "Eng. Wanjiku Maina, Registered Inspector",
       overallCondition: "Good",
       summary:
-        "Kilimani Court is in good overall condition. Structure, common areas and services are well-maintained. Borehole pump and generator serviced. Fire safety certificate renewal due May 2026. One unit (301) vacant and being turned around.",
-      nextReviewDate: d("2026-09-01"),
+        "Kilimani Court is in good overall condition. Structure, common areas and services are well-maintained. Borehole pump and generator serviced. Fire safety certificate renewal due soon. One unit (301) vacant and being turned around.",
+      nextReviewDate: addM(now, 6),
       items: [
         { area: "Roof & Gutters",         condition: "Good",      notes: "No leaks. Gutters cleared." },
         { area: "Exterior & Paint",       condition: "Good",      notes: "Facade clean. Minor touch-ups scheduled." },
         { area: "Common Areas",           condition: "Very Good", notes: "Well-lit and clean." },
-        { area: "Lift & Machine Room",    condition: "Good",      notes: "Serviced; next quarterly service June 2026." },
+        { area: "Lift & Machine Room",    condition: "Good",      notes: "Serviced; next quarterly service upcoming." },
         { area: "Borehole & Water",       condition: "Good",      notes: "Pump within spec; tanks clean." },
         { area: "Generator",              condition: "Good",      notes: "Load-tested monthly. Diesel topped up." },
         { area: "Parking & Grounds",      condition: "Fair",      notes: "Resurfacing of one bay recommended." },
-        { area: "Fire Safety",            condition: "Good",      notes: "Certificate valid to May 2026 — renew." },
+        { area: "Fire Safety",            condition: "Good",      notes: "Certificate renewal due soon." },
         { area: "Security & CCTV",        condition: "Good",      notes: "8 cameras operational; guards 24/7." },
       ],
     },
   });
 
-  // ── Owner invoices (management fee Jan–Mar) ──────────────────────────────────
+  // ── Owner invoices (management fee — rolling window) ─────────────────────────
   const mgmtTotal = unitDefs.reduce((s, u) => s + mgmtFor(u.type), 0);
-  for (const { month, paid } of [{ month: 1, paid: true }, { month: 2, paid: true }, { month: 3, paid: false }]) {
+  for (let i = 0; i < WIN.length; i++) {
+    const paid = i < WIN.length - 1; // current month still SENT
     await prisma.ownerInvoice.create({
       data: {
-        invoiceNumber: `OWN-KMC-${propCode}-2026-${String(month).padStart(2, "0")}-MGMT`,
+        invoiceNumber: `OWN-KMC-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-MGMT`,
         propertyId: property.id,
         type: OwnerInvoiceType.MANAGEMENT_FEE,
-        periodYear: YEAR,
-        periodMonth: month,
+        periodYear: WIN[i].y,
+        periodMonth: WIN[i].m + 1,
         lineItems: [
           { description: "Management fee — 1 bedsitter",     units: 1, unitRate: 2500, amount: 2500  },
           { description: "Management fee — 3 one-bedroom",   units: 3, unitRate: 4000, amount: 12000 },
@@ -1426,208 +1479,86 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
           { description: "Management fee — 2 three-bedroom", units: 2, unitRate: 8000, amount: 16000 },
         ],
         totalAmount: mgmtTotal,
-        dueDate: new Date(YEAR, month - 1, 5),
+        dueDate: wDate(WIN, i, 5),
         status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
-        paidAt: paid ? new Date(YEAR, month - 1, 7) : null,
+        paidAt: paid ? wDate(WIN, i, 7) : null,
         paidAmount: paid ? mgmtTotal : null,
-        notes: `Monthly management fee — ${new Date(YEAR, month - 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
+        notes: `Monthly management fee — ${new Date(WIN[i].y, WIN[i].m).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
       },
     });
   }
 
   // ── Maintenance jobs + linked Cases ──────────────────────────────────────────
-  const wf = getWorkflow("MAINTENANCE");
-  const stdSla = computeDefaultStageSlaHours(wf, { agreement: { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 } });
-  const emgSla = computeDefaultStageSlaHours(wf, { isEmergency: true, agreement: { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 } });
-  const STAGE_FOR_STATUS: Record<string, number> = {
-    OPEN: 1,          // triaged
-    IN_PROGRESS: 7,   // in_progress
-    AWAITING_PARTS: 6,// scheduled
-    DONE: 8,          // completed
-    CANCELLED: 10,    // closed
-  };
-
-  const jobDefs: {
-    title: string; description: string; category: MaintenanceCategory; priority: MaintenancePriority;
-    status: MaintenanceStatus; reportedBy: string; assignedTo?: string; unit?: string;
-    reportedDate: Date; scheduledDate?: Date; completedDate?: Date; cost?: number;
-    vendorId?: string; isEmergency: boolean; portal: boolean; stageStartedAt: Date; vendorName?: string;
-  }[] = [
-    {
-      title: "Kitchen mixer tap replacement — unit 102", description: "Mixer tap dripping continuously. Tenant reported via call.",
-      category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
-      reportedBy: "Grace Kamau (unit 102)", assignedTo: "MajiFix Plumbers", unit: "102",
-      reportedDate: new Date(2026, 0, 12), scheduledDate: new Date(2026, 0, 14), completedDate: new Date(2026, 0, 14),
-      cost: 6500, vendorId: vPlumb.id, vendorName: "MajiFix Plumbers", isEmergency: false, portal: false, stageStartedAt: new Date(2026, 0, 14),
-    },
-    {
-      title: "Socket & circuit repair — unit 201", description: "Bedroom sockets dead after a trip. Suspected loose wiring.",
-      category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
-      reportedBy: "Samuel Kiprono (unit 201)", assignedTo: "Brightline Electrical", unit: "201",
-      reportedDate: new Date(2026, 1, 6), scheduledDate: new Date(2026, 1, 8), completedDate: new Date(2026, 1, 8),
-      cost: 4200, vendorId: vElec.id, vendorName: "Brightline Electrical", isEmergency: false, portal: false, stageStartedAt: new Date(2026, 1, 8),
-    },
-    {
-      title: "Water heater replacement — unit 302", description: "Instant water heater failed in master ensuite. No hot water.",
-      category: MaintenanceCategory.APPLIANCE, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
-      reportedBy: "Peter Omondi (unit 302)", assignedTo: "Brightline Electrical", unit: "302",
-      reportedDate: new Date(2026, 1, 18), scheduledDate: new Date(2026, 1, 20), completedDate: new Date(2026, 1, 21),
-      cost: 18500, vendorId: vElec.id, vendorName: "Brightline Electrical", isEmergency: true, portal: false, stageStartedAt: new Date(2026, 1, 21),
-    },
-    {
-      title: "Lift intermittent door fault", description: "Lift door occasionally fails to close on floor 2. Reported by several tenants.",
-      category: MaintenanceCategory.OTHER, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.IN_PROGRESS,
-      reportedBy: "Building caretaker", assignedTo: "Kone East Africa",
-      reportedDate: new Date(2026, 4, 24), scheduledDate: new Date(2026, 4, 29),
-      isEmergency: false, portal: false, stageStartedAt: new Date(2026, 4, 28),
-    },
-    {
-      title: "Borehole pump losing pressure", description: "Upper-floor units reporting low water pressure mornings. Pump inspection needed.",
-      category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.IN_PROGRESS,
-      reportedBy: "Caretaker", assignedTo: "MajiFix Plumbers",
-      reportedDate: new Date(2026, 4, 26), scheduledDate: new Date(2026, 4, 30),
-      vendorId: vPlumb.id, vendorName: "MajiFix Plumbers", isEmergency: false, portal: false, stageStartedAt: new Date(2026, 4, 27),
-    },
-    {
-      title: "Leaking shower head — unit G01", description: "Shower head drips even when fully closed. Worsening.",
-      category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.LOW, status: MaintenanceStatus.OPEN,
-      reportedBy: "Brian Otieno", unit: "G01",
-      reportedDate: new Date(2026, 4, 24), isEmergency: false, portal: true, stageStartedAt: new Date(2026, 4, 24),
-    },
-    {
-      title: "Bedroom light flickering — unit 203", description: "Main bedroom ceiling light flickers. Suspected loose connection.",
-      category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.OPEN,
-      reportedBy: "Lucy Njoroge", unit: "203",
-      reportedDate: new Date(2026, 4, 30), isEmergency: false, portal: true, stageStartedAt: new Date(2026, 4, 30),
-    },
-  ];
-
-  // Link DONE jobs → their existing unit expense entries (by amount)
+  // DONE jobs sit in earlier window months; active jobs are in the current month
+  // with stageStartedAt a few days back so SLA deadlines land near/after today.
   const allUnitIds = Object.values(units).map((u) => u.id);
-
-  for (const j of jobDefs) {
-    const job = await prisma.maintenanceJob.create({
-      data: {
-        propertyId: property.id,
-        unitId: j.unit ? units[j.unit].id : null,
-        title: j.title,
-        description: j.description,
-        category: j.category,
-        priority: j.priority,
-        status: j.status,
-        reportedBy: j.reportedBy,
-        assignedTo: j.assignedTo ?? null,
-        reportedDate: j.reportedDate,
-        scheduledDate: j.scheduledDate ?? null,
-        completedDate: j.completedDate ?? null,
-        cost: j.cost ?? null,
-        vendorId: j.vendorId ?? null,
-        isEmergency: j.isEmergency,
-        submittedViaPortal: j.portal,
+  await seedMaintenanceJobsWithCases({
+    organizationId, propertyId: property.id, allUnitIds,
+    agreement: { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 },
+    jobs: [
+      {
+        title: "Kitchen mixer tap replacement — unit 102", description: "Mixer tap dripping continuously. Tenant reported via call.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+        reportedBy: "Grace Kamau (unit 102)", assignedTo: "MajiFix Plumbers", unitId: units["102"].id,
+        reportedDate: wDate(WIN, 0, 12), scheduledDate: wDate(WIN, 0, 14), completedDate: wDate(WIN, 0, 14),
+        cost: 6500, vendorId: vPlumb.id, vendorName: "MajiFix Plumbers", isEmergency: false, stageStartedAt: wDate(WIN, 0, 14),
       },
-    });
-
-    // Link DONE job → matching expense entry
-    if (j.status === MaintenanceStatus.DONE && j.cost) {
-      const exp = await prisma.expenseEntry.findFirst({
-        where: { amount: j.cost, OR: [{ propertyId: property.id }, { unitId: { in: allUnitIds } }] },
-      });
-      if (exp) await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
-    }
-
-    // Linked Case
-    const caseStatus = mapMaintenanceStatusToCase(j.status);
-    const waitingOn = mapMaintenanceWaitingOn({ status: j.status, vendorId: j.vendorId ?? null });
-    const stageIdx = STAGE_FOR_STATUS[j.status] ?? 1;
-    const stage = getStageByIndex(wf, stageIdx);
-    const thread = await prisma.caseThread.create({
-      data: {
-        caseType: "MAINTENANCE",
-        subjectId: job.id,
-        propertyId: property.id,
-        unitId: j.unit ? units[j.unit].id : null,
-        organizationId,
-        title: j.title,
-        status: caseStatus,
-        stage: stage?.label ?? null,
-        currentStageIndex: stageIdx,
-        workflowKey: "MAINTENANCE_V1",
-        stageSlaHours: j.isEmergency ? emgSla : stdSla,
-        waitingOn,
-        stageStartedAt: j.stageStartedAt,
-        lastActivityAt: j.completedDate ?? j.scheduledDate ?? j.reportedDate,
+      {
+        title: "Socket & circuit repair — unit 201", description: "Bedroom sockets dead after a trip. Suspected loose wiring.",
+        category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+        reportedBy: "Samuel Kiprono (unit 201)", assignedTo: "Brightline Electrical", unitId: units["201"].id,
+        reportedDate: wDate(WIN, 1, 6), scheduledDate: wDate(WIN, 1, 8), completedDate: wDate(WIN, 1, 8),
+        cost: 4200, vendorId: vElec.id, vendorName: "Brightline Electrical", isEmergency: false, stageStartedAt: wDate(WIN, 1, 8),
       },
-    });
-    await prisma.maintenanceJob.update({ where: { id: job.id }, data: { caseThreadId: thread.id } });
-
-    // Timeline events
-    const events: { kind: CaseEventKind; body: string; createdAt: Date }[] = [
-      { kind: CaseEventKind.COMMENT, body: `Reported by ${j.reportedBy}: ${j.description}`, createdAt: j.reportedDate },
-    ];
-    if (j.vendorName) {
-      events.push({ kind: CaseEventKind.VENDOR_ASSIGNED, body: `Assigned to ${j.vendorName}.`, createdAt: j.scheduledDate ?? j.reportedDate });
-    }
-    if (j.status === MaintenanceStatus.DONE) {
-      events.push({ kind: CaseEventKind.STATUS_CHANGE, body: `Work completed${j.cost ? ` — cost KES ${j.cost.toLocaleString()}` : ""}. Case resolved.`, createdAt: j.completedDate ?? j.reportedDate });
-    }
-    await prisma.caseEvent.createMany({
-      data: events.map((e) => ({ caseThreadId: thread.id, kind: e.kind, actorName: "Property Manager", body: e.body, createdAt: e.createdAt })),
-    });
-  }
-
-  // ── Standalone ARREARS case (Faith Chebet) ───────────────────────────────────
-  {
-    const stageIdx = 1; // formal_notice
-    const stage = getStageByIndex(getWorkflow("ARREARS"), stageIdx);
-    const thread = await prisma.caseThread.create({
-      data: {
-        caseType: "ARREARS",
-        subjectId: arrearsCase.id,
-        propertyId: property.id,
-        unitId: units["103"].id,
-        organizationId,
-        title: "Rent arrears — Faith Chebet (unit 103)",
-        status: "AWAITING_TENANT",
-        stage: stage?.label ?? null,
-        currentStageIndex: stageIdx,
-        workflowKey: "ARREARS_V1",
-        stageSlaHours: computeDefaultStageSlaHours(getWorkflow("ARREARS")),
-        waitingOn: "TENANT",
-        stageStartedAt: new Date(2026, 4, 20),
-        lastActivityAt: new Date(2026, 4, 20),
+      {
+        title: "Water heater replacement — unit 302", description: "Instant water heater failed in master ensuite. No hot water.",
+        category: MaintenanceCategory.APPLIANCE, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
+        reportedBy: "Peter Omondi (unit 302)", assignedTo: "Brightline Electrical", unitId: units["302"].id,
+        reportedDate: wDate(WIN, 1, 18), scheduledDate: wDate(WIN, 1, 20), completedDate: wDate(WIN, 1, 21),
+        cost: 18500, vendorId: vElec.id, vendorName: "Brightline Electrical", isEmergency: true, stageStartedAt: wDate(WIN, 1, 21),
       },
-    });
-    await prisma.caseEvent.create({
-      data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: "Feb & Mar rent outstanding (KES 186,000). Formal notice issued; awaiting tenant response.", createdAt: new Date(2026, 4, 20) },
-    });
-  }
-
-  // ── Standalone LEASE_RENEWAL case (James & Lucy Njoroge) ─────────────────────
-  {
-    const stageIdx = 3; // terms_sent
-    const stage = getStageByIndex(getWorkflow("LEASE_RENEWAL"), stageIdx);
-    const thread = await prisma.caseThread.create({
-      data: {
-        caseType: "LEASE_RENEWAL",
-        subjectId: tenants["203"].id,
-        propertyId: property.id,
-        unitId: units["203"].id,
-        organizationId,
-        title: "Lease renewal — James & Lucy Njoroge (unit 203)",
-        status: "AWAITING_TENANT",
-        stage: stage?.label ?? null,
-        currentStageIndex: stageIdx,
-        workflowKey: "LEASE_RENEWAL_V1",
-        stageSlaHours: computeDefaultStageSlaHours(getWorkflow("LEASE_RENEWAL")),
-        waitingOn: "TENANT",
-        stageStartedAt: new Date(2026, 4, 22),
-        lastActivityAt: new Date(2026, 4, 22),
+      {
+        title: "Lift intermittent door fault", description: "Lift door occasionally fails to close on floor 2. Reported by several tenants.",
+        category: MaintenanceCategory.OTHER, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.IN_PROGRESS,
+        reportedBy: "Building caretaker", assignedTo: "Kone East Africa",
+        reportedDate: addD(now, -7), scheduledDate: addD(now, 2),
+        isEmergency: false, stageStartedAt: addD(now, -3),
       },
-    });
-    await prisma.caseEvent.create({
-      data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: "Lease ends Aug 2026. Renewal terms sent with proposed 8% escalation. Awaiting tenant decision.", createdAt: new Date(2026, 4, 22) },
-    });
-  }
+      {
+        title: "Borehole pump losing pressure", description: "Upper-floor units reporting low water pressure mornings. Pump inspection needed.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.IN_PROGRESS,
+        reportedBy: "Caretaker", assignedTo: "MajiFix Plumbers",
+        reportedDate: addD(now, -5), scheduledDate: addD(now, 1),
+        vendorId: vPlumb.id, vendorName: "MajiFix Plumbers", isEmergency: false, stageStartedAt: addD(now, -6),
+      },
+      {
+        title: "Leaking shower head — unit G01", description: "Shower head drips even when fully closed. Worsening.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.LOW, status: MaintenanceStatus.OPEN,
+        reportedBy: "Brian Otieno", unitId: units["G01"].id,
+        reportedDate: addD(now, -4), isEmergency: false, portal: true, stageStartedAt: addD(now, -4),
+      },
+      {
+        title: "Bedroom light flickering — unit 203", description: "Main bedroom ceiling light flickers. Suspected loose connection.",
+        category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.OPEN,
+        reportedBy: "Lucy Njoroge", unitId: units["203"].id,
+        reportedDate: addD(now, -1), isEmergency: false, portal: true, stageStartedAt: addD(now, -1),
+      },
+    ],
+  });
+
+  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
+  await seedStandaloneCase({
+    caseType: "ARREARS", subjectId: arrearsCase.id, organizationId, propertyId: property.id, unitId: units["103"].id,
+    title: "Rent arrears — Faith Chebet (unit 103)", status: "AWAITING_TENANT", stageIndex: 1, waitingOn: "TENANT",
+    stageStartedAt: addD(now, -10),
+    commentBody: "Two months' rent outstanding (KES 186,000). Demand letter issued; awaiting tenant response.",
+  });
+  await seedStandaloneCase({
+    caseType: "LEASE_RENEWAL", subjectId: tenants["203"].id, organizationId, propertyId: property.id, unitId: units["203"].id,
+    title: "Lease renewal — James & Lucy Njoroge (unit 203)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",
+    stageStartedAt: addD(now, -8),
+    commentBody: "Lease ending soon. Renewal terms sent with proposed 8% escalation. Awaiting tenant decision.",
+  });
 
   // ── Tax configuration (Kenya VAT 16%) ────────────────────────────────────────
   await prisma.taxConfiguration.createMany({
@@ -1640,7 +1571,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         type: TaxType.ADDITIVE,
         appliesTo: ["MANAGEMENT_FEE_INCOME", "LETTING_FEE_INCOME"],
         isInclusive: false,
-        effectiveFrom: d("2026-01-01"),
+        effectiveFrom: subY(now, 1),
         isActive: true,
       },
     ],
@@ -1654,6 +1585,9 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function seedSandtonHeights(organizationId: string): Promise<{ id: string }> {
+  const now = new Date();
+  const WIN = recentMonths(4, now); // last 4 months incl current; MONTHS below indexes into WIN
+
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
     data: {
@@ -1739,9 +1673,9 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         name: t.name,
         unitId: units[t.unit].id,
         depositAmount: t.rent * 2,
-        depositPaidDate: d("2026-01-01"),
-        leaseStart: d("2026-01-01"),
-        leaseEnd: d(t.leaseEnd),
+        depositPaidDate: wDate(WIN, 0),
+        leaseStart: subY(now, 1),
+        leaseEnd: t.unit === "303" ? addM(now, 2) : t.unit === "102" || t.unit === "302" ? addM(now, 9) : addM(now, 14),
         monthlyRent: t.rent,
         serviceCharge: sc(t.unit),
         rentDueDay: 1,
@@ -1749,7 +1683,10 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         phone: t.phone,
         email: t.email,
         nationalId: t.nationalId,
-        renewalStage: "NONE",
+        renewalStage: t.unit === "303" ? RenewalStage.NOTICE_SENT : RenewalStage.NONE,
+        proposedRent: t.unit === "303" ? Math.round(t.rent * 1.07) : null,
+        proposedLeaseEnd: t.unit === "303" ? addM(now, 14) : null,
+        notes: t.unit === "303" ? "Lease ending soon. Renewal notice sent — proposed 7% escalation. Awaiting tenant response." : null,
       },
     });
   }
@@ -1760,7 +1697,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       unitId: units[u.number].id,
       flatAmount: u.type === UnitType.ONE_BED ? 850 : u.type === UnitType.TWO_BED ? 1100 : 1500,
       ratePercent: 0,
-      effectiveFrom: d("2026-01-01"),
+      effectiveFrom: wDate(WIN, 0),
     })),
   });
 
@@ -1791,10 +1728,9 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     prisma.vendor.create({ data: { name: "G4S South Africa", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 301 8500", email: "info@g4s.co.za", organizationId, isActive: true, notes: "Armed response & on-site security patrol services." } }),
   ]);
 
-  // ── Income & invoices ───────────────────────────────────────────────────────
-  const MONTHS = [0, 1, 2, 3]; // Jan, Feb, Mar, Apr 2026
-  const YEAR = 2026;
-  // Arrears: unit 102 misses Feb + Mar + Apr; unit 302 misses Mar + Apr
+  // ── Income & invoices (rolling 4-month window) ───────────────────────────────
+  const MONTHS = [0, 1, 2, 3]; // indices into WIN (oldest → current)
+  // Arrears: unit 102 misses the latest 3 months; unit 302 misses the latest 2 (incl current)
   const arrears: Record<string, number[]> = { "102": [1, 2, 3], "302": [2, 3] };
   let invoiceSeq = 1;
   const propCode = property.id.slice(-6).toUpperCase();
@@ -1812,7 +1748,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       const grossAmount = t.rent + serviceCharge;
       const isArrears = (arrears[t.unit] ?? []).includes(month);
 
-      const invoiceNum = `SH-${propCode}-${YEAR}-${String(month + 1).padStart(2, "0")}-${String(
+      const invoiceNum = `SH-${propCode}-${WIN[month].y}-${String(WIN[month].m + 1).padStart(2, "0")}-${String(
         invoiceSeq++
       ).padStart(3, "0")}`;
 
@@ -1820,21 +1756,21 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         data: {
           invoiceNumber: invoiceNum,
           tenantId: tenant.id,
-          periodYear: YEAR,
-          periodMonth: month + 1,
+          periodYear: WIN[month].y,
+          periodMonth: WIN[month].m + 1,
           rentAmount: t.rent,
           serviceCharge,
           totalAmount: grossAmount,
-          dueDate: new Date(YEAR, month, 5),
+          dueDate: wDate(WIN, month, 5),
           status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : new Date(YEAR, month, 1),
+          paidAt: isArrears ? null : wDate(WIN, month, 1),
           paidAmount: isArrears ? null : grossAmount,
         },
       });
 
       if (!isArrears) {
         incomeEntryData.push({
-          date: monthStart(YEAR, month),
+          date: wDate(WIN, month),
           unitId: unit.id,
           tenantId: tenant.id,
           invoiceId: invoice.id,
@@ -1860,7 +1796,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   await prisma.expenseEntry.createMany({
     data: MONTHS.flatMap((month) =>
       monthlyPropExpensesDefs.map((e) => ({
-        date: monthStart(YEAR, month),
+        date: wDate(WIN, month),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
         category: e.category,
@@ -1877,7 +1813,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   await prisma.expenseEntry.createMany({
     data: [
       {
-        date: monthStart(YEAR, 0),
+        date: wDate(WIN, 0),
         unitId: units["103"].id,
         scope: ExpenseScope.UNIT,
         category: ExpenseCategory.MAINTENANCE,
@@ -1888,7 +1824,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         vendorId: shVendorMaint.id,
       },
       {
-        date: monthStart(YEAR, 1),
+        date: wDate(WIN, 1),
         unitId: units["201"].id,
         scope: ExpenseScope.UNIT,
         category: ExpenseCategory.MAINTENANCE,
@@ -1899,7 +1835,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         vendorId: shVendorSparks.id,
       },
       {
-        date: monthStart(YEAR, 1),
+        date: wDate(WIN, 1),
         unitId: units["203"].id,
         scope: ExpenseScope.UNIT,
         category: ExpenseCategory.MAINTENANCE,
@@ -1910,7 +1846,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         vendorId: shVendorMaint.id,
       },
       {
-        date: monthStart(YEAR, 2),
+        date: wDate(WIN, 2),
         unitId: units["302"].id,
         scope: ExpenseScope.UNIT,
         category: ExpenseCategory.REINSTATEMENT,
@@ -1921,7 +1857,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         vendorId: shVendorClean.id,
       },
       {
-        date: monthStart(YEAR, 3),
+        date: wDate(WIN, 3),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
         category: ExpenseCategory.MAINTENANCE,
@@ -2037,7 +1973,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     data: [
       // Monthly top-ups (IN)
       ...MONTHS.map((month) => ({
-        date: monthStart(YEAR, month),
+        date: wDate(WIN, month),
         type: PettyCashType.IN,
         amount: 2000,
         description: "Monthly petty cash top-up",
@@ -2057,7 +1993,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         { month: 3, day: 3,  amount: 430, desc: "Fire extinguisher service & recharge — annual inspection" },
         { month: 3, day: 11, amount: 275, desc: "Paint & filler — touch-ups corridor floor 2"              },
       ] as { month: number; day: number; amount: number; desc: string }[]).map((p) => ({
-        date: new Date(YEAR, p.month, p.day),
+        date: wDate(WIN, p.month, p.day),
         type: PettyCashType.OUT,
         amount: p.amount,
         description: p.desc,
@@ -2073,23 +2009,23 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         propertyId: property.id,
         type: InsuranceType.BUILDING,
         insurer: "Santam",
-        policyNumber: "SAN-BLD-2025-4421",
-        startDate: d("2025-01-01"),
-        endDate: d("2025-12-31"),
+        policyNumber: "SAN-BLD-4421",
+        startDate: addM(now, -6),
+        endDate: addM(now, 6),
         premiumAmount: 18500,
         premiumFrequency: PremiumFrequency.ANNUALLY,
         coverageAmount: 8000000,
         brokerName: "Marsh South Africa",
         brokerContact: "+27 11 060 7100",
-        notes: "Full building structure coverage. Renewal due January 2026.",
+        notes: "Full building structure coverage.",
       },
       {
         propertyId: property.id,
         type: InsuranceType.PUBLIC_LIABILITY,
         insurer: "Old Mutual Insure",
-        policyNumber: "OMI-PL-2025-0312",
-        startDate: d("2025-06-01"),
-        endDate: d("2026-05-31"),
+        policyNumber: "OMI-PL-0312",
+        startDate: addM(now, -5),
+        endDate: addD(now, 25),
         premiumAmount: 4800,
         premiumFrequency: PremiumFrequency.BIANNUALLY,
         coverageAmount: 2000000,
@@ -2159,7 +2095,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         name: a.name,
         category: a.category,
         serialNumber: a.serialNumber,
-        purchaseDate: a.purchaseDate,
+        purchaseDate: subY(now, 3),
         purchaseCost: a.purchaseCost,
         warrantyExpiry: a.warrantyExpiry,
         serviceProvider: a.serviceProvider,
@@ -2173,7 +2109,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         propertyId: property.id,
         taskName: a.schedule.taskName,
         frequency: a.schedule.frequency,
-        nextDue: a.schedule.nextDue,
+        nextDue: addM(now, 1),
         isActive: true,
         estimatedCost: a.schedule.estimatedCost,
       },
@@ -2190,7 +2126,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.MONTHLY,
-        nextDueDate: d("2026-05-01"),
+        nextDueDate: addM(now, 1),
         isActive: true,
         vendorId: shVendorG4S.id,
       },
@@ -2201,7 +2137,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.MONTHLY,
-        nextDueDate: d("2026-05-01"),
+        nextDueDate: addM(now, 1),
         isActive: true,
         vendorId: shVendorClean.id,
       },
@@ -2212,7 +2148,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.QUARTERLY,
-        nextDueDate: d("2026-06-01"),
+        nextDueDate: addM(now, 2),
         isActive: true,
         vendorId: shVendorAgrico.id,
       },
@@ -2223,7 +2159,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         scope: ExpenseScope.PROPERTY,
         propertyId: property.id,
         frequency: RecurringFrequency.ANNUAL,
-        nextDueDate: d("2026-12-01"),
+        nextDueDate: addM(now, 6),
         isActive: true,
         vendorId: shVendorOtis.id,
       },
@@ -2260,11 +2196,11 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       stage: ArrearsStage.DEMAND_LETTER,
       amountOwed: 27000,
       notes:
-        "Tenant has not paid rent for February, March and April 2026 (R9,000 × 3 months). Section 4 notice issued March 2026. Court proceedings under review if no settlement by 30 April.",
+        "Tenant has not paid rent for the last three months (R9,000 × 3). Section 4 notice issued. Court proceedings under review if no settlement soon.",
     },
   });
 
-  // Unit 302: 2 months overdue (Mar + Apr) = R15,150 × 2 = R30,300
+  // Unit 302: 2 months overdue (incl current) = R15,150 × 2 = R30,300
   await prisma.arrearsCase.create({
     data: {
       tenantId: tenants["302"].id,
@@ -2272,7 +2208,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       stage: ArrearsStage.INFORMAL_REMINDER,
       amountOwed: 30300,
       notes:
-        "March and April 2026 rent outstanding (R14,500 + R650 service charge = R15,150 × 2). Tenant unresponsive. Escalation to formal demand under review.",
+        "Last two months' rent outstanding (R14,500 + R650 service charge = R15,150 × 2). Tenant unresponsive. Escalation to formal demand under review.",
     },
   });
 
@@ -2301,7 +2237,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       rentRemittanceDay: 3,
       mgmtFeeInvoiceDay: 5,
       landlordPaymentDays: 3,
-      kpiStartDate: d("2026-01-01"),
+      kpiStartDate: subY(now, 1),
       kpiOccupancyTarget: 90,
       kpiRentCollectionTarget: 92,
       kpiExpenseRatioTarget: 85,
@@ -2317,199 +2253,102 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   await prisma.rentHistory.createMany({
     data: [
       // Prior-year rate for long-term tenants (showing annual escalation)
-      { tenantId: tenants["101"].id, monthlyRent: 7800,  effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      { tenantId: tenants["103"].id, monthlyRent: 12500, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      { tenantId: tenants["203"].id, monthlyRent: 18000, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      { tenantId: tenants["303"].id, monthlyRent: 18500, effectiveDate: d("2025-01-01"), reason: "Previous lease rate" },
-      // Lease commencement / annual review records (all tenants, Jan 2026)
+      { tenantId: tenants["101"].id, monthlyRent: 7800,  effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      { tenantId: tenants["103"].id, monthlyRent: 12500, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      { tenantId: tenants["203"].id, monthlyRent: 18000, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      { tenantId: tenants["303"].id, monthlyRent: 18500, effectiveDate: subY(now, 1), reason: "Previous lease rate" },
+      // Lease commencement / annual review records
       ...tenantDefs.map((t) => ({
         tenantId: tenants[t.unit].id,
         monthlyRent: t.rent,
-        effectiveDate: d("2026-01-01"),
+        effectiveDate: wDate(WIN, 0),
         reason: "Lease commencement / annual review",
       })),
     ],
   });
 
-  // ── Maintenance jobs ────────────────────────────────────────────────────────
-  await prisma.maintenanceJob.createMany({
-    data: [
+  // ── Maintenance jobs + linked Cases ──────────────────────────────────────────
+  await seedMaintenanceJobsWithCases({
+    organizationId, propertyId: property.id, allUnitIds: Object.values(units).map((u) => u.id),
+    agreement: { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 },
+    jobs: [
       {
-        propertyId: property.id,
-        unitId: units["103"].id,
-        title: "Geyser element failure — unit 103",
-        description: "No hot water in unit 103. Geyser element failed overnight.",
-        category: MaintenanceCategory.PLUMBING,
-        priority: MaintenancePriority.HIGH,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Thabo Mokoena (unit 103)",
-        assignedTo: "BuildFix SA",
-        reportedDate: new Date(2026, 0, 8),
-        scheduledDate: new Date(2026, 0, 9),
-        completedDate: new Date(2026, 0, 9),
-        cost: 1800,
-        vendorId: shVendorMaint.id,
-        notes: "150L geyser element and thermostat replaced. Tested and functioning.",
-        isEmergency: true,
-        submittedViaPortal: false,
+        title: "Geyser element failure — unit 103", description: "No hot water in unit 103. Geyser element failed overnight.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
+        reportedBy: "Thabo Mokoena (unit 103)", assignedTo: "BuildFix SA", unitId: units["103"].id,
+        reportedDate: wDate(WIN, 0, 8), scheduledDate: wDate(WIN, 0, 9), completedDate: wDate(WIN, 0, 9),
+        cost: 1800, vendorId: shVendorMaint.id, vendorName: "BuildFix SA", isEmergency: true, stageStartedAt: wDate(WIN, 0, 9),
       },
       {
-        propertyId: property.id,
-        title: "Generator — fuel system service post load-shedding",
-        description: "Generator ran for extended periods during Stage 6 load-shedding. Full service required.",
-        category: MaintenanceCategory.OTHER,
-        priority: MaintenancePriority.HIGH,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Building manager",
-        assignedTo: "Agrico Equipment",
-        reportedDate: new Date(2026, 0, 20),
-        scheduledDate: new Date(2026, 0, 22),
-        completedDate: new Date(2026, 0, 23),
-        cost: 2400,
-        vendorId: shVendorAgrico.id,
-        notes: "Oil changed, filters replaced, fuel injectors cleaned. Generator back to full spec.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "Generator — fuel system service post load-shedding", description: "Generator ran for extended periods during load-shedding. Full service required.",
+        category: MaintenanceCategory.OTHER, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
+        reportedBy: "Building manager", assignedTo: "Agrico Equipment",
+        reportedDate: wDate(WIN, 0, 20), scheduledDate: wDate(WIN, 0, 22), completedDate: wDate(WIN, 0, 23),
+        cost: 2400, vendorId: shVendorAgrico.id, vendorName: "Agrico Equipment", isEmergency: false, stageStartedAt: wDate(WIN, 0, 23),
       },
       {
-        propertyId: property.id,
-        unitId: units["201"].id,
-        title: "DB board trip — intermittent fault unit 201",
-        description: "Main DB board tripping after power restoration from load-shedding.",
-        category: MaintenanceCategory.ELECTRICAL,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Johan van der Merwe (unit 201)",
-        assignedTo: "Sparks Electrical",
-        reportedDate: new Date(2026, 1, 7),
-        scheduledDate: new Date(2026, 1, 9),
-        completedDate: new Date(2026, 1, 9),
-        cost: 950,
-        vendorId: shVendorSparks.id,
-        notes: "Surge protector failed — replaced. DB board tested. COC issued.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "DB board trip — intermittent fault unit 201", description: "Main DB board tripping after power restoration from load-shedding.",
+        category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+        reportedBy: "Johan van der Merwe (unit 201)", assignedTo: "Sparks Electrical", unitId: units["201"].id,
+        reportedDate: wDate(WIN, 1, 7), scheduledDate: wDate(WIN, 1, 9), completedDate: wDate(WIN, 1, 9),
+        cost: 950, vendorId: shVendorSparks.id, vendorName: "Sparks Electrical", isEmergency: false, stageStartedAt: wDate(WIN, 1, 9),
       },
       {
-        propertyId: property.id,
-        unitId: units["203"].id,
-        title: "Air conditioning compressor failure — master bedroom unit 203",
-        description: "Split A/C unit in master bedroom not cooling. Compressor failure confirmed.",
-        category: MaintenanceCategory.APPLIANCE,
-        priority: MaintenancePriority.HIGH,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Lungelo Khumalo (unit 203)",
-        assignedTo: "BuildFix SA",
-        reportedDate: new Date(2026, 1, 14),
-        scheduledDate: new Date(2026, 1, 16),
-        completedDate: new Date(2026, 1, 17),
-        cost: 4200,
-        vendorId: shVendorMaint.id,
-        notes: "Compressor replaced. Full re-gas and system test completed.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "Air conditioning compressor failure — master bedroom unit 203", description: "Split A/C unit in master bedroom not cooling. Compressor failure confirmed.",
+        category: MaintenanceCategory.APPLIANCE, priority: MaintenancePriority.HIGH, status: MaintenanceStatus.DONE,
+        reportedBy: "Lungelo Khumalo (unit 203)", assignedTo: "BuildFix SA", unitId: units["203"].id,
+        reportedDate: wDate(WIN, 1, 14), scheduledDate: wDate(WIN, 1, 16), completedDate: wDate(WIN, 1, 17),
+        cost: 4200, vendorId: shVendorMaint.id, vendorName: "BuildFix SA", isEmergency: false, stageStartedAt: wDate(WIN, 1, 17),
       },
       {
-        propertyId: property.id,
-        title: "Security gate motor fault — basement entry",
-        description: "Automated gate to basement parking not opening. Motor fault diagnosed and replaced.",
-        category: MaintenanceCategory.SECURITY,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.DONE,
-        reportedBy: "Multiple tenants",
-        assignedTo: "ADT Security",
-        reportedDate: new Date(2026, 2, 5),
-        scheduledDate: new Date(2026, 2, 12),
-        completedDate: new Date(2026, 3, 2),
-        cost: 8500,
-        vendorId: shVendorADT.id,
-        notes: "Gate motor and control board replaced. Tested and commissioned 2 April 2026.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "Security gate motor fault — basement entry", description: "Automated gate to basement parking not opening. Motor fault diagnosed and replaced.",
+        category: MaintenanceCategory.SECURITY, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE,
+        reportedBy: "Multiple tenants", assignedTo: "ADT Security",
+        reportedDate: wDate(WIN, 2, 5), scheduledDate: wDate(WIN, 2, 8), completedDate: wDate(WIN, 2, 10),
+        cost: 8500, vendorId: shVendorADT.id, vendorName: "ADT Security", isEmergency: false, stageStartedAt: wDate(WIN, 2, 10),
       },
       {
-        propertyId: property.id,
-        title: "Drain blockage — ground floor common bathroom",
-        description: "Drain in ground floor staff bathroom blocking repeatedly.",
-        category: MaintenanceCategory.PLUMBING,
-        priority: MaintenancePriority.LOW,
-        status: MaintenanceStatus.OPEN,
-        reportedBy: "Cleaning staff",
-        reportedDate: new Date(2026, 2, 18),
-        notes: "Non-urgent. Quoted for hydro-jetting of drain. Awaiting approval.",
-        isEmergency: false,
-        submittedViaPortal: false,
+        title: "Drain blockage — ground floor common bathroom", description: "Drain in ground floor staff bathroom blocking repeatedly.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.LOW, status: MaintenanceStatus.IN_PROGRESS,
+        reportedBy: "Cleaning staff", assignedTo: "BuildFix SA",
+        reportedDate: addD(now, -6), scheduledDate: addD(now, 2), vendorId: shVendorMaint.id, vendorName: "BuildFix SA",
+        isEmergency: false, stageStartedAt: addD(now, -4),
+      },
+      {
+        title: "Blocked kitchen drain — unit 101", description: "Kitchen sink draining slowly — possible grease blockage.",
+        category: MaintenanceCategory.PLUMBING, priority: MaintenancePriority.LOW, status: MaintenanceStatus.OPEN,
+        reportedBy: "Sipho Dlamini", unitId: units["101"].id,
+        reportedDate: addD(now, -3), isEmergency: false, portal: true, stageStartedAt: addD(now, -3),
+      },
+      {
+        title: "Intercom handset dead — unit 202", description: "Lobby intercom handset not responding — cannot buzz visitors in.",
+        category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.OPEN,
+        reportedBy: "Ayesha Patel", unitId: units["202"].id,
+        reportedDate: addD(now, -2), isEmergency: false, portal: true, stageStartedAt: addD(now, -2),
+      },
+      {
+        title: "Bedroom ceiling fan noise — unit 303", description: "Ceiling fan vibrating loudly. Gets worse at high speed.",
+        category: MaintenanceCategory.APPLIANCE, priority: MaintenancePriority.LOW, status: MaintenanceStatus.OPEN,
+        reportedBy: "Michael & Sarah Pretorius", unitId: units["303"].id,
+        reportedDate: addD(now, -1), isEmergency: false, portal: true, stageStartedAt: addD(now, -1),
       },
     ],
   });
 
-  // Portal-submitted tenant maintenance requests
-  await prisma.maintenanceJob.createMany({
-    data: [
-      {
-        propertyId: property.id,
-        unitId: units["101"].id,
-        title: "Blocked kitchen drain — unit 101",
-        description: "Kitchen sink draining slowly — possible grease blockage.",
-        category: MaintenanceCategory.PLUMBING,
-        priority: MaintenancePriority.LOW,
-        status: MaintenanceStatus.OPEN,
-        reportedBy: "Sipho Dlamini",
-        reportedDate: new Date(2026, 2, 20),
-        isEmergency: false,
-        submittedViaPortal: true,
-      },
-      {
-        propertyId: property.id,
-        unitId: units["202"].id,
-        title: "Intercom handset dead — unit 202",
-        description: "Lobby intercom handset not responding — cannot buzz visitors in.",
-        category: MaintenanceCategory.ELECTRICAL,
-        priority: MaintenancePriority.MEDIUM,
-        status: MaintenanceStatus.OPEN,
-        reportedBy: "Ayesha Patel",
-        reportedDate: new Date(2026, 3, 3),
-        isEmergency: false,
-        submittedViaPortal: true,
-      },
-      {
-        propertyId: property.id,
-        unitId: units["303"].id,
-        title: "Bedroom ceiling fan noise — unit 303",
-        description: "Ceiling fan vibrating loudly. Gets worse at high speed.",
-        category: MaintenanceCategory.APPLIANCE,
-        priority: MaintenancePriority.LOW,
-        status: MaintenanceStatus.OPEN,
-        reportedBy: "Michael & Sarah Pretorius",
-        reportedDate: new Date(2026, 3, 8),
-        isEmergency: false,
-        submittedViaPortal: true,
-      },
-    ],
-  });
-
-  // ── Link DONE maintenance jobs → their expense entries ─────────────────────
-  {
-    const shJobExpLinks = [
-      { titleFragment: "Geyser element failure",             amount: 1800 },
-      { titleFragment: "DB board trip",                      amount: 950  },
-      { titleFragment: "Air conditioning compressor failure", amount: 4200 },
-      { titleFragment: "Deep clean & touch-up",              amount: 3500 },
-      { titleFragment: "gate motor fault",                   amount: 8500 },
-    ];
-    const shUnitIds = Object.values(units).map((u) => u.id);
-    for (const link of shJobExpLinks) {
-      const job = await prisma.maintenanceJob.findFirst({
-        where: { propertyId: property.id, title: { contains: link.titleFragment } },
-      });
-      const exp = await prisma.expenseEntry.findFirst({
-        where: { amount: link.amount, OR: [{ propertyId: property.id }, { unitId: { in: shUnitIds } }] },
-      });
-      if (job && exp) {
-        await prisma.maintenanceJob.update({ where: { id: job.id }, data: { expenseId: exp.id } });
-      }
-    }
+  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
+  for (const u of ["102", "302"]) {
+    const arr = await prisma.arrearsCase.findFirst({ where: { propertyId: property.id, tenantId: tenants[u].id }, select: { id: true } });
+    if (arr) await seedStandaloneCase({
+      caseType: "ARREARS", subjectId: arr.id, organizationId, propertyId: property.id, unitId: units[u].id,
+      title: `Rent arrears — unit ${u}`, status: "AWAITING_TENANT", stageIndex: u === "102" ? 2 : 1, waitingOn: "TENANT",
+      stageStartedAt: addD(now, -9), commentBody: "Rent outstanding over multiple months. Escalation in progress; awaiting tenant response.",
+    });
   }
+  await seedStandaloneCase({
+    caseType: "LEASE_RENEWAL", subjectId: tenants["303"].id, organizationId, propertyId: property.id, unitId: units["303"].id,
+    title: "Lease renewal — Michael & Sarah Pretorius (unit 303)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",
+    stageStartedAt: addD(now, -7), commentBody: "Lease ending soon. Renewal terms sent with proposed 7% escalation. Awaiting tenant decision.",
+  });
 
   // ── Compliance certificates ─────────────────────────────────────────────────
   await prisma.complianceCertificate.createMany({
@@ -2518,29 +2357,29 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         propertyId: property.id,
         organizationId,
         certificateType: "Certificate of Compliance (COC) — Electrical",
-        certificateNumber: "COC-GP-2025-44821",
+        certificateNumber: "COC-GP-44821",
         issuedBy: "Sparks Electrical — Registered Wireman",
-        issueDate: d("2025-06-01"),
-        expiryDate: d("2027-05-31"),
+        issueDate: subY(now, 1),
+        expiryDate: addM(now, 12),
         notes: "Full electrical installation compliance certificate. Valid for 2 years.",
       },
       {
         propertyId: property.id,
         organizationId,
         certificateType: "Fire Safety Certificate",
-        certificateNumber: "FSC-GP-2025-0932",
+        certificateNumber: "FSC-GP-0932",
         issuedBy: "Johannesburg Fire & Rescue Services",
-        issueDate: d("2025-02-15"),
-        expiryDate: d("2026-02-14"),
-        notes: "Annual fire safety inspection passed. Extinguishers, hose reels & detectors compliant.",
+        issueDate: addM(now, -11),
+        expiryDate: addD(now, 20),
+        notes: "Annual fire safety inspection passed. Renewal due soon.",
       },
       {
         propertyId: property.id,
         organizationId,
         certificateType: "Occupation Certificate",
-        certificateNumber: "OC-JHB-2020-1154",
+        certificateNumber: "OC-JHB-1154",
         issuedBy: "City of Johannesburg — Building Development Management",
-        issueDate: d("2020-11-15"),
+        issueDate: subY(now, 5),
         notes: "Original occupation certificate issued on completion. No expiry.",
       },
     ],
@@ -2550,12 +2389,12 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   await prisma.buildingConditionReport.create({
     data: {
       propertyId: property.id,
-      reportDate: d("2026-03-05"),
+      reportDate: wDate(WIN, WIN.length - 1, 5),
       inspector: "Pieter Swanepoel, SACAP Registered Professional",
       overallCondition: "Good",
       summary:
-        "Sandton Heights is in good overall condition. The structure, common areas, and services are well-maintained. The fire safety certificate expired February 2026 and renewal is due. Security gate motor was repaired in April 2026. Generator is performing well given sustained load-shedding periods.",
-      nextReviewDate: d("2026-09-05"),
+        "Sandton Heights is in good overall condition. The structure, common areas, and services are well-maintained. The fire safety certificate renewal is due soon. The security gate motor was recently repaired. Generator is performing well given sustained load-shedding periods.",
+      nextReviewDate: addM(now, 6),
       items: [
         { area: "Roof & Waterproofing",         condition: "Good",      notes: "No active leaks. Flashings intact. Re-inspect after rainy season." },
         { area: "Exterior Facade & Paintwork",  condition: "Good",      notes: "Clean render. Minor cracking at expansion joint on floor 2 — monitor." },
@@ -2572,31 +2411,27 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     },
   });
 
-  // ── Owner invoices (management fee — Jan–Apr 2026) ──────────────────────────
-  for (const { month, paid } of [
-    { month: 1, paid: true  },
-    { month: 2, paid: true  },
-    { month: 3, paid: true  },
-    { month: 4, paid: false },
-  ]) {
+  // ── Owner invoices (management fee — rolling window) ─────────────────────────
+  for (let i = 0; i < MONTHS.length; i++) {
+    const paid = i < MONTHS.length - 1; // current month still SENT
     await prisma.ownerInvoice.create({
       data: {
-        invoiceNumber: `OWN-SH-${propCode}-2026-${String(month).padStart(2, "0")}-MGMT`,
+        invoiceNumber: `OWN-SH-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-MGMT`,
         propertyId: property.id,
         type: OwnerInvoiceType.MANAGEMENT_FEE,
-        periodYear: YEAR,
-        periodMonth: month,
+        periodYear: WIN[i].y,
+        periodMonth: WIN[i].m + 1,
         lineItems: [
           { description: "Management fee — 3 one-bedroom units",   units: 3, unitRate: 850,  amount: 2550 },
           { description: "Management fee — 4 two-bedroom units",   units: 4, unitRate: 1100, amount: 4400 },
           { description: "Management fee — 2 three-bedroom units", units: 2, unitRate: 1500, amount: 3000 },
         ],
         totalAmount: 9950,
-        dueDate: new Date(YEAR, month - 1, 8),
+        dueDate: wDate(WIN, i, 8),
         status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
-        paidAt: paid ? new Date(YEAR, month - 1, 10) : null,
+        paidAt: paid ? wDate(WIN, i, 10) : null,
         paidAmount: paid ? 9950 : null,
-        notes: `Monthly property management fee — ${new Date(YEAR, month - 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
+        notes: `Monthly property management fee — ${new Date(WIN[i].y, WIN[i].m).toLocaleString("en-GB", { month: "long", year: "numeric" })}`,
       },
     });
   }
@@ -2612,42 +2447,42 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     data: [
       {
         assetId: shAssetMap["Perkins Standby Generator"],
-        date: d("2026-01-08"),
-        description: "Post-Stage 6 full service — oil change, filters, fuel injectors, load test",
+        date: wDate(WIN, 0, 8),
+        description: "Full service — oil change, filters, fuel injectors, load test",
         cost: 2400,
         technician: "Agrico Equipment technician",
-        notes: "Generator ran 72 hrs continuous during Stage 6. All consumables replaced. Performing normally.",
+        notes: "Generator ran extended hours during load-shedding. All consumables replaced. Performing normally.",
       },
       {
         assetId: shAssetMap["Perkins Standby Generator"],
-        date: d("2026-02-10"),
+        date: wDate(WIN, 1, 10),
         description: "Monthly routine check — oil level, coolant, battery voltage, 30-min load test",
         cost: 850,
         technician: "Agrico Equipment technician",
         vendorId: shVendorAgrico.id,
-        notes: "All systems nominal. No faults detected. Next check due 10 Mar 2026.",
+        notes: "All systems nominal. No faults detected.",
       },
       {
         assetId: shAssetMap["Perkins Standby Generator"],
-        date: d("2026-03-10"),
+        date: wDate(WIN, 2, 10),
         description: "Monthly routine check — oil level, coolant, battery voltage, 30-min load test",
         cost: 850,
         technician: "Agrico Equipment technician",
         vendorId: shVendorAgrico.id,
-        notes: "All systems nominal. No faults detected. Next check due 10 Apr 2026.",
+        notes: "All systems nominal. No faults detected.",
       },
       {
         assetId: shAssetMap["Otis Passenger Lift"],
-        date: d("2026-01-15"),
-        description: "Q1 quarterly service — lubrication, safety brake test, door mechanism check",
+        date: wDate(WIN, 0, 15),
+        description: "Quarterly service — lubrication, safety brake test, door mechanism check",
         cost: 3200,
         technician: "Otis Elevator SA technician",
         vendorId: shVendorOtis.id,
-        notes: "All checks passed. Certificate of service issued. Next quarterly due July 2026.",
+        notes: "All checks passed. Certificate of service issued.",
       },
       {
         assetId: shAssetMap["Grundfos Pressure Pump"],
-        date: d("2026-03-10"),
+        date: wDate(WIN, 2, 10),
         description: "Routine inspection — pressure output, seal condition, impeller check",
         cost: 1400,
         technician: "Pump & Valve SA technician",
@@ -2655,7 +2490,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       },
       {
         assetId: shAssetMap["Hikvision 16-Channel CCTV System"],
-        date: d("2026-04-10"),
+        date: wDate(WIN, 3, 10),
         description: "Annual CCTV review — camera alignment, recording integrity check, firmware update",
         cost: 2800,
         technician: "ADT Security technician",
@@ -2678,45 +2513,45 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
       {
         caseId: shCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "WhatsApp reminder sent 5 Feb 2026. Tenant read message but did not respond.",
-        createdAt: d("2026-02-05"),
+        notes: "WhatsApp reminder sent. Tenant read message but did not respond.",
+        createdAt: wDate(WIN, 1, 5),
       },
       {
         caseId: shCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "Phone call 18 Feb 2026. Tenant cited financial difficulty — requested 2-week extension. March also missed.",
-        createdAt: d("2026-02-18"),
+        notes: "Phone call. Tenant cited financial difficulty — requested 2-week extension. Following month also missed.",
+        createdAt: wDate(WIN, 1, 18),
       },
       {
         caseId: shCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.DEMAND_LETTER,
-        notes: "Section 4 notice issued 20 Mar 2026 via registered post. 20-business-day compliance window.",
-        createdAt: d("2026-03-20"),
+        notes: "Section 4 notice issued via registered post. 20-business-day compliance window.",
+        createdAt: wDate(WIN, 2, 20),
       },
       {
         caseId: shCaseByTenant[tenants["102"].id],
         stage: ArrearsStage.DEMAND_LETTER,
-        notes: "April rent also unpaid. Total arrears R27,000. Compliance window expired. Court application being prepared.",
-        createdAt: d("2026-04-15"),
+        notes: "Current month also unpaid. Total arrears R27,000. Compliance window expired. Court application being prepared.",
+        createdAt: wDate(WIN, 3, 15),
       },
       // Rajesh Govender (unit 302) — 2 months overdue
       {
         caseId: shCaseByTenant[tenants["302"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "WhatsApp reminder sent 8 Mar 2026. Tenant acknowledged and promised payment by 15 March.",
-        createdAt: d("2026-03-08"),
+        notes: "WhatsApp reminder sent. Tenant acknowledged and promised payment within a week.",
+        createdAt: wDate(WIN, 2, 8),
       },
       {
         caseId: shCaseByTenant[tenants["302"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "Follow-up call 20 Mar 2026. Tenant did not pay by promised date. Escalation under review.",
-        createdAt: d("2026-03-20"),
+        notes: "Follow-up call. Tenant did not pay by promised date. Escalation under review.",
+        createdAt: wDate(WIN, 2, 20),
       },
       {
         caseId: shCaseByTenant[tenants["302"].id],
         stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "April rent also not paid. Total arrears R30,300. Formal demand letter to be issued if not settled by 30 April.",
-        createdAt: d("2026-04-10"),
+        notes: "Current month also not paid. Total arrears R30,300. Formal demand letter to be issued if not settled soon.",
+        createdAt: wDate(WIN, 3, 10),
       },
     ],
   });
@@ -2771,8 +2606,9 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }> {
-  const YEAR = 2026;
-  const MONTHS = [1, 2, 3]; // Feb=1, Mar=2, Apr=3 (0-indexed JS months)
+  const now = new Date();
+  const WIN = recentMonths(4, now); // MONTHS indexes into WIN; [1,2,3] = last 3 months incl current
+  const MONTHS = [1, 2, 3];
   const SC = 250; // service charge per unit
 
   // ── Property ────────────────────────────────────────────────────────────────
@@ -2815,7 +2651,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
         floor: u.floor,
         monthlyRent: u.rent,
         status: u.status,
-        vacantSince: u.status === UnitStatus.VACANT ? d("2026-02-01") : null,
+        vacantSince: u.status === UnitStatus.VACANT ? wDate(WIN, 1, 1) : null,
         sizeSqm: u.sqm,
         amenities: ["Double glazing", "Gas central heating", "Built-in wardrobes"],
         description: `${u.type.replace("_", " ")} apartment on floor ${u.floor}`,
@@ -2848,9 +2684,9 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
         name: t.name,
         unitId: units[t.unit].id,
         depositAmount: t.rent * 2,
-        depositPaidDate: d("2025-01-05"),
-        leaseStart: d("2025-01-01"),
-        leaseEnd: d(t.leaseEnd),
+        depositPaidDate: subY(now, 1),
+        leaseStart: subY(now, 1),
+        leaseEnd: t.renewal === RenewalStage.NOTICE_SENT ? addM(now, 2) : t.unit === "201" || t.unit === "302" ? addM(now, 8) : addM(now, 12),
         monthlyRent: t.rent,
         serviceCharge: SC,
         rentDueDay: 1,
@@ -2859,12 +2695,14 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
         email: t.email,
         nationalId: t.nationalId,
         renewalStage: t.renewal,
+        proposedRent: t.renewal === RenewalStage.NOTICE_SENT ? 1890 : null,
+        proposedLeaseEnd: t.renewal === RenewalStage.NOTICE_SENT ? addM(now, 14) : null,
         renewalNotes: t.renewal === RenewalStage.NOTICE_SENT
-          ? "Renewal notice sent 1 March 2026. Awaiting tenant response on proposed new rent of £1,890."
+          ? "Renewal notice sent. Awaiting tenant response on proposed new rent of £1,890."
           : null,
         chargeLatePenalty: t.chargeLatePenalty,
         escalationRate: t.escalationRate,
-        notes: `AST commenced January 2025. ${t.name.split(" ")[0]} is a tenant in good standing.`,
+        notes: `AST in place. ${t.name.split(" ")[0]} is a tenant in good standing.`,
       },
     })),
   );
@@ -2879,20 +2717,20 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       name: "Hannah Pierce",
       unitId: units["104"].id,
       depositAmount: 3700,
-      depositPaidDate: d("2024-02-01"),
-      leaseStart: d("2024-02-01"),
-      leaseEnd: d("2026-01-31"),
+      depositPaidDate: subY(now, 2),
+      leaseStart: subY(now, 2),
+      leaseEnd: wDate(WIN, 0, 31),
       monthlyRent: 1850,
       serviceCharge: SC,
       rentDueDay: 1,
       isActive: false,
-      vacatedDate: d("2026-01-31"),
+      vacatedDate: wDate(WIN, 0, 31),
       phone: "+44 7911 000104",
       email: "hannah.pierce@email.co.uk",
       nationalId: "NS 01 23 45 J",
       renewalStage: RenewalStage.NONE,
       chargeLatePenalty: false,
-      notes: "Former tenant. Lease ended 31 January 2026. Deposit settled with deductions for cleaning & wall repair.",
+      notes: "Former tenant. Lease recently ended. Deposit settled with deductions for cleaning & wall repair.",
     },
   });
 
@@ -2908,7 +2746,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       unitId: units[f.unit].id,
       flatAmount: f.flat,
       ratePercent: 0,
-      effectiveFrom: d("2026-01-01"),
+      effectiveFrom: wDate(WIN, 1),
     })),
   });
 
@@ -2954,7 +2792,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   // ── Income & Invoices ────────────────────────────────────────────────────────
   // Units with arrears (month indices that are overdue)
   const arrears: Record<string, number[]> = {
-    "201": [1, 2],     // Oliver Thompson — Feb + Mar overdue → INFORMAL_REMINDER
+    "201": [2, 3],     // Oliver Thompson — last 2 months (incl current) → INFORMAL_REMINDER
     "302": [1, 2, 3],  // Natasha Singh — all 3 months → DEMAND_LETTER
   };
 
@@ -2967,22 +2805,22 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   // Parallel within each month — invoices for different tenants in the same month
   // are independent. Sequential across months keeps invoice numbering predictable.
   for (const month of MONTHS) {
-    const mm = String(month + 1).padStart(2, "0"); // month is 0-indexed; +1 for calendar month
+    const mm = String(WIN[month].m + 1).padStart(2, "0"); // calendar month from the window
     const monthInvoices = await Promise.all(tenantDefs.map(async (t) => {
       const isArrears = (arrears[t.unit] ?? []).includes(month);
       const total = t.rent + SC;
       const inv = await prisma.invoice.create({
         data: {
-          invoiceNumber: `BC-${t.unit}-2026-${mm}-001`,
+          invoiceNumber: `BC-${t.unit}-${WIN[month].y}-${mm}-001`,
           tenantId: tenants[t.unit].id,
-          periodYear: YEAR,
-          periodMonth: month + 1,
+          periodYear: WIN[month].y,
+          periodMonth: WIN[month].m + 1,
           rentAmount: t.rent,
           serviceCharge: SC,
           totalAmount: total,
-          dueDate: new Date(YEAR, month, 1),
+          dueDate: wDate(WIN, month, 1),
           status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : new Date(YEAR, month, 5),
+          paidAt: isArrears ? null : wDate(WIN, month, 5),
           paidAmount: isArrears ? null : total,
         },
       });
@@ -2996,7 +2834,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
         const mgmtFee = feeConfigs.find((f) => f.unit === t.unit)?.flat ?? 0;
         const taxAmount = Math.round(mgmtFee * 0.20 * 100) / 100;
         incomeRows.push({
-          date: new Date(YEAR, month, 5),
+          date: wDate(WIN, month, 5),
           unitId: units[t.unit].id,
           tenantId: tenants[t.unit].id,
           invoiceId: inv.id,
@@ -3025,7 +2863,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   await prisma.expenseEntry.createMany({
     data: MONTHS.flatMap((month) =>
       propExpDefs.map((e) => ({
-        date: monthStart(YEAR, month),
+        date: wDate(WIN, month),
         propertyId: property.id,
         scope: ExpenseScope.PROPERTY,
         category: e.cat,
@@ -3041,12 +2879,12 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   // ── Unit-level ad-hoc expenses — step 1: createMany ─────────────────────────
   await prisma.expenseEntry.createMany({
     data: [
-      { date: monthStart(YEAR, 1), unitId: units["103"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 540,  description: "Emergency burst pipe repair — unit 103",    isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
-      { date: monthStart(YEAR, 1), unitId: units["201"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 384,  description: "Cracked window replacement — unit 201",     isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
-      { date: monthStart(YEAR, 2), unitId: units["102"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 216,  description: "Leaking kitchen tap repair — unit 102",     isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
-      { date: monthStart(YEAR, 2), unitId: units["301"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 1020, description: "Electrical DB board fault — unit 301",      isSunkCost: false, paidFromPettyCash: false, vendorId: vendorElectrical.id },
-      { date: monthStart(YEAR, 3), unitId: units["104"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.REINSTATEMENT, amount: 1440, description: "Carpet replacement — void unit 104",        isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
-      { date: monthStart(YEAR, 3), unitId: units["104"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.CLEANER,       amount: 336,  description: "Deep clean — void unit 104",                isSunkCost: false, paidFromPettyCash: true,  vendorId: vendorCleaning.id   },
+      { date: wDate(WIN, 1), unitId: units["103"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 540,  description: "Emergency burst pipe repair — unit 103",    isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: wDate(WIN, 1), unitId: units["201"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 384,  description: "Cracked window replacement — unit 201",     isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: wDate(WIN, 2), unitId: units["102"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 216,  description: "Leaking kitchen tap repair — unit 102",     isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: wDate(WIN, 2), unitId: units["301"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.MAINTENANCE,   amount: 1020, description: "Electrical DB board fault — unit 301",      isSunkCost: false, paidFromPettyCash: false, vendorId: vendorElectrical.id },
+      { date: wDate(WIN, 3), unitId: units["104"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.REINSTATEMENT, amount: 1440, description: "Carpet replacement — void unit 104",        isSunkCost: false, paidFromPettyCash: false, vendorId: vendorMaint.id      },
+      { date: wDate(WIN, 3), unitId: units["104"].id, scope: ExpenseScope.UNIT, category: ExpenseCategory.CLEANER,       amount: 336,  description: "Deep clean — void unit 104",                isSunkCost: false, paidFromPettyCash: true,  vendorId: vendorCleaning.id   },
     ],
   });
 
@@ -3100,25 +2938,25 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   // ── Petty Cash ───────────────────────────────────────────────────────────────
   await prisma.pettyCash.createMany({
     data: [
-      ...MONTHS.map((month) => ({ date: monthStart(YEAR, month), type: PettyCashType.IN, amount: 400, description: "Monthly petty cash top-up — Belsize Court", propertyId: property.id })),
-      { date: new Date(YEAR, 1,  8), type: PettyCashType.OUT, amount: 45,  description: "Lightbulbs — common area replacements",            propertyId: property.id },
-      { date: new Date(YEAR, 1, 14), type: PettyCashType.OUT, amount: 65,  description: "Notice board replacement — lobby",                  propertyId: property.id },
-      { date: new Date(YEAR, 1, 22), type: PettyCashType.OUT, amount: 28,  description: "Postage — legal correspondence",                    propertyId: property.id },
-      { date: new Date(YEAR, 2,  5), type: PettyCashType.OUT, amount: 35,  description: "Emergency padlock — car park gate",                 propertyId: property.id },
-      { date: new Date(YEAR, 2, 19), type: PettyCashType.OUT, amount: 78,  description: "Drain rods & plunger — maintenance stock",          propertyId: property.id },
-      { date: new Date(YEAR, 2, 28), type: PettyCashType.OUT, amount: 40,  description: "First aid kit restock — building",                  propertyId: property.id },
-      { date: new Date(YEAR, 3,  3), type: PettyCashType.OUT, amount: 24,  description: "Key cutting — unit 104 void preparation",           propertyId: property.id },
-      { date: new Date(YEAR, 3, 15), type: PettyCashType.OUT, amount: 55,  description: "Garden supplies — communal planting",                propertyId: property.id },
-      { date: new Date(YEAR, 3, 22), type: PettyCashType.OUT, amount: 336, description: "Deep clean — void unit 104 (paid from petty cash)", propertyId: property.id },
+      ...MONTHS.map((month) => ({ date: wDate(WIN, month), type: PettyCashType.IN, amount: 400, description: "Monthly petty cash top-up — Belsize Court", propertyId: property.id })),
+      { date: wDate(WIN, 1,  8), type: PettyCashType.OUT, amount: 45,  description: "Lightbulbs — common area replacements",            propertyId: property.id },
+      { date: wDate(WIN, 1, 14), type: PettyCashType.OUT, amount: 65,  description: "Notice board replacement — lobby",                  propertyId: property.id },
+      { date: wDate(WIN, 1, 22), type: PettyCashType.OUT, amount: 28,  description: "Postage — legal correspondence",                    propertyId: property.id },
+      { date: wDate(WIN, 2,  5), type: PettyCashType.OUT, amount: 35,  description: "Emergency padlock — car park gate",                 propertyId: property.id },
+      { date: wDate(WIN, 2, 19), type: PettyCashType.OUT, amount: 78,  description: "Drain rods & plunger — maintenance stock",          propertyId: property.id },
+      { date: wDate(WIN, 2, 28), type: PettyCashType.OUT, amount: 40,  description: "First aid kit restock — building",                  propertyId: property.id },
+      { date: wDate(WIN, 3,  3), type: PettyCashType.OUT, amount: 24,  description: "Key cutting — unit 104 void preparation",           propertyId: property.id },
+      { date: wDate(WIN, 3, 15), type: PettyCashType.OUT, amount: 55,  description: "Garden supplies — communal planting",                propertyId: property.id },
+      { date: wDate(WIN, 3, 22), type: PettyCashType.OUT, amount: 336, description: "Deep clean — void unit 104 (paid from petty cash)", propertyId: property.id },
     ],
   });
 
   // ── Insurance Policies ───────────────────────────────────────────────────────
   await prisma.insurancePolicy.createMany({
     data: [
-      { propertyId: property.id, type: InsuranceType.BUILDING,          insurer: "Aviva Insurance Ltd",       policyNumber: "AVI-BC-2026-001", startDate: d("2026-03-01"), endDate: d("2027-03-01"), premiumAmount: 4800, premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 2500000, brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Full buildings reinstatement insurance. Renewed March 2026." },
-      { propertyId: property.id, type: InsuranceType.PUBLIC_LIABILITY,   insurer: "AXA Business Insurance",   policyNumber: "AXA-BC-2026-002", startDate: d("2026-01-01"), endDate: d("2027-01-01"), premiumAmount: 1200, premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 5000000, brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Public liability & employer liability combined policy." },
-      { propertyId: property.id, type: InsuranceType.CONTENTS,           insurer: "Zurich UK",                policyNumber: "ZUR-BC-2025-003", startDate: d("2025-05-15"), endDate: d("2026-05-15"), premiumAmount: 800,  premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 150000,  brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Communal contents & common parts insurance. DUE FOR RENEWAL — expires 15 May 2026." },
+      { propertyId: property.id, type: InsuranceType.BUILDING,          insurer: "Aviva Insurance Ltd",       policyNumber: "AVI-BC-001", startDate: addM(now, -2), endDate: addM(now, 10), premiumAmount: 4800, premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 2500000, brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Full buildings reinstatement insurance." },
+      { propertyId: property.id, type: InsuranceType.PUBLIC_LIABILITY,   insurer: "AXA Business Insurance",   policyNumber: "AXA-BC-002", startDate: addM(now, -5), endDate: addM(now, 7), premiumAmount: 1200, premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 5000000, brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Public liability & employer liability combined policy." },
+      { propertyId: property.id, type: InsuranceType.CONTENTS,           insurer: "Zurich UK",                policyNumber: "ZUR-BC-003", startDate: addM(now, -11), endDate: addD(now, 18), premiumAmount: 800,  premiumFrequency: PremiumFrequency.ANNUALLY, coverageAmount: 150000,  brokerName: "Marsh Insurance Brokers", brokerContact: "+44 20 7357 1000", notes: "Communal contents & common parts insurance. DUE FOR RENEWAL soon." },
     ],
   });
 
@@ -3157,25 +2995,25 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   ];
   for (const a of assetDefs) {
     const asset = await prisma.asset.create({
-      data: { propertyId: property.id, name: a.name, category: a.category, serialNumber: a.serial, purchaseDate: a.purchaseDate, purchaseCost: a.purchaseCost, warrantyExpiry: a.warrantyExpiry, serviceProvider: a.serviceProvider, serviceContact: a.serviceContact, notes: a.notes },
+      data: { propertyId: property.id, name: a.name, category: a.category, serialNumber: a.serial, purchaseDate: subY(now, 4), purchaseCost: a.purchaseCost, warrantyExpiry: a.warrantyExpiry, serviceProvider: a.serviceProvider, serviceContact: a.serviceContact, notes: a.notes },
     });
     await prisma.assetMaintenanceSchedule.create({
-      data: { assetId: asset.id, propertyId: property.id, taskName: a.schedule.taskName, frequency: a.schedule.frequency, nextDue: a.schedule.nextDue, isActive: true, estimatedCost: a.schedule.estimatedCost },
+      data: { assetId: asset.id, propertyId: property.id, taskName: a.schedule.taskName, frequency: a.schedule.frequency, nextDue: addM(now, 1), isActive: true, estimatedCost: a.schedule.estimatedCost },
     });
   }
 
   // ── Recurring Expenses ───────────────────────────────────────────────────────
   await prisma.recurringExpense.createMany({
     data: [
-      { description: "Monthly management fee — Haverstock PM",  category: ExpenseCategory.MANAGEMENT_FEE, amount: 2772, scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorMgmt.id      },
-      { description: "Thames Water — communal water supply",    category: ExpenseCategory.WATER,          amount: 456,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorWater.id     },
-      { description: "UK Power Networks — common areas",        category: ExpenseCategory.ELECTRICITY,    amount: 336,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorElec.id      },
-      { description: "BrightHouse communal cleaning contract",  category: ExpenseCategory.CLEANER,        amount: 864,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorCleaning.id  },
-      { description: "Virgin Media Business — building WiFi",   category: ExpenseCategory.WIFI,           amount: 102,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorInternet.id  },
-      { description: "GreenThumb grounds maintenance",          category: ExpenseCategory.OTHER,          amount: 420,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: d("2026-05-01"), isActive: true, vendorId: vendorGarden.id    },
-      { description: "Quarterly Lift Maintenance — Otis UK",    category: ExpenseCategory.MAINTENANCE,    amount: 650,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: d("2026-05-10"), isActive: true, vendorId: vendorLift.id      },
-      { description: "Quarterly Generator Service — BuildRight",category: ExpenseCategory.MAINTENANCE,    amount: 280,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: d("2026-05-15"), isActive: true, vendorId: vendorMaint.id     },
-      { description: "Annual fire extinguisher service",        category: ExpenseCategory.MAINTENANCE,    amount: 420,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.ANNUAL,    nextDueDate: d("2026-10-01"), isActive: true, vendorId: vendorSecurity.id  },
+      { description: "Monthly management fee — Haverstock PM",  category: ExpenseCategory.MANAGEMENT_FEE, amount: 2772, scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorMgmt.id      },
+      { description: "Thames Water — communal water supply",    category: ExpenseCategory.WATER,          amount: 456,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorWater.id     },
+      { description: "UK Power Networks — common areas",        category: ExpenseCategory.ELECTRICITY,    amount: 336,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorElec.id      },
+      { description: "BrightHouse communal cleaning contract",  category: ExpenseCategory.CLEANER,        amount: 864,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorCleaning.id  },
+      { description: "Virgin Media Business — building WiFi",   category: ExpenseCategory.WIFI,           amount: 102,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorInternet.id  },
+      { description: "GreenThumb grounds maintenance",          category: ExpenseCategory.OTHER,          amount: 420,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorGarden.id    },
+      { description: "Quarterly Lift Maintenance — Otis UK",    category: ExpenseCategory.MAINTENANCE,    amount: 650,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: addM(now, 2), isActive: true, vendorId: vendorLift.id      },
+      { description: "Quarterly Generator Service — BuildRight",category: ExpenseCategory.MAINTENANCE,    amount: 280,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: addM(now, 2), isActive: true, vendorId: vendorMaint.id     },
+      { description: "Annual fire extinguisher service",        category: ExpenseCategory.MAINTENANCE,    amount: 420,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.ANNUAL,    nextDueDate: addM(now, 6), isActive: true, vendorId: vendorSecurity.id  },
     ],
   });
 
@@ -3198,34 +3036,37 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   // ── Maintenance Jobs ─────────────────────────────────────────────────────────
   await prisma.maintenanceJob.createMany({
     data: [
-      // DONE — historical
-      { propertyId: property.id, unitId: units["103"].id, title: "Burst pipe — bathroom ceiling",          description: "Emergency call-out. Overflow pipe burst above bathroom ceiling. Pipe replaced, area dried and resealed.",               category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.URGENT,  status: MaintenanceStatus.DONE,        reportedBy: "Sophie Bennett",          assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-02-03"), scheduledDate: d("2026-02-03"), completedDate: d("2026-02-03"), cost: 540,  vendorId: vendorMaint.id,      isEmergency: true,  submittedViaPortal: false, notes: "Resolved same day. Tenant confirmed resolved." },
-      { propertyId: property.id, unitId: units["201"].id, title: "Cracked double-glazed window — unit 201", description: "Impact crack on inner pane of living room window. Double-glazed unit replaced by BuildRight.",                         category: MaintenanceCategory.STRUCTURAL, priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.DONE,        reportedBy: "Oliver Thompson",         assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-02-10"), scheduledDate: d("2026-02-12"), completedDate: d("2026-02-12"), cost: 384,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Access via concierge key. Tenant confirmed." },
-      { propertyId: property.id, unitId: units["102"].id, title: "Leaking kitchen tap — unit 102",          description: "Dripping monobloc kitchen tap. Cartridge and O-ring replaced.",                                                       category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.LOW,     status: MaintenanceStatus.DONE,        reportedBy: "James Hartley",           assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-03-18"), scheduledDate: d("2026-03-20"), completedDate: d("2026-03-20"), cost: 216,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Routine repair." },
+      // DONE — historical (earlier window months)
+      { propertyId: property.id, unitId: units["103"].id, title: "Burst pipe — bathroom ceiling",          description: "Emergency call-out. Overflow pipe burst above bathroom ceiling. Pipe replaced, area dried and resealed.",               category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.URGENT,  status: MaintenanceStatus.DONE,        reportedBy: "Sophie Bennett",          assignedTo: "BuildRight Maintenance Ltd", reportedDate: wDate(WIN, 1, 3), scheduledDate: wDate(WIN, 1, 3), completedDate: wDate(WIN, 1, 3), cost: 540,  vendorId: vendorMaint.id,      isEmergency: true,  submittedViaPortal: false, notes: "Resolved same day. Tenant confirmed resolved." },
+      { propertyId: property.id, unitId: units["201"].id, title: "Cracked double-glazed window — unit 201", description: "Impact crack on inner pane of living room window. Double-glazed unit replaced by BuildRight.",                         category: MaintenanceCategory.STRUCTURAL, priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.DONE,        reportedBy: "Oliver Thompson",         assignedTo: "BuildRight Maintenance Ltd", reportedDate: wDate(WIN, 1, 10), scheduledDate: wDate(WIN, 1, 12), completedDate: wDate(WIN, 1, 12), cost: 384,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Access via concierge key. Tenant confirmed." },
+      { propertyId: property.id, unitId: units["102"].id, title: "Leaking kitchen tap — unit 102",          description: "Dripping monobloc kitchen tap. Cartridge and O-ring replaced.",                                                       category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.LOW,     status: MaintenanceStatus.DONE,        reportedBy: "James Hartley",           assignedTo: "BuildRight Maintenance Ltd", reportedDate: wDate(WIN, 2, 18), scheduledDate: wDate(WIN, 2, 20), completedDate: wDate(WIN, 2, 20), cost: 216,  vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Routine repair." },
       // DB board fault cost £1,020 — exceeds repairAuthorityLimit (£500), so it
       // ran through the owner-approval workflow. Demos requiresApproval/approvedAt.
-      { propertyId: property.id, unitId: units["301"].id, title: "DB board fault — fuse tripping (unit 301)",description: "RCD tripping repeatedly. Faulty RCBO identified and replaced. Board tested and certified.",                            category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.HIGH,    status: MaintenanceStatus.DONE,        reportedBy: "Daniel Walsh",            assignedTo: "SparkSafe Electrical Ltd",   reportedDate: d("2026-03-07"), scheduledDate: d("2026-03-08"), completedDate: d("2026-03-08"), cost: 1020, vendorId: vendorElectrical.id, isEmergency: false, submittedViaPortal: false, requiresApproval: true, acknowledgedAt: d("2026-03-07"), approvedAt: d("2026-03-07"), approvalNotes: "Approved by landlord (J. Smith) via email on 7 March 2026 — quote of £1,020 exceeds standard £500 repair authority but works are urgent (DB safety).", notes: "EIC certificate issued post-works." },
-      // IN_PROGRESS
-      { propertyId: property.id,                          title: "Quarterly lift inspection — Otis UK",     description: "Scheduled quarterly inspection and lubrication service. Engineer on-site, report pending.",                            category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "Otis Elevator Company UK",   reportedDate: d("2026-04-25"), scheduledDate: d("2026-04-28"),                                                 vendorId: vendorLift.id,       isEmergency: false, submittedViaPortal: false, notes: "Otis engineer to return with replacement door sensor." },
-      { propertyId: property.id, unitId: units["104"].id, title: "Void works — carpet & painting (unit 104)",description: "Full void refurb in progress: carpet fitted, emulsion painting of all rooms underway.",                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "BuildRight Maintenance Ltd", reportedDate: d("2026-04-10"), scheduledDate: d("2026-04-15"),                                                 vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "ETA completion 9 May 2026." },
-      // OPEN — tenant portal requests
-      { propertyId: property.id, unitId: units["102"].id, title: "Blocked kitchen drain — unit 102",        description: "Kitchen sink draining very slowly. Possible grease build-up.",                                                         category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.OPEN,        reportedBy: "James Hartley (portal)",                                            reportedDate: d("2026-04-20"),                                                                                                             isEmergency: false, submittedViaPortal: true,  notes: "Awaiting scheduling." },
-      { propertyId: property.id, unitId: units["202"].id, title: "Intercom handset not working — unit 202", description: "Intercom rings but tenant cannot hear caller. Handset unit suspected faulty.",                                         category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Charlotte Davies (portal)",                                         reportedDate: d("2026-04-24"),                                                                                                             isEmergency: false, submittedViaPortal: true,  notes: "Non-urgent." },
-      { propertyId: property.id, unitId: units["204"].id, title: "Bathroom extractor fan noisy — unit 204", description: "Extractor fan vibrating loudly when running. Possible bearing failure.",                                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Rebecca Morgan (portal)",                                           reportedDate: d("2026-04-28"),                                                                                                             isEmergency: false, submittedViaPortal: true  },
-      // OPEN — manager logged
-      { propertyId: property.id,                          title: "Repaint 3rd floor corridor",               description: "Scuff marks and paint peeling on 3rd floor corridor walls. Full repaint recommended.",                                category: MaintenanceCategory.PAINTING,   priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Building Manager",                                                  reportedDate: d("2026-04-01"),                                                                                                             isEmergency: false, submittedViaPortal: false, notes: "To be quoted with BuildRight." },
-      { propertyId: property.id,                          title: "CCTV camera 4 offline",                    description: "Camera 4 (car park east side) showing offline on NVR. Possible cable fault.",                                        category: MaintenanceCategory.SECURITY,   priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.OPEN,        reportedBy: "Building Manager",                                                  reportedDate: d("2026-04-18"),                                                  vendorId: vendorSecurity.id, isEmergency: false, submittedViaPortal: false, notes: "SecureGuard to investigate." },
+      { propertyId: property.id, unitId: units["301"].id, title: "DB board fault — fuse tripping (unit 301)",description: "RCD tripping repeatedly. Faulty RCBO identified and replaced. Board tested and certified.",                            category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.HIGH,    status: MaintenanceStatus.DONE,        reportedBy: "Daniel Walsh",            assignedTo: "SparkSafe Electrical Ltd",   reportedDate: wDate(WIN, 2, 7), scheduledDate: wDate(WIN, 2, 8), completedDate: wDate(WIN, 2, 8), cost: 1020, vendorId: vendorElectrical.id, isEmergency: false, submittedViaPortal: false, requiresApproval: true, acknowledgedAt: wDate(WIN, 2, 7), approvedAt: wDate(WIN, 2, 7), approvalNotes: "Approved by landlord (J. Smith) via email — quote of £1,020 exceeds standard £500 repair authority but works are urgent (DB safety).", notes: "EIC certificate issued post-works." },
+      // IN_PROGRESS (current)
+      { propertyId: property.id,                          title: "Quarterly lift inspection — Otis UK",     description: "Scheduled quarterly inspection and lubrication service. Engineer on-site, report pending.",                            category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "Otis Elevator Company UK",   reportedDate: addD(now, -6), scheduledDate: addD(now, 2),                                                 vendorId: vendorLift.id,       isEmergency: false, submittedViaPortal: false, notes: "Otis engineer to return with replacement door sensor." },
+      { propertyId: property.id, unitId: units["104"].id, title: "Void works — carpet & painting (unit 104)",description: "Full void refurb in progress: carpet fitted, emulsion painting of all rooms underway.",                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "BuildRight Maintenance Ltd", reportedDate: addD(now, -8), scheduledDate: addD(now, 1),                                                 vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Void refurb nearing completion." },
+      // OPEN — tenant portal requests (current)
+      { propertyId: property.id, unitId: units["102"].id, title: "Blocked kitchen drain — unit 102",        description: "Kitchen sink draining very slowly. Possible grease build-up.",                                                         category: MaintenanceCategory.PLUMBING,   priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.OPEN,        reportedBy: "James Hartley (portal)",                                            reportedDate: addD(now, -4),                                                                                                             isEmergency: false, submittedViaPortal: true,  notes: "Awaiting scheduling." },
+      { propertyId: property.id, unitId: units["202"].id, title: "Intercom handset not working — unit 202", description: "Intercom rings but tenant cannot hear caller. Handset unit suspected faulty.",                                         category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Charlotte Davies (portal)",                                         reportedDate: addD(now, -3),                                                                                                             isEmergency: false, submittedViaPortal: true,  notes: "Non-urgent." },
+      { propertyId: property.id, unitId: units["204"].id, title: "Bathroom extractor fan noisy — unit 204", description: "Extractor fan vibrating loudly when running. Possible bearing failure.",                                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Rebecca Morgan (portal)",                                           reportedDate: addD(now, -1),                                                                                                             isEmergency: false, submittedViaPortal: true  },
+      // OPEN — manager logged (current)
+      { propertyId: property.id,                          title: "Repaint 3rd floor corridor",               description: "Scuff marks and paint peeling on 3rd floor corridor walls. Full repaint recommended.",                                category: MaintenanceCategory.PAINTING,   priority: MaintenancePriority.LOW,     status: MaintenanceStatus.OPEN,        reportedBy: "Building Manager",                                                  reportedDate: addD(now, -10),                                                                                                            isEmergency: false, submittedViaPortal: false, notes: "To be quoted with BuildRight." },
+      { propertyId: property.id,                          title: "CCTV camera 4 offline",                    description: "Camera 4 (car park east side) showing offline on NVR. Possible cable fault.",                                        category: MaintenanceCategory.SECURITY,   priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.OPEN,        reportedBy: "Building Manager",                                                  reportedDate: addD(now, -5),                                                    vendorId: vendorSecurity.id, isEmergency: false, submittedViaPortal: false, notes: "SecureGuard to investigate." },
     ],
   });
+
+  // ── Cases — link a MAINTENANCE CaseThread to every job above ─────────────────
+  await backfillMaintenanceCases(property.id, organizationId, { kpiEmergencyResponseHrs: 4, kpiStandardResponseHrs: 48 });
 
   // ── Compliance Certificates ──────────────────────────────────────────────────
   await prisma.complianceCertificate.createMany({
     data: [
-      { propertyId: property.id, organizationId, certificateType: "Gas Safety Certificate",                       certificateNumber: "GSC-BC-2025-004",  issuedBy: "Corgi Homeplan Ltd",                  issueDate: d("2025-04-01"), expiryDate: d("2026-04-01"), notes: "Annual Gas Safety Record (CP12). EXPIRED — renewal overdue. Contact Corgi Homeplan immediately."  },
-      { propertyId: property.id, organizationId, certificateType: "Electrical Installation Condition Report (EICR)", certificateNumber: "EICR-BC-2026-005", issuedBy: "SparkSafe Electrical Ltd (NICEIC)",    issueDate: d("2026-03-15"), expiryDate: d("2031-03-15"), notes: "5-year EICR completed March 2026. Grade C2 observations — remedial works completed. Certificate satisfactory." },
-      { propertyId: property.id, organizationId, certificateType: "Energy Performance Certificate (EPC)",          certificateNumber: "EPC-BC-2020-006",  issuedBy: "Elmhurst Energy",                     issueDate: d("2020-01-10"), expiryDate: d("2030-01-10"), notes: "EPC rating: C (72 SAP points). Valid to 2030."                                                       },
-      { propertyId: property.id, organizationId, certificateType: "Fire Risk Assessment",                          certificateNumber: "FRA-BC-2025-007",  issuedBy: "London Fire Safety Ltd",              issueDate: d("2025-09-01"), expiryDate: d("2026-09-01"), notes: "Annual fire risk assessment. Low risk rating. 3 actions raised — all completed."                     },
-      { propertyId: property.id, organizationId, certificateType: "Legionella Risk Assessment",                    certificateNumber: "LRA-BC-2024-008",  issuedBy: "Hydrosafe UK Ltd",                    issueDate: d("2024-11-01"), expiryDate: d("2025-11-01"), notes: "Legionella L8 assessment — EXPIRED. Annual renewal required. Contact Hydrosafe UK."                  },
+      { propertyId: property.id, organizationId, certificateType: "Gas Safety Certificate",                       certificateNumber: "GSC-BC-004",  issuedBy: "Corgi Homeplan Ltd",                  issueDate: addM(now, -13), expiryDate: addD(now, -30), notes: "Annual Gas Safety Record (CP12). EXPIRED — renewal overdue. Contact Corgi Homeplan immediately."  },
+      { propertyId: property.id, organizationId, certificateType: "Electrical Installation Condition Report (EICR)", certificateNumber: "EICR-BC-005", issuedBy: "SparkSafe Electrical Ltd (NICEIC)",    issueDate: addM(now, -2), expiryDate: addM(now, 58), notes: "5-year EICR recently completed. Grade C2 observations — remedial works completed. Certificate satisfactory." },
+      { propertyId: property.id, organizationId, certificateType: "Energy Performance Certificate (EPC)",          certificateNumber: "EPC-BC-006",  issuedBy: "Elmhurst Energy",                     issueDate: subY(now, 6), expiryDate: addM(now, 48), notes: "EPC rating: C (72 SAP points)."                                                       },
+      { propertyId: property.id, organizationId, certificateType: "Fire Risk Assessment",                          certificateNumber: "FRA-BC-007",  issuedBy: "London Fire Safety Ltd",              issueDate: addM(now, -4), expiryDate: addM(now, 8), notes: "Annual fire risk assessment. Low risk rating. 3 actions raised — all completed."                     },
+      { propertyId: property.id, organizationId, certificateType: "Legionella Risk Assessment",                    certificateNumber: "LRA-BC-008",  issuedBy: "Hydrosafe UK Ltd",                    issueDate: subY(now, 1), expiryDate: addD(now, -20), notes: "Legionella L8 assessment — EXPIRED. Annual renewal required. Contact Hydrosafe UK."                  },
     ],
   });
 
@@ -3233,7 +3074,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   await prisma.buildingConditionReport.create({
     data: {
       propertyId: property.id,
-      reportDate: d("2026-01-15"),
+      reportDate: wDate(WIN, 1, 15),
       inspector: "Jonathan Miles MRICS",
       overallCondition: "Good",
       summary: "Belsize Court is maintained to a good standard overall. The building fabric is sound and communal areas are clean and well-presented. Two items — first floor corridor carpets and third floor corridor decoration — are assessed as Fair and are recommended for attention within the next 6–12 months. Lift, generator and boiler plant are all in good working order.",
@@ -3251,33 +3092,30 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
         { area: "Boiler Room",             condition: "Good", notes: "Communal boiler serviced September 2025. Chemical inhibitor levels satisfactory."            },
         { area: "Bin Store",               condition: "Good", notes: "Clean and organised. Recycling segregation compliant with Camden Council requirements."      },
       ],
-      nextReviewDate: d("2026-07-15"),
+      nextReviewDate: addM(now, 6),
     },
   });
 
-  // ── Owner Invoices ───────────────────────────────────────────────────────────
-  for (const { month, paid } of [
-    { month: 2, paid: true  },
-    { month: 3, paid: true  },
-    { month: 4, paid: false },
-  ]) {
-    const mm = String(month).padStart(2, "0");
+  // ── Owner Invoices (management fee — rolling window) ─────────────────────────
+  for (const i of MONTHS) {
+    const paid = i < MONTHS[MONTHS.length - 1]; // current month still SENT
+    const mm = String(WIN[i].m + 1).padStart(2, "0");
     const totalAmount = 2772;
     await prisma.ownerInvoice.create({
       data: {
-        invoiceNumber: `OWN-BC-2026-${mm}-MGMT`,
+        invoiceNumber: `OWN-BC-${WIN[i].y}-${mm}-MGMT`,
         propertyId: property.id,
         type: OwnerInvoiceType.MANAGEMENT_FEE,
-        periodYear: YEAR,
-        periodMonth: month,
+        periodYear: WIN[i].y,
+        periodMonth: WIN[i].m + 1,
         lineItems: [
           { description: "Management fee — 10 units @ £231.00/unit", units: 10, unitRate: 231.00, amount: 2310.00 },
           { description: "VAT @ 20%",                                 units: 1,  unitRate: 462.00, amount: 462.00  },
         ],
         totalAmount,
-        dueDate: new Date(YEAR, month - 1, 7),
+        dueDate: wDate(WIN, i, 7),
         status: paid ? InvoiceStatus.PAID : InvoiceStatus.SENT,
-        paidAt: paid ? new Date(YEAR, month - 1, 10) : null,
+        paidAt: paid ? wDate(WIN, i, 10) : null,
         paidAmount: paid ? totalAmount : null,
         notes: `Monthly property management fee — ${paid ? "paid via BACS" : "awaiting payment"}.`,
       },
@@ -3292,11 +3130,11 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   const cctvId      = assetByName["Hikvision CCTV System (16-channel)"];
   await prisma.assetMaintenanceLog.createMany({
     data: [
-      { assetId: generatorId, date: d("2026-01-15"), description: "Monthly generator run test & inspection — all systems nominal",    cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "Oil level OK. Battery 12.8V. Run test 15 min."             },
-      { assetId: generatorId, date: d("2026-02-15"), description: "Monthly generator run test & inspection — minor oil top-up",       cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "Oil topped up. Run test 15 min."                           },
-      { assetId: generatorId, date: d("2026-03-15"), description: "Monthly generator run test & inspection — all systems nominal",    cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "All checks passed. Annual service due June 2026."          },
-      { assetId: liftId,      date: d("2026-02-20"), description: "Quarterly lift inspection and lubrication service",                cost: 650, technician: "Otis Field Engineer",       vendorId: vendorLift.id,     notes: "Door operation adjusted. Guide rails lubricated. No defects." },
-      { assetId: cctvId,      date: d("2026-01-20"), description: "Annual CCTV health check and recording verification",              cost: 150, technician: "SecureGuard Systems Ltd",   vendorId: vendorSecurity.id, notes: "All 16 channels verified. 30-day retention confirmed. Camera 12 realigned." },
+      { assetId: generatorId, date: wDate(WIN, 1, 15), description: "Monthly generator run test & inspection — all systems nominal",    cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "Oil level OK. Battery 12.8V. Run test 15 min."             },
+      { assetId: generatorId, date: wDate(WIN, 2, 15), description: "Monthly generator run test & inspection — minor oil top-up",       cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "Oil topped up. Run test 15 min."                           },
+      { assetId: generatorId, date: wDate(WIN, 3, 15), description: "Monthly generator run test & inspection — all systems nominal",    cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "All checks passed."          },
+      { assetId: liftId,      date: wDate(WIN, 2, 20), description: "Quarterly lift inspection and lubrication service",                cost: 650, technician: "Otis Field Engineer",       vendorId: vendorLift.id,     notes: "Door operation adjusted. Guide rails lubricated. No defects." },
+      { assetId: cctvId,      date: wDate(WIN, 1, 20), description: "Annual CCTV health check and recording verification",              cost: 150, technician: "SecureGuard Systems Ltd",   vendorId: vendorSecurity.id, notes: "All 16 channels verified. 30-day retention confirmed. Camera 12 realigned." },
     ],
   });
 
@@ -3304,19 +3142,19 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   for (const at of [
     {
       unit: "201", stage: ArrearsStage.INFORMAL_REMINDER, amountOwed: 5200,
-      notes: "Oliver Thompson — 2 months overdue (Feb + Mar 2026). Total: £5,200 (rent £4,700 + SC £500).",
+      notes: "Oliver Thompson — 2 months overdue (incl current). Total: £5,200 (rent £4,700 + SC £500).",
       escalations: [
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email & phone call. Tenant cited delayed bank transfer. Promised payment end of February.", createdAt: d("2026-02-08") },
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder issued. Tenant acknowledged arrears. Partial payment of £2,600 promised by 20 March — not received.",                 createdAt: d("2026-03-12") },
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email & phone call. Tenant cited delayed bank transfer.", createdAt: wDate(WIN, 2, 8) },
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder issued. Tenant acknowledged arrears. Partial payment of £2,600 promised — not received.", createdAt: wDate(WIN, 3, 2) },
       ],
     },
     {
       unit: "302", stage: ArrearsStage.DEMAND_LETTER, amountOwed: 10350,
-      notes: "Natasha Singh — 3 months overdue (Feb, Mar, Apr 2026). Total: £10,350 (rent £9,600 + SC £750). Demand letter served.",
+      notes: "Natasha Singh — 3 months overdue. Total: £10,350 (rent £9,600 + SC £750). Demand letter served.",
       escalations: [
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email and text. No response from tenant.",                                                         createdAt: d("2026-02-08") },
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder. Tenant responded citing financial difficulty. No payment made.",                                    createdAt: d("2026-03-12") },
-        { stage: ArrearsStage.DEMAND_LETTER,     notes: "Section 8 demand letter served via solicitors (Ground 10 & 11). 14-day cure period running.",                       createdAt: d("2026-04-02") },
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email and text. No response from tenant.",                                                         createdAt: wDate(WIN, 1, 8) },
+        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder. Tenant responded citing financial difficulty. No payment made.",                                    createdAt: wDate(WIN, 2, 12) },
+        { stage: ArrearsStage.DEMAND_LETTER,     notes: "Section 8 demand letter served via solicitors (Ground 10 & 11). 14-day cure period running.",                       createdAt: wDate(WIN, 3, 2) },
       ],
     },
   ]) {
@@ -3327,6 +3165,21 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       data: at.escalations.map((e) => ({ caseId: arrearsCase.id, stage: e.stage, notes: e.notes, createdAt: e.createdAt })),
     });
   }
+
+  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
+  for (const u of ["201", "302"]) {
+    const arr = await prisma.arrearsCase.findFirst({ where: { propertyId: property.id, tenantId: tenants[u].id }, select: { id: true } });
+    if (arr) await seedStandaloneCase({
+      caseType: "ARREARS", subjectId: arr.id, organizationId, propertyId: property.id, unitId: units[u].id,
+      title: `Rent arrears — unit ${u}`, status: "AWAITING_TENANT", stageIndex: u === "302" ? 2 : 1, waitingOn: "TENANT",
+      stageStartedAt: addD(now, -9), commentBody: "Rent outstanding over multiple months. Escalation in progress; awaiting tenant response.",
+    });
+  }
+  await seedStandaloneCase({
+    caseType: "LEASE_RENEWAL", subjectId: tenants["103"].id, organizationId, propertyId: property.id, unitId: units["103"].id,
+    title: "Lease renewal — Sophie Bennett (unit 103)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",
+    stageStartedAt: addD(now, -7), commentBody: "Lease ending soon. Renewal terms sent (proposed £1,890). Awaiting tenant decision.",
+  });
 
   // ── Link maintenance jobs → expense entries ──────────────────────────────────
   for (const { titleFragment, amount } of [
@@ -3345,8 +3198,8 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   const priorRents: Record<string, number> = { "101": 1695, "102": 1746, "103": 1746, "201": 2275, "202": 2325, "203": 2375, "204": 2325, "301": 3000, "302": 3100 };
   await prisma.rentHistory.createMany({
     data: [
-      ...Object.entries(priorRents).map(([unit, rent]) => ({ tenantId: tenants[unit].id, monthlyRent: rent, effectiveDate: d("2025-01-01"), reason: "AST commencement — agreed rent per tenancy agreement"                     })),
-      ...tenantDefs.map((t)                              => ({ tenantId: tenants[t.unit].id, monthlyRent: t.rent, effectiveDate: d("2026-01-01"), reason: "Annual rent review — CPI + 1% increase effective 1 January 2026" })),
+      ...Object.entries(priorRents).map(([unit, rent]) => ({ tenantId: tenants[unit].id, monthlyRent: rent, effectiveDate: subY(now, 1), reason: "AST commencement — agreed rent per tenancy agreement"  })),
+      ...tenantDefs.map((t)                              => ({ tenantId: tenants[t.unit].id, monthlyRent: t.rent, effectiveDate: wDate(WIN, 0), reason: "Annual rent review — CPI + 1% increase" })),
     ],
   });
 
@@ -3382,16 +3235,16 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   await prisma.communicationLog.createMany({
     data: [
       // Sophie Bennett (103) — renewal notice
-      { tenantId: tenants["103"].id, type: CommunicationType.EMAIL, subject: "Lease renewal — Belsize Court Unit 103",  body: "Dear Sophie, your current AST expires 30 June 2026. We'd like to offer renewal at a new monthly rent of £1,890 (4.7% increase). Please confirm your intent to renew within 14 days.", templateUsed: "renewal_offer",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-03-01"), followUpDate: d("2026-03-15"), followUpCompleted: false },
+      { tenantId: tenants["103"].id, type: CommunicationType.EMAIL, subject: "Lease renewal — Belsize Court Unit 103",  body: "Dear Sophie, your current AST expires 30 June 2026. We'd like to offer renewal at a new monthly rent of £1,890 (4.7% increase). Please confirm your intent to renew within 14 days.", templateUsed: "renewal_offer",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: wDate(WIN, 2, 1), followUpDate: wDate(WIN, 3, 1), followUpCompleted: false },
       // Oliver Thompson (201) — arrears reminders (matching the arrears case)
-      { tenantId: tenants["201"].id, type: CommunicationType.EMAIL, subject: "Friendly reminder — February rent outstanding", body: "Hi Oliver, just a quick reminder that February's rent (£2,600) is now overdue. Please confirm payment date at your convenience.",                                                                  templateUsed: "rent_reminder",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-02-08"), followUpCompleted: true  },
-      { tenantId: tenants["201"].id, type: CommunicationType.EMAIL, subject: "Second reminder — March rent now also outstanding", body: "Hi Oliver, March's rent is now also outstanding (combined balance £5,200). Please respond with a payment plan by 20 March.",                                                                  templateUsed: "rent_reminder",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-03-12"), followUpCompleted: true  },
+      { tenantId: tenants["201"].id, type: CommunicationType.EMAIL, subject: "Friendly reminder — February rent outstanding", body: "Hi Oliver, just a quick reminder that February's rent (£2,600) is now overdue. Please confirm payment date at your convenience.",                                                                  templateUsed: "rent_reminder",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: wDate(WIN, 2, 8), followUpCompleted: true  },
+      { tenantId: tenants["201"].id, type: CommunicationType.EMAIL, subject: "Second reminder — March rent now also outstanding", body: "Hi Oliver, March's rent is now also outstanding (combined balance £5,200). Please respond with a payment plan by 20 March.",                                                                  templateUsed: "rent_reminder",       loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: wDate(WIN, 2, 12), followUpCompleted: true  },
       // Emily Clarke (101) — payment receipt
-      { tenantId: tenants["101"].id, type: CommunicationType.EMAIL, subject: "March rent — payment received",          body: "Dear Emily, we confirm receipt of £2,000 for March 2026 rent + service charge. Thank you.",                                                                                                              templateUsed: "payment_receipt",     loggedByEmail: "accounts@haverstockpm.co.uk", loggedByName: "Accounts",         sentAt: d("2026-03-05"), followUpCompleted: true  },
+      { tenantId: tenants["101"].id, type: CommunicationType.EMAIL, subject: "March rent — payment received",          body: "Dear Emily, we confirm receipt of £2,000 for March 2026 rent + service charge. Thank you.",                                                                                                              templateUsed: "payment_receipt",     loggedByEmail: "accounts@haverstockpm.co.uk", loggedByName: "Accounts",         sentAt: wDate(WIN, 3, 5), followUpCompleted: true  },
       // James Hartley (102) — maintenance acknowledgement
-      { tenantId: tenants["102"].id, type: CommunicationType.EMAIL, subject: "Re: Blocked kitchen drain (unit 102)",   body: "Hi James, thanks for raising this via the portal. We've scheduled BuildRight to attend Tuesday 28 April between 10am–12pm. Please confirm.",                                                            templateUsed: null,                  loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: d("2026-04-21"), followUpCompleted: false },
+      { tenantId: tenants["102"].id, type: CommunicationType.EMAIL, subject: "Re: Blocked kitchen drain (unit 102)",   body: "Hi James, thanks for raising this via the portal. We've scheduled BuildRight to attend Tuesday 28 April between 10am–12pm. Please confirm.",                                                            templateUsed: null,                  loggedByEmail: "manager@haverstockpm.co.uk", loggedByName: "Property Manager", sentAt: addD(now, -2), followUpCompleted: false },
       // Natasha Singh (302) — demand letter notification
-      { tenantId: tenants["302"].id, type: CommunicationType.EMAIL, subject: "Formal demand — unpaid rent (Unit 302)", body: "Dear Ms Singh, please find attached our formal demand for unpaid rent totalling £10,350 covering February to April 2026. You have 14 days to clear the balance or contact us with a payment plan.", templateUsed: "demand_letter",       loggedByEmail: "legal@haverstockpm.co.uk", loggedByName: "Legal/Compliance",  sentAt: d("2026-04-02"), followUpCompleted: true  },
+      { tenantId: tenants["302"].id, type: CommunicationType.EMAIL, subject: "Formal demand — unpaid rent (Unit 302)", body: "Dear Ms Singh, please find attached our formal demand for unpaid rent totalling £10,350 covering February to April 2026. You have 14 days to clear the balance or contact us with a payment plan.", templateUsed: "demand_letter",       loggedByEmail: "legal@haverstockpm.co.uk", loggedByName: "Legal/Compliance",  sentAt: wDate(WIN, 3, 2), followUpCompleted: true  },
     ],
   });
 
@@ -3408,8 +3261,8 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       ],
       totalDeductions: 460,
       netRefunded: 3240,
-      settledDate: d("2026-02-12"),
-      notes: "Inventory check-out completed 1 February 2026. Deductions agreed with tenant via email. Refund issued via BACS on 12 February.",
+      settledDate: wDate(WIN, 1, 12),
+      notes: "Inventory check-out completed at move-out. Deductions agreed with tenant via email. Refund issued via BACS.",
     },
   });
 
@@ -3427,7 +3280,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       rentRemittanceDay: 5,
       mgmtFeeInvoiceDay: 7,
       landlordPaymentDays: 2,
-      kpiStartDate: d("2026-01-01"),
+      kpiStartDate: subY(now, 1),
       kpiOccupancyTarget: 90,
       kpiRentCollectionTarget: 95,
       kpiExpenseRatioTarget: 80,

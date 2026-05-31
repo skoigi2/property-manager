@@ -942,6 +942,7 @@ function PropertiesTable({
   isManager,
   onSelect,
   onEdit,
+  onDelete,
   onAddUnit,
   onEditUnit,
   onDeleteUnit,
@@ -953,6 +954,7 @@ function PropertiesTable({
   isManager: boolean;
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
+  onDelete: (p: Property) => void;
   onAddUnit: (p: Property) => void;
   onEditUnit: (property: Property, unit: Unit) => void;
   onDeleteUnit: (unit: Unit) => void;
@@ -1105,6 +1107,13 @@ function PropertiesTable({
                         >
                           <PencilLine size={14} />
                         </button>
+                        <button
+                          onClick={() => onDelete(p)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Delete property"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </>
                     )}
                     <button
@@ -1146,6 +1155,7 @@ function PropertiesMobileList({
   isManager,
   onSelect,
   onEdit,
+  onDelete,
   activeUnits,
   vacantUnits,
 }: {
@@ -1153,6 +1163,7 @@ function PropertiesMobileList({
   isManager: boolean;
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
+  onDelete: (p: Property) => void;
   activeUnits: (units: Property["units"], propertyType: string) => number;
   vacantUnits: (units: Property["units"]) => number;
 }) {
@@ -1189,7 +1200,7 @@ function PropertiesMobileList({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                 {isManager && (
                   <>
                     <Link
@@ -1197,14 +1208,28 @@ function PropertiesMobileList({
                       className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
                       title="Agreement"
                     >
-                      <FileText size={14} />
+                      <FileText size={15} />
+                    </Link>
+                    <Link
+                      href={`/properties/${p.id}/condition-reports`}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
+                      title="Condition reports"
+                    >
+                      <ClipboardList size={15} />
                     </Link>
                     <button
                       onClick={() => onEdit(p)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100 transition-colors"
                       title="Edit"
                     >
-                      <PencilLine size={14} />
+                      <PencilLine size={15} />
+                    </button>
+                    <button
+                      onClick={() => onDelete(p)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Delete property"
+                    >
+                      <Trash2 size={15} />
                     </button>
                   </>
                 )}
@@ -1587,6 +1612,7 @@ export default function PropertiesPage() {
                 isManager={isManager}
                 onSelect={setSelectedProperty}
                 onEdit={openEditProperty}
+                onDelete={(p) => setDeletingProperty(p)}
                 onAddUnit={openAddUnit}
                 onEditUnit={openEditUnit}
                 onDeleteUnit={(u) => setDeleteUnit(u)}
@@ -1602,6 +1628,7 @@ export default function PropertiesPage() {
                 isManager={isManager}
                 onSelect={setSelectedProperty}
                 onEdit={openEditProperty}
+                onDelete={(p) => setDeletingProperty(p)}
                 activeUnits={activeUnits}
                 vacantUnits={vacantUnits}
               />
@@ -1613,12 +1640,12 @@ export default function PropertiesPage() {
               <div key={p.id} className="cursor-pointer" onClick={() => setSelectedProperty(p)}>
               <Card className="hover:shadow-md transition-shadow h-full">
                 {/* Header row */}
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
                       <Building2 size={20} className="text-gold" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="font-display text-header text-base leading-tight">{p.name}</h3>
                       {(p.address || p.city) && (
                         <p className="text-xs text-gray-400 font-sans mt-0.5">
@@ -1627,59 +1654,64 @@ export default function PropertiesPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                    {p.category && (
-                      <Badge variant={CATEGORY_BADGE[p.category]}>
-                        {p.category === "OTHER" && p.categoryOther
-                          ? p.categoryOther
-                          : CATEGORY_LABELS[p.category]}
+                  {/* Badges + actions — stacked so the action buttons never clip on mobile */}
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {p.category && (
+                        <Badge variant={CATEGORY_BADGE[p.category]}>
+                          {p.category === "OTHER" && p.categoryOther
+                            ? p.categoryOther
+                            : CATEGORY_LABELS[p.category]}
+                        </Badge>
+                      )}
+                      <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
+                        {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
                       </Badge>
-                    )}
-                    <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
-                      {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
-                    </Badge>
-                    {setupByProp[p.id] && (
-                      <Badge variant={setupByProp[p.id].percent === 100 ? "green" : "gold"}>
-                        {setupByProp[p.id].percent}% set up
-                      </Badge>
-                    )}
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedProperty(p); }} className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors" title="View summary">
-                      <ChevronRight size={15} />
-                    </button>
-                    {isManager && (
-                      <>
-                        <Link
-                          href={`/properties/${p.id}/agreement`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
-                          title="Configure agreement"
-                        >
-                          <FileText size={15} />
-                        </Link>
-                        <Link
-                          href={`/properties/${p.id}/condition-reports`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
-                          title="Condition reports"
-                        >
-                          <ClipboardList size={15} />
-                        </Link>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditProperty(p); }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
-                          title="Edit property"
-                        >
-                          <PencilLine size={15} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDeletingProperty(p); }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Delete property"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </>
-                    )}
+                      {setupByProp[p.id] && (
+                        <Badge variant={setupByProp[p.id].percent === 100 ? "green" : "gold"}>
+                          {setupByProp[p.id].percent}% set up
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedProperty(p); }} className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors" title="View summary">
+                        <ChevronRight size={15} />
+                      </button>
+                      {isManager && (
+                        <>
+                          <Link
+                            href={`/properties/${p.id}/agreement`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
+                            title="Configure agreement"
+                          >
+                            <FileText size={15} />
+                          </Link>
+                          <Link
+                            href={`/properties/${p.id}/condition-reports`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
+                            title="Condition reports"
+                          >
+                            <ClipboardList size={15} />
+                          </Link>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditProperty(p); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"
+                            title="Edit property"
+                          >
+                            <PencilLine size={15} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeletingProperty(p); }}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Delete property"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 

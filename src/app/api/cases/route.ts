@@ -3,6 +3,7 @@ import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { createCaseSchema } from "@/lib/validations";
+import { computeCaseSlaDueDate } from "@/lib/cases";
 
 export async function GET(req: Request) {
   const { session, error } = await requireAuth();
@@ -31,14 +32,28 @@ export async function GET(req: Request) {
       ...(assignedToMe && session?.user.id ? { assignedToUserId: session.user.id } : {}),
     },
     include: {
-      property: { select: { id: true, name: true } },
+      property: { select: { id: true, name: true, owner: { select: { id: true, name: true, email: true } } } },
       unit:     { select: { id: true, unitNumber: true } },
       assignedTo: { select: { id: true, name: true, email: true } },
+      maintenanceJobs: { select: { vendor: { select: { id: true, name: true } } } },
     },
     orderBy: { lastActivityAt: "desc" },
   });
 
-  return Response.json(cases);
+  // Derive owner + a representative vendor, and compute the current-stage SLA due date.
+  const rows = cases.map((c) => {
+    const vendor = c.maintenanceJobs.map((j) => j.vendor).find((v) => v != null) ?? null;
+    const { maintenanceJobs, property, ...rest } = c;
+    return {
+      ...rest,
+      property: { id: property.id, name: property.name },
+      owner: property.owner ?? null,
+      vendor,
+      slaDueAt: computeCaseSlaDueDate(c)?.toISOString() ?? null,
+    };
+  });
+
+  return Response.json(rows);
 }
 
 export async function POST(req: Request) {

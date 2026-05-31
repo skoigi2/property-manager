@@ -1,78 +1,28 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { clsx } from "clsx";
 import { Header } from "@/components/layout/Header";
 import { useProperty } from "@/lib/property-context";
-import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Inbox } from "lucide-react";
-import { formatRelativeWithTooltip } from "@/lib/relative-time";
+import { Inbox, List, Columns3, CalendarDays, Building2, UserRound, Wrench } from "lucide-react";
+import type { CaseRow } from "@/components/cases/shared";
+import { CaseListView } from "@/components/cases/CaseListView";
+import { CaseKanbanView } from "@/components/cases/CaseKanbanView";
+import { CaseCalendarView } from "@/components/cases/CaseCalendarView";
+import { CaseGroupedView } from "@/components/cases/CaseGroupedView";
 
-type CaseStatus = "OPEN" | "IN_PROGRESS" | "AWAITING_APPROVAL" | "AWAITING_VENDOR" | "AWAITING_TENANT" | "RESOLVED" | "CLOSED";
-type CaseWaitingOn = "MANAGER" | "OWNER" | "TENANT" | "VENDOR" | "NONE";
-type CaseType = "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE" | "GENERAL";
+type View = "list" | "kanban" | "calendar" | "property" | "owner" | "vendor";
 
-interface CaseRow {
-  id: string;
-  caseType: CaseType;
-  title: string;
-  status: CaseStatus;
-  waitingOn: CaseWaitingOn;
-  stage: string | null;
-  currentStageIndex: number;
-  lastActivityAt: string;
-  property: { id: string; name: string };
-  unit: { id: string; unitNumber: string } | null;
-  assignedTo: { id: string; name: string | null; email: string | null } | null;
-}
-
-const WAITING_DOT: Record<CaseWaitingOn, string> = {
-  MANAGER: "bg-gray-400",
-  OWNER:   "bg-blue-500",
-  TENANT:  "bg-amber-500",
-  VENDOR:  "bg-purple-500",
-  NONE:    "bg-gray-200",
-};
-
-const WORKFLOW_LENGTHS: Record<CaseType, number> = {
-  MAINTENANCE:   11,
-  LEASE_RENEWAL: 8,
-  ARREARS:       6,
-  COMPLIANCE:    6,
-  GENERAL:       4,
-};
-
-function ProgressChip({ c }: { c: CaseRow }) {
-  const total = WORKFLOW_LENGTHS[c.caseType] ?? 1;
-  const cur = Math.min(Math.max(c.currentStageIndex + 1, 1), total);
-  const pct = Math.round((cur / total) * 100);
-  const isTerminal = c.status === "RESOLVED" || c.status === "CLOSED";
-  return (
-    <div className="flex items-center gap-2 min-w-[8rem]">
-      <span className={`inline-block w-2 h-2 rounded-full ${WAITING_DOT[c.waitingOn]}`} title={`Waiting: ${c.waitingOn}`} />
-      <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-        <div className={`h-1.5 ${isTerminal ? "bg-green-500" : "bg-gold"}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="text-[10px] font-mono text-gray-500 shrink-0">{cur}/{total}</span>
-    </div>
-  );
-}
-
-const STATUS_BADGE: Record<CaseStatus, "red" | "amber" | "blue" | "gray" | "green" | "gold"> = {
-  OPEN: "red",
-  IN_PROGRESS: "amber",
-  AWAITING_APPROVAL: "gold",
-  AWAITING_VENDOR: "blue",
-  AWAITING_TENANT: "blue",
-  RESOLVED: "green",
-  CLOSED: "gray",
-};
-
-const WAITING_LABEL: Record<CaseWaitingOn, string> = {
-  MANAGER: "Manager", OWNER: "Owner", TENANT: "Tenant", VENDOR: "Vendor", NONE: "—",
-};
+const VIEWS: { id: View; label: string; icon: React.ElementType }[] = [
+  { id: "list",     label: "List",     icon: List },
+  { id: "kanban",   label: "Kanban",   icon: Columns3 },
+  { id: "calendar", label: "Calendar", icon: CalendarDays },
+  { id: "property", label: "Property", icon: Building2 },
+  { id: "owner",    label: "Owner",    icon: UserRound },
+  { id: "vendor",   label: "Vendor",   icon: Wrench },
+];
 
 export default function CasesPage() {
   const { selectedId } = useProperty();
@@ -81,6 +31,7 @@ export default function CasesPage() {
   const [waitingOn, setWaitingOn] = useState<string>("");
   const [caseType, setCaseType] = useState<string>("");
   const [assignedToMe, setAssignedToMe] = useState(false);
+  const [view, setView] = useState<View>("list");
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -96,13 +47,24 @@ export default function CasesPage() {
       .catch(() => setCases([]));
   }, [selectedId, status, waitingOn, caseType, assignedToMe]);
 
-  // Read caseType from query string once on mount
+  // Read caseType + view from query string once on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sp = new URLSearchParams(window.location.search);
     const t = sp.get("caseType");
     if (t) setCaseType(t);
+    const v = sp.get("view") as View | null;
+    if (v && VIEWS.some((x) => x.id === v)) setView(v);
   }, []);
+
+  function changeView(v: View) {
+    setView(v);
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      sp.set("view", v);
+      window.history.replaceState(null, "", `${window.location.pathname}?${sp.toString()}`);
+    }
+  }
 
   const rows = cases ?? [];
 
@@ -110,6 +72,27 @@ export default function CasesPage() {
     <>
       <Header title="Cases" />
       <div className="page-container space-y-4">
+        {/* View switcher */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit overflow-x-auto max-w-full">
+          {VIEWS.map((v) => {
+            const Icon = v.icon;
+            return (
+              <button
+                key={v.id}
+                onClick={() => changeView(v.id)}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium font-sans transition-all whitespace-nowrap",
+                  view === v.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                <Icon size={15} />
+                <span>{v.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filters */}
         <div className="flex flex-wrap gap-2 items-end">
           <Select
             label="Status"
@@ -170,73 +153,33 @@ export default function CasesPage() {
             title="No cases yet"
             description="Cases are created automatically when a maintenance job is logged."
           />
+        ) : view === "list" ? (
+          <CaseListView rows={rows} />
+        ) : view === "kanban" ? (
+          <CaseKanbanView rows={rows} />
+        ) : view === "calendar" ? (
+          <CaseCalendarView rows={rows} />
+        ) : view === "property" ? (
+          <CaseGroupedView
+            rows={rows}
+            keyOf={(c) => c.property.id}
+            labelOf={(c) => c.property.name}
+            emptyKey="No property"
+          />
+        ) : view === "owner" ? (
+          <CaseGroupedView
+            rows={rows}
+            keyOf={(c) => c.owner?.id ?? null}
+            labelOf={(c) => c.owner?.name ?? c.owner?.email ?? "Owner"}
+            emptyKey="Unassigned owner"
+          />
         ) : (
-          <>
-            {/* Mobile cards */}
-            <div className="md:hidden divide-y divide-gray-100 bg-white rounded-xl border border-gray-100">
-              {rows.map((c) => {
-                const t = formatRelativeWithTooltip(c.lastActivityAt);
-                return (
-                  <Link key={c.id} href={`/cases/${c.id}`} className="block p-4 hover:bg-gray-50">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="font-sans font-medium text-sm truncate">{c.title}</p>
-                      <Badge variant={STATUS_BADGE[c.status]}>{c.status.replace(/_/g, " ")}</Badge>
-                    </div>
-                    <p className="text-xs text-gray-500 font-sans">
-                      {c.property.name}{c.unit ? ` · ${c.unit.unitNumber}` : ""}
-                    </p>
-                    <div className="mt-2">
-                      <ProgressChip c={c} />
-                    </div>
-                    <div className="flex items-center justify-between mt-2 text-xs font-sans">
-                      <span className="text-gray-500">Waiting: {WAITING_LABEL[c.waitingOn]}</span>
-                      <span className="text-gray-400" title={t.full}>{t.short}</span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto bg-white rounded-xl border border-gray-100">
-              <table className="min-w-[800px] w-full text-sm font-sans">
-                <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
-                  <tr>
-                    <th className="px-4 py-2">Title</th>
-                    <th className="px-4 py-2">Property / unit</th>
-                    <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2">Progress</th>
-                    <th className="px-4 py-2">Waiting on</th>
-                    <th className="px-4 py-2">Assigned</th>
-                    <th className="px-4 py-2">Last activity</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {rows.map((c) => {
-                    const t = formatRelativeWithTooltip(c.lastActivityAt);
-                    return (
-                      <tr key={c.id} className="hover:bg-gray-50 cursor-pointer">
-                        <td className="px-4 py-2">
-                          <Link href={`/cases/${c.id}`} className="text-gray-900 hover:text-gold">{c.title}</Link>
-                          {c.caseType !== "MAINTENANCE" && (
-                            <span className="ml-2 text-[10px] uppercase text-gray-400">{c.caseType}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-gray-600">
-                          {c.property.name}{c.unit ? ` · ${c.unit.unitNumber}` : ""}
-                        </td>
-                        <td className="px-4 py-2"><Badge variant={STATUS_BADGE[c.status]}>{c.status.replace(/_/g, " ")}</Badge></td>
-                        <td className="px-4 py-2"><ProgressChip c={c} /></td>
-                        <td className="px-4 py-2 text-gray-600">{WAITING_LABEL[c.waitingOn]}</td>
-                        <td className="px-4 py-2 text-gray-600">{c.assignedTo?.name ?? c.assignedTo?.email ?? "—"}</td>
-                        <td className="px-4 py-2 text-gray-400" title={t.full}>{t.short}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
+          <CaseGroupedView
+            rows={rows}
+            keyOf={(c) => c.vendor?.id ?? null}
+            labelOf={(c) => c.vendor?.name ?? "Vendor"}
+            emptyKey="No vendor"
+          />
         )}
       </div>
     </>

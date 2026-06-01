@@ -14,6 +14,7 @@ import {
   checkNegativeCashflowForecast,
   checkCaseSlaBreaches,
 } from "@/lib/notifications/checkers";
+import { runAutomations } from "@/lib/automations";
 
 function authorize(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 
   const start = Date.now();
 
-  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches] = await Promise.allSettled([
+  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations] = await Promise.allSettled([
     checkLeaseExpiries(),
     checkOverdueInvoices(),
     checkComplianceCertificates(),
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
     checkLowPettyCash(),
     checkNegativeCashflowForecast(),
     checkCaseSlaBreaches(),
+    runAutomations(),
   ]);
 
   // Auto-expire DISMISSED hints older than 30 days
@@ -66,6 +68,7 @@ export async function GET(request: Request) {
     lowPettyCash:            pettyCash.status   === "fulfilled" ? pettyCash.value   : { error: String(pettyCash.reason) },
     negativeCashflow:        forecast.status    === "fulfilled" ? forecast.value    : { error: String(forecast.reason) },
     slaBreaches:             slaBreaches.status === "fulfilled" ? slaBreaches.value : { error: String(slaBreaches.reason) },
+    automations:             automations.status === "fulfilled" ? automations.value : { error: String(automations.reason) },
     durationMs: Date.now() - start,
   };
 

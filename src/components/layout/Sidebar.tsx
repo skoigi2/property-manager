@@ -36,6 +36,7 @@ import {
   Inbox,
   Briefcase,
   Sparkles,
+  Zap,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -114,6 +115,7 @@ const sidebarEntries: SidebarEntry[] = [
     roles: ["MANAGER"],
     items: [
       { href: "/settings",       label: "General",   icon: Settings,   roles: ["MANAGER"] },
+      { href: "/automations",    label: "Automations", icon: Zap,      roles: ["MANAGER"] },
       { href: "/settings/users", label: "Users",     icon: UserCog,    roles: ["MANAGER"] },
       { href: "/settings/audit", label: "Audit Log", icon: ShieldCheck,roles: ["MANAGER"] },
       { href: "/import",         label: "Import",    icon: Upload,     roles: ["MANAGER"] },

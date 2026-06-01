@@ -43,7 +43,7 @@ async function recordSent(
 }
 
 // Returns all ADMIN (org-admin) + MANAGER users with access to this property
-async function getPropertyManagers(
+export async function getPropertyManagers(
   propertyId: string,
   organizationId: string,
 ): Promise<{ email: string; name: string }[]> {

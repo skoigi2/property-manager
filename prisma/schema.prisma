@@ -53,6 +53,7 @@ model Organization {
   agents                 Agent[]
   caseThreads            CaseThread[]
   actionableHints        ActionableHint[]
+  automationTemplates    AutomationTemplate[]
   checkouts              CheckoutProcess[]
   conditionReports       ConditionReport[]
   createdAt              DateTime                     @default(now())
@@ -1149,6 +1150,37 @@ model AuditLog {
   @@index([resource, resourceId])
   @@index([userId])
   @@index([createdAt])
+  @@index([organizationId])
+}
+
+// ─── Automations ─────────────────────────────────────────────────────────────
+// Predefined, toggleable workflow templates per organization. When enabled, the
+// daily cron (runAutomations) auto-creates Cases for the matching condition.
+model AutomationTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String // e.g. "LEASE_RENEWAL_90D"
+  name           String
+  description    String
+  enabled        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+// Write-once dedup ledger — one row per (automationKey, subjectId) ensures an
+// automation never fires twice for the same underlying record.
+model AutomationExecution {
+  id             String   @id @default(cuid())
+  organizationId String
+  automationKey  String
+  subjectId      String
+  executedAt     DateTime @default(now())
+
+  @@unique([automationKey, subjectId])
   @@index([organizationId])
 }
 

@@ -64,7 +64,7 @@ export default auth((req) => {
   }
 
   // Manager-only routes (OWNER is blocked)
-  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors", "/cases"];
+  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors", "/cases", "/automations"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
     const role = req.auth?.user?.role;
     if (role === "OWNER") {

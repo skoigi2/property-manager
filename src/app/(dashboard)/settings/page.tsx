@@ -179,10 +179,10 @@ export default function SettingsPage() {
     <div>
       <Header title="Settings" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
-        <div className="flex gap-2 border-b border-gray-200">
+        <div className="flex gap-2 border-b border-gray-200 overflow-x-auto -mx-1 px-1">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key as any)}
-              className={`px-4 py-2.5 text-sm font-sans font-medium border-b-2 -mb-px transition-colors ${tab === t.key ? "border-gold text-header" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+              className={`px-4 py-2.5 text-sm font-sans font-medium border-b-2 -mb-px whitespace-nowrap shrink-0 transition-colors ${tab === t.key ? "border-gold text-header" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
               {t.label}
             </button>
           ))}

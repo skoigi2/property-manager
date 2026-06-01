@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
-import { Check, Zap, LayoutGrid, List, ChevronDown, Building2 } from "lucide-react";
+import { Check, Zap, LayoutGrid, List, ChevronDown, Building2, Mail, AlertTriangle } from "lucide-react";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
 
@@ -28,6 +28,12 @@ interface Automation {
 interface PropertyLite {
   id: string;
   name: string;
+}
+
+interface Recipient {
+  name: string;
+  email: string;
+  fallback: boolean;
 }
 
 const SECTIONS: { category: Category; heading: string; blurb: string }[] = [
@@ -120,6 +126,7 @@ export default function AutomationsPage() {
   const { data: session } = useSession();
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [properties, setProperties] = useState<PropertyLite[]>([]);
+  const [recipients, setRecipients] = useState<Record<string, Recipient[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("grid");
@@ -136,6 +143,7 @@ export default function AutomationsPage() {
       .then((d) => {
         setAutomations(d.automations ?? []);
         setProperties(d.properties ?? []);
+        setRecipients(d.recipients ?? {});
       })
       .finally(() => setLoading(false));
   }, []);
@@ -214,6 +222,55 @@ export default function AutomationsPage() {
     return Object.keys(a.overrides).length;
   }
 
+  // REMINDER automations are Inbox-only; the others (WORKFLOW + NOTIFICATION) email.
+  function sendsEmail(a: Automation): boolean {
+    return a.category !== "REMINDER";
+  }
+
+  // Distinct, non-fallback recipients across all accessible properties — the
+  // org-wide headline count for an email-sending automation.
+  const orgRecipients: { count: number; names: string[]; fallbackOnly: boolean } = (() => {
+    const byEmail = new Map<string, Recipient>();
+    let anyReal = false;
+    for (const list of Object.values(recipients)) {
+      for (const r of list) {
+        if (!r.fallback) anyReal = true;
+        if (!byEmail.has(r.email)) byEmail.set(r.email, r);
+      }
+    }
+    const all = Array.from(byEmail.values());
+    const real = all.filter((r) => !r.fallback);
+    const chosen = real.length > 0 ? real : all;
+    return {
+      count: chosen.length,
+      names: chosen.map((r) => r.name),
+      fallbackOnly: real.length === 0 && all.length > 0 && !anyReal,
+    };
+  })();
+
+  function NotifiesLine({ a }: { a: Automation }) {
+    if (!sendsEmail(a)) return null;
+    const { count, names, fallbackOnly } = orgRecipients;
+    if (count === 0) {
+      return (
+        <p className="mt-3 flex items-start gap-1.5 text-xs font-sans text-expense">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          No recipients — add a manager or set an organisation contact email so alerts aren&apos;t lost.
+        </p>
+      );
+    }
+    return (
+      <p className="mt-3 flex items-start gap-1.5 text-xs font-sans text-gray-500" title={names.join(", ")}>
+        <Mail className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
+        <span>
+          Notifies {count} {count === 1 ? "recipient" : "recipients"}
+          {fallbackOnly && " (organisation contact — no managers assigned)"}
+          {!fallbackOnly && names.length <= 3 && `: ${names.join(", ")}`}
+        </span>
+      </p>
+    );
+  }
+
   // Per-property override editor — shared by grid + table.
   function PropertyOverrides({ a }: { a: Automation }) {
     if (properties.length === 0) return null;
@@ -238,19 +295,34 @@ export default function AutomationsPage() {
             <p className="text-[11px] text-gray-400 font-sans">
               Each property inherits the organisation setting ({a.enabled ? "On" : "Off"}) unless overridden.
             </p>
-            {properties.map((p) => (
-              <div key={p.id} className="flex items-center justify-between gap-3 py-1">
-                <span className="flex items-center gap-1.5 text-sm text-gray-700 font-sans min-w-0">
-                  <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                  <span className="truncate">{p.name}</span>
-                </span>
-                <OverrideControl
-                  state={overrideState(a, p.id)}
-                  saving={saving === `${a.id}:${p.id}`}
-                  onChange={(s) => setOverride(a, p.id, s)}
-                />
-              </div>
-            ))}
+            {properties.map((p) => {
+              const recips = recipients[p.id] ?? [];
+              const fallback = recips.length > 0 && recips.every((r) => r.fallback);
+              return (
+                <div key={p.id} className="flex items-center justify-between gap-3 py-1">
+                  <span className="flex flex-col min-w-0">
+                    <span className="flex items-center gap-1.5 text-sm text-gray-700 font-sans min-w-0">
+                      <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span className="truncate">{p.name}</span>
+                    </span>
+                    {sendsEmail(a) && (
+                      <span className="text-[11px] text-gray-400 font-sans pl-5 truncate" title={recips.map((r) => r.name).join(", ")}>
+                        {recips.length === 0
+                          ? "⚠ no recipients"
+                          : fallback
+                          ? `notifies ${recips[0].name} (org contact)`
+                          : `notifies ${recips.length} ${recips.length === 1 ? "recipient" : "recipients"}`}
+                      </span>
+                    )}
+                  </span>
+                  <OverrideControl
+                    state={overrideState(a, p.id)}
+                    saving={saving === `${a.id}:${p.id}`}
+                    onChange={(s) => setOverride(a, p.id, s)}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -349,6 +421,7 @@ export default function AutomationsPage() {
                             </ul>
                           </div>
 
+                          <NotifiesLine a={a} />
                           <PropertyOverrides a={a} />
                         </Card>
                       ))}
@@ -371,6 +444,7 @@ export default function AutomationsPage() {
                                 onToggle={() => toggle(a)}
                               />
                             </div>
+                            <NotifiesLine a={a} />
                             <PropertyOverrides a={a} />
                           </li>
                         ))}
@@ -408,7 +482,24 @@ export default function AutomationsPage() {
                                   </button>
                                 </td>
                                 <td className="px-4 py-3 align-top text-gray-700">{a.trigger}</td>
-                                <td className="px-4 py-3 align-top text-gray-700">{a.actions.join(" · ")}</td>
+                                <td className="px-4 py-3 align-top text-gray-700">
+                                  {a.actions.join(" · ")}
+                                  {sendsEmail(a) && (
+                                    <span
+                                      className={clsx(
+                                        "mt-1 flex items-center gap-1 text-xs",
+                                        orgRecipients.count === 0 ? "text-expense" : "text-gray-400"
+                                      )}
+                                      title={orgRecipients.names.join(", ")}
+                                    >
+                                      {orgRecipients.count === 0 ? (
+                                        <><AlertTriangle className="w-3 h-3 shrink-0" /> no recipients</>
+                                      ) : (
+                                        <><Mail className="w-3 h-3 shrink-0" /> notifies {orgRecipients.count}{orgRecipients.fallbackOnly ? " (org contact)" : ""}</>
+                                      )}
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="px-4 py-3 align-top text-right">
                                   <Toggle
                                     enabled={a.enabled}

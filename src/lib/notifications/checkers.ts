@@ -43,7 +43,9 @@ async function recordSent(
   });
 }
 
-// Returns all ADMIN (org-admin) + MANAGER users with access to this property
+// Returns all ADMIN (org-admin) + MANAGER users with access to this property.
+// When none are found, falls back to the organisation's contact email so an
+// alert is never silently dropped (no dead-ends).
 export async function getPropertyManagers(
   propertyId: string,
   organizationId: string,
@@ -59,8 +61,20 @@ export async function getPropertyManagers(
     },
     select: { email: true, name: true },
   });
-  return users.filter((u): u is { email: string; name: string | null } & { email: string } => !!u.email)
-    .map(u => ({ email: u.email!, name: u.name ?? u.email! }));
+  const managers = users
+    .filter((u): u is { email: string; name: string | null } & { email: string } => !!u.email)
+    .map((u) => ({ email: u.email!, name: u.name ?? u.email! }));
+
+  if (managers.length > 0) return managers;
+
+  // Fallback: the organisation's contact email, if set.
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { email: true, name: true },
+  });
+  if (org?.email) return [{ email: org.email, name: org.name ?? org.email }];
+
+  return [];
 }
 
 async function sendToManagers(

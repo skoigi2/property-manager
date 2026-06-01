@@ -16,7 +16,7 @@ export async function GET() {
 
   const propertyIds = (await getAccessiblePropertyIds()) ?? [];
 
-  const [templates, properties, overrides] = await Promise.all([
+  const [templates, properties, overrides, admins, managerAccess, org] = await Promise.all([
     prisma.automationTemplate.findMany({ where: { organizationId } }),
     prisma.property.findMany({
       where: { organizationId, id: { in: propertyIds } },
@@ -27,7 +27,40 @@ export async function GET() {
       where: { organizationId, propertyId: { in: propertyIds } },
       select: { automationKey: true, propertyId: true, enabled: true },
     }),
+    // Org-admins receive alerts for every property in the org.
+    prisma.user.findMany({
+      where: { organizationId, role: "ADMIN", isActive: true, email: { not: null } },
+      select: { name: true, email: true },
+    }),
+    // Managers receive alerts for the properties they have access to.
+    prisma.propertyAccess.findMany({
+      where: { propertyId: { in: propertyIds }, user: { role: "MANAGER", isActive: true, email: { not: null } } },
+      select: { propertyId: true, user: { select: { name: true, email: true } } },
+    }),
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { email: true, name: true } }),
   ]);
+
+  // Resolve the notification recipients per property, mirroring
+  // getPropertyManagers (admins + managers-with-access, else org-email fallback).
+  const recipients: Record<string, { name: string; email: string; fallback: boolean }[]> = {};
+  for (const p of properties) {
+    const list = [
+      ...admins.map((u) => ({ name: u.name ?? u.email!, email: u.email!, fallback: false })),
+      ...managerAccess
+        .filter((m) => m.propertyId === p.id && m.user?.email)
+        .map((m) => ({ name: m.user!.name ?? m.user!.email!, email: m.user!.email!, fallback: false })),
+    ];
+    // De-dupe by email (an admin could also hold PropertyAccess).
+    const seen = new Set<string>();
+    const deduped = list.filter((r) => (seen.has(r.email) ? false : (seen.add(r.email), true)));
+    if (deduped.length > 0) {
+      recipients[p.id] = deduped;
+    } else if (org?.email) {
+      recipients[p.id] = [{ name: org.name ?? org.email, email: org.email, fallback: true }];
+    } else {
+      recipients[p.id] = [];
+    }
+  }
 
   // overrides keyed by automationKey → { propertyId: enabled }
   const overridesByKey = new Map<string, Record<string, boolean>>();
@@ -58,5 +91,5 @@ export async function GET() {
       };
     });
 
-  return Response.json({ automations, properties });
+  return Response.json({ automations, properties, recipients });
 }

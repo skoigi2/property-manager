@@ -11,13 +11,14 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Settings, Save, Upload, Trash2, Building2 } from "lucide-react";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { TaxConfigPanel } from "@/components/settings/TaxConfigPanel";
+import { NotificationPrefsPanel } from "@/components/settings/NotificationPrefsPanel";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"fees" | "info" | "branding" | "tax">("fees");
+  const [tab, setTab] = useState<"fees" | "info" | "branding" | "tax" | "notifications">("fees");
   const [feeForm, setFeeForm] = useState<Record<string, { ratePercent: string; flatAmount: string }>>({});
 
   // Branding state
@@ -171,6 +172,7 @@ export default function SettingsPage() {
     { key: "branding", label: "Branding" },
     { key: "info",     label: "Property Info" },
     { key: "tax",      label: "Tax" },
+    { key: "notifications", label: "Notifications" },
   ];
 
   return (
@@ -186,7 +188,10 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {loading ? <div className="flex justify-center py-12"><Spinner /></div> : !data ? <p className="text-gray-400 text-center py-8 font-sans">Failed to load settings</p> : (
+        {/* ── Notifications (self-contained; independent of /api/settings) ── */}
+        {tab === "notifications" && <NotificationPrefsPanel />}
+
+        {tab !== "notifications" && (loading ? <div className="flex justify-center py-12"><Spinner /></div> : !data ? <p className="text-gray-400 text-center py-8 font-sans">Failed to load settings</p> : (
           <>
             {/* ── Management Fees ── */}
             {tab === "fees" && (
@@ -432,7 +437,7 @@ export default function SettingsPage() {
               </div>
             )}
           </>
-        )}
+        ))}
       </div>
     </div>
   );

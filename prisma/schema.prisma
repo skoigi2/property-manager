@@ -110,10 +110,28 @@ model User {
   approvalRequests ApprovalRequest[] @relation("ApprovalRequester")
   accounts         Account[]
   sessions         Session[]
+  notificationPreferences NotificationPreference[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
   @@index([organizationId])
+}
+
+// Per-user opt-out of automation emails by category. Sparse: a row exists only
+// when a user changes a default. Absence = opted in (emailEnabled true). The
+// category strings mirror AutomationCategory ("NOTIFICATION" | "WORKFLOW");
+// REMINDER is Inbox-only and never a preference target.
+model NotificationPreference {
+  id           String   @id @default(cuid())
+  userId       String
+  category     String
+  emailEnabled Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([userId])
 }
 
 model Account {

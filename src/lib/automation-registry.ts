@@ -219,10 +219,32 @@ export async function ensureAutomationTemplates(organizationId: string): Promise
 const enabledCache = new Map<string, Map<string, boolean>>();
 // org → ("<key>::<propertyId>" → enabled) for per-property overrides.
 const overrideCache = new Map<string, Map<string, boolean>>();
+// userId → (category → emailEnabled) for per-user notification preferences.
+const userPrefCache = new Map<string, Map<string, boolean>>();
 
 export function resetAutomationCache(): void {
   enabledCache.clear();
   overrideCache.clear();
+  userPrefCache.clear();
+}
+
+/**
+ * Whether a user wants emails for an automation category ("NOTIFICATION" |
+ * "WORKFLOW"). Defaults to true when no preference row exists (opt-out model).
+ * Cached per run alongside the org-toggle cache.
+ */
+export async function wantsEmail(userId: string | null | undefined, category: string): Promise<boolean> {
+  if (!userId) return true; // org-email fallback recipient (no user) always receives
+  let map = userPrefCache.get(userId);
+  if (!map) {
+    const rows = await prisma.notificationPreference.findMany({
+      where: { userId },
+      select: { category: true, emailEnabled: true },
+    });
+    map = new Map(rows.map((r) => [r.category, r.emailEnabled]));
+    userPrefCache.set(userId, map);
+  }
+  return map.has(category) ? map.get(category)! : true;
 }
 
 function overrideKey(key: string, propertyId: string): string {

@@ -4,7 +4,7 @@ import { esc, sendNotificationEmail } from "@/lib/email";
 import { getPropertyManagers } from "@/lib/notifications/checkers";
 import { getWorkflow, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { logAudit } from "@/lib/audit";
-import { AUTOMATION_DEFS, ensureAutomationTemplates, isAutomationEnabled } from "@/lib/automation-registry";
+import { AUTOMATION_DEFS, ensureAutomationTemplates, isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
 
 const DAY = 86400_000;
 
@@ -129,6 +129,7 @@ async function createCaseFromAutomation(args: CreateCaseArgs): Promise<boolean> 
     const subject = `Automation: ${args.title}`;
     const html = caseEmailHtml(args.title, args.triggerLine, args.propertyName);
     for (const mgr of managers) {
+      if (!(await wantsEmail(mgr.userId, "WORKFLOW"))) continue;
       await sendNotificationEmail(mgr.email, subject, html, {
         organizationId: args.organizationId,
         caseThreadId: thread.id,
@@ -348,6 +349,7 @@ async function runUrgentMaintenance(organizationId: string): Promise<HandlerResu
       const subject = `Automation: Urgent maintenance — ${job.title}`;
       const html = caseEmailHtml(`Urgent maintenance — ${job.title}`, "an urgent maintenance job is open", job.property.name);
       for (const mgr of managers) {
+        if (!(await wantsEmail(mgr.userId, "WORKFLOW"))) continue;
         await sendNotificationEmail(mgr.email, subject, html, { organizationId, caseThreadId: threadId });
       }
     } catch (e) {

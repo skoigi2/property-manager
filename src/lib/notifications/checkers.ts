@@ -6,7 +6,7 @@ import { formatDate } from "@/lib/date-utils";
 import { upsertHint } from "@/lib/hints";
 import { formatCurrency } from "@/lib/currency";
 import { buildForecast } from "@/lib/forecast-engine";
-import { isAutomationEnabled } from "@/lib/automation-registry";
+import { isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
 import {
   leaseExpiryTemplate,
   invoiceOverdueTemplate,
@@ -46,10 +46,17 @@ async function recordSent(
 // Returns all ADMIN (org-admin) + MANAGER users with access to this property.
 // When none are found, falls back to the organisation's contact email so an
 // alert is never silently dropped (no dead-ends).
+export interface NotificationRecipient {
+  /** null for the org-email fallback recipient (not a user). */
+  userId: string | null;
+  email: string;
+  name: string;
+}
+
 export async function getPropertyManagers(
   propertyId: string,
   organizationId: string,
-): Promise<{ email: string; name: string }[]> {
+): Promise<NotificationRecipient[]> {
   const users = await prisma.user.findMany({
     where: {
       isActive: true,
@@ -59,11 +66,11 @@ export async function getPropertyManagers(
         { role: "MANAGER", propertyAccess: { some: { propertyId } } },
       ],
     },
-    select: { email: true, name: true },
+    select: { id: true, email: true, name: true },
   });
   const managers = users
-    .filter((u): u is { email: string; name: string | null } & { email: string } => !!u.email)
-    .map((u) => ({ email: u.email!, name: u.name ?? u.email! }));
+    .filter((u) => !!u.email)
+    .map((u) => ({ userId: u.id, email: u.email!, name: u.name ?? u.email! }));
 
   if (managers.length > 0) return managers;
 
@@ -72,13 +79,13 @@ export async function getPropertyManagers(
     where: { id: organizationId },
     select: { email: true, name: true },
   });
-  if (org?.email) return [{ email: org.email, name: org.name ?? org.email }];
+  if (org?.email) return [{ userId: null, email: org.email, name: org.name ?? org.email }];
 
   return [];
 }
 
 async function sendToManagers(
-  managers: { email: string; name: string }[],
+  managers: NotificationRecipient[],
   subject: string,
   html: string,
   organizationId: string,
@@ -88,6 +95,8 @@ async function sendToManagers(
   caseThreadId?: string | null,
 ): Promise<void> {
   for (const mgr of managers) {
+    // Per-user opt-out — all cron alerts are the NOTIFICATION category.
+    if (!(await wantsEmail(mgr.userId, "NOTIFICATION"))) continue;
     try {
       await sendNotificationEmail(mgr.email, subject, html, { caseThreadId: caseThreadId ?? null });
       await recordSent(organizationId, type, resourceId, resourceType, mgr.email, subject);

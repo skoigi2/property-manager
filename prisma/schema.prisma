@@ -1184,6 +1184,24 @@ model AutomationExecution {
   @@index([organizationId])
 }
 
+// Optional per-property override of an org-level automation toggle. When a row
+// exists for (automationKey, propertyId) it wins over the org default; absence
+// means "inherit the organisation setting". Scalar FKs (cascade enforced in SQL)
+// mirror AutomationExecution.
+model AutomationPropertyOverride {
+  id             String   @id @default(cuid())
+  organizationId String
+  automationKey  String
+  propertyId     String
+  enabled        Boolean
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([automationKey, propertyId])
+  @@index([organizationId])
+  @@index([propertyId])
+}
+
 model TenantDocument {
   id          String           @id @default(cuid())
   tenantId    String

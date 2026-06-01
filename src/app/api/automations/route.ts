@@ -1,22 +1,41 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { AUTOMATION_DEFS, DEF_BY_KEY, ensureAutomationTemplates } from "@/lib/automation-registry";
 
 // GET /api/automations — list this org's automation templates merged with the
-// static display metadata (trigger / actions) from the registry.
+// static display metadata (trigger / actions) from the registry, plus the
+// org's properties and any per-property overrides.
 export async function GET() {
   const { session, error } = await requireManager();
   if (error) return error;
 
   const organizationId = session!.user.organizationId;
-  if (!organizationId) return Response.json({ automations: [] });
+  if (!organizationId) return Response.json({ automations: [], properties: [] });
 
   await ensureAutomationTemplates(organizationId);
 
-  const templates = await prisma.automationTemplate.findMany({
-    where: { organizationId },
-    orderBy: { key: "asc" },
-  });
+  const propertyIds = (await getAccessiblePropertyIds()) ?? [];
+
+  const [templates, properties, overrides] = await Promise.all([
+    prisma.automationTemplate.findMany({ where: { organizationId } }),
+    prisma.property.findMany({
+      where: { organizationId, id: { in: propertyIds } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.automationPropertyOverride.findMany({
+      where: { organizationId, propertyId: { in: propertyIds } },
+      select: { automationKey: true, propertyId: true, enabled: true },
+    }),
+  ]);
+
+  // overrides keyed by automationKey → { propertyId: enabled }
+  const overridesByKey = new Map<string, Record<string, boolean>>();
+  for (const o of overrides) {
+    const m = overridesByKey.get(o.automationKey) ?? {};
+    m[o.propertyId] = o.enabled;
+    overridesByKey.set(o.automationKey, m);
+  }
 
   // Order by the registry's declared order (workflows, then notifications, then
   // reminders), not alphabetically.
@@ -35,8 +54,9 @@ export async function GET() {
         trigger: def.trigger,
         actions: def.actions,
         category: def.category,
+        overrides: overridesByKey.get(t.key) ?? {},
       };
     });
 
-  return Response.json({ automations });
+  return Response.json({ automations, properties });
 }

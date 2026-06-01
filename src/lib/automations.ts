@@ -62,6 +62,10 @@ interface CreateCaseArgs {
  * Returns true if a case was created, false if skipped (dedup).
  */
 async function createCaseFromAutomation(args: CreateCaseArgs): Promise<boolean> {
+  // Per-property override: skip (without recording an execution) when this
+  // property has the workflow turned off, so it fires later if re-enabled.
+  if (!(await isAutomationEnabled(args.organizationId, args.automationKey, args.propertyId))) return false;
+
   if (await alreadyExecuted(args.automationKey, args.subjectId)) return false;
 
   // Don't create a second open case of the same type for the same subject.
@@ -297,6 +301,7 @@ async function runUrgentMaintenance(organizationId: string): Promise<HandlerResu
 
   for (const job of jobs) {
     if (!job.property) continue;
+    if (!(await isAutomationEnabled(organizationId, "URGENT_MAINTENANCE", job.propertyId))) { skipped++; continue; }
     if (await alreadyExecuted("URGENT_MAINTENANCE", job.id)) { skipped++; continue; }
 
     // Maintenance cases are auto-created on POST. If the linked case has no
@@ -391,20 +396,33 @@ export async function runAutomations(): Promise<Record<string, HandlerResult>> {
       continue;
     }
 
-    const enabled = await prisma.automationTemplate.findMany({
-      where: { organizationId: org.id, enabled: true, key: { in: WORKFLOW_KEYS } },
-      select: { key: true },
-    });
+    // A workflow runs if the org toggle is on OR any property override enables it
+    // (a property can be on even when the org default is off). The handler then
+    // re-checks per property via createCaseFromAutomation / its own gate.
+    const [orgEnabled, propOverrides] = await Promise.all([
+      prisma.automationTemplate.findMany({
+        where: { organizationId: org.id, enabled: true, key: { in: WORKFLOW_KEYS } },
+        select: { key: true },
+      }),
+      prisma.automationPropertyOverride.findMany({
+        where: { organizationId: org.id, enabled: true, automationKey: { in: WORKFLOW_KEYS } },
+        select: { automationKey: true },
+      }),
+    ]);
+    const keysToRun = Array.from(new Set<string>([
+      ...orgEnabled.map((t) => t.key),
+      ...propOverrides.map((o) => o.automationKey),
+    ]));
 
-    for (const tpl of enabled) {
-      const handler = HANDLERS[tpl.key];
+    for (const key of keysToRun) {
+      const handler = HANDLERS[key];
       if (!handler) continue;
       try {
         const res = await handler(org.id);
-        totals[tpl.key].created += res.created;
-        totals[tpl.key].skipped += res.skipped;
+        totals[key].created += res.created;
+        totals[key].skipped += res.skipped;
       } catch (e) {
-        console.error(`[automations] handler ${tpl.key} failed for org ${org.id}:`, e);
+        console.error(`[automations] handler ${key} failed for org ${org.id}:`, e);
       }
     }
   }

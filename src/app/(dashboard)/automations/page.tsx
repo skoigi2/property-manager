@@ -1,15 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
-import { Check, Zap, LayoutGrid, List } from "lucide-react";
+import { Check, Zap, LayoutGrid, List, ChevronDown, Building2 } from "lucide-react";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
 
 type Category = "WORKFLOW" | "NOTIFICATION" | "REMINDER";
 type ViewMode = "grid" | "table";
+type OverrideState = "inherit" | "on" | "off";
 
 interface Automation {
   id: string;
@@ -20,6 +21,13 @@ interface Automation {
   trigger: string;
   actions: string[];
   category: Category;
+  /** propertyId → enabled. Absence = inherit org-level `enabled`. */
+  overrides: Record<string, boolean>;
+}
+
+interface PropertyLite {
+  id: string;
+  name: string;
 }
 
 const SECTIONS: { category: Category; heading: string; blurb: string }[] = [
@@ -42,37 +50,80 @@ const SECTIONS: { category: Category; heading: string; blurb: string }[] = [
 
 const VIEW_KEY = "automations-view";
 
-function Toggle({ a, saving, onToggle }: { a: Automation; saving: boolean; onToggle: () => void }) {
+function Toggle({ enabled, label, saving, onToggle }: { enabled: boolean; label: string; saving: boolean; onToggle: () => void }) {
   return (
     <button
       type="button"
       role="switch"
-      aria-checked={a.enabled}
-      aria-label={`${a.enabled ? "Disable" : "Enable"} ${a.name}`}
+      aria-checked={enabled}
+      aria-label={label}
       disabled={saving}
       onClick={onToggle}
       className={clsx(
         "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-        a.enabled ? "bg-gold" : "bg-gray-300",
+        enabled ? "bg-gold" : "bg-gray-300",
         saving && "opacity-60"
       )}
     >
       <span
         className={clsx(
           "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
-          a.enabled ? "translate-x-5" : "translate-x-0.5"
+          enabled ? "translate-x-5" : "translate-x-0.5"
         )}
       />
     </button>
   );
 }
 
+// Three-state segmented control: Inherit / On / Off for one property.
+function OverrideControl({
+  state,
+  saving,
+  onChange,
+}: {
+  state: OverrideState;
+  saving: boolean;
+  onChange: (s: OverrideState) => void;
+}) {
+  const opts: { value: OverrideState; label: string }[] = [
+    { value: "inherit", label: "Inherit" },
+    { value: "on", label: "On" },
+    { value: "off", label: "Off" },
+  ];
+  return (
+    <div className={clsx("inline-flex rounded-md border border-gray-200 overflow-hidden", saving && "opacity-60")}>
+      {opts.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          disabled={saving}
+          onClick={() => onChange(o.value)}
+          className={clsx(
+            "px-2.5 py-1 text-xs font-sans transition-colors",
+            state === o.value
+              ? o.value === "on"
+                ? "bg-income/10 text-income"
+                : o.value === "off"
+                ? "bg-expense/10 text-expense"
+                : "bg-gray-100 text-gray-700"
+              : "bg-white text-gray-400 hover:text-gray-700"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function AutomationsPage() {
   const { data: session } = useSession();
   const [automations, setAutomations] = useState<Automation[]>([]);
+  const [properties, setProperties] = useState<PropertyLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("grid");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const stored = typeof window !== "undefined" ? localStorage.getItem(VIEW_KEY) : null;
@@ -82,7 +133,10 @@ export default function AutomationsPage() {
   useEffect(() => {
     fetch("/api/automations")
       .then((r) => r.json())
-      .then((d) => setAutomations(d.automations ?? []))
+      .then((d) => {
+        setAutomations(d.automations ?? []);
+        setProperties(d.properties ?? []);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -91,10 +145,17 @@ export default function AutomationsPage() {
     if (typeof window !== "undefined") localStorage.setItem(VIEW_KEY, v);
   }
 
+  function toggleExpanded(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   async function toggle(a: Automation) {
     const next = !a.enabled;
     setSaving(a.id);
-    // Optimistic update
     setAutomations((prev) => prev.map((x) => (x.id === a.id ? { ...x, enabled: next } : x)));
     try {
       const res = await fetch(`/api/automations/${a.id}`, {
@@ -105,12 +166,95 @@ export default function AutomationsPage() {
       if (!res.ok) throw new Error();
       toast.success(`${a.name} ${next ? "enabled" : "disabled"}`);
     } catch {
-      // Roll back
       setAutomations((prev) => prev.map((x) => (x.id === a.id ? { ...x, enabled: a.enabled } : x)));
       toast.error("Could not update automation");
     } finally {
       setSaving(null);
     }
+  }
+
+  async function setOverride(a: Automation, propertyId: string, stateNext: OverrideState) {
+    const enabled = stateNext === "inherit" ? null : stateNext === "on";
+    const savingKey = `${a.id}:${propertyId}`;
+    setSaving(savingKey);
+
+    // Optimistic
+    const prevOverrides = a.overrides;
+    setAutomations((prev) =>
+      prev.map((x) => {
+        if (x.id !== a.id) return x;
+        const ov = { ...x.overrides };
+        if (enabled === null) delete ov[propertyId];
+        else ov[propertyId] = enabled;
+        return { ...x, overrides: ov };
+      })
+    );
+
+    try {
+      const res = await fetch(`/api/automations/${a.id}/overrides`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId, enabled }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setAutomations((prev) => prev.map((x) => (x.id === a.id ? { ...x, overrides: prevOverrides } : x)));
+      toast.error("Could not update property override");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  function overrideState(a: Automation, propertyId: string): OverrideState {
+    if (!(propertyId in a.overrides)) return "inherit";
+    return a.overrides[propertyId] ? "on" : "off";
+  }
+
+  function overrideCount(a: Automation): number {
+    return Object.keys(a.overrides).length;
+  }
+
+  // Per-property override editor — shared by grid + table.
+  function PropertyOverrides({ a }: { a: Automation }) {
+    if (properties.length === 0) return null;
+    return (
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        <button
+          type="button"
+          onClick={() => toggleExpanded(a.id)}
+          className="flex items-center gap-1.5 text-xs font-sans text-gray-500 hover:text-gray-800 transition-colors"
+        >
+          <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expanded.has(a.id) && "rotate-180")} />
+          Customise per property
+          {overrideCount(a) > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark text-[10px] font-medium">
+              {overrideCount(a)} override{overrideCount(a) === 1 ? "" : "s"}
+            </span>
+          )}
+        </button>
+
+        {expanded.has(a.id) && (
+          <div className="mt-3 space-y-1.5">
+            <p className="text-[11px] text-gray-400 font-sans">
+              Each property inherits the organisation setting ({a.enabled ? "On" : "Off"}) unless overridden.
+            </p>
+            {properties.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 py-1">
+                <span className="flex items-center gap-1.5 text-sm text-gray-700 font-sans min-w-0">
+                  <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span className="truncate">{p.name}</span>
+                </span>
+                <OverrideControl
+                  state={overrideState(a, p.id)}
+                  saving={saving === `${a.id}:${p.id}`}
+                  onChange={(s) => setOverride(a, p.id, s)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -123,8 +267,8 @@ export default function AutomationsPage() {
             <span>
               Control everything GroundWorkPM does for you automatically — workflow automations that
               open Cases, the email alerts your managers receive, and the proactive reminders in your
-              Inbox. Toggle any of them on or off. Workflow automations run once per item, so duplicates
-              are prevented. These settings apply to your whole organisation.
+              Inbox. The main toggle applies to your whole organisation; expand{" "}
+              <strong>Customise per property</strong> to override it for individual properties.
             </span>
           </p>
         </Card>
@@ -180,7 +324,12 @@ export default function AutomationsPage() {
                               <h3 className="font-display text-lg text-gray-900">{a.name}</h3>
                               <p className="text-sm text-gray-500 mt-1 font-sans">{a.description}</p>
                             </div>
-                            <Toggle a={a} saving={saving === a.id} onToggle={() => toggle(a)} />
+                            <Toggle
+                              enabled={a.enabled}
+                              label={`${a.enabled ? "Disable" : "Enable"} ${a.name}`}
+                              saving={saving === a.id}
+                              onToggle={() => toggle(a)}
+                            />
                           </div>
 
                           <div className="mt-4 pt-4 border-t border-gray-100">
@@ -199,6 +348,8 @@ export default function AutomationsPage() {
                               ))}
                             </ul>
                           </div>
+
+                          <PropertyOverrides a={a} />
                         </Card>
                       ))}
                     </div>
@@ -207,12 +358,20 @@ export default function AutomationsPage() {
                       {/* Mobile: stacked rows */}
                       <ul className="md:hidden divide-y divide-gray-100">
                         {items.map((a) => (
-                          <li key={a.id} className="flex items-start justify-between gap-3 p-4">
-                            <div className="min-w-0">
-                              <p className="font-sans font-medium text-gray-900">{a.name}</p>
-                              <p className="text-xs text-gray-500 font-sans mt-0.5">{a.trigger}</p>
+                          <li key={a.id} className="p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-sans font-medium text-gray-900">{a.name}</p>
+                                <p className="text-xs text-gray-500 font-sans mt-0.5">{a.trigger}</p>
+                              </div>
+                              <Toggle
+                                enabled={a.enabled}
+                                label={`${a.enabled ? "Disable" : "Enable"} ${a.name}`}
+                                saving={saving === a.id}
+                                onToggle={() => toggle(a)}
+                              />
                             </div>
-                            <Toggle a={a} saving={saving === a.id} onToggle={() => toggle(a)} />
+                            <PropertyOverrides a={a} />
                           </li>
                         ))}
                       </ul>
@@ -229,17 +388,61 @@ export default function AutomationsPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {items.map((a) => (
-                            <tr key={a.id} className="hover:bg-gray-50/60">
-                              <td className="px-4 py-3 align-top">
-                                <p className="font-medium text-gray-900">{a.name}</p>
-                                <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>
-                              </td>
-                              <td className="px-4 py-3 align-top text-gray-700">{a.trigger}</td>
-                              <td className="px-4 py-3 align-top text-gray-700">{a.actions.join(" · ")}</td>
-                              <td className="px-4 py-3 align-top text-right">
-                                <Toggle a={a} saving={saving === a.id} onToggle={() => toggle(a)} />
-                              </td>
-                            </tr>
+                            <Fragment key={a.id}>
+                              <tr className="hover:bg-gray-50/60">
+                                <td className="px-4 py-3 align-top">
+                                  <p className="font-medium text-gray-900">{a.name}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpanded(a.id)}
+                                    className="mt-1.5 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors"
+                                  >
+                                    <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expanded.has(a.id) && "rotate-180")} />
+                                    Per property
+                                    {overrideCount(a) > 0 && (
+                                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark text-[10px] font-medium">
+                                        {overrideCount(a)}
+                                      </span>
+                                    )}
+                                  </button>
+                                </td>
+                                <td className="px-4 py-3 align-top text-gray-700">{a.trigger}</td>
+                                <td className="px-4 py-3 align-top text-gray-700">{a.actions.join(" · ")}</td>
+                                <td className="px-4 py-3 align-top text-right">
+                                  <Toggle
+                                    enabled={a.enabled}
+                                    label={`${a.enabled ? "Disable" : "Enable"} ${a.name}`}
+                                    saving={saving === a.id}
+                                    onToggle={() => toggle(a)}
+                                  />
+                                </td>
+                              </tr>
+                              {expanded.has(a.id) && properties.length > 0 && (
+                                <tr className="bg-gray-50/40">
+                                  <td colSpan={4} className="px-4 py-3">
+                                    <p className="text-[11px] text-gray-400 font-sans mb-2">
+                                      Each property inherits the organisation setting ({a.enabled ? "On" : "Off"}) unless overridden.
+                                    </p>
+                                    <div className="grid gap-1.5 sm:grid-cols-2">
+                                      {properties.map((p) => (
+                                        <div key={p.id} className="flex items-center justify-between gap-3 py-0.5">
+                                          <span className="flex items-center gap-1.5 text-sm text-gray-700 min-w-0">
+                                            <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                            <span className="truncate">{p.name}</span>
+                                          </span>
+                                          <OverrideControl
+                                            state={overrideState(a, p.id)}
+                                            saving={saving === `${a.id}:${p.id}`}
+                                            onChange={(s) => setOverride(a, p.id, s)}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
                           ))}
                         </tbody>
                       </table>

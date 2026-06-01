@@ -217,17 +217,19 @@ export async function ensureAutomationTemplates(organizationId: string): Promise
 // warm serverless instance never serves a stale toggle.
 
 const enabledCache = new Map<string, Map<string, boolean>>();
+// org → ("<key>::<propertyId>" → enabled) for per-property overrides.
+const overrideCache = new Map<string, Map<string, boolean>>();
 
 export function resetAutomationCache(): void {
   enabledCache.clear();
+  overrideCache.clear();
 }
 
-/**
- * Whether an automation is enabled for an org. Falls back to the registry default
- * when no row exists yet (e.g. a checker runs before ensureAutomationTemplates).
- */
-export async function isAutomationEnabled(organizationId: string | null | undefined, key: string): Promise<boolean> {
-  if (!organizationId) return false;
+function overrideKey(key: string, propertyId: string): string {
+  return `${key}::${propertyId}`;
+}
+
+async function getOrgToggle(organizationId: string, key: string): Promise<boolean> {
   let orgMap = enabledCache.get(organizationId);
   if (!orgMap) {
     const rows = await prisma.automationTemplate.findMany({
@@ -239,4 +241,37 @@ export async function isAutomationEnabled(organizationId: string | null | undefi
   }
   if (orgMap.has(key)) return orgMap.get(key)!;
   return DEF_BY_KEY.get(key)?.defaultEnabled ?? false;
+}
+
+async function getOrgOverrides(organizationId: string): Promise<Map<string, boolean>> {
+  let map = overrideCache.get(organizationId);
+  if (!map) {
+    const rows = await prisma.automationPropertyOverride.findMany({
+      where: { organizationId },
+      select: { automationKey: true, propertyId: true, enabled: true },
+    });
+    map = new Map(rows.map((r) => [overrideKey(r.automationKey, r.propertyId), r.enabled]));
+    overrideCache.set(organizationId, map);
+  }
+  return map;
+}
+
+/**
+ * Whether an automation is enabled. When `propertyId` is supplied, a per-property
+ * override (if any) wins over the org-level toggle; otherwise the org toggle is
+ * used. Falls back to the registry default when no org row exists yet (e.g. a
+ * checker runs before ensureAutomationTemplates).
+ */
+export async function isAutomationEnabled(
+  organizationId: string | null | undefined,
+  key: string,
+  propertyId?: string | null,
+): Promise<boolean> {
+  if (!organizationId) return false;
+  if (propertyId) {
+    const overrides = await getOrgOverrides(organizationId);
+    const ov = overrides.get(overrideKey(key, propertyId));
+    if (ov !== undefined) return ov;
+  }
+  return getOrgToggle(organizationId, key);
 }

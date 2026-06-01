@@ -15,6 +15,7 @@ import {
   checkCaseSlaBreaches,
 } from "@/lib/notifications/checkers";
 import { runAutomations } from "@/lib/automations";
+import { resetAutomationCache } from "@/lib/automation-registry";
 
 function authorize(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
@@ -32,6 +33,10 @@ export async function GET(request: Request) {
   }
 
   const start = Date.now();
+
+  // Clear the per-run automation-toggle cache so a warm serverless instance never
+  // serves a stale enabled/disabled value from a previous invocation.
+  resetAutomationCache();
 
   const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations] = await Promise.allSettled([
     checkLeaseExpiries(),

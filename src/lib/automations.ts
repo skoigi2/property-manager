@@ -4,93 +4,14 @@ import { esc, sendNotificationEmail } from "@/lib/email";
 import { getPropertyManagers } from "@/lib/notifications/checkers";
 import { getWorkflow, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { logAudit } from "@/lib/audit";
+import { AUTOMATION_DEFS, ensureAutomationTemplates, isAutomationEnabled } from "@/lib/automation-registry";
 
 const DAY = 86400_000;
 
-// ─── Registry ─────────────────────────────────────────────────────────────────
-// Single source of truth for the predefined automation templates. The display
-// metadata (trigger/actions) powers the /automations UI; caseType drives the
-// engine. Adding an entry here surfaces it everywhere once ensureAutomationTemplates
-// runs and a matching handler is wired into runAutomations.
-
-export interface AutomationDef {
-  key: string;
-  name: string;
-  description: string;
-  /** Human-readable trigger line for the UI. */
-  trigger: string;
-  /** Action checklist shown on the card. */
-  actions: string[];
-  caseType: CaseType;
-}
-
-export const AUTOMATION_DEFS: AutomationDef[] = [
-  {
-    key: "LEASE_RENEWAL_90D",
-    name: "Lease Renewal",
-    description: "Automatically create a renewal case 90 days before lease expiry.",
-    trigger: "90 days before lease expiry",
-    actions: ["Create Case", "Notify Manager", "Add Inbox Item"],
-    caseType: "LEASE_RENEWAL",
-  },
-  {
-    key: "ARREARS_7D",
-    name: "Arrears",
-    description: "Automatically create an arrears case after rent is 7 days overdue.",
-    trigger: "7 days after rent overdue",
-    actions: ["Create Case", "Notify Manager", "Add Inbox Item"],
-    caseType: "ARREARS",
-  },
-  {
-    key: "COMPLIANCE_30D",
-    name: "Compliance",
-    description: "Automatically create a compliance case 30 days before certificate expiry.",
-    trigger: "30 days before certificate expiry",
-    actions: ["Create Case", "Notify Manager", "Add Inbox Item"],
-    caseType: "COMPLIANCE",
-  },
-  {
-    key: "INSURANCE_30D",
-    name: "Insurance",
-    description: "Automatically create an insurance renewal case 30 days before policy expiry.",
-    trigger: "30 days before policy expiry",
-    actions: ["Create Case", "Notify Manager", "Add Inbox Item"],
-    // No INSURANCE case type — insurance renewals run on the COMPLIANCE workflow.
-    caseType: "COMPLIANCE",
-  },
-  {
-    key: "URGENT_MAINTENANCE",
-    name: "Urgent Maintenance",
-    description: "Automatically assign a manager and start the SLA clock on urgent maintenance.",
-    trigger: "Urgent maintenance job stays open",
-    actions: ["Create Case", "Assign Manager", "Start SLA"],
-    caseType: "MAINTENANCE",
-  },
-];
-
-const DEF_BY_KEY = new Map(AUTOMATION_DEFS.map((d) => [d.key, d]));
-
-/**
- * Ensure the 5 predefined templates exist for an org. Create-only on the
- * descriptive fields so a user's `enabled` choice is never clobbered. Lazy —
- * called from the GET route and the cron, so existing orgs get rows on first touch.
- */
-export async function ensureAutomationTemplates(organizationId: string): Promise<void> {
-  for (const def of AUTOMATION_DEFS) {
-    await prisma.automationTemplate.upsert({
-      where: { organizationId_key: { organizationId, key: def.key } },
-      create: {
-        organizationId,
-        key: def.key,
-        name: def.name,
-        description: def.description,
-        enabled: false,
-      },
-      // Refresh name/description only (keep user's enabled choice).
-      update: { name: def.name, description: def.description },
-    });
-  }
-}
+// WORKFLOW automations only — the keys this engine has handlers for. The shared
+// registry (automation-registry.ts) also holds NOTIFICATION + REMINDER toggles,
+// which gate the cron checkers rather than create cases here.
+const WORKFLOW_KEYS = AUTOMATION_DEFS.filter((d) => d.category === "WORKFLOW").map((d) => d.key);
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -455,7 +376,7 @@ const HANDLERS: Record<string, (organizationId: string) => Promise<HandlerResult
 
 export async function runAutomations(): Promise<Record<string, HandlerResult>> {
   const totals: Record<string, HandlerResult> = {};
-  for (const def of AUTOMATION_DEFS) totals[def.key] = { created: 0, skipped: 0 };
+  for (const key of WORKFLOW_KEYS) totals[key] = { created: 0, skipped: 0 };
 
   const orgs = await prisma.organization.findMany({
     where: { isActive: true },
@@ -471,13 +392,13 @@ export async function runAutomations(): Promise<Record<string, HandlerResult>> {
     }
 
     const enabled = await prisma.automationTemplate.findMany({
-      where: { organizationId: org.id, enabled: true },
+      where: { organizationId: org.id, enabled: true, key: { in: WORKFLOW_KEYS } },
       select: { key: true },
     });
 
     for (const tpl of enabled) {
       const handler = HANDLERS[tpl.key];
-      if (!handler || !DEF_BY_KEY.has(tpl.key)) continue;
+      if (!handler) continue;
       try {
         const res = await handler(org.id);
         totals[tpl.key].created += res.created;

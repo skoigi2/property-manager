@@ -1,6 +1,6 @@
 import { requireManager } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { AUTOMATION_DEFS, ensureAutomationTemplates } from "@/lib/automations";
+import { AUTOMATION_DEFS, DEF_BY_KEY, ensureAutomationTemplates } from "@/lib/automation-registry";
 
 // GET /api/automations — list this org's automation templates merged with the
 // static display metadata (trigger / actions) from the registry.
@@ -18,11 +18,14 @@ export async function GET() {
     orderBy: { key: "asc" },
   });
 
-  const byKey = new Map(AUTOMATION_DEFS.map((d) => [d.key, d]));
+  // Order by the registry's declared order (workflows, then notifications, then
+  // reminders), not alphabetically.
+  const order = new Map(AUTOMATION_DEFS.map((d, i) => [d.key, i]));
   const automations = templates
-    .filter((t) => byKey.has(t.key))
+    .filter((t) => DEF_BY_KEY.has(t.key))
+    .sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
     .map((t) => {
-      const def = byKey.get(t.key)!;
+      const def = DEF_BY_KEY.get(t.key)!;
       return {
         id: t.id,
         key: t.key,
@@ -31,6 +34,7 @@ export async function GET() {
         enabled: t.enabled,
         trigger: def.trigger,
         actions: def.actions,
+        category: def.category,
       };
     });
 

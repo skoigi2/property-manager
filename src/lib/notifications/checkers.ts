@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/date-utils";
 import { upsertHint } from "@/lib/hints";
 import { formatCurrency } from "@/lib/currency";
 import { buildForecast } from "@/lib/forecast-engine";
+import { isAutomationEnabled } from "@/lib/automation-registry";
 import {
   leaseExpiryTemplate,
   invoiceOverdueTemplate,
@@ -114,6 +115,9 @@ export async function checkLeaseExpiries(): Promise<{ sent: number; skipped: num
   for (const tenant of tenants) {
     if (!tenant.leaseEnd || !tenant.unit?.property?.organizationId) continue;
 
+    const orgId = tenant.unit.property.organizationId;
+    if (!(await isAutomationEnabled(orgId, "NOTIFY_LEASE_EXPIRY"))) { skipped++; continue; }
+
     const days = differenceInDays(tenant.leaseEnd, today);
     const is7D = days <= 7;
     const type: NotificationType = is7D ? "LEASE_EXPIRY_7D" : "LEASE_EXPIRY_30D";
@@ -121,7 +125,6 @@ export async function checkLeaseExpiries(): Promise<{ sent: number; skipped: num
 
     if (await wasRecentlySent(type, tenant.id, dedupDays)) { skipped++; continue; }
 
-    const orgId = tenant.unit.property.organizationId;
     const managers = await getPropertyManagers(tenant.unit.propertyId, orgId);
     if (managers.length === 0) { skipped++; continue; }
 
@@ -187,10 +190,12 @@ export async function checkOverdueInvoices(): Promise<{ sent: number; skipped: n
   for (const invoice of invoices) {
     if (!invoice.tenant?.unit?.property?.organizationId) continue;
 
+    const orgId = invoice.tenant.unit.property.organizationId;
+    if (!(await isAutomationEnabled(orgId, "NOTIFY_INVOICE_OVERDUE"))) { skipped++; continue; }
+
     const type: NotificationType = "INVOICE_OVERDUE";
     if (await wasRecentlySent(type, invoice.id, 7)) { skipped++; continue; }
 
-    const orgId = invoice.tenant.unit.property.organizationId;
     const managers = await getPropertyManagers(invoice.tenant.unit.propertyId, orgId);
     if (managers.length === 0) { skipped++; continue; }
 
@@ -257,6 +262,7 @@ export async function checkComplianceCertificates(): Promise<{ sent: number; ski
 
   for (const cert of certs) {
     if (!cert.expiryDate || !cert.organizationId) continue;
+    if (!(await isAutomationEnabled(cert.organizationId, "NOTIFY_COMPLIANCE_EXPIRY"))) { skipped++; continue; }
 
     const days = differenceInDays(cert.expiryDate, today);
     const is7D = days <= 7;
@@ -317,6 +323,7 @@ export async function checkInsuranceRenewals(): Promise<{ sent: number; skipped:
   for (const policy of policies) {
     const orgId = policy.property.organizationId;
     if (!orgId) continue;
+    if (!(await isAutomationEnabled(orgId, "NOTIFY_INSURANCE_EXPIRY"))) { skipped++; continue; }
 
     const days = differenceInDays(policy.endDate, today);
     const is7D = days <= 7;
@@ -383,6 +390,7 @@ export async function checkUrgentMaintenance(): Promise<{ sent: number; skipped:
   for (const job of jobs) {
     const orgId = job.property.organizationId;
     if (!orgId) continue;
+    if (!(await isAutomationEnabled(orgId, "NOTIFY_URGENT_MAINTENANCE"))) { skipped++; continue; }
 
     const type: NotificationType = "MAINTENANCE_URGENT_OPEN";
     if (await wasRecentlySent(type, job.id, 1)) { skipped++; continue; }
@@ -444,6 +452,7 @@ export async function checkVacantUnits(): Promise<{ created: number }> {
   for (const u of units) {
     const orgId = u.property.organizationId;
     if (!orgId) continue;
+    if (!(await isAutomationEnabled(orgId, "REMINDER_VACANT_UNIT"))) continue;
     const days = u.vacantSince ? differenceInDays(new Date(), u.vacantSince) : 30;
     await upsertHint({
       organizationId: orgId,
@@ -482,6 +491,7 @@ export async function checkDepositNotSettled(): Promise<{ created: number }> {
   for (const t of tenants) {
     const orgId = t.unit.property.organizationId;
     if (!orgId) continue;
+    if (!(await isAutomationEnabled(orgId, "REMINDER_DEPOSIT_NOT_SETTLED"))) continue;
     const days = t.vacatedDate ? differenceInDays(new Date(), t.vacatedDate) : 14;
     await upsertHint({
       organizationId: orgId,
@@ -526,6 +536,7 @@ export async function checkRecurringExpensesDue(): Promise<{ created: number }> 
   for (const r of items) {
     const prop = r.property ?? r.unit?.property ?? null;
     if (!prop?.organizationId) continue;
+    if (!(await isAutomationEnabled(prop.organizationId, "REMINDER_RECURRING_EXPENSE_DUE"))) continue;
     const now = new Date();
     const year = r.nextDueDate.getFullYear();
     const month = r.nextDueDate.getMonth() + 1;
@@ -567,6 +578,7 @@ export async function checkLowPettyCash(): Promise<{ created: number }> {
 
   let created = 0;
   for (const org of orgs) {
+    if (!(await isAutomationEnabled(org.id, "REMINDER_LOW_PETTY_CASH"))) continue;
     for (const p of org.properties) {
       const entries = await prisma.pettyCash.findMany({
         where: { propertyId: p.id, status: "APPROVED" },
@@ -611,6 +623,7 @@ export async function checkNegativeCashflowForecast(): Promise<{ created: number
   const negativeIds: string[] = [];
   for (const p of props) {
     if (!p.organizationId) continue;
+    if (!(await isAutomationEnabled(p.organizationId, "REMINDER_NEGATIVE_CASHFLOW"))) continue;
     try {
       const [tenants, recurring, insurance, agreementsRow, schedules, certs] = await Promise.all([
         prisma.tenant.findMany({ where: { unit: { propertyId: p.id } }, include: { unit: { include: { property: { select: { name: true } } } } } }),
@@ -678,6 +691,7 @@ export async function checkCaseSlaBreaches(): Promise<{ created: number }> {
   const now = Date.now();
   for (const c of cases) {
     if (!c.stageStartedAt) continue;
+    if (!(await isAutomationEnabled(c.organizationId, "REMINDER_SLA_BREACH"))) continue;
     const wf = getWorkflow(c.caseType);
     const stage = getStageByIndex(wf, c.currentStageIndex);
     if (!stage) continue;

@@ -366,6 +366,10 @@ export default function ExpensesPage() {
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  // "Delete all" (every month) for the current property scope
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
+  const [deleteAllCount, setDeleteAllCount] = useState<number | null>(null);
+  const [deleteAllSubmitting, setDeleteAllSubmitting] = useState(false);
 
   // Sort
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -645,6 +649,43 @@ export default function ExpensesPage() {
       toast.success(action === "delete" ? "Entries deleted" : "Entries updated");
     } catch { toast.error("Bulk action failed"); }
     finally { setBulkSubmitting(false); }
+  }
+
+  // Open the "delete all" confirm — fetch the across-all-months count first so
+  // the dialog can state exactly how many entries will be removed.
+  async function openDeleteAll() {
+    setDeleteAllCount(null);
+    setDeleteAllConfirm(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedId) params.set("propertyId", selectedId);
+      const all = await fetch(`/api/expenses?${params}`).then((r) => r.json());
+      setDeleteAllCount(Array.isArray(all) ? all.length : 0);
+    } catch { setDeleteAllCount(null); }
+  }
+
+  async function deleteAllExpenses() {
+    setDeleteAllSubmitting(true);
+    try {
+      const res = await fetch("/api/expenses/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_all", ...(selectedId ? { propertyId: selectedId } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error();
+      setDeleteAllConfirm(false);
+      setSelectedIds(new Set());
+      // Reload the current month's view
+      setLoading(true);
+      const reloadParams = new URLSearchParams({ year: String(month.getFullYear()), month: String(month.getMonth() + 1) });
+      if (selectedId) reloadParams.set("propertyId", selectedId);
+      const updated = await fetch(`/api/expenses?${reloadParams}`).then((r) => r.json());
+      setEntries(updated);
+      setLoading(false);
+      toast.success(`Deleted ${data.count} expense${data.count === 1 ? "" : "s"}`);
+    } catch { toast.error("Delete all failed"); }
+    finally { setDeleteAllSubmitting(false); }
   }
 
   const totalOp = entries.filter((e: any) => !e.isSunkCost).reduce((s: number, e: any) => s + e.amount, 0);
@@ -1051,6 +1092,13 @@ export default function ExpensesPage() {
                 <FileDown size={13} /> Export
               </button>
             )}
+            <button
+              onClick={openDeleteAll}
+              title={`Delete every expense for ${selected?.name ?? "all properties"} across all months`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-expense border border-expense/30 rounded-lg hover:bg-expense/5 transition-colors"
+            >
+              <Trash2 size={13} /> Delete all
+            </button>
             <Button onClick={() => { if (showForm && !editEntry) { resetForm(); } else { resetForm(); setShowForm(true); } }} size="sm" variant="gold">
               <Plus size={15} /> Add Expense
             </Button>
@@ -1509,6 +1557,18 @@ export default function ExpensesPage() {
         title={`Delete ${selectedIds.size} expenses?`}
         message="These expense entries will be permanently deleted."
         loading={bulkSubmitting}
+      />
+      <ConfirmDialog
+        open={deleteAllConfirm}
+        onClose={() => setDeleteAllConfirm(false)}
+        onConfirm={deleteAllExpenses}
+        title={`Delete all expenses for ${selected?.name ?? "all properties"}?`}
+        message={
+          `This permanently deletes ${deleteAllCount === null ? "every" : deleteAllCount} expense${deleteAllCount === 1 ? "" : "s"} for ` +
+          `${selected?.name ?? "every property you can access"} across ALL months — not just the one shown. This cannot be undone. ` +
+          `Note: petty-cash OUT entries created alongside these expenses are NOT reversed, so on a fresh re-upload set the Petty Cash column to No to avoid double-counting.`
+        }
+        loading={deleteAllSubmitting}
       />
     </div>
   );

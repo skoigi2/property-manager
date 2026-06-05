@@ -78,7 +78,7 @@ Middleware (`src/middleware.ts`) enforces:
 - OWNER role → `/report` only; accessing any manager-only route redirects back to `/report`
 - ADMIN / MANAGER / ACCOUNTANT → full access
 
-Manager-only routes (OWNER is blocked) per `src/middleware.ts`: `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/airbnb`, `/forecast`, `/vendors`. (Note: `/compliance`, `/asset-maintenance`, `/calendar`, `/billing`, `/upgrade` are reachable by all authenticated roles.)
+Manager-only routes (OWNER is blocked) per `src/middleware.ts`: `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/airbnb`, `/forecast`, `/vendors`, `/cases`, `/automations`. (Note: `/compliance`, `/asset-maintenance`, `/calendar`, `/billing`, `/upgrade` are reachable by all authenticated roles.)
 
 Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
@@ -396,13 +396,40 @@ The `StageTracker` UI renders BYPASSED cases with an amber "Bypassed at: *[stage
 
 Backfill: `npm run cases:backfill-terminal-reasons` populates `terminalReason` for existing terminal cases without mutating `currentStageIndex`. Idempotent (skips rows where `terminalReason IS NOT NULL`). Writes a per-run report to `scripts/backfill-output-<timestamp>.md`.
 
+### Automations (toggleable workflows + alert/reminder gating)
+
+`/automations` (`src/app/(dashboard)/automations/page.tsx`, manager-only) is the single control surface for **everything the app does automatically on the daily cron** — workflow automations that open Cases, the email alerts managers receive, and the proactive Inbox reminders. It is **not** a custom workflow builder; it's a fixed registry of predefined templates an org can toggle on/off.
+
+**Registry** — `src/lib/automation-registry.ts` is the single source of truth (`AUTOMATION_DEFS`). Three `AutomationCategory` values:
+- `WORKFLOW` (default **off**, opt-in) — auto-creates a `CaseThread` when the condition fires: `LEASE_RENEWAL_90D`, `ARREARS_7D`, `COMPLIANCE_30D`, `INSURANCE_30D` (→ COMPLIANCE workflow; there is no INSURANCE case type), `URGENT_MAINTENANCE` (assigns a manager + starts SLA on the already-auto-created maintenance case).
+- `NOTIFICATION` (default **on**) — the 5 long-standing manager email alerts (lease/invoice/compliance/insurance/urgent-maintenance). Toggling off silences that email org-wide.
+- `REMINDER` (default **on**) — the 6 hint-only Inbox nudges (vacant unit, deposit unsettled, recurring-expense due, low petty cash, negative cashflow, case SLA breach).
+
+**Models** (all additive; see migrations `20260531120000_add_automations`, `20260601120000_automation_property_overrides`, `20260601140000_notification_preferences`):
+- `AutomationTemplate (organizationId, key, enabled, …)` — per-org toggle, unique on `(organizationId, key)`. Self-seeds lazily via `ensureAutomationTemplates(orgId)` (called from the GET route and the cron), so no data migration is needed for existing orgs.
+- `AutomationExecution (automationKey, subjectId)` — write-once dedup ledger, unique on `(automationKey, subjectId)`. Workflow automations also guard against an already-open case of the same `(caseType, subjectId)`.
+- `AutomationPropertyOverride (automationKey, propertyId, enabled)` — optional per-property override; **wins over the org toggle** when present, absence = inherit. Unique on `(automationKey, propertyId)`.
+- `NotificationPreference (userId, category, emailEnabled)` — per-user email opt-out, sparse (row exists only when changed), unique on `(userId, category)`. Categories `NOTIFICATION` | `WORKFLOW` only (reminders are never emailed). Default = opted-in.
+
+**The gate** — `isAutomationEnabled(orgId, key, propertyId?)` checks a per-property override first, then the org toggle, falling back to the registry `defaultEnabled`. `wantsEmail(userId, category)` checks the user's preference (default true; `userId === null` = the org-email fallback recipient, always receives). Both use a per-run cache cleared by `resetAutomationCache()` at the **top of every cron run** so a warm serverless instance never serves a stale toggle. The 11 cron checkers each early-exit per item via `isAutomationEnabled(orgId, "<KEY>", propertyId)`; the two per-recipient send loops (`sendToManagers` in checkers.ts → NOTIFICATION; the workflow case-email loops in `src/lib/automations.ts` → WORKFLOW) skip recipients who opted out.
+
+**Engine** — `runAutomations()` in `src/lib/automations.ts` is added to the cron's `Promise.allSettled([...])` (surfaced as `automations` in the summary). For each active org it runs a workflow when the org toggle is on **or any property override enables it**, then `createCaseFromAutomation()` re-checks per property, dedupes, creates the `CaseThread` + initial `CaseEvent` (`actorName: "system"`), records the `AutomationExecution`, notifies managers, and `logAudit`s (`userId: "system"` — `AuditLog.userId` is a plain string, not a FK).
+
+**Recipients** — `getPropertyManagers(propertyId, orgId)` returns `{ userId, email, name }[]` = org-admins + managers with `PropertyAccess`, **falling back to the org's contact email** (`Organization.email`, `userId: null`) when no manager is found, so alerts are never silently dropped. `GET /api/automations` also resolves and returns the per-property recipient list for the UI's "Notifies N recipients" / "no recipients" display.
+
+**API**: `GET /api/automations` (templates + display metadata + org properties + overrides + resolved recipients), `PATCH /api/automations/[id]` (org toggle), `PUT /api/automations/[id]/overrides` (`{ propertyId, enabled }`; `enabled: null` clears → inherit; guarded by `requirePropertyAccess`), `GET`/`PUT /api/notification-preferences` (self-only).
+
+**UI**: the `/automations` page groups cards into Workflow / Email notifications / Smart reminders, with a **grid/table view toggle** (persisted to `localStorage`), a "Customise per property" expander (Inherit/On/Off segmented control per property), and per-automation recipient lines. Per-user email opt-outs live on a **dedicated `/settings/notifications` page** (`NotificationPrefsPanel`, in the Settings sidebar group + mobile nav) — *not* a tab inside General settings.
+
+**Adding a new automation**: add a def to `AUTOMATION_DEFS`; for a NOTIFICATION/REMINDER, gate the matching checker with `isAutomationEnabled`; for a WORKFLOW, add a handler in `automations.ts` + wire it into `HANDLERS`/`runAutomations`.
+
 ### Smart Reminders (ActionableHints)
 
-The cron at `GET /api/cron/notifications` does two things per run: (1) sends emails through the existing dedup-gated path (`NotificationLog`), and (2) **upserts an `ActionableHint` row** keyed by `(hintType, refId)` so the cron is fully idempotent and the same hint surfaces every run until the underlying condition clears.
+The cron at `GET /api/cron/notifications` does two things per run: (1) sends emails through the existing dedup-gated path (`NotificationLog`), and (2) **upserts an `ActionableHint` row** keyed by `(hintType, refId)` so the cron is fully idempotent and the same hint surfaces every run until the underlying condition clears. **Every checker is gated by an Automations toggle** (see the Automations section) — disabling a notification/reminder for an org (or a specific property) makes the corresponding checker skip it.
 
 **HintTypes** (`HintType` enum):
 - Existing email-paired: `INVOICE_OVERDUE`, `LEASE_EXPIRY_30D`, `LEASE_EXPIRY_7D`, `URGENT_OPEN_4H`, `COMPLIANCE_EXPIRY_*`, `INSURANCE_EXPIRY_*`
-- New hint-only: `VACANT_OVER_30D`, `DEPOSIT_NOT_SETTLED`, `RECURRING_EXPENSE_DUE`, `LOW_PETTY_CASH`, `NEGATIVE_CASHFLOW_FORECAST` (and reserved: `RENT_INCREASE_DUE`, `INSPECTION_OVERDUE`)
+- New hint-only: `VACANT_OVER_30D`, `DEPOSIT_NOT_SETTLED`, `RECURRING_EXPENSE_DUE`, `LOW_PETTY_CASH`, `NEGATIVE_CASHFLOW_FORECAST`, `SLA_BREACH` (and reserved: `RENT_INCREASE_DUE`, `INSPECTION_OVERDUE`)
 
 **Status transitions**: `ACTIVE → ACTED_ON | DISMISSED | EXPIRED`. Dismissed hints auto-expire after 30 days (the cron itself runs the cleanup).
 
@@ -602,16 +629,20 @@ CRON_SECRET                   # Random secret that Vercel sends as Bearer token 
 
 `GET /api/cron/notifications` — runs daily at 07:00 UTC via Vercel Cron (configured in `vercel.json`). Secured by `Authorization: Bearer ${CRON_SECRET}`.
 
-Checks and emails all ADMIN + MANAGER users with property access when:
+Checks and emails ADMIN + MANAGER users with property access (falling back to the org's contact email when a property has no manager — see `getPropertyManagers`) when:
 - A tenant lease expires in ≤30 days (`LEASE_EXPIRY_30D`) or ≤7 days (`LEASE_EXPIRY_7D`)
 - An invoice is unpaid and >7 days overdue (`INVOICE_OVERDUE`)
 - A compliance certificate expires in ≤30 days or ≤7 days
 - An insurance policy ends in ≤30 days or ≤7 days
 - An URGENT maintenance job is still OPEN after 4+ hours
 
+It also runs the smart-reminder checkers and `runAutomations()` (see the Automations section) in the same `Promise.allSettled` batch.
+
+**Gating**: every checker early-exits per item via `isAutomationEnabled(orgId, "<KEY>", propertyId)` (org toggle, with per-property override), and each per-recipient send is filtered by `wantsEmail(userId, category)` (per-user opt-out). `resetAutomationCache()` runs at the top of the handler.
+
 Deduplication: `NotificationLog` table stores every sent notification; each checker queries this before sending to prevent repeated alerts within the dedup window.
 
-Source files: `src/lib/notifications/checkers.ts`, `src/lib/notifications/email-templates.ts`
+Source files: `src/lib/notifications/checkers.ts`, `src/lib/notifications/email-templates.ts`, `src/lib/automations.ts`, `src/lib/automation-registry.ts`
 
 To test locally:
 ```bash

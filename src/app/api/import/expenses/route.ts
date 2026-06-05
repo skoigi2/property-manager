@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 export const maxDuration = 60;
 
 interface ExpenseRow {
+  id?: string;
   date?: string;
   category?: string;
   description?: string;
@@ -95,6 +96,12 @@ export async function POST(req: Request) {
       })
     : [];
 
+  // Accessible expense IDs — the authoritative match key when a row carries an
+  // ID (from "Export existing"). Updating by ID lets the user change ANY field
+  // (amount, date, category, description) without creating a duplicate, which
+  // the content-fingerprint match below cannot do.
+  const existingIds = new Set(existing.map((e) => e.id));
+
   const existingByFp = new Map<string, string>();
   for (const e of existing) {
     existingByFp.set(
@@ -120,6 +127,7 @@ export async function POST(req: Request) {
   const pettyData: any[] = [];
   const updateOps: { id: string; data: Record<string, unknown> }[] = [];
   const queuedFps = new Set<string>(); // dedupe within this file
+  const updatedIds = new Set<string>(); // dedupe ID-matched rows within this file
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -197,6 +205,45 @@ export async function POST(req: Request) {
       else errors.push({ row: rowNum, reason: `Vendor "${vendorName}" not found — imported without vendor link` });
     }
 
+    // Full-field payload shared by ID-match update and create.
+    const fields = {
+      date,
+      category,
+      description: description || null,
+      scope,
+      propertyId: resolvedPropertyId || null,
+      unitId: resolvedUnitId || null,
+      amount,
+      amountPaid,
+      dueDate,
+      vatAmount,
+      paymentMethod,
+      paymentReference,
+      paymentDate,
+      notes,
+      vendorId: resolvedVendorId,
+      isSunkCost,
+      paidFromPettyCash,
+    };
+
+    // ── ID match (upsert only) — the row was produced by "Export existing".
+    // This wins over the fingerprint and updates every field in place.
+    const idRaw = row.id?.trim();
+    if (mode === "upsert" && idRaw) {
+      if (existingIds.has(idRaw)) {
+        if (!updatedIds.has(idRaw)) {
+          updatedIds.add(idRaw);
+          updateOps.push({ id: idRaw, data: fields });
+        } else {
+          skipped++; // same ID twice in one file
+        }
+        continue;
+      }
+      // ID present but not an accessible expense (deleted / wrong org) — fall
+      // through and create it as new, with a warning so it isn't silent.
+      errors.push({ row: rowNum, reason: `ID "${idRaw}" not found — imported as a new expense` });
+    }
+
     const fp = fingerprint({
       dateOnly,
       category,
@@ -219,25 +266,7 @@ export async function POST(req: Request) {
     }
     queuedFps.add(fp);
 
-    createData.push({
-      date,
-      category,
-      description: description || null,
-      scope,
-      propertyId: resolvedPropertyId || null,
-      unitId: resolvedUnitId || null,
-      amount,
-      amountPaid,
-      dueDate,
-      vatAmount,
-      paymentMethod,
-      paymentReference,
-      paymentDate,
-      notes,
-      vendorId: resolvedVendorId,
-      isSunkCost,
-      paidFromPettyCash,
-    });
+    createData.push(fields);
 
     if (paidFromPettyCash) {
       let pettyCashPropertyId: string | null = resolvedPropertyId ?? null;

@@ -36,6 +36,7 @@ import {
   downloadMaintenanceTemplate,
   downloadVendorsTemplate,
   downloadRentHistoryTemplate,
+  downloadRowsAsWorkbook,
 } from "@/lib/import-templates";
 import { ImportHandoverModal } from "@/components/import/ImportHandoverModal";
 import { PackageOpen } from "lucide-react";
@@ -119,6 +120,7 @@ const EXPENSE_COLS = [
   "Payment Reference",
   "Payment Date",
   "Notes",
+  "ID",
 ];
 
 const PC_COLS = ["Date", "Type", "Description", "Amount", "Property Name", "Receipt Ref"];
@@ -519,7 +521,29 @@ function mapExpenseRowToApi(row: Record<string, string>) {
     paymentReference: row["Payment Reference"],
     paymentDate:      row["Payment Date"],
     notes:            row["Notes"],
+    id:               row["ID"],
   };
+}
+
+/**
+ * Download every accessible expense pre-filled into the import template
+ * (with the ID column populated). Editing this file and re-uploading it with
+ * "Update existing records" on updates rows by ID — no duplicates.
+ */
+async function exportExistingExpenses() {
+  const res = await fetch("/api/import/expenses/export");
+  if (!res.ok) {
+    alert("Could not export existing expenses. Please try again.");
+    return;
+  }
+  const data = await res.json();
+  const rows: Record<string, string | number>[] = data.rows ?? [];
+  if (rows.length === 0) {
+    alert("There are no existing expenses to export yet.");
+    return;
+  }
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadRowsAsWorkbook(EXPENSE_COLS, rows, `expenses-export-${stamp}.xlsx`);
 }
 
 function mapRecurringRowToApi(row: Record<string, string>) {
@@ -605,6 +629,12 @@ interface ImportSectionProps {
   mapRowToApi: (row: Record<string, string>) => Record<string, string>;
   /** When true, render an "Update existing records" toggle that sends `mode: "upsert"`. */
   supportsUpsert?: boolean;
+  /**
+   * When provided, renders an "Export existing" button that downloads current
+   * records pre-filled into the import template (including a stable ID column),
+   * so a re-upload in upsert mode updates rows by ID with no duplicates.
+   */
+  onExportExisting?: () => Promise<void>;
 }
 
 function ImportSection({
@@ -617,6 +647,7 @@ function ImportSection({
   templateName,
   mapRowToApi,
   supportsUpsert = false,
+  onExportExisting,
 }: ImportSectionProps) {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
@@ -626,7 +657,18 @@ function ImportSection({
   const [serverErrorsExpanded, setServerErrorsExpanded] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [upsertMode, setUpsertMode] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportExisting = useCallback(async () => {
+    if (!onExportExisting) return;
+    setExporting(true);
+    try {
+      await onExportExisting();
+    } finally {
+      setExporting(false);
+    }
+  }, [onExportExisting]);
 
   const processFile = useCallback(
     async (file: File) => {
@@ -720,11 +762,42 @@ function ImportSection({
             </p>
             <p className="text-sm text-gray-500 font-sans mt-0.5">{description}</p>
           </div>
-          <Button variant="secondary" size="sm" onClick={onDownloadTemplate}>
-            <Download size={14} className="mr-1.5" />
-            Download {templateName} Template
-          </Button>
+          <div className="flex flex-col items-stretch gap-2 shrink-0">
+            <Button variant="secondary" size="sm" onClick={onDownloadTemplate}>
+              <Download size={14} className="mr-1.5" />
+              Download {templateName} Template
+            </Button>
+            {onExportExisting && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExportExisting}
+                disabled={exporting}
+                title="Download your existing records pre-filled into the template (with IDs) so you can edit and re-upload them as updates"
+              >
+                {exporting ? (
+                  <>
+                    <Spinner size="sm" className="mr-1.5" />
+                    Exporting…
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} className="mr-1.5" />
+                    Export existing
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
+        {onExportExisting && (
+          <p className="text-xs text-gray-400 font-sans mt-2 pl-11">
+            To <span className="font-medium">edit existing records</span>, click{" "}
+            <span className="font-medium">Export existing</span> to download them with their IDs,
+            change values in Excel, then re-upload with <span className="font-medium">Update existing records</span> ticked.
+            Rows are matched by ID, so nothing is duplicated.
+          </p>
+        )}
       </Card>
 
       {/* Step 2 — Upload */}
@@ -1087,7 +1160,7 @@ export default function ImportPage() {
         {tab === "expenses" && (
           <ImportSection
             title="Import Expenses"
-            description="Download the template, fill in expense records, then upload. Duplicate rows (same date, category, amount, property and description) are skipped. Vendor names are matched against existing vendor records. Optional columns capture VAT Amount and payment detail — Amount Paid, Due Date, Payment Method, Payment Reference, Payment Date and Notes — and populate outstanding balances. Toggle 'Update existing records' to refresh payment detail on a re-upload."
+            description="Download the template, fill in expense records, then upload. New rows that match an existing expense (same date, category, amount, property and description) are skipped. Vendor names are matched against existing vendor records. Optional columns capture VAT Amount and payment detail — Amount Paid, Due Date, Payment Method, Payment Reference, Payment Date and Notes — and populate outstanding balances. To change existing expenses (including amount, date or category), use 'Export existing' then re-upload with 'Update existing records' on — rows match by ID, never duplicate."
             cols={EXPENSE_COLS}
             validate={validateExpenseRow}
             apiPath="/api/import/expenses"
@@ -1095,6 +1168,7 @@ export default function ImportPage() {
             templateName="Expenses"
             mapRowToApi={mapExpenseRowToApi}
             supportsUpsert
+            onExportExisting={exportExistingExpenses}
           />
         )}
 

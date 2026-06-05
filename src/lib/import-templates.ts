@@ -197,12 +197,13 @@ export function downloadExpensesTemplate() {
     { header: "Payment Reference", required: false, width: 20 },
     { header: "Payment Date",      required: false, width: 14 },
     { header: "Notes",             required: false, width: 28 },
+    { header: "ID",                required: false, width: 26 },
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["2026-01-08", "SECURITY",     4500,   "PROPERTY",  "Monthly guard service", "Riara One", "",   "No", "No",  "ABC Security", 4500, "",           720,   "MPESA",  "QGH7X2P1", "2026-01-08", "Paid in full"],
-    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05", 1920,  "",       "",         "",           "Awaiting funds"],
-    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01", 40000, "CHEQUE", "001234",   "2026-01-25", "Owner paid deposit only"],
+    ["2026-01-08", "SECURITY",     4500,   "PROPERTY",  "Monthly guard service", "Riara One", "",   "No", "No",  "ABC Security", 4500, "",           720,   "MPESA",  "QGH7X2P1", "2026-01-08", "Paid in full", ""],
+    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05", 1920,  "",       "",         "",           "Awaiting funds", ""],
+    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01", 40000, "CHEQUE", "001234",   "2026-01-25", "Owner paid deposit only", ""],
   ];
 
   const instructions: (string | number)[][] = [
@@ -223,9 +224,32 @@ export function downloadExpensesTemplate() {
     ["Payment Reference", "No", "Text",              "Cheque number, M-Pesa code, or bank reference"],
     ["Payment Date",      "No", "YYYY-MM-DD",        "The date payment was actually made (may differ from the invoice date)"],
     ["Notes",             "No", "Text",              "Internal comments — not shown to owners or tenants"],
+    ["ID",                "No", "Text (system-generated)", "LEAVE BLANK for new expenses. Auto-filled by 'Export existing expenses' — when present and 'Update existing records' is on, the row updates the matching expense (every field) instead of creating a duplicate. Do not edit or invent this value."],
   ];
 
   buildTemplate({ cols, sampleRows, instructions, filename: "import-template-expenses.xlsx" });
+}
+
+/**
+ * Write an arbitrary set of rows (keyed by column header) to a single-sheet
+ * xlsx using the given column order, then trigger a download. Used by the
+ * "Export existing expenses" round-trip so the re-uploaded file already
+ * carries each row's ID for lossless upsert matching.
+ */
+export function downloadRowsAsWorkbook(
+  columns: string[],
+  rows: Record<string, string | number>[],
+  filename: string,
+) {
+  const aoa: (string | number)[][] = [
+    columns,
+    ...rows.map((r) => columns.map((c) => r[c] ?? "")),
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = columns.map((c) => ({ wch: c === "ID" ? 26 : 18 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data");
+  XLSX.writeFile(wb, filename);
 }
 
 export function downloadRecurringExpensesTemplate() {

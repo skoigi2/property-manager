@@ -791,32 +791,26 @@ export async function checkOwnerMonthlyReports(): Promise<{ sent: number; skippe
     const resourceId = `${property.id}:${periodKey}`;
     if (await wasRecentlySent("OWNER_MONTHLY_REPORT", resourceId, 25)) { skipped++; continue; }
 
-    // Period aggregates — mirrors the dashboard rules: deposits excluded from
-    // gross income, sunk costs excluded from operating expenses.
-    const [incomeAgg, expenseAgg] = await Promise.all([
-      prisma.incomeEntry.aggregate({
-        where: {
-          unit: { propertyId: property.id },
-          type: { not: "DEPOSIT" },
-          date: { gte: periodStart, lte: periodEnd },
-        },
-        _sum: { grossAmount: true, agentCommission: true },
-      }),
-      prisma.expenseEntry.aggregate({
-        where: {
-          OR: [{ propertyId: property.id }, { unit: { propertyId: property.id } }],
-          isSunkCost: false,
-          date: { gte: periodStart, lte: periodEnd },
-        },
-        _sum: { amount: true },
-      }),
-    ]);
-
-    const grossIncome = incomeAgg._sum.grossAmount ?? 0;
-    const commissions = incomeAgg._sum.agentCommission ?? 0;
-    const expenses    = expenseAgg._sum.amount ?? 0;
-    const netProfit   = grossIncome - commissions - expenses;
+    // Full per-unit statement — the same builder behind the owner /report page,
+    // so the email, the PDF attachment, and the in-app view always agree.
+    const { buildOwnerStatements } = await import("@/lib/owner-statement");
+    const [statement] = await buildOwnerStatements(
+      [property.id],
+      periodStart.getFullYear(),
+      periodStart.getMonth() + 1,
+    );
+    if (!statement) { skipped++; continue; }
     const occupiedUnits = property.units.filter((u) => u.status !== "VACANT").length;
+
+    // PDF attachment is best-effort — a render failure must not block the email.
+    let attachments: { filename: string; content: Buffer }[] | undefined;
+    try {
+      const { generateOwnerStatementPdf } = await import("@/lib/owner-statement-pdf");
+      const pdf = await generateOwnerStatementPdf(statement);
+      attachments = [{ filename: `Owner Statement - ${property.name} - ${periodLabel}.pdf`, content: pdf }];
+    } catch (pdfErr) {
+      console.error(`[notifications] owner statement PDF failed for ${property.id}:`, pdfErr);
+    }
 
     const ownerRecipient =
       property.owner?.isActive && property.owner.email
@@ -826,10 +820,10 @@ export async function checkOwnerMonthlyReports(): Promise<{ sent: number; skippe
     const { subject, html } = ownerMonthlyReportTemplate({
       propertyName:      property.name,
       periodLabel,
-      grossIncome:       formatCurrency(grossIncome, property.currency),
-      commissions:       formatCurrency(commissions, property.currency),
-      operatingExpenses: formatCurrency(expenses, property.currency),
-      netProfit:         formatCurrency(netProfit, property.currency),
+      grossIncome:       formatCurrency(statement.grossIncome, property.currency),
+      commissions:       formatCurrency(statement.managementFee, property.currency),
+      operatingExpenses: formatCurrency(statement.totalExpenses, property.currency),
+      netProfit:         formatCurrency(statement.netPayable, property.currency),
       occupiedUnits,
       totalUnits:        property.units.length,
       isFallbackToManager: !ownerRecipient,
@@ -838,7 +832,7 @@ export async function checkOwnerMonthlyReports(): Promise<{ sent: number; skippe
     if (ownerRecipient) {
       if (!(await wantsEmail(ownerRecipient.userId, "NOTIFICATION"))) { skipped++; continue; }
       try {
-        await sendNotificationEmail(ownerRecipient.email, subject, html);
+        await sendNotificationEmail(ownerRecipient.email, subject, html, { organizationId: orgId, attachments });
         await recordSent(orgId, "OWNER_MONTHLY_REPORT", resourceId, "Property", ownerRecipient.email, subject);
         sent++;
       } catch {

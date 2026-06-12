@@ -1,6 +1,7 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
+import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
@@ -148,6 +149,17 @@ export async function POST(req: Request) {
       // Case creation is best-effort — backfill script will reconcile.
     }
   }
+
+  // Public-API webhooks — fire-and-forget
+  void dispatchWebhookEvent(job.property.organizationId, "maintenance.created", {
+    jobId: job.id,
+    title: job.title,
+    priority: job.priority,
+    status: job.status,
+    propertyId: job.property.id,
+    propertyName: job.property.name,
+    submittedViaPortal: (job as { submittedViaPortal?: boolean }).submittedViaPortal ?? false,
+  });
 
   return Response.json(job, { status: 201 });
 }

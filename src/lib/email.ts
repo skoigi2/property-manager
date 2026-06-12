@@ -48,6 +48,8 @@ interface SendAndLogArgs {
   userId?: string | null;
   inReplyToId?: string | null;
   caseThreadId?: string | null;
+  /** Optional file attachments (e.g. owner statement PDFs). Not persisted to EmailLog. */
+  attachments?: { filename: string; content: Buffer }[];
 }
 
 function stripHtml(html: string): string {
@@ -70,6 +72,7 @@ export async function sendAndLog(args: SendAndLogArgs): Promise<{ id: string; re
       subject: args.subject,
       html: args.html,
       ...(replyTo ? { replyTo } : {}),
+      ...(args.attachments?.length ? { attachments: args.attachments } : {}),
     });
     resendId = (res as any)?.data?.id ?? (res as any)?.id ?? null;
     if ((res as any)?.error) {
@@ -174,7 +177,12 @@ export async function sendNotificationEmail(
   to: string,
   subject: string,
   html: string,
-  meta?: { organizationId?: string | null; userId?: string | null; caseThreadId?: string | null },
+  meta?: {
+    organizationId?: string | null;
+    userId?: string | null;
+    caseThreadId?: string | null;
+    attachments?: { filename: string; content: Buffer }[];
+  },
 ): Promise<void> {
   await sendAndLog({
     kind: "NOTIFICATION",
@@ -184,6 +192,7 @@ export async function sendNotificationEmail(
     organizationId: meta?.organizationId ?? null,
     userId: meta?.userId ?? null,
     caseThreadId: meta?.caseThreadId ?? null,
+    attachments: meta?.attachments,
   });
 }
 

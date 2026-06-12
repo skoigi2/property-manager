@@ -99,7 +99,7 @@ const CAT_LABELS: Record<string, string> = {
 
 // ── Property Card ─────────────────────────────────────────────────────────────
 
-function PropertyCard({ stmt }: { stmt: OwnerStatement }) {
+function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: string; month: string }) {
   const [expanded, setExpanded] = useState(false);
   const fmt = (n: number) => formatCurrency(n, stmt.currency);
   const collectionRate = stmt.lines.reduce((s, l) => s + l.rentExpected, 0) > 0
@@ -140,6 +140,12 @@ function PropertyCard({ stmt }: { stmt: OwnerStatement }) {
             size="xl"
             className={stmt.netPayable >= 0 ? "text-income font-semibold" : "text-expense font-semibold"}
           />
+          <a
+            href={`/api/report/owner-statement/pdf?propertyId=${stmt.propertyId}&year=${year}&month=${month}`}
+            className="inline-flex items-center gap-1.5 mt-2 text-xs font-sans font-medium text-gold hover:text-gold-dark transition-colors"
+          >
+            <Download size={12} /> Statement PDF
+          </a>
         </div>
       </div>
 
@@ -412,7 +418,7 @@ export function OwnerDashboard() {
                 Property Performance — {periodLabel}
               </h2>
               {statements.map((stmt) => (
-                <PropertyCard key={stmt.propertyId} stmt={stmt} />
+                <PropertyCard key={stmt.propertyId} stmt={stmt} year={year} month={month} />
               ))}
             </div>
           )}

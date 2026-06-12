@@ -12,6 +12,7 @@ export function LandingNav() {
   const links = [
     { label: "Features", href: "/#outcomes", anchor: true },
     { label: "Blog", href: "/blog" },
+    { label: "Examples", href: "/examples" },
     { label: "Pricing", href: "/pricing" },
     { label: "Contact", href: "/contact" },
     { label: "Sign in", href: "/login" },

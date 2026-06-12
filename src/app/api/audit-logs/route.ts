@@ -6,8 +6,9 @@ export async function GET(req: Request) {
   if (error) return error;
 
   const { searchParams } = new URL(req.url);
-  const resource = searchParams.get("resource");
-  const userId   = searchParams.get("userId");
+  const resource   = searchParams.get("resource");
+  const resourceId = searchParams.get("resourceId");
+  const userId     = searchParams.get("userId");
   const limit    = Math.min(parseInt(searchParams.get("limit") ?? "100"), 500);
   const offset   = parseInt(searchParams.get("offset") ?? "0");
 
@@ -16,8 +17,9 @@ export async function GET(req: Request) {
 
   const where = {
     ...orgFilter,
-    ...(resource ? { resource } : {}),
-    ...(userId   ? { userId }   : {}),
+    ...(resource   ? { resource }   : {}),
+    ...(resourceId ? { resourceId } : {}),
+    ...(userId     ? { userId }     : {}),
   };
 
   const [logs, total] = await Promise.all([

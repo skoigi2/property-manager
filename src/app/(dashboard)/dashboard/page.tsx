@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { SetupChecklist } from "@/components/dashboard/SetupChecklist";
+import { WelcomeTour } from "@/components/dashboard/WelcomeTour";
 import { RentStatusTable } from "@/components/dashboard/RentStatusTable";
 import { AlbaRevenueTable } from "@/components/dashboard/AlbaRevenueTable";
 import { Header } from "@/components/layout/Header";
@@ -152,6 +153,7 @@ export default function DashboardPage() {
       />
 
       <div className="page-container space-y-6">
+        {session?.user?.role !== "OWNER" && <WelcomeTour />}
         {selectedId && session?.user?.role !== "OWNER" && (
           <SetupChecklist propertyId={selectedId} />
         )}

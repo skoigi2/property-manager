@@ -32,6 +32,7 @@ import { calcExpensePayment } from "@/lib/calculations";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
+import { HistoryDrawer } from "@/components/ui/HistoryDrawer";
 
 // ─── Tax helpers (client-side, mirrors tax-engine pure functions) ─────────────
 
@@ -342,6 +343,7 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [showForm, setShowForm] = useState(false);
@@ -1448,6 +1450,9 @@ export default function ExpensesPage() {
                                   </span>
                                 )}
                               </button>
+                              <button onClick={() => setHistoryId(e.id)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Change history">
+                                <Clock size={14} />
+                              </button>
                               {canDelete && (
                               <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
                                 <Trash2 size={14} />
@@ -1551,6 +1556,15 @@ export default function ExpensesPage() {
           )}
         </Card>
       </div>
+
+      {historyId && (
+        <HistoryDrawer
+          resource="ExpenseEntry"
+          resourceId={historyId}
+          title="Expense history"
+          onClose={() => setHistoryId(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={!!deleteId}

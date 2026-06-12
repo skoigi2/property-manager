@@ -54,6 +54,8 @@ model Organization {
   caseThreads            CaseThread[]
   actionableHints        ActionableHint[]
   automationTemplates    AutomationTemplate[]
+  apiKeys                ApiKey[]
+  webhookEndpoints       WebhookEndpoint[]
   checkouts              CheckoutProcess[]
   conditionReports       ConditionReport[]
   createdAt              DateTime                     @default(now())
@@ -1883,4 +1885,41 @@ model ConditionReportPhoto {
   report      ConditionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@index([reportId])
+}
+
+// ─── Public API & Webhooks ─────────────────────────────────────────────────────
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  /// sha256 hex of the raw key — the raw value is shown once at creation
+  keyHash        String       @unique
+  /// display prefix, e.g. "gwpm_a1b2c3d4" so users can identify keys
+  keyPrefix      String
+  createdByEmail String?
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model WebhookEndpoint {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  url            String
+  /// HMAC-SHA256 signing secret — shown once at creation
+  secret         String
+  /// subscribed event names, e.g. ["invoice.paid"]
+  events         String[]
+  isActive       Boolean      @default(true)
+  lastSuccessAt  DateTime?
+  lastFailureAt  DateTime?
+  failureCount   Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
 }

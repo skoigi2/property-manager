@@ -4,6 +4,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
+import { dispatchWebhookEvent } from "@/lib/webhooks";
 
 const updateSchema = z.object({
   status: z.enum(["DRAFT","SENT","PENDING_VERIFICATION","PAID","OVERDUE","CANCELLED"]).optional(),
@@ -140,6 +141,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // Auto-advance the linked case to "Invoiced" on PAID transitions
   if (updated.status === "PAID" && (updated as { caseThreadId?: string | null }).caseThreadId) {
     await tryAutoAdvance((updated as { caseThreadId: string }).caseThreadId, { kind: "INVOICE_PAID" });
+  }
+
+  // Public-API webhooks — fire-and-forget after the transaction commits
+  if (updated.status === "PAID" && invoice!.status !== "PAID") {
+    void dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
+      invoiceId: updated.id,
+      invoiceNumber: updated.invoiceNumber,
+      totalAmount: updated.totalAmount,
+      paidAmount: updated.paidAmount,
+      paidAt: updated.paidAt,
+      tenantId: updated.tenantId,
+    });
   }
 
   return Response.json(updated);

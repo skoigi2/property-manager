@@ -155,6 +155,10 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 
 `GET /api/search?q=` (`requireManager`, min 2 chars) searches tenants, properties, invoices, vendors, cases, and maintenance jobs (5 per group), scoped by `getAccessiblePropertyIds()` + org for vendors. UI: `src/components/layout/GlobalSearch.tsx` — Cmd/Ctrl+K palette mounted in the dashboard layout (hidden for OWNER), with a Sidebar trigger that dispatches the `gw:open-global-search` window event.
 
+### Public API & Webhooks
+
+Org-scoped read-only public API under `/api/v1/` (`properties`, `tenants`, `invoices` — cursor-paginated), authenticated via `Authorization: Bearer gwpm_…`. Keys are sha256-hashed at rest (`ApiKey` model, raw value shown once); `authenticateApiKey()` in `src/lib/api-auth.ts`. Webhooks: `WebhookEndpoint` model + `dispatchWebhookEvent(orgId, event, data)` in `src/lib/webhooks.ts` (HMAC `X-GWPM-Signature`, fire-and-forget with `void`, failure counters). Events: `invoice.paid` (invoices PATCH), `maintenance.created` (maintenance POST) — extend `WEBHOOK_EVENTS` + add a dispatch call site. Management: `/api/api-keys`, `/api/webhook-endpoints` (admin-only) + `/settings/api` page (admin-only sidebar entry).
+
 ### Operational Inbox
 
 `/inbox` (`src/app/(dashboard)/inbox/`) is the prioritized action queue for managers — first item in both the desktop sidebar and the mobile bottom nav (`MobileNav.tsx`). OWNER role is blocked at the middleware (`managerOnlyPaths`) and falls through to `/report`.
@@ -306,7 +310,7 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 - `POST /api/tenants/[id]/settle-deposit` — records deposit settlement with itemised deductions (`DepositSettlement` model)
 - `GET /api/properties/[id]/reassign-preview?targetOrgId=` — dry-run org reassignment showing which users gain/lose membership (super-admin only)
 
-**Owner Statement** — `GET /api/report/owner-statement?propertyId=&year=&month=` returns a per-unit income breakdown for owner-facing reports. Used by the `/report` page (OWNER role).
+**Owner Statement** — logic lives in `src/lib/owner-statement.ts` (`buildOwnerStatements(propertyIds, year, month)`), shared by `GET /api/report/owner-statement` (the `/report` OwnerDashboard), `GET /api/report/owner-statement/pdf?propertyId=&year=&month=` (per-property PDF via `src/lib/owner-statement-pdf.tsx`, also linked from each PropertyCard), and the `OWNER_MONTHLY_REPORT` cron automation (which emails the same PDF as an attachment — `sendNotificationEmail` accepts `attachments`).
 
 **Compliance Certificates** — `ComplianceCertificate` model stores per-property compliance docs (types: free-text string, e.g. "Fire Safety", "Lift Inspection"). Status is computed at query time: `EXPIRED` (days < 0), `EXPIRING_SOON` (days ≤ 30), `VALID`, `ONGOING` (no `expiryDate`). API: `GET/POST /api/compliance/certificates`, `GET/PATCH/DELETE /api/compliance/certificates/[id]`. Page: `/compliance/certificates`.
 
@@ -316,7 +320,7 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Per-unit Management Fee Override** — `ManagementFeeConfig` model lets a unit deviate from the property-level fee (`ratePercent` or `flatAmount` with `effectiveFrom`). Read in `calculations.ts` ahead of the property defaults.
 
-**Audit Logs** — `AuditLog` rows are written by `src/lib/audit.ts` and exposed at `GET /api/audit-logs` (admin only). UI: `/settings/audit`.
+**Audit Logs** — `AuditLog` rows are written by `src/lib/audit.ts` and exposed at `GET /api/audit-logs` (requireManager, org-scoped; filters: `resource`, `resourceId`, `userId`). UI: `/settings/audit`, plus the record-level `HistoryDrawer` component (`src/components/ui/HistoryDrawer.tsx` — Clock button on expense rows shows per-record change history with field-level diffs).
 
 **Agents (commissions)** — separate from `Vendor`. API: `GET/POST /api/agents`, `GET/PATCH/DELETE /api/agents/[id]`. Tied to `IncomeEntry.agentCommission`.
 

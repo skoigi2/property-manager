@@ -25,12 +25,14 @@ import {
 import { clsx } from "clsx";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { useProperty } from "@/lib/property-context";
+import { usePermissions } from "@/lib/use-permissions";
 import { formatCurrency } from "@/lib/currency";
 import { HelpTip } from "@/components/ui/HelpTip";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
   const { selectedId, selected, properties } = useProperty();
+  const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
 
   const [entries, setEntries] = useState<any[]>([]);
@@ -633,11 +635,13 @@ export default function PettyCashPage() {
                 <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("retype")}>Change type</Button>
               </div>
 
+              {canDelete && (<>
               <div className="w-px h-5 bg-gray-200" />
 
               <Button size="sm" variant="secondary" className="text-expense border-expense/30 hover:bg-expense/5" loading={bulkSubmitting} onClick={() => setBulkDeleteConfirm(true)}>
                 <Trash2 size={13} /> Delete selected
               </Button>
+              </>)}
             </div>
           </Card>
         )}
@@ -735,9 +739,11 @@ export default function PettyCashPage() {
                         <button onClick={() => { if (editId === e.id) { setEditId(null); } else { openEdit(e); } setApproveId(null); }} className="text-gray-300 hover:text-gold transition-colors p-1">
                           <Pencil size={14} />
                         </button>
+                        {canDelete && (
                         <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
                           <Trash2 size={14} />
                         </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -794,7 +800,7 @@ export default function PettyCashPage() {
                               </>
                             )}
                             <button onClick={() => { if (editId === e.id) { setEditId(null); } else { openEdit(e); } setApproveId(null); }} className="text-gray-300 hover:text-gold transition-colors p-1"><Pencil size={14} /></button>
-                            <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1"><Trash2 size={15} /></button>
+                            {canDelete && <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1"><Trash2 size={15} /></button>}
                           </div>
                         </td>
                       </tr>

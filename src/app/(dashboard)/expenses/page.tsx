@@ -31,6 +31,7 @@ import { formatCurrency, formatNumber } from "@/lib/currency";
 import { calcExpensePayment } from "@/lib/calculations";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
+import { usePermissions } from "@/lib/use-permissions";
 
 // ─── Tax helpers (client-side, mirrors tax-engine pure functions) ─────────────
 
@@ -335,6 +336,7 @@ function LineItemsEditor({
 export default function ExpensesPage() {
   const { data: session } = useSession();
   const { selectedId, selected, properties } = useProperty();
+  const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1070,11 +1072,13 @@ export default function ExpensesPage() {
               <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("mark_sunk")}>Mark as Capital</Button>
               <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("mark_operating")}>Mark as Operating</Button>
 
+              {canDelete && (<>
               <div className="w-px h-5 bg-gray-200" />
 
               <Button size="sm" variant="secondary" className="text-expense border-expense/30 hover:bg-expense/5" loading={bulkSubmitting} onClick={() => setBulkDeleteConfirm(true)}>
                 <Trash2 size={13} /> Delete selected
               </Button>
+              </>)}
             </div>
           </Card>
         )}
@@ -1092,6 +1096,7 @@ export default function ExpensesPage() {
                 <FileDown size={13} /> Export
               </button>
             )}
+            {canDelete && (
             <button
               onClick={openDeleteAll}
               title={`Delete every expense for ${selected?.name ?? "all properties"} across all months`}
@@ -1099,6 +1104,7 @@ export default function ExpensesPage() {
             >
               <Trash2 size={13} /> Delete all
             </button>
+            )}
             <Button onClick={() => { if (showForm && !editEntry) { resetForm(); } else { resetForm(); setShowForm(true); } }} size="sm" variant="gold">
               <Plus size={15} /> Add Expense
             </Button>
@@ -1371,9 +1377,11 @@ export default function ExpensesPage() {
                           </span>
                         )}
                       </button>
+                      {canDelete && (
                       <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
                         <Trash2 size={14} />
                       </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1440,9 +1448,11 @@ export default function ExpensesPage() {
                                   </span>
                                 )}
                               </button>
+                              {canDelete && (
                               <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
                                 <Trash2 size={14} />
                               </button>
+                              )}
                             </div>
                           </td>
                         </tr>

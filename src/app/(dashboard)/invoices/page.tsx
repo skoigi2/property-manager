@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { formatCurrency } from "@/lib/currency";
 import { Header } from "@/components/layout/Header";
 import { useProperty } from "@/lib/property-context";
+import { usePermissions } from "@/lib/use-permissions";
 import { useFocusScroll } from "@/lib/use-focus-scroll";
 import OwnerInvoicesTab from "./OwnerInvoicesTab";
 
@@ -813,6 +814,7 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 export default function InvoicesPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
+  const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
   useFocusScroll();
   const searchParams = useSearchParams();
@@ -1094,12 +1096,14 @@ export default function InvoicesPage() {
                             Sync
                           </button>
                         )}
+                        {canDelete && (
                         <button
                           onClick={() => setDeleteTarget(inv)}
                           className="text-xs text-gray-400 hover:text-expense transition-colors p-1"
                         >
                           <XCircle size={14} />
                         </button>
+                        )}
                       </div>
                     </div>
                   </div>

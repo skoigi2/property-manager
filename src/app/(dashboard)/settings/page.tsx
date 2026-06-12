@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { usePermissions } from "@/lib/use-permissions";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
@@ -13,6 +14,7 @@ import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { TaxConfigPanel } from "@/components/settings/TaxConfigPanel";
 
 export default function SettingsPage() {
+  const canEditSettings = usePermissions().can("ORG_SETTINGS");
   const { data: session } = useSession();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -211,7 +213,7 @@ export default function SettingsPage() {
                           <Input label="Flat Fee" type="number" value={form.flatAmount} onChange={(e) => setFeeForm((prev) => ({ ...prev, [unit.id]: { ...form, flatAmount: e.target.value } }))} />
                         )}
                       </div>
-                      <Button size="sm" variant="secondary" loading={saving} onClick={() => saveFeeConfig(unit.id)}><Save size={14} /> Save</Button>
+                      {canEditSettings && <Button size="sm" variant="secondary" loading={saving} onClick={() => saveFeeConfig(unit.id)}><Save size={14} /> Save</Button>}
                     </Card>
                   );
                 })}
@@ -283,7 +285,7 @@ export default function SettingsPage() {
                         <Input label="Website" value={orgForm.website}
                           onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
                         <p className="text-xs text-gray-400 font-sans">KRA PIN and payment details are configured per-property under Properties → Agreement.</p>
-                        <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>
+                        {canEditSettings && <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>}
                       </div>
                     </Card>
 

@@ -30,6 +30,7 @@ import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
+import { usePermissions } from "@/lib/use-permissions";
 import { formatCurrency } from "@/lib/currency";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -159,6 +160,7 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
 export default function IncomePage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
+  const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
 
   // Tab & collection mode
@@ -1798,9 +1800,11 @@ export default function IncomePage() {
                                 <p className="text-[10px] text-gray-400 font-sans mt-0.5">Net: {fmt(net)}</p>
                               )}
                             </div>
+                            {canDelete && (
                             <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
                               <Trash2 size={15} />
                             </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -1834,9 +1838,11 @@ export default function IncomePage() {
                                         {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                                       </button>
                                     )}
+                                    {canDelete && (
                                     <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
                                       <Trash2 size={15} />
                                     </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>

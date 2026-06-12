@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/currency";
 import { useProperty } from "@/lib/property-context";
+import { usePermissions } from "@/lib/use-permissions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -773,6 +774,7 @@ function NewOwnerInvoiceModal({
 
 export default function OwnerInvoicesTab() {
   const { selectedId, selected } = useProperty();
+  const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
 
   const [invoices,       setInvoices]       = useState<OwnerInvoice[]>([]);
@@ -1071,7 +1073,7 @@ export default function OwnerInvoicesTab() {
                           )}
 
                           {/* Delete */}
-                          {invoice.status !== "PAID" && (
+                          {canDelete && invoice.status !== "PAID" && (
                             <button
                               onClick={() => handleDelete(invoice.id)}
                               title="Delete"

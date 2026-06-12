@@ -19,6 +19,7 @@ import { CommunicationLogTab } from "@/components/tenants/CommunicationLogTab";
 import { PortalMessagesTab } from "@/components/tenants/PortalMessagesTab";
 import ProofVerifyDrawer from "@/components/invoices/ProofVerifyDrawer";
 import { useProperty } from "@/lib/property-context";
+import { usePermissions } from "@/lib/use-permissions";
 import toast from "react-hot-toast";
 import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
@@ -271,6 +272,7 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
 type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages";
 
 export default function TenantDetailPage() {
+  const canLifecycle = usePermissions().can("TENANT_LIFECYCLE");
   const { data: session } = useSession();
   const params  = useParams();
   const router  = useRouter();
@@ -470,12 +472,14 @@ export default function TenantDetailPage() {
                     </button>
                   )}
                   {/* Checkout button */}
+                  {canLifecycle && (
                   <button
                     onClick={() => router.push(`/tenants/${tenantId}/checkout`)}
                     className="flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300 text-xs font-sans rounded-lg transition-colors"
                   >
                     <LogOut size={13} /> Checkout
                   </button>
+                  )}
                   {/* Email button */}
                   <button
                     onClick={() => setShowEmail(true)}
@@ -785,7 +789,7 @@ export default function TenantDetailPage() {
                   <>
                     <div className="flex items-center justify-between mb-5">
                       <h2 className="section-header">Deposit Management</h2>
-                      {!settlement && !settlementLoading && tenant?.depositAmount > 0 && (
+                      {canLifecycle && !settlement && !settlementLoading && tenant?.depositAmount > 0 && (
                         <Button size="sm" onClick={() => setShowSettleModal(true)}>
                           <ShieldCheck size={14} className="mr-1.5" /> Settle Deposit
                         </Button>

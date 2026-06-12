@@ -575,8 +575,8 @@ model Property {
   managerId            String?
   manager              User?             @relation("PropertyManager", fields: [managerId], references: [id])
   managementFeeRate    Float?
-  managementFeeFlat    Float?
-  serviceChargeDefault Float?
+  managementFeeFlat    Decimal? @db.Decimal(14, 2)
+  serviceChargeDefault Decimal? @db.Decimal(14, 2)
   currency              String            @default("USD")
   vatRegistrationNumber String?
   landlordEntity        String?
@@ -613,7 +613,7 @@ model Unit {
   type          UnitType
   floor         Int?
   sizeSqm       Float?
-  monthlyRent   Float?
+  monthlyRent   Decimal? @db.Decimal(14, 2)
   status        UnitStatus            @default(ACTIVE)
   vacantSince   DateTime?
   description   String?
@@ -645,25 +645,25 @@ model Tenant {
   nationalId       String?
   taxIdNumber      String?           @map("kraPinNumber")
   unitId           String
-  depositAmount    Float
+  depositAmount    Decimal @db.Decimal(14, 2)
   depositPaidDate  DateTime?
   leaseStart       DateTime
   leaseEnd         DateTime?
-  monthlyRent      Float
-  serviceCharge    Float         @default(0)
+  monthlyRent      Decimal @db.Decimal(14, 2)
+  serviceCharge    Decimal         @default(0) @db.Decimal(14, 2)
   rentDueDay       Int           @default(1)
   isActive         Boolean          @default(true)
   vacatedDate      DateTime?
   notes            String?
   renewalStage     RenewalStage     @default(NONE)
-  proposedRent     Float?
+  proposedRent     Decimal? @db.Decimal(14, 2)
   proposedLeaseEnd DateTime?
   renewalNotes     String?
   escalationRate   Float?
   chargeLatePenalty Boolean         @default(false)
   isTaxExempt      Boolean         @default(false)
   paymentFrequency PaymentFrequency?
-  parkingFee       Float?
+  parkingFee       Decimal? @db.Decimal(14, 2)
   portalToken          String?          @unique
   portalTokenExpiresAt DateTime?
   unit             Unit             @relation(fields: [unitId], references: [id])
@@ -691,7 +691,7 @@ model RentHistory {
   id            String   @id @default(cuid())
   tenantId      String
   tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  monthlyRent   Float
+  monthlyRent   Decimal @db.Decimal(14, 2)
   effectiveDate DateTime
   reason        String?
   createdAt     DateTime @default(now())
@@ -710,16 +710,16 @@ model IncomeEntry {
   invoiceId         String?
   ownerInvoiceId    String?
   type              IncomeType
-  grossAmount       Float
-  agentCommission   Float      @default(0)
+  grossAmount       Decimal @db.Decimal(14, 2)
+  agentCommission   Decimal      @default(0) @db.Decimal(14, 2)
   commissionPaidAt  DateTime?
   platform          Platform?
   agentName         String?
-  nightlyRate       Float?
+  nightlyRate       Decimal? @db.Decimal(14, 2)
   note              String?
   taxConfigId       String?
   taxRate           Float?
-  taxAmount         Float?
+  taxAmount         Decimal? @db.Decimal(14, 2)
   taxType           TaxType?
   paymentMethod     PaymentMethod?
   unit              Unit         @relation(fields: [unitId], references: [id])
@@ -745,13 +745,13 @@ model ExpenseEntry {
   propertyId        String?
   scope             ExpenseScope
   category          ExpenseCategory
-  amount            Float
+  amount            Decimal @db.Decimal(14, 2)
   description       String?
   isSunkCost        Boolean         @default(false)
   paidFromPettyCash Boolean         @default(false)
-  amountPaid        Float           @default(0)
+  amountPaid        Decimal           @default(0) @db.Decimal(14, 2)
   dueDate           DateTime?
-  vatAmount         Float?
+  vatAmount         Decimal? @db.Decimal(14, 2)
   paymentMethod     PaymentMethod?
   paymentReference  String?
   paymentDate       DateTime?
@@ -777,14 +777,14 @@ model ExpenseLineItem {
   expenseId        String
   category         LineItemCategory
   description      String?
-  amount           Float
+  amount           Decimal @db.Decimal(14, 2)
   isVatable        Boolean              @default(false)
   taxConfigId      String?
   taxRate          Float?
-  taxAmount        Float?
+  taxAmount        Decimal? @db.Decimal(14, 2)
   taxType          TaxType?
   paymentStatus    LineItemPaymentStatus @default(UNPAID)
-  amountPaid       Float                @default(0)
+  amountPaid       Decimal                @default(0) @db.Decimal(14, 2)
   paymentReference String?
   expense          ExpenseEntry         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   createdAt        DateTime             @default(now())
@@ -795,7 +795,7 @@ model ExpenseUnitAllocation {
   id          String       @id @default(cuid())
   expenseId   String
   unitId      String
-  shareAmount Float
+  shareAmount Decimal @db.Decimal(14, 2)
   expense     ExpenseEntry @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   unit        Unit         @relation(fields: [unitId], references: [id])
 
@@ -806,7 +806,7 @@ model PettyCash {
   id              String          @id @default(cuid())
   date            DateTime
   type            PettyCashType
-  amount          Float
+  amount          Decimal @db.Decimal(14, 2)
   description     String
   receiptRef      String?
   propertyId      String?
@@ -827,7 +827,7 @@ model ManagementFeeConfig {
   id            String    @id @default(cuid())
   unitId        String
   ratePercent   Float     @default(0)
-  flatAmount    Float?
+  flatAmount    Decimal? @db.Decimal(14, 2)
   effectiveFrom DateTime
   effectiveTo   DateTime?
   unit          Unit      @relation(fields: [unitId], references: [id])
@@ -847,7 +847,7 @@ model MaintenanceJob {
   reportedDate     DateTime            @default(now())
   scheduledDate    DateTime?
   completedDate    DateTime?
-  cost             Float?
+  cost             Decimal? @db.Decimal(14, 2)
   notes            String?
   expenseId        String?             // ID of the linked ExpenseEntry (once logged)
   vendorId         String?
@@ -1028,7 +1028,7 @@ model ApprovalRequest {
   requestedFromEmail String
   requestedFromName  String?
   question           String
-  amount             Float?
+  amount             Decimal? @db.Decimal(14, 2)
   currency           String?
   status             ApprovalStatus @default(PENDING)
   expiresAt          DateTime
@@ -1052,14 +1052,14 @@ model Invoice {
   tenantId      String
   periodYear    Int
   periodMonth   Int
-  rentAmount    Float
-  serviceCharge Float         @default(0)
-  otherCharges  Float         @default(0)
-  totalAmount   Float
+  rentAmount    Decimal @db.Decimal(14, 2)
+  serviceCharge Decimal         @default(0) @db.Decimal(14, 2)
+  otherCharges  Decimal         @default(0) @db.Decimal(14, 2)
+  totalAmount   Decimal @db.Decimal(14, 2)
   dueDate       DateTime
   status        InvoiceStatus @default(DRAFT)
   paidAt        DateTime?
-  paidAmount    Float?
+  paidAmount    Decimal? @db.Decimal(14, 2)
   notes         String?
   caseThreadId  String?
   proofOfPaymentUrl  String?
@@ -1089,11 +1089,11 @@ model OwnerInvoice {
   periodYear    Int
   periodMonth   Int
   lineItems     Json
-  totalAmount   Float
+  totalAmount   Decimal @db.Decimal(14, 2)
   dueDate       DateTime
   status        InvoiceStatus    @default(DRAFT)
   paidAt        DateTime?
-  paidAmount    Float?
+  paidAmount    Decimal? @db.Decimal(14, 2)
   notes         String?
   property      Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   owner         User?            @relation("OwnerInvoices", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -1111,7 +1111,7 @@ model ArrearsCase {
   tenantId    String
   propertyId  String
   stage       ArrearsStage        @default(INFORMAL_REMINDER)
-  amountOwed  Float
+  amountOwed  Decimal @db.Decimal(14, 2)
   notes       String?
   resolvedAt  DateTime?
   tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1137,7 +1137,7 @@ model RecurringExpense {
   id          String             @id @default(cuid())
   description String
   category    ExpenseCategory
-  amount      Float
+  amount      Decimal @db.Decimal(14, 2)
   scope       ExpenseScope
   propertyId  String?
   unitId      String?
@@ -1255,10 +1255,10 @@ model ExpenseDocument {
 model DepositSettlement {
   id              String   @id @default(cuid())
   tenantId        String   @unique
-  depositHeld     Float
+  depositHeld     Decimal @db.Decimal(14, 2)
   deductions      Json     @default("[]")
-  totalDeductions Float    @default(0)
-  netRefunded     Float
+  totalDeductions Decimal    @default(0) @db.Decimal(14, 2)
+  netRefunded     Decimal @db.Decimal(14, 2)
   settledDate     DateTime
   notes           String?
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1279,9 +1279,9 @@ model InsurancePolicy {
   policyNumber     String
   startDate        DateTime
   endDate          DateTime
-  premiumAmount    Float?
+  premiumAmount    Decimal? @db.Decimal(14, 2)
   premiumFrequency PremiumFrequency?
-  coverageAmount   Float?
+  coverageAmount   Decimal? @db.Decimal(14, 2)
   brokerName       String?
   brokerContact    String?
   notes            String?
@@ -1321,7 +1321,7 @@ model Asset {
   serialNumber    String?
   modelNumber     String?
   purchaseDate    DateTime?
-  purchaseCost    Float?
+  purchaseCost    Decimal? @db.Decimal(14, 2)
   warrantyExpiry  DateTime?
   serviceProvider String?
   serviceContact  String?
@@ -1365,7 +1365,7 @@ model AssetMaintenanceSchedule {
   nextDue            DateTime?
   isActive           Boolean              @default(true)
   taskCategory       String?
-  estimatedCost      Float?
+  estimatedCost      Decimal? @db.Decimal(14, 2)
   recurringExpenseId String?              @unique
   recurringExpense   RecurringExpense?    @relation("ScheduleRecurringExpense", fields: [recurringExpenseId], references: [id], onDelete: SetNull)
   logs               AssetMaintenanceLog[]
@@ -1388,7 +1388,7 @@ model AssetMaintenanceLog {
   expense     ExpenseEntry?             @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   date        DateTime
   description String
-  cost        Float?
+  cost        Decimal? @db.Decimal(14, 2)
   technician  String?
   vendorId    String?
   notes       String?
@@ -1413,10 +1413,10 @@ model ManagementAgreement {
   vacancyFeeRate                 Float    @default(5.0)
   vacancyFeeThresholdMonths      Int      @default(9)
   newLettingFeeRate              Float    @default(50.0)
-  leaseRenewalFeeFlat            Float    @default(3000)
+  leaseRenewalFeeFlat            Decimal    @default(3000) @db.Decimal(14, 2)
   shortTermLettingFeeRate        Float    @default(10.0)
-  repairAuthorityLimit           Float    @default(100000)
-  setupFeeTotal                  Float?
+  repairAuthorityLimit           Decimal    @default(100000) @db.Decimal(14, 2)
+  setupFeeTotal                  Decimal? @db.Decimal(14, 2)
   setupFeeInstalments            Int      @default(3)
 
   // Deadlines
@@ -1797,14 +1797,14 @@ model CheckoutProcess {
   organizationId        String?
   checkOutDate          DateTime
   damageFound           Boolean        @default(false)
-  inventoryDamageAmount Float          @default(0)
+  inventoryDamageAmount Decimal          @default(0) @db.Decimal(14, 2)
   inventoryDamageNotes  String?
   damageKeptByLandlord  Boolean        @default(true)
-  rentBalanceOwing      Float          @default(0)
+  rentBalanceOwing      Decimal          @default(0) @db.Decimal(14, 2)
   rentBalanceSource     String?
-  originalDeposit       Float
-  totalDeductions       Float          @default(0)
-  balanceToRefund       Float          @default(0)
+  originalDeposit       Decimal @db.Decimal(14, 2)
+  totalDeductions       Decimal          @default(0) @db.Decimal(14, 2)
+  balanceToRefund       Decimal          @default(0) @db.Decimal(14, 2)
   keysReturned          Json?
   utilityTransfers      Json?
   refundMethod          RefundMethod?
@@ -1833,7 +1833,7 @@ model CheckoutDeduction {
   id          String                    @id @default(cuid())
   checkoutId  String
   description String
-  amount      Float
+  amount      Decimal @db.Decimal(14, 2)
   category    CheckoutDeductionCategory @default(OTHER)
   createdAt   DateTime                  @default(now())
 

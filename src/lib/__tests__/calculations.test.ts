@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import type { PettyCash, ExpenseEntry } from "@prisma/client";
 import {
   calcPettyCashBalance,
   calcPettyCashTotal,
@@ -11,8 +10,10 @@ import {
   calcUnitSummary,
 } from "@/lib/calculations";
 
-const pc = (over: Partial<PettyCash>): PettyCash =>
-  ({ type: "IN", amount: 0, status: "APPROVED", ...over }) as PettyCash;
+import type { PettyCashLike } from "@/lib/calculations";
+
+const pc = (over: Partial<PettyCashLike>): PettyCashLike =>
+  ({ type: "IN", amount: 0, status: "APPROVED", ...over });
 
 describe("calcPettyCashBalance / calcPettyCashTotal", () => {
   it("accumulates IN as positive and OUT as negative", () => {
@@ -84,8 +85,9 @@ describe("calcExpensePayment", () => {
   });
 });
 
-const exp = (over: Partial<ExpenseEntry>): ExpenseEntry =>
-  ({ amount: 0, isSunkCost: false, category: "OTHER", ...over }) as ExpenseEntry;
+type ExpenseLike = { amount: number; isSunkCost: boolean; category: string };
+const exp = (over: Partial<ExpenseLike>): ExpenseLike =>
+  ({ amount: 0, isSunkCost: false, category: "OTHER", ...over });
 
 describe("calcNetIncome", () => {
   it("subtracts commissions and operating expenses, excluding sunk costs", () => {

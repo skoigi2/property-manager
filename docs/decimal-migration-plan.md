@@ -1,6 +1,11 @@
 # Plan: migrate money columns from Float to Decimal
 
-**Status:** planned — deliberately NOT bundled with feature work. **Date:** June 2026.
+**Status:** EXECUTED 2026-06-13 (migration `20260613090000_money_float_to_decimal`). 50 money
+columns across 24 tables converted; rates/percentages/dimensions kept Float. Dev-DB
+reconciliation was exact to the cent (see scripts/decimal-recon-before.json). The
+serialization boundary shipped as the generated result extension
+(`src/lib/prisma-decimal-extension.ts`) + query-level converter (`src/lib/money.ts`),
+both applied in `src/lib/prisma.ts`. Original plan below for reference.
 
 ## Why
 

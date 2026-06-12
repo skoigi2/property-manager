@@ -16,7 +16,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { TaxConfiguration, TaxType, IncomeEntry, ExpenseLineItem } from "@prisma/client";
+import type { TaxConfiguration, TaxType } from "@prisma/client";
 
 export type { TaxConfiguration };
 
@@ -163,8 +163,8 @@ export interface TaxSummary {
  * Used by the report builder to populate the Tax Summary section.
  */
 export function buildTaxSummary(
-  incomeEntries: Pick<IncomeEntry, "taxAmount" | "taxType">[],
-  expenseLineItems: Pick<ExpenseLineItem, "taxAmount" | "taxType" | "isVatable">[]
+  incomeEntries: { taxAmount: number | null; taxType: TaxType | null }[],
+  expenseLineItems: { taxAmount: number | null; taxType: TaxType | null; isVatable: boolean }[]
 ): TaxSummary {
   let outputTaxAdditive = 0;
   let outputTaxWithheld = 0;

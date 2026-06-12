@@ -181,6 +181,7 @@ API: `GET /api/inbox` — `requireManager()` + `getAccessiblePropertyIds()` then
 When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route auto-finds an open invoice for that tenant/month and marks it PAID in the same `prisma.$transaction`. Reverse: marking an invoice PAID via `PATCH /api/invoices/[id]` creates an income entry if none exists (`invoiceId` on `IncomeEntry` prevents duplicates).
 
 ### Financial rules
+- **Money columns are `Decimal @db.Decimal(14, 2)`** (Postgres `numeric(14,2)` — exact). The app still works in plain `number` everywhere: the Prisma singleton (`src/lib/prisma.ts`) converts Decimal→number at the boundary via two extensions — the **generated** result extension `src/lib/prisma-decimal-extension.ts` (fixes the TS types per field) and a query-level deep converter in `src/lib/money.ts` (covers `aggregate`/`groupBy` at runtime). **When adding a money column**: declare it `Decimal @db.Decimal(14, 2)` in the schema AND add its `needs/compute` entry to the model's block in `prisma-decimal-extension.ts` — otherwise its client type leaks as `Decimal`. Rates/percentages/`sizeSqm` stay `Float`. Financial libs (`calculations.ts`, `tax-engine.ts`) take structural `{ field: number }` params, never raw Prisma model types.
 - **Gross income** always excludes `DEPOSIT` type entries
 - **Net profit** = Gross − Agent Commissions − Operating Expenses (sunk costs excluded from P&L)
 - **Petty cash balance** is always recomputed from all entries, never stored

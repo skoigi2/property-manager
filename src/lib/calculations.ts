@@ -1,12 +1,20 @@
-import type { ExpenseEntry, IncomeEntry, PettyCash, ManagementFeeConfig, UnitType } from "@prisma/client";
+import type { UnitType } from "@prisma/client";
 
-export interface PettyCashWithBalance extends PettyCash {
-  balance: number;
+// Structural input types — money fields are plain numbers (the Prisma client
+// converts Decimal columns to number at the boundary; see src/lib/prisma.ts).
+export interface PettyCashLike {
+  type: string;          // "IN" | "OUT"
+  status: string;        // "APPROVED" | "PENDING" | "REJECTED"
+  amount: number;
 }
+
+export type PettyCashWithBalance<T extends PettyCashLike = PettyCashLike> = T & {
+  balance: number;
+};
 
 /** Compute running balance for petty cash entries (must be sorted by date ASC).
  *  PENDING and REJECTED entries do not affect the balance — only APPROVED counts. */
-export function calcPettyCashBalance(entries: PettyCash[]): PettyCashWithBalance[] {
+export function calcPettyCashBalance<T extends PettyCashLike>(entries: T[]): PettyCashWithBalance<T>[] {
   let running = 0;
   return entries.map((entry) => {
     const counts = entry.status === "APPROVED";
@@ -22,7 +30,7 @@ export function calcPettyCashBalance(entries: PettyCash[]): PettyCashWithBalance
 }
 
 /** Total petty cash balance (APPROVED entries only) */
-export function calcPettyCashTotal(entries: PettyCash[]): number {
+export function calcPettyCashTotal(entries: PettyCashLike[]): number {
   return entries
     .filter((e) => e.status === "APPROVED")
     .reduce((acc, e) => acc + (e.type === "IN" ? e.amount : -e.amount), 0);
@@ -59,7 +67,7 @@ export function calcExpensePayment(expense: {
 export function calcNetIncome(
   grossIncome: number,
   commissions: number,
-  expenses: ExpenseEntry[]
+  expenses: { amount: number; isSunkCost: boolean }[]
 ): number {
   const operatingExpenses = expenses
     .filter((e) => !e.isSunkCost)
@@ -69,7 +77,7 @@ export function calcNetIncome(
 
 /** Calculate management fee for a unit given its config */
 export function calcManagementFee(
-  config: ManagementFeeConfig | null | undefined,
+  config: { flatAmount: number | null; ratePercent: number } | null | undefined,
   grossRevenue: number
 ): number {
   if (!config) return 0;
@@ -88,7 +96,7 @@ export const ALBA_MGMT_FEE_RATE = 0.1; // 10%
 
 /** Calculate occupancy rate for Alba Gardens units */
 export function calcOccupancyRate(
-  incomeEntries: IncomeEntry[],
+  incomeEntries: { checkIn: Date | string | null; checkOut: Date | string | null }[],
   daysInPeriod: number
 ): number {
   if (daysInPeriod === 0) return 0;
@@ -125,8 +133,8 @@ export function calcLateInterest(
 // needing every IncomeEntry / ExpenseEntry column — only the fields actually
 // read below are required.
 export function calcUnitSummary(
-  incomeEntries: Pick<IncomeEntry, "grossAmount" | "agentCommission">[],
-  expenseEntries: Pick<ExpenseEntry, "category" | "amount" | "isSunkCost">[]
+  incomeEntries: { grossAmount: number; agentCommission: number }[],
+  expenseEntries: { category: string; amount: number; isSunkCost: boolean }[]
 ) {
   const grossIncome = incomeEntries.reduce((s, e) => s + e.grossAmount, 0);
   const totalCommissions = incomeEntries.reduce((s, e) => s + e.agentCommission, 0);

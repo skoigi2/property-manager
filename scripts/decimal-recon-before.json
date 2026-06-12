@@ -1,0 +1,40 @@
+{
+  "income": {
+    "_sum": {
+      "grossAmount": 7317755.96,
+      "agentCommission": 307462.1
+    },
+    "_count": 76
+  },
+  "expense": {
+    "_sum": {
+      "amount": 1681750.16,
+      "amountPaid": 0
+    },
+    "_count": 219
+  },
+  "invoice": {
+    "_sum": {
+      "totalAmount": null
+    },
+    "_count": 0
+  },
+  "pettyCash": {
+    "_sum": {
+      "amount": 135074
+    },
+    "_count": 24
+  },
+  "ownerInvoice": {
+    "_sum": {
+      "totalAmount": null
+    },
+    "_count": 0
+  },
+  "tenantRent": {
+    "_sum": {
+      "monthlyRent": 445000
+    },
+    "_count": 5
+  }
+}

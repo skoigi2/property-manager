@@ -86,6 +86,7 @@ Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
 - `requireManager()` — ADMIN, MANAGER, or ACCOUNTANT (blocks OWNER)
 - `requireAdmin()` — ADMIN only (org-admin or super-admin)
+- `requirePermissionWrite(action)` — `requireManagerWrite` **plus** the granular role map in `src/lib/permissions.ts`. ACCOUNTANT is denied `FINANCIAL_DELETE` (deleting income/expenses/petty-cash/invoices/owner-invoices, incl. the bulk delete actions), `TENANT_LIFECYCLE` (tenant delete, vacate, settle-deposit, checkout finalize), and `ORG_SETTINGS` (settings POST). Returns 403 with `code: "PERMISSION_DENIED"`. Use this instead of `requireManagerWrite` for new destructive/lifecycle mutations.
 - `requireAuthWrite()` / `requireManagerWrite()` / `requireAdminWrite()` — same auth check **plus the subscription write-gate** (`requireActiveSubscription`, 402 when the org is locked). **Use these in every mutating handler (POST/PATCH/PUT/DELETE) on org-scoped resources**; keep the base helpers for GETs so locked orgs can still read their data. Exemptions (must keep working while locked): auth flows, billing/stripe, webhooks, cron, portal/approvals token routes, invitations, onboarding, demo seed, admin, organizations, and `POST /api/report` (PDF render = read in spirit).
 - `requireSuperAdmin()` — ADMIN role **and** `organizationId === null` (platform super-admin only)
 - `requirePropertyAccess(propertyId)` — verifies current user may access a specific property; returns `{ ok: boolean, error?: Response }`
@@ -149,6 +150,10 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
 | `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
 | `validations.ts` | Zod schemas for all form inputs — `incomeEntrySchema`, `expenseEntrySchema` (incl. `amountPaid`/`dueDate`/`vatAmount`/`paymentMethod`/`paymentReference`/`paymentDate`/`notes`), `pettyCashSchema`, `tenantSchema`, `manualEmailSchema` |
+
+### Global search
+
+`GET /api/search?q=` (`requireManager`, min 2 chars) searches tenants, properties, invoices, vendors, cases, and maintenance jobs (5 per group), scoped by `getAccessiblePropertyIds()` + org for vendors. UI: `src/components/layout/GlobalSearch.tsx` — Cmd/Ctrl+K palette mounted in the dashboard layout (hidden for OWNER), with a Sidebar trigger that dispatches the `gw:open-global-search` window event.
 
 ### Operational Inbox
 
@@ -406,7 +411,7 @@ Backfill: `npm run cases:backfill-terminal-reasons` populates `terminalReason` f
 
 **Registry** — `src/lib/automation-registry.ts` is the single source of truth (`AUTOMATION_DEFS`). Three `AutomationCategory` values:
 - `WORKFLOW` (default **off**, opt-in) — auto-creates a `CaseThread` when the condition fires: `LEASE_RENEWAL_90D`, `ARREARS_7D`, `COMPLIANCE_30D`, `INSURANCE_30D` (→ COMPLIANCE workflow; there is no INSURANCE case type), `URGENT_MAINTENANCE` (assigns a manager + starts SLA on the already-auto-created maintenance case).
-- `NOTIFICATION` (default **on**) — the 5 long-standing manager email alerts (lease/invoice/compliance/insurance/urgent-maintenance). Toggling off silences that email org-wide.
+- `NOTIFICATION` (default **on**) — the 5 long-standing manager email alerts (lease/invoice/compliance/insurance/urgent-maintenance). Toggling off silences that email org-wide. Plus `OWNER_MONTHLY_REPORT` (default **off**, opt-in): emails the property owner a previous-month income/expense statement on the agreement's `rentRemittanceDay` (clamped 1–28; falls back to property managers when no owner user is linked). Checker: `checkOwnerMonthlyReports` in checkers.ts, deduped per `propertyId:period` via `NotificationLog` (`OWNER_MONTHLY_REPORT` NotificationType).
 - `REMINDER` (default **on**) — the 6 hint-only Inbox nudges (vacant unit, deposit unsettled, recurring-expense due, low petty cash, negative cashflow, case SLA breach).
 
 **Models** (all additive; see migrations `20260531120000_add_automations`, `20260601120000_automation_property_overrides`, `20260601140000_notification_preferences`):

@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
+import { requireAuth, requireManager, requirePropertyAccess, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
 import { z } from "zod";
@@ -104,7 +104,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManagerWrite();
+  const { error } = await requirePermissionWrite("TENANT_LIFECYCLE");
   if (error) return error;
 
   const propertyId = await loadTenantPropertyId(params.id);

@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { pettyCashSchema, pettyCashApproveSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
@@ -123,7 +123,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManagerWrite();
+  const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 
   const before = await prisma.pettyCash.findUnique({ where: { id: params.id }, select: { type: true, amount: true, date: true } });

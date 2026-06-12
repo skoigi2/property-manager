@@ -336,6 +336,9 @@ export async function GET(req: Request) {
         paid: mgmtFeePaid,
         balance: mgmtFeePaid - mgmtFeeOwing,
       },
+      // Server timestamp — the PWA serves this response StaleWhileRevalidate
+      // (5 min), so the UI shows when the numbers were actually computed.
+      generatedAt: new Date().toISOString(),
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);

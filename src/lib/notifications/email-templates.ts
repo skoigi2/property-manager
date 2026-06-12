@@ -237,3 +237,47 @@ export function urgentMaintenanceTemplate(data: {
 
   return { subject, html };
 }
+
+// ─── Monthly owner statement ──────────────────────────────────────────────────
+
+export function ownerMonthlyReportTemplate(data: {
+  propertyName: string;
+  periodLabel: string;       // e.g. "May 2026"
+  grossIncome: string;       // pre-formatted currency strings
+  commissions: string;
+  operatingExpenses: string;
+  netProfit: string;
+  occupiedUnits: number;
+  totalUnits: number;
+  isFallbackToManager: boolean;
+}): { subject: string; html: string } {
+  const subject = `Monthly statement — ${data.propertyName} — ${data.periodLabel}`;
+
+  const note = data.isFallbackToManager
+    ? `<p style="color:${LGRAY};font-size:12px;margin-top:12px;">
+        This statement was sent to you because no owner account is linked to this
+        property. Link an owner under Properties to send it to them directly.
+      </p>`
+    : "";
+
+  const html = shell(
+    `${data.propertyName} — ${data.periodLabel}`,
+    NAVY,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      Here is the monthly performance summary for <strong>${data.propertyName}</strong>.
+      The full report with per-unit detail is available in the owner portal.
+    </p>
+    <table style="border-collapse:collapse;margin-bottom:4px;">
+      ${row("Period", data.periodLabel)}
+      ${row("Gross income", data.grossIncome)}
+      ${row("Agent commissions", data.commissions)}
+      ${row("Operating expenses", data.operatingExpenses)}
+      ${row("Net profit", `<strong>${data.netProfit}</strong>`)}
+      ${row("Occupancy", `${data.occupiedUnits} of ${data.totalUnits} units`)}
+    </table>
+    ${cta("View full report", `${APP_URL}/report`)}
+    ${note}`,
+  );
+
+  return { subject, html };
+}

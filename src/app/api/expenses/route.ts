@@ -54,6 +54,9 @@ export async function GET(req: Request) {
     },
     include: EXPENSE_INCLUDE,
     orderBy: { date: "desc" },
+    // Safety cap — the UI always month-filters, so this only bounds the
+    // unfiltered path (full exports use /api/import/expenses/export).
+    take: 2000,
   });
 
   return Response.json(entries);

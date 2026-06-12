@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -28,7 +28,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManagerWrite();
+  const { error } = await requirePermissionWrite("ORG_SETTINGS");
   if (error) return error;
 
   const body = await req.json();

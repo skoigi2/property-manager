@@ -50,6 +50,9 @@ export async function GET(req: Request) {
       invoice: { select: { id: true, invoiceNumber: true } },
     },
     orderBy: { date: "desc" },
+    // Safety cap — the UI always month-filters, so this only bounds the
+    // unfiltered path (full exports use dedicated endpoints).
+    take: 2000,
   });
 
   return Response.json(entries);

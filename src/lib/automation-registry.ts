@@ -130,6 +130,19 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
 
+  {
+    key: "OWNER_MONTHLY_REPORT",
+    name: "Monthly owner statement",
+    description:
+      "Email the property owner a monthly income & expense statement on the rent remittance day set in the management agreement.",
+    trigger: "On the property's rent remittance day each month",
+    actions: ["Email Owner", "Email Managers (fallback)"],
+    category: "NOTIFICATION",
+    // Opt-in: owners shouldn't start receiving statements without the manager
+    // deliberately switching this on per org/property.
+    defaultEnabled: false,
+  },
+
   // ── Smart reminders (Inbox hint only, no email) — on by default ─────────────
   {
     key: "REMINDER_VACANT_UNIT",

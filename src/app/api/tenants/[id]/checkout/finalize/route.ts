@@ -1,11 +1,11 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { checkoutProcessSchema } from "@/lib/validations";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManagerWrite();
+  const { session, error } = await requirePermissionWrite("TENANT_LIFECYCLE");
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

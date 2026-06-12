@@ -28,6 +28,7 @@ import {
   CalendarRange,
   ChevronDown,
   ChevronRight,
+  Search as SearchIcon,
   ArrowLeftRight,
   LineChart,
   CreditCard,
@@ -279,6 +280,20 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
               </div>
             )}
           </div>
+        )}
+
+        {/* Global search trigger — opens the Cmd+K palette */}
+        {role !== "OWNER" && (
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("gw:open-global-search"))}
+            className="mt-3 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <SearchIcon size={13} className="text-white/40 shrink-0" />
+            <span className="text-xs font-sans text-white/60 flex-1 truncate">Search</span>
+            <kbd className="text-[9px] text-white/30 border border-white/15 rounded px-1 py-px font-sans">
+              Ctrl K
+            </kbd>
+          </button>
         )}
       </div>
 

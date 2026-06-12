@@ -13,6 +13,7 @@ import {
   complianceExpiryTemplate,
   insuranceExpiryTemplate,
   urgentMaintenanceTemplate,
+  ownerMonthlyReportTemplate,
 } from "./email-templates";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -745,4 +746,112 @@ export async function checkCaseSlaBreaches(): Promise<{ created: number }> {
     created++;
   }
   return { created };
+}
+
+// ─── Monthly owner statement ──────────────────────────────────────────────────
+
+/**
+ * Emails the property owner a previous-month income/expense summary on the
+ * property's rent remittance day (ManagementAgreement.rentRemittanceDay,
+ * default 5, clamped to 1–28 so it fires in every month). Falls back to the
+ * property's managers when no owner account is linked. Opt-in via the
+ * OWNER_MONTHLY_REPORT automation toggle; deduped per property+period through
+ * NotificationLog like every other notification.
+ */
+export async function checkOwnerMonthlyReports(): Promise<{ sent: number; skipped: number }> {
+  const today = new Date();
+  let sent = 0, skipped = 0;
+
+  const properties = await prisma.property.findMany({
+    where: { organizationId: { not: null } },
+    select: {
+      id: true,
+      name: true,
+      currency: true,
+      organizationId: true,
+      owner: { select: { id: true, email: true, name: true, isActive: true } },
+      agreement: { select: { rentRemittanceDay: true } },
+      units: { select: { id: true, status: true } },
+    },
+  });
+
+  // Previous calendar month
+  const periodStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const periodEnd   = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
+  const periodLabel = periodStart.toLocaleString("en-GB", { month: "long", year: "numeric" });
+  const periodKey   = `${periodStart.getFullYear()}-${periodStart.getMonth() + 1}`;
+
+  for (const property of properties) {
+    const orgId = property.organizationId!;
+    const sendDay = Math.min(Math.max(property.agreement?.rentRemittanceDay ?? 5, 1), 28);
+    if (today.getDate() !== sendDay) { skipped++; continue; }
+
+    if (!(await isAutomationEnabled(orgId, "OWNER_MONTHLY_REPORT", property.id))) { skipped++; continue; }
+
+    const resourceId = `${property.id}:${periodKey}`;
+    if (await wasRecentlySent("OWNER_MONTHLY_REPORT", resourceId, 25)) { skipped++; continue; }
+
+    // Period aggregates — mirrors the dashboard rules: deposits excluded from
+    // gross income, sunk costs excluded from operating expenses.
+    const [incomeAgg, expenseAgg] = await Promise.all([
+      prisma.incomeEntry.aggregate({
+        where: {
+          unit: { propertyId: property.id },
+          type: { not: "DEPOSIT" },
+          date: { gte: periodStart, lte: periodEnd },
+        },
+        _sum: { grossAmount: true, agentCommission: true },
+      }),
+      prisma.expenseEntry.aggregate({
+        where: {
+          OR: [{ propertyId: property.id }, { unit: { propertyId: property.id } }],
+          isSunkCost: false,
+          date: { gte: periodStart, lte: periodEnd },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const grossIncome = incomeAgg._sum.grossAmount ?? 0;
+    const commissions = incomeAgg._sum.agentCommission ?? 0;
+    const expenses    = expenseAgg._sum.amount ?? 0;
+    const netProfit   = grossIncome - commissions - expenses;
+    const occupiedUnits = property.units.filter((u) => u.status !== "VACANT").length;
+
+    const ownerRecipient =
+      property.owner?.isActive && property.owner.email
+        ? { userId: property.owner.id, email: property.owner.email, name: property.owner.name ?? property.owner.email }
+        : null;
+
+    const { subject, html } = ownerMonthlyReportTemplate({
+      propertyName:      property.name,
+      periodLabel,
+      grossIncome:       formatCurrency(grossIncome, property.currency),
+      commissions:       formatCurrency(commissions, property.currency),
+      operatingExpenses: formatCurrency(expenses, property.currency),
+      netProfit:         formatCurrency(netProfit, property.currency),
+      occupiedUnits,
+      totalUnits:        property.units.length,
+      isFallbackToManager: !ownerRecipient,
+    });
+
+    if (ownerRecipient) {
+      if (!(await wantsEmail(ownerRecipient.userId, "NOTIFICATION"))) { skipped++; continue; }
+      try {
+        await sendNotificationEmail(ownerRecipient.email, subject, html);
+        await recordSent(orgId, "OWNER_MONTHLY_REPORT", resourceId, "Property", ownerRecipient.email, subject);
+        sent++;
+      } catch {
+        console.error(`[notifications] Failed to send OWNER_MONTHLY_REPORT to ${ownerRecipient.email}`);
+      }
+    } else {
+      // No linked owner — deliver to managers so the statement is never lost.
+      const managers = await getPropertyManagers(property.id, orgId);
+      if (managers.length === 0) { skipped++; continue; }
+      await sendToManagers(managers, subject, html, orgId, "OWNER_MONTHLY_REPORT", resourceId, "Property");
+      sent += managers.length;
+    }
+  }
+
+  return { sent, skipped };
 }

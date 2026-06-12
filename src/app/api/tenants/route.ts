@@ -31,6 +31,7 @@ export async function GET(req: Request) {
       },
     },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    take: 2000, // safety cap for very large portfolios
   });
 
   return Response.json(tenants);

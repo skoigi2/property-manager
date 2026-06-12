@@ -1,4 +1,4 @@
-import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
@@ -148,7 +148,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManagerWrite();
+  const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 
   const propertyId = await loadExpensePropertyId(params.id);

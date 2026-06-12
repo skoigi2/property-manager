@@ -1,4 +1,5 @@
 import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { roleCan, PERMISSION_DENIED_MESSAGE } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -30,6 +31,17 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { action } = parsed.data;
+
+  // Destructive actions need the granular permission (ACCOUNTANT may retype /
+  // reclassify but not delete financial records).
+  if (action === "delete" || action === "delete_all") {
+    if (!roleCan(session!.user.orgRole, "FINANCIAL_DELETE")) {
+      return Response.json(
+        { error: PERMISSION_DENIED_MESSAGE.FINANCIAL_DELETE, code: "PERMISSION_DENIED" },
+        { status: 403 }
+      );
+    }
+  }
 
   // delete_all — no client-supplied ids. Resolve the target set server-side,
   // strictly bounded by accessible properties (never a bare PORTFOLIO match,

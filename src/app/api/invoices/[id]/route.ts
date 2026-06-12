@@ -1,4 +1,4 @@
-import { requireManager, requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireManager, requireAuth, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
@@ -146,7 +146,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManagerWrite();
+  const { error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 
   const { accessError } = await getInvoiceWithAccess(params.id);

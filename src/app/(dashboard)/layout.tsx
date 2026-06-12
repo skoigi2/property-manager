@@ -5,6 +5,7 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { PropertyProvider } from "@/lib/property-context";
 import { TrialBanner } from "@/components/layout/TrialBanner";
 import { InviteBanner } from "@/components/layout/InviteBanner";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
 export default async function DashboardLayout({
   children,
@@ -29,6 +30,8 @@ export default async function DashboardLayout({
           </main>
         </div>
         <MobileNav role={role} />
+        {/* Cmd/Ctrl+K palette — search API is manager-only, so hide from OWNER */}
+        {role !== "OWNER" && <GlobalSearch />}
       </div>
     </PropertyProvider>
   );

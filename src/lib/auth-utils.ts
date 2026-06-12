@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireActiveSubscription } from "@/lib/subscription";
+import { roleCan, PERMISSION_DENIED_MESSAGE, type PermissionAction } from "@/lib/permissions";
 import type { Session } from "next-auth";
 
 export async function getSession() {
@@ -117,6 +118,26 @@ export async function requireManagerWrite() {
 /** requireAdmin + subscription write-gate. */
 export async function requireAdminWrite() {
   return withActiveSubscription(await requireAdmin());
+}
+
+/**
+ * requireManagerWrite + granular role permission (see src/lib/permissions.ts).
+ * Use for mutations that ACCOUNTANT (or future restricted roles) must not
+ * perform — e.g. deleting financial records, tenancy lifecycle changes.
+ */
+export async function requirePermissionWrite(action: PermissionAction) {
+  const result = await requireManagerWrite();
+  if (result.error || !result.session) return result;
+  if (!roleCan(result.session.user.orgRole, action)) {
+    return {
+      session: null,
+      error: Response.json(
+        { error: PERMISSION_DENIED_MESSAGE[action], code: "PERMISSION_DENIED" },
+        { status: 403 }
+      ),
+    };
+  }
+  return result;
 }
 
 /** Returns the current user's organizationId (null = super-admin, undefined = unauthenticated) */

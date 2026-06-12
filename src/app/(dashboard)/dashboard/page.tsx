@@ -167,6 +167,15 @@ export default function DashboardPage() {
               Back to current month
             </button>
           )}
+          {data?.generatedAt && (
+            <span
+              className="ml-auto text-[11px] text-gray-400 font-sans"
+              title="When these numbers were computed — the app may briefly serve cached data while refreshing"
+            >
+              Updated{" "}
+              {new Date(data.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
         </div>
 
         {loading ? (

@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth-utils";
+import { requireAuth, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ function parseUntil(s: string): Date | null {
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const { error, session } = await requireAuth();
+  const { error, session } = await requireAuthWrite();
   if (error) return error;
 
   const body = await req.json().catch(() => ({}));

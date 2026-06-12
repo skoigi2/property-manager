@@ -1,4 +1,4 @@
-import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage, getSignedUrl, BUCKET } from "@/lib/supabase-storage";
 import { DocumentCategory } from "@prisma/client";
@@ -61,7 +61,7 @@ export async function POST(
   req: Request,
   { params }: { params: { tenantId: string } }
 ) {
-  const { error } = await requireAuth();
+  const { error } = await requireAuthWrite();
   if (error) return error;
 
   const accessibleIds = await getAccessiblePropertyIds();

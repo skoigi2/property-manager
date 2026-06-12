@@ -1,4 +1,4 @@
-import { requireManager, requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
@@ -54,7 +54,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const { invoice, accessError } = await getInvoiceWithAccess(params.id);
@@ -146,7 +146,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const { accessError } = await getInvoiceWithAccess(params.id);

@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { MaintenanceFrequency } from "@prisma/client";
 
@@ -96,7 +96,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

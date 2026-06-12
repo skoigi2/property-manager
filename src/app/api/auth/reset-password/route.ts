@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { hashToken } from "@/lib/token-utils";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const GENERIC_INVALID = "This reset link is invalid or has expired. Please request a new one.";
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = rateLimit(`reset-password:${getClientIp(req)}`, {
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: "Too many attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const { token, password } = await req.json();
 
     if (!token || !password) {
@@ -19,10 +32,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
 
+    // Tokens are stored hashed — hash the incoming value before lookup.
+    const tokenHash = hashToken(token);
+
     // Look up the user for audit context BEFORE consumption. If the token is
     // garbage, we still get a uniform error response.
     const user = await prisma.user.findUnique({
-      where: { passwordResetToken: token },
+      where: { passwordResetToken: tokenHash },
       select: { id: true, email: true },
     });
 
@@ -33,7 +49,7 @@ export async function POST(req: NextRequest) {
     // only one sees count === 1; the loser is rejected.
     const result = await prisma.user.updateMany({
       where: {
-        passwordResetToken:   token,
+        passwordResetToken:   tokenHash,
         passwordResetExpires: { gt: new Date() },
       },
       data: {

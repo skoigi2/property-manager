@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireAuth, requireManager, getAccessiblePropertyIds, requireAuthWrite, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 
@@ -7,7 +7,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
-  const { error } = await requireAuth();
+  const { error } = await requireAuthWrite();
   if (error) return error;
 
   const doc = await prisma.expenseDocument.findUnique({
@@ -32,7 +32,7 @@ export async function DELETE(
       return Response.json({ error: "Not found" }, { status: 404 });
     }
   } else {
-    const { error: mgErr } = await requireManager();
+    const { error: mgErr } = await requireManagerWrite();
     if (mgErr) return mgErr;
   }
 

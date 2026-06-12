@@ -1,5 +1,5 @@
 import "server-only";
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage, getSignedUrl } from "@/lib/supabase-storage";
 import { logAudit } from "@/lib/audit";
@@ -9,7 +9,7 @@ import { format } from "date-fns";
 export const maxDuration = 60;
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -58,7 +58,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; thr
 }
 
 export async function POST(req: Request, { params }: { params: { id: string; threadId: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const { thread, err } = await loadThreadWithAccess(params.id, params.threadId);
@@ -92,7 +92,7 @@ export async function POST(req: Request, { params }: { params: { id: string; thr
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string; threadId: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const { thread, err } = await loadThreadWithAccess(params.id, params.threadId);

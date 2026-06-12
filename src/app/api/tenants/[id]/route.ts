@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireAuth, requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
 import { z } from "zod";
@@ -44,7 +44,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadTenantPropertyId(params.id);
@@ -76,7 +76,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadTenantPropertyId(params.id);
@@ -104,7 +104,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadTenantPropertyId(params.id);

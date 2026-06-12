@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { conditionReportPatchSchema } from "@/lib/validations";
@@ -49,7 +49,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const { report, error: notOk } = await loadReport(params.id);
@@ -80,7 +80,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const { report, error: notOk } = await loadReport(params.id);

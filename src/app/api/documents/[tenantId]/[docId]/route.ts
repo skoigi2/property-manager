@@ -1,4 +1,4 @@
-import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 
@@ -8,7 +8,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { tenantId: string; docId: string } }
 ) {
-  const { error } = await requireAuth();
+  const { error } = await requireAuthWrite();
   if (error) return error;
 
   const accessibleIds = await getAccessiblePropertyIds();

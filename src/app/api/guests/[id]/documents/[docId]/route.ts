@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 
@@ -6,7 +6,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const doc = await prisma.guestDocument.findUnique({ where: { id: params.docId } });

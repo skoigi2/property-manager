@@ -2,9 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendWelcome, sendNewUserAlert } from "@/lib/email";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    // Defense-in-depth against scripted account creation.
+    const limited = rateLimit(`signup:${getClientIp(req)}`, {
+      max: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: "Too many signup attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const { name, email, password, organizationName } = await req.json();
 
     // ── Validate ──────────────────────────────────────────────────────────────

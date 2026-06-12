@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { checkoutProcessSchema } from "@/lib/validations";
@@ -76,7 +76,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const { tenant, error: notFound } = await loadTenant(params.id);

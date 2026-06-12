@@ -1,4 +1,4 @@
-import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -48,7 +48,7 @@ const linkSchema = z.object({
 });
 
 export async function POST(req: Request, { params }: { params: { entryId: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadEntryPropertyId(params.entryId);

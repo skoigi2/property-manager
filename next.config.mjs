@@ -1,5 +1,6 @@
 // @ts-check
 import withPWAInit from "next-pwa";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -53,6 +54,7 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ["@react-pdf/renderer"],
+    instrumentationHook: true, // loads src/instrumentation.ts (Sentry server init)
   },
   async headers() {
     return [
@@ -64,4 +66,9 @@ const nextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+// Sentry wrapping is inert without SENTRY_AUTH_TOKEN (skips source-map upload)
+// and the SDK no-ops without NEXT_PUBLIC_SENTRY_DSN — safe in all environments.
+export default withSentryConfig(withPWA(nextConfig), {
+  silent: true,
+  disableLogger: true,
+});

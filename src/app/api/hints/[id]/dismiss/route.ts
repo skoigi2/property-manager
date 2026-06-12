@@ -1,9 +1,9 @@
-import { requireAuth, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireAuth, requirePropertyAccess, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const { error, session } = await requireAuth();
+  const { error, session } = await requireAuthWrite();
   if (error) return error;
 
   const hint = await prisma.actionableHint.findUnique({ where: { id: params.id } });

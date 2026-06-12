@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage, getSignedUrl } from "@/lib/supabase-storage";
 
@@ -6,7 +6,7 @@ const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

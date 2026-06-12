@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireAuth, requireManager, getAccessiblePropertyIds, requireAuthWrite, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage, getSignedUrl } from "@/lib/supabase-storage";
 import { ExpenseDocumentCategory } from "@prisma/client";
@@ -58,7 +58,7 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireAuth();
+  const { error } = await requireAuthWrite();
   if (error) return error;
 
   const resolvedPropertyId = await resolvePropertyId(params.id);
@@ -69,7 +69,7 @@ export async function POST(
       return Response.json({ error: "Not found" }, { status: 404 });
     }
   } else {
-    const { error: mgErr } = await requireManager();
+    const { error: mgErr } = await requireManagerWrite();
     if (mgErr) return mgErr;
   }
 

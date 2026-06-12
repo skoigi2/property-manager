@@ -1,11 +1,11 @@
-import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   _req: Request,
   { params }: { params: { entryId: string; guestId: string } }
 ) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const entry = await prisma.incomeEntry.findUnique({

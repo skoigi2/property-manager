@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireAuth, requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 function computeStatus(expiryDate: Date | null): "VALID" | "EXPIRING_SOON" | "EXPIRED" | "ONGOING" {
@@ -37,7 +37,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const cert = await getCert(params.id);
@@ -69,7 +69,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const cert = await getCert(params.id);

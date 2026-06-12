@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage, getSignedUrl } from "@/lib/supabase-storage";
 
@@ -30,7 +30,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   // Verify guest exists

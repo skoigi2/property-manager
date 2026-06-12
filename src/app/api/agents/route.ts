@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -32,7 +32,7 @@ const createSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const orgId = session!.user.organizationId;

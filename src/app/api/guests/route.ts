@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   let body: unknown;

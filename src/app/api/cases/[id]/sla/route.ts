@@ -1,4 +1,4 @@
-import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { setSlaSchema } from "@/lib/validations";
@@ -6,7 +6,7 @@ import { getStageByIndex, getWorkflow } from "@/lib/case-workflows";
 import type { Prisma } from "@prisma/client";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const thread = await prisma.caseThread.findUnique({ where: { id: params.id } });

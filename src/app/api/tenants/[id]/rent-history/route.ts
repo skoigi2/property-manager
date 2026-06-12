@@ -1,4 +1,4 @@
-import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -41,7 +41,7 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireAuth();
+  const { error } = await requireAuthWrite();
   if (error) return error;
 
   const accessibleIds = await getAccessiblePropertyIds();
@@ -76,7 +76,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireAuth();
+  const { error } = await requireAuthWrite();
   if (error) return error;
 
   const accessibleIds = await getAccessiblePropertyIds();

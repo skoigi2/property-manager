@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 // 90-day default TTL — was 1 year, which is too long for a credential that
@@ -10,7 +10,7 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   // Verify the tenant is in a property the caller can access (closes IDOR).
@@ -38,7 +38,7 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const t = await prisma.tenant.findUnique({

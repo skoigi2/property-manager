@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth-utils";
+import { requireAuth, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -33,7 +33,7 @@ const putSchema = z.object({
 
 // PUT /api/notification-preferences — upsert one category for the current user.
 export async function PUT(req: Request) {
-  const { session, error } = await requireAuth();
+  const { session, error } = await requireAuthWrite();
   if (error) return error;
 
   const body = await req.json();

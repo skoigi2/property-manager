@@ -1,4 +1,4 @@
-import { requireManager, requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { ownerInvoiceUpdateSchema, type OwnerInvoiceLineItem } from "@/lib/validations";
@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const { invoice, accessError } = await getInvoiceWithAccess(params.id);
@@ -112,7 +112,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const { invoice, accessError } = await getInvoiceWithAccess(params.id);

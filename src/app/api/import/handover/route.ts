@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { uploadToStorage } from "@/lib/supabase-storage";
@@ -67,7 +67,7 @@ const VALID_PLATFORMS = new Set(["AIRBNB","BOOKING_COM","DIRECT","AGENT"]);
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const formData = await req.formData();

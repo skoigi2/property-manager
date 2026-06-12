@@ -1,4 +1,4 @@
-import { requireManager, requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { ownerInvoiceCreateSchema, type OwnerInvoiceLineItem } from "@/lib/validations";
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

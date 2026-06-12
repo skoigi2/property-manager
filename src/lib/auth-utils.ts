@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveSubscription } from "@/lib/subscription";
 import type { Session } from "next-auth";
 
 export async function getSession() {
@@ -84,6 +85,38 @@ export async function requireBillingOwner() {
     };
   }
   return { session, error: null };
+}
+
+// ─── Write-gated variants ─────────────────────────────────────────────────────
+// Use these at the top of every mutating handler (POST/PATCH/PUT/DELETE) on
+// org-scoped resources. They run the same auth check as their base helper,
+// then return a 402 Response when the org's subscription is locked (trial
+// expired, past_due, canceled). Read handlers keep using the base helpers so
+// locked orgs can still see their data.
+
+async function withActiveSubscription(result: {
+  session: Session | null;
+  error: Response | null;
+}): Promise<{ session: Session | null; error: Response | null }> {
+  if (result.error || !result.session) return result;
+  const locked = await requireActiveSubscription(result.session.user.organizationId);
+  if (locked) return { session: null, error: locked };
+  return result;
+}
+
+/** requireAuth + subscription write-gate. */
+export async function requireAuthWrite() {
+  return withActiveSubscription(await requireAuth());
+}
+
+/** requireManager + subscription write-gate. */
+export async function requireManagerWrite() {
+  return withActiveSubscription(await requireManager());
+}
+
+/** requireAdmin + subscription write-gate. */
+export async function requireAdminWrite() {
+  return withActiveSubscription(await requireAdmin());
 }
 
 /** Returns the current user's organizationId (null = super-admin, undefined = unauthenticated) */

@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -20,8 +21,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request) => {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // Brute-force protection: cap attempts per IP and per account.
+        // Returning null yields the same generic "invalid credentials" error,
+        // so a limited attacker learns nothing about the account.
+        const ip = getClientIp(request);
+        const ipLimit = rateLimit(`login:ip:${ip}`, { max: 20, windowMs: 15 * 60 * 1000 });
+        const emailLimit = rateLimit(
+          `login:email:${(credentials.email as string).toLowerCase()}`,
+          { max: 10, windowMs: 15 * 60 * 1000 }
+        );
+        if (!ipLimit.ok || !emailLimit.ok) return null;
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },

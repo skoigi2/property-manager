@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 interface TenantRow {
@@ -23,7 +23,7 @@ type PaymentFrequency = typeof VALID_PAYMENT_FREQUENCIES[number];
 
 export async function POST(req: Request) {
   try {
-    const { error } = await requireManager();
+    const { error } = await requireManagerWrite();
     if (error) return error;
 
     const propertyIds = await getAccessiblePropertyIds();

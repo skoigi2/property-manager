@@ -1,4 +1,4 @@
-import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
@@ -56,7 +56,7 @@ async function getJobWithAccess(id: string) {
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const { job, accessError } = await getJobWithAccess(params.id);
@@ -230,7 +230,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { error } = await requireManagerWrite();
   if (error) return error;
 
   const { accessError } = await getJobWithAccess(params.id);

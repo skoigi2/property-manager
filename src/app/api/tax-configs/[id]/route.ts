@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth-utils";
+import { requireAdmin, requireAdminWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -15,7 +15,7 @@ const patchSchema = z.object({
 
 // PATCH /api/tax-configs/[id]
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireAdmin();
+  const { session, error } = await requireAdminWrite();
   if (error) return error;
 
   const body = await req.json();
@@ -61,7 +61,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 // DELETE /api/tax-configs/[id]
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireAdmin();
+  const { session, error } = await requireAdminWrite();
   if (error) return error;
 
   try {

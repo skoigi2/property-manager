@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordReset } from "@/lib/email";
+import { generateToken, hashToken } from "@/lib/token-utils";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    // Defense-in-depth: slow automated reset-email spam / enumeration probing.
+    const limited = rateLimit(`forgot-password:${getClientIp(req)}`, {
+      max: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const { email } = await req.json();
 
     if (!email?.trim()) {
@@ -22,14 +35,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Generate a secure random token (hex, 64 chars)
-    const token = crypto.randomBytes(32).toString("hex");
+    // Generate a secure random token; only its hash is persisted so a DB leak
+    // cannot be replayed as a live reset link.
+    const token = generateToken();
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordResetToken:   token,
+        passwordResetToken:   hashToken(token),
         passwordResetExpires: expires,
       },
     });

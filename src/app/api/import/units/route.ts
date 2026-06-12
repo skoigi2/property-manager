@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import type { UnitType, UnitStatus } from "@prisma/client";
 
@@ -23,7 +23,7 @@ const VALID_UNIT_STATUSES: UnitStatus[] = [
 ];
 
 export async function POST(req: Request) {
-  const { error, session } = await requireManager();
+  const { error, session } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

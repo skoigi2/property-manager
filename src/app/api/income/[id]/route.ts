@@ -1,4 +1,4 @@
-import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
@@ -14,7 +14,7 @@ async function loadEntryPropertyId(id: string): Promise<string | null> {
 
 // PATCH — mark commission paid / unpaid
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadEntryPropertyId(params.id);
@@ -51,7 +51,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadEntryPropertyId(params.id);
@@ -86,7 +86,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadEntryPropertyId(params.id);

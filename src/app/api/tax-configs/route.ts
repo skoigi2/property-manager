@@ -1,4 +1,4 @@
-import { requireManager, requireAdmin } from "@/lib/auth-utils";
+import { requireManager, requireAdmin, requireAdminWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
 
 // POST /api/tax-configs
 export async function POST(req: Request) {
-  const { session, error } = await requireAdmin();
+  const { session, error } = await requireAdminWrite();
   if (error) return error;
 
   const body = await req.json();

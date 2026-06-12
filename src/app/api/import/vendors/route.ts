@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/auth-utils";
+import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import type { VendorCategory } from "@prisma/client";
 
@@ -18,7 +18,7 @@ const VALID_CATEGORIES: VendorCategory[] = [
 ];
 
 export async function POST(req: Request) {
-  const { error, session } = await requireManager();
+  const { error, session } = await requireManagerWrite();
   if (error) return error;
 
   const organizationId = session!.user.organizationId;

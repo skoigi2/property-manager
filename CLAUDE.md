@@ -39,6 +39,8 @@ npm run db:seed:bahrain  # Seed Al Seef Residences demo (Bahrain, 20 units)
 # in-app onboarding picker / POST /api/demo/seed — no dedicated npm script.
 npm start                # Production server (after npm run build)
 npx tsc --noEmit     # Type-check without building
+npm test             # Vitest unit tests (src/**/*.test.ts) — financial libs covered
+npm run test:watch   # Vitest watch mode
 ```
 
 **Schema changes** — `prisma migrate dev` does NOT work (shadow DB incompatibility with Supabase). Instead:
@@ -48,7 +50,7 @@ npx tsc --noEmit     # Type-check without building
 4. `npx prisma generate` — regenerates the client
 5. Apply the same SQL in the Supabase SQL Editor for production
 
-There are no automated tests. Validate changes with `npx tsc --noEmit` and `npm run build`.
+Unit tests live in `src/lib/__tests__/` (Vitest, pure-function coverage of `calculations.ts`, `tax-engine.ts`, `date-utils.ts`, `subscription.ts`). GitHub Actions CI (`.github/workflows/ci.yml`) runs `prisma generate` → `tsc --noEmit` → `npm test` on every push to main. Validate changes with `npm test`, `npx tsc --noEmit`, and `npm run build`. When touching financial logic, add/extend a test.
 
 ## Architecture Overview
 
@@ -84,6 +86,7 @@ Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAuth()` — any logged-in user
 - `requireManager()` — ADMIN, MANAGER, or ACCOUNTANT (blocks OWNER)
 - `requireAdmin()` — ADMIN only (org-admin or super-admin)
+- `requireAuthWrite()` / `requireManagerWrite()` / `requireAdminWrite()` — same auth check **plus the subscription write-gate** (`requireActiveSubscription`, 402 when the org is locked). **Use these in every mutating handler (POST/PATCH/PUT/DELETE) on org-scoped resources**; keep the base helpers for GETs so locked orgs can still read their data. Exemptions (must keep working while locked): auth flows, billing/stripe, webhooks, cron, portal/approvals token routes, invitations, onboarding, demo seed, admin, organizations, and `POST /api/report` (PDF render = read in spirit).
 - `requireSuperAdmin()` — ADMIN role **and** `organizationId === null` (platform super-admin only)
 - `requirePropertyAccess(propertyId)` — verifies current user may access a specific property; returns `{ ok: boolean, error?: Response }`
 - `getAccessiblePropertyIds()` — returns property IDs the current user may see (ADMIN = all; OWNER = their owned properties; MANAGER/ACCOUNTANT = `PropertyAccess` records)
@@ -529,7 +532,7 @@ There are **only two capacity gates** in the codebase, plus a subscription-state
 |---|---|---|
 | Property count | TRIAL=2 · STARTER=2 · GROWTH=10 · PRO=∞ | `PROPERTY_LIMITS` in paddle.ts → `canAddProperty()` → POST /api/properties |
 | Team-member count | TRIAL=1 · STARTER=1 · GROWTH=10 · PRO=∞ | `TEAM_LIMITS` in paddle.ts → `canAddUser()` → POST /api/users |
-| Write-lock | trial-expired / cancelled / expired / past-due → HTTP 402 | `requireActiveSubscription()` called from every mutating route |
+| Write-lock | trial-expired / cancelled / expired / past-due → HTTP 402 | `require*Write()` helpers (auth-utils) / `requireActiveSubscription()` on every mutating route |
 
 **There is no per-feature gating.** Every other capability — Airbnb tracking, tax rules, cashflow forecast, asset register, insurance, compliance, audit log, multi-org, etc. — is universally available to any active org regardless of tier. This is intentional and is the foundation of the `/pricing` page's "Why no feature gates?" positioning. Marketing copy on `/pricing` MUST reflect this rule until any per-feature gate is added in code — do not advertise gates that don't exist. See [docs/pricing-gating-roadmap.md](docs/pricing-gating-roadmap.md) for the candidate list of features that could plausibly be gated in future.
 
@@ -624,6 +627,8 @@ SUPABASE_SERVICE_ROLE_KEY     # Supabase service role key (server-only, never ex
 RESEND_API_KEY                # Resend email API key — required for all email sending
 RESEND_FROM_EMAIL             # Optional sender address (default: "Groundwork PM <noreply@groundworkpm.com>")
 CRON_SECRET                   # Random secret that Vercel sends as Bearer token to authenticate cron calls
+NEXT_PUBLIC_SENTRY_DSN        # Optional — enables Sentry error monitoring (client+server). SDK no-ops when absent
+SENTRY_AUTH_TOKEN             # Optional — enables source-map upload at build time
 ```
 
 ### Automated Notifications (Cron)

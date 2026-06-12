@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth-utils";
+import { requireAuth, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
  * underlying actionEndpoint). Idempotent.
  */
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireAuth();
+  const { error } = await requireAuthWrite();
   if (error) return error;
 
   const updated = await prisma.actionableHint.update({

@@ -47,6 +47,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: `${BASE}/tools/airbnb-vs-long-term-rental-calculator`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE}/blog/why-property-management-breaks-down-after-10-units`,
       lastModified: new Date(),
       changeFrequency: "monthly",

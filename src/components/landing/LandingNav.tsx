@@ -13,6 +13,7 @@ export function LandingNav() {
     { label: "Features", href: "/#outcomes", anchor: true },
     { label: "Blog", href: "/blog" },
     { label: "Examples", href: "/examples" },
+    { label: "Calculator", href: "/tools/airbnb-vs-long-term-rental-calculator" },
     { label: "Pricing", href: "/pricing" },
     { label: "Contact", href: "/contact" },
     { label: "Sign in", href: "/login" },

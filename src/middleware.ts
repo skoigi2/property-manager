@@ -30,6 +30,7 @@ export default auth((req) => {
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/refund") ||
     pathname.startsWith("/blog") ||
+    pathname.startsWith("/tools") ||
     pathname.startsWith("/contact");
 
   if (!isLoggedIn && !isAuthPage && !isPortalPage && !isApprovePage && !isPublicPage) {

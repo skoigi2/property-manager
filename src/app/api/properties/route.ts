@@ -107,12 +107,29 @@ export async function POST(req: Request) {
       data: { ...propertyData, organizationId: resolvedOrgId },
     });
 
-    // Automatically grant the creating manager access (idempotent — ignore if it already exists)
-    await prisma.propertyAccess.upsert({
-      where: { userId_propertyId: { userId: session.user.id, propertyId: property.id } },
-      create: { userId: session.user.id, propertyId: property.id },
-      update: {},
-    });
+    // Grant PropertyAccess to every member of the owning org so the new property
+    // is visible to all managers/accountants — not just the creator. (Org-admins
+    // already see all org properties via getAccessiblePropertyIds, but managers
+    // are scoped to explicit grants.) Mirrors the demo-seed grantAccess() helper.
+    // Falls back to just the creator when the property has no org (super-admin path).
+    if (resolvedOrgId) {
+      const members = await prisma.userOrganizationMembership.findMany({
+        where: { organizationId: resolvedOrgId },
+        select: { userId: true },
+      });
+      const userIds = new Set(members.map((m) => m.userId));
+      userIds.add(session.user.id); // ensure the creator is always included
+      await prisma.propertyAccess.createMany({
+        data: Array.from(userIds).map((userId) => ({ userId, propertyId: property.id })),
+        skipDuplicates: true,
+      });
+    } else {
+      await prisma.propertyAccess.upsert({
+        where: { userId_propertyId: { userId: session.user.id, propertyId: property.id } },
+        create: { userId: session.user.id, propertyId: property.id },
+        update: {},
+      });
+    }
 
     return Response.json(property, { status: 201 });
   } catch (err) {

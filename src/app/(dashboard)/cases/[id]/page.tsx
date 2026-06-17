@@ -257,11 +257,15 @@ export default function CaseDetailPage() {
                 className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
               <div className="flex items-center justify-between mt-2">
-                <input ref={fileRef} type="file" multiple className="text-xs font-sans" />
+                <input ref={fileRef} type="file" multiple accept="image/*,application/pdf" className="text-xs font-sans" />
                 <Button onClick={postComment} disabled={saving}>
                   <Send size={14} /> Add comment
                 </Button>
               </div>
+              <p className="mt-1.5 text-xs font-sans text-gray-400">
+                📎 Attach photos (before/after repair shots) or PDFs — quotes, invoices, receipts.
+                They&apos;re saved to this case&apos;s timeline as a permanent record of the repair.
+              </p>
             </div>
           </div>
 

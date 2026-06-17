@@ -168,8 +168,8 @@ function CasesBanner() {
   return (
     <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm font-sans">
       <span className="text-header">
-        💡 Looking for the full timeline, comments, and approvals?{" "}
-        <a href="/cases?caseType=MAINTENANCE" className="text-gold underline">Open this in the new Cases view →</a>
+        💡 Each repair has a Case with a full timeline — add comments, photos (before/after shots), and quote/invoice PDFs for a permanent history.{" "}
+        <a href="/cases?caseType=MAINTENANCE" className="text-gold underline">Open the Cases view →</a>
       </span>
       <button
         onClick={() => {

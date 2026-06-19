@@ -199,11 +199,77 @@
   .kanban-card-title { font-weight: 600; color: var(--navy); margin-bottom: 4px; }
   .kanban-card-meta { color: var(--text-muted); }
 
+  /* ── TOC search ── */
+  #toc-search-wrap { position: relative; padding: 14px 16px 4px; }
+  #toc-search {
+    width: 100%; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
+    color: #fff; font-family: inherit; font-size: 13px;
+    padding: 9px 30px 9px 32px; transition: border-color 0.15s, background 0.15s;
+  }
+  #toc-search::placeholder { color: rgba(255,255,255,0.4); }
+  #toc-search:focus { outline: none; border-color: var(--gold); background: rgba(255,255,255,0.12); }
+  .toc-search-icon {
+    position: absolute; left: 26px; top: 50%; transform: translateY(-50%);
+    color: rgba(255,255,255,0.4); pointer-events: none; font-size: 13px;
+  }
+  #toc-search-clear {
+    position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 4px; display: none;
+  }
+  #toc-search-clear:hover { color: #fff; }
+  .toc-link.search-hidden { display: none; }
+  mark.toc-hit { background: var(--gold); color: var(--navy); border-radius: 2px; padding: 0 1px; }
+  #toc-no-results {
+    display: none; color: rgba(255,255,255,0.5); font-size: 12px;
+    padding: 10px 20px; font-style: italic;
+  }
+
+  /* ── Mobile top bar (hidden on desktop) ── */
+  #mobile-topbar { display: none; }
+  #sidebar-backdrop { display: none; }
+
   /* ── Responsive ── */
   @media (max-width: 900px) {
-    #sidebar { transform: translateX(-100%); }
-    #main { margin-left: 0; }
-    #content, #hero { padding-left: 24px; padding-right: 24px; }
+    #mobile-topbar {
+      display: flex; align-items: center; gap: 12px;
+      position: fixed; top: 0; left: 0; right: 0; height: 54px; z-index: 80;
+      background: var(--navy); padding: 0 16px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+    }
+    #mobile-menu-btn {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.14);
+      color: #fff; width: 38px; height: 38px; border-radius: 8px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      font-size: 18px; line-height: 1;
+    }
+    #mobile-menu-btn:active { background: rgba(255,255,255,0.18); }
+    #mobile-topbar .mt-title {
+      color: #fff; font-family: 'DM Serif Display', serif; font-size: 16px; font-weight: 700;
+    }
+    #mobile-topbar .mt-sub {
+      color: rgba(255,255,255,0.45); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase; margin-left: auto;
+    }
+
+    #sidebar {
+      transform: translateX(-100%); transition: transform 0.25s ease;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.3); width: min(82vw, 300px);
+    }
+    #sidebar.open { transform: translateX(0); }
+
+    #sidebar-backdrop {
+      display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    #sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
+
+    #main { margin-left: 0; padding-top: 54px; }
+    #hero { padding: 36px 24px 40px; }
+    #content { padding-left: 24px; padding-right: 24px; }
+    #hero h1 { font-size: 32px; }
+    .section { padding-top: 44px; }
     .screenshot-grid { grid-template-columns: 1fr; }
     .kanban-cols { grid-template-columns: 1fr 1fr; }
   }
@@ -219,6 +285,16 @@
 <body>
 
 <!-- ══════════════════════════════════════════════════════════
+     MOBILE TOP BAR (visible < 900px)
+══════════════════════════════════════════════════════════ -->
+<div id="mobile-topbar">
+  <button id="mobile-menu-btn" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
+  <span class="mt-title">GroundWorkPM</span>
+  <span class="mt-sub">User Guide</span>
+</div>
+<div id="sidebar-backdrop"></div>
+
+<!-- ══════════════════════════════════════════════════════════
      SIDEBAR
 ══════════════════════════════════════════════════════════ -->
 <nav id="sidebar">
@@ -227,6 +303,11 @@
     <span>GroundWorkPM</span>
     <span class="back-hint">← Home</span>
   </a>
+  <div id="toc-search-wrap">
+    <span class="toc-search-icon">🔍</span>
+    <input id="toc-search" type="search" placeholder="Search the guide…" autocomplete="off" aria-label="Search the guide">
+    <button id="toc-search-clear" aria-label="Clear search">×</button>
+  </div>
   <div class="toc-label">User Guide</div>
   <a class="toc-link active" href="#intro"><span class="num">00</span>Introduction</a>
   <a class="toc-link" href="#roles"><span class="num">01</span>User Roles</a>
@@ -245,6 +326,7 @@
   <a class="toc-link" href="#portal"><span class="num">14</span>Tenant Portal</a>
   <a class="toc-link" href="#billing"><span class="num">15</span>Billing &amp; Plans</a>
   <a class="toc-link" href="#appendix"><span class="num">16</span>Appendix</a>
+  <div id="toc-no-results">No sections match your search.</div>
 </nav>
 
 <!-- ══════════════════════════════════════════════════════════
@@ -1412,6 +1494,75 @@ const observer = new IntersectionObserver((entries) => {
 
 sections.forEach(s => observer.observe(s));
 document.querySelector('.toc-link[href="#intro"]').classList.add('active');
+
+// ── Mobile drawer toggle ──
+const sidebar = document.getElementById('sidebar');
+const backdrop = document.getElementById('sidebar-backdrop');
+const menuBtn = document.getElementById('mobile-menu-btn');
+function openDrawer() {
+  sidebar.classList.add('open');
+  backdrop.classList.add('show');
+  menuBtn.setAttribute('aria-expanded', 'true');
+}
+function closeDrawer() {
+  sidebar.classList.remove('open');
+  backdrop.classList.remove('show');
+  menuBtn.setAttribute('aria-expanded', 'false');
+}
+menuBtn.addEventListener('click', () => {
+  sidebar.classList.contains('open') ? closeDrawer() : openDrawer();
+});
+backdrop.addEventListener('click', closeDrawer);
+// Close the drawer after tapping a section link on mobile
+tocLinks.forEach(l => l.addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 900px)').matches) closeDrawer();
+}));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// ── Live search: filter TOC by section title + content ──
+const searchInput = document.getElementById('toc-search');
+const clearBtn = document.getElementById('toc-search-clear');
+const noResults = document.getElementById('toc-no-results');
+// Build a search index once: each TOC link -> its label + the text of its target section
+const searchIndex = Array.from(tocLinks).map(link => {
+  const id = link.getAttribute('href').slice(1);
+  const section = document.getElementById(id);
+  const label = link.textContent.replace(/^\d+/, '').trim();
+  const body = section ? section.textContent : '';
+  return { link, label, haystack: (label + ' ' + body).toLowerCase() };
+});
+
+function runSearch(q) {
+  const query = q.trim().toLowerCase();
+  clearBtn.style.display = query ? 'block' : 'none';
+  let visible = 0;
+  searchIndex.forEach(({ link, label, haystack }) => {
+    const match = !query || haystack.includes(query);
+    link.classList.toggle('search-hidden', !match);
+    if (match) visible++;
+    // Highlight the matched substring in the visible label
+    const numHtml = link.querySelector('.num').outerHTML;
+    if (query && label.toLowerCase().includes(query)) {
+      const i = label.toLowerCase().indexOf(query);
+      const safe = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+      link.innerHTML = numHtml + safe(label.slice(0, i)) +
+        '<mark class="toc-hit">' + safe(label.slice(i, i + query.length)) + '</mark>' +
+        safe(label.slice(i + query.length));
+    } else {
+      link.innerHTML = numHtml + label;
+    }
+  });
+  noResults.style.display = visible === 0 ? 'block' : 'none';
+}
+
+searchInput.addEventListener('input', e => runSearch(e.target.value));
+clearBtn.addEventListener('click', () => { searchInput.value = ''; runSearch(''); searchInput.focus(); });
+// "/" focuses search (unless already typing in a field)
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault(); searchInput.focus();
+  }
+});
 </script>
 </body>
 </html>

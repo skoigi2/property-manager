@@ -325,7 +325,8 @@
   <a class="toc-link" href="#settings"><span class="num">13</span>Settings &amp; Team</a>
   <a class="toc-link" href="#portal"><span class="num">14</span>Tenant Portal</a>
   <a class="toc-link" href="#billing"><span class="num">15</span>Billing &amp; Plans</a>
-  <a class="toc-link" href="#appendix"><span class="num">16</span>Appendix</a>
+  <a class="toc-link" href="#automations"><span class="num">16</span>Automations</a>
+  <a class="toc-link" href="#appendix"><span class="num">17</span>Appendix</a>
   <div id="toc-no-results">No sections match your search.</div>
 </nav>
 
@@ -341,7 +342,7 @@
     <p>An end-to-end walkthrough of every feature — from signing up to generating owner reports, managing maintenance, and sharing tenant portals.</p>
     <div class="meta">
       <div class="meta-item"><strong>Version</strong> &nbsp;Next.js 14 · Prisma · Supabase</div>
-      <div class="meta-item"><strong>Updated</strong> &nbsp;April 2026</div>
+      <div class="meta-item"><strong>Updated</strong> &nbsp;June 2026</div>
       <div class="meta-item"><strong>Audience</strong> &nbsp;Property managers &amp; admins</div>
     </div>
   </div>
@@ -679,6 +680,13 @@
         <li><strong>SLA breach</strong> — a case stage has stalled past its budget (see Cases below)</li>
       </ul>
       <p>Hints clear automatically when the underlying state changes. Dismissed hints expire after 30 days unless they recur.</p>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Every reminder is toggleable</strong>
+          All of these Smart Reminders — plus the manager email alerts and the case-opening workflows — can be switched on or off per organisation (and overridden per property) from the <a href="#automations">Automations</a> page. Individual users can also opt out of specific email categories.
+        </div>
+      </div>
     </div>
 
     <div class="sub-section">
@@ -1009,6 +1017,18 @@
     </div>
 
     <div class="sub-section">
+      <h3>Payment Status &amp; Outstanding Balance</h3>
+      <p style="margin-bottom:14px">Expenses aren't just "logged" — you can track exactly how much has been paid and what's still owed. The add/edit form has a payment block capturing <strong>Amount Paid</strong>, <strong>Due Date</strong>, <strong>VAT Amount</strong> (kept separate — the <code>Amount</code> field is always net of VAT), <strong>Payment Method</strong>, <strong>Payment Reference</strong>, <strong>Payment Date</strong>, and notes.</p>
+      <p style="margin-bottom:14px">From these, the system derives a status for each expense — never stored, always recomputed:</p>
+      <p class="tab-pills">
+        <span class="tab-pill"><span class="badge badge-green">PAID</span></span>
+        <span class="tab-pill"><span class="badge badge-amber">PARTIAL</span></span>
+        <span class="tab-pill"><span class="badge badge-red">UNPAID</span></span>
+      </p>
+      <p>The Expenses page surfaces a <strong>Balance + Due</strong> column, and any expense with a balance owing past its due date is flagged as <strong>overdue</strong> in a banner at the top of the page. Click the <strong>🕓 Clock</strong> icon on any expense row to open its full change history with field-level before/after diffs.</p>
+    </div>
+
+    <div class="sub-section">
       <h3>Petty Cash</h3>
       <div class="screenshot-wrap">
         <img src="guide-screenshots/14-petty-cash.png" alt="Petty cash page" loading="lazy">
@@ -1287,7 +1307,21 @@
 
     <div class="sub-section">
       <h3>Audit Log</h3>
-      <p>Every CREATE, UPDATE, and DELETE action in the platform is logged with the user's email, timestamp, affected record, and JSON before/after snapshots. Navigate to <strong>Settings → Audit Log</strong> to review the full trail.</p>
+      <p>Every CREATE, UPDATE, and DELETE action in the platform is logged with the user's email, timestamp, affected record, and JSON before/after snapshots. Navigate to <strong>Settings → Audit Log</strong> to review the full trail. For a single record, click the <strong>🕓 Clock</strong> icon on its row (e.g. on the Expenses page) to open a <em>History Drawer</em> showing just that record's changes with field-level diffs.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Email Notification Preferences</h3>
+      <p>Each user controls which automated emails they receive from <strong>Settings → Notifications</strong>. Opt out of a whole category (e.g. lease-expiry alerts, overdue-invoice alerts) without affecting your teammates — preferences are per-user. Inbox reminders are never emailed, so they're unaffected. This is separate from the org-wide on/off switches on the <a href="#automations">Automations</a> page.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>API Keys &amp; Webhooks <span class="badge badge-gold">Admin only</span></h3>
+      <p>For integrations, admins can issue read-only API keys and register webhook endpoints from <strong>Settings → API</strong>.</p>
+      <ul class="feature-list">
+        <li><strong>Public API</strong> — org-scoped, read-only endpoints under <code>/api/v1/</code> (properties, tenants, invoices), authenticated with a <code>Bearer gwpm_…</code> key. The raw key is shown <em>once</em> at creation, then stored only as a hash — copy it immediately.</li>
+        <li><strong>Webhooks</strong> — register an endpoint to receive events such as <code>invoice.paid</code> and <code>maintenance.created</code>. Each delivery is signed with an HMAC <code>X-GWPM-Signature</code> header so you can verify it came from GroundWorkPM.</li>
+      </ul>
     </div>
   </div>
 
@@ -1384,13 +1418,65 @@
   </div>
 
   <!-- ══════════════════════
-       14. APPENDIX
+       16. AUTOMATIONS
+  ══════════════════════ -->
+  <div id="automations" class="section">
+    <div class="section-header">
+      <div class="section-num">16 — Automations</div>
+      <h2>Automations</h2>
+      <p class="intro">One control surface for everything the platform does automatically — the workflows that open Cases, the email alerts managers receive, and the proactive Inbox reminders. It's not a custom workflow builder; it's a fixed registry of proven templates your organisation switches on or off.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Three categories</h3>
+      <table class="data-table">
+        <thead><tr><th>Category</th><th>Default</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-blue">Workflow</span></td>
+            <td><span class="badge badge-gray">Off</span> (opt-in)</td>
+            <td>Auto-opens a <a href="#cases">Case</a> when a condition fires — lease renewal due in 90 days, arrears untouched 7 days, compliance / insurance expiring in 30 days, urgent maintenance.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-green">Email notification</span></td>
+            <td><span class="badge badge-green">On</span></td>
+            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance) plus an opt-in monthly owner statement emailed to the property owner.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-amber">Smart reminder</span></td>
+            <td><span class="badge badge-green">On</span></td>
+            <td>The hint-only Inbox nudges — vacant unit, unsettled deposit, recurring expense due, low petty cash, negative cashflow, case SLA breach.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sub-section">
+      <h3>Org toggle, per-property override, per-user opt-out</h3>
+      <p>Each automation has an organisation-wide on/off switch. Need an exception for one property? Expand <strong>Customise per property</strong> and set it to Inherit / On / Off — the per-property setting wins over the org toggle. Separately, each individual can opt out of email categories from <a href="#settings">Settings → Notifications</a> without changing anything for the rest of the team.</p>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Who gets notified</strong>
+          Each card shows how many recipients an alert reaches (property managers with access, falling back to the organisation's contact email so an alert is never silently dropped). A grid / table view toggle lets you scan all automations at a glance.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>When automations run</h3>
+      <p>All of these are evaluated by a single daily job at <strong>07:00 UTC</strong>. Turning an automation off makes that day's job skip it entirely — no Case opened, no email sent, no reminder raised. Turning it back on resumes from the next run. Workflow automations are de-duplicated, so a condition that stays true won't open the same Case twice.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       17. APPENDIX
   ══════════════════════ -->
   <div id="appendix" class="section">
     <div class="section-header">
-      <div class="section-num">16 — Appendix</div>
+      <div class="section-num">17 — Appendix</div>
       <h2>Appendix</h2>
-      <p class="intro">Role access matrix, mobile navigation, automated notifications, and multi-organisation setup.</p>
+      <p class="intro">Role access matrix, global search, mobile navigation, automated notifications, and multi-organisation setup.</p>
     </div>
 
     <div class="sub-section">
@@ -1419,11 +1505,17 @@
           <tr><td>Insurance</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
           <tr><td>Compliance</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
           <tr><td>Assets</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Automations</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
           <tr><td>Report</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
           <tr><td>Settings</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
           <tr><td>Billing</td><td style="text-align:center">Billing owner only</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="sub-section">
+      <h3>Global Search</h3>
+      <p>Press <strong>Cmd / Ctrl + K</strong> anywhere in the dashboard (or use the Search entry in the sidebar) to open a command palette that searches tenants, properties, invoices, vendors, cases, and maintenance jobs at once. Results are scoped to the properties you can access. Available to managers, admins, and accountants — hidden for the Owner role.</p>
     </div>
 
     <div class="sub-section">
@@ -1439,6 +1531,7 @@
     <div class="sub-section">
       <h3>Automated Notifications</h3>
       <p>A daily cron job (07:00 UTC) sends email alerts to all Managers and Admins with property access when:</p>
+      <p style="margin-bottom:6px"><em>Each of these alerts can be switched off per organisation or per property from the <a href="#automations">Automations</a> page, and individual users can opt out from Settings → Notifications.</em></p>
       <table class="data-table">
         <thead><tr><th>Trigger</th><th>Alert type</th><th>Window</th></tr></thead>
         <tbody>
@@ -1459,7 +1552,8 @@
 
     <div class="sub-section">
       <h3>Data Import</h3>
-      <p>Navigate to <strong>Settings → Import</strong> to bulk-import data from Excel/CSV. Download the template file from the import page, fill it in, and upload. Supported import types: income, expenses, tenants, and properties. Imports are validated and applied as upserts — re-importing with the same identifiers updates existing records rather than duplicating them.</p>
+      <p>Navigate to <strong>Import</strong> to bulk-import data from Excel. Each tab works the same way: download the template, fill it in, upload, and the rows are validated client-side before they're sent. Available importers: <strong>tenants, rent history, income, expenses, recurring expenses, petty cash, units, maintenance, vendors</strong>, and a full-property <strong>handover</strong> ZIP.</p>
+      <p>Several importers (tenants, rent history, expenses, petty cash, recurring) support an <em>"Update existing records"</em> mode so re-importing edits rows in place instead of duplicating them. The Expenses template can additionally carry an <code>ID</code> column — use <em>Export existing</em> to download your current expenses pre-filled, edit any field, and re-upload to resync without creating duplicates. Name columns (Property Name, Vendor Name, Unit Number) are resolved to the right records automatically; an unmatched name still imports, just unlinked, with a warning.</p>
     </div>
 
     <!-- Footer -->
@@ -1469,7 +1563,7 @@
         <div style="font-size:12px;color:var(--text-muted)">Professional Property Management Software</div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);text-align:right">
-        User Guide · April 2026<br>
+        User Guide · June 2026<br>
         Built with Next.js 14 · Prisma · Supabase
       </div>
     </div>

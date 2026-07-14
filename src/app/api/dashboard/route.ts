@@ -2,6 +2,7 @@ import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { getMonthRange, daysUntilExpiry, getLeaseStatus } from "@/lib/date-utils";
 import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
+import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { getDaysInMonth } from "date-fns";
 
 export async function GET(req: Request) {
@@ -56,6 +57,9 @@ export async function GET(req: Request) {
           serviceCharge: true,
           unitId: true,
           unit: { select: { id: true, unitNumber: true, propertyId: true, type: true } },
+          // Escalation timeline — expected rent for past months resolves from
+          // this instead of assuming today's monthlyRent (rent-resolution.ts).
+          rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
         },
       }),
       // Income entries — drop the nested property include too. Filtering /
@@ -194,7 +198,7 @@ export async function GET(req: Request) {
             })
             .reduce((s, e) => s + e.grossAmount, 0);
 
-          const expected = t.monthlyRent ?? 0;
+          const expected = resolveExpectedRent(t.rentHistory, t.monthlyRent ?? 0, cursor);
           if (paid < expected * 0.99) {
             totalArrears += Math.max(0, expected - paid);
             monthsUnpaid++;
@@ -243,7 +247,10 @@ export async function GET(req: Request) {
         (e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT"
       );
       const received = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
-      const expected = t.monthlyRent + t.serviceCharge;
+      // Resolve the rent that applied in the SELECTED month (month picker can
+      // point at the past) rather than today's rate.
+      const expectedRent = resolveExpectedRent(t.rentHistory, t.monthlyRent, from);
+      const expected = expectedRent + t.serviceCharge;
       return {
         id: t.id,
         tenantName: t.name,
@@ -251,7 +258,7 @@ export async function GET(req: Request) {
         propertyId: t.unit.propertyId,
         propertyName: propertyById.get(t.unit.propertyId)?.name ?? "",
         type: t.unit.type,
-        expectedRent: t.monthlyRent,
+        expectedRent,
         serviceCharge: t.serviceCharge,
         expected,
         received,

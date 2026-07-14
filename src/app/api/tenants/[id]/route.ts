@@ -36,6 +36,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           },
         },
       },
+      // Rent escalation timeline — the ledger resolves each month's expected
+      // rent from this instead of assuming today's monthlyRent applied forever.
+      rentHistory: {
+        select: { monthlyRent: true, effectiveDate: true },
+        orderBy: { effectiveDate: "asc" },
+      },
     },
   });
 
@@ -60,17 +66,44 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const { leaseStart, leaseEnd, ...rest } = parsed.data;
 
-  const tenant = await prisma.tenant.update({
+  // Keep the rent timeline complete: a direct edit that changes monthlyRent
+  // appends a RentHistory row (the renewal flow already does this), so
+  // historical "expected rent" resolution stays accurate.
+  const before = await prisma.tenant.findUnique({
     where: { id: params.id },
-    data: {
-      ...rest,
-      leaseStart: new Date(leaseStart),
-      leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
-    },
-    include: {
-      unit: { include: { property: { select: { id: true, name: true, type: true } } } },
-    },
+    select: { monthlyRent: true },
   });
+  const rentChanged =
+    typeof rest.monthlyRent === "number" &&
+    before !== null &&
+    rest.monthlyRent !== before.monthlyRent;
+
+  const ops: any[] = [
+    prisma.tenant.update({
+      where: { id: params.id },
+      data: {
+        ...rest,
+        leaseStart: new Date(leaseStart),
+        leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
+      },
+      include: {
+        unit: { include: { property: { select: { id: true, name: true, type: true } } } },
+      },
+    }),
+  ];
+  if (rentChanged) {
+    ops.push(
+      prisma.rentHistory.create({
+        data: {
+          tenantId:      params.id,
+          monthlyRent:   rest.monthlyRent,
+          effectiveDate: new Date(),
+          reason:        "Rent updated",
+        },
+      }),
+    );
+  }
+  const [tenant] = await prisma.$transaction(ops);
 
   return Response.json(tenant);
 }

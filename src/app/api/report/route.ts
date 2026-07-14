@@ -4,6 +4,7 @@ import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { getMonthRange, getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { calcUnitSummary, calcPettyCashTotal, RIARA_MGMT_FEE } from "@/lib/calculations";
+import { resolveExpectedRent, resolveExpectedRentForRange } from "@/lib/rent-resolution";
 import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
@@ -28,7 +29,10 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     }),
     prisma.tenant.findMany({
       where: { isActive: true, unit: { propertyId: { in: propertyIds } } },
-      include: { unit: { include: { property: true } } },
+      include: {
+        unit: { include: { property: true } },
+        rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
+      },
     }),
     prisma.incomeEntry.findMany({
       where: { date: { gte: from, lte: to }, unit: { propertyId: { in: propertyIds } } },
@@ -68,18 +72,20 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const longTermName = properties.filter((p) => p.type === "LONGTERM").map((p) => p.name).join(" & ") || "Long-Term Rent";
   const shortLetName = properties.filter((p) => p.type === "AIRBNB").map((p) => p.name).join(" & ")  || "Short-Let Performance";
 
-  // Rent collection
+  // Rent collection — expected rent resolved for the REPORT month, so past
+  // months use the rent that applied then (RentHistory), not today's rate.
   const rentCollection = riaraTenants.map((t) => {
     const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
+    const expectedRent = resolveExpectedRent(t.rentHistory, t.monthlyRent, from);
     return {
       tenantName:    t.name,
       unit:          t.unit.unitNumber,
       type:          t.unit.type,
-      expectedRent:  t.monthlyRent,
+      expectedRent,
       serviceCharge: t.serviceCharge,
       received,
-      variance:      received - (t.monthlyRent + t.serviceCharge),
+      variance:      received - (expectedRent + t.serviceCharge),
       status:        getLeaseStatus(t.leaseEnd),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };
@@ -230,7 +236,10 @@ async function buildRangeReportData(
     }),
     prisma.tenant.findMany({
       where: { isActive: true, unit: { propertyId: { in: propertyIds } } },
-      include: { unit: { include: { property: true } } },
+      include: {
+        unit: { include: { property: true } },
+        rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
+      },
     }),
     prisma.incomeEntry.findMany({
       where: { date: { gte: from, lt: to }, unit: { propertyId: { in: propertyIds } } },
@@ -270,18 +279,20 @@ async function buildRangeReportData(
   const longTermNameQ = properties.filter((p) => p.type === "LONGTERM").map((p) => p.name).join(" & ") || "Long-Term Rent";
   const shortLetNameQ = properties.filter((p) => p.type === "AIRBNB").map((p) => p.name).join(" & ")  || "Short-Let Performance";
 
-  // Rent collection — expected scaled across the period
+  // Rent collection — expected summed per month across the period, resolving
+  // each month's rent from RentHistory (an escalation mid-period is respected).
   const rentCollection = riaraTenants.map((t) => {
     const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
+    const expectedRent = resolveExpectedRentForRange(t.rentHistory, t.monthlyRent, from, monthsMult);
     return {
       tenantName:    t.name,
       unit:          t.unit.unitNumber,
       type:          t.unit.type,
-      expectedRent:  t.monthlyRent * monthsMult,
+      expectedRent,
       serviceCharge: t.serviceCharge * monthsMult,
       received,
-      variance:      received - (t.monthlyRent * monthsMult + t.serviceCharge * monthsMult),
+      variance:      received - (expectedRent + t.serviceCharge * monthsMult),
       status:        getLeaseStatus(t.leaseEnd),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };

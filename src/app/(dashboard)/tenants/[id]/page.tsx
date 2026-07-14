@@ -10,6 +10,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Spinner } from "@/components/ui/Spinner";
 import { getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
+import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
@@ -252,7 +253,6 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
   const today         = new Date();
   const end           = leaseEnd < today ? leaseEnd : today;
   const totalMonths   = Math.max(differenceInMonths(startOfMonth(end), startOfMonth(leaseStart)) + 1, 1);
-  const monthlyExpected = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
 
   const rows = [];
   for (let i = 0; i < totalMonths; i++) {
@@ -264,7 +264,12 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
       return d >= monthStart && d < monthEnd && e.type === "LONGTERM_RENT";
     });
     const received = payments.reduce((s: number, e: any) => s + e.grossAmount, 0);
-    rows.push({ monthLabel: format(monthDate, "MMM yyyy"), monthDate, expected: monthlyExpected, received, variance: received - monthlyExpected, payments });
+    // Expected rent is resolved per month from the RentHistory timeline so
+    // past months reflect the rent that applied THEN, not today's rate.
+    const expected =
+      resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, monthDate) +
+      (tenant.serviceCharge ?? 0);
+    rows.push({ monthLabel: format(monthDate, "MMM yyyy"), monthDate, expected, received, variance: received - expected, payments });
   }
   return rows.reverse();
 }

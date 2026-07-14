@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
 import { calcLateInterest } from "@/lib/calculations";
+import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -116,7 +117,8 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
       })
       .reduce((s: number, e: any) => s + e.grossAmount, 0);
 
-    const expected = tenant.monthlyRent ?? 0;
+    // Rent that applied in THIS month of the walk (RentHistory-aware).
+    const expected = resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, cursor);
     const shortfall = Math.max(0, expected - paid);
     const isPaid = paid >= expected * 0.99;
     const dueDate = new Date(yr, mo + 1, 1); // 1st of next month
@@ -386,10 +388,11 @@ export default function IncomePage() {
           (e.tenantId === tenant.id || e.unitId === tenant.unitId),
       );
       const totalPaid = paid.reduce((s: number, e: any) => s + e.grossAmount, 0);
-      const expected  = tenant.monthlyRent ?? 0;
+      // Expected for the SELECTED month (picker can point at the past).
+      const expected  = resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, month);
       return { tenant, paid, totalPaid, expected, isPaid: totalPaid >= expected * 0.99 };
     }),
-  [allTenants, entries]);
+  [allTenants, entries, month]);
 
   const collectionSummary = useMemo(() => ({
     total:         collectionRows.length,

@@ -29,6 +29,13 @@ export async function GET(req: Request) {
       unit: {
         include: { property: { select: { id: true, name: true, type: true } } },
       },
+      // Rent escalation timeline — consumers resolve per-month expected rent
+      // from this (see src/lib/rent-resolution.ts) instead of assuming the
+      // current monthlyRent applied to past months.
+      rentHistory: {
+        select: { monthlyRent: true, effectiveDate: true },
+        orderBy: { effectiveDate: "asc" },
+      },
     },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
     take: 2000, // safety cap for very large portfolios

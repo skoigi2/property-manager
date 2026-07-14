@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getMonthRange } from "@/lib/date-utils";
 import { RIARA_MGMT_FEE } from "@/lib/calculations";
+import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { format } from "date-fns";
 
 export interface OwnerStatementLine {
@@ -53,7 +54,10 @@ export async function buildOwnerStatements(
   const [tenants, incomeEntries, expenseEntries] = await Promise.all([
     prisma.tenant.findMany({
       where: { unit: { propertyId: { in: targetPropertyIds } }, isActive: true },
-      include: { unit: true },
+      include: {
+        unit: true,
+        rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
+      },
     }),
     prisma.incomeEntry.findMany({
       where: { unit: { propertyId: { in: targetPropertyIds } }, date: { gte: from, lte: to } },
@@ -89,7 +93,9 @@ export async function buildOwnerStatements(
         tenantName:    tenant.name,
         unit:          tenant.unit.unitNumber,
         unitType:      tenant.unit.type,
-        rentExpected:  tenant.monthlyRent,
+        // Rent that applied in the STATEMENT month (statements are often
+        // generated for past periods), resolved from RentHistory.
+        rentExpected:  resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent, from),
         rentReceived,
         serviceCharge: svcReceived,
         otherIncome,

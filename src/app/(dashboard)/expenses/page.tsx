@@ -32,6 +32,7 @@ import { calcExpensePayment } from "@/lib/calculations";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
+import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { HistoryDrawer } from "@/components/ui/HistoryDrawer";
 
 // ─── Tax helpers (client-side, mirrors tax-engine pure functions) ─────────────
@@ -336,9 +337,14 @@ function LineItemsEditor({
 
 export default function ExpensesPage() {
   const { data: session } = useSession();
-  const { selectedId, selected, properties } = useProperty();
+  const { selectedId, selected } = useProperty();
   const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
+  // The header context list is minimal (?minimal=true — no units), so the
+  // unit multi-select must load the full property list itself. Same cache
+  // key as the Tenants page, so repeat navigations render instantly.
+  const { data: fullProperties } = useCachedFetch<any[]>("properties:full", "/api/properties");
+  const properties = fullProperties ?? [];
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);

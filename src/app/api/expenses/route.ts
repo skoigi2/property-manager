@@ -181,23 +181,25 @@ export async function POST(req: Request) {
           ? { unitAllocations: { create: unitIds.map((uid) => ({ unitId: uid, shareAmount })) } }
           : {}),
         ...(lineItemRows.length > 0 ? { lineItems: { create: lineItemRows } } : {}),
+        // Nested create links the petty-cash OUT row to this expense, so a
+        // later delete cascades and the ledger stays in sync.
+        ...(paidFromPettyCash
+          ? {
+              pettyCashEntry: {
+                create: {
+                  date: parsedDate,
+                  type: "OUT",
+                  amount: computedAmount,
+                  description: rest.description ?? `${rest.category} expense`,
+                  propertyId: pettyCashPropertyId,
+                },
+              },
+            }
+          : {}),
       },
       include: EXPENSE_INCLUDE,
     }),
   ];
-  if (paidFromPettyCash) {
-    ops.push(
-      prisma.pettyCash.create({
-        data: {
-          date: parsedDate,
-          type: "OUT",
-          amount: computedAmount,
-          description: rest.description ?? `${rest.category} expense`,
-          propertyId: pettyCashPropertyId,
-        },
-      }),
-    );
-  }
   const txResults = await prisma.$transaction(ops);
   const entry = txResults[0];
 

@@ -764,6 +764,7 @@ model ExpenseEntry {
   unitAllocations   ExpenseUnitAllocation[]
   documents         ExpenseDocument[]
   maintenanceLogs   AssetMaintenanceLog[]
+  pettyCashEntry    PettyCash?
   createdAt         DateTime                 @default(now())
 
   @@index([date])
@@ -811,6 +812,11 @@ model PettyCash {
   receiptRef      String?
   propertyId      String?
   property        Property?       @relation(fields: [propertyId], references: [id])
+  // Set when this OUT row mirrors an expense paid from petty cash — the
+  // cascade keeps the ledger in sync when the expense is deleted (single,
+  // bulk, or delete-all). Historical rows created before the link stay null.
+  expenseEntryId  String?         @unique
+  expenseEntry    ExpenseEntry?   @relation(fields: [expenseEntryId], references: [id], onDelete: Cascade)
   status          PettyCashStatus @default(APPROVED)
   approvedBy      String?
   approvedAt      DateTime?

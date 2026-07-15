@@ -1622,7 +1622,7 @@ export default function ExpensesPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
         title="Delete expense?"
-        message="This expense entry will be permanently deleted. Note: any petty cash OUT entry created with it will NOT be automatically reversed."
+        message="This expense entry will be permanently deleted. Any petty-cash OUT entry linked to it is removed automatically (rows from older saves or bulk imports are unlinked and may need manual cleanup)."
         loading={deleting}
       />
       <ConfirmDialog
@@ -1641,7 +1641,7 @@ export default function ExpensesPage() {
         message={
           `This permanently deletes ${deleteAllCount === null ? "every" : deleteAllCount} expense${deleteAllCount === 1 ? "" : "s"} for ` +
           `${selected?.name ?? "every property you can access"} across ALL months — not just the one shown. This cannot be undone. ` +
-          `Note: petty-cash OUT entries created alongside these expenses are NOT reversed, so on a fresh re-upload set the Petty Cash column to No to avoid double-counting.`
+          `Petty-cash OUT entries linked to these expenses are removed automatically; unlinked ones (from older saves or bulk imports) are NOT reversed and may need manual cleanup.`
         }
         loading={deleteAllSubmitting}
       />

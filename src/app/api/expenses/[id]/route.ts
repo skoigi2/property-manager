@@ -73,8 +73,28 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const before = await prisma.expenseEntry.findUnique({
     where: { id: params.id },
-    select: { category: true, amount: true, date: true },
+    select: {
+      category: true, amount: true, date: true,
+      paidFromPettyCash: true,
+      pettyCashEntry: { select: { id: true } },
+    },
   });
+
+  // Petty-cash reconciliation — keep the linked OUT row in sync with the flag.
+  const nowPetty = paidFromPettyCash ?? false;
+  const linkedPettyCashId = before?.pettyCashEntry?.id ?? null;
+  let pettyCashPropertyId: string | null = null;
+  if (nowPetty) {
+    if (resolvedPropertyId) {
+      pettyCashPropertyId = resolvedPropertyId;
+    } else if (resolvedUnitId) {
+      const unit = await prisma.unit.findUnique({
+        where: { id: resolvedUnitId },
+        select: { propertyId: true },
+      });
+      pettyCashPropertyId = unit?.propertyId ?? null;
+    }
+  }
 
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -124,6 +144,36 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         amountPaid: item.amountPaid ?? 0,
         paymentReference: item.paymentReference,
       })),
+    }));
+  }
+  // Petty-cash ledger sync:
+  // - flag turned off  → remove the linked OUT row
+  // - still on + linked → update it in place (preserves approval/status fields)
+  // - turned on (false→true) → create a linked row. Deliberately transition-only:
+  //   pre-link expenses that already have an UNLINKED manual petty-cash row must
+  //   not gain a second one.
+  if (linkedPettyCashId && !nowPetty) {
+    ops.push(prisma.pettyCash.delete({ where: { id: linkedPettyCashId } }));
+  } else if (linkedPettyCashId && nowPetty) {
+    ops.push(prisma.pettyCash.update({
+      where: { id: linkedPettyCashId },
+      data: {
+        date: parsedDate,
+        amount: computedAmount,
+        description: rest.description ?? `${rest.category} expense`,
+        propertyId: pettyCashPropertyId,
+      },
+    }));
+  } else if (!linkedPettyCashId && nowPetty && before && !before.paidFromPettyCash) {
+    ops.push(prisma.pettyCash.create({
+      data: {
+        date: parsedDate,
+        type: "OUT",
+        amount: computedAmount,
+        description: rest.description ?? `${rest.category} expense`,
+        propertyId: pettyCashPropertyId,
+        expenseEntryId: params.id,
+      },
     }));
   }
   await prisma.$transaction(ops);

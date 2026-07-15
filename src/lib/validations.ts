@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 
 export const incomeEntrySchema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -33,30 +34,7 @@ export const expenseEntrySchema = z.object({
   unitId: z.string().optional(),
   unitIds: z.array(z.string()).optional(),
   propertyId: z.string().optional(),
-  category: z.enum([
-    "SERVICE_CHARGE",
-    "MANAGEMENT_FEE",
-    "WIFI",
-    "WATER",
-    "ELECTRICITY",
-    "CLEANER",
-    "CONSUMABLES",
-    "MAINTENANCE",
-    "REINSTATEMENT",
-    "CAPITAL",
-    "SECURITY",
-    "GARBAGE_COLLECTION",
-    "LANDSCAPING",
-    "PEST_CONTROL",
-    "INSURANCE",
-    "PROPERTY_TAX",
-    "LEGAL_FEES",
-    "LICENSE_PERMIT",
-    "MARKETING",
-    "BANK_CHARGES",
-    "STAFF_WAGES",
-    "OTHER",
-  ]),
+  category: z.enum(EXPENSE_CATEGORIES),
   amount: z.coerce.number().min(0),
   description: z.string().optional(),
   isSunkCost: z.boolean().optional(),

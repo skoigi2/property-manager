@@ -33,6 +33,7 @@ import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/expense-categories";
 import { HistoryDrawer } from "@/components/ui/HistoryDrawer";
 
 // ─── Tax helpers (client-side, mirrors tax-engine pure functions) ─────────────
@@ -66,24 +67,8 @@ function computeTaxAmount(amount: number, config: TaxConfigMeta): number {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY",
-  "CLEANER","CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL",
-  "SECURITY","GARBAGE_COLLECTION","LANDSCAPING","PEST_CONTROL","INSURANCE",
-  "PROPERTY_TAX","LEGAL_FEES","LICENSE_PERMIT","MARKETING","BANK_CHARGES","STAFF_WAGES",
-  "OTHER",
-];
-const CAT_LABELS: Record<string, string> = {
-  SERVICE_CHARGE: "Service Charge", MANAGEMENT_FEE: "Management Fee",
-  WIFI: "Wi-Fi", WATER: "Water", ELECTRICITY: "Electricity",
-  CLEANER: "Cleaner", CONSUMABLES: "Consumables", MAINTENANCE: "Maintenance",
-  REINSTATEMENT: "Reinstatement", CAPITAL: "Capital Item",
-  SECURITY: "Security", GARBAGE_COLLECTION: "Garbage Collection",
-  LANDSCAPING: "Landscaping", PEST_CONTROL: "Pest Control", INSURANCE: "Insurance",
-  PROPERTY_TAX: "Property Tax / Rates", LEGAL_FEES: "Legal Fees",
-  LICENSE_PERMIT: "Licenses & Permits", MARKETING: "Marketing",
-  BANK_CHARGES: "Bank Charges", STAFF_WAGES: "Staff Wages", OTHER: "Other",
-};
+const CATEGORIES = EXPENSE_CATEGORIES;
+const CAT_LABELS: Record<string, string> = EXPENSE_CATEGORY_LABELS;
 const PAYMENT_METHODS = ["BANK_TRANSFER", "MPESA", "CASH", "CARD", "CHEQUE", "OTHER"];
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   BANK_TRANSFER: "Bank Transfer", MPESA: "M-Pesa", CASH: "Cash",
@@ -646,7 +631,12 @@ export default function ExpensesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        // Surface the server's message when it's a plain string (permission
+        // denials etc.); zod flatten() errors are objects — keep the generic.
+        const data = await res.json().catch(() => null);
+        throw new Error(typeof data?.error === "string" ? data.error : undefined);
+      }
       setSelectedIds(new Set());
       setBulkDeleteConfirm(false);
       // Reload entries for the month
@@ -657,7 +647,7 @@ export default function ExpensesPage() {
       setEntries(updated);
       setLoading(false);
       toast.success(action === "delete" ? "Entries deleted" : "Entries updated");
-    } catch { toast.error("Bulk action failed"); }
+    } catch (err) { toast.error((err as Error)?.message || "Bulk action failed"); }
     finally { setBulkSubmitting(false); }
   }
 
@@ -683,7 +673,7 @@ export default function ExpensesPage() {
         body: JSON.stringify({ action: "delete_all", ...(selectedId ? { propertyId: selectedId } : {}) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : undefined);
       setDeleteAllConfirm(false);
       setSelectedIds(new Set());
       // Reload the current month's view
@@ -694,7 +684,7 @@ export default function ExpensesPage() {
       setEntries(updated);
       setLoading(false);
       toast.success(`Deleted ${data.count} expense${data.count === 1 ? "" : "s"}`);
-    } catch { toast.error("Delete all failed"); }
+    } catch (err) { toast.error((err as Error)?.message || "Delete all failed"); }
     finally { setDeleteAllSubmitting(false); }
   }
 

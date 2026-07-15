@@ -3,11 +3,7 @@ import { roleCan, PERMISSION_DENIED_MESSAGE } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
-
-const EXPENSE_CATEGORIES = [
-  "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY",
-  "CLEANER","CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL","OTHER",
-] as const;
+import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 
 const bulkSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("delete"),          ids: z.array(z.string()).min(1) }),

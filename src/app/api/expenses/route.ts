@@ -41,17 +41,26 @@ export async function GET(req: Request) {
     ? [propertyId]
     : propertyIds;
 
+  const where = {
+    OR: [
+      { propertyId: { in: effectivePropertyIds } },
+      { unit: { propertyId: { in: effectivePropertyIds } } },
+      { unitAllocations: { some: { unit: { propertyId: { in: effectivePropertyIds } } } } },
+    ],
+    ...(unitId ? { unitId } : {}),
+    ...(category ? { category: category as never } : {}),
+    ...dateFilter,
+  };
+
+  // ?count=true → row count only (not subject to the take cap below). Used by
+  // the "Delete all" confirm dialog so it doesn't fetch thousands of rows.
+  if (searchParams.get("count") === "true") {
+    const count = await prisma.expenseEntry.count({ where });
+    return Response.json({ count });
+  }
+
   const entries = await prisma.expenseEntry.findMany({
-    where: {
-      OR: [
-        { propertyId: { in: effectivePropertyIds } },
-        { unit: { propertyId: { in: effectivePropertyIds } } },
-        { unitAllocations: { some: { unit: { propertyId: { in: effectivePropertyIds } } } } },
-      ],
-      ...(unitId ? { unitId } : {}),
-      ...(category ? { category: category as never } : {}),
-      ...dateFilter,
-    },
+    where,
     include: EXPENSE_INCLUDE,
     orderBy: { date: "desc" },
     // Safety cap — the UI always month-filters, so this only bounds the

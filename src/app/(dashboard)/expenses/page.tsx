@@ -395,9 +395,26 @@ export default function ExpensesPage() {
 
   const scope = watch("scope");
   const paidFromPettyCash = watch("paidFromPettyCash");
-  const allUnits = properties.flatMap((p: any) =>
-    (p.units ?? []).map((u: any) => ({ ...u, propertyName: p.name }))
+  const allUnits = useMemo(
+    () =>
+      properties.flatMap((p: any) =>
+        (p.units ?? []).map((u: any) => ({ ...u, propertyName: p.name, propertyId: p.id }))
+      ),
+    [properties],
   );
+  // Scope the checkbox list to the header-selected property, but always keep
+  // units that are already checked (editing a cross-property expense must not
+  // hide its own units). A search box narrows further for large buildings.
+  const [unitSearch, setUnitSearch] = useState("");
+  const visibleUnits = useMemo(() => {
+    const q = unitSearch.trim().toLowerCase();
+    return allUnits.filter((u: any) => {
+      if (selectedUnitIds.includes(u.id)) return true;
+      if (selectedId && u.propertyId !== selectedId) return false;
+      if (q && !`${u.unitNumber} ${u.propertyName}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [allUnits, selectedId, selectedUnitIds, unitSearch]);
 
   // Auto-compute amount from line items
   useEffect(() => {
@@ -454,6 +471,7 @@ export default function ExpensesPage() {
     setSelectedUnitIds([]);
     setLineItems([]);
     setVendorId(null);
+    setUnitSearch("");
     setShowForm(false);
   }, [reset]);
 
@@ -657,10 +675,10 @@ export default function ExpensesPage() {
     setDeleteAllCount(null);
     setDeleteAllConfirm(true);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ count: "true" });
       if (selectedId) params.set("propertyId", selectedId);
-      const all = await fetch(`/api/expenses?${params}`).then((r) => r.json());
-      setDeleteAllCount(Array.isArray(all) ? all.length : 0);
+      const res = await fetch(`/api/expenses?${params}`).then((r) => r.json());
+      setDeleteAllCount(typeof res?.count === "number" ? res.count : null);
     } catch { setDeleteAllCount(null); }
   }
 
@@ -719,9 +737,16 @@ export default function ExpensesPage() {
     return "—";
   }
 
+  // Payment status/outstanding computed ONCE per row — the sort comparator,
+  // banner totals, and every cell/card read `e.pay` instead of re-deriving.
+  const entriesWithPay = useMemo(
+    () => entries.map((e: any) => ({ ...e, pay: calcExpensePayment(e) })),
+    [entries],
+  );
+
   // Filtered + sorted entries for table display (KPI cards always use full `entries`)
   const displayEntries = useMemo(() => {
-    let result = entries
+    let result = entriesWithPay
       .filter((e: any) => {
         if (!filterSearch) return true;
         const term = filterSearch.toLowerCase();
@@ -732,10 +757,7 @@ export default function ExpensesPage() {
       .filter((e: any) => !filterCategory || e.category === filterCategory)
       .filter((e: any) => !filterScope || e.scope === filterScope)
       .filter((e: any) => !filterSunk || (filterSunk === "op" ? !e.isSunkCost : e.isSunkCost))
-      .filter((e: any) => {
-        if (!filterPayment) return true;
-        return calcExpensePayment(e).status === filterPayment;
-      });
+      .filter((e: any) => !filterPayment || e.pay.status === filterPayment);
 
     if (sortCol) {
       result = [...result].sort((a: any, b: any) => {
@@ -752,11 +774,9 @@ export default function ExpensesPage() {
           cmp = (a.description ?? "").localeCompare(b.description ?? "");
         } else if (sortCol === "payment") {
           const order = { PAID: 0, PARTIAL: 1, UNPAID: 2 };
-          const sa = calcExpensePayment(a).status;
-          const sb = calcExpensePayment(b).status;
-          cmp = (order[sa as keyof typeof order] ?? 3) - (order[sb as keyof typeof order] ?? 3);
+          cmp = (order[a.pay.status as keyof typeof order] ?? 3) - (order[b.pay.status as keyof typeof order] ?? 3);
         } else if (sortCol === "balance") {
-          cmp = calcExpensePayment(a).outstanding - calcExpensePayment(b).outstanding;
+          cmp = a.pay.outstanding - b.pay.outstanding;
         } else if (sortCol === "due") {
           const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
           const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
@@ -767,16 +787,22 @@ export default function ExpensesPage() {
     }
 
     return result;
-  }, [entries, filterSearch, filterCategory, filterScope, filterSunk, filterPayment, sortCol, sortDir]);
+  }, [entriesWithPay, filterSearch, filterCategory, filterScope, filterSunk, filterPayment, sortCol, sortDir]);
 
   const hasFilters = !!(filterSearch || filterCategory || filterScope || filterPayment || filterSunk);
 
-  // Outstanding payments
-  const unpaidEntries = entries.filter((e: any) => calcExpensePayment(e).status !== "PAID");
-  const unpaidTotal = unpaidEntries.reduce((s: number, e: any) => s + calcExpensePayment(e).outstanding, 0);
-  const now = Date.now();
-  const overdueEntries = unpaidEntries.filter((e: any) => e.dueDate && new Date(e.dueDate).getTime() < now);
-  const overdueTotal = overdueEntries.reduce((s: number, e: any) => s + calcExpensePayment(e).outstanding, 0);
+  // Outstanding payments — over ALL month entries, not the filtered view
+  const { unpaidEntries, unpaidTotal, overdueEntries, overdueTotal } = useMemo(() => {
+    const nowTs = Date.now();
+    const unpaid = entriesWithPay.filter((e: any) => e.pay.status !== "PAID");
+    const overdue = unpaid.filter((e: any) => e.dueDate && new Date(e.dueDate).getTime() < nowTs);
+    return {
+      unpaidEntries: unpaid,
+      unpaidTotal: unpaid.reduce((s: number, e: any) => s + e.pay.outstanding, 0),
+      overdueEntries: overdue,
+      overdueTotal: overdue.reduce((s: number, e: any) => s + e.pay.outstanding, 0),
+    };
+  }, [entriesWithPay]);
 
   const hasLineItems = lineItems.length > 0;
   const computedTotal = hasLineItems
@@ -860,7 +886,7 @@ export default function ExpensesPage() {
   }
 
   function renderColCell(key: string, e: any) {
-    const pay = calcExpensePayment(e);
+    const pay = e.pay ?? calcExpensePayment(e);
     const payStatus = pay.status;
     const propName = propertyLabel(e);
     const isOverdue = e.dueDate && pay.status !== "PAID" && new Date(e.dueDate).getTime() < Date.now();
@@ -1132,11 +1158,25 @@ export default function ExpensesPage() {
                   <label className="block text-sm font-sans font-medium text-gray-700 mb-1.5">
                     Units <span className="text-gray-400 font-normal">(select one or more — cost split equally)</span>
                   </label>
+                  {allUnits.length > 6 && (
+                    <div className="relative mb-2">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={unitSearch}
+                        onChange={(e) => setUnitSearch(e.target.value)}
+                        placeholder="Search units..."
+                        className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                      />
+                    </div>
+                  )}
                   <div className="border border-gray-200 rounded-xl p-3 max-h-44 overflow-y-auto space-y-1.5 bg-white">
-                    {allUnits.length === 0 && (
-                      <p className="text-xs text-gray-400 font-sans">No units available</p>
+                    {visibleUnits.length === 0 && (
+                      <p className="text-xs text-gray-400 font-sans">
+                        {allUnits.length === 0 ? "No units available" : "No units match your search"}
+                      </p>
                     )}
-                    {allUnits.map((u: any) => (
+                    {visibleUnits.map((u: any) => (
                       <label key={u.id} className="flex items-center gap-2.5 cursor-pointer select-none group">
                         <input
                           type="checkbox"
@@ -1159,13 +1199,16 @@ export default function ExpensesPage() {
                 </div>
               )}
 
-              {/* Property dropdown */}
+              {/* Property dropdown — scoped to the header selection (plus the
+                  entry's own property when editing); all when no selection */}
               {scope === "PROPERTY" && (
                 <Select
                   label="Property"
                   placeholder="Select property..."
                   {...register("propertyId")}
-                  options={properties.map((p: any) => ({ value: p.id, label: p.name }))}
+                  options={properties
+                    .filter((p: any) => !selectedId || p.id === selectedId || p.id === editEntry?.propertyId)
+                    .map((p: any) => ({ value: p.id, label: p.name }))}
                 />
               )}
 
@@ -1197,6 +1240,18 @@ export default function ExpensesPage() {
               <VendorSelect label="Vendor" tooltip="Link this expense to a contractor or supplier. This helps you track spending per vendor and spot your highest-cost relationships." value={vendorId} onChange={setVendorId} />
 
               <Input label="Description" {...register("description")} placeholder="Optional description..." />
+
+              {/* With line items, the per-item payment/tax fields take over —
+                  the API clears expense-level vatAmount/amountPaid on save */}
+              {hasLineItems && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-sans text-amber-800">
+                  <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                  <span>
+                    Line items now drive the amounts paid and tax for this expense.
+                    Any manual Amount Paid / VAT entered above will be cleared on save.
+                  </span>
+                </div>
+              )}
 
               {/* Payment tracking — only for single-amount expenses (line items track their own paid amounts) */}
               {!hasLineItems && (
@@ -1319,7 +1374,7 @@ export default function ExpensesPage() {
             {/* Mobile: stacked cards */}
             <div className="md:hidden divide-y divide-gray-50">
               {displayEntries.map((e: any) => {
-                const pay = calcExpensePayment(e);
+                const pay = e.pay ?? calcExpensePayment(e);
                 const payStatus = pay.status;
                 const mIsOverdue = e.dueDate && pay.status !== "PAID" && new Date(e.dueDate).getTime() < Date.now();
                 return (

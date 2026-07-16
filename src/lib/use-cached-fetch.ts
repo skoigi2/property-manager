@@ -65,6 +65,12 @@ export function useCachedFetch<T>(
     if (entry) {
       setData(entry.data);
       setLoading(false);
+    } else {
+      // Key switched to a cold cache slot (e.g. a different month/property):
+      // don't keep rendering the previous key's data — show loading until
+      // the fetch for the new key lands.
+      setData(null);
+      setLoading(true);
     }
   }, [storageKey]);
 

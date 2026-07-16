@@ -42,6 +42,7 @@ export async function POST(req: Request) {
         vendorId: item.vendorId ?? undefined,
         isSunkCost: false,
         paidFromPettyCash: false,
+        recurringExpenseId: item.id,
       },
     });
 

@@ -757,9 +757,14 @@ model ExpenseEntry {
   paymentDate       DateTime?
   notes             String?
   vendorId          String?
+  // Set when this entry was materialised from a RecurringExpense template
+  // (POST /api/recurring-expenses/apply) — drives the "Recurring" origin
+  // badge. SetNull so deleting a template keeps its historical entries.
+  recurringExpenseId String?
   unit              Unit?                    @relation(fields: [unitId], references: [id])
   property          Property?                @relation(fields: [propertyId], references: [id])
   vendor            Vendor?                  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  recurringExpense  RecurringExpense?        @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
   lineItems         ExpenseLineItem[]
   unitAllocations   ExpenseUnitAllocation[]
   documents         ExpenseDocument[]
@@ -771,6 +776,7 @@ model ExpenseEntry {
   @@index([propertyId, date])
   @@index([unitId])
   @@index([isSunkCost, date])
+  @@index([recurringExpenseId])
 }
 
 model ExpenseLineItem {
@@ -1155,6 +1161,7 @@ model RecurringExpense {
   unit        Unit?              @relation(fields: [unitId], references: [id])
   vendor      Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   schedule    AssetMaintenanceSchedule? @relation("ScheduleRecurringExpense")
+  expenseEntries ExpenseEntry[]
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 

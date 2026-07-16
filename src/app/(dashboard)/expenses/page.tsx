@@ -21,7 +21,7 @@ import { formatDate } from "@/lib/date-utils";
 import {
   Trash2, Plus, Receipt, Wallet, Pencil, ChevronDown, ChevronRight, ChevronUp,
   CheckCircle2, Clock, AlertCircle, FileDown, Search, AlertTriangle, X,
-  ChevronsUpDown, GripVertical, Paperclip,
+  ChevronsUpDown, GripVertical, Paperclip, RepeatIcon,
 } from "lucide-react";
 import { ExpenseDocumentUpload } from "@/components/expenses/ExpenseDocumentUpload";
 import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
@@ -330,13 +330,22 @@ export default function ExpensesPage() {
   // key as the Tenants page, so repeat navigations render instantly.
   const { data: fullProperties } = useCachedFetch<any[]>("properties:full", "/api/properties");
   const properties = fullProperties ?? [];
-  const [entries, setEntries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+
+  // Month entries — cached per (month, property) so navigating back to a
+  // recently viewed month renders instantly, with a background refresh.
+  const entriesQs = (() => {
+    const p = new URLSearchParams({ year: String(month.getFullYear()), month: String(month.getMonth() + 1) });
+    if (selectedId) p.set("propertyId", selectedId);
+    return p.toString();
+  })();
+  const { data: entriesData, loading, refresh: refreshEntries, setData: setEntriesData } =
+    useCachedFetch<any[]>(`expenses:${entriesQs}`, `/api/expenses?${entriesQs}`);
+  const entries = entriesData ?? [];
   const [showForm, setShowForm] = useState(false);
   const [pettyCashBalance, setPettyCashBalance] = useState<number | null>(null);
   const [editEntry, setEditEntry] = useState<any | null>(null);
@@ -451,19 +460,8 @@ export default function ExpensesPage() {
       .catch(() => setPettyCashBalance(null));
   }, [showForm]);
 
-  useEffect(() => {
-    setLoading(true);
-    setSelectedIds(new Set());
-    const params = new URLSearchParams({
-      year: String(month.getFullYear()),
-      month: String(month.getMonth() + 1),
-    });
-    if (selectedId) params.set("propertyId", selectedId);
-    fetch(`/api/expenses?${params}`)
-      .then((r) => r.json())
-      .then((d) => { setEntries(d); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [month, selectedId]);
+  // Bulk selection is scoped to the visible month/property — clear on change.
+  useEffect(() => { setSelectedIds(new Set()); }, [month, selectedId]);
 
   const resetForm = useCallback(() => {
     reset({ scope: "UNIT", isSunkCost: false, paidFromPettyCash: false, amount: 0 });
@@ -594,10 +592,10 @@ export default function ExpensesPage() {
       const saved = await res.json();
 
       if (editEntry) {
-        setEntries((prev) => prev.map((e) => (e.id === saved.id ? saved : e)));
+        setEntriesData((prev) => (prev ?? []).map((e) => (e.id === saved.id ? saved : e)));
         toast.success("Expense updated");
       } else {
-        setEntries((prev) => [saved, ...prev]);
+        setEntriesData((prev) => [saved, ...(prev ?? [])]);
         toast.success(data.paidFromPettyCash ? "Expense saved & petty cash debited" : "Expense added");
       }
       resetForm();
@@ -613,7 +611,7 @@ export default function ExpensesPage() {
     setDeleting(true);
     try {
       await fetch(`/api/expenses/${deleteId}`, { method: "DELETE" });
-      setEntries((prev) => prev.filter((e) => e.id !== deleteId));
+      setEntriesData((prev) => (prev ?? []).filter((e) => e.id !== deleteId));
       toast.success("Deleted");
     } catch {
       toast.error("Failed to delete");
@@ -658,13 +656,7 @@ export default function ExpensesPage() {
       }
       setSelectedIds(new Set());
       setBulkDeleteConfirm(false);
-      // Reload entries for the month
-      setLoading(true);
-      const reloadParams = new URLSearchParams({ year: String(month.getFullYear()), month: String(month.getMonth() + 1) });
-      if (selectedId) reloadParams.set("propertyId", selectedId);
-      const updated = await fetch(`/api/expenses?${reloadParams}`).then((r) => r.json());
-      setEntries(updated);
-      setLoading(false);
+      await refreshEntries(); // re-sync the cached month list
       toast.success(action === "delete" ? "Entries deleted" : "Entries updated");
     } catch (err) { toast.error((err as Error)?.message || "Bulk action failed"); }
     finally { setBulkSubmitting(false); }
@@ -695,13 +687,7 @@ export default function ExpensesPage() {
       if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : undefined);
       setDeleteAllConfirm(false);
       setSelectedIds(new Set());
-      // Reload the current month's view
-      setLoading(true);
-      const reloadParams = new URLSearchParams({ year: String(month.getFullYear()), month: String(month.getMonth() + 1) });
-      if (selectedId) reloadParams.set("propertyId", selectedId);
-      const updated = await fetch(`/api/expenses?${reloadParams}`).then((r) => r.json());
-      setEntries(updated);
-      setLoading(false);
+      await refreshEntries(); // re-sync the cached month list
       toast.success(`Deleted ${data.count} expense${data.count === 1 ? "" : "s"}`);
     } catch (err) { toast.error((err as Error)?.message || "Delete all failed"); }
     finally { setDeleteAllSubmitting(false); }
@@ -817,6 +803,24 @@ export default function ExpensesPage() {
     balance: "Balance", due: "Due",
   };
 
+  // Shared by the drag-drop handler and the keyboard (arrow-key) path.
+  function moveColTo(fromKey: string, toKey: string) {
+    const next = [...colOrder];
+    const from = next.indexOf(fromKey);
+    const to = next.indexOf(toKey);
+    if (from === -1 || to === -1) return;
+    next.splice(from, 1);
+    next.splice(to, 0, fromKey);
+    setColOrder(next);
+    localStorage.setItem("expenses-col-order", JSON.stringify(next));
+  }
+
+  function moveColBy(key: string, delta: -1 | 1) {
+    const idx = colOrder.indexOf(key);
+    const target = colOrder[idx + delta];
+    if (target) moveColTo(key, target);
+  }
+
   function renderColHeader(key: string) {
     const sortable = SORTABLE_COLS.has(key);
     const isActive = sortCol === key;
@@ -828,14 +832,7 @@ export default function ExpensesPage() {
           ev.preventDefault();
           const fromKey = ev.dataTransfer.getData("text/plain");
           if (!fromKey || fromKey === key) { setDragOverCol(null); return; }
-          const next = [...colOrder];
-          const from = next.indexOf(fromKey);
-          const to = next.indexOf(key);
-          if (from === -1 || to === -1) return;
-          next.splice(from, 1);
-          next.splice(to, 0, fromKey);
-          setColOrder(next);
-          localStorage.setItem("expenses-col-order", JSON.stringify(next));
+          moveColTo(fromKey, key);
           setDragOverCol(null);
         }}
         onDragLeave={(ev) => {
@@ -847,9 +844,16 @@ export default function ExpensesPage() {
         )}
       >
         <span className="flex items-center gap-1">
-          {/* Drag handle */}
+          {/* Drag handle — also keyboard-reorderable (focus + arrow keys) */}
           <span
             draggable
+            role="button"
+            tabIndex={0}
+            aria-label={`Move ${COL_LABELS[key]} column — press left or right arrow`}
+            onKeyDown={(ev) => {
+              if (ev.key === "ArrowLeft")  { ev.preventDefault(); moveColBy(key, -1); }
+              if (ev.key === "ArrowRight") { ev.preventDefault(); moveColBy(key, 1); }
+            }}
             onDragStart={(ev) => {
               ev.dataTransfer.setData("text/plain", key);
               ev.dataTransfer.effectAllowed = "move";
@@ -859,7 +863,7 @@ export default function ExpensesPage() {
               setDragCol(key);
             }}
             onDragEnd={() => { setDragCol(null); setDragOverCol(null); }}
-            className="cursor-grab text-gray-300 hover:text-gray-500 flex-shrink-0 pr-0.5"
+            className="cursor-grab text-gray-300 hover:text-gray-500 focus:text-gold focus:outline-none focus:ring-1 focus:ring-gold/50 rounded flex-shrink-0 pr-0.5"
           >
             <GripVertical size={11} />
           </span>
@@ -904,6 +908,7 @@ export default function ExpensesPage() {
             <div className="flex items-center gap-1.5">
               <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
               {e.paidFromPettyCash && <span title="Paid from petty cash"><Wallet size={12} className="text-amber-500" /></span>}
+              {e.recurringExpenseId && <span title="Created by a recurring expense template"><RepeatIcon size={12} className="text-gold" /></span>}
             </div>
           </td>
         );
@@ -1402,7 +1407,10 @@ export default function ExpensesPage() {
                     {/* Top row: date + category badge */}
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs text-gray-400 font-sans">{formatDate(e.date)}</span>
-                      <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
+                      <span className="flex items-center gap-1.5">
+                        {e.recurringExpenseId && <span title="Created by a recurring expense template"><RepeatIcon size={12} className="text-gold" /></span>}
+                        <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
+                      </span>
                     </div>
 
                     {/* Description + vendor */}

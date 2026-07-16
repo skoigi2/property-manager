@@ -519,6 +519,7 @@ export default function ExpensesPage() {
       }))
     );
     setVendorId(e.vendorId ?? null);
+    setUnitSearch("");
     setShowForm(true);
   }
 
@@ -1135,13 +1136,29 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* Add / Edit Form */}
+        {/* Add / Edit Form — right-hand slide-over (HistoryDrawer pattern) so
+            the table stays visible and edits never open off-screen. Backdrop
+            click deliberately does NOT close: a misclick must not wipe a
+            half-filled form — close via ✕ or Cancel. */}
         {showForm && (
-          <Card>
-            <h3 className="font-display text-base text-header mb-4">
-              {editEntry ? "Edit Expense" : "New Expense"}
-            </h3>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="fixed inset-0 z-[90] flex justify-end">
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            <div className="relative w-full max-w-xl bg-white h-full shadow-2xl flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+                <h3 className="font-display text-base text-header">
+                  {editEntry ? "Edit Expense" : "New Expense"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  aria-label="Close"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               {/* Date + Scope */}
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Date" type="date" {...register("date")} error={errors.date?.message} />
@@ -1350,12 +1367,15 @@ export default function ExpensesPage() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <Button type="submit" loading={submitting}>{editEntry ? "Update Expense" : "Save Expense"}</Button>
-                <Button type="button" variant="secondary" onClick={resetForm}>Cancel</Button>
-              </div>
-            </form>
-          </Card>
+                </div>
+                {/* Sticky footer — actions always visible however long the form */}
+                <div className="flex gap-3 px-5 py-4 border-t border-gray-100 bg-white flex-shrink-0">
+                  <Button type="submit" loading={submitting}>{editEntry ? "Update Expense" : "Save Expense"}</Button>
+                  <Button type="button" variant="secondary" onClick={resetForm}>Cancel</Button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
 
         {/* Table */}

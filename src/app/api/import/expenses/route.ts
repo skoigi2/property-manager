@@ -123,8 +123,10 @@ export async function POST(req: Request) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const createData: any[] = [];
+  // Petty rows carry the fingerprint of their expense (Date-derived day, same
+  // convention as existingByFp) so they can be linked to the created row's id.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pettyData: any[] = [];
+  const pettyData: { fpKey: string; data: any }[] = [];
   const updateOps: { id: string; data: Record<string, unknown> }[] = [];
   const queuedFps = new Set<string>(); // dedupe within this file
   const updatedIds = new Set<string>(); // dedupe ID-matched rows within this file
@@ -274,22 +276,57 @@ export async function POST(req: Request) {
         pettyCashPropertyId = units.find((u) => u.id === resolvedUnitId)?.propertyId ?? null;
       }
       pettyData.push({
-        date,
-        type: "OUT",
-        amount,
-        description: description ?? `${category} expense`,
-        propertyId: pettyCashPropertyId,
+        fpKey: fingerprint({
+          dateOnly: date.toISOString().slice(0, 10),
+          category,
+          amount,
+          propertyId: resolvedPropertyId ?? null,
+          description: description || null,
+        }),
+        data: {
+          date,
+          type: "OUT",
+          amount,
+          description: description ?? `${category} expense`,
+          propertyId: pettyCashPropertyId,
+        },
       });
     }
   }
 
   try {
     if (createData.length > 0) {
-      await prisma.expenseEntry.createMany({ data: createData });
-      imported = createData.length;
-    }
-    if (pettyData.length > 0) {
-      await prisma.pettyCash.createMany({ data: pettyData });
+      // createManyAndReturn (Postgres) hands back the new ids so each petty-cash
+      // OUT row can be linked to its expense — the FK cascade then keeps the
+      // ledger in sync when the expense is later deleted. Returned order isn't
+      // guaranteed, so rows are matched by content fingerprint, not index.
+      const created = await prisma.expenseEntry.createManyAndReturn({
+        data: createData,
+        select: { id: true, date: true, category: true, amount: true, propertyId: true, description: true },
+      });
+      imported = created.length;
+
+      if (pettyData.length > 0) {
+        const idByFp = new Map<string, string>();
+        for (const e of created) {
+          idByFp.set(
+            fingerprint({
+              dateOnly: e.date.toISOString().slice(0, 10),
+              category: e.category as string,
+              amount: e.amount,
+              propertyId: e.propertyId ?? null,
+              description: e.description ?? null,
+            }),
+            e.id,
+          );
+        }
+        await prisma.pettyCash.createMany({
+          data: pettyData.map((p) => ({
+            ...p.data,
+            expenseEntryId: idByFp.get(p.fpKey) ?? null,
+          })),
+        });
+      }
     }
     // Updates can't be batched into one statement; run in small concurrent chunks.
     for (let j = 0; j < updateOps.length; j += 25) {

@@ -27,6 +27,7 @@ import {
 import { exportIncome } from "@/lib/excel-export";
 import { calcLateInterest } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
+import { allocatePayments } from "@/lib/ledger-allocation";
 import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -103,43 +104,51 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
       (e.tenantId === tenant.id || e.unitId === tenant.unitId),
   );
 
-  const months: MonthRow[] = [];
+  // First pass: expected (RentHistory-aware) + cash received per month.
+  const rawMonths: { year: number; month: number; expected: number; received: number }[] = [];
   let cursor = new Date(start);
-
   while (cursor <= end) {
     const yr = cursor.getFullYear();
     const mo = cursor.getMonth();
-
     const paid = tenantEntries
       .filter((e: any) => {
         const d = new Date(e.date);
         return d.getFullYear() === yr && d.getMonth() === mo;
       })
       .reduce((s: number, e: any) => s + e.grossAmount, 0);
-
-    // Rent that applied in THIS month of the walk (RentHistory-aware).
-    const expected = resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, cursor);
-    const shortfall = Math.max(0, expected - paid);
-    const isPaid = paid >= expected * 0.99;
-    const dueDate = new Date(yr, mo + 1, 1); // 1st of next month
-    const MS_PER_DAY = 1000 * 60 * 60 * 24;
-    const daysOverdue = isPaid ? 0 : Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / MS_PER_DAY));
-    months.push({
+    rawMonths.push({
       year: yr,
       month: mo,
-      expected,
-      totalPaid: paid,
-      balance: paid - expected,
-      isPaid,
-      isPartial: paid > 0 && !isPaid,
-      interest: calcLateInterest(shortfall, annualInterestRate, daysOverdue),
+      expected: resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, cursor),
+      received: paid,
     });
-
     cursor = new Date(yr, mo + 1, 1);
   }
 
+  // Statement-style allocation: receipts pool and cover months oldest-first,
+  // so quarterly/annual prepayers and late catch-ups aren't falsely flagged.
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  const allocations = allocatePayments(rawMonths);
+  const months: MonthRow[] = allocations.map((a, i) => {
+    const { year: yr, month: mo } = rawMonths[i];
+    const dueDate = new Date(yr, mo + 1, 1); // 1st of next month
+    const daysOverdue = a.shortfall > 0
+      ? Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / MS_PER_DAY))
+      : 0;
+    return {
+      year: yr,
+      month: mo,
+      expected: a.expected,
+      totalPaid: a.received,
+      balance: a.balance,
+      isPaid: a.status === "PAID",
+      isPartial: a.status === "PARTIAL",
+      interest: calcLateInterest(a.shortfall, annualInterestRate, daysOverdue),
+    };
+  });
+
   const unpaidMonths = months.filter((m) => !m.isPaid);
-  const totalArrears = unpaidMonths.reduce((s, m) => s + Math.max(0, m.expected - m.totalPaid), 0);
+  const totalArrears = allocations.reduce((s, a) => s + a.shortfall, 0);
   const totalInterest = unpaidMonths.reduce((s, m) => s + m.interest, 0);
 
   const sorted = [...tenantEntries].sort(

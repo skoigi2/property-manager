@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
+import { allocatePayments } from "@/lib/ledger-allocation";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
@@ -269,9 +270,13 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
     const expected =
       resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, monthDate) +
       (tenant.serviceCharge ?? 0);
-    rows.push({ monthLabel: format(monthDate, "MMM yyyy"), monthDate, expected, received, variance: received - expected, payments });
+    rows.push({ monthLabel: format(monthDate, "MMM yyyy"), monthDate, expected, received, payments });
   }
-  return rows.reverse();
+  // Statement-style allocation: receipts pool and cover months oldest-first,
+  // so a quarterly/annual prepayment covers the following months instead of
+  // showing them Unpaid, and a late catch-up clears older months.
+  const allocated = allocatePayments(rows);
+  return rows.map((r, i) => ({ ...r, ...allocated[i] })).reverse();
 }
 
 type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages";
@@ -396,7 +401,7 @@ export default function TenantDetailPage() {
   const totalExpected  = ledger.reduce((s, r) => s + r.expected, 0);
   const totalReceived  = ledger.reduce((s, r) => s + r.received, 0);
   const totalArrears   = totalReceived - totalExpected;
-  const monthsInArrears = ledger.filter((r) => r.variance < 0).length;
+  const monthsInArrears = ledger.filter((r) => r.shortfall > 0).length;
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number | string }[] = [
     { id: "ledger",    label: "Ledger",       icon: <TrendingUp size={14} /> },
@@ -633,7 +638,7 @@ export default function TenantDetailPage() {
                         <table className="w-full min-w-[520px]">
                           <thead className="bg-cream-dark">
                             <tr>
-                              {["Month", "Expected", "Received", "Variance", "Status", "Payments"].map((h) => (
+                              {["Month", "Expected", "Received", "Balance", "Status", "Payments"].map((h) => (
                                 <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
                               ))}
                             </tr>
@@ -645,12 +650,12 @@ export default function TenantDetailPage() {
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={row.expected} size="sm" className="text-gray-500" /></td>
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize /></td>
                                 <td className="px-4 py-3 text-right">
-                                  <CurrencyDisplay currency={currency} amount={row.variance} size="sm" className={row.variance >= 0 ? "text-income" : "text-expense"} />
+                                  <CurrencyDisplay currency={currency} amount={row.balance} size="sm" className={row.balance >= 0 ? "text-income" : "text-expense"} />
                                 </td>
                                 <td className="px-4 py-3">
-                                  {row.received === 0 ? (
+                                  {row.status === "UNPAID" ? (
                                     <span className="flex items-center gap-1 text-xs text-expense font-sans"><AlertTriangle size={12} /> Unpaid</span>
-                                  ) : row.variance >= 0 ? (
+                                  ) : row.status === "PAID" ? (
                                     <span className="flex items-center gap-1 text-xs text-income font-sans"><CheckCircle2 size={12} /> Paid</span>
                                   ) : (
                                     <span className="flex items-center gap-1 text-xs text-amber-600 font-sans"><Clock size={12} /> Partial</span>

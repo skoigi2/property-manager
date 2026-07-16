@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getMonthRange, daysUntilExpiry, getLeaseStatus } from "@/lib/date-utils";
 import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
+import { allocatePayments } from "@/lib/ledger-allocation";
 import { getDaysInMonth } from "date-fns";
 
 export async function GET(req: Request) {
@@ -177,17 +178,21 @@ export async function GET(req: Request) {
         if (!t.leaseStart) return null;
         const leaseStart = new Date(t.leaseStart);
         const today      = new Date();
-        const start      = new Date(leaseStart.getFullYear(), leaseStart.getMonth(), 1);
+        // Clamp to the rolling window the entries query actually covers —
+        // months before arrearsCutoff have no receipt data and would read as
+        // phantom shortfalls for long-tenured tenants.
+        const leaseStartMonth = new Date(leaseStart.getFullYear(), leaseStart.getMonth(), 1);
+        const start      = leaseStartMonth > arrearsCutoff ? leaseStartMonth : arrearsCutoff;
         const end        = new Date(today.getFullYear(), today.getMonth(), 1);
 
         const tenantEntries = allRentEntries.filter(
           (e) => e.tenantId === t.id || e.unitId === t.unitId,
         );
 
-        let totalArrears  = 0;
-        let monthsUnpaid  = 0;
-        let cursor        = new Date(start);
-
+        // Statement-style allocation (oldest-first) so quarterly/annual
+        // prepayers and late catch-ups aren't flagged as multi-month arrears.
+        const rawMonths: { expected: number; received: number }[] = [];
+        let cursor = new Date(start);
         while (cursor <= end) {
           const yr = cursor.getFullYear();
           const mo = cursor.getMonth();
@@ -197,14 +202,15 @@ export async function GET(req: Request) {
               return d.getFullYear() === yr && d.getMonth() === mo;
             })
             .reduce((s, e) => s + e.grossAmount, 0);
-
-          const expected = resolveExpectedRent(t.rentHistory, t.monthlyRent ?? 0, cursor);
-          if (paid < expected * 0.99) {
-            totalArrears += Math.max(0, expected - paid);
-            monthsUnpaid++;
-          }
+          rawMonths.push({
+            expected: resolveExpectedRent(t.rentHistory, t.monthlyRent ?? 0, cursor),
+            received: paid,
+          });
           cursor = new Date(yr, mo + 1, 1);
         }
+        const allocations = allocatePayments(rawMonths);
+        const totalArrears = allocations.reduce((s, a) => s + a.shortfall, 0);
+        const monthsUnpaid = allocations.filter((a) => a.shortfall > 0).length;
 
         if (monthsUnpaid <= 1) return null; // single-month covered by noRentAlerts
         return {

@@ -2,15 +2,11 @@ import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/aut
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 
 const schema = z.object({
   description: z.string().min(1),
-  category: z.enum([
-    "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY","CLEANER",
-    "CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL","SECURITY",
-    "GARBAGE_COLLECTION","LANDSCAPING","PEST_CONTROL","INSURANCE","PROPERTY_TAX",
-    "LEGAL_FEES","LICENSE_PERMIT","MARKETING","BANK_CHARGES","STAFF_WAGES","OTHER",
-  ]),
+  category: z.enum(EXPENSE_CATEGORIES),
   amount: z.number().positive(),
   scope: z.enum(["UNIT","PROPERTY","PORTFOLIO"]),
   propertyId: z.string().optional().nullable(),

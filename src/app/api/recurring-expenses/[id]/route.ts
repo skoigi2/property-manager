@@ -1,15 +1,11 @@
 import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 
 const patchSchema = z.object({
   description: z.string().min(1).optional(),
-  category: z.enum([
-    "SERVICE_CHARGE","MANAGEMENT_FEE","WIFI","WATER","ELECTRICITY","CLEANER",
-    "CONSUMABLES","MAINTENANCE","REINSTATEMENT","CAPITAL","SECURITY",
-    "GARBAGE_COLLECTION","LANDSCAPING","PEST_CONTROL","INSURANCE","PROPERTY_TAX",
-    "LEGAL_FEES","LICENSE_PERMIT","MARKETING","BANK_CHARGES","STAFF_WAGES","OTHER",
-  ]).optional(),
+  category: z.enum(EXPENSE_CATEGORIES).optional(),
   amount: z.number().positive().optional(),
   frequency: z.enum(["MONTHLY","QUARTERLY","ANNUAL","BIANNUAL"]).optional(),
   nextDueDate: z.string().optional(),

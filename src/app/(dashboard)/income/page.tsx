@@ -28,6 +28,7 @@ import { exportIncome } from "@/lib/excel-export";
 import { calcLateInterest } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
+import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
 import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -389,6 +390,9 @@ export default function IncomePage() {
   }
 
   // ── Monthly collection rows ────────────────────────────────────────────────
+  // Expected follows the tenant's payment schedule: monthly payers owe every
+  // month; quarterly/biannual/annual payers owe the FULL period amount on
+  // billing months and nothing in between ("Not due").
   const collectionRows = useMemo(() =>
     allTenants.map((tenant: any) => {
       const paid = entries.filter(
@@ -397,15 +401,31 @@ export default function IncomePage() {
           (e.tenantId === tenant.id || e.unitId === tenant.unitId),
       );
       const totalPaid = paid.reduce((s: number, e: any) => s + e.grossAmount, 0);
-      // Expected for the SELECTED month (picker can point at the past).
-      const expected  = resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, month);
-      return { tenant, paid, totalPaid, expected, isPaid: totalPaid >= expected * 0.99 };
+      const sched = scheduledExpectedForMonth({
+        leaseStart: tenant.leaseStart,
+        frequency: tenant.paymentFrequency,
+        month,
+        // Per-month rent resolved from RentHistory (past months use the rent
+        // that applied then; a mid-period escalation is summed correctly).
+        rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+      });
+      const expected = sched.amount;
+      const notDue = !sched.due;
+      return {
+        tenant, paid, totalPaid, expected, notDue,
+        // A covered month with no receipts is fine (prepaid) — not "paid",
+        // just nothing owed. Money received in a covered month still counts.
+        isPaid: notDue ? totalPaid > 0 : totalPaid >= expected * 0.99,
+      };
     }),
   [allTenants, entries, month]);
 
   const collectionSummary = useMemo(() => ({
-    total:         collectionRows.length,
-    paid:          collectionRows.filter((r) => r.isPaid).length,
+    // "Not due" rows (mid-period for quarterly/annual payers) don't count
+    // toward the collection target — nothing is owed this month.
+    total:         collectionRows.filter((r) => !r.notDue).length,
+    paid:          collectionRows.filter((r) => !r.notDue && r.isPaid).length,
+    pending:       collectionRows.filter((r) => !r.notDue && !r.isPaid).length,
     totalExpected: collectionRows.reduce((s, r) => s + r.expected, 0),
     totalReceived: collectionRows.reduce((s, r) => s + r.totalPaid, 0),
   }), [collectionRows]);
@@ -617,8 +637,8 @@ export default function IncomePage() {
     }
   }
 
-  function renderCollCell(key: string, row: { tenant: any; totalPaid: number; expected: number; isPaid: boolean; paid: any[] }) {
-    const { tenant, totalPaid, expected, isPaid, paid } = row;
+  function renderCollCell(key: string, row: { tenant: any; totalPaid: number; expected: number; isPaid: boolean; notDue: boolean; paid: any[] }) {
+    const { tenant, totalPaid, expected, isPaid, notDue } = row;
     switch (key) {
       case "unit":
         return <td key={key} className="px-4 py-3 text-sm font-mono text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>;
@@ -634,8 +654,22 @@ export default function IncomePage() {
       case "expected":
         return (
           <td key={key} className="px-4 py-3">
-            <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
-            {tenant.serviceCharge > 0 && <p className="text-xs text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+            {notDue ? (
+              <>
+                <span className="text-xs text-gray-400 font-sans">—</span>
+                <p className="text-xs text-gray-400 font-sans mt-0.5">Covered by advance payment</p>
+              </>
+            ) : (
+              <>
+                <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
+                {tenant.paymentFrequency && tenant.paymentFrequency !== "MONTHLY" && (
+                  <p className="text-xs text-gray-400 font-sans mt-0.5">
+                    {{ QUARTERLY: "Quarter", BIANNUAL: "Half-year", ANNUAL: "Year" }[tenant.paymentFrequency as string]} in advance
+                  </p>
+                )}
+                {tenant.serviceCharge > 0 && <p className="text-xs text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+              </>
+            )}
           </td>
         );
       case "received":
@@ -647,7 +681,9 @@ export default function IncomePage() {
       case "status":
         return (
           <td key={key} className="px-4 py-3">
-            {isPaid ? (
+            {notDue && totalPaid === 0 ? (
+              <span className="flex items-center gap-1.5 text-xs font-sans text-gray-500 bg-gray-100 px-2 py-1 rounded-lg w-fit"><CheckCircle2 size={12} /> Not due</span>
+            ) : isPaid ? (
               <span className="flex items-center gap-1.5 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg w-fit"><CheckCircle2 size={12} /> Paid</span>
             ) : totalPaid > 0 ? (
               <span className="flex items-center gap-1.5 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg w-fit"><AlertCircle size={12} /> Partial</span>
@@ -671,7 +707,7 @@ export default function IncomePage() {
     if (forMonth) setMonth(forMonth);
   }
 
-  function handleQuickRecord(tenant: any, forMonth?: Date) {
+  function handleQuickRecord(tenant: any, forMonth?: Date, amount?: number) {
     const targetMonth = forMonth ?? month;
     const dateStr = `${targetMonth.getFullYear()}-${String(targetMonth.getMonth() + 1).padStart(2, "0")}-01`;
     openFormWithDefaults(
@@ -679,7 +715,8 @@ export default function IncomePage() {
         type: "LONGTERM_RENT",
         unitId: tenant.unitId,
         tenantId: tenant.id,
-        grossAmount: tenant.monthlyRent,
+        // Billing month of a quarterly/annual plan prefills the period amount
+        grossAmount: amount ?? tenant.monthlyRent,
         date: dateStr,
       },
       forMonth,
@@ -691,7 +728,8 @@ export default function IncomePage() {
   const [recordingAll, setRecordingAll] = useState(false);
 
   async function handleRecordAllPending() {
-    const unpaid = collectionRows.filter((r) => !r.isPaid);
+    // Skip "Not due" rows — a quarterly/annual payer mid-period owes nothing.
+    const unpaid = collectionRows.filter((r) => !r.isPaid && !r.notDue);
     if (unpaid.length === 0) return;
     if (!window.confirm(`Record full rent payment for ${unpaid.length} unpaid tenant${unpaid.length > 1 ? "s" : ""}?`)) return;
 
@@ -700,7 +738,7 @@ export default function IncomePage() {
     let created = 0;
     let failed  = 0;
 
-    for (const { tenant } of unpaid) {
+    for (const { tenant, expected } of unpaid) {
       try {
         const res = await fetch("/api/income", {
           method: "POST",
@@ -709,7 +747,8 @@ export default function IncomePage() {
             type:           "LONGTERM_RENT",
             unitId:         tenant.unitId,
             tenantId:       tenant.id,
-            grossAmount:    tenant.monthlyRent,
+            // Scheduled amount for the period (3x rent on a quarterly billing month)
+            grossAmount:    expected || tenant.monthlyRent,
             agentCommission: 0,
             date:           dateStr,
           }),
@@ -755,7 +794,9 @@ export default function IncomePage() {
 
   function selectAllUnpaid() {
     setBulkSelected(new Map(
-      collectionRows.filter((r) => !r.isPaid).map((r) => [r.tenant.id, r.tenant.monthlyRent as number]),
+      collectionRows
+        .filter((r) => !r.isPaid && !r.notDue)
+        .map((r) => [r.tenant.id, (r.expected || r.tenant.monthlyRent) as number]),
     ));
   }
 
@@ -1209,7 +1250,7 @@ export default function IncomePage() {
                       {/* Mobile: stacked cards */}
                       <div className="md:hidden divide-y divide-gray-50">
                         {sortedCollectionRows.map((row) => {
-                          const { tenant, totalPaid, expected, isPaid } = row;
+                          const { tenant, totalPaid, expected, isPaid, notDue } = row;
                           const isChecked = bulkSelected.has(tenant.id);
                           return (
                             <div key={tenant.id} className={clsx("px-4 py-3 transition-colors", isChecked && "bg-gold/5")}>
@@ -1219,8 +1260,8 @@ export default function IncomePage() {
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
-                                    disabled={isPaid}
-                                    onChange={() => toggleBulkRow(tenant.id, tenant.monthlyRent)}
+                                    disabled={isPaid || notDue}
+                                    onChange={() => toggleBulkRow(tenant.id, expected || tenant.monthlyRent)}
                                     className="mt-0.5 accent-[#c9a84c] disabled:opacity-30 cursor-pointer disabled:cursor-default"
                                   />
                                   <div>
@@ -1228,7 +1269,9 @@ export default function IncomePage() {
                                     <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
                                   </div>
                                 </div>
-                                {isPaid ? (
+                                {notDue && totalPaid === 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-gray-500 bg-gray-100 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Not due</span>
+                                ) : isPaid ? (
                                   <span className="inline-flex items-center gap-1 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Paid</span>
                                 ) : totalPaid > 0 ? (
                                   <span className="inline-flex items-center gap-1 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Partial</span>
@@ -1240,8 +1283,12 @@ export default function IncomePage() {
                               <div className="grid grid-cols-2 gap-2 mb-2.5">
                                 <div>
                                   <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
-                                  <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
-                                  {tenant.serviceCharge > 0 && <p className="text-[10px] text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                                  {notDue ? (
+                                    <p className="text-xs text-gray-400 font-sans">— covered in advance</p>
+                                  ) : (
+                                    <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
+                                  )}
+                                  {!notDue && tenant.serviceCharge > 0 && <p className="text-[10px] text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
                                 </div>
                                 <div>
                                   <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
@@ -1255,7 +1302,7 @@ export default function IncomePage() {
                                     type="number"
                                     step="0.01"
                                     min="0"
-                                    value={bulkSelected.get(tenant.id) ?? tenant.monthlyRent}
+                                    value={bulkSelected.get(tenant.id) ?? (expected || tenant.monthlyRent)}
                                     onChange={(e) => setBulkAmount(tenant.id, parseFloat(e.target.value) || 0)}
                                     className="w-32 border border-gold/50 rounded-lg px-2 py-1.5 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
                                   />
@@ -1263,8 +1310,10 @@ export default function IncomePage() {
                                   <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
                                     {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
                                   </button>
+                                ) : notDue ? (
+                                  <span className="text-xs text-gray-400 font-sans">Nothing due this month</span>
                                 ) : (
-                                  <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant)}>
+                                  <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant, undefined, expected)}>
                                     <Plus size={12} /> Record
                                   </Button>
                                 )}
@@ -1282,7 +1331,7 @@ export default function IncomePage() {
                                 <input
                                   type="checkbox"
                                   title="Select all unpaid"
-                                  checked={bulkSelected.size > 0 && collectionRows.filter(r => !r.isPaid).every(r => bulkSelected.has(r.tenant.id))}
+                                  checked={bulkSelected.size > 0 && collectionRows.filter(r => !r.isPaid && !r.notDue).every(r => bulkSelected.has(r.tenant.id))}
                                   onChange={(e) => e.target.checked ? selectAllUnpaid() : setBulkSelected(new Map())}
                                   className="accent-[#c9a84c] cursor-pointer"
                                 />
@@ -1300,8 +1349,8 @@ export default function IncomePage() {
                                     <input
                                       type="checkbox"
                                       checked={isChecked}
-                                      disabled={row.isPaid}
-                                      onChange={() => toggleBulkRow(row.tenant.id, row.tenant.monthlyRent)}
+                                      disabled={row.isPaid || row.notDue}
+                                      onChange={() => toggleBulkRow(row.tenant.id, row.expected || row.tenant.monthlyRent)}
                                       className="accent-[#c9a84c] disabled:opacity-30 cursor-pointer disabled:cursor-default"
                                     />
                                   </td>
@@ -1312,7 +1361,7 @@ export default function IncomePage() {
                                         type="number"
                                         step="0.01"
                                         min="0"
-                                        value={bulkSelected.get(row.tenant.id) ?? row.tenant.monthlyRent}
+                                        value={bulkSelected.get(row.tenant.id) ?? (row.expected || row.tenant.monthlyRent)}
                                         onChange={(e) => setBulkAmount(row.tenant.id, parseFloat(e.target.value) || 0)}
                                         className="w-28 border border-gold/50 rounded-lg px-2 py-1 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
                                       />
@@ -1320,8 +1369,10 @@ export default function IncomePage() {
                                       <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
                                         {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
                                       </button>
+                                    ) : row.notDue ? (
+                                      <span className="text-xs text-gray-400 font-sans whitespace-nowrap">Nothing due</span>
                                     ) : (
-                                      <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant)}>
+                                      <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant, undefined, row.expected)}>
                                         <Plus size={12} /> Record
                                       </Button>
                                     )}

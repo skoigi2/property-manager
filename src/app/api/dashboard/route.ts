@@ -4,6 +4,7 @@ import { getMonthRange, daysUntilExpiry, getLeaseStatus } from "@/lib/date-utils
 import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
+import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
 import { getDaysInMonth } from "date-fns";
 
 export async function GET(req: Request) {
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
           monthlyRent: true,
           serviceCharge: true,
           unitId: true,
+          paymentFrequency: true,
           unit: { select: { id: true, unitNumber: true, propertyId: true, type: true } },
           // Escalation timeline — expected rent for past months resolves from
           // this instead of assuming today's monthlyRent (rent-resolution.ts).
@@ -165,6 +167,16 @@ export async function GET(req: Request) {
     );
     const noRentAlerts = longtermTenants
       .filter((t) => !longtermIncomeUnitIds.has(t.unitId))
+      // Quarterly/biannual/annual payers only owe on billing months — no
+      // alert for a covered month where nothing was due.
+      .filter((t) =>
+        scheduledExpectedForMonth({
+          leaseStart: t.leaseStart,
+          frequency: t.paymentFrequency,
+          month: from,
+          rentForMonth: () => t.monthlyRent ?? 0,
+        }).due,
+      )
       .map((t) => ({
         tenantId:    t.id,
         tenantName:  t.name,
@@ -253,10 +265,17 @@ export async function GET(req: Request) {
         (e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT"
       );
       const received = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
-      // Resolve the rent that applied in the SELECTED month (month picker can
-      // point at the past) rather than today's rate.
-      const expectedRent = resolveExpectedRent(t.rentHistory, t.monthlyRent, from);
-      const expected = expectedRent + t.serviceCharge;
+      // Schedule-aware expected for the SELECTED month: monthly payers owe the
+      // (RentHistory-resolved) monthly rent; quarterly/biannual/annual payers
+      // owe the full period amount on billing months and 0 in covered months.
+      const sched = scheduledExpectedForMonth({
+        leaseStart: t.leaseStart,
+        frequency: t.paymentFrequency,
+        month: from,
+        rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
+      });
+      const expectedRent = sched.amount;
+      const expected = expectedRent + (sched.due ? t.serviceCharge : 0);
       return {
         id: t.id,
         tenantName: t.name,

@@ -19,6 +19,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Spinner } from "@/components/ui/Spinner";
 import { tenantSchema, type TenantInput } from "@/lib/validations";
 import { TenantFormFields, cleanAdditionalContacts } from "@/components/tenants/TenantFormFields";
+import { isRentHistoryOutOfSync } from "@/lib/rent-resolution";
 import { getLeaseStatus, daysUntilExpiry, formatDate } from "@/lib/date-utils";
 import {
   Plus, AlertTriangle, ChevronRight, Pencil,
@@ -608,7 +609,14 @@ export default function TenantsPage() {
                     <div className="grid grid-cols-2 gap-2 mt-2 mb-2.5">
                       <div>
                         <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Monthly</p>
-                        <p className="font-mono text-sm font-medium text-header">{formatCurrency(monthlyTotal, currency)}</p>
+                        <p className="font-mono text-sm font-medium text-header flex items-center gap-1">
+                          {isRentHistoryOutOfSync(tenant.rentHistory, tenant.monthlyRent ?? 0) && (
+                            <span title="Rent history out of sync — ledgers use a different rate for this month. Open the tenant's Rent History tab to fix.">
+                              <AlertTriangle size={12} className="text-amber-500" />
+                            </span>
+                          )}
+                          {formatCurrency(monthlyTotal, currency)}
+                        </p>
                         <p className="text-[10px] text-gray-400 font-sans mt-0.5">
                           {tenant.monthlyRent?.toLocaleString("en-US")} + {tenant.serviceCharge?.toLocaleString("en-US")}
                         </p>
@@ -739,7 +747,12 @@ export default function TenantsPage() {
                         </td>
                         {/* Monthly total */}
                         <td className="px-4 py-3 text-right">
-                          <p className="font-mono text-sm font-medium text-header">
+                          <p className="font-mono text-sm font-medium text-header flex items-center justify-end gap-1">
+                            {isRentHistoryOutOfSync(tenant.rentHistory, tenant.monthlyRent ?? 0) && (
+                              <span title="Rent history out of sync — ledgers use a different rate for this month. Open the tenant's Rent History tab to fix.">
+                                <AlertTriangle size={12} className="text-amber-500" />
+                              </span>
+                            )}
                             {formatCurrency(monthlyTotal, currency)}
                           </p>
                           <p className="text-xs text-gray-400 font-sans mt-0.5">

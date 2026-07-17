@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveExpectedRent, resolveExpectedRentForRange } from "../rent-resolution";
+import { resolveExpectedRent, resolveExpectedRentForRange, isRentHistoryOutOfSync } from "../rent-resolution";
 
 const d = (s: string) => new Date(s);
 
@@ -61,6 +61,34 @@ describe("resolveExpectedRent", () => {
     ];
     expect(resolveExpectedRent(history, 55000, d("2025-01-01"))).toBe(55000);
     expect(resolveExpectedRent(history, 55000, d("2024-12-01"))).toBe(50000);
+  });
+});
+
+describe("isRentHistoryOutOfSync", () => {
+  it("false when there is no history (resolver falls back to current rent)", () => {
+    expect(isRentHistoryOutOfSync([], 385000)).toBe(false);
+    expect(isRentHistoryOutOfSync(null, 385000)).toBe(false);
+  });
+
+  it("true when the latest applicable row disagrees with current rent", () => {
+    const history = [{ monthlyRent: 350000, effectiveDate: d("2025-01-01") }];
+    expect(isRentHistoryOutOfSync(history, 385000, d("2026-07-15"))).toBe(true);
+  });
+
+  it("false when the timeline matches current rent", () => {
+    const history = [
+      { monthlyRent: 350000, effectiveDate: d("2025-01-01") },
+      { monthlyRent: 385000, effectiveDate: d("2026-01-01") },
+    ];
+    expect(isRentHistoryOutOfSync(history, 385000, d("2026-07-15"))).toBe(false);
+  });
+
+  it("false when the disagreeing row is future-dated (pre-logged escalation)", () => {
+    const history = [
+      { monthlyRent: 385000, effectiveDate: d("2026-01-01") },
+      { monthlyRent: 400000, effectiveDate: d("2027-01-01") },
+    ];
+    expect(isRentHistoryOutOfSync(history, 385000, d("2026-07-15"))).toBe(false);
   });
 });
 

@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
-import { Plus, Trash2, TrendingUp, TrendingDown, Minus, Loader2, ChevronRight } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown, Minus, Loader2, ChevronRight, AlertTriangle } from "lucide-react";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
+import { resolveExpectedRent, isRentHistoryOutOfSync } from "@/lib/rent-resolution";
 
 interface RentHistoryEntry {
   id: string;
@@ -73,6 +74,31 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
     }
   }
 
+  // One-click fix for an out-of-sync timeline: record the current rent as of
+  // today so ledgers/reports stop resolving a stale historical rate.
+  const [syncing, setSyncing] = useState(false);
+  async function handleSyncCurrentRent() {
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/rent-history`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          monthlyRent: currentRent,
+          effectiveDate: format(new Date(), "yyyy-MM-dd"),
+          reason: "Synced with current rent",
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Current rent recorded in history");
+      fetchHistory();
+    } catch {
+      toast.error("Failed to record entry");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function handleDelete(entryId: string) {
     if (!confirm("Delete this rent history entry?")) return;
     setDeletingId(entryId);
@@ -105,6 +131,11 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
 
   // Display in descending order (newest first)
   const displayEntries = [...sorted].reverse();
+
+  // Timeline vs live field disagreement — the resolved rate drives ledgers,
+  // reports, and invoices, so a stale timeline silently bills the old rent.
+  const resolvedNow = resolveExpectedRent(sorted, currentRent, new Date());
+  const outOfSync = isRentHistoryOutOfSync(sorted, currentRent);
 
   return (
     <div>
@@ -178,6 +209,30 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
             </button>
           </div>
         </form>
+      )}
+
+      {/* Out-of-sync warning — timeline resolves a different rate than the
+          tenant's current rent, so ledgers/reports use the stale figure */}
+      {outOfSync && (
+        <div className="flex items-start gap-3 px-4 py-3 mb-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-sans font-medium text-amber-800">Rent history out of sync</p>
+            <p className="text-xs font-sans text-amber-700 mt-0.5">
+              The history timeline resolves this month&apos;s rent as <span className="font-mono font-semibold">{fmt(resolvedNow)}</span>,
+              but the tenant&apos;s current rent is <span className="font-mono font-semibold">{fmt(currentRent)}</span>.
+              Ledgers, reports, and invoices use the timeline — either correct an entry below
+              (e.g. set the right effective date), or record the current rent now.
+            </p>
+            <button
+              onClick={handleSyncCurrentRent}
+              disabled={syncing}
+              className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-medium font-sans rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+            >
+              {syncing ? <><Loader2 size={12} className="animate-spin" /> Recording…</> : <>Record {fmt(currentRent)} as of today</>}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Current rent banner */}

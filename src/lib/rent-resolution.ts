@@ -46,6 +46,24 @@ export function resolveExpectedRent(
 }
 
 /**
+ * True when the tenant's RentHistory timeline disagrees with their current
+ * monthlyRent for the CURRENT month — i.e. the latest applicable history row
+ * resolves to a different rate than the live field. This happens when rent
+ * was edited directly without a history row (possible before edits started
+ * auto-appending one) and makes ledgers/reports bill the stale rate.
+ * False when there is no history at all (the resolver falls back to
+ * currentRent, so nothing can disagree).
+ */
+export function isRentHistoryOutOfSync(
+  history: RentHistoryPoint[] | null | undefined,
+  currentRent: number,
+  today: Date = new Date(),
+): boolean {
+  if (!history || history.length === 0) return false;
+  return Math.abs(resolveExpectedRent(history, currentRent, today) - currentRent) > 0.01;
+}
+
+/**
  * Total expected rent across an inclusive month range (used by quarterly /
  * annual reports where expected was previously `monthlyRent * monthsMult`).
  * `from` is any date inside the first month; `months` is the number of

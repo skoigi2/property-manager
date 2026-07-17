@@ -2,6 +2,8 @@ import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { format } from "date-fns";
+import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { resolveExpectedRent } from "@/lib/rent-resolution";
 
 const bulkSchema = z.object({
   year:  z.number().int().min(2020).max(2100),
@@ -47,6 +49,9 @@ export async function POST(req: Request) {
     },
     include: {
       unit: { select: { id: true, unitNumber: true, propertyId: true, type: true } },
+      // Escalation timeline — period amounts sum the rent that applies to
+      // each covered month (a mid-period escalation bills correctly).
+      rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
     },
   });
 
@@ -70,10 +75,12 @@ export async function POST(req: Request) {
   let   sequence     = invoiceCount + 1;
 
   const dueDate = new Date(year, month - 1, dueDayOfMonth);
-  const periodLabel = format(new Date(year, month - 1, 1), "MMM yyyy");
+  const periodStart = new Date(year, month - 1, 1);
+  const periodLabel = format(periodStart, "MMM yyyy");
 
   const created: string[] = [];
   const skipped: string[] = [];
+  const notDue:  string[] = [];
   const errors:  { tenant: string; error: string }[] = [];
 
   for (const tenant of tenants) {
@@ -82,9 +89,31 @@ export async function POST(req: Request) {
       continue;
     }
 
+    // Schedule-aware billing: quarterly/biannual/annual payers get ONE
+    // invoice for the full period on their billing month (anchored to lease
+    // start) and nothing in the covered months in between.
+    const sched = scheduledExpectedForMonth({
+      leaseStart: tenant.leaseStart,
+      frequency: tenant.paymentFrequency,
+      month: periodStart,
+      rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+    });
+    if (!sched.due) {
+      notDue.push(tenant.name);
+      continue;
+    }
+
+    const nMonths = frequencyMonths(tenant.paymentFrequency);
+    const coveredLabel =
+      nMonths > 1
+        ? `${format(periodStart, "MMM yyyy")} – ${format(new Date(year, month - 1 + nMonths - 1, 1), "MMM yyyy")}`
+        : periodLabel;
+
     try {
       const invoiceNumber = generateInvoiceNumber(year, month, sequence++);
-      const totalAmount   = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
+      const rentAmount    = sched.amount;
+      const serviceCharge = (tenant.serviceCharge ?? 0) * nMonths;
+      const totalAmount   = rentAmount + serviceCharge;
 
       await prisma.invoice.create({
         data: {
@@ -92,13 +121,18 @@ export async function POST(req: Request) {
           tenantId:     tenant.id,
           periodYear:   year,
           periodMonth:  month,
-          rentAmount:   tenant.monthlyRent ?? 0,
-          serviceCharge: tenant.serviceCharge ?? 0,
+          rentAmount,
+          serviceCharge,
           otherCharges:  0,
           totalAmount,
           dueDate,
           status: "SENT",
-          notes:  `Auto-generated for ${periodLabel}`,
+          notes:
+            nMonths > 1
+              ? `Auto-generated — ${
+                  { 3: "quarterly", 6: "bi-annual", 12: "annual" }[nMonths] ?? `${nMonths}-month`
+                } billing covering ${coveredLabel}`
+              : `Auto-generated for ${periodLabel}`,
         },
       });
 
@@ -111,10 +145,15 @@ export async function POST(req: Request) {
   return Response.json({
     created: created.length,
     skipped: skipped.length,
+    notDue:  notDue.length,
     errors:  errors.length,
     createdNames: created,
     skippedNames: skipped,
+    notDueNames:  notDue,
     errorDetails: errors,
-    message: `Generated ${created.length} invoice${created.length !== 1 ? "s" : ""} for ${periodLabel}${skipped.length > 0 ? `, ${skipped.length} already existed` : ""}`,
+    message:
+      `Generated ${created.length} invoice${created.length !== 1 ? "s" : ""} for ${periodLabel}` +
+      `${skipped.length > 0 ? `, ${skipped.length} already existed` : ""}` +
+      `${notDue.length > 0 ? `, ${notDue.length} not due (covered by advance billing)` : ""}`,
   }, { status: 201 });
 }

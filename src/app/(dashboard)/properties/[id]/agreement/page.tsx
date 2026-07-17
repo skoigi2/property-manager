@@ -14,52 +14,75 @@ import { Spinner } from "@/components/ui/Spinner";
 import { ArrowLeft, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 
+// Optional text fields are stored as NULL when blank — the schema must accept
+// null or a previously saved agreement can never be re-saved (the form is
+// reset with those nulls and plain z.string().optional() rejects them).
+const optionalText = z.string().nullable().optional();
+
+// Required numeric field with a clear, human error message.
+const num = (opts: { min: number; max?: number; int?: boolean; label: string }) => {
+  let s = z.coerce.number({ message: `${opts.label} must be a number` });
+  if (opts.int) s = s.int(`${opts.label} must be a whole number`);
+  s = s.min(opts.min, `${opts.label} must be at least ${opts.min}`);
+  if (opts.max !== undefined) s = s.max(opts.max, `${opts.label} must be at most ${opts.max}`);
+  return s;
+};
+
 const schema = z.object({
-  managementFeeRate:              z.coerce.number().min(0).max(100),
-  vacancyFeeRate:                 z.coerce.number().min(0).max(100),
-  vacancyFeeThresholdMonths:      z.coerce.number().int().min(1),
-  newLettingFeeRate:              z.coerce.number().min(0).max(100),
-  leaseRenewalFeeFlat:            z.coerce.number().min(0),
-  shortTermLettingFeeRate:        z.coerce.number().min(0).max(100),
-  repairAuthorityLimit:           z.coerce.number().min(0),
+  managementFeeRate:              num({ min: 0, max: 100, label: "Management fee" }),
+  vacancyFeeRate:                 num({ min: 0, max: 100, label: "Vacancy fee" }),
+  vacancyFeeThresholdMonths:      num({ min: 1, int: true, label: "Vacancy threshold" }),
+  newLettingFeeRate:              num({ min: 0, max: 100, label: "New letting fee" }),
+  leaseRenewalFeeFlat:            num({ min: 0, label: "Lease renewal fee" }),
+  shortTermLettingFeeRate:        num({ min: 0, max: 100, label: "Short-term letting fee" }),
+  repairAuthorityLimit:           num({ min: 0, label: "Repair authority limit" }),
   setupFeeTotal:                  z.coerce.number().min(0).optional().or(z.literal("")),
-  setupFeeInstalments:            z.coerce.number().int().min(1),
-  rentRemittanceDay:              z.coerce.number().int().min(1).max(28),
-  mgmtFeeInvoiceDay:              z.coerce.number().int().min(1).max(28),
-  landlordPaymentDays:            z.coerce.number().int().min(1),
-  kpiStartDate:                   z.string().optional(),
-  kpiOccupancyTarget:             z.coerce.number().min(0).max(100),
-  kpiRentCollectionTarget:        z.coerce.number().min(0).max(100),
-  kpiExpenseRatioTarget:          z.coerce.number().min(0).max(100),
-  kpiTenantTurnoverTarget:        z.coerce.number().min(0).max(100),
-  kpiDaysToLeaseTarget:           z.coerce.number().int().min(1),
-  kpiRenewalRateTarget:           z.coerce.number().min(0).max(100),
-  kpiMaintenanceCompletionTarget: z.coerce.number().min(0).max(100),
-  kpiEmergencyResponseHrs:        z.coerce.number().int().min(1),
-  kpiStandardResponseHrs:         z.coerce.number().int().min(1),
-  latePaymentInterestRate:        z.coerce.number().min(0).max(100),
-  // Tenant invoice payment details
-  tenantKraPin:              z.string().optional(),
-  tenantBankName:            z.string().optional(),
-  tenantBankAccountName:     z.string().optional(),
-  tenantBankAccountNumber:   z.string().optional(),
-  tenantBankBranch:          z.string().optional(),
-  tenantMpesaPaybill:        z.string().optional(),
-  tenantMpesaAccountNumber:  z.string().optional(),
-  tenantMpesaTill:           z.string().optional(),
-  tenantPaymentInstructions: z.string().optional(),
-  // Manager billing details
-  mgmtKraPin:                z.string().optional(),
-  mgmtBankName:              z.string().optional(),
-  mgmtBankAccountName:       z.string().optional(),
-  mgmtBankAccountNumber:     z.string().optional(),
-  mgmtBankBranch:            z.string().optional(),
-  mgmtMpesaPaybill:          z.string().optional(),
-  mgmtMpesaAccountNumber:    z.string().optional(),
-  mgmtMpesaTill:             z.string().optional(),
-  mgmtPaymentInstructions:   z.string().optional(),
+  setupFeeInstalments:            num({ min: 1, int: true, label: "Setup fee instalments" }),
+  rentRemittanceDay:              num({ min: 1, max: 28, int: true, label: "Rent remittance day" }),
+  mgmtFeeInvoiceDay:              num({ min: 1, max: 28, int: true, label: "Mgmt fee invoice day" }),
+  landlordPaymentDays:            num({ min: 1, int: true, label: "Landlord payment days" }),
+  kpiStartDate:                   z.string().nullable().optional(),
+  kpiOccupancyTarget:             num({ min: 0, max: 100, label: "Occupancy target" }),
+  kpiRentCollectionTarget:        num({ min: 0, max: 100, label: "Rent collection target" }),
+  kpiExpenseRatioTarget:          num({ min: 0, max: 100, label: "Expense ratio target" }),
+  kpiTenantTurnoverTarget:        num({ min: 0, max: 100, label: "Tenant turnover target" }),
+  kpiDaysToLeaseTarget:           num({ min: 1, int: true, label: "Days to lease target" }),
+  kpiRenewalRateTarget:           num({ min: 0, max: 100, label: "Renewal rate target" }),
+  kpiMaintenanceCompletionTarget: num({ min: 0, max: 100, label: "Maintenance completion target" }),
+  kpiEmergencyResponseHrs:        num({ min: 1, int: true, label: "Emergency response SLA" }),
+  kpiStandardResponseHrs:         num({ min: 1, int: true, label: "Standard response SLA" }),
+  latePaymentInterestRate:        num({ min: 0, max: 100, label: "Late payment interest" }),
+  // Tenant invoice payment details (all optional)
+  tenantKraPin:              optionalText,
+  tenantBankName:            optionalText,
+  tenantBankAccountName:     optionalText,
+  tenantBankAccountNumber:   optionalText,
+  tenantBankBranch:          optionalText,
+  tenantMpesaPaybill:        optionalText,
+  tenantMpesaAccountNumber:  optionalText,
+  tenantMpesaTill:           optionalText,
+  tenantPaymentInstructions: optionalText,
+  // Manager billing details (all optional)
+  mgmtKraPin:                optionalText,
+  mgmtBankName:              optionalText,
+  mgmtBankAccountName:       optionalText,
+  mgmtBankAccountNumber:     optionalText,
+  mgmtBankBranch:            optionalText,
+  mgmtMpesaPaybill:          optionalText,
+  mgmtMpesaAccountNumber:    optionalText,
+  mgmtMpesaTill:             optionalText,
+  mgmtPaymentInstructions:   optionalText,
 });
 type FormValues = z.infer<typeof schema>;
+
+const TEXT_FIELDS = [
+  "tenantKraPin",
+  "tenantBankName","tenantBankAccountName","tenantBankAccountNumber","tenantBankBranch",
+  "tenantMpesaPaybill","tenantMpesaAccountNumber","tenantMpesaTill","tenantPaymentInstructions",
+  "mgmtKraPin",
+  "mgmtBankName","mgmtBankAccountName","mgmtBankAccountNumber","mgmtBankBranch",
+  "mgmtMpesaPaybill","mgmtMpesaAccountNumber","mgmtMpesaTill","mgmtPaymentInstructions",
+] as const;
 
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle?: string }) {
   return (
@@ -121,6 +144,9 @@ export default function AgreementPage() {
           ...agr,
           kpiStartDate: agr.kpiStartDate ? agr.kpiStartDate.slice(0, 10) : "",
           setupFeeTotal: agr.setupFeeTotal ?? "",
+          // Blank optional fields are stored as NULL — normalise back to ""
+          // so the inputs stay controlled and validation accepts them.
+          ...Object.fromEntries(TEXT_FIELDS.map((f) => [f, agr[f] ?? ""])),
         });
       }
       setLoading(false);
@@ -165,27 +191,41 @@ export default function AgreementPage() {
 
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
-    const textFields = [
-      "tenantKraPin",
-      "tenantBankName","tenantBankAccountName","tenantBankAccountNumber","tenantBankBranch",
-      "tenantMpesaPaybill","tenantMpesaAccountNumber","tenantMpesaTill","tenantPaymentInstructions",
-      "mgmtKraPin",
-      "mgmtBankName","mgmtBankAccountName","mgmtBankAccountNumber","mgmtBankBranch",
-      "mgmtMpesaPaybill","mgmtMpesaAccountNumber","mgmtMpesaTill","mgmtPaymentInstructions",
-    ] as const;
     const payload: Record<string, unknown> = {
       ...values,
       setupFeeTotal: values.setupFeeTotal === "" ? null : values.setupFeeTotal,
+      kpiStartDate: values.kpiStartDate || null,
     };
-    textFields.forEach((f) => { if (payload[f] === "") payload[f] = null; });
+    TEXT_FIELDS.forEach((f) => { if (!payload[f]) payload[f] = null; });
     const res = await fetch(`/api/properties/${params.id}/agreement`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     setSaving(false);
-    if (!res.ok) { toast.error("Failed to save agreement"); return; }
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      toast.error(typeof data?.error === "string" ? data.error : "Failed to save agreement");
+      return;
+    }
     toast.success("Agreement saved");
+  };
+
+  // Validation failures used to be silent — the Save button sits in the
+  // header while the offending field may be five sections down. Surface the
+  // first error in a toast and scroll its input into view.
+  const onInvalid = (formErrors: Record<string, { message?: string } | undefined>) => {
+    const fields = Object.keys(formErrors);
+    if (fields.length === 0) return;
+    const first = fields[0];
+    const msg = formErrors[first]?.message;
+    toast.error(
+      `${fields.length} field${fields.length > 1 ? "s" : ""} need${fields.length > 1 ? "" : "s"} attention` +
+      (msg ? ` — ${msg}` : ""),
+    );
+    const el = document.querySelector<HTMLElement>(`[name="${first}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.focus({ preventScroll: true });
   };
 
   if (loading) {
@@ -203,19 +243,24 @@ export default function AgreementPage() {
         <Button variant="secondary" size="sm" onClick={() => router.back()}>
           <ArrowLeft size={14} className="mr-1" /> Back
         </Button>
-        <Button size="sm" onClick={handleSubmit(onSubmit)} loading={saving}>
+        <Button size="sm" onClick={handleSubmit(onSubmit, onInvalid)} loading={saving}>
           Save Agreement
         </Button>
       </Header>
 
       <div className="page-container">
         {propertyName && (
-          <p className="text-sm text-gray-500 font-sans mb-6">
+          <p className="text-sm text-gray-500 font-sans mb-3">
             Configuring agreement for <span className="font-semibold text-header">{propertyName}</span>
           </p>
         )}
+        <p className="text-xs text-gray-400 font-sans mb-6">
+          Fee, deadline, and KPI fields are <span className="font-medium text-gray-500">required</span> but
+          pre-filled with standard defaults — adjust what differs in your agreement, and don&apos;t leave them
+          blank. All payment-detail fields are <span className="font-medium text-gray-500">optional</span>.
+        </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
 
           {/* ── Fee Structure ── */}
           <Card>
@@ -268,7 +313,7 @@ export default function AgreementPage() {
             <SectionHeader
               icon={CreditCard}
               title="Tenant Invoice Payment Details"
-              subtitle="Shown on rent invoices so tenants know where to send payment"
+              subtitle="All fields optional — shown on rent invoices so tenants know where to send payment"
             />
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-100 pb-4">
@@ -305,7 +350,7 @@ export default function AgreementPage() {
             <SectionHeader
               icon={Building2}
               title="Manager Billing Details"
-              subtitle="Shown on owner invoices so the property owner knows where to remit management fees"
+              subtitle="All fields optional — shown on owner invoices so the property owner knows where to remit management fees"
             />
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-100 pb-4">

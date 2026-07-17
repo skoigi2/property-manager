@@ -642,6 +642,11 @@ model Tenant {
   name             String
   email            String?
   phone            String?
+  // Extra reachable people/addresses beyond the primary email/phone —
+  // JSON array of { label?, email?, phone? } (spouse, accounts office, etc.)
+  additionalContacts Json?
+  // Postal address for formal letters (rent demands, notices).
+  poBox            String?
   nationalId       String?
   taxIdNumber      String?           @map("kraPinNumber")
   unitId           String
@@ -660,6 +665,9 @@ model Tenant {
   proposedLeaseEnd DateTime?
   renewalNotes     String?
   escalationRate   Float?
+  // How often the escalation applies, in years (1 = annual, 2 = every two
+  // years, or any custom interval). Null = not configured.
+  escalationIntervalYears Int?
   chargeLatePenalty Boolean         @default(false)
   isTaxExempt      Boolean         @default(false)
   paymentFrequency PaymentFrequency?

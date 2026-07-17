@@ -46,6 +46,16 @@ export async function GET(
     paymentInstructions: agreement?.tenantPaymentInstructions ?? null,
   } : null;
 
+  // Arrears context: the tenant's OTHER invoices still awaiting payment.
+  const outstandingAgg = await prisma.invoice.aggregate({
+    where: {
+      tenantId: tenant.id,
+      id: { not: invoice.id },
+      status: { in: ["SENT", "OVERDUE", "PENDING_VERIFICATION"] },
+    },
+    _sum: { totalAmount: true },
+  });
+
   const buffer = await generateInvoicePdf({
     invoiceNumber: invoice.invoiceNumber,
     periodYear: invoice.periodYear,
@@ -61,10 +71,15 @@ export async function GET(
     notes: invoice.notes,
     currency: property.currency,
     org,
+    outstandingBalance: outstandingAgg._sum.totalAmount ?? 0,
     tenant: {
       name: tenant.name,
       email: tenant.email,
       phone: tenant.phone,
+      poBox: tenant.poBox,
+      leaseStart: tenant.leaseStart,
+      leaseEnd: tenant.leaseEnd,
+      paymentFrequency: tenant.paymentFrequency,
       unit: {
         unitNumber: tenant.unit.unitNumber,
         type: tenant.unit.type,

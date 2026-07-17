@@ -19,6 +19,11 @@ import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
 import { RentHistoryTab } from "@/components/tenants/RentHistoryTab";
 import { CommunicationLogTab } from "@/components/tenants/CommunicationLogTab";
 import { PortalMessagesTab } from "@/components/tenants/PortalMessagesTab";
+import { TenantFormFields, cleanAdditionalContacts } from "@/components/tenants/TenantFormFields";
+import { Modal } from "@/components/ui/Modal";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { tenantSchema, type TenantInput } from "@/lib/validations";
 import ProofVerifyDrawer from "@/components/invoices/ProofVerifyDrawer";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
@@ -27,6 +32,7 @@ import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
   Download, FileText, Loader2, ScrollText, FolderOpen, RefreshCw, Mail,
   ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy, History, MessageSquare, LogOut, ClipboardCheck,
+  Pencil,
 } from "lucide-react";
 import { differenceInMonths, startOfMonth, addMonths, format } from "date-fns";
 
@@ -310,6 +316,12 @@ export default function TenantDetailPage() {
   const [portalGenerating, setPortalGenerating] = useState(false);
   const [portalRevoking, setPortalRevoking] = useState(false);
 
+  // ── Edit-in-place modal (shares TenantFormFields with the Tenants list) ────
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const { register: editRegister, handleSubmit: editHandleSubmit, reset: editReset, control: editControl, formState: { errors: editErrors } } =
+    useForm<TenantInput>({ resolver: zodResolver(tenantSchema) });
+
   const tenantId = params.id as string;
 
   const fetchTenant = useCallback(() => {
@@ -329,6 +341,49 @@ export default function TenantDetailPage() {
   }, [tenantId]);
 
   useEffect(() => { fetchTenant(); }, [fetchTenant]);
+
+  function openEditModal() {
+    if (!tenant) return;
+    editReset({
+      name:             tenant.name,
+      email:            tenant.email ?? "",
+      phone:            tenant.phone ?? "",
+      unitId:           tenant.unitId,
+      depositAmount:    tenant.depositAmount,
+      leaseStart:       tenant.leaseStart?.split("T")[0] ?? "",
+      leaseEnd:         tenant.leaseEnd?.split("T")[0] ?? "",
+      monthlyRent:      tenant.monthlyRent,
+      serviceCharge:    tenant.serviceCharge,
+      isActive:         tenant.isActive,
+      notes:            tenant.notes ?? "",
+      paymentFrequency: tenant.paymentFrequency ?? undefined,
+      escalationRate:   tenant.escalationRate ?? undefined,
+      escalationIntervalYears: tenant.escalationIntervalYears ?? undefined,
+      parkingFee:       tenant.parkingFee ?? undefined,
+      poBox:            tenant.poBox ?? "",
+      additionalContacts: tenant.additionalContacts ?? [],
+    });
+    setShowEditModal(true);
+  }
+
+  async function onEditSubmit(data: TenantInput) {
+    setEditSubmitting(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cleanAdditionalContacts(data)),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Tenant updated");
+      setShowEditModal(false);
+      fetchTenant();
+    } catch {
+      toast.error("Failed to update tenant");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     if (!tenantId) return;
@@ -471,6 +526,13 @@ export default function TenantDetailPage() {
                       : "Renewed"}
                     </Badge>
                   )}
+                  {/* Edit button — edit in place, no need to go back to the list */}
+                  <button
+                    onClick={openEditModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-xs font-sans rounded-lg transition-colors"
+                  >
+                    <Pencil size={13} /> Edit
+                  </button>
                   {/* Move-In Report button */}
                   {tenant.unit?.id && tenant.isActive && (
                     <button
@@ -555,6 +617,38 @@ export default function TenantDetailPage() {
                   <p className="text-xs text-gray-400 font-sans">Lease End</p>
                   <p className="text-sm font-sans text-header">{tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "Open-ended"}</p>
                 </div>
+                {tenant.paymentFrequency && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-sans">Payment Frequency</p>
+                    <p className="text-sm font-sans text-header">
+                      {{ MONTHLY: "Monthly", QUARTERLY: "Quarterly (in advance)", BIANNUAL: "Bi-annual (in advance)", ANNUAL: "Annual (in advance)" }[tenant.paymentFrequency as string] ?? tenant.paymentFrequency}
+                    </p>
+                  </div>
+                )}
+                {tenant.escalationRate != null && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-sans">Rent Escalation</p>
+                    <p className="text-sm font-sans text-header">
+                      {tenant.escalationRate}% every {tenant.escalationIntervalYears ?? 1} year{(tenant.escalationIntervalYears ?? 1) > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                )}
+                {tenant.poBox && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-sans">P.O. Box / Postal</p>
+                    <p className="text-sm font-sans text-header">{tenant.poBox}</p>
+                  </div>
+                )}
+                {Array.isArray(tenant.additionalContacts) && tenant.additionalContacts.length > 0 && (
+                  <div className="col-span-2 sm:col-span-3">
+                    <p className="text-xs text-gray-400 font-sans">Additional Contacts</p>
+                    {tenant.additionalContacts.map((c: any, i: number) => (
+                      <p key={i} className="text-sm font-sans text-gray-600">
+                        {[c.label, c.email, c.phone].filter(Boolean).join(" · ")}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {tenant.notes && (
                   <div>
                     <p className="text-xs text-gray-400 font-sans">Notes</p>
@@ -1048,6 +1142,22 @@ export default function TenantDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Tenant Modal — same field set as the Tenants list */}
+      <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Tenant">
+        <form onSubmit={editHandleSubmit(onEditSubmit)} className="space-y-4">
+          <TenantFormFields
+            register={editRegister}
+            control={editControl}
+            errors={editErrors}
+            unitOptions={tenant?.unit ? [{ value: tenant.unitId, label: `${tenant.unit.unitNumber} (${tenant.unit.property?.name ?? ""})` }] : []}
+          />
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" loading={editSubmitting}>Update</Button>
+            <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Email Draft Modal */}
       {showEmail && tenant && (

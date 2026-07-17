@@ -89,7 +89,16 @@ export const tenantSchema = z.object({
     z.enum(["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"]).optional(),
   ),
   escalationRate:   z.preprocess(emptyToUndef, z.coerce.number().min(0).max(100).optional()),
+  escalationIntervalYears: z.preprocess(emptyToUndef, z.coerce.number().int().min(1).max(20).optional()),
   parkingFee:       z.preprocess(emptyToUndef, z.coerce.number().min(0).optional()),
+  poBox:            z.string().optional(),
+  // Extra reachable people beyond the primary email/phone. Blank rows are
+  // stripped client-side; each kept row needs at least one filled field.
+  additionalContacts: z.array(z.object({
+    label: z.string().optional(),
+    email: z.string().email("Invalid email").optional().or(z.literal("")),
+    phone: z.string().optional(),
+  })).optional(),
 });
 
 export const managementFeeConfigSchema = z.object({

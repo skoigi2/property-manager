@@ -90,10 +90,16 @@ export type InvoiceData = {
   notes?: string | null;
   currency?: string;
   org?: OrgBranding | null;
+  /** Total of the tenant's OTHER unpaid invoices at generation time. */
+  outstandingBalance?: number | null;
   tenant: {
     name: string;
     email?: string | null;
     phone?: string | null;
+    poBox?: string | null;
+    leaseStart?: Date | string | null;
+    leaseEnd?: Date | string | null;
+    paymentFrequency?: string | null;
     unit: {
       unitNumber: string;
       type?: string;
@@ -133,8 +139,28 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
   const hasPayInstructions = !!(org?.paymentInstructions);
   const showPaySection = !isPaid && (hasBankDetails || hasMpesa || hasPayInstructions);
 
+  // Payment terms follow the tenant's agreed cadence — the invoice still
+  // covers one month, but the description must not say "Monthly" for a
+  // tenant on a quarterly/biannual/annual plan.
+  const frequency = data.tenant.paymentFrequency ?? null;
+  const PAYMENT_TERMS: Record<string, string> = {
+    MONTHLY:   "Monthly",
+    QUARTERLY: "Quarterly in advance",
+    BIANNUAL:  "Bi-annually in advance",
+    ANNUAL:    "Annually in advance",
+  };
+  const paymentTerms = frequency ? PAYMENT_TERMS[frequency] ?? null : null;
+  const rentLabel =
+    !frequency || frequency === "MONTHLY"
+      ? "Monthly Rent"
+      : `Rent — ${periodLabel} (payable ${PAYMENT_TERMS[frequency]?.toLowerCase() ?? "per agreement"})`;
+
+  const leaseStart = data.tenant.leaseStart ? format(new Date(data.tenant.leaseStart), "d MMM yyyy") : null;
+  const leaseEnd   = data.tenant.leaseEnd ? format(new Date(data.tenant.leaseEnd), "d MMM yyyy") : null;
+  const outstanding = data.outstandingBalance ?? 0;
+
   const lineItems = [
-    { label: "Monthly Rent", amount: data.rentAmount },
+    { label: rentLabel, amount: data.rentAmount },
     ...(data.serviceCharge > 0 ? [{ label: "Service Charge", amount: data.serviceCharge }] : []),
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
   ];
@@ -195,6 +221,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
             <Text style={styles.boldText}>{data.tenant.name}</Text>
             <Text style={styles.bodyText}>{data.tenant.unit.property.name}</Text>
             <Text style={styles.bodyText}>Unit {data.tenant.unit.unitNumber}</Text>
+            {data.tenant.poBox && <Text style={styles.bodyText}>{data.tenant.poBox}</Text>}
             {data.tenant.phone && <Text style={styles.bodyText}>{data.tenant.phone}</Text>}
             {data.tenant.email && <Text style={styles.bodyText}>{data.tenant.email}</Text>}
           </View>
@@ -203,6 +230,14 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
             <Text style={styles.bodyText}>Invoice No: <Text style={styles.boldText}>{data.invoiceNumber}</Text></Text>
             <Text style={styles.bodyText}>Period: <Text style={styles.boldText}>{periodLabel}</Text></Text>
             <Text style={styles.bodyText}>Due Date: <Text style={styles.boldText}>{dueDate}</Text></Text>
+            {paymentTerms && (
+              <Text style={styles.bodyText}>Payment Terms: <Text style={styles.boldText}>{paymentTerms}</Text></Text>
+            )}
+            {(leaseStart || leaseEnd) && (
+              <Text style={styles.bodyText}>
+                Lease: <Text style={styles.boldText}>{leaseStart ?? "—"} to {leaseEnd ?? "open-ended"}</Text>
+              </Text>
+            )}
             {isPaid && data.paidAt && (
               <Text style={styles.bodyText}>Paid On: <Text style={styles.boldText}>{format(new Date(data.paidAt), "d MMM yyyy")}</Text></Text>
             )}
@@ -255,6 +290,17 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
             <Text style={styles.totalLabel}>Total Due</Text>
             <Text style={styles.totalAmt}>{fmt(data.totalAmount)}</Text>
           </View>
+
+          {/* Arrears reminder — other unpaid invoices at generation time */}
+          {outstanding > 0 && (
+            <View style={{ backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fcd34d", borderRadius: 4, paddingHorizontal: 12, paddingVertical: 8, marginTop: 8 }}>
+              <Text style={{ fontSize: 9, color: "#92400e" }}>
+                Outstanding balance from previous invoices: <Text style={{ fontFamily: "Helvetica-Bold" }}>{fmt(outstanding)}</Text>
+                {"  ·  Total including this invoice: "}
+                <Text style={{ fontFamily: "Helvetica-Bold" }}>{fmt(outstanding + data.totalAmount)}</Text>
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Payment confirmation (if paid) */}

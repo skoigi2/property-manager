@@ -1,52 +1,6 @@
 import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-
-const agreementSchema = z.object({
-  managementFeeRate:              z.coerce.number().min(0).max(100).default(8.5),
-  vacancyFeeRate:                 z.coerce.number().min(0).max(100).default(5),
-  vacancyFeeThresholdMonths:      z.coerce.number().int().min(1).default(9),
-  newLettingFeeRate:              z.coerce.number().min(0).max(100).default(50),
-  leaseRenewalFeeFlat:            z.coerce.number().min(0).default(3000),
-  shortTermLettingFeeRate:        z.coerce.number().min(0).max(100).default(10),
-  repairAuthorityLimit:           z.coerce.number().min(0).default(100000),
-  setupFeeTotal:                  z.coerce.number().min(0).optional().nullable(),
-  setupFeeInstalments:            z.coerce.number().int().min(1).default(3),
-  rentRemittanceDay:              z.coerce.number().int().min(1).max(28).default(5),
-  mgmtFeeInvoiceDay:              z.coerce.number().int().min(1).max(28).default(7),
-  landlordPaymentDays:            z.coerce.number().int().min(1).default(2),
-  kpiStartDate:                   z.string().optional().nullable(),
-  kpiOccupancyTarget:             z.coerce.number().min(0).max(100).default(90),
-  kpiRentCollectionTarget:        z.coerce.number().min(0).max(100).default(90),
-  kpiExpenseRatioTarget:          z.coerce.number().min(0).max(100).default(85),
-  kpiTenantTurnoverTarget:        z.coerce.number().min(0).max(100).default(90),
-  kpiDaysToLeaseTarget:           z.coerce.number().int().min(1).default(60),
-  kpiRenewalRateTarget:           z.coerce.number().min(0).max(100).default(90),
-  kpiMaintenanceCompletionTarget: z.coerce.number().min(0).max(100).default(95),
-  kpiEmergencyResponseHrs:        z.coerce.number().int().min(1).default(24),
-  kpiStandardResponseHrs:         z.coerce.number().int().min(1).default(96),
-  latePaymentInterestRate:        z.coerce.number().min(0).max(100).default(0),
-  // Tenant invoice payment details
-  tenantKraPin:                   z.string().optional().nullable(),
-  tenantBankName:                 z.string().optional().nullable(),
-  tenantBankAccountName:          z.string().optional().nullable(),
-  tenantBankAccountNumber:        z.string().optional().nullable(),
-  tenantBankBranch:               z.string().optional().nullable(),
-  tenantMpesaPaybill:             z.string().optional().nullable(),
-  tenantMpesaAccountNumber:       z.string().optional().nullable(),
-  tenantMpesaTill:                z.string().optional().nullable(),
-  tenantPaymentInstructions:      z.string().optional().nullable(),
-  // Manager billing details
-  mgmtKraPin:                     z.string().optional().nullable(),
-  mgmtBankName:                   z.string().optional().nullable(),
-  mgmtBankAccountName:            z.string().optional().nullable(),
-  mgmtBankAccountNumber:          z.string().optional().nullable(),
-  mgmtBankBranch:                 z.string().optional().nullable(),
-  mgmtMpesaPaybill:               z.string().optional().nullable(),
-  mgmtMpesaAccountNumber:         z.string().optional().nullable(),
-  mgmtMpesaTill:                  z.string().optional().nullable(),
-  mgmtPaymentInstructions:        z.string().optional().nullable(),
-});
+import { agreementApiSchema as agreementSchema } from "@/lib/agreement-form";
 
 export async function GET(
   _req: Request,

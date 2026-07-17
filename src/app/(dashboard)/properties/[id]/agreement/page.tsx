@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -13,76 +12,13 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { ArrowLeft, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
-
-// Optional text fields are stored as NULL when blank — the schema must accept
-// null or a previously saved agreement can never be re-saved (the form is
-// reset with those nulls and plain z.string().optional() rejects them).
-const optionalText = z.string().nullable().optional();
-
-// Required numeric field with a clear, human error message.
-const num = (opts: { min: number; max?: number; int?: boolean; label: string }) => {
-  let s = z.coerce.number({ message: `${opts.label} must be a number` });
-  if (opts.int) s = s.int(`${opts.label} must be a whole number`);
-  s = s.min(opts.min, `${opts.label} must be at least ${opts.min}`);
-  if (opts.max !== undefined) s = s.max(opts.max, `${opts.label} must be at most ${opts.max}`);
-  return s;
-};
-
-const schema = z.object({
-  managementFeeRate:              num({ min: 0, max: 100, label: "Management fee" }),
-  vacancyFeeRate:                 num({ min: 0, max: 100, label: "Vacancy fee" }),
-  vacancyFeeThresholdMonths:      num({ min: 1, int: true, label: "Vacancy threshold" }),
-  newLettingFeeRate:              num({ min: 0, max: 100, label: "New letting fee" }),
-  leaseRenewalFeeFlat:            num({ min: 0, label: "Lease renewal fee" }),
-  shortTermLettingFeeRate:        num({ min: 0, max: 100, label: "Short-term letting fee" }),
-  repairAuthorityLimit:           num({ min: 0, label: "Repair authority limit" }),
-  setupFeeTotal:                  z.coerce.number().min(0).optional().or(z.literal("")),
-  setupFeeInstalments:            num({ min: 1, int: true, label: "Setup fee instalments" }),
-  rentRemittanceDay:              num({ min: 1, max: 28, int: true, label: "Rent remittance day" }),
-  mgmtFeeInvoiceDay:              num({ min: 1, max: 28, int: true, label: "Mgmt fee invoice day" }),
-  landlordPaymentDays:            num({ min: 1, int: true, label: "Landlord payment days" }),
-  kpiStartDate:                   z.string().nullable().optional(),
-  kpiOccupancyTarget:             num({ min: 0, max: 100, label: "Occupancy target" }),
-  kpiRentCollectionTarget:        num({ min: 0, max: 100, label: "Rent collection target" }),
-  kpiExpenseRatioTarget:          num({ min: 0, max: 100, label: "Expense ratio target" }),
-  kpiTenantTurnoverTarget:        num({ min: 0, max: 100, label: "Tenant turnover target" }),
-  kpiDaysToLeaseTarget:           num({ min: 1, int: true, label: "Days to lease target" }),
-  kpiRenewalRateTarget:           num({ min: 0, max: 100, label: "Renewal rate target" }),
-  kpiMaintenanceCompletionTarget: num({ min: 0, max: 100, label: "Maintenance completion target" }),
-  kpiEmergencyResponseHrs:        num({ min: 1, int: true, label: "Emergency response SLA" }),
-  kpiStandardResponseHrs:         num({ min: 1, int: true, label: "Standard response SLA" }),
-  latePaymentInterestRate:        num({ min: 0, max: 100, label: "Late payment interest" }),
-  // Tenant invoice payment details (all optional)
-  tenantKraPin:              optionalText,
-  tenantBankName:            optionalText,
-  tenantBankAccountName:     optionalText,
-  tenantBankAccountNumber:   optionalText,
-  tenantBankBranch:          optionalText,
-  tenantMpesaPaybill:        optionalText,
-  tenantMpesaAccountNumber:  optionalText,
-  tenantMpesaTill:           optionalText,
-  tenantPaymentInstructions: optionalText,
-  // Manager billing details (all optional)
-  mgmtKraPin:                optionalText,
-  mgmtBankName:              optionalText,
-  mgmtBankAccountName:       optionalText,
-  mgmtBankAccountNumber:     optionalText,
-  mgmtBankBranch:            optionalText,
-  mgmtMpesaPaybill:          optionalText,
-  mgmtMpesaAccountNumber:    optionalText,
-  mgmtMpesaTill:             optionalText,
-  mgmtPaymentInstructions:   optionalText,
-});
-type FormValues = z.infer<typeof schema>;
-
-const TEXT_FIELDS = [
-  "tenantKraPin",
-  "tenantBankName","tenantBankAccountName","tenantBankAccountNumber","tenantBankBranch",
-  "tenantMpesaPaybill","tenantMpesaAccountNumber","tenantMpesaTill","tenantPaymentInstructions",
-  "mgmtKraPin",
-  "mgmtBankName","mgmtBankAccountName","mgmtBankAccountNumber","mgmtBankBranch",
-  "mgmtMpesaPaybill","mgmtMpesaAccountNumber","mgmtMpesaTill","mgmtPaymentInstructions",
-] as const;
+import {
+  agreementFormSchema as schema,
+  AGREEMENT_FORM_DEFAULTS,
+  normalizeAgreementForForm,
+  buildAgreementPutPayload,
+  type AgreementFormValues as FormValues,
+} from "@/lib/agreement-form";
 
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle?: string }) {
   return (
@@ -114,22 +50,7 @@ export default function AgreementPage() {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      managementFeeRate: 8.5, vacancyFeeRate: 5, vacancyFeeThresholdMonths: 9,
-      newLettingFeeRate: 50, leaseRenewalFeeFlat: 3000, shortTermLettingFeeRate: 10,
-      repairAuthorityLimit: 100000, setupFeeInstalments: 3,
-      rentRemittanceDay: 5, mgmtFeeInvoiceDay: 7, landlordPaymentDays: 2,
-      kpiOccupancyTarget: 90, kpiRentCollectionTarget: 90, kpiExpenseRatioTarget: 85,
-      kpiTenantTurnoverTarget: 90, kpiDaysToLeaseTarget: 60, kpiRenewalRateTarget: 90,
-      kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
-      latePaymentInterestRate: 0,
-      tenantKraPin: "",
-      tenantBankName: "", tenantBankAccountName: "", tenantBankAccountNumber: "", tenantBankBranch: "",
-      tenantMpesaPaybill: "", tenantMpesaAccountNumber: "", tenantMpesaTill: "", tenantPaymentInstructions: "",
-      mgmtKraPin: "",
-      mgmtBankName: "", mgmtBankAccountName: "", mgmtBankAccountNumber: "", mgmtBankBranch: "",
-      mgmtMpesaPaybill: "", mgmtMpesaAccountNumber: "", mgmtMpesaTill: "", mgmtPaymentInstructions: "",
-    },
+    defaultValues: AGREEMENT_FORM_DEFAULTS,
   });
 
   useEffect(() => {
@@ -139,15 +60,12 @@ export default function AgreementPage() {
     ]).then(([agr, props]) => {
       const prop = (props as any[]).find((p) => p.id === params.id);
       if (prop) { setPropertyName(prop.name); setUnitCount(prop.units?.length ?? 0); }
-      if (agr && agr.propertyId) {
-        reset({
-          ...agr,
-          kpiStartDate: agr.kpiStartDate ? agr.kpiStartDate.slice(0, 10) : "",
-          setupFeeTotal: agr.setupFeeTotal ?? "",
-          // Blank optional fields are stored as NULL — normalise back to ""
-          // so the inputs stay controlled and validation accepts them.
-          ...Object.fromEntries(TEXT_FIELDS.map((f) => [f, agr[f] ?? ""])),
-        });
+      // Only reset from the server when a PERSISTED agreement exists (it has
+      // an id). For a never-saved property the endpoint returns just
+      // { propertyId } — resetting with that wiped every numeric default to
+      // undefined, so all ~20 required fields failed validation on save.
+      if (agr && agr.id) {
+        reset(normalizeAgreementForForm(agr));
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -191,16 +109,10 @@ export default function AgreementPage() {
 
   const onSubmit = async (values: FormValues) => {
     setSaving(true);
-    const payload: Record<string, unknown> = {
-      ...values,
-      setupFeeTotal: values.setupFeeTotal === "" ? null : values.setupFeeTotal,
-      kpiStartDate: values.kpiStartDate || null,
-    };
-    TEXT_FIELDS.forEach((f) => { if (!payload[f]) payload[f] = null; });
     const res = await fetch(`/api/properties/${params.id}/agreement`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(buildAgreementPutPayload(values)),
     });
     setSaving(false);
     if (!res.ok) {

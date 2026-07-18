@@ -342,7 +342,7 @@
     <p>An end-to-end walkthrough of every feature — from signing up to generating owner reports, managing maintenance, and sharing tenant portals.</p>
     <div class="meta">
       <div class="meta-item"><strong>Version</strong> &nbsp;Next.js 14 · Prisma · Supabase</div>
-      <div class="meta-item"><strong>Updated</strong> &nbsp;June 2026</div>
+      <div class="meta-item"><strong>Updated</strong> &nbsp;July 2026</div>
       <div class="meta-item"><strong>Audience</strong> &nbsp;Property managers &amp; admins</div>
     </div>
   </div>
@@ -850,10 +850,10 @@
       <table class="data-table" style="margin-top:16px">
         <thead><tr><th>Tab</th><th>What you can do</th></tr></thead>
         <tbody>
-          <tr><td><strong>Ledger</strong></td><td>Month-by-month rent payment ledger showing expected vs received amounts, payment variance, and running balance</td></tr>
+          <tr><td><strong>Ledger</strong></td><td>Month-by-month rent payment ledger showing expected vs received amounts and a running balance. Receipts are allocated oldest-first (statement-style), so a tenant who pays a quarter or year up-front is not shown as unpaid for the covered months.</td></tr>
           <tr><td><strong>Invoices</strong></td><td>View, generate, send, and mark invoices paid. Download individual invoice PDFs.</td></tr>
           <tr><td><strong>Documents</strong></td><td>Upload and manage lease agreements, IDs, receipts, and other documents stored in Supabase Storage</td></tr>
-          <tr><td><strong>Rent History</strong></td><td>Log rent escalations and adjustments with effective dates</td></tr>
+          <tr><td><strong>Rent History</strong></td><td>Log rent escalations and adjustments with effective dates. Warns when the timeline is out of sync with the tenant's current rent, with a one-click fix.</td></tr>
           <tr><td><strong>Renewal</strong></td><td>Progress the lease renewal pipeline (Notice Sent → Terms Agreed → Renewed), set proposed rent and end date</td></tr>
           <tr><td><strong>Deposit</strong></td><td>Record deposit settlement with itemised deductions (cleaning, damage, unpaid rent, etc.)</td></tr>
           <tr><td><strong>Comms</strong></td><td>Log outbound emails sent to the tenant, with templates for rent reminders, receipts, and renewal offers</td></tr>
@@ -864,9 +864,28 @@
     <div class="sub-section">
       <h3>Adding a Tenant</h3>
       <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Click <em>Add Tenant</em></h4><p>Opens a two-step modal. Step 1: name, email, phone, unit assignment, lease dates, monthly rent, service charge, deposit. Step 2: optional document upload (ID, lease agreement).</p></div></div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Click <em>Add Tenant</em></h4><p>Opens a two-step modal. Step 1: name, contact details, unit assignment, lease dates, monthly rent, service charge, parking fee, deposit, payment frequency, escalation, and postal address (see below). Step 2: optional document upload (ID, lease agreement).</p></div></div>
         <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Letting fee prompt</h4><p>After saving, the system automatically prompts you to record a letting fee (50% of first month's rent by default). Confirm to create the expense entry.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Generate first invoice</h4><p>Navigate to the <em>Invoices</em> tab on the tenant detail page and click <em>Generate Invoice</em> for the first rental month.</p></div></div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Contacts, Postal Address &amp; Lease Terms</h3>
+      <p style="margin-bottom:12px">The tenant form captures more than a single email and phone. All of these can be set when adding a tenant, or later via the <strong>Edit</strong> button in the tenant detail header (no need to leave the open tenant card):</p>
+      <ul class="feature-list">
+        <li><strong>Additional contacts</strong> — click <em>Add contact</em> to record any number of extra people (spouse, accounts office, guarantor) with a label, email, and phone. They appear on the tenant's overview.</li>
+        <li><strong>P.O. Box / Postal Address</strong> — the tenant's postal address for formal letters (rent demands, notices). It also prints in the "Bill To" block of invoice PDFs.</li>
+        <li><strong>Payment Frequency</strong> — Monthly, Quarterly, Bi-annual, or Annual. Quarterly / bi-annual / annual tenants pay in advance for that whole period; this drives the collection view, invoices, and ledger (see <a href="#income">Income &amp; Invoices</a>).</li>
+        <li><strong>Escalation Rate &amp; interval</strong> — a percentage plus how often it applies (every 1 year for annual, 2 for every two years, or any custom interval). Used to project future rent in the forecast.</li>
+        <li><strong>Parking Fee</strong> — a monthly parking line billed alongside rent.</li>
+      </ul>
+      <div class="callout tip">
+        <span class="callout-icon">✏️</span>
+        <div class="callout-body">
+          <strong>Edit in place</strong>
+          The tenant detail page has an <em>Edit</em> button in its header that opens the full tenant form — the same fields as when adding — so you can update details without going back to the Tenants list.
+        </div>
       </div>
     </div>
 
@@ -975,6 +994,35 @@
     </div>
 
     <div class="sub-section">
+      <h3>Payment Frequency &amp; Rent Collection</h3>
+      <p style="margin-bottom:12px">The monthly <strong>Collection</strong> view (Income → Collection) follows each tenant's <strong>Payment Frequency</strong>. Monthly tenants owe every month; quarterly, bi-annual, and annual tenants pay for the whole period in advance, so:</p>
+      <ul class="feature-list">
+        <li>On a tenant's <strong>billing month</strong> (anchored to their lease start), the <em>Expected</em> column shows the full period amount — e.g. a quarterly tenant on KSh 350,000/month shows KSh 1,050,000 — labelled "Quarter in advance".</li>
+        <li>In the <strong>covered months</strong> in between, the tenant shows <span class="badge badge-gray">Not due</span> rather than a red "Pending", and is excluded from the progress bar, the "Record all pending" action, and bulk selection.</li>
+        <li>Recording a payment prefills the correct period amount, not one month's rent.</li>
+      </ul>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Set the frequency first</strong>
+          A tenant with no Payment Frequency set is treated as Monthly (the previous behaviour). Set it on the tenant (Add / Edit form) and every downstream view — collection, invoices, ledger, and arrears — falls into line automatically.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Generating Invoices &amp; What's on the PDF</h3>
+      <p style="margin-bottom:12px">Generate invoices per tenant (Invoices tab) or in bulk for a whole property (<strong>Generate invoices</strong>). Bulk generation is schedule-aware — a quarterly tenant gets <em>one</em> invoice covering the three-month period on their billing month, and nothing in the covered months. The invoice PDF includes:</p>
+      <ul class="feature-list">
+        <li><strong>Frequency-aware description</strong> — reads "Rent — July 2026 (payable quarterly in advance)" rather than "Monthly Rent" for non-monthly tenants, with a Payment Terms line.</li>
+        <li><strong>Lease start &amp; end dates</strong> and the tenant's <strong>P.O. Box</strong> in the Bill To block.</li>
+        <li><strong>How to Pay</strong> — the bank / M-Pesa details resolved from the property's payment account (or a per-unit override — see <a href="#settings">Payment Accounts</a>).</li>
+        <li><strong>Outstanding balance</strong> — an amber note showing any unpaid amount from the tenant's other invoices, plus the combined total.</li>
+        <li><strong>Invoicing identity</strong> — when a unit is paid to a different company's account, that company's name, logo, PIN No. and VAT No. replace the header.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
       <h3>Arrears</h3>
       <div class="screenshot-wrap">
         <img src="guide-screenshots/11-arrears.png" alt="Arrears page" loading="lazy">
@@ -1034,7 +1082,15 @@
         <img src="guide-screenshots/14-petty-cash.png" alt="Petty cash page" loading="lazy">
         <div class="screenshot-caption">Petty Cash — running balance with topup and withdrawal entries</div>
       </div>
-      <p>The petty cash balance is always recalculated from all entries (never stored as a number). Add <strong>Topup</strong> entries when you add money to the float, and select <strong>Petty Cash</strong> as the payment method when logging an expense to deduct it automatically.</p>
+      <p>The petty cash balance is always recalculated from all entries (never stored as a number). Add <strong>Topup</strong> entries when you add money to the float, and tick <strong>Paid from petty cash</strong> when logging an expense to deduct it automatically. If you later delete or un-tick that expense, the matching petty-cash entry is removed automatically so the balance stays in sync.</p>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div class="callout-body">
+        <strong>Add-expense niceties</strong>
+        The New / Edit Expense form opens as a slide-in panel so the table stays visible. The Unit picker is scoped to the property selected in the header (with a search box for large buildings), and expenses created automatically from a recurring template are marked with a gold 🔁 icon.
+      </div>
     </div>
 
     <div class="callout warn">
@@ -1289,11 +1345,48 @@
         <thead><tr><th>Tab</th><th>What you configure</th></tr></thead>
         <tbody>
           <tr><td><strong>Management Fees</strong></td><td>Short-let (Airbnb) management fee as a % of revenue; long-term rental flat fee per unit type. These drive the management fee reconciliation in reports.</td></tr>
-          <tr><td><strong>Branding</strong></td><td>Company logo, name, address. Also configures payment details (bank account, M-Pesa paybill/till, VAT number) printed on invoices and PDFs.</td></tr>
+          <tr><td><strong>Branding</strong></td><td>Company logo, name, and address printed on invoices and PDFs. Bank / M-Pesa details are now managed as reusable Payment Accounts (see below).</td></tr>
+          <tr><td><strong>Payment Accounts</strong></td><td>Named bank / M-Pesa destinations shown on tenant invoices, reusable across properties, with a per-unit override and optional invoicing identity (see below).</td></tr>
           <tr><td><strong>Property Info</strong></td><td>Per-property currency override and logo. Property logo overrides the company logo on that property's reports.</td></tr>
           <tr><td><strong>Tax</strong></td><td>Default tax type (ADDITIVE VAT or WITHHELD) and rate. Can be overridden per property.</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="sub-section">
+      <h3>Payment Accounts</h3>
+      <p style="margin-bottom:12px">Some units are paid into different bank accounts — even different companies. <strong>Settings → Payment Accounts</strong> lets you define each account once (bank name, account number, branch, M-Pesa Paybill / Till, instructions) and reuse it everywhere. Payment details on a tenant's invoice are resolved in this order:</p>
+      <!-- resolution flow -->
+      <div class="flow-diagram">
+        <svg viewBox="0 0 760 60" xmlns="http://www.w3.org/2000/svg" width="760" height="60">
+          <g font-family="DM Sans,sans-serif" font-size="10.5">
+            <rect x="0" y="12" width="150" height="36" rx="6" fill="#132635"/>
+            <text x="75" y="34" text-anchor="middle" fill="white" font-weight="600">Unit override</text>
+            <line x1="150" y1="30" x2="172" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#pfa)"/>
+            <rect x="172" y="12" width="180" height="36" rx="6" fill="#1e3a50"/>
+            <text x="262" y="34" text-anchor="middle" fill="white" font-weight="600">Property default account</text>
+            <line x1="352" y1="30" x2="374" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#pfa)"/>
+            <rect x="374" y="12" width="180" height="36" rx="6" fill="#f3f4f6" stroke="#d1d5db"/>
+            <text x="464" y="34" text-anchor="middle" fill="#374151" font-weight="600">Agreement (legacy) details</text>
+            <line x1="554" y1="30" x2="576" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#pfa)"/>
+            <rect x="576" y="12" width="180" height="36" rx="6" fill="#f3f4f6" stroke="#d1d5db"/>
+            <text x="666" y="34" text-anchor="middle" fill="#374151" font-weight="600">Organisation branding</text>
+          </g>
+          <defs><marker id="pfa" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#C9A84C"/></marker></defs>
+        </svg>
+      </div>
+      <ul class="feature-list">
+        <li><strong>Property default</strong> — pick a payment account on the property's Management Agreement page. It applies to every unit unless overridden.</li>
+        <li><strong>Per-unit override</strong> — on the unit's Add / Edit form (long-term properties), choose a different account for just that unit. Leave blank to inherit the property default.</li>
+        <li><strong>Invoicing identity</strong> — an account can carry its own <em>company name, logo, PIN No. and VAT No.</em> When set, invoices paid to that account show that company in the header instead of your organisation — useful when different units belong to different landlord companies.</li>
+      </ul>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Existing details carried over</strong>
+          Bank / M-Pesa details that were previously entered on a property's agreement were automatically converted into a "<em>&lt;Property&gt; — default</em>" payment account, so nothing changed on existing invoices. Accounts in use can't be deleted — deactivate them instead.
+        </div>
+      </div>
     </div>
 
     <div class="sub-section">
@@ -1563,7 +1656,7 @@
         <div style="font-size:12px;color:var(--text-muted)">Professional Property Management Software</div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);text-align:right">
-        User Guide · June 2026<br>
+        User Guide · July 2026<br>
         Built with Next.js 14 · Prisma · Supabase
       </div>
     </div>

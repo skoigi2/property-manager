@@ -21,6 +21,7 @@ import {
   Receipt,
   User,
   Zap,
+  Mail,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
@@ -463,6 +464,22 @@ function InvoiceRow({
   const [downloading, setDownloading] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+
+  async function emailToTenant() {
+    setEmailing(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/send`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to send");
+      toast.success(`Invoice emailed to ${data.sentTo}`);
+      if (invoice.status === "DRAFT") onStatusChange(invoice.id, "SENT");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setEmailing(false);
+    }
+  }
 
   const needsSync = invoice.status === "PAID" && (invoice._count?.incomeEntries ?? 0) === 0;
 
@@ -569,6 +586,18 @@ function InvoiceRow({
           >
             {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
           </button>
+
+          {/* Email PDF to tenant */}
+          {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && (
+            <button
+              onClick={emailToTenant}
+              disabled={emailing}
+              title="Email invoice to tenant"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40"
+            >
+              {emailing ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+            </button>
+          )}
 
           {/* Sync income entry for already-paid invoices with no income entry */}
           {needsSync && (

@@ -420,6 +420,22 @@ export default function TenantDetailPage() {
     finally { setDownloadingId(null); }
   }
 
+  const [emailingId, setEmailingId] = useState<string | null>(null);
+  async function emailInvoice(inv: Invoice) {
+    setEmailingId(inv.id);
+    try {
+      const res = await fetch(`/api/invoices/${inv.id}/send`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to send");
+      toast.success(`Invoice emailed to ${data.sentTo}`);
+      setInvoices((prev) => prev.map((i) => (i.id === inv.id && i.status === "DRAFT" ? { ...i, status: "SENT" } : i)));
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setEmailingId(null);
+    }
+  }
+
   async function generatePortalLink() {
     setPortalGenerating(true);
     try {
@@ -833,14 +849,26 @@ export default function TenantDetailPage() {
                                       )}
                                     </td>
                                     <td className="px-4 py-3">
-                                      <button
-                                        onClick={() => downloadPdf(inv)}
-                                        disabled={downloadingId === inv.id}
-                                        title="Download PDF"
-                                        className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors disabled:opacity-40"
-                                      >
-                                        {downloadingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                                      </button>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          onClick={() => downloadPdf(inv)}
+                                          disabled={downloadingId === inv.id}
+                                          title="Download PDF"
+                                          className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors disabled:opacity-40"
+                                        >
+                                          {downloadingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                                        </button>
+                                        {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+                                          <button
+                                            onClick={() => emailInvoice(inv)}
+                                            disabled={emailingId === inv.id}
+                                            title="Email invoice to tenant"
+                                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40"
+                                          >
+                                            {emailingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                                          </button>
+                                        )}
+                                      </div>
                                     </td>
                                   </tr>
                                 );

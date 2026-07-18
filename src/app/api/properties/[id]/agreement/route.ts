@@ -44,6 +44,20 @@ export async function PUT(
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  // A payment account must belong to the property's organisation.
+  if (parsed.data.paymentAccountId) {
+    const [account, property] = await Promise.all([
+      prisma.paymentAccount.findUnique({
+        where: { id: parsed.data.paymentAccountId },
+        select: { organizationId: true },
+      }),
+      prisma.property.findUnique({ where: { id: params.id }, select: { organizationId: true } }),
+    ]);
+    if (!account || account.organizationId !== property?.organizationId) {
+      return Response.json({ error: "Payment account not found" }, { status: 400 });
+    }
+  }
+
   const { kpiStartDate, ...rest } = parsed.data;
 
   const data = {

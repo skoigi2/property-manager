@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
+import { PaymentAccountSelect } from "@/components/ui/PaymentAccountSelect";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -199,6 +200,7 @@ interface Unit {
   sizeSqm: number | null;
   description: string | null;
   titleReference: string | null;
+  paymentAccountId?: string | null;
   _count?: { tenants: number };
   incomeEntries?: { id: string; checkIn: string; checkOut: string }[];
 }
@@ -310,6 +312,7 @@ const unitSchema = z.object({
   ),
   description: z.string().optional(),
   titleReference: z.string().optional(),
+  paymentAccountId: z.string().nullable().optional(),
 });
 type UnitForm = z.infer<typeof unitSchema>;
 
@@ -536,7 +539,13 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
   );
 }
 
-function UnitFormFields({ register, errors, propertyType }: { register: any; errors: any; propertyType: "AIRBNB" | "LONGTERM" }) {
+function UnitFormFields({ register, errors, propertyType, paymentAccountId, onPaymentAccountChange }: {
+  register: any;
+  errors: any;
+  propertyType: "AIRBNB" | "LONGTERM";
+  paymentAccountId: string | null;
+  onPaymentAccountChange: (id: string | null) => void;
+}) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -611,6 +620,16 @@ function UnitFormFields({ register, errors, propertyType }: { register: any; err
           placeholder="45"
         />
       </div>
+
+      {propertyType === "LONGTERM" && (
+        <PaymentAccountSelect
+          label="Payment account (override)"
+          inheritLabel="— Use property default —"
+          tooltip="Only set this when rent for THIS unit is paid into a different account than the property's default. Shown on this unit's tenant invoices."
+          value={paymentAccountId}
+          onChange={onPaymentAccountChange}
+        />
+      )}
 
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-gray-600 font-sans">Description / Notes</label>
@@ -1466,7 +1485,7 @@ export default function PropertiesPage() {
   const openAddUnit = (property: Property) => {
     setUnitModalProperty(property);
     setEditUnit(null);
-    unitForm.reset({ type: "ONE_BED", status: "VACANT" });
+    unitForm.reset({ type: "ONE_BED", status: "VACANT", paymentAccountId: null });
     setUnitModalOpen(true);
   };
 
@@ -1482,6 +1501,7 @@ export default function PropertiesPage() {
       sizeSqm: unit.sizeSqm ?? undefined,
       description: unit.description ?? "",
       titleReference: unit.titleReference ?? "",
+      paymentAccountId: unit.paymentAccountId ?? null,
     });
     setUnitModalOpen(true);
   };
@@ -1806,6 +1826,8 @@ export default function PropertiesPage() {
             register={unitForm.register}
             errors={unitForm.formState.errors}
             propertyType={unitModalProperty?.type ?? "LONGTERM"}
+            paymentAccountId={unitForm.watch("paymentAccountId") ?? null}
+            onPaymentAccountChange={(id) => unitForm.setValue("paymentAccountId", id, { shouldDirty: true })}
           />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setUnitModalOpen(false)}>

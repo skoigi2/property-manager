@@ -12,7 +12,7 @@ import {
   ShieldPlus, Package, RepeatIcon, Upload, Settings,
   UserCog, ShieldCheck, Building2, MoreHorizontal, X,
   BarChart3, CalendarDays, BookOpen, Inbox, Briefcase,
-  ArrowLeftRight, Mail, Sparkles, Zap, Bell,
+  ArrowLeftRight, Mail, Sparkles, Zap, Bell, CreditCard,
 } from "lucide-react";
 
 interface NavItem {
@@ -87,6 +87,7 @@ const mgrDrawerSections: DrawerSection[] = [
       { href: "/settings",              label: "Settings",      icon: Settings },
       { href: "/automations",           label: "Automations",   icon: Zap },
       { href: "/settings/notifications", label: "Notifications", icon: Bell },
+      { href: "/settings/payment-accounts", label: "Payment Accounts", icon: CreditCard },
       { href: "/settings/users",        label: "Users",         icon: UserCog },
       { href: "/settings/audit", label: "Audit Log",   icon: ShieldCheck },
       { href: "/import",         label: "Import",      icon: Upload },

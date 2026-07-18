@@ -14,6 +14,8 @@ const createSchema = z.object({
   sizeSqm: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),
   description: z.string().optional(),
   titleReference: z.string().optional(),
+  // Per-unit payment-account override (blank = inherit property default)
+  paymentAccountId: z.string().nullable().optional(),
 });
 
 export async function GET(req: Request) {
@@ -48,6 +50,20 @@ export async function POST(req: Request) {
 
   const access = await requirePropertyAccess(parsed.data.propertyId);
   if (!access.ok) return access.error!;
+
+  // A payment account must belong to the property's organisation.
+  if (parsed.data.paymentAccountId) {
+    const [account, property] = await Promise.all([
+      prisma.paymentAccount.findUnique({
+        where: { id: parsed.data.paymentAccountId },
+        select: { organizationId: true },
+      }),
+      prisma.property.findUnique({ where: { id: parsed.data.propertyId }, select: { organizationId: true } }),
+    ]);
+    if (!account || account.organizationId !== property?.organizationId) {
+      return Response.json({ error: "Payment account not found" }, { status: 400 });
+    }
+  }
 
   // Check for duplicate unit number within same property
   const existing = await prisma.unit.findFirst({

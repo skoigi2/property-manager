@@ -23,27 +23,37 @@ export async function GET(
   const property = tenant.unit.property;
   const orgBase = property.organization;
 
-  // Fetch per-property payment details from ManagementAgreement
-  const agreement = await prisma.managementAgreement.findUnique({
-    where: { propertyId: property.id },  // ManagementAgreement has unique propertyId
-    select: {
-      tenantKraPin: true,
-      tenantBankName: true, tenantBankAccountName: true, tenantBankAccountNumber: true, tenantBankBranch: true,
-      tenantMpesaPaybill: true, tenantMpesaAccountNumber: true, tenantMpesaTill: true, tenantPaymentInstructions: true,
-    },
-  });
+  // Fetch per-property payment details from ManagementAgreement, plus the
+  // unit's payment-account override when set.
+  const [agreement, unitAccount] = await Promise.all([
+    prisma.managementAgreement.findUnique({
+      where: { propertyId: property.id },  // ManagementAgreement has unique propertyId
+      select: {
+        tenantKraPin: true,
+        paymentAccount: true,
+        tenantBankName: true, tenantBankAccountName: true, tenantBankAccountNumber: true, tenantBankBranch: true,
+        tenantMpesaPaybill: true, tenantMpesaAccountNumber: true, tenantMpesaTill: true, tenantPaymentInstructions: true,
+      },
+    }),
+    tenant.unit.paymentAccountId
+      ? prisma.paymentAccount.findUnique({ where: { id: tenant.unit.paymentAccountId } })
+      : Promise.resolve(null),
+  ]);
 
+  // Payment details resolve: unit override → property default account →
+  // legacy inline agreement fields → organisation branding.
+  const account = unitAccount ?? agreement?.paymentAccount ?? null;
   const org = orgBase ? {
     ...orgBase,
     vatRegistrationNumber: agreement?.tenantKraPin ?? orgBase.vatRegistrationNumber ?? null,
-    bankName: agreement?.tenantBankName ?? null,
-    bankAccountName: agreement?.tenantBankAccountName ?? null,
-    bankAccountNumber: agreement?.tenantBankAccountNumber ?? null,
-    bankBranch: agreement?.tenantBankBranch ?? null,
-    mpesaPaybill: agreement?.tenantMpesaPaybill ?? null,
-    mpesaAccountNumber: agreement?.tenantMpesaAccountNumber ?? null,
-    mpesaTill: agreement?.tenantMpesaTill ?? null,
-    paymentInstructions: agreement?.tenantPaymentInstructions ?? null,
+    bankName: account ? account.bankName : agreement?.tenantBankName ?? null,
+    bankAccountName: account ? account.bankAccountName : agreement?.tenantBankAccountName ?? null,
+    bankAccountNumber: account ? account.bankAccountNumber : agreement?.tenantBankAccountNumber ?? null,
+    bankBranch: account ? account.bankBranch : agreement?.tenantBankBranch ?? null,
+    mpesaPaybill: account ? account.mpesaPaybill : agreement?.tenantMpesaPaybill ?? null,
+    mpesaAccountNumber: account ? account.mpesaAccountNumber : agreement?.tenantMpesaAccountNumber ?? null,
+    mpesaTill: account ? account.mpesaTill : agreement?.tenantMpesaTill ?? null,
+    paymentInstructions: account ? account.paymentInstructions : agreement?.tenantPaymentInstructions ?? null,
   } : null;
 
   // Arrears context: the tenant's OTHER invoices still awaiting payment.

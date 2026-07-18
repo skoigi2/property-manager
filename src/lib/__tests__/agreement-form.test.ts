@@ -85,6 +85,18 @@ describe("agreement form — client payload vs API contract", () => {
     expect(r.success).toBe(true);
   });
 
+  it("the default payment account id round-trips (and null clears it)", () => {
+    const withAccount = agreementFormSchema.parse({ ...AGREEMENT_FORM_DEFAULTS, paymentAccountId: "pa_123" });
+    const r1 = agreementApiSchema.safeParse(buildAgreementPutPayload(withAccount));
+    expect(r1.success).toBe(true);
+    if (r1.success) expect(r1.data.paymentAccountId).toBe("pa_123");
+
+    const cleared = agreementFormSchema.parse({ ...AGREEMENT_FORM_DEFAULTS, paymentAccountId: null });
+    const r2 = agreementApiSchema.safeParse(buildAgreementPutPayload(cleared));
+    expect(r2.success).toBe(true);
+    if (r2.success) expect(r2.data.paymentAccountId).toBeNull();
+  });
+
   it("edited values survive the round trip", () => {
     const clientValues = agreementFormSchema.parse({
       ...AGREEMENT_FORM_DEFAULTS,

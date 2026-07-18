@@ -53,6 +53,8 @@ export const agreementFormSchema = z.object({
   kpiEmergencyResponseHrs:        num({ min: 1, int: true, label: "Emergency response SLA" }),
   kpiStandardResponseHrs:         num({ min: 1, int: true, label: "Standard response SLA" }),
   latePaymentInterestRate:        num({ min: 0, max: 100, label: "Late payment interest" }),
+  // Default payment account for tenant invoices (null = organisation branding)
+  paymentAccountId:               z.string().nullable().optional(),
   // Tenant invoice payment details (all optional)
   tenantKraPin:              optionalText,
   tenantBankName:            optionalText,
@@ -87,6 +89,7 @@ export const AGREEMENT_FORM_DEFAULTS: AgreementFormValues = {
   kpiTenantTurnoverTarget: 90, kpiDaysToLeaseTarget: 60, kpiRenewalRateTarget: 90,
   kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
   latePaymentInterestRate: 0,
+  paymentAccountId: null,
   tenantKraPin: "",
   tenantBankName: "", tenantBankAccountName: "", tenantBankAccountNumber: "", tenantBankBranch: "",
   tenantMpesaPaybill: "", tenantMpesaAccountNumber: "", tenantMpesaTill: "", tenantPaymentInstructions: "",
@@ -109,6 +112,7 @@ export function normalizeAgreementForForm(agr: any): AgreementFormValues {
     ...agr,
     kpiStartDate: agr.kpiStartDate ? String(agr.kpiStartDate).slice(0, 10) : "",
     setupFeeTotal: agr.setupFeeTotal ?? "",
+    paymentAccountId: agr.paymentAccountId ?? null,
     ...Object.fromEntries(TEXT_FIELDS.map((f) => [f, agr[f] ?? ""])),
   };
 }
@@ -151,6 +155,8 @@ export const agreementApiSchema = z.object({
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1).default(24),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1).default(96),
   latePaymentInterestRate:        z.coerce.number().min(0).max(100).default(0),
+  // Default payment account for tenant invoices
+  paymentAccountId:               z.string().optional().nullable(),
   // Tenant invoice payment details
   tenantKraPin:                   z.string().optional().nullable(),
   tenantBankName:                 z.string().optional().nullable(),

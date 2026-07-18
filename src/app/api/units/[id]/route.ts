@@ -12,6 +12,8 @@ const updateSchema = z.object({
   sizeSqm: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),
   description: z.string().optional(),
   titleReference: z.string().optional(),
+  // Per-unit payment-account override (null clears → inherit property default)
+  paymentAccountId: z.string().nullable().optional(),
 });
 
 async function getUnitWithAccess(id: string) {
@@ -33,6 +35,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // A payment account must belong to the unit's property's organisation.
+  if (parsed.data.paymentAccountId) {
+    const [account, property] = await Promise.all([
+      prisma.paymentAccount.findUnique({
+        where: { id: parsed.data.paymentAccountId },
+        select: { organizationId: true },
+      }),
+      prisma.property.findUnique({ where: { id: unit!.propertyId }, select: { organizationId: true } }),
+    ]);
+    if (!account || account.organizationId !== property?.organizationId) {
+      return Response.json({ error: "Payment account not found" }, { status: 400 });
+    }
+  }
 
   // If changing unit number, check for duplicate
   if (parsed.data.unitNumber && parsed.data.unitNumber !== unit!.unitNumber) {

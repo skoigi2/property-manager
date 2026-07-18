@@ -53,6 +53,10 @@ export async function GET(req: Request) {
       units: {
         select: {
           id: true, unitNumber: true, type: true, status: true, monthlyRent: true,
+          // Needed by the unit edit modal's prefill — omitting these made
+          // saving an edit silently wipe the missing fields.
+          floor: true, sizeSqm: true, description: true, titleReference: true,
+          paymentAccountId: true,
           _count: { select: { tenants: { where: { isActive: true } } } },
           incomeEntries: {
             where: { type: "AIRBNB", checkIn: { lte: todayEnd }, checkOut: { gt: todayStart } },

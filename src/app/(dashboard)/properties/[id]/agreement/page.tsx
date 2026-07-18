@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { ArrowLeft, DollarSign, Clock, Target, AlertTriangle, Download, Trash2, X, Loader2, CreditCard, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
+import { PaymentAccountSelect } from "@/components/ui/PaymentAccountSelect";
 import {
   agreementFormSchema as schema,
   AGREEMENT_FORM_DEFAULTS,
@@ -48,10 +49,11 @@ export default function AgreementPage() {
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting,    setDeleting]    = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: AGREEMENT_FORM_DEFAULTS,
   });
+  const paymentAccountId = watch("paymentAccountId") ?? null;
 
   useEffect(() => {
     Promise.all([
@@ -225,34 +227,18 @@ export default function AgreementPage() {
             <SectionHeader
               icon={CreditCard}
               title="Tenant Invoice Payment Details"
-              subtitle="All fields optional — shown on rent invoices so tenants know where to send payment"
+              subtitle="Optional — the bank/M-Pesa details shown on rent invoices. Individual units can override this on the unit itself."
             />
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-100 pb-4">
-                <Input label="KRA PIN / VAT Registration Number" placeholder="e.g. P051234567X" {...register("tenantKraPin")} />
-              </div>
-              <div className="border-b border-gray-100 pb-4">
-                <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">Bank Transfer</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Bank Name" placeholder="e.g. Equity Bank" {...register("tenantBankName")} />
-                  <Input label="Account Name" placeholder="e.g. Parkview Heights Ltd" {...register("tenantBankAccountName")} />
-                  <Input label="Account Number" placeholder="e.g. 0123456789" {...register("tenantBankAccountNumber")} />
-                  <Input label="Branch (optional)" placeholder="e.g. Westlands" {...register("tenantBankBranch")} />
-                </div>
-              </div>
-              <div className="border-b border-gray-100 pb-4">
-                <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">M-Pesa</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Paybill Number" placeholder="e.g. 522522" {...register("tenantMpesaPaybill")} />
-                  <Input label="Account No (for Paybill)" placeholder="e.g. unit number" {...register("tenantMpesaAccountNumber")} />
-                  <Input label="Till Number (alternative to Paybill)" placeholder="e.g. 123456" {...register("tenantMpesaTill")} />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 font-sans">Additional Instructions <span className="text-gray-400 font-normal">(optional)</span></label>
-                <textarea rows={2} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
-                  placeholder="e.g. Use your unit number as the payment reference."
-                  {...register("tenantPaymentInstructions")} />
+              <PaymentAccountSelect
+                label="Default payment account for this property"
+                inheritLabel="— None (use organisation branding details) —"
+                tooltip="Tenant invoices for this property show this account's bank/M-Pesa details. Override per unit for units paid into a different account. Manage accounts in Settings → Payment Accounts."
+                value={paymentAccountId}
+                onChange={(id) => setValue("paymentAccountId", id, { shouldDirty: true })}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                <Input label="KRA PIN / VAT Registration Number" help="Printed on invoices — separate from the payment account" placeholder="e.g. P051234567X" {...register("tenantKraPin")} />
               </div>
             </div>
           </Card>

@@ -120,6 +120,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/settings",       label: "General",   icon: Settings,   roles: ["MANAGER"] },
       { href: "/automations",    label: "Automations", icon: Zap,      roles: ["MANAGER"] },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, roles: ["MANAGER"] },
+      { href: "/settings/payment-accounts", label: "Payment Accounts", icon: CreditCard, roles: ["MANAGER"] },
       { href: "/settings/users", label: "Users",     icon: UserCog,    roles: ["MANAGER"] },
       { href: "/settings/audit", label: "Audit Log", icon: ShieldCheck,roles: ["MANAGER"] },
       { href: "/settings/api",   label: "API & Webhooks", icon: KeyRound, roles: [] },

@@ -22,6 +22,11 @@ interface PaymentAccount {
   logoUrl: string | null;
   kraPin: string | null;
   vatNumber: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  invoiceFormat: string | null;
+  invoiceNextNumber: number;
   bankName: string | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;
@@ -34,8 +39,73 @@ interface PaymentAccount {
   _count: { agreements: number; units: number };
 }
 
+/** Organisation-default invoice numbering — used by every invoice that
+ *  doesn't resolve to a payment account with its own series. */
+function OrgNumberingCard({ orgId }: { orgId: string }) {
+  const [format, setFormat] = useState("");
+  const [nextNumber, setNextNumber] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/organizations/${orgId}`)
+      .then((r) => r.json())
+      .then((org) => {
+        setFormat(org?.invoiceFormat ?? "");
+        setNextNumber(String(org?.invoiceNextNumber ?? 1));
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, [orgId]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = { invoiceFormat: format.trim() || null };
+      const n = parseInt(nextNumber, 10);
+      if (!isNaN(n) && n >= 1) body.invoiceNextNumber = n;
+      const res = await fetch(`/api/organizations/${orgId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(typeof data?.error === "string" ? data.error : "Failed to save");
+      }
+      toast.success("Invoice numbering saved");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Card padding="sm">
+      <p className="text-sm font-sans font-semibold text-header">Invoice numbering — organisation default</p>
+      <p className="text-[11px] text-gray-400 font-sans mt-0.5 mb-3">
+        Applies to every invoice that doesn&apos;t use a payment account with its own series.
+        Tokens: <code>{"{YYYY}"}</code> <code>{"{YY}"}</code> <code>{"{MM}"}</code> <code>{"{SEQ}"}</code>.
+        Blank = <code>INV-{"{YYYYMM}"}-{"{SEQ}"}</code>. Set Next Number to continue from a previous system.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <Input label="Number Format" placeholder="INV-{YYYYMM}-{SEQ}" value={format}
+          onChange={(e) => setFormat(e.target.value)} />
+        <Input label="Next Number" type="number" min="1" step="1" value={nextNumber}
+          onChange={(e) => setNextNumber(e.target.value)} />
+        <div><Button size="sm" onClick={save} loading={saving}>Save Numbering</Button></div>
+      </div>
+    </Card>
+  );
+}
+
 const EMPTY_FORM = {
   name: "", companyName: "", kraPin: "", vatNumber: "",
+  address: "", phone: "", email: "",
+  invoiceFormat: "", invoiceNextNumber: "",
   bankName: "", bankAccountName: "", bankAccountNumber: "", bankBranch: "",
   mpesaPaybill: "", mpesaAccountNumber: "", mpesaTill: "", paymentInstructions: "",
 };
@@ -74,6 +144,8 @@ export default function PaymentAccountsPage() {
     setForm({
       name: a.name,
       companyName: a.companyName ?? "", kraPin: a.kraPin ?? "", vatNumber: a.vatNumber ?? "",
+      address: a.address ?? "", phone: a.phone ?? "", email: a.email ?? "",
+      invoiceFormat: a.invoiceFormat ?? "", invoiceNextNumber: String(a.invoiceNextNumber ?? 1),
       bankName: a.bankName ?? "", bankAccountName: a.bankAccountName ?? "",
       bankAccountNumber: a.bankAccountNumber ?? "", bankBranch: a.bankBranch ?? "",
       mpesaPaybill: a.mpesaPaybill ?? "", mpesaAccountNumber: a.mpesaAccountNumber ?? "",
@@ -87,9 +159,13 @@ export default function PaymentAccountsPage() {
     if (!form.name.trim()) { toast.error("Account name is required"); return; }
     setSaving(true);
     try {
-      const body = Object.fromEntries(
-        Object.entries(form).map(([k, v]) => [k, k === "name" ? v.trim() : v.trim() || null]),
+      const { invoiceNextNumber, ...textForm } = form;
+      const body: Record<string, unknown> = Object.fromEntries(
+        Object.entries(textForm).map(([k, v]) => [k, k === "name" ? v.trim() : v.trim() || null]),
       );
+      // Numbering counter is a number; only send it when provided and valid.
+      const nextNum = parseInt(invoiceNextNumber, 10);
+      if (!isNaN(nextNum) && nextNum >= 1) body.invoiceNextNumber = nextNum;
       const res = await fetch(editing ? `/api/payment-accounts/${editing.id}` : "/api/payment-accounts", {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -195,6 +271,8 @@ export default function PaymentAccountsPage() {
           Management Agreement page; override individual units on the unit itself.
         </p>
 
+        {session?.user?.organizationId && <OrgNumberingCard orgId={session.user.organizationId} />}
+
         {accounts === null ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : accounts.length === 0 ? (
@@ -225,6 +303,11 @@ export default function PaymentAccountsPage() {
                           <p className="text-gray-600">
                             Invoiced as <span className="font-medium">{a.companyName}</span>
                             {a.kraPin ? ` · PIN ${a.kraPin}` : ""}{a.vatNumber ? ` · VAT ${a.vatNumber}` : ""}
+                          </p>
+                        )}
+                        {a.invoiceFormat && (
+                          <p className="text-gray-600">
+                            Own invoice series: <span className="font-mono">{a.invoiceFormat}</span> · next {String(a.invoiceNextNumber).padStart(4, "0")}
                           </p>
                         )}
                         {a.bankName && (
@@ -280,6 +363,26 @@ export default function PaymentAccountsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, kraPin: e.target.value }))} />
               <Input label="VAT No." placeholder="e.g. 0123456A" value={form.vatNumber}
                 onChange={(e) => setForm((f) => ({ ...f, vatNumber: e.target.value }))} />
+              <Input label="Address" placeholder="e.g. P.O. Box 100-00100, Nairobi" value={form.address}
+                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+              <Input label="Phone" placeholder="e.g. +254 700 000 000" value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+              <Input label="Email" type="email" placeholder="e.g. accounts@company.com" value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="mt-3">
+              <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-1">Invoice Numbering</p>
+              <p className="text-[11px] text-gray-400 font-sans mb-2">
+                Leave blank to use the organisation&apos;s numbering. Set a format to run this company&apos;s own
+                series — tokens: <code>{"{YYYY}"}</code> <code>{"{YY}"}</code> <code>{"{MM}"}</code> <code>{"{SEQ}"}</code>,
+                e.g. <code>SHAH-{"{YYYY}"}-{"{SEQ}"}</code> → SHAH-2026-0014.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Number Format" placeholder="e.g. SHAH-{YYYY}-{SEQ}" value={form.invoiceFormat}
+                  onChange={(e) => setForm((f) => ({ ...f, invoiceFormat: e.target.value }))} />
+                <Input label="Next Number" type="number" min="1" step="1" placeholder="1" value={form.invoiceNextNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, invoiceNextNumber: e.target.value }))} />
+              </div>
             </div>
             {editing ? (
               <div className="mt-3 flex items-center gap-3">

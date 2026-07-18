@@ -4,6 +4,7 @@ import { z } from "zod";
 import { format } from "date-fns";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
+import { allocateInvoiceNumber } from "@/lib/invoice-numbering";
 
 const bulkSchema = z.object({
   year:  z.number().int().min(2020).max(2100),
@@ -13,10 +14,6 @@ const bulkSchema = z.object({
   /** Optional: restrict generation to a single property */
   propertyId: z.string().optional(),
 });
-
-function generateInvoiceNumber(year: number, month: number, sequence: number) {
-  return `INV-${year}${String(month).padStart(2, "0")}-${String(sequence).padStart(4, "0")}`;
-}
 
 export async function POST(req: Request) {
   const { error } = await requireManagerWrite();
@@ -70,10 +67,6 @@ export async function POST(req: Request) {
   });
   const existingTenantIds = new Set(existingInvoices.map((i) => i.tenantId));
 
-  // Get current invoice count for sequence numbers
-  const invoiceCount = await prisma.invoice.count();
-  let   sequence     = invoiceCount + 1;
-
   const dueDate = new Date(year, month - 1, dueDayOfMonth);
   const periodStart = new Date(year, month - 1, 1);
   const periodLabel = format(periodStart, "MMM yyyy");
@@ -110,7 +103,9 @@ export async function POST(req: Request) {
         : periodLabel;
 
     try {
-      const invoiceNumber = generateInvoiceNumber(year, month, sequence++);
+      // Each tenant's number comes from its resolved series (unit/property
+      // payment account with its own format, else the org default).
+      const invoiceNumber = await allocateInvoiceNumber(tenant.id, periodStart);
       const rentAmount    = sched.amount;
       const serviceCharge = (tenant.serviceCharge ?? 0) * nMonths;
       const totalAmount   = rentAmount + serviceCharge;

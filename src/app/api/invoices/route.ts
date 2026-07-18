@@ -1,6 +1,7 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
+import { allocateInvoiceNumber } from "@/lib/invoice-numbering";
 import { z } from "zod";
 import { format } from "date-fns";
 
@@ -14,10 +15,6 @@ const createSchema = z.object({
   dueDate: z.string().min(1),
   notes: z.string().optional(),
 });
-
-function generateInvoiceNumber(year: number, month: number, sequence: number) {
-  return `INV-${year}${String(month).padStart(2, "0")}-${String(sequence).padStart(4, "0")}`;
-}
 
 export async function GET(req: Request) {
   const { error } = await requireAuth();
@@ -88,9 +85,11 @@ export async function POST(req: Request) {
     return Response.json({ error: `Invoice already exists for ${format(new Date(rest.periodYear, rest.periodMonth - 1), "MMM yyyy")}` }, { status: 409 });
   }
 
-  // Generate invoice number using count
-  const count = await prisma.invoice.count();
-  const invoiceNumber = generateInvoiceNumber(rest.periodYear, rest.periodMonth, count + 1);
+  // Allocate from the resolved numbering series (payment account → org).
+  const invoiceNumber = await allocateInvoiceNumber(
+    rest.tenantId,
+    new Date(rest.periodYear, rest.periodMonth - 1, 1),
+  );
 
   const totalAmount = rest.rentAmount + rest.serviceCharge + rest.otherCharges;
 

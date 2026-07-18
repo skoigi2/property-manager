@@ -24,6 +24,11 @@ model Organization {
   locale                String                       @default("en-US")
   defaultCurrency       String                       @default("USD")
   vatRegistrationNumber String?
+  // Invoice numbering — org default series. Format tokens: {YYYY} {YY} {MM}
+  // {YYYYMM} {SEQ}. Null = "INV-{YYYYMM}-{SEQ}". Counter increments atomically
+  // per allocation (see src/lib/invoice-numbering.ts).
+  invoiceFormat         String?
+  invoiceNextNumber     Int     @default(1)
   bankName              String?
   bankAccountName       String?
   bankAccountNumber     String?
@@ -1514,6 +1519,14 @@ model PaymentAccount {
   logoUrl             String?
   kraPin              String?  // PIN No.
   vatNumber           String?  // VAT No.
+  address             String?
+  phone               String?
+  email               String?
+  // Per-company invoice numbering series — when invoiceFormat is set,
+  // invoices resolving to this account are numbered from THIS counter
+  // instead of the organisation default.
+  invoiceFormat       String?
+  invoiceNextNumber   Int      @default(1)
   bankName            String?
   bankAccountName     String?
   bankAccountNumber   String?

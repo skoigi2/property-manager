@@ -46,6 +46,9 @@ const updateSchema = z.object({
   email:                z.string().email().optional().nullable(),
   website:              z.string().optional().nullable(),
   isActive:             z.boolean().optional(),
+  // Invoice numbering — org default series
+  invoiceFormat:        z.string().max(60).optional().nullable(),
+  invoiceNextNumber:    z.coerce.number().int().min(1).optional(),
   vatRegistrationNumber: z.string().optional().nullable(),
   bankName:             z.string().optional().nullable(),
   bankAccountName:      z.string().optional().nullable(),

@@ -8,6 +8,12 @@ export const paymentAccountSchema = z.object({
   companyName:         z.string().optional().nullable(),
   kraPin:              z.string().optional().nullable(),
   vatNumber:           z.string().optional().nullable(),
+  address:             z.string().optional().nullable(),
+  phone:               z.string().optional().nullable(),
+  email:               z.string().email("Invalid email").optional().nullable().or(z.literal("")),
+  // Per-company numbering series (format set = account runs its own series)
+  invoiceFormat:       z.string().max(60).optional().nullable(),
+  invoiceNextNumber:   z.coerce.number().int().min(1).optional(),
   bankName:            z.string().optional().nullable(),
   bankAccountName:     z.string().optional().nullable(),
   bankAccountNumber:   z.string().optional().nullable(),

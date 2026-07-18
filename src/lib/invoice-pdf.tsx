@@ -100,6 +100,9 @@ export type InvoiceData = {
     logoUrl?: string | null;
     kraPin?: string | null;    // PIN No.
     vatNumber?: string | null; // VAT No.
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
   } | null;
   /** Total of the tenant's OTHER unpaid invoices at generation time. */
   outstandingBalance?: number | null;
@@ -187,13 +190,16 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
               // account carries that company's logo, name, and tax IDs.
               const logoUrl = data.issuer?.logoUrl ?? data.tenant.unit.property.logoUrl ?? org?.logoUrl;
               const brandName = data.issuer?.name ?? org?.name ?? data.tenant.unit.property.name;
-              const brandAddr = org?.address
+              const brandAddr = data.issuer?.address
+                ?? org?.address
                 ?? [data.tenant.unit.property.address, data.tenant.unit.property.city].filter(Boolean).join(", ")
                 ?? "";
+              const brandContact = [data.issuer?.phone, data.issuer?.email].filter(Boolean).join("  ·  ");
               const pinNo = data.issuer?.kraPin ?? org?.vatRegistrationNumber ?? null;
               const vatNo = data.issuer?.vatNumber ?? null;
               const taxLines = (
                 <>
+                  {brandContact && <Text style={[styles.brandSub, { marginTop: 1 }]}>{brandContact}</Text>}
                   {pinNo && <Text style={[styles.brandSub, { marginTop: 2 }]}>PIN No: {pinNo}</Text>}
                   {vatNo && <Text style={[styles.brandSub, { marginTop: pinNo ? 1 : 2 }]}>VAT No: {vatNo}</Text>}
                 </>
@@ -393,9 +399,12 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
             {hasPayInstructions && (
               <Text style={styles.payInstructions}>{org?.paymentInstructions}</Text>
             )}
-            {(org?.phone || org?.email) && (
+            {(data.issuer?.phone || data.issuer?.email || org?.phone || org?.email) && (
               <Text style={styles.payContact}>
-                For payment queries contact: {[org?.phone, org?.email].filter(Boolean).join("  |  ")}
+                For payment queries contact: {[
+                  data.issuer?.phone ?? org?.phone,
+                  data.issuer?.email ?? org?.email,
+                ].filter(Boolean).join("  |  ")}
               </Text>
             )}
           </View>

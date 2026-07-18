@@ -18,6 +18,10 @@ import { CreditCard, Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucid
 interface PaymentAccount {
   id: string;
   name: string;
+  companyName: string | null;
+  logoUrl: string | null;
+  kraPin: string | null;
+  vatNumber: string | null;
   bankName: string | null;
   bankAccountName: string | null;
   bankAccountNumber: string | null;
@@ -31,7 +35,8 @@ interface PaymentAccount {
 }
 
 const EMPTY_FORM = {
-  name: "", bankName: "", bankAccountName: "", bankAccountNumber: "", bankBranch: "",
+  name: "", companyName: "", kraPin: "", vatNumber: "",
+  bankName: "", bankAccountName: "", bankAccountNumber: "", bankBranch: "",
   mpesaPaybill: "", mpesaAccountNumber: "", mpesaTill: "", paymentInstructions: "",
 };
 
@@ -44,6 +49,8 @@ export default function PaymentAccountsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PaymentAccount | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const load = useCallback(() => {
     fetch("/api/payment-accounts?includeInactive=true")
@@ -57,13 +64,16 @@ export default function PaymentAccountsPage() {
   function openAdd() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setLogoUrl(null);
     setModalOpen(true);
   }
 
   function openEdit(a: PaymentAccount) {
     setEditing(a);
+    setLogoUrl(a.logoUrl ?? null);
     setForm({
       name: a.name,
+      companyName: a.companyName ?? "", kraPin: a.kraPin ?? "", vatNumber: a.vatNumber ?? "",
       bankName: a.bankName ?? "", bankAccountName: a.bankAccountName ?? "",
       bankAccountNumber: a.bankAccountNumber ?? "", bankBranch: a.bankBranch ?? "",
       mpesaPaybill: a.mpesaPaybill ?? "", mpesaAccountNumber: a.mpesaAccountNumber ?? "",
@@ -97,6 +107,43 @@ export default function PaymentAccountsPage() {
       toast.error((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleLogoUpload(file: File | undefined) {
+    if (!file || !editing) return;
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const res = await fetch(`/api/payment-accounts/${editing.id}/logo`, { method: "POST", body: fd });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Upload failed");
+      setLogoUrl(data.logoUrl);
+      invalidatePaymentAccountCache();
+      toast.success("Logo uploaded");
+      load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function handleLogoRemove() {
+    if (!editing) return;
+    setLogoUploading(true);
+    try {
+      const res = await fetch(`/api/payment-accounts/${editing.id}/logo`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setLogoUrl(null);
+      invalidatePaymentAccountCache();
+      toast.success("Logo removed");
+      load();
+    } catch {
+      toast.error("Failed to remove logo");
+    } finally {
+      setLogoUploading(false);
     }
   }
 
@@ -166,10 +213,20 @@ export default function PaymentAccountsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {a.logoUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={a.logoUrl} alt="" className="h-6 max-w-[60px] object-contain" />
+                        )}
                         <p className="text-sm font-sans font-semibold text-header truncate">{a.name}</p>
                         {!a.isActive && <Badge variant="gray">Inactive</Badge>}
                       </div>
                       <div className="text-xs text-gray-500 font-sans mt-1.5 space-y-0.5">
+                        {a.companyName && (
+                          <p className="text-gray-600">
+                            Invoiced as <span className="font-medium">{a.companyName}</span>
+                            {a.kraPin ? ` · PIN ${a.kraPin}` : ""}{a.vatNumber ? ` · VAT ${a.vatNumber}` : ""}
+                          </p>
+                        )}
                         {a.bankName && (
                           <p>{a.bankName}{a.bankAccountNumber ? ` · ${a.bankAccountNumber}` : ""}{a.bankBranch ? ` · ${a.bankBranch}` : ""}</p>
                         )}
@@ -210,6 +267,44 @@ export default function PaymentAccountsPage() {
         <form onSubmit={handleSave} className="space-y-4">
           <Input label="Account Name" placeholder="e.g. KCB — Main Collections" value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+          <div>
+            <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-1">Invoicing Identity</p>
+            <p className="text-[11px] text-gray-400 font-sans mb-2">
+              Optional — fill these when invoices paid to this account are issued by a different company.
+              They override the invoice header (name, logo, tax numbers).
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Company / Billing Name" placeholder="e.g. Shah Properties Ltd" value={form.companyName}
+                onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))} />
+              <Input label="PIN No." placeholder="e.g. P051234567X" value={form.kraPin}
+                onChange={(e) => setForm((f) => ({ ...f, kraPin: e.target.value }))} />
+              <Input label="VAT No." placeholder="e.g. 0123456A" value={form.vatNumber}
+                onChange={(e) => setForm((f) => ({ ...f, vatNumber: e.target.value }))} />
+            </div>
+            {editing ? (
+              <div className="mt-3 flex items-center gap-3">
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="Account logo" className="h-10 max-w-[120px] object-contain rounded border border-gray-100 bg-white p-1" />
+                ) : (
+                  <span className="text-xs text-gray-400 font-sans">No logo</span>
+                )}
+                <label className="text-xs font-sans font-medium text-gold hover:text-gold-dark cursor-pointer">
+                  {logoUploading ? "Uploading…" : "Upload logo"}
+                  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="hidden"
+                    disabled={logoUploading} onChange={(e) => handleLogoUpload(e.target.files?.[0])} />
+                </label>
+                {logoUrl && (
+                  <button type="button" onClick={handleLogoRemove} disabled={logoUploading}
+                    className="text-xs font-sans text-gray-400 hover:text-expense transition-colors">
+                    Remove
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-gray-400 font-sans mt-2">Create the account first, then upload its logo.</p>
+            )}
+          </div>
           <div>
             <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-2">Bank Transfer</p>
             <div className="grid grid-cols-2 gap-3">

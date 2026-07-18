@@ -81,6 +81,11 @@ export async function GET(
     notes: invoice.notes,
     currency: property.currency,
     org,
+    // Invoicing identity: the paying account's company name/logo/tax IDs
+    // override the header when set (invoice issued by a different company).
+    issuer: account
+      ? { name: account.companyName, logoUrl: account.logoUrl, kraPin: account.kraPin, vatNumber: account.vatNumber }
+      : null,
     outstandingBalance: outstandingAgg._sum.totalAmount ?? 0,
     tenant: {
       name: tenant.name,

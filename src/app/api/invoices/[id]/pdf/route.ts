@@ -80,6 +80,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ...invoice,
     currency: invoice.tenant.unit.property.currency,
     org,
+    // Invoicing identity: the paying account's company name/logo/tax IDs
+    // override the header when set (invoice issued by a different company).
+    issuer: account
+      ? { name: account.companyName, logoUrl: account.logoUrl, kraPin: account.kraPin, vatNumber: account.vatNumber }
+      : null,
     outstandingBalance: outstandingAgg._sum.totalAmount ?? 0,
     tenant: {
       ...invoice.tenant,

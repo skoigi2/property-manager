@@ -90,6 +90,17 @@ export type InvoiceData = {
   notes?: string | null;
   currency?: string;
   org?: OrgBranding | null;
+  /**
+   * Invoicing identity — when the payment account belongs to a different
+   * company, its name/logo/tax IDs override the header. `kraPin` falls back
+   * to the legacy agreement/org value; the rest are account-only.
+   */
+  issuer?: {
+    name?: string | null;
+    logoUrl?: string | null;
+    kraPin?: string | null;    // PIN No.
+    vatNumber?: string | null; // VAT No.
+  } | null;
   /** Total of the tenant's OTHER unpaid invoices at generation time. */
   outstandingBalance?: number | null;
   tenant: {
@@ -172,27 +183,34 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
         <View style={styles.header}>
           <View style={styles.brandBlock}>
             {(() => {
-              const logoUrl = data.tenant.unit.property.logoUrl ?? org?.logoUrl;
-              const brandName = org?.name ?? data.tenant.unit.property.name;
+              // Issuer overrides win: an invoice paid to a different company's
+              // account carries that company's logo, name, and tax IDs.
+              const logoUrl = data.issuer?.logoUrl ?? data.tenant.unit.property.logoUrl ?? org?.logoUrl;
+              const brandName = data.issuer?.name ?? org?.name ?? data.tenant.unit.property.name;
               const brandAddr = org?.address
                 ?? [data.tenant.unit.property.address, data.tenant.unit.property.city].filter(Boolean).join(", ")
                 ?? "";
+              const pinNo = data.issuer?.kraPin ?? org?.vatRegistrationNumber ?? null;
+              const vatNo = data.issuer?.vatNumber ?? null;
+              const taxLines = (
+                <>
+                  {pinNo && <Text style={[styles.brandSub, { marginTop: 2 }]}>PIN No: {pinNo}</Text>}
+                  {vatNo && <Text style={[styles.brandSub, { marginTop: pinNo ? 1 : 2 }]}>VAT No: {vatNo}</Text>}
+                </>
+              );
               return logoUrl ? (
                 <>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
                   <Image src={logoUrl} style={{ height: 40, marginBottom: 4, objectFit: "contain", objectPositionX: 0 }} />
+                  {data.issuer?.name && <Text style={[styles.brandSub, { fontFamily: "Helvetica-Bold", color: "#1a1a2e" }]}>{data.issuer.name}</Text>}
                   <Text style={styles.brandSub}>{brandAddr}</Text>
-                  {org?.vatRegistrationNumber && (
-                    <Text style={[styles.brandSub, { marginTop: 2 }]}>KRA PIN: {org.vatRegistrationNumber}</Text>
-                  )}
+                  {taxLines}
                 </>
               ) : (
                 <>
                   <Text style={styles.brandName}>{brandName}</Text>
                   <Text style={styles.brandSub}>{brandAddr}</Text>
-                  {org?.vatRegistrationNumber && (
-                    <Text style={[styles.brandSub, { marginTop: 2 }]}>KRA PIN: {org.vatRegistrationNumber}</Text>
-                  )}
+                  {taxLines}
                 </>
               );
             })()}

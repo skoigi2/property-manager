@@ -33,6 +33,7 @@ import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
+import { useSharedMonth } from "@/lib/use-shared-month";
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/expense-categories";
 import { HistoryDrawer } from "@/components/ui/HistoryDrawer";
 
@@ -334,7 +335,7 @@ export default function ExpensesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [month, setMonth] = useSharedMonth();
 
   // Month entries — cached per (month, property) so navigating back to a
   // recently viewed month renders instantly, with a background refresh.
@@ -1671,6 +1672,7 @@ export default function ExpensesPage() {
           `${selected?.name ?? "every property you can access"} across ALL months — not just the one shown. This cannot be undone. ` +
           `Petty-cash OUT entries linked to these expenses are removed automatically; unlinked ones (from older saves or bulk imports) are NOT reversed and may need manual cleanup.`
         }
+        typeToConfirm="DELETE"
         loading={deleteAllSubmitting}
       />
     </div>

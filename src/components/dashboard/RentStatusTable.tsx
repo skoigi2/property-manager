@@ -15,11 +15,14 @@ interface RentRow {
   variance: number;
   leaseEnd: Date | null;
   leaseStatus: string;
+  propertyName?: string;
 }
 
 interface RentStatusTableProps {
   rows: RentRow[];
   currency?: string;
+  /** Portfolio mode: render a Property column (rows must carry propertyName). */
+  showProperty?: boolean;
 }
 
 function statusBadge(status: string) {
@@ -42,7 +45,7 @@ function unitTypeLabel(type: string) {
   return map[type] ?? type;
 }
 
-export function RentStatusTable({ rows, currency = "USD" }: RentStatusTableProps) {
+export function RentStatusTable({ rows, currency = "USD", showProperty = false }: RentStatusTableProps) {
   const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
   const totalReceived = rows.reduce((s, r) => s + r.received, 0);
   const totalVariance = totalReceived - totalExpected;
@@ -59,6 +62,7 @@ export function RentStatusTable({ rows, currency = "USD" }: RentStatusTableProps
                 <p className="font-sans font-medium text-sm text-header leading-tight">{row.tenantName}</p>
                 <p className="text-xs text-gray-400 font-sans mt-0.5">
                   Unit {row.unitNumber} · {unitTypeLabel(row.type)}
+                  {showProperty && row.propertyName ? ` · ${row.propertyName}` : ""}
                 </p>
               </div>
               {statusBadge(row.leaseStatus)}
@@ -114,6 +118,7 @@ export function RentStatusTable({ rows, currency = "USD" }: RentStatusTableProps
             <thead className="sticky top-0 bg-white z-10">
               <tr className="text-left">
                 <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Tenant</th>
+                {showProperty && <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Property</th>}
                 <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Unit</th>
                 <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Type</th>
                 <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans text-right">Expected</th>
@@ -126,6 +131,7 @@ export function RentStatusTable({ rows, currency = "USD" }: RentStatusTableProps
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-gray-100">
                   <td className="py-3 pr-3 text-sm font-sans text-header font-medium">{row.tenantName}</td>
+                  {showProperty && <td className="py-3 pr-3 text-sm font-sans text-gray-500">{row.propertyName ?? "—"}</td>}
                   <td className="py-3 pr-3 text-sm font-mono text-gray-500">{row.unitNumber}</td>
                   <td className="py-3 pr-3 text-sm font-sans text-gray-500">{unitTypeLabel(row.type)}</td>
                   <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.expected} size="sm" /></td>
@@ -139,7 +145,7 @@ export function RentStatusTable({ rows, currency = "USD" }: RentStatusTableProps
             </tbody>
             <tfoot className="sticky bottom-0 bg-white">
               <tr className="border-t-2 border-gold/30">
-                <td colSpan={3} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
+                <td colSpan={showProperty ? 4 : 3} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalExpected} size="sm" /></td>
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalReceived} size="sm" colorize /></td>
                 <td className={clsx("pt-3 text-right font-mono text-sm", totalVariance < 0 ? "text-expense" : "text-income")}>

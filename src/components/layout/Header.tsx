@@ -19,7 +19,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
   const { data: session, update } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [propOpen, setPropOpen] = useState(false);
-  const { properties, selectedId, setSelectedId, selected, loading } = useProperty();
+  const { properties, selectedId, setSelectedId, selected, loading, currency, mixedCurrencies } = useProperty();
 
   const showSelector = !loading && properties.length > 1;
 
@@ -105,6 +105,16 @@ export function Header({ title, userName, role, children }: HeaderProps) {
               </div>
             )}
           </div>
+        )}
+
+        {/* Mixed-currency caveat — portfolio totals are a cross-currency sum */}
+        {mixedCurrencies && (
+          <span
+            title={`Your properties use different currencies. "All properties" totals add the raw amounts together and display them as ${currency} — select a single property for exact figures.`}
+            className="hidden sm:flex items-center gap-1 bg-amber-400/20 text-amber-200 px-2 py-1 rounded-lg text-xs font-sans shrink-0 cursor-help"
+          >
+            ⚠ Mixed currencies
+          </span>
         )}
 
         {/* Single property badge when only one */}

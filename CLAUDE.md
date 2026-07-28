@@ -177,6 +177,8 @@ Sources covered:
 
 API: `GET /api/inbox` — `requireManager()` + `getAccessiblePropertyIds()` then delegates to `buildInbox`. Returns `{ items, counts }`. The Sidebar polls this every 60 s to render the red urgent-count badge next to the Inbox nav item.
 
+The bulk "Send reminders" action **actually emails tenants**: `POST /api/inbox/send-reminders` `{ invoiceIds }` (≤50) sends each overdue-invoice tenant a rent-payment reminder (invoice number, outstanding amount, days overdue), writes a `CommunicationLog` row per send, and reports tenants without an email address back as failures — it never silently logs-without-sending.
+
 ### Income ↔ Invoice link
 When a `LONGTERM_RENT` income entry is created via `POST /api/income`, the route auto-finds an open invoice for that tenant/month and marks it PAID in the same `prisma.$transaction`. Reverse: marking an invoice PAID via `PATCH /api/invoices/[id]` creates an income entry if none exists (`invoiceId` on `IncomeEntry` prevents duplicates).
 
@@ -232,6 +234,10 @@ Three properties are seeded:
 - **CurrencyDisplay sizes**: `"sm" | "md" | "lg" | "xl"` — no `"base"`
 - Pages use `<Header>` + `<div className="page-container">` shell from the dashboard layout
 - Month filtering uses `<MonthPicker>` component which has built-in prev/next arrows — do not add outer arrow buttons
+- **Month state is shared across pages** via `useSharedMonth()` (`src/lib/use-shared-month.ts`, sessionStorage-backed) — Dashboard / Income / Expenses / Airbnb / Petty-cash all use it, so navigating between them keeps the working month. Use it (not a local `useState`) for any new month-scoped page.
+- **Property scope**: `property-context.tsx` cold-loads to the **"All properties" portfolio view** for multi-property orgs (single-property orgs scope to their property so the SetupChecklist shows); the explicit "All" choice persists via a `__ALL__` sentinel. The context also exposes `mixedCurrencies` — true in portfolio scope when properties use different currencies (Header shows a "⚠ Mixed currencies" chip; totals are a raw cross-currency sum). The dashboard adds an "All properties" tab (combined rent + short-let tables with a Property column, `showProperty` prop on `RentStatusTable`/`AlbaRevenueTable`) ahead of the per-property tabs in portfolio mode.
+- `ConfirmDialog` accepts `typeToConfirm="DELETE"` for catastrophic actions (used by the Expenses "Delete all" flow) — the confirm button stays disabled until the phrase is typed.
+- `useCachedFetch` returns an `error` flag (last fetch failed; cached data stays visible) — surface a retry affordance like the dashboard's "Refresh failed — retry" chip instead of ignoring it.
 - Vendor fields use `<VendorSelect>` (controlled: `value: string | null`, `onChange: (id: string | null) => void`) — never a plain text input for contractor/supplier fields
 - **HelpTip**: `<HelpTip text="..." position="above|below" />` (`src/components/ui/HelpTip.tsx`) — small ℹ icon that shows a dark tooltip on hover. Default position is `"above"`; use `"below"` for elements near the top of the page (KPI cards, summary strips). Render inside label rows as `<span className="flex items-center gap-1.5"><span>Label</span><HelpTip text="..." /></span>`. The `Input`, `Select`, and `VendorSelect` components accept a `tooltip` prop that wires this up automatically.
 - **Mobile table pattern**: pages with data tables use `md:hidden` stacked card list + `hidden md:block overflow-x-auto` desktop table. The `<main>` in `src/app/(dashboard)/layout.tsx` carries `overflow-x-hidden` to prevent any overflowing child from creating a page-level horizontal scroll (which shifts the fixed bottom nav). `MobileNav` bar items require `min-w-0` on each flex child and `truncate w-full` on each label `<span>` to prevent long labels pushing items off-screen on narrow devices.

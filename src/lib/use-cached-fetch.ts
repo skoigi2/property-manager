@@ -20,6 +20,12 @@ interface UseCachedFetchResult<T> {
   /** Force an immediate refresh; updates `data` and the cache when it resolves. */
   refresh: () => Promise<void>;
   /**
+   * True when the most recent fetch failed (non-2xx or network error). Cached
+   * data (if any) stays visible — use this to show a "couldn't refresh / retry"
+   * affordance instead of silently serving stale numbers.
+   */
+  error: boolean;
+  /**
    * Optimistically mutate the cached value. Accepts a setter function (in the React style)
    * and also writes the new value back to sessionStorage so the next mount shows the updated
    * data. Use after a successful PATCH / DELETE to keep the UI in sync without a refetch.
@@ -54,6 +60,7 @@ export function useCachedFetch<T>(
   // so a warm cache still renders without a visible spinner flash).
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
 
   // Hold the current url in a ref so refresh() always fetches the latest, not a stale capture.
   const urlRef = useRef(url);
@@ -79,13 +86,16 @@ export function useCachedFetch<T>(
       const res = await fetch(urlRef.current);
       if (!res.ok) {
         // On error, do not overwrite cached data — keep the last good value visible.
+        setError(true);
         return;
       }
       const next = (await res.json()) as T;
       setData(next);
+      setError(false);
       writeCache<T>(storageKey, next);
     } catch {
       // Network failure — same policy as a non-2xx: keep last known good.
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -118,7 +128,7 @@ export function useCachedFetch<T>(
     });
   }, [storageKey]);
 
-  return { data, loading, refresh: fetchAndStore, setData: setDataCallback };
+  return { data, loading, refresh: fetchAndStore, setData: setDataCallback, error };
 }
 
 function readCache<T>(key: string): CachedEntry<T> | null {

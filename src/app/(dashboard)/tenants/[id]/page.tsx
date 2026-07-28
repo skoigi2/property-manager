@@ -744,7 +744,50 @@ export default function TenantDetailPage() {
                     {ledger.length === 0 ? (
                       <p className="text-gray-400 text-sm font-sans text-center py-6">No ledger data available</p>
                     ) : (
-                      <div className="overflow-x-auto">
+                      <>
+                      {/* Mobile: stacked month cards */}
+                      <div className="md:hidden space-y-2">
+                        {ledger.map((row) => (
+                          <div key={row.monthLabel} className="rounded-xl border border-gray-100 bg-white p-3">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <p className="text-sm font-medium font-sans text-header">{row.monthLabel}</p>
+                              {row.status === "UNPAID" ? (
+                                <span className="flex items-center gap-1 text-xs text-expense font-sans"><AlertTriangle size={12} /> Unpaid</span>
+                              ) : row.status === "PAID" ? (
+                                <span className="flex items-center gap-1 text-xs text-income font-sans"><CheckCircle2 size={12} /> Paid</span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-xs text-amber-600 font-sans"><Clock size={12} /> Partial</span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50">
+                              <div>
+                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                                <CurrencyDisplay currency={currency} amount={row.expected} size="sm" className="text-gray-500" />
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+                                <CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize />
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Balance</p>
+                                <CurrencyDisplay currency={currency} amount={row.balance} size="sm" className={row.balance >= 0 ? "text-income" : "text-expense"} />
+                              </div>
+                            </div>
+                            {row.payments.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-gray-50 text-xs text-gray-400 font-sans">
+                                {row.payments.map((p: any) => (
+                                  <span key={p.id} className="block">
+                                    {formatDate(p.date)} · {formatCurrency(p.grossAmount, currency)}
+                                    {p.note ? ` · ${p.note}` : ""}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Desktop table */}
+                      <div className="hidden md:block overflow-x-auto">
                         <table className="w-full min-w-[520px]">
                           <thead className="bg-cream-dark">
                             <tr>
@@ -784,6 +827,7 @@ export default function TenantDetailPage() {
                           </tbody>
                         </table>
                       </div>
+                      </>
                     )}
                   </>
                 )}
@@ -808,7 +852,63 @@ export default function TenantDetailPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="overflow-x-auto">
+                        {/* Mobile: stacked invoice cards */}
+                        <div className="md:hidden space-y-2">
+                          {invoices.map((inv) => {
+                            const cfg = INVOICE_STATUS_CONFIG[inv.status];
+                            return (
+                              <div key={inv.id} className="rounded-xl border border-gray-100 bg-white p-3">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div>
+                                    <p className="font-mono text-xs font-semibold text-header">{inv.invoiceNumber}</p>
+                                    <p className="text-xs text-gray-400 font-sans mt-0.5">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</p>
+                                  </div>
+                                  {inv.status === "PENDING_VERIFICATION" ? (
+                                    <button
+                                      onClick={() => setProofInvoiceId(inv.id)}
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls}`}
+                                    >
+                                      {cfg.label}
+                                    </button>
+                                  ) : (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls}`}>{cfg.label}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-50">
+                                  <div>
+                                    <CurrencyDisplay currency={currency} amount={inv.totalAmount} size="sm" className="text-gray-700" />
+                                    <p className="text-xs text-gray-400 font-sans mt-0.5">
+                                      Due {format(new Date(inv.dueDate), "d MMM yyyy")}
+                                      {inv.status === "PAID" && inv.paidAt ? ` · Paid ${format(new Date(inv.paidAt), "d MMM")}` : ""}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => downloadPdf(inv)}
+                                      disabled={downloadingId === inv.id}
+                                      title="Download PDF"
+                                      className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-colors disabled:opacity-40"
+                                    >
+                                      {downloadingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                                    </button>
+                                    {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+                                      <button
+                                        onClick={() => emailInvoice(inv)}
+                                        disabled={emailingId === inv.id}
+                                        title="Email invoice to tenant"
+                                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40"
+                                      >
+                                        {emailingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Desktop table */}
+                        <div className="hidden md:block overflow-x-auto">
                           <table className="w-full min-w-[480px]">
                             <thead className="bg-cream-dark">
                               <tr>

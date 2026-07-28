@@ -13,6 +13,7 @@ interface AlbaRow {
   netProfit: number;
   bookedNights: number;
   daysInMonth: number;
+  propertyName?: string;
 }
 
 function unitTypeLabel(type: string) {
@@ -28,7 +29,7 @@ function unitTypeLabel(type: string) {
   return map[type] ?? type;
 }
 
-export function AlbaRevenueTable({ rows, currency = "USD" }: { rows: AlbaRow[]; currency?: string }) {
+export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false }: { rows: AlbaRow[]; currency?: string; showProperty?: boolean }) {
   const totalGross = rows.reduce((s, r) => s + r.grossIncome, 0);
   const totalNet   = rows.reduce((s, r) => s + r.netProfit, 0);
 
@@ -46,7 +47,10 @@ export function AlbaRevenueTable({ rows, currency = "USD" }: { rows: AlbaRow[]; 
                   <p className="font-sans font-medium text-sm text-header leading-tight">
                     Unit {row.unitNumber}
                   </p>
-                  <p className="text-xs text-gray-400 font-sans mt-0.5">{unitTypeLabel(row.type)}</p>
+                  <p className="text-xs text-gray-400 font-sans mt-0.5">
+                    {unitTypeLabel(row.type)}
+                    {showProperty && row.propertyName ? ` · ${row.propertyName}` : ""}
+                  </p>
                 </div>
                 {row.grossIncome === 0 ? (
                   <Badge variant={row.status === "OWNER_OCCUPIED" ? "gold" : "gray"}>
@@ -105,7 +109,7 @@ export function AlbaRevenueTable({ rows, currency = "USD" }: { rows: AlbaRow[]; 
           <table className="w-full min-w-[640px]">
             <thead className="sticky top-0 bg-white z-10">
               <tr className="text-left">
-                {["Unit", "Type", "Gross", "Commission", "Fixed Costs", "Variable", "Net", "Nights"].map((h) => (
+                {[...(showProperty ? ["Property"] : []), "Unit", "Type", "Gross", "Commission", "Fixed Costs", "Variable", "Net", "Nights"].map((h) => (
                   <th key={h} className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans last:text-center">
                     {h}
                   </th>
@@ -117,6 +121,7 @@ export function AlbaRevenueTable({ rows, currency = "USD" }: { rows: AlbaRow[]; 
                 const occ = row.daysInMonth > 0 ? Math.round((row.bookedNights / row.daysInMonth) * 100) : 0;
                 return (
                   <tr key={row.unitId} className="border-t border-gray-100">
+                    {showProperty && <td className="py-3 pr-3 text-sm font-sans text-gray-500">{row.propertyName ?? "—"}</td>}
                     <td className="py-3 pr-3 text-sm font-mono text-header font-medium">{row.unitNumber}</td>
                     <td className="py-3 pr-3 text-sm font-sans text-gray-500">{unitTypeLabel(row.type)}</td>
                     <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.grossIncome} size="sm" colorize /></td>
@@ -141,7 +146,7 @@ export function AlbaRevenueTable({ rows, currency = "USD" }: { rows: AlbaRow[]; 
             </tbody>
             <tfoot className="sticky bottom-0 bg-white">
               <tr className="border-t-2 border-gold/30">
-                <td colSpan={2} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
+                <td colSpan={showProperty ? 3 : 2} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalGross} size="sm" colorize /></td>
                 <td colSpan={3} />
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalNet} size="sm" colorize /></td>

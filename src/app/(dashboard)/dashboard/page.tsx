@@ -13,6 +13,7 @@ import { AlbaRevenueTable } from "@/components/dashboard/AlbaRevenueTable";
 import { Header } from "@/components/layout/Header";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
+import { useSharedMonth } from "@/lib/use-shared-month";
 
 // recharts is ~200 KB gzipped — keep it out of the initial dashboard chunk so
 // the KPI cards render before the chart bundle is parsed.
@@ -68,7 +69,7 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
   const currency = useProperty().currency;
-  const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [month, setMonth] = useSharedMonth();
   const [tab, setTab] = useState<string | null>(null);
 
   const params = new URLSearchParams({
@@ -81,18 +82,31 @@ export default function DashboardPage() {
   // scope. Switching either reads a different cache slot, so going back to a
   // previously-visited combination is instant.
   const cacheScope = `${month.getFullYear()}-${month.getMonth() + 1}:${selectedId ?? "all"}`;
-  const { data, loading } = useCachedFetch<any>(`dashboard:${cacheScope}`, `/api/dashboard?${params}`);
+  const { data, loading, error, refresh } = useCachedFetch<any>(`dashboard:${cacheScope}`, `/api/dashboard?${params}`);
   const { data: opsData, loading: opsLoading } = useCachedFetch<any>(`dashboard-ops:${cacheScope}`, `/api/dashboard/ops?${params}`);
+
+  // Portfolio mode gets a combined "All properties" pseudo-tab (default) ahead
+  // of the per-property tabs, so managers see the whole rent picture at once.
+  const ALL_TAB = "__all__";
+  const isPortfolio = !selectedId && (data?.properties?.length ?? 0) > 1;
 
   // Reset tab when properties change
   useEffect(() => {
     if (data?.properties?.length > 0) {
       const ids = data.properties.map((p: any) => p.id);
-      if (!ids.includes(tab)) setTab(ids[0]);
+      const portfolio = !selectedId && ids.length > 1;
+      const valid = portfolio ? [ALL_TAB, ...ids] : ids;
+      if (!valid.includes(tab)) setTab(portfolio ? ALL_TAB : ids[0]);
     }
-  }, [data?.properties, tab]);
+  }, [data?.properties, tab, selectedId]);
 
   const activeProperty = data?.properties?.find((p: any) => p.id === tab);
+
+  const propertyNameById = new Map<string, string>(
+    (data?.properties ?? []).map((p: any) => [p.id, p.name]),
+  );
+  const withPropertyName = (rows: any[]) =>
+    rows.map((r) => ({ ...r, propertyName: propertyNameById.get(r.propertyId) }));
 
   const today = new Date();
   const isCurrentMonth =
@@ -177,6 +191,15 @@ export default function DashboardPage() {
               Updated{" "}
               {new Date(data.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
+          )}
+          {error && data && (
+            <button
+              onClick={() => refresh()}
+              title="The last background refresh failed — these numbers may be stale. Click to retry."
+              className="flex items-center gap-1 text-[11px] font-sans text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
+            >
+              ⚠ Refresh failed — retry
+            </button>
           )}
         </div>
 
@@ -282,6 +305,19 @@ export default function DashboardPage() {
             {data.properties?.length > 0 && (
               <Card padding="none">
                 <div className="flex border-b border-gray-100 overflow-x-auto">
+                  {isPortfolio && (
+                    <button
+                      onClick={() => setTab(ALL_TAB)}
+                      className={clsx(
+                        "px-5 py-3.5 text-sm font-medium font-sans transition-colors border-b-2 -mb-px whitespace-nowrap",
+                        tab === ALL_TAB
+                          ? "border-gold text-header"
+                          : "border-transparent text-gray-400 hover:text-gray-600"
+                      )}
+                    >
+                      All properties
+                    </button>
+                  )}
                   {data.properties.map((p: any) => (
                     <button
                       key={p.id}
@@ -297,8 +333,26 @@ export default function DashboardPage() {
                     </button>
                   ))}
                 </div>
-                <div className="p-5">
-                  {activeProperty?.type === "LONGTERM" ? (
+                <div className="p-5 space-y-6">
+                  {tab === ALL_TAB ? (
+                    <>
+                      {data.rentStatus?.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide font-sans mb-3">Long-term rent</h3>
+                          <RentStatusTable currency={currency} showProperty rows={withPropertyName(data.rentStatus)} />
+                        </div>
+                      )}
+                      {data.airbnbRevenue?.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide font-sans mb-3">Short-let revenue</h3>
+                          <AlbaRevenueTable currency={currency} showProperty rows={withPropertyName(data.airbnbRevenue)} />
+                        </div>
+                      )}
+                      {!(data.rentStatus?.length > 0) && !(data.airbnbRevenue?.length > 0) && (
+                        <p className="text-sm text-gray-400 font-sans text-center py-6">No unit data for this month</p>
+                      )}
+                    </>
+                  ) : activeProperty?.type === "LONGTERM" ? (
                     <RentStatusTable currency={currency} rows={data.rentStatus.filter((r: any) => r.propertyId === tab)} />
                   ) : (
                     <AlbaRevenueTable currency={currency} rows={data.airbnbRevenue.filter((r: any) => r.propertyId === tab)} />
@@ -381,7 +435,15 @@ export default function DashboardPage() {
             </div>
           </>
         ) : (
-          <p className="text-gray-400 text-sm font-sans text-center py-12">Failed to load data</p>
+          <div className="flex flex-col items-center gap-3 py-12">
+            <p className="text-gray-400 text-sm font-sans">Couldn&apos;t load the dashboard — check your connection.</p>
+            <button
+              onClick={() => refresh()}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-sm font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors"
+            >
+              Try again
+            </button>
+          </div>
         )}
       </div>
     </div>

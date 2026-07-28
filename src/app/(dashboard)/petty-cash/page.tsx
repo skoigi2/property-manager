@@ -26,6 +26,7 @@ import { clsx } from "clsx";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
+import { useSharedMonth } from "@/lib/use-shared-month";
 import { formatCurrency } from "@/lib/currency";
 import { HelpTip } from "@/components/ui/HelpTip";
 
@@ -42,7 +43,7 @@ export default function PettyCashPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [month, setMonth] = useSharedMonth();
 
   // Filters
   const [filterSearch, setFilterSearch] = useState("");

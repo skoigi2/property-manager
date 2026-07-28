@@ -35,10 +35,9 @@ import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import { formatCurrency } from "@/lib/currency";
+import { useSharedMonth } from "@/lib/use-shared-month";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const AGENTS = ["Maggie", "Audrey", "Brenda", "Koka", "Other"];
 
 const MONTH_NAMES = [
   "January","February","March","April","May","June",
@@ -228,9 +227,7 @@ export default function IncomePage() {
   const [submitting, setSubmitting]           = useState(false);
   const [deleteId, setDeleteId]               = useState<string | null>(null);
   const [deleting, setDeleting]               = useState(false);
-  const [month, setMonth]                     = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  );
+  const [month, setMonth]                     = useSharedMonth();
   const [showForm, setShowForm]               = useState(false);
   const [activeTenant, setActiveTenant]       = useState<{ id: string; name: string } | null>(null);
   const [tenantLookupLoading, setTenantLookupLoading] = useState(false);
@@ -333,9 +330,11 @@ export default function IncomePage() {
       .catch(() => setAgentsLoading(false));
   }, []);
 
+  // Load once on mount — the Airbnb entry form's Agent dropdown needs the
+  // directory even before the Commissions tab is opened.
   useEffect(() => {
-    if (tab === "commissions") fetchAgents();
-  }, [tab, fetchAgents]);
+    fetchAgents();
+  }, [fetchAgents]);
 
   // ── Agent handlers ────────────────────────────────────────────────────────
   async function handleSaveAgent() {
@@ -724,54 +723,6 @@ export default function IncomePage() {
     setActiveTenant({ id: tenant.id, name: tenant.name });
   }
 
-  // ── Record All Pending ────────────────────────────────────────────────────
-  const [recordingAll, setRecordingAll] = useState(false);
-
-  async function handleRecordAllPending() {
-    // Skip "Not due" rows — a quarterly/annual payer mid-period owes nothing.
-    const unpaid = collectionRows.filter((r) => !r.isPaid && !r.notDue);
-    if (unpaid.length === 0) return;
-    if (!window.confirm(`Record full rent payment for ${unpaid.length} unpaid tenant${unpaid.length > 1 ? "s" : ""}?`)) return;
-
-    setRecordingAll(true);
-    const dateStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-01`;
-    let created = 0;
-    let failed  = 0;
-
-    for (const { tenant, expected } of unpaid) {
-      try {
-        const res = await fetch("/api/income", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type:           "LONGTERM_RENT",
-            unitId:         tenant.unitId,
-            tenantId:       tenant.id,
-            // Scheduled amount for the period (3x rent on a quarterly billing month)
-            grossAmount:    expected || tenant.monthlyRent,
-            agentCommission: 0,
-            date:           dateStr,
-          }),
-        });
-        if (res.ok) { created++; }
-        else        { failed++; }
-      } catch { failed++; }
-    }
-
-    // Refetch entries to update collection table
-    fetchEntries();
-    setArrearsSeq((s) => s + 1);
-    setRecordingAll(false);
-
-    if (created > 0 && failed === 0) {
-      toast.success(`${created} payment${created > 1 ? "s" : ""} recorded`);
-    } else if (created > 0) {
-      toast.success(`${created} recorded, ${failed} failed`);
-    } else {
-      toast.error("All failed — check entries manually");
-    }
-  }
-
   // ── Bulk selection ────────────────────────────────────────────────────────
   const [bulkSelected, setBulkSelected] = useState<Map<string, number>>(new Map());
   const [bulkRecording, setBulkRecording] = useState(false);
@@ -807,11 +758,14 @@ export default function IncomePage() {
     setBulkRecording(true);
     setBulkProgress({ done: 0, total: toRecord.length });
     const dateStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-01`;
-    let created = 0, failed = 0;
+    let created = 0;
+    // Track WHO failed, keep them selected for a one-click retry, and name
+    // them in the toast — a bare "N failed" gives the manager nothing to act on.
+    const failedRows: { tenantId: string; name: string; amount: number }[] = [];
 
     for (const [tenantId, grossAmount] of toRecord) {
       const row = collectionRows.find((r) => r.tenant.id === tenantId);
-      if (!row) { failed++; continue; }
+      if (!row) { failedRows.push({ tenantId, name: "Unknown tenant", amount: grossAmount }); continue; }
       try {
         const res = await fetch("/api/income", {
           method:  "POST",
@@ -825,19 +779,31 @@ export default function IncomePage() {
             date:            dateStr,
           }),
         });
-        if (res.ok) { created++; } else { failed++; }
-      } catch { failed++; }
+        if (res.ok) { created++; }
+        else { failedRows.push({ tenantId, name: row.tenant.name, amount: grossAmount }); }
+      } catch {
+        failedRows.push({ tenantId, name: row.tenant.name, amount: grossAmount });
+      }
       setBulkProgress((p) => p && { ...p, done: p.done + 1 });
     }
 
     fetchEntries();
     setArrearsSeq((s) => s + 1);
-    setBulkSelected(new Map());
+    // Successful rows clear; failed rows stay selected so "Record selected"
+    // becomes the retry button.
+    setBulkSelected(new Map(failedRows.map((f) => [f.tenantId, f.amount])));
     setBulkRecording(false);
     setBulkProgress(null);
 
-    if (failed === 0) toast.success(`${created} payment${created !== 1 ? "s" : ""} recorded`);
-    else toast.success(`${created} recorded, ${failed} failed`);
+    if (failedRows.length === 0) {
+      toast.success(`${created} payment${created !== 1 ? "s" : ""} recorded`);
+    } else {
+      const names = failedRows.map((f) => f.name).join(", ");
+      toast.error(
+        `${created} recorded · ${failedRows.length} failed: ${names}. They're still selected — click "Record selected" to retry.`,
+        { duration: 9000 },
+      );
+    }
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -1183,21 +1149,21 @@ export default function IncomePage() {
                       />
                     </div>
                   )}
-                  {/* Record all pending */}
+                  {/* Select all pending → editable bulk-record bar (amounts can
+                      be adjusted per tenant before recording, so partial
+                      payments are captured correctly) */}
                   {collectionSummary.paid < collectionSummary.total && !tenantsLoading && !loading && (
                     <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
                       <p className="text-xs text-gray-400 font-sans">
                         {collectionSummary.total - collectionSummary.paid} tenant{collectionSummary.total - collectionSummary.paid > 1 ? "s" : ""} still pending
                       </p>
                       <button
-                        onClick={handleRecordAllPending}
-                        disabled={recordingAll}
+                        onClick={selectAllUnpaid}
+                        disabled={bulkRecording}
+                        title="Selects every unpaid tenant with the expected amount prefilled — adjust any amount, then click Record selected"
                         className="flex items-center gap-1.5 text-xs font-medium font-sans text-gold hover:text-gold-dark transition-colors disabled:opacity-50"
                       >
-                        {recordingAll
-                          ? <><Loader2 size={12} className="animate-spin" /> Recording…</>
-                          : <><Zap size={12} /> Record all pending</>
-                        }
+                        <Zap size={12} /> Record all pending…
                       </button>
                     </div>
                   )}
@@ -1793,7 +1759,16 @@ export default function IncomePage() {
                           { value: "AGENT",       label: "Agent" },
                         ]} />
                         {platform === "AGENT" && (
-                          <Select label="Agent" placeholder="Select..." {...register("agentName")} options={AGENTS.map((a) => ({ value: a, label: a }))} />
+                          <Select
+                            label="Agent"
+                            placeholder={agents.length === 0 ? "No agents yet — add one under Commissions" : "Select..."}
+                            tooltip="Agents come from your Agent Directory (Commissions tab)."
+                            {...register("agentName")}
+                            options={[
+                              ...agents.map((a: any) => ({ value: a.name, label: a.name })),
+                              { value: "Other", label: "Other" },
+                            ]}
+                          />
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-4">

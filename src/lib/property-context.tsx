@@ -33,6 +33,12 @@ interface PropertyContextValue {
    * view doesn't silently revert to dollars when the org uses (e.g.) KES.
    */
   currency: string;
+  /**
+   * True when in "All properties" scope AND the accessible properties use more
+   * than one currency — portfolio totals are then a mixed-currency sum shown
+   * under the fallback label. Surface a caveat wherever aggregates render.
+   */
+  mixedCurrencies: boolean;
   /** Re-fetch the property list from the server. Call after creating/seeding a property. */
   refresh: () => Promise<void>;
 }
@@ -44,8 +50,12 @@ const PropertyContext = createContext<PropertyContextValue>({
   selected: null,
   loading: true,
   currency: "USD",
+  mixedCurrencies: false,
   refresh: async () => {},
 });
+
+/** sessionStorage sentinel for an explicit "All properties" choice. */
+const ALL_SENTINEL = "__ALL__";
 
 export function PropertyProvider({ children }: { children: ReactNode }) {
   const [properties, setProperties] = useState<PropertyOption[]>([]);
@@ -60,10 +70,18 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
       const r = await fetch("/api/properties?minimal=true", { cache: "no-store" });
       const data: PropertyOption[] = await r.json();
       setProperties(data);
-      // Restore from sessionStorage, else fall back to first property
+      // Restore from sessionStorage. Cold-load default is the PORTFOLIO view
+      // ("All properties") so multi-property managers land on the full picture;
+      // single-property orgs scope to their one property (keeps the dashboard
+      // SetupChecklist visible for fresh orgs).
       const stored = sessionStorage.getItem("selectedPropertyId");
       const match = data.find((p) => p.id === stored);
-      setSelectedIdState((prev) => match ? stored : (prev && data.find((p) => p.id === prev) ? prev : (data[0]?.id ?? null)));
+      setSelectedIdState((prev) => {
+        if (match) return stored;
+        if (stored === ALL_SENTINEL) return null;
+        if (prev && data.find((p) => p.id === prev)) return prev;
+        return data.length === 1 ? data[0].id : null;
+      });
     } catch { /* ignore network errors — keep current state */ }
   }, []);
 
@@ -73,23 +91,26 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
 
   const setSelectedId = useCallback((id: string | null) => {
     setSelectedIdState(id);
-    if (id) sessionStorage.setItem("selectedPropertyId", id);
-    else sessionStorage.removeItem("selectedPropertyId");
+    // Persist "All properties" explicitly so it survives navigation the same
+    // way a concrete selection does.
+    sessionStorage.setItem("selectedPropertyId", id ?? ALL_SENTINEL);
   }, []);
 
   const selected = properties.find((p) => p.id === selectedId) ?? null;
 
-  // Compute display currency once per render — selected wins, else the shared
-  // currency across all properties if there's exactly one, else USD.
-  const currency = (() => {
-    if (selected) return selected.currency;
-    if (properties.length === 0) return "USD";
+  const sharedCurrency = (() => {
+    if (properties.length === 0) return null;
     const first = properties[0].currency;
-    return properties.every((p) => p.currency === first) ? first : "USD";
+    return properties.every((p) => p.currency === first) ? first : null;
   })();
 
+  // Compute display currency once per render — selected wins, else the shared
+  // currency across all properties if there's exactly one, else USD.
+  const currency = selected ? selected.currency : sharedCurrency ?? "USD";
+  const mixedCurrencies = !selected && properties.length > 1 && sharedCurrency === null;
+
   return (
-    <PropertyContext.Provider value={{ properties, selectedId, setSelectedId, selected, loading, currency, refresh: fetchProperties }}>
+    <PropertyContext.Provider value={{ properties, selectedId, setSelectedId, selected, loading, currency, mixedCurrencies, refresh: fetchProperties }}>
       {children}
     </PropertyContext.Provider>
   );

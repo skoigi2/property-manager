@@ -273,28 +273,30 @@ function BulkSendRemindersModal({
   async function run() {
     setSending(true);
     const processed: string[] = [];
-    let logged = 0;
-    for (const it of items) {
-      if (!it.tenantId) continue;
-      try {
-        const r = await fetch(`/api/tenants/${it.tenantId}/communication-log`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "EMAIL",
-            subject: "Rent Reminder",
-            body: "Bulk rent reminder generated from inbox. Please follow up with the tenant via email or SMS.",
-            templateUsed: "rent_reminder",
-          }),
-        });
-        if (r.ok) { processed.push(it.id); logged++; }
-      } catch {
-        // continue with next
+    try {
+      const r = await fetch("/api/inbox/send-reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceIds: items.map((it) => it.refId) }),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to send reminders");
+
+      const sentInvoiceIds = new Set((data.sentDetails ?? []).map((s: { invoiceId: string }) => s.invoiceId));
+      for (const it of items) if (sentInvoiceIds.has(it.refId)) processed.push(it.id);
+
+      if (data.failed > 0) {
+        const names = (data.failedDetails ?? [])
+          .map((f: { tenant: string; error: string }) => `${f.tenant} (${f.error})`)
+          .join("; ");
+        toast.error(`${data.sent} emailed · ${data.failed} failed: ${names}`, { duration: 8000 });
+      } else {
+        toast.success(`Reminder emailed to ${data.sent} tenant${data.sent === 1 ? "" : "s"}`);
       }
+    } catch (err) {
+      toast.error((err as Error).message);
     }
     setSending(false);
-    if (logged > 0) toast.success(`Logged ${logged} reminder${logged === 1 ? "" : "s"}`);
-    else toast.error("No reminders could be logged");
     onDone(processed);
   }
 
@@ -302,15 +304,17 @@ function BulkSendRemindersModal({
     <Modal open onClose={onClose} title="Send rent reminders" size="md">
       <div className="p-5 space-y-4">
         <p className="text-sm font-sans text-gray-600">
-          Log a rent-reminder communication for {items.length} tenant{items.length === 1 ? "" : "s"}.
-          A `CommunicationLog` row will be created for each so you can follow up by phone, SMS, or email.
+          Email a rent-payment reminder to {items.length} tenant{items.length === 1 ? "" : "s"} with an
+          overdue invoice. Each email shows the invoice number, amount outstanding and days overdue,
+          and is logged in the tenant&apos;s communication trail. Tenants without an email address will be
+          reported back so you can follow up by phone or SMS.
         </p>
         <ul className="text-xs font-sans text-gray-500 list-disc list-inside max-h-40 overflow-y-auto">
           {items.map((it) => <li key={it.id}>{it.title}</li>)}
         </ul>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="gold" onClick={run} loading={sending}>Log reminders</Button>
+          <Button variant="gold" onClick={run} loading={sending}>Send reminders</Button>
         </div>
       </div>
     </Modal>

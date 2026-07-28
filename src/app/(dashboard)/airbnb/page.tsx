@@ -18,6 +18,7 @@ import { GuestPanel } from "@/components/guests/GuestPanel";
 import { formatCurrency } from "@/lib/currency";
 import { formatDate } from "@/lib/date-utils";
 import { useProperty } from "@/lib/property-context";
+import { useSharedMonth } from "@/lib/use-shared-month";
 import toast from "react-hot-toast";
 import { clsx } from "clsx";
 
@@ -80,7 +81,7 @@ export default function AirbnbPage() {
   const { selectedId, selected } = useProperty();
   const currency = useProperty().currency;
   const [tab, setTab]     = useState<Tab>("calendar");
-  const [month, setMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [month, setMonth] = useSharedMonth();
 
   // Data
   const [properties, setProperties]     = useState<any[]>([]);

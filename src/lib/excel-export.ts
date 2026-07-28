@@ -453,6 +453,93 @@ export function exportOwnerStatement(statements: any[], month: string, currency?
   writeFile(wb, `Owner-Statement-${month.replace(/\s/g, "-")}.xlsx`);
 }
 
+// ── Rent Roll ─────────────────────────────────────────────────────────────────
+
+const FREQUENCY_LABEL: Record<string, string> = {
+  MONTHLY: "Monthly", QUARTERLY: "Quarterly", BIANNUAL: "Bi-annual", ANNUAL: "Annual",
+};
+
+export interface RentRollRow {
+  propertyName: string;
+  currency?: string | null;
+  unitNumber: string;
+  unitType: string;
+  floor?: number | null;
+  sizeSqm?: number | null;
+  occupied: boolean;
+  vacantSince?: string | null;
+  tenantName?: string | null;
+  tenantEmail?: string | null;
+  tenantPhone?: string | null;
+  leaseStart?: string | null;
+  leaseEnd?: string | null;
+  paymentFrequency?: string | null;
+  monthlyRent?: number | null;
+  serviceCharge?: number | null;
+  depositAmount?: number | null;
+  escalationRate?: number | null;
+}
+
+const UNIT_TYPE_LABEL: Record<string, string> = {
+  BEDSITTER: "Bedsitter", ONE_BED: "1 Bed", TWO_BED: "2 Bed", THREE_BED: "3 Bed",
+  FOUR_BED: "4 Bed", PENTHOUSE: "Penthouse", COMMERCIAL: "Commercial", OTHER: "Other",
+};
+
+/** Lease-snapshot rent roll: one row per unit, vacant units included. */
+export function exportRentRoll(rows: RentRollRow[], currency?: string) {
+  const cur = currency ?? rows.find((r) => r.currency)?.currency ?? "";
+  const c = currLabel(cur);
+
+  const headers = [
+    "Property", "Unit", "Type", "Floor", "Size (sqm)", "Status",
+    "Tenant", "Email", "Phone",
+    "Lease Start", "Lease End", "Frequency",
+    `Monthly Rent${c}`, `Service Charge${c}`, `Total Monthly${c}`,
+    `Deposit Held${c}`, "Escalation (%)", "Vacant Since",
+  ];
+
+  const dataRows = rows.map((r) => [
+    r.propertyName,
+    r.unitNumber,
+    UNIT_TYPE_LABEL[r.unitType] ?? r.unitType,
+    r.floor ?? null,
+    r.sizeSqm ?? null,
+    r.occupied ? "Occupied" : "Vacant",
+    r.tenantName ?? "",
+    r.tenantEmail ?? "",
+    r.tenantPhone ?? "",
+    fmtDate(r.leaseStart),
+    fmtDate(r.leaseEnd),
+    r.paymentFrequency ? (FREQUENCY_LABEL[r.paymentFrequency] ?? r.paymentFrequency) : "",
+    r.occupied ? kshs(r.monthlyRent) : null,
+    r.occupied ? kshs(r.serviceCharge) : null,
+    r.occupied ? kshs(r.monthlyRent) + kshs(r.serviceCharge) : null,
+    r.occupied ? kshs(r.depositAmount) : null,
+    r.escalationRate ?? null,
+    r.occupied ? "" : fmtDate(r.vacantSince),
+  ]);
+
+  // Totals row (occupied units only)
+  const occupied = rows.filter((r) => r.occupied);
+  dataRows.push([
+    "TOTAL", `${rows.length} units`, "", null, null,
+    `${occupied.length} occupied / ${rows.length - occupied.length} vacant`,
+    "", "", "", "", "", "",
+    occupied.reduce((s, r) => s + kshs(r.monthlyRent), 0),
+    occupied.reduce((s, r) => s + kshs(r.serviceCharge), 0),
+    occupied.reduce((s, r) => s + kshs(r.monthlyRent) + kshs(r.serviceCharge), 0),
+    occupied.reduce((s, r) => s + kshs(r.depositAmount), 0),
+    null, "",
+  ]);
+
+  const ws = buildSheet(headers, dataRows);
+  setColWidths(ws, [20, 10, 12, 8, 10, 24, 22, 28, 16, 14, 14, 12, 18, 18, 18, 16, 14, 14]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Rent Roll");
+  writeFile(wb, `Rent-Roll-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
 // ── Forecast ──────────────────────────────────────────────────────────────────
 
 export function exportForecast(data: {

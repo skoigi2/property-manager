@@ -80,4 +80,20 @@ export interface ReportData {
     netVatLiability: number;    // outputTaxAdditive − inputTaxAdditive
     hasAnyTax: boolean;
   };
+
+  /** Point-in-time arrears aging snapshot (as of report generation). */
+  arrearsAging?: {
+    totalOutstanding: number;
+    totalCount: number;
+    buckets: Record<"current" | "d1_30" | "d31_60" | "d61_90" | "d90plus", { amount: number; count: number }>;
+    /** Top debtors by age (capped for the PDF). */
+    rows: {
+      tenantName: string;
+      unitNumber: string;
+      propertyName: string;
+      outstanding: number;
+      oldestAgeDays: number;
+      invoiceCount: number;
+    }[];
+  };
 }

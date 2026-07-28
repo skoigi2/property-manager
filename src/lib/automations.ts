@@ -5,6 +5,9 @@ import { getPropertyManagers } from "@/lib/notifications/checkers";
 import { getWorkflow, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { logAudit } from "@/lib/audit";
 import { AUTOMATION_DEFS, ensureAutomationTemplates, isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
+import { generateInvoicesForTenants } from "@/lib/invoice-generation";
+import { emailInvoiceToTenant } from "@/lib/invoice-email";
+import { format } from "date-fns";
 
 const DAY = 86400_000;
 
@@ -371,12 +374,162 @@ async function runUrgentMaintenance(organizationId: string): Promise<HandlerResu
   return { created, skipped };
 }
 
+// ─── Monthly rent invoice generation (AUTO_INVOICE_GENERATION) ─────────────────
+// Runs daily but is idempotent per (tenant, period): the AutomationExecution
+// ledger records every tenant evaluated for the month (created / already had an
+// invoice / not due on their quarterly-annual schedule), so a manager deleting
+// an auto-generated invoice doesn't get it re-created the next morning, while a
+// tenant added mid-month is picked up on the next run. Invoices are created as
+// DRAFT and flip to SENT only once the email actually goes out; tenants without
+// an email address keep a DRAFT for manual delivery and are listed in the
+// manager summary email.
+async function runAutoInvoiceGeneration(organizationId: string): Promise<HandlerResult> {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const periodKey = `${year}-${String(month).padStart(2, "0")}`;
+  const periodLabel = format(new Date(year, month - 1, 1), "MMMM yyyy");
+  let skipped = 0;
+
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      isActive: true,
+      unit: { property: { organizationId, type: "LONGTERM" } },
+    },
+    include: {
+      unit: { select: { id: true, unitNumber: true, propertyId: true, property: { select: { id: true, name: true } } } },
+      rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
+    },
+  });
+
+  // Per-property toggle + write-once dedup ledger.
+  const eligible: typeof tenants = [];
+  for (const t of tenants) {
+    if (!(await isAutomationEnabled(organizationId, "AUTO_INVOICE_GENERATION", t.unit.propertyId))) { skipped++; continue; }
+    if (await alreadyExecuted("AUTO_INVOICE_GENERATION", `${t.id}:${periodKey}`)) { skipped++; continue; }
+    eligible.push(t);
+  }
+  if (eligible.length === 0) return { created: 0, skipped };
+
+  const result = await generateInvoicesForTenants({
+    tenants: eligible,
+    year,
+    month,
+    status: "DRAFT",
+  });
+
+  // Record every evaluated tenant (not the errored ones — those retry tomorrow).
+  const evaluatedTenantIds = [
+    ...result.created.map((c) => c.tenantId),
+    ...result.skipped.map((s) => s.tenantId),
+    ...result.notDue.map((s) => s.tenantId),
+  ];
+  if (evaluatedTenantIds.length > 0) {
+    await prisma.automationExecution.createMany({
+      data: evaluatedTenantIds.map((tenantId) => ({
+        organizationId,
+        automationKey: "AUTO_INVOICE_GENERATION",
+        subjectId: `${tenantId}:${periodKey}`,
+      })),
+      skipDuplicates: true,
+    });
+  }
+  for (const err of result.errors) {
+    console.error(`[automations] invoice generation failed for ${err.tenant}: ${err.error}`);
+  }
+
+  // Email each created invoice; failures (incl. no email address) stay DRAFT.
+  const tenantById = new Map(eligible.map((t) => [t.id, t]));
+  const emailed: string[] = [];
+  const notEmailed: string[] = [];
+  for (const c of result.created) {
+    try {
+      await emailInvoiceToTenant(c.invoiceId, { loggedByEmail: "system@automations", loggedByName: "Automation" });
+      emailed.push(c.tenantName);
+    } catch {
+      notEmailed.push(c.tenantName);
+    }
+  }
+
+  // Manager summary, grouped per property.
+  const byProperty = new Map<string, { propertyName: string; created: string[]; emailed: string[]; notEmailed: string[] }>();
+  for (const c of result.created) {
+    const t = tenantById.get(c.tenantId);
+    if (!t) continue;
+    const key = t.unit.propertyId;
+    let group = byProperty.get(key);
+    if (!group) {
+      group = { propertyName: t.unit.property.name, created: [], emailed: [], notEmailed: [] };
+      byProperty.set(key, group);
+    }
+    group.created.push(c.tenantName);
+    (emailed.includes(c.tenantName) ? group.emailed : group.notEmailed).push(c.tenantName);
+  }
+
+  const appUrl = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
+  for (const [propertyId, group] of Array.from(byProperty.entries())) {
+    try {
+      const managers = await getPropertyManagers(propertyId, organizationId);
+      const subject = `Automation: ${group.created.length} rent invoice${group.created.length !== 1 ? "s" : ""} generated — ${group.propertyName}, ${periodLabel}`;
+      const html = `
+        <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
+          <p style="color:#c9a84c; font-size:12px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; margin:0 0 4px;">Automation</p>
+          <h2 style="color:#1a1a2e; font-size:20px; margin:0 0 8px;">Monthly rent invoices — ${esc(group.propertyName)}</h2>
+          <p style="color:#6b7280; font-size:14px; line-height:1.6; margin:0 0 12px;">
+            ${group.created.length} invoice${group.created.length !== 1 ? "s were" : " was"} generated for <strong>${esc(periodLabel)}</strong>.
+            ${group.emailed.length} emailed to tenants automatically.
+          </p>
+          ${group.notEmailed.length > 0 ? `
+          <p style="color:#b45309; font-size:13px; line-height:1.6; margin:0 0 12px;">
+            Needs manual delivery (no email address or send failed): <strong>${esc(group.notEmailed.join(", "))}</strong> — these remain drafts.
+          </p>` : ""}
+          <a href="${appUrl}/invoices"
+             style="display:inline-block; background:#c9a84c; color:white; padding:12px 28px;
+                    border-radius:8px; text-decoration:none; font-size:14px; font-weight:600;">
+            Review invoices →
+          </a>
+          <p style="color:#9ca3af; font-size:11px; margin-top:24px;">Groundwork PM · Automated workflow</p>
+        </div>`;
+      for (const mgr of managers) {
+        if (!(await wantsEmail(mgr.userId, "WORKFLOW"))) continue;
+        await sendNotificationEmail(mgr.email, subject, html, { organizationId });
+      }
+    } catch (e) {
+      console.error("[automations] invoice summary notify failed:", e);
+    }
+  }
+
+  if (result.created.length > 0) {
+    await logAudit({
+      userId: "system",
+      userEmail: "system@automations",
+      action: "CREATE",
+      resource: "Invoice",
+      resourceId: `auto-generation ${periodKey}`,
+      organizationId,
+      after: {
+        automationKey: "AUTO_INVOICE_GENERATION",
+        period: periodKey,
+        created: result.created.length,
+        emailed: emailed.length,
+        awaitingManualDelivery: notEmailed,
+      },
+    });
+  }
+
+  return {
+    created: result.created.length,
+    skipped: skipped + result.skipped.length + result.notDue.length,
+  };
+}
+
 const HANDLERS: Record<string, (organizationId: string) => Promise<HandlerResult>> = {
   LEASE_RENEWAL_90D: runLeaseRenewal90d,
   ARREARS_7D: runArrears7d,
   COMPLIANCE_30D: runCompliance30d,
   INSURANCE_30D: runInsurance30d,
   URGENT_MAINTENANCE: runUrgentMaintenance,
+  AUTO_INVOICE_GENERATION: runAutoInvoiceGeneration,
 };
 
 // ─── Engine entry (called by the cron) ─────────────────────────────────────────

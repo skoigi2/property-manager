@@ -53,6 +53,8 @@ interface Invoice {
   rentAmount: number;
   serviceCharge: number;
   otherCharges: number;
+  lateFeeAmount?: number;
+  lateFeeAppliedAt?: string | null;
   totalAmount: number;
   dueDate: string;
   status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED";
@@ -444,6 +446,144 @@ function MarkPaidModal({
   );
 }
 
+// ── LateFeeModal ───────────────────────────────────────────────────────────────
+
+function LateFeeModal({
+  invoice,
+  currency,
+  onClose,
+  onUpdated,
+}: {
+  invoice: Invoice;
+  currency: string;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [preview, setPreview] = useState<{
+    eligible: boolean; alreadyApplied: boolean; appliedAmount: number;
+    rate: number; daysOverdue: number; outstanding: number; fee: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/invoices/${invoice.id}/late-fee`)
+      .then((r) => r.json())
+      .then((d) => { setPreview(d); setLoading(false); })
+      .catch(() => { toast.error("Could not load late fee details"); setLoading(false); });
+  }, [invoice.id]);
+
+  async function apply() {
+    setWorking(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/late-fee`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to apply late fee");
+      toast.success(`Late fee of ${formatCurrency(data.fee, currency)} applied`);
+      onUpdated();
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function remove() {
+    setWorking(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/late-fee`, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to remove late fee");
+      toast.success("Late fee removed");
+      onUpdated();
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+        <h3 className="font-display text-lg text-header mb-1">Late Payment Fee</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          <span className="font-mono text-xs">{invoice.invoiceNumber}</span> — {invoice.tenant.name}
+        </p>
+
+        {loading || !preview ? (
+          <div className="flex items-center justify-center py-8 text-gray-400 gap-2">
+            <Loader2 size={16} className="animate-spin" /> Loading…
+          </div>
+        ) : preview.alreadyApplied ? (
+          <>
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-5 text-sm text-amber-800">
+              A late fee of <strong>{formatCurrency(preview.appliedAmount, currency)}</strong> is already on this invoice.
+              Removing it will reduce the invoice total accordingly.
+            </div>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                Close
+              </button>
+              <button
+                onClick={remove}
+                disabled={working}
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {working ? <Loader2 size={14} className="animate-spin" /> : null}
+                Remove fee
+              </button>
+            </div>
+          </>
+        ) : !preview.eligible ? (
+          <>
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-5 text-sm text-gray-600">
+              {preview.rate <= 0
+                ? "No late payment interest rate is set for this property. Configure it under the property's Management Agreement (Late Payment Interest % p.a.) first."
+                : preview.daysOverdue <= 0
+                ? "This invoice is not past its due date yet."
+                : "No late fee can be applied to this invoice."}
+            </div>
+            <button onClick={onClose} className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              Close
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="space-y-2 text-sm mb-5">
+              <div className="flex justify-between"><span className="text-gray-500">Outstanding</span><span className="font-mono">{formatCurrency(preview.outstanding, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Days overdue</span><span className="font-mono">{preview.daysOverdue}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Interest rate</span><span className="font-mono">{preview.rate}% p.a.</span></div>
+              <div className="flex justify-between pt-2 border-t border-gray-100 font-medium">
+                <span className="text-header">Late fee to apply</span>
+                <span className="font-mono text-amber-700">{formatCurrency(preview.fee, currency)}</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mb-5">
+              The fee is added to the invoice total as a &quot;Late Payment Fee&quot; line and appears on the PDF. You can remove it later if needed.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={apply}
+                disabled={working}
+                className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {working ? <Loader2 size={14} className="animate-spin" /> : null}
+                Apply fee
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── InvoiceRow ─────────────────────────────────────────────────────────────────
 
 function InvoiceRow({
@@ -453,13 +593,19 @@ function InvoiceRow({
   onDelete,
   onStatusChange,
   onSync,
+  onLateFee,
+  selected,
+  onToggleSelect,
 }: {
   invoice: Invoice;
   currency: string;
   onMarkPaid: (inv: Invoice) => void;
   onDelete: (inv: Invoice) => void;
   onStatusChange: (id: string, status: string) => void;
-  onSync: (id: string) => void;
+  onSync: (id: string) => void | Promise<void>;
+  onLateFee: (inv: Invoice) => void;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -485,21 +631,10 @@ function InvoiceRow({
 
   async function handleSync() {
     setSyncing(true);
-    try {
-      const res = await fetch(`/api/invoices/${invoice.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        // Sending status=PAID on an already-PAID invoice triggers idempotent income entry creation
-        body: JSON.stringify({ status: "PAID" }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success("Income entry created ✓");
-      onSync(invoice.id);
-    } catch {
-      toast.error("Sync failed");
-    } finally {
-      setSyncing(false);
-    }
+    // Page-level onSync PATCHes status=PAID (idempotent income-entry creation)
+    // and refreshes the list — shared with the mobile card's Sync button.
+    await onSync(invoice.id);
+    setSyncing(false);
   }
 
   async function downloadPdf() {
@@ -521,8 +656,20 @@ function InvoiceRow({
     }
   }
 
+  const selectable = invoice.status !== "PAID" && invoice.status !== "CANCELLED";
+
   return (
-    <tr id={`item-${invoice.id}`} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+    <tr id={`item-${invoice.id}`} className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${selected ? "bg-gold/5" : ""}`}>
+      {/* Select */}
+      <td className="pl-4 py-3 w-8">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={!selectable}
+          onChange={() => onToggleSelect(invoice.id)}
+          className="rounded border-gray-300 text-gold focus:ring-gold/30 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+        />
+      </td>
       {/* Invoice # + Period */}
       <td className="px-4 py-3">
         <p className="font-mono text-xs font-medium text-header">{invoice.invoiceNumber}</p>
@@ -551,6 +698,9 @@ function InvoiceRow({
         <p className="text-sm font-medium font-mono text-gray-800">
           {formatCurrency(invoice.totalAmount, currency)}
         </p>
+        {(invoice.lateFeeAmount ?? 0) > 0 && (
+          <p className="text-xs text-amber-600 mt-0.5">incl. late fee {formatCurrency(invoice.lateFeeAmount!, currency)}</p>
+        )}
         {invoice.status === "PAID" && invoice.paidAmount && invoice.paidAmount !== invoice.totalAmount && (
           <p className="text-xs text-green-600 mt-0.5">Paid: {formatCurrency(invoice.paidAmount, currency)}</p>
         )}
@@ -648,6 +798,19 @@ function InvoiceRow({
                       {STATUS_CONFIG[s].label}
                     </button>
                   ))}
+                  {((["SENT", "OVERDUE"].includes(invoice.status) && new Date(invoice.dueDate) < new Date()) || invoice.lateFeeAppliedAt) && (
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          onLateFee(invoice);
+                          setShowActions(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 hover:bg-amber-50 text-amber-700"
+                      >
+                        {invoice.lateFeeAppliedAt ? "Late fee…" : "Apply late fee…"}
+                      </button>
+                    </div>
+                  )}
                   <div className="border-t border-gray-100 mt-1 pt-1">
                     <button
                       onClick={() => {
@@ -857,6 +1020,12 @@ export default function InvoicesPage() {
   const [markPaidTarget, setMarkPaidTarget] = useState<Invoice | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [lateFeeTarget, setLateFeeTarget] = useState<Invoice | null>(null);
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkWorking, setBulkWorking] = useState<"send" | "paid" | null>(null);
+  const [bulkPaidConfirm, setBulkPaidConfirm] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -870,6 +1039,7 @@ export default function InvoicesPage() {
       const res = await fetch(`/api/invoices${propParam}`);
       const data = await res.json();
       setInvoices(Array.isArray(data) ? data : []);
+      setSelectedIds(new Set());
     } catch {
       toast.error("Failed to load invoices");
     } finally {
@@ -890,9 +1060,87 @@ export default function InvoicesPage() {
     fetchInvoices();
   }
 
-  function handleSync(invoiceId: string) {
-    // Refresh list so the ⚠ badge disappears and _count updates
+  async function handleSync(invoiceId: string) {
+    // Re-PATCH status=PAID: on an already-PAID invoice this idempotently
+    // creates the missing income entry, then refresh so the ⚠ badge clears.
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PAID" }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Income entry created ✓");
+    } catch {
+      toast.error("Sync failed");
+    }
     fetchInvoices();
+  }
+
+  // ── Bulk selection helpers ────────────────────────────────────────────────
+  const isSelectable = (i: Invoice) => i.status !== "PAID" && i.status !== "CANCELLED";
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkSend() {
+    const ids = Array.from(selectedIds);
+    setBulkWorking("send");
+    try {
+      const res = await fetch("/api/invoices/bulk-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Bulk send failed");
+      if (data.failed > 0) {
+        const names = (data.failedDetails ?? []).map((f: { tenant: string; error: string }) => `${f.tenant} (${f.error})`).join("; ");
+        toast.error(`${data.sent} sent · ${data.failed} failed: ${names}`, { duration: 8000 });
+      } else {
+        toast.success(`${data.sent} invoice${data.sent !== 1 ? "s" : ""} emailed`);
+      }
+      fetchInvoices();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBulkWorking(null);
+    }
+  }
+
+  async function handleBulkMarkPaid() {
+    const ids = Array.from(selectedIds);
+    setBulkPaidConfirm(false);
+    setBulkWorking("paid");
+    try {
+      const res = await fetch("/api/invoices/bulk-mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Bulk update failed");
+      const extras = [
+        data.skipped > 0 ? `${data.skipped} skipped` : null,
+        data.failed > 0 ? `${data.failed} failed` : null,
+      ].filter(Boolean).join(" · ");
+      if (data.failed > 0) {
+        const names = (data.failedDetails ?? []).map((f: { invoiceNumber: string; error: string }) => `${f.invoiceNumber} (${f.error})`).join("; ");
+        toast.error(`${data.paid} marked paid · ${extras}: ${names}`, { duration: 8000 });
+      } else {
+        toast.success(`${data.paid} invoice${data.paid !== 1 ? "s" : ""} marked paid${extras ? ` · ${extras}` : ""}`);
+      }
+      fetchInvoices();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBulkWorking(null);
+    }
   }
 
   async function handleDelete() {
@@ -1050,6 +1298,38 @@ export default function InvoicesPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky top-2 z-30 bg-header text-white rounded-xl shadow-lg px-4 py-2.5 flex items-center gap-3 flex-wrap">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={handleBulkSend}
+              disabled={bulkWorking !== null}
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm font-sans transition-colors disabled:opacity-50"
+            >
+              {bulkWorking === "send" ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+              Email to tenants
+            </button>
+            <button
+              onClick={() => setBulkPaidConfirm(true)}
+              disabled={bulkWorking !== null}
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg text-sm font-sans transition-colors disabled:opacity-50"
+            >
+              {bulkWorking === "paid" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+              Mark paid
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkWorking !== null}
+              className="text-white/60 hover:text-white text-sm px-2 py-1.5 transition-colors disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
@@ -1145,6 +1425,18 @@ export default function InvoicesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
+                    <th className="pl-4 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={filtered.some(isSelectable) && filtered.filter(isSelectable).every((i) => selectedIds.has(i.id))}
+                        onChange={(e) => {
+                          const selectable = filtered.filter(isSelectable).map((i) => i.id);
+                          setSelectedIds(e.target.checked ? new Set(selectable) : new Set());
+                        }}
+                        className="rounded border-gray-300 text-gold focus:ring-gold/30 cursor-pointer"
+                        title="Select all unpaid invoices"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Invoice</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Tenant</th>
                     <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</th>
@@ -1163,6 +1455,9 @@ export default function InvoicesPage() {
                       onDelete={setDeleteTarget}
                       onStatusChange={handleStatusChange}
                       onSync={handleSync}
+                      onLateFee={setLateFeeTarget}
+                      selected={selectedIds.has(inv.id)}
+                      onToggleSelect={toggleSelect}
                     />
                   ))}
                 </tbody>
@@ -1196,6 +1491,41 @@ export default function InvoicesPage() {
           onClose={() => setMarkPaidTarget(null)}
           onUpdated={fetchInvoices}
         />
+      )}
+      {lateFeeTarget && (
+        <LateFeeModal
+          invoice={lateFeeTarget}
+          currency={currency}
+          onClose={() => setLateFeeTarget(null)}
+          onUpdated={fetchInvoices}
+        />
+      )}
+
+      {/* Bulk mark-paid confirm */}
+      {bulkPaidConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+            <h3 className="font-display text-lg text-header mb-2">Mark {selectedIds.size} invoice{selectedIds.size !== 1 ? "s" : ""} as paid?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              Each invoice is marked PAID for its full amount (dated today) and a matching income entry is created where missing.
+            </p>
+            <p className="text-xs text-gray-400 mb-5">Already-paid or cancelled invoices are skipped.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBulkPaidConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkMarkPaid}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              >
+                Mark paid
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete confirm */}

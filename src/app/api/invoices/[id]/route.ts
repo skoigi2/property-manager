@@ -70,7 +70,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const newRent = rentAmount ?? invoice!.rentAmount;
   const newService = serviceCharge ?? invoice!.serviceCharge;
   const newOther = otherCharges ?? invoice!.otherCharges;
-  const newTotal = newRent + newService + newOther;
+  // An applied late fee stays part of the total (managed via /late-fee).
+  const newTotal = newRent + newService + newOther + invoice!.lateFeeAmount;
   const resolvedPaidAt = paidAt !== undefined ? (paidAt ? new Date(paidAt) : null) : invoice!.paidAt;
 
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).

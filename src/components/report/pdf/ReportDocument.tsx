@@ -139,6 +139,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const hasShortLet = data.albaPerformance.length > 0;
   const hasVendors  = (data.vendorSpend?.length ?? 0) > 0;
   const hasTax      = !!data.taxSummary?.hasAnyTax;
+  const hasAging    = (data.arrearsAging?.totalCount ?? 0) > 0;
   const hasAlerts   = data.alerts.length > 0;
 
   // Dynamic section numbering
@@ -146,6 +147,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const SEC = {
     exec:      ++n,
     longTerm:  hasLongTerm ? ++n : null,
+    aging:     hasAging    ? ++n : null,
     shortLet:  hasShortLet ? ++n : null,
     expenses:  ++n,
     pl:        ++n,
@@ -155,6 +157,14 @@ export function ReportDocument({ data }: { data: ReportData }) {
     tax:       hasTax     ? ++n : null,
     alerts:    hasAlerts  ? ++n : null,
   };
+
+  const AGING_BUCKETS: { key: keyof NonNullable<ReportData["arrearsAging"]>["buckets"]; label: string }[] = [
+    { key: "current",  label: "Current" },
+    { key: "d1_30",    label: "1–30 days" },
+    { key: "d31_60",   label: "31–60 days" },
+    { key: "d61_90",   label: "61–90 days" },
+    { key: "d90plus",  label: "90+ days" },
+  ];
 
   const totalRentExpected = data.rentCollection.reduce((s, t) => s + t.expectedRent + t.serviceCharge, 0);
   const totalRentReceived = data.rentCollection.reduce((s, t) => s + t.received, 0);
@@ -325,6 +335,73 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   <Text style={[styles.tableCell, { flex: 1.8 }]} />
                   <Text style={[styles.tableCell, { flex: 1.8 }]} />
                 </View>
+              </View>
+            </>
+          )}
+
+          {/* Section: Arrears Aging (point-in-time) */}
+          {hasAging && data.arrearsAging && (
+            <>
+              <SectionHeading num={SEC.aging} title="Arrears Aging" />
+              {/* Bucket summary strip */}
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  {AGING_BUCKETS.map(({ label }) => (
+                    <Text key={label} style={[styles.tableHeaderCell, { flex: 1 }]}>{label}</Text>
+                  ))}
+                  <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Total Outstanding</Text>
+                </View>
+                <View style={styles.tableRow}>
+                  {AGING_BUCKETS.map(({ key, label }) => {
+                    const b = data.arrearsAging!.buckets[key];
+                    return (
+                      <Text
+                        key={label}
+                        style={[styles.tableCellMono, { flex: 1 }, key === "d90plus" && b.amount > 0 ? styles.negative : {}]}
+                      >
+                        {b.amount > 0 ? `${fmt(b.amount)} (${b.count})` : "—"}
+                      </Text>
+                    );
+                  })}
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.2 }]}>
+                    {fmt(data.arrearsAging.totalOutstanding)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Top debtors, oldest first */}
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  {[
+                    { h: "Tenant",       f: 3 },
+                    { h: "Unit",         f: 1 },
+                    { h: "Property",     f: 2.4 },
+                    { h: "Invoices",     f: 1.2 },
+                    { h: "Days Overdue", f: 1.6 },
+                    { h: "Outstanding",  f: 2 },
+                  ].map(({ h, f }) => (
+                    <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
+                  ))}
+                </View>
+                {data.arrearsAging.rows.map((r, idx) => (
+                  <View key={`${r.tenantName}-${r.unitNumber}`} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                    <Text style={[styles.tableCell, { flex: 3 }]}>{r.tenantName}</Text>
+                    <Text style={[styles.tableCell, { flex: 1 }]}>{r.unitNumber}</Text>
+                    <Text style={[styles.tableCell, { flex: 2.4 }]}>{r.propertyName}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 1.2, textAlign: "right" }]}>{r.invoiceCount}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 1.6, textAlign: "right" }, r.oldestAgeDays > 90 ? styles.negative : {}]}>
+                      {r.oldestAgeDays > 0 ? r.oldestAgeDays : "—"}
+                    </Text>
+                    <Text style={[styles.tableCellMono, styles.negative, { flex: 2, textAlign: "right" }]}>{fmt(r.outstanding)}</Text>
+                  </View>
+                ))}
+                {data.arrearsAging.totalCount > data.arrearsAging.rows.length && (
+                  <View style={styles.tableRow}>
+                    <Text style={[styles.tableCell, styles.muted, { flex: 1 }]}>
+                      … and {data.arrearsAging.totalCount - data.arrearsAging.rows.length} more tenant(s) — see the Arrears page for the full list.
+                    </Text>
+                  </View>
+                )}
               </View>
             </>
           )}

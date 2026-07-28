@@ -82,6 +82,16 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: false,
     caseType: "MAINTENANCE",
   },
+  {
+    key: "AUTO_INVOICE_GENERATION",
+    name: "Monthly Rent Invoices",
+    description:
+      "Automatically generate each month's rent invoices (due on the 5th) and email the PDF to every tenant with an email address. Tenants without an email get a draft invoice for manual delivery.",
+    trigger: "Start of each month (new tenants caught up daily)",
+    actions: ["Create Invoices", "Email Tenants", "Notify Managers"],
+    category: "WORKFLOW",
+    defaultEnabled: false,
+  },
 
   // ── Email notifications (email managers + Inbox hint) — on by default ────────
   {

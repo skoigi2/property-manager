@@ -1,10 +1,8 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { format } from "date-fns";
-import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
-import { resolveExpectedRent } from "@/lib/rent-resolution";
-import { allocateInvoiceNumber } from "@/lib/invoice-numbering";
+import { generateInvoicesForTenants } from "@/lib/invoice-generation";
 
 const bulkSchema = z.object({
   year:  z.number().int().min(2020).max(2100),
@@ -56,86 +54,13 @@ export async function POST(req: Request) {
     return Response.json({ created: 0, skipped: 0, errors: [], message: "No active long-term tenants found" });
   }
 
-  // Fetch existing invoices for this period in one query
-  const existingInvoices = await prisma.invoice.findMany({
-    where: {
-      periodYear:  year,
-      periodMonth: month,
-      tenantId:    { in: tenants.map((t) => t.id) },
-    },
-    select: { tenantId: true },
-  });
-  const existingTenantIds = new Set(existingInvoices.map((i) => i.tenantId));
+  const result = await generateInvoicesForTenants({ tenants, year, month, dueDayOfMonth });
 
-  const dueDate = new Date(year, month - 1, dueDayOfMonth);
-  const periodStart = new Date(year, month - 1, 1);
-  const periodLabel = format(periodStart, "MMM yyyy");
-
-  const created: string[] = [];
-  const skipped: string[] = [];
-  const notDue:  string[] = [];
-  const errors:  { tenant: string; error: string }[] = [];
-
-  for (const tenant of tenants) {
-    if (existingTenantIds.has(tenant.id)) {
-      skipped.push(tenant.name);
-      continue;
-    }
-
-    // Schedule-aware billing: quarterly/biannual/annual payers get ONE
-    // invoice for the full period on their billing month (anchored to lease
-    // start) and nothing in the covered months in between.
-    const sched = scheduledExpectedForMonth({
-      leaseStart: tenant.leaseStart,
-      frequency: tenant.paymentFrequency,
-      month: periodStart,
-      rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
-    });
-    if (!sched.due) {
-      notDue.push(tenant.name);
-      continue;
-    }
-
-    const nMonths = frequencyMonths(tenant.paymentFrequency);
-    const coveredLabel =
-      nMonths > 1
-        ? `${format(periodStart, "MMM yyyy")} – ${format(new Date(year, month - 1 + nMonths - 1, 1), "MMM yyyy")}`
-        : periodLabel;
-
-    try {
-      // Each tenant's number comes from its resolved series (unit/property
-      // payment account with its own format, else the org default).
-      const invoiceNumber = await allocateInvoiceNumber(tenant.id, periodStart);
-      const rentAmount    = sched.amount;
-      const serviceCharge = (tenant.serviceCharge ?? 0) * nMonths;
-      const totalAmount   = rentAmount + serviceCharge;
-
-      await prisma.invoice.create({
-        data: {
-          invoiceNumber,
-          tenantId:     tenant.id,
-          periodYear:   year,
-          periodMonth:  month,
-          rentAmount,
-          serviceCharge,
-          otherCharges:  0,
-          totalAmount,
-          dueDate,
-          status: "SENT",
-          notes:
-            nMonths > 1
-              ? `Auto-generated — ${
-                  { 3: "quarterly", 6: "bi-annual", 12: "annual" }[nMonths] ?? `${nMonths}-month`
-                } billing covering ${coveredLabel}`
-              : `Auto-generated for ${periodLabel}`,
-        },
-      });
-
-      created.push(tenant.name);
-    } catch (e) {
-      errors.push({ tenant: tenant.name, error: e instanceof Error ? e.message : "Unknown error" });
-    }
-  }
+  const periodLabel = format(new Date(year, month - 1, 1), "MMM yyyy");
+  const created = result.created.map((c) => c.tenantName);
+  const skipped = result.skipped.map((s) => s.tenantName);
+  const notDue  = result.notDue.map((s) => s.tenantName);
+  const errors  = result.errors.map(({ tenant, error: err }) => ({ tenant, error: err }));
 
   return Response.json({
     created: created.length,

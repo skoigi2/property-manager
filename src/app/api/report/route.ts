@@ -10,6 +10,26 @@ import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
 import { formatCurrency } from "@/lib/currency";
 import { buildTaxSummary } from "@/lib/tax-engine";
+import { buildAgingSnapshot } from "@/lib/arrears-aging";
+
+/** Compact aging block for ReportData (top 15 debtors, oldest first). */
+async function buildReportAging(propertyIds: string[]): Promise<ReportData["arrearsAging"]> {
+  const aging = await buildAgingSnapshot(propertyIds);
+  if (aging.totalCount === 0) return undefined;
+  return {
+    totalOutstanding: aging.totalOutstanding,
+    totalCount: aging.totalCount,
+    buckets: aging.buckets,
+    rows: aging.rows.slice(0, 15).map((r) => ({
+      tenantName: r.tenantName,
+      unitNumber: r.unitNumber,
+      propertyName: r.propertyName,
+      outstanding: r.outstanding,
+      oldestAgeDays: r.oldestAgeDays,
+      invoiceCount: r.invoiceCount,
+    })),
+  };
+}
 
 // ── Shared data builder ────────────────────────────────────────────────────────
 
@@ -178,6 +198,9 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const allLineItems = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummary = buildTaxSummary(incomeEntries, allLineItems);
 
+  // Arrears aging (point-in-time, invoice-based)
+  const arrearsAging = await buildReportAging(propertyIds);
+
   return {
     title:                `${propertyNames} — ${periodLabel}`,
     property:             propertyNames,
@@ -206,6 +229,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     mgmtFee: { owing: mgmtOwing, paid: mgmtPaid, balance: mgmtPaid - mgmtOwing },
     alerts,
     ...(taxSummary.hasAnyTax ? { taxSummary } : {}),
+    ...(arrearsAging ? { arrearsAging } : {}),
   };
 }
 
@@ -369,6 +393,7 @@ async function buildRangeReportData(
 
   const allLineItemsQ = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummaryQ   = buildTaxSummary(incomeEntries, allLineItemsQ);
+  const arrearsAgingQ = await buildReportAging(propertyIds);
 
   return {
     title:                `${propertyNames} — ${periodLabel}`,
@@ -390,6 +415,7 @@ async function buildRangeReportData(
     mgmtFee: { owing: mgmtOwing, paid: mgmtPaid, balance: mgmtPaid - mgmtOwing },
     alerts,
     ...(taxSummaryQ.hasAnyTax ? { taxSummary: taxSummaryQ } : {}),
+    ...(arrearsAgingQ ? { arrearsAging: arrearsAgingQ } : {}),
   };
 }
 

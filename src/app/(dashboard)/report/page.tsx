@@ -16,7 +16,7 @@ import {
 import { OwnerEmailDraftModal } from "@/components/report/OwnerEmailDraftModal";
 import { TaxSummaryTab } from "@/components/report/TaxSummary";
 import { OwnerDashboard } from "@/components/report/OwnerDashboard";
-import { exportOwnerStatement, exportAnnualSummary } from "@/lib/excel-export";
+import { exportOwnerStatement, exportAnnualSummary, exportRentRoll } from "@/lib/excel-export";
 import { clsx } from "clsx";
 import type { ReportData } from "@/types/report";
 import { useProperty } from "@/lib/property-context";
@@ -122,6 +122,19 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
   const opExpenses  = data.expenses.filter((e) => !e.isSunkCost);
   const sunkExpenses = data.expenses.filter((e) => e.isSunkCost);
 
+  async function downloadRentRoll() {
+    try {
+      const qs = selectedId ? `?propertyId=${selectedId}` : "";
+      const res = await fetch(`/api/report/rent-roll${qs}`);
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      if (!d.rows?.length) { toast.error("No units to export"); return; }
+      exportRentRoll(d.rows, currency);
+    } catch {
+      toast.error("Rent roll export failed");
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Meta */}
@@ -130,12 +143,20 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           <p className="font-display text-lg text-header">{data.title}</p>
           <p className="text-xs text-gray-400 font-sans mt-0.5">Generated {data.generatedAt} · by {data.generatedBy}</p>
         </div>
-        {data.alerts.length > 0 && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full">
-            <AlertTriangle size={13} />
-            {data.alerts.length} alert{data.alerts.length > 1 ? "s" : ""}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={downloadRentRoll}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:border-gold/50 hover:text-gold-dark transition-colors"
+          >
+            <FileDown size={13} /> Rent Roll (Excel)
+          </button>
+          {data.alerts.length > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full">
+              <AlertTriangle size={13} />
+              {data.alerts.length} alert{data.alerts.length > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -245,6 +266,67 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                     {data.rentCollection.reduce((s, r) => s + r.received, 0).toLocaleString()}
                   </td>
                   <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Arrears Aging */}
+      {data.arrearsAging && data.arrearsAging.totalCount > 0 && (
+        <Card>
+          <SectionTitle><AlertTriangle size={16} className="text-gold" /> Arrears Aging</SectionTitle>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+            {([
+              ["current",  "Current"],
+              ["d1_30",    "1–30 days"],
+              ["d31_60",   "31–60 days"],
+              ["d61_90",   "61–90 days"],
+              ["d90plus",  "90+ days"],
+            ] as const).map(([key, label]) => {
+              const b = data.arrearsAging!.buckets[key];
+              const danger = key === "d61_90" || key === "d90plus";
+              return (
+                <div key={key} className={clsx("rounded-xl border p-3", b.amount > 0 && danger ? "border-red-100 bg-red-50/50" : "border-gray-100")}>
+                  <p className="text-[11px] text-gray-400 font-sans uppercase tracking-wide">{label}</p>
+                  <p className={clsx("font-mono text-sm font-medium mt-1", b.amount > 0 ? (danger ? "text-expense" : "text-header") : "text-gray-300")}>
+                    {b.amount > 0 ? fmt(b.amount) : "—"}
+                  </p>
+                  {b.count > 0 && <p className="text-[11px] text-gray-400 mt-0.5">{b.count} invoice{b.count !== 1 ? "s" : ""}</p>}
+                </div>
+              );
+            })}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {["Tenant", "Unit", "Property", "Invoices", "Days Overdue", "Outstanding"].map((h) => (
+                    <th key={h} className="pb-2 text-left text-xs font-medium text-gray-400 font-sans uppercase tracking-wide pr-4 last:pr-0">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.arrearsAging.rows.map((r) => (
+                  <tr key={`${r.tenantName}-${r.unitNumber}`} className="border-b border-gray-50 last:border-0">
+                    <td className="py-2.5 pr-4 font-sans text-header">{r.tenantName}</td>
+                    <td className="py-2.5 pr-4 font-mono text-gray-500">{r.unitNumber}</td>
+                    <td className="py-2.5 pr-4 font-sans text-gray-500">{r.propertyName}</td>
+                    <td className="py-2.5 pr-4 font-mono text-gray-500">{r.invoiceCount}</td>
+                    <td className={clsx("py-2.5 pr-4 font-mono", r.oldestAgeDays > 90 ? "text-expense font-medium" : r.oldestAgeDays > 30 ? "text-amber-600" : "text-gray-500")}>
+                      {r.oldestAgeDays > 0 ? `${r.oldestAgeDays}d` : "—"}
+                    </td>
+                    <td className="py-2.5 font-mono font-medium text-expense">{fmt(r.outstanding)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200 bg-cream">
+                  <td colSpan={5} className="py-2 pr-4 text-xs font-medium font-sans text-gray-500 uppercase">
+                    Total outstanding · {data.arrearsAging.totalCount} tenant{data.arrearsAging.totalCount !== 1 ? "s" : ""}
+                  </td>
+                  <td className="py-2 font-mono text-sm font-medium text-expense">{fmt(data.arrearsAging.totalOutstanding)}</td>
                 </tr>
               </tfoot>
             </table>

@@ -1085,6 +1085,8 @@ model Invoice {
   rentAmount    Decimal @db.Decimal(14, 2)
   serviceCharge Decimal         @default(0) @db.Decimal(14, 2)
   otherCharges  Decimal         @default(0) @db.Decimal(14, 2)
+  lateFeeAmount Decimal         @default(0) @db.Decimal(14, 2)
+  lateFeeAppliedAt DateTime?
   totalAmount   Decimal @db.Decimal(14, 2)
   dueDate       DateTime
   status        InvoiceStatus @default(DRAFT)

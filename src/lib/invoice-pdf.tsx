@@ -82,6 +82,7 @@ export type InvoiceData = {
   rentAmount: number;
   serviceCharge: number;
   otherCharges: number;
+  lateFeeAmount?: number;
   totalAmount: number;
   dueDate: Date | string;
   status: string;
@@ -177,6 +178,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
     { label: rentLabel, amount: data.rentAmount },
     ...(data.serviceCharge > 0 ? [{ label: "Service Charge", amount: data.serviceCharge }] : []),
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
+    ...((data.lateFeeAmount ?? 0) > 0 ? [{ label: "Late Payment Fee", amount: data.lateFeeAmount! }] : []),
   ];
 
   return (

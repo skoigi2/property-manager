@@ -594,6 +594,7 @@ function InvoiceRow({
   onStatusChange,
   onSync,
   onLateFee,
+  onUnpay,
   selected,
   onToggleSelect,
 }: {
@@ -604,6 +605,7 @@ function InvoiceRow({
   onStatusChange: (id: string, status: string) => void;
   onSync: (id: string) => void | Promise<void>;
   onLateFee: (inv: Invoice) => void;
+  onUnpay: (inv: Invoice) => void;
   selected: boolean;
   onToggleSelect: (id: string) => void;
 }) {
@@ -784,8 +786,21 @@ function InvoiceRow({
             {showActions && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                <div className="absolute right-0 top-8 z-20 bg-white border border-gray-100 rounded-xl shadow-lg w-36 py-1 text-sm">
-                  {(["DRAFT","SENT","OVERDUE","CANCELLED"] as const).map((s) => (
+                <div className="absolute right-0 top-8 z-20 bg-white border border-gray-100 rounded-xl shadow-lg w-44 py-1 text-sm">
+                  {invoice.status === "PAID" ? (
+                    /* A naive status flip would strand the auto-created income
+                       entry and double-count when the real payment lands — the
+                       unpay flow deletes it in the same transaction. */
+                    <button
+                      onClick={() => {
+                        onUnpay(invoice);
+                        setShowActions(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 hover:bg-amber-50 text-amber-700"
+                    >
+                      Revert to unpaid…
+                    </button>
+                  ) : (["DRAFT","SENT","OVERDUE","CANCELLED"] as const).map((s) => (
                     <button
                       key={s}
                       disabled={invoice.status === s}
@@ -1021,6 +1036,8 @@ export default function InvoicesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [lateFeeTarget, setLateFeeTarget] = useState<Invoice | null>(null);
+  const [unpayTarget, setUnpayTarget] = useState<Invoice | null>(null);
+  const [unpaying, setUnpaying] = useState(false);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1032,13 +1049,23 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [monthFilter, setMonthFilter] = useState<string>("ALL");
 
+  // Server-side pagination: pages of 200, id-cursor "Load more". Search and
+  // the status/period dropdowns still filter client-side over the loaded rows.
+  const PAGE_SIZE = 200;
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
-      const propParam = selectedId ? `?propertyId=${selectedId}` : "";
-      const res = await fetch(`/api/invoices${propParam}`);
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (selectedId) params.set("propertyId", selectedId);
+      const res = await fetch(`/api/invoices?${params}`);
       const data = await res.json();
-      setInvoices(Array.isArray(data) ? data : []);
+      setInvoices(Array.isArray(data.invoices) ? data.invoices : []);
+      setNextCursor(data.nextCursor ?? null);
+      setTotalCount(data.total ?? 0);
       setSelectedIds(new Set());
     } catch {
       toast.error("Failed to load invoices");
@@ -1046,6 +1073,24 @@ export default function InvoicesPage() {
       setLoading(false);
     }
   }, [selectedId]);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), cursor: nextCursor });
+      if (selectedId) params.set("propertyId", selectedId);
+      const res = await fetch(`/api/invoices?${params}`);
+      const data = await res.json();
+      setInvoices((prev) => [...prev, ...(Array.isArray(data.invoices) ? data.invoices : [])]);
+      setNextCursor(data.nextCursor ?? null);
+      setTotalCount(data.total ?? totalCount);
+    } catch {
+      toast.error("Failed to load more invoices");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
@@ -1075,6 +1120,26 @@ export default function InvoicesPage() {
       toast.error("Sync failed");
     }
     fetchInvoices();
+  }
+
+  async function handleUnpay() {
+    if (!unpayTarget) return;
+    setUnpaying(true);
+    try {
+      const res = await fetch(`/api/invoices/${unpayTarget.id}/unpay`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to revert");
+      toast.success(
+        `${unpayTarget.invoiceNumber} reverted to ${data.status === "OVERDUE" ? "Overdue" : "Sent"}` +
+        (data.incomeEntriesDeleted > 0 ? ` · ${data.incomeEntriesDeleted} income entr${data.incomeEntriesDeleted === 1 ? "y" : "ies"} removed` : ""),
+      );
+      setUnpayTarget(null);
+      fetchInvoices();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setUnpaying(false);
+    }
   }
 
   // ── Bulk selection helpers ────────────────────────────────────────────────
@@ -1397,6 +1462,14 @@ export default function InvoicesPage() {
                             Mark Paid
                           </button>
                         )}
+                        {inv.status === "PAID" && (
+                          <button
+                            onClick={() => setUnpayTarget(inv)}
+                            className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg font-sans hover:bg-amber-100 transition-colors"
+                          >
+                            Revert
+                          </button>
+                        )}
                         {needsSync && (
                           <button
                             onClick={() => handleSync(inv.id)}
@@ -1456,6 +1529,7 @@ export default function InvoicesPage() {
                       onStatusChange={handleStatusChange}
                       onSync={handleSync}
                       onLateFee={setLateFeeTarget}
+                      onUnpay={setUnpayTarget}
                       selected={selectedIds.has(inv.id)}
                       onToggleSelect={toggleSelect}
                     />
@@ -1466,10 +1540,23 @@ export default function InvoicesPage() {
           </>
         )}
 
-        {/* Footer count */}
+        {/* Footer count + pagination */}
         {!loading && filtered.length > 0 && (
-          <div className="border-t border-gray-50 px-4 py-2.5 text-xs text-gray-400">
-            Showing {filtered.length} of {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
+          <div className="border-t border-gray-50 px-4 py-2.5 text-xs text-gray-400 flex items-center justify-between gap-3">
+            <span>
+              Showing {filtered.length} of {invoices.length} loaded
+              {totalCount > invoices.length ? ` (${totalCount} total)` : ""}
+            </span>
+            {nextCursor && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="flex items-center gap-1.5 text-gold hover:text-gold-dark font-medium transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? <Loader2 size={12} className="animate-spin" /> : null}
+                Load {Math.min(200, totalCount - invoices.length)} more
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1499,6 +1586,40 @@ export default function InvoicesPage() {
           onClose={() => setLateFeeTarget(null)}
           onUpdated={fetchInvoices}
         />
+      )}
+
+      {/* Revert-to-unpaid confirm */}
+      {unpayTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+            <h3 className="font-display text-lg text-header mb-2">Revert to unpaid?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">{unpayTarget.invoiceNumber}</span> — {unpayTarget.tenant.name}
+            </p>
+            <p className="text-sm text-gray-600 mb-1">
+              The invoice returns to {new Date(unpayTarget.dueDate) < new Date() ? "Overdue" : "Sent"} and its payment
+              details are cleared. Any income entry linked to this invoice is <strong>deleted</strong> so the books
+              don&apos;t double-count when the real payment is recorded.
+            </p>
+            <p className="text-xs text-gray-400 mb-5">Use this to fix an accidental &quot;mark paid&quot;.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setUnpayTarget(null)}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUnpay}
+                disabled={unpaying}
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {unpaying ? <Loader2 size={14} className="animate-spin" /> : null}
+                Revert
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Bulk mark-paid confirm */}

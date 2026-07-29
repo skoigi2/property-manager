@@ -825,7 +825,42 @@ export default function AirbnbPage() {
                         <div className="px-4 py-3 border-b border-gray-100">
                           <h3 className="section-header">Per-Unit Breakdown — {format(month, "MMMM yyyy")}</h3>
                         </div>
-                        <div className="overflow-x-auto">
+                        {/* Mobile: stacked unit cards */}
+                        <div className="md:hidden divide-y divide-gray-50">
+                          {unitStats.map(({ unit, count, nights, gross, net, occ, avgRate }) => (
+                            <div key={unit.id} className="px-4 py-3">
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <p className="text-sm font-mono font-medium text-header">{unit.unitNumber}</p>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                                    <div className={`h-1.5 rounded-full ${occ >= 0.8 ? "bg-income" : occ >= 0.5 ? "bg-amber-400" : "bg-expense"}`} style={{ width: `${Math.round(occ * 100)}%` }} />
+                                  </div>
+                                  <span className="text-xs font-sans text-gray-600">{Math.round(occ * 100)}%</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                <div>
+                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Bookings</p>
+                                  <p className="text-sm font-sans text-gray-600">{count} · {nights}n</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Gross</p>
+                                  <CurrencyDisplay amount={gross} size="sm" className="text-income" />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Net</p>
+                                  <CurrencyDisplay amount={net} size="sm" className={net >= 0 ? "text-header" : "text-expense"} />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Avg Rate</p>
+                                  {avgRate > 0 ? <CurrencyDisplay amount={avgRate} size="sm" className="text-gray-600" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Desktop table */}
+                        <div className="hidden md:block overflow-x-auto">
                           <table className="w-full min-w-[640px]">
                             <thead className="bg-cream-dark">
                               <tr>
@@ -935,7 +970,31 @@ export default function AirbnbPage() {
                       <p className="text-sm font-sans">No cleaning tasks logged yet</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                    {/* Mobile: stacked task cards */}
+                    <div className="md:hidden divide-y divide-gray-50">
+                      {[...cleaningJobs]
+                        .sort((a, b) => (a.scheduledDate && b.scheduledDate) ? new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime() : 0)
+                        .map((job: any) => (
+                          <div key={job.id} className="px-4 py-3">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <div>
+                                <p className="text-sm font-sans text-header">{job.title}</p>
+                                <p className="text-xs text-gray-400 font-sans mt-0.5">
+                                  {job.unit?.unitNumber ? `Unit ${job.unit.unitNumber} · ` : ""}
+                                  {job.scheduledDate ? formatDate(job.scheduledDate) : "Unscheduled"}
+                                  {job.assignedTo ? ` · ${job.assignedTo}` : ""}
+                                </p>
+                              </div>
+                              <Badge variant={job.status === "DONE" ? "green" : job.status === "IN_PROGRESS" ? "blue" : job.status === "OPEN" ? "amber" : "gray"}>
+                                {job.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    {/* Desktop table */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full min-w-[540px]">
                         <thead className="bg-cream-dark">
                           <tr>
@@ -963,6 +1022,7 @@ export default function AirbnbPage() {
                         </tbody>
                       </table>
                     </div>
+                    </>
                   )}
                 </Card>
               </div>

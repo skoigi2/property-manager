@@ -210,7 +210,66 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
       {data.rentCollection.length > 0 && (
         <Card>
           <SectionTitle><Receipt size={16} className="text-gold" /> {data.longTermPropertyName} — Rent Collection</SectionTitle>
-          <div className="overflow-x-auto">
+          {/* Mobile: stacked tenant cards */}
+          <div className="md:hidden space-y-2">
+            {data.rentCollection.map((row) => {
+              const total    = row.expectedRent + row.serviceCharge;
+              const variance = row.received - total;
+              const isPaid   = row.received >= total * 0.99;
+              return (
+                <div key={row.unit} className="rounded-xl border border-gray-100 bg-white p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <p className="text-sm font-medium font-sans text-header">{row.tenantName}</p>
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">Unit {row.unit}</p>
+                    </div>
+                    <Badge variant={
+                      row.status === "OK" ? "green" :
+                      row.status === "WARNING" ? "amber" :
+                      row.status === "CRITICAL" ? "red" : "gray"
+                    }>
+                      {row.leaseEnd ?? "TBC"}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50">
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                      <p className="font-mono text-xs text-gray-600">{total.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+                      <p className={clsx("font-mono text-xs font-medium", isPaid ? "text-income" : row.received > 0 ? "text-amber-600" : "text-expense")}>
+                        {row.received.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Variance</p>
+                      <p className={clsx("font-mono text-xs", variance >= 0 ? "text-income" : "text-expense")}>
+                        {variance >= 0 ? "+" : ""}{variance.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="rounded-xl border border-gold/25 bg-cream p-3 grid grid-cols-3 gap-2">
+              <div>
+                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                <p className="font-mono text-xs font-medium text-header">
+                  {data.rentCollection.reduce((s, r) => s + r.expectedRent + r.serviceCharge, 0).toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+                <p className="font-mono text-xs font-medium text-income">
+                  {data.rentCollection.reduce((s, r) => s + r.received, 0).toLocaleString()}
+                </p>
+              </div>
+              <div />
+            </div>
+          </div>
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100">

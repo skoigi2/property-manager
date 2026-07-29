@@ -27,17 +27,26 @@ export async function GET(req: Request) {
   const tenantId = searchParams.get("tenantId");
   const status = searchParams.get("status");
   const filterPropertyId = searchParams.get("propertyId");
+  // Pagination (opt-in): `limit` switches the response to
+  // `{ invoices, nextCursor, total }` with id-cursor paging. Callers that omit
+  // `limit` keep the legacy full-array response.
+  const limitParam = searchParams.get("limit");
+  const limit = limitParam ? Math.min(Math.max(parseInt(limitParam), 1), 500) : null;
+  const cursor = searchParams.get("cursor");
+
   const effectivePropertyIds =
     filterPropertyId && propertyIds.includes(filterPropertyId)
       ? [filterPropertyId]
       : propertyIds;
 
+  const where = {
+    tenant: { unit: { propertyId: { in: effectivePropertyIds } } },
+    ...(tenantId ? { tenantId } : {}),
+    ...(status ? { status: status as never } : {}),
+  };
+
   const invoices = await prisma.invoice.findMany({
-    where: {
-      tenant: { unit: { propertyId: { in: effectivePropertyIds } } },
-      ...(tenantId ? { tenantId } : {}),
-      ...(status ? { status: status as never } : {}),
-    },
+    where,
     include: {
       tenant: {
         select: {
@@ -47,10 +56,22 @@ export async function GET(req: Request) {
       },
       _count: { select: { incomeEntries: true } },
     },
-    orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+    // `id` tiebreak keeps the order stable for cursor paging.
+    orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }, { id: "desc" }],
+    ...(limit ? { take: limit + 1 } : {}),
+    ...(limit && cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  return Response.json(invoices);
+  if (!limit) return Response.json(invoices);
+
+  const hasMore = invoices.length > limit;
+  const page = hasMore ? invoices.slice(0, limit) : invoices;
+  const total = await prisma.invoice.count({ where });
+  return Response.json({
+    invoices: page,
+    nextCursor: hasMore ? page[page.length - 1].id : null,
+    total,
+  });
 }
 
 export async function POST(req: Request) {

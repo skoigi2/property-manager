@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,7 +23,7 @@ import {
   CheckCircle2, Clock, AlertCircle, FileDown, Search, AlertTriangle, X,
   ChevronsUpDown, GripVertical, Paperclip, RepeatIcon,
 } from "lucide-react";
-import { ExpenseDocumentUpload } from "@/components/expenses/ExpenseDocumentUpload";
+import { ExpenseDocumentUpload, type ExpenseDocumentUploadHandle } from "@/components/expenses/ExpenseDocumentUpload";
 import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { exportExpenses } from "@/lib/excel-export";
@@ -348,6 +348,7 @@ export default function ExpensesPage() {
     useCachedFetch<any[]>(`expenses:${entriesQs}`, `/api/expenses?${entriesQs}`);
   const entries = entriesData ?? [];
   const [showForm, setShowForm] = useState(false);
+  const receiptUploaderRef = useRef<ExpenseDocumentUploadHandle>(null);
   const [pettyCashBalance, setPettyCashBalance] = useState<number | null>(null);
   const [editEntry, setEditEntry] = useState<any | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -476,6 +477,8 @@ export default function ExpensesPage() {
 
   function openEdit(e: any) {
     setEditEntry(e);
+    // Load attached receipts so the form's gallery shows them.
+    if (!expenseDocs[e.id]) loadDocs(e.id);
     // Pre-populate form
     const dateStr = new Date(e.date).toISOString().split("T")[0];
     reset({
@@ -598,6 +601,18 @@ export default function ExpensesPage() {
       } else {
         setEntriesData((prev) => [saved, ...(prev ?? [])]);
         toast.success(data.paidFromPettyCash ? "Expense saved & petty cash debited" : "Expense added");
+        // Deferred receipts: files queued in the create form upload now that
+        // the expense id exists. Must run before resetForm unmounts the uploader.
+        if (receiptUploaderRef.current?.hasQueued()) {
+          const { done, failed } = await receiptUploaderRef.current.uploadAllTo(saved.id);
+          if (done > 0) {
+            await loadDocs(saved.id);
+            toast.success(`${done} receipt${done !== 1 ? "s" : ""} attached`);
+          }
+          if (failed.length > 0) {
+            toast.error(`${failed.length} receipt${failed.length !== 1 ? "s" : ""} failed to upload: ${failed.join("; ")}`, { duration: 9000 });
+          }
+        }
       }
       resetForm();
     } catch {
@@ -1373,6 +1388,31 @@ export default function ExpensesPage() {
                 />
               </div>
 
+              {/* Receipts & documents */}
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <p className="text-xs font-sans font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <Paperclip size={11} /> Receipts &amp; Documents
+                </p>
+                {editEntry ? (
+                  <>
+                    {(expenseDocs[editEntry.id]?.length ?? 0) > 0 && (
+                      <ExpenseDocumentList
+                        expenseId={editEntry.id}
+                        documents={expenseDocs[editEntry.id] ?? []}
+                        onDeleted={() => loadDocs(editEntry.id)}
+                      />
+                    )}
+                    <ExpenseDocumentUpload
+                      expenseId={editEntry.id}
+                      onUploaded={() => loadDocs(editEntry.id)}
+                      existingFiles={(expenseDocs[editEntry.id] ?? []).map((d: any) => ({ fileName: d.fileName, fileSize: d.fileSize }))}
+                    />
+                  </>
+                ) : (
+                  <ExpenseDocumentUpload ref={receiptUploaderRef} />
+                )}
+              </div>
+
                 </div>
                 {/* Sticky footer — actions always visible however long the form */}
                 <div className="flex gap-3 px-5 py-4 border-t border-gray-100 bg-white flex-shrink-0">
@@ -1453,9 +1493,9 @@ export default function ExpensesPage() {
                         title="Documents"
                       >
                         <Paperclip size={14} />
-                        {expenseDocs[e.id]?.length > 0 && (
+                        {(expenseDocs[e.id]?.length ?? e._count?.documents ?? 0) > 0 && (
                           <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-[9px] font-sans font-bold leading-none">
-                            {expenseDocs[e.id].length > 9 ? "9+" : expenseDocs[e.id].length}
+                            {(expenseDocs[e.id]?.length ?? e._count?.documents) > 9 ? "9+" : (expenseDocs[e.id]?.length ?? e._count?.documents)}
                           </span>
                         )}
                       </button>
@@ -1465,6 +1505,28 @@ export default function ExpensesPage() {
                       </button>
                       )}
                     </div>
+
+                    {/* Receipts panel (mobile) */}
+                    {docPanelRows.has(e.id) && (
+                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-4">
+                        {docLoading.has(e.id) ? (
+                          <div className="flex justify-center py-4"><Spinner /></div>
+                        ) : (
+                          <>
+                            <ExpenseDocumentList
+                              expenseId={e.id}
+                              documents={expenseDocs[e.id] ?? []}
+                              onDeleted={() => loadDocs(e.id)}
+                            />
+                            <ExpenseDocumentUpload
+                              expenseId={e.id}
+                              onUploaded={() => loadDocs(e.id)}
+                              existingFiles={(expenseDocs[e.id] ?? []).map((d: any) => ({ fileName: d.fileName, fileSize: d.fileSize }))}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1524,9 +1586,9 @@ export default function ExpensesPage() {
                                 title="Documents"
                               >
                                 <Paperclip size={14} />
-                                {expenseDocs[e.id]?.length > 0 && (
+                                {(expenseDocs[e.id]?.length ?? e._count?.documents ?? 0) > 0 && (
                                   <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-[9px] font-sans font-bold leading-none">
-                                    {expenseDocs[e.id].length > 9 ? "9+" : expenseDocs[e.id].length}
+                                    {(expenseDocs[e.id]?.length ?? e._count?.documents) > 9 ? "9+" : (expenseDocs[e.id]?.length ?? e._count?.documents)}
                                   </span>
                                 )}
                               </button>
@@ -1562,6 +1624,7 @@ export default function ExpensesPage() {
                                     <ExpenseDocumentUpload
                                       expenseId={e.id}
                                       onUploaded={() => loadDocs(e.id)}
+                                      existingFiles={(expenseDocs[e.id] ?? []).map((d: any) => ({ fileName: d.fileName, fileSize: d.fileSize }))}
                                     />
                                   </>
                                 )}

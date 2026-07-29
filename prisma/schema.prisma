@@ -1279,9 +1279,15 @@ model ExpenseDocument {
   storagePath String
   fileSize    Int?
   mimeType    String?
+  // sha256 of the file content — blocks re-attaching the identical file to the
+  // same expense (unique below; null on legacy rows uploaded before this field).
+  checksum        String?
+  uploadedByEmail String?
+  uploadedByName  String?
   uploadedAt  DateTime                @default(now())
   expense     ExpenseEntry            @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
+  @@unique([expenseId, checksum])
   @@index([expenseId])
 }
 

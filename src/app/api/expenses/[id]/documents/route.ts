@@ -1,7 +1,10 @@
+import { createHash } from "crypto";
 import { requireAuth, requireManager, getAccessiblePropertyIds, requireAuthWrite, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage, getSignedUrl } from "@/lib/supabase-storage";
 import { ExpenseDocumentCategory } from "@prisma/client";
+
+export const maxDuration = 60; // multi-file batches upload sequentially
 
 async function resolvePropertyId(expenseId: string): Promise<string | null> {
   const expense = await prisma.expenseEntry.findUnique({
@@ -54,11 +57,28 @@ export async function GET(
 }
 
 // ── POST /api/expenses/[id]/documents ─────────────────────────────────────────
+const MAX_MB = 10;
+
+const ALLOWED_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  // Legacy: quotes/contracts uploaded as Word docs keep working.
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+// Some browsers give HEIC files an empty MIME type — fall back to the extension.
+const ALLOWED_EXTENSIONS = /\.(pdf|jpe?g|png|webp|heic|heif|docx?)$/i;
+
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireAuthWrite();
+  const { session, error } = await requireAuthWrite();
   if (error) return error;
 
   const resolvedPropertyId = await resolvePropertyId(params.id);
@@ -80,30 +100,44 @@ export async function POST(
 
   if (!file) return Response.json({ error: "No file provided" }, { status: 400 });
 
-  const maxMb = 10;
-  if (file.size > maxMb * 1024 * 1024) {
-    return Response.json({ error: `File too large (max ${maxMb} MB)` }, { status: 400 });
+  if (file.size > MAX_MB * 1024 * 1024) {
+    return Response.json(
+      { error: `"${file.name}" is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB) — the maximum is ${MAX_MB} MB per file.` },
+      { status: 400 },
+    );
   }
 
-  const allowedTypes = [
-    "application/pdf",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ];
-  if (!allowedTypes.includes(file.type)) {
-    return Response.json({ error: "Unsupported file type" }, { status: 400 });
+  const typeOk = file.type
+    ? ALLOWED_TYPES.has(file.type)
+    : ALLOWED_EXTENSIONS.test(file.name);
+  if (!typeOk) {
+    return Response.json(
+      { error: `"${file.name}" is not a supported file type. Upload an image (JPG, PNG, HEIC, WebP) or a PDF.` },
+      { status: 400 },
+    );
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Content-hash dedupe: the identical file can't be attached to the same
+  // expense twice (renaming it doesn't evade the check).
+  const checksum = createHash("sha256").update(buffer).digest("hex");
+  const duplicate = await prisma.expenseDocument.findUnique({
+    where: { expenseId_checksum: { expenseId: params.id, checksum } },
+    select: { fileName: true },
+  });
+  if (duplicate) {
+    return Response.json(
+      { error: `This file is already attached to this expense (as "${duplicate.fileName}").` },
+      { status: 409 },
+    );
   }
 
   const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `expenses/${params.id}/${Date.now()}-${safeFileName}`;
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-
   try {
-    await uploadToStorage(storagePath, buffer, file.type);
+    await uploadToStorage(storagePath, buffer, file.type || "application/octet-stream");
   } catch (e: any) {
     return Response.json({ error: `Storage upload failed: ${e.message}` }, { status: 500 });
   }
@@ -117,10 +151,14 @@ export async function POST(
         fileName: file.name,
         storagePath,
         fileSize: file.size,
-        mimeType: file.type,
+        mimeType: file.type || null,
+        checksum,
+        uploadedByEmail: session!.user.email ?? null,
+        uploadedByName: session!.user.name ?? null,
       },
     });
-    return Response.json(doc, { status: 201 });
+    const url = await getSignedUrl(storagePath).catch(() => null);
+    return Response.json({ ...doc, url }, { status: 201 });
   } catch (e: any) {
     return Response.json({ error: `Database error: ${e.message}` }, { status: 500 });
   }

@@ -14,6 +14,8 @@ const EXPENSE_INCLUDE = {
     include: { unit: { select: { unitNumber: true, propertyId: true } } },
     orderBy: { unit: { unitNumber: "asc" as const } },
   },
+  // Receipt/document count — drives the paperclip badge without loading docs.
+  _count: { select: { documents: true } },
 };
 
 export async function GET(req: Request) {

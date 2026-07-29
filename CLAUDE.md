@@ -251,7 +251,11 @@ Three properties are seeded:
 
 API routes: `POST/GET /api/documents/[tenantId]` and `DELETE /api/documents/[tenantId]/[docId]`.
 
-### Lease Renewal Workflow
+### Expense Receipts & Documents
+
+`ExpenseDocument` rows (category `RECEIPT/INVOICE/QUOTE/CONTRACT/PHOTO/OTHER`, label = caption, `checksum` sha256 unique per `(expenseId, checksum)` for content-hash dedupe → 409, `uploadedByEmail/Name`) attach files to an `ExpenseEntry`; files live under `expenses/<expenseId>/` in the `tenant-documents` bucket. API: `GET/POST /api/expenses/[id]/documents` (multipart, one file per request, ≤10 MB, images JPG/PNG/HEIC/WebP + PDF + legacy Word docs; empty-MIME HEIC falls back to extension check), `DELETE .../documents/[docId]`; expense DELETE cleans storage best-effort.
+
+UI (`src/components/expenses/`): `ExpenseDocumentUpload` is a multi-file queue uploader — drag-drop, browse (multiple), phone-camera capture (`capture="environment"`), blob previews, per-file caption + category, client-side compression (canvas re-encode to JPEG for >1.5 MB JPG/PNG/WebP, max 2200 px; HEIC passes through), per-file XHR progress bars, inline per-file errors with retry. Two modes: `expenseId` set → immediate upload; unset (Add Expense form) → files queue and the page calls `ref.uploadAllTo(newExpenseId)` after the expense POST succeeds. `ExpenseDocumentList` renders a thumbnail-card gallery (signed-URL previews, download, styled delete confirm) with a full-screen lightbox (arrow-key/chevron nav, PDF via iframe). Mounted in the row doc-panel (desktop table AND mobile cards), and in the Add/Edit expense form; the row paperclip badge falls back to `_count.documents` from the list API before docs are fetched.
 
 `Tenant` model has `renewalStage` (`RenewalStage` enum: `NONE → NOTICE_SENT → TERMS_AGREED → RENEWED`), `proposedRent`, `proposedLeaseEnd`, and `renewalNotes`. When `PATCH /api/tenants/[id]/renewal` receives `renewalStage: "RENEWED"`, it copies `proposedRent` → `monthlyRent` and `proposedLeaseEnd` → `leaseEnd`.
 

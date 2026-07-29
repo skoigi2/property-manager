@@ -362,6 +362,7 @@ export async function POST(req: Request) {
           isSunkCost:  str(row["Sunk Cost"]).toLowerCase() === "yes",
           propertyId:  property.id,
           unitId,
+          organizationId: session!.user.organizationId ?? null,
         },
       });
       summary.expenseEntries++;
@@ -397,7 +398,7 @@ export async function POST(req: Request) {
 
     try {
       await prisma.pettyCash.create({
-        data: { date, type: typeRaw as never, description, amount, propertyId: property.id },
+        data: { date, type: typeRaw as never, description, amount, propertyId: property.id, organizationId: session!.user.organizationId ?? null },
       });
       summary.pettyCash++;
     } catch (e) {

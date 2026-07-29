@@ -19,7 +19,7 @@ function keyOf(dateOnly: string, type: string, desc: string, amt: number, propId
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
@@ -154,6 +154,7 @@ export async function POST(req: Request) {
           amount: c.amount,
           propertyId: c.propertyId,
           receiptRef: c.receiptRef,
+          organizationId: session!.user.organizationId ?? null,
         })),
       });
       imported = result.count;

@@ -33,6 +33,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (petty.propertyId) {
     const access = await requirePropertyAccess(petty.propertyId);
     if (!access.ok) return access.error!;
+  } else if (
+    petty.organizationId &&
+    session!.user.organizationId &&
+    petty.organizationId !== session!.user.organizationId
+  ) {
+    // Another org's property-less row must look like it doesn't exist.
+    return Response.json({ error: "Not found" }, { status: 404 });
   }
 
   if (petty.type !== "OUT") {
@@ -62,6 +69,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       paymentMethod: "CASH",
       paymentDate: petty.date,
       paymentReference: petty.receiptRef,
+      organizationId: petty.organizationId ?? session!.user.organizationId ?? null,
     },
   });
 

@@ -25,7 +25,7 @@ export async function POST(
 
   const asset = await prisma.asset.findUnique({
     where: { id: params.id },
-    select: { propertyId: true, unitId: true, name: true },
+    select: { propertyId: true, unitId: true, name: true, property: { select: { organizationId: true } } },
   });
   if (!asset) return Response.json({ error: "Asset not found" }, { status: 404 });
   if (!propertyIds.includes(asset.propertyId)) {
@@ -93,6 +93,7 @@ export async function POST(
           category: "MAINTENANCE",
           scope: hasUnit ? "UNIT" : "PROPERTY",
           propertyId: asset.propertyId,
+          organizationId: asset.property?.organizationId ?? null,
           ...(hasUnit ? { unitId: asset.unitId! } : {}),
           description: `${asset.name} — ${existing.taskName}: ${description}`,
           maintenanceLogs: { create: [logData] },

@@ -19,8 +19,9 @@ const EXPENSE_INCLUDE = {
 };
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  const { session, error } = await requireAuth();
   if (error) return error;
+  const sessionOrgId = session!.user.organizationId ?? null;
 
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -63,8 +64,16 @@ export async function GET(req: Request) {
       // True portfolio-scope expenses carry no property/unit at all — without
       // this arm they were invisible in the list (the bulk route and petty-cash
       // GET already include the equivalent). Only in the unscoped view: a
-      // single-property filter shouldn't show org-wide costs.
-      ...(propertyId ? [] : [{ AND: [{ propertyId: null }, { unitId: null }] }]),
+      // single-property filter shouldn't show org-wide costs. Org-scoped via
+      // organizationId (legacy null-org rows stay visible; super-admin —
+      // session org null — sees all).
+      ...(propertyId ? [] : [{
+        AND: [
+          { propertyId: null },
+          { unitId: null },
+          ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+        ],
+      }]),
     ],
     ...(unitId ? { unitId } : {}),
     ...(category ? { category: category as never } : {}),
@@ -198,6 +207,7 @@ export async function POST(req: Request) {
         vendorId: vendorId || null,
         unitId: resolvedUnitId,
         propertyId: resolvedPropertyId,
+        organizationId: session!.user.organizationId ?? null,
         ...(unitIds && unitIds.length > 0
           ? { unitAllocations: { create: unitIds.map((uid) => ({ unitId: uid, shareAmount })) } }
           : {}),
@@ -213,6 +223,7 @@ export async function POST(req: Request) {
                   amount: computedAmount,
                   description: rest.description ?? `${rest.category} expense`,
                   propertyId: pettyCashPropertyId,
+                  organizationId: session!.user.organizationId ?? null,
                 },
               },
             }

@@ -17,31 +17,39 @@ const EXPENSE_INCLUDE = {
 
 // PORTFOLIO-scope expenses legitimately have no property (propertyId and
 // unitId both null) — distinguish "doesn't exist" from "exists, org-wide".
-// When no property resolves, the requireManagerWrite / requirePermissionWrite
-// gate at the top of each handler is the access check (same fallback the
-// documents sub-routes use); a 404 here would make portfolio expenses
-// permanently un-editable and un-deletable.
-async function loadExpensePropertyId(id: string): Promise<{ exists: boolean; propertyId: string | null }> {
+// When no property resolves, the org check below (organizationId stamped on
+// create; legacy null-org rows grandfathered) plus the requireManagerWrite /
+// requirePermissionWrite gate is the access check; a 404 here would make
+// portfolio expenses permanently un-editable and un-deletable.
+async function loadExpensePropertyId(id: string): Promise<{ exists: boolean; propertyId: string | null; organizationId: string | null }> {
   const e = await prisma.expenseEntry.findUnique({
     where: { id },
     select: {
       propertyId: true,
+      organizationId: true,
       unit: { select: { propertyId: true } },
     },
   });
-  if (!e) return { exists: false, propertyId: null };
-  return { exists: true, propertyId: e.propertyId ?? e.unit?.propertyId ?? null };
+  if (!e) return { exists: false, propertyId: null, organizationId: null };
+  return { exists: true, propertyId: e.propertyId ?? e.unit?.propertyId ?? null, organizationId: e.organizationId };
+}
+
+/** Portfolio rows: another org's expense must look like it doesn't exist. */
+function orgMismatch(rowOrgId: string | null, sessionOrgId: string | null | undefined): boolean {
+  return !!rowOrgId && !!sessionOrgId && rowOrgId !== sessionOrgId;
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
-  const { exists, propertyId } = await loadExpensePropertyId(params.id);
+  const { exists, propertyId, organizationId } = await loadExpensePropertyId(params.id);
   if (!exists) return Response.json({ error: "Not found" }, { status: 404 });
   if (propertyId) {
     const access = await requirePropertyAccess(propertyId);
     if (!access.ok) return access.error!;
+  } else if (orgMismatch(organizationId, session!.user.organizationId)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
   }
 
   const body = await req.json();
@@ -181,6 +189,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         description: rest.description ?? `${rest.category} expense`,
         propertyId: pettyCashPropertyId,
         expenseEntryId: params.id,
+        organizationId: session!.user.organizationId ?? organizationId ?? null,
       },
     }));
   }
@@ -209,11 +218,13 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 
-  const { exists, propertyId } = await loadExpensePropertyId(params.id);
+  const { exists, propertyId, organizationId } = await loadExpensePropertyId(params.id);
   if (!exists) return Response.json({ error: "Not found" }, { status: 404 });
   if (propertyId) {
     const access = await requirePropertyAccess(propertyId);
     if (!access.ok) return access.error!;
+  } else if (orgMismatch(organizationId, session!.user.organizationId)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
   }
 
   const before = await prisma.expenseEntry.findUnique({

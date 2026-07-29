@@ -44,7 +44,7 @@ async function getJobWithAccess(id: string) {
   const job = await prisma.maintenanceJob.findUnique({
     where: { id },
     include: {
-      property: { select: { id: true, name: true } },
+      property: { select: { id: true, name: true, organizationId: true } },
       unit:     { select: { id: true, unitNumber: true } },
       vendor:   { select: { id: true, name: true, category: true, phone: true } },
     },
@@ -89,6 +89,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           category,
           scope,
           isSunkCost,
+          organizationId: job!.property?.organizationId ?? null,
           ...(hasUnit
             ? { unitId: job!.unitId!, propertyId: job!.propertyId }
             : { propertyId: job!.propertyId }),
@@ -145,7 +146,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(approvedAt !== undefined ? { approvedAt: approvedAt ? new Date(approvedAt) : null } : {}),
     },
     include: {
-      property: { select: { id: true, name: true } },
+      property: { select: { id: true, name: true, organizationId: true } },
       unit:     { select: { id: true, unitNumber: true } },
       vendor:   { select: { id: true, name: true, category: true, phone: true } },
     },

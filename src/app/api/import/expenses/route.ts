@@ -301,7 +301,8 @@ export async function POST(req: Request) {
       // ledger in sync when the expense is later deleted. Returned order isn't
       // guaranteed, so rows are matched by content fingerprint, not index.
       const created = await prisma.expenseEntry.createManyAndReturn({
-        data: createData,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: createData.map((d: any) => ({ ...d, organizationId: session!.user.organizationId ?? null })),
         select: { id: true, date: true, category: true, amount: true, propertyId: true, description: true },
       });
       imported = created.length;
@@ -324,6 +325,7 @@ export async function POST(req: Request) {
           data: pettyData.map((p) => ({
             ...p.data,
             expenseEntryId: idByFp.get(p.fpKey) ?? null,
+            organizationId: session!.user.organizationId ?? null,
           })),
         });
       }

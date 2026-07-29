@@ -79,7 +79,10 @@ export async function POST(req: Request) {
 
   const { ids } = parsed.data;
 
-  // Validate all requested entries belong to accessible properties
+  // Validate all requested entries belong to accessible properties.
+  // Portfolio rows are org-scoped via organizationId (legacy null-org rows
+  // grandfathered; super-admin — session org null — passes for all).
+  const sessionOrgId = session!.user.organizationId ?? null;
   const accessible = await prisma.expenseEntry.findMany({
     where: {
       id: { in: ids },
@@ -87,7 +90,12 @@ export async function POST(req: Request) {
         { propertyId: { in: propertyIds } },
         { unit: { propertyId: { in: propertyIds } } },
         { unitAllocations: { some: { unit: { propertyId: { in: propertyIds } } } } },
-        { scope: "PORTFOLIO" },
+        {
+          AND: [
+            { scope: "PORTFOLIO" },
+            ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+          ],
+        },
       ],
     },
     select: { id: true },

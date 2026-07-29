@@ -40,6 +40,7 @@ export async function POST(req: Request) {
         propertyId: item.propertyId ?? undefined,
         unitId: item.unitId ?? undefined,
         vendorId: item.vendorId ?? undefined,
+        organizationId: session!.user.organizationId ?? null,
         isSunkCost: false,
         paidFromPettyCash: false,
         recurringExpenseId: item.id,

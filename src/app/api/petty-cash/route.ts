@@ -8,8 +8,9 @@ import { sendNotificationEmail } from "@/lib/email";
 import { pettyCashPendingTemplate } from "@/lib/notifications/email-templates";
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  const { session, error } = await requireAuth();
   if (error) return error;
+  const sessionOrgId = session!.user.organizationId ?? null;
 
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,7 +36,15 @@ export async function GET(req: Request) {
     where: {
       OR: [
         { propertyId: { in: effectiveIds } },
-        { propertyId: null },
+        // Property-less rows are org-scoped via organizationId (stamped on
+        // create; legacy null-org rows grandfathered as visible; super-admin —
+        // session org null — sees all).
+        {
+          AND: [
+            { propertyId: null },
+            ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+          ],
+        },
       ],
     },
     // Linked expense (when this OUT row mirrors a paid-from-petty-cash
@@ -94,6 +103,7 @@ export async function POST(req: Request) {
       propertyId: propertyId ?? null,
       receiptRef: receiptRef?.trim() || null,
       status,
+      organizationId: session!.user.organizationId ?? null,
     },
   });
 

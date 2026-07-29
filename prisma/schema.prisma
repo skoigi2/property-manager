@@ -775,6 +775,10 @@ model ExpenseEntry {
   paymentDate       DateTime?
   notes             String?
   vendorId          String?
+  // Owning organisation — the ONLY scoping handle for PORTFOLIO rows (no
+  // property/unit to resolve through). Stamped on create from the session;
+  // null on legacy rows created before 2026-07 (grandfathered as visible).
+  organizationId    String?
   // Set when this entry was materialised from a RecurringExpense template
   // (POST /api/recurring-expenses/apply) — drives the "Recurring" origin
   // badge. SetNull so deleting a template keeps its historical entries.
@@ -795,6 +799,7 @@ model ExpenseEntry {
   @@index([unitId])
   @@index([isSunkCost, date])
   @@index([recurringExpenseId])
+  @@index([organizationId])
 }
 
 model ExpenseLineItem {
@@ -841,6 +846,8 @@ model PettyCash {
   // bulk, or delete-all). Historical rows created before the link stay null.
   expenseEntryId  String?         @unique
   expenseEntry    ExpenseEntry?   @relation(fields: [expenseEntryId], references: [id], onDelete: Cascade)
+  // Owning organisation — scopes rows with no property (see ExpenseEntry note).
+  organizationId  String?
   status          PettyCashStatus @default(APPROVED)
   approvedBy      String?
   approvedAt      DateTime?
@@ -851,6 +858,7 @@ model PettyCash {
 
   @@index([propertyId])
   @@index([status])
+  @@index([organizationId])
 }
 
 model ManagementFeeConfig {

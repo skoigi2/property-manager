@@ -107,6 +107,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         scope: "UNIT",
         category: "REINSTATEMENT",
         amount: inventoryDamage,
+        organizationId: session!.user.organizationId ?? null,
         description: `Move-out damage charge — ${tenant.name} (Unit ${tenant.unit.unitNumber})${
           data.inventoryDamageNotes ? ` — ${data.inventoryDamageNotes}` : ""
         }`,

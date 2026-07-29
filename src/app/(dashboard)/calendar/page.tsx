@@ -47,6 +47,10 @@ import {
   Columns3,
   Settings2,
   CheckCircle2,
+  Inbox,
+  UserCheck,
+  BellOff,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -145,15 +149,24 @@ function KpiCard({
 
 // ── Event row (shared by the side panel and the mobile agenda) ───────────────
 
+const SNOOZE_PRESETS: { key: string; label: string }[] = [
+  { key: "1h", label: "1 hour" },
+  { key: "1d", label: "Tomorrow" },
+  { key: "1w", label: "Next week" },
+  { key: "dismiss", label: "Hide until I restore it" },
+];
+
 function EventRow({
-  event, onAction, busy,
+  event, onAction, busy, onSnooze,
 }: {
   event: CalendarEvent;
   onAction: (e: CalendarEvent, a: CalendarAction) => void;
   busy: boolean;
+  onSnooze: (e: CalendarEvent, preset: string) => void;
 }) {
   const cfg = TYPE_CONFIG[event.type];
   const postActions = event.actions.filter((a) => a.endpoint);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
 
   return (
     <div className="px-4 py-3 hover:bg-gray-50 transition-colors">
@@ -201,7 +214,32 @@ function EventRow({
             {a.label}
           </button>
         ))}
+
+        {/* "Not now" — a manager who has consciously parked something should be
+            able to quiet it instead of being shouted at every day. */}
+        <button
+          onClick={() => setSnoozeOpen((v) => !v)}
+          aria-expanded={snoozeOpen}
+          title="Snooze this event"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-sans text-gray-400 hover:text-gold transition-colors"
+        >
+          <Clock size={11} />
+        </button>
       </div>
+
+      {snoozeOpen && (
+        <div className="ml-[18px] mt-1.5 flex flex-wrap items-center gap-1">
+          {SNOOZE_PRESETS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => { setSnoozeOpen(false); onSnooze(event, p.key); }}
+              className="px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[11px] font-sans text-gray-600 hover:text-gold hover:border-gold transition-colors"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -233,11 +271,12 @@ function clusterEvents(events: CalendarEvent[]): EventCluster[] {
 const URGENCY_RANK: Record<CalendarEvent["urgency"], number> = { ok: 0, warning: 1, critical: 2 };
 
 function ClusterRow({
-  cluster, onAction, actingOn,
+  cluster, onAction, actingOn, onSnooze,
 }: {
   cluster: EventCluster;
   onAction: (e: CalendarEvent, a: CalendarAction) => void;
   actingOn: string | null;
+  onSnooze: (e: CalendarEvent, preset: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const cfg = TYPE_CONFIG[cluster.type];
@@ -299,7 +338,13 @@ function ClusterRow({
       {open && (
         <div className="bg-gray-50/60 border-t border-gray-100 divide-y divide-gray-100">
           {events.map((e) => (
-            <EventRow key={e.id} event={e} onAction={onAction} busy={actingOn === e.id} />
+            <EventRow
+              key={e.id}
+              event={e}
+              onAction={onAction}
+              busy={actingOn === e.id}
+              onSnooze={onSnooze}
+            />
           ))}
         </div>
       )}
@@ -325,9 +370,9 @@ export default function CalendarPage() {
   const [overdueTotal, setOverdueTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  // Collapsed by default: an org with a long backlog shouldn't have the
-  // calendar itself pushed off-screen on arrival.
-  const [overdueExpanded, setOverdueExpanded] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
+  const [snoozedCount, setSnoozedCount] = useState(0);
+  const [includeSnoozed, setIncludeSnoozed] = useState(false);
   const [actingOn, setActingOn] = useState<string | null>(null);
   const [refineOpen, setRefineOpen] = useState(false);
   const [sources, setSources] = useState<CalendarSourceStatus[] | null>(null);
@@ -379,6 +424,7 @@ export default function CalendarPage() {
     setFailed(false);
     const params = new URLSearchParams(rangeKey);
     if (selectedId) params.set("propertyId", selectedId);
+    if (includeSnoozed) params.set("includeSnoozed", "true");
 
     fetch(`/api/calendar?${params}`)
       .then((r) => {
@@ -390,6 +436,7 @@ export default function CalendarPage() {
         setOverdueEvents(d.overdueEvents ?? []);
         setOverdueTotal(d.overdueTotal ?? 0);
         setSources(d.sources ?? null);
+        setSnoozedCount(d.snoozedCount ?? 0);
         setLoading(false);
       })
       .catch(() => {
@@ -397,7 +444,7 @@ export default function CalendarPage() {
         setFailed(true);
         setLoading(false);
       });
-  }, [rangeKey, selectedId]);
+  }, [rangeKey, selectedId, includeSnoozed]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -488,6 +535,33 @@ export default function CalendarPage() {
     }
   }
 
+  async function snoozeEvent(event: CalendarEvent, preset: string) {
+    try {
+      const r = await fetch("/api/calendar/snooze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id, until: preset }),
+      });
+      if (!r.ok) throw new Error();
+      toast.success(preset === "dismiss" ? "Hidden from your calendar" : "Snoozed");
+      load();
+    } catch {
+      toast.error("Couldn't snooze that");
+    }
+  }
+
+  async function restoreAllSnoozed() {
+    try {
+      const r = await fetch("/api/calendar/snooze", { method: "DELETE" });
+      if (!r.ok) throw new Error();
+      toast.success("Snoozed events restored");
+      setIncludeSnoozed(false);
+      load();
+    } catch {
+      toast.error("Couldn't restore");
+    }
+  }
+
   // ── Grid ─────────────────────────────────────────────────────────────────
 
   const gridDays = useMemo(() => {
@@ -496,9 +570,16 @@ export default function CalendarPage() {
     return eachDayOfInterval({ start, end });
   }, [month]);
 
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id ?? null;
+
   const visibleEvents = useMemo(
-    () => events.filter((e) => activeTypes.has(e.type)),
-    [events, activeTypes]
+    () =>
+      events.filter(
+        (e) =>
+          activeTypes.has(e.type) &&
+          (!mineOnly || (currentUserId != null && e.assigneeId === currentUserId))
+      ),
+    [events, activeTypes, mineOnly, currentUserId]
   );
 
   const eventsByDay = useMemo(() => {
@@ -624,61 +705,54 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* ── Overdue strip ─────────────────────────────────────────────── */}
+        {/* ── Overdue summary ───────────────────────────────────────────── */}
+        {/* The Inbox is the queue for overdue work — it carries the real
+            per-item actions. Re-rendering that queue here gave managers two
+            places showing the same backlog with different affordances, so this
+            reports the count, shows a taste, and hands over. */}
         {visibleOverdue.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden shadow-sm">
-            <button
-              onClick={() => setOverdueExpanded((v) => !v)}
-              aria-expanded={overdueExpanded}
-              className="w-full flex items-center justify-between px-4 py-3 text-left"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <AlertTriangle size={16} className="text-red-600 shrink-0" />
-                <span className="text-sm font-sans font-semibold text-red-700 truncate">
-                  {overdueTotal} overdue item{overdueTotal !== 1 ? "s" : ""} — action required
-                </span>
-                <span className="text-xs text-red-500 font-sans hidden sm:inline shrink-0">
-                  (past 90 days)
-                </span>
-              </div>
-              {overdueExpanded
-                ? <ChevronUp size={16} className="text-red-500 shrink-0" />
-                : <ChevronDown size={16} className="text-red-500 shrink-0" />}
-            </button>
-
-            {overdueExpanded && (
-              <>
-                <div className="divide-y divide-red-100 max-h-80 overflow-y-auto">
-                  {visibleOverdue.map((e) => (
-                    <Link
-                      key={e.id}
-                      href={e.link}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-100/50 transition-colors group"
-                    >
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${TYPE_CONFIG[e.type].dot}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-sans text-gray-800 truncate">{e.title}</p>
-                        <p className="text-xs text-gray-500 font-sans truncate">
-                          {e.propertyName}{e.unitName ? ` · Unit ${e.unitName}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-sans font-semibold text-red-600">
-                          {Math.abs(e.daysUntil)}d ago
-                        </span>
-                        <ExternalLink size={13} className="text-gray-300 group-hover:text-red-400" />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-                {overdueTotal > overdueEvents.length && (
-                  <p className="px-4 py-2 text-xs text-red-600 font-sans bg-red-100/50 border-t border-red-200">
-                    Showing the {overdueEvents.length} most recent of {overdueTotal}. Clear these to
-                    see the rest.
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 shadow-sm">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-sans font-semibold text-red-700">
+                    {overdueTotal} overdue item{overdueTotal !== 1 ? "s" : ""} in the last 90 days
                   </p>
-                )}
-              </>
-            )}
+                  <p className="text-xs text-red-600/80 font-sans mt-0.5">
+                    Work these from your Inbox — each one carries its own actions there.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/inbox"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-300 text-xs font-sans font-medium text-red-700 hover:bg-red-100 transition-colors"
+              >
+                <Inbox size={13} /> Open Inbox
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+              {visibleOverdue.slice(0, 3).map((e) => (
+                <Link
+                  key={e.id}
+                  href={e.link}
+                  title={`${e.title} — ${e.propertyName}`}
+                  className="inline-flex items-center gap-1.5 max-w-full bg-white/70 border border-red-200 rounded-full px-2.5 py-1 text-[11px] font-sans text-gray-700 hover:border-red-400 transition-colors"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${TYPE_CONFIG[e.type].dot}`} />
+                  <span className="truncate max-w-[220px]">{e.title}</span>
+                  <span className="text-red-600 font-medium shrink-0">
+                    {Math.abs(e.daysUntil)}d
+                  </span>
+                </Link>
+              ))}
+              {overdueTotal > 3 && (
+                <span className="text-[11px] font-sans text-red-600/70">
+                  +{overdueTotal - 3} more in the Inbox
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -725,12 +799,51 @@ export default function CalendarPage() {
               Refine
             </button>
 
+            {/* Only case-backed work has an assignee, so this is deliberately
+                labelled by what it does rather than "My week". */}
+            {currentUserId && (
+              <button
+                onClick={() => setMineOnly((v) => !v)}
+                aria-pressed={mineOnly}
+                title="Cases, maintenance visits and approvals assigned to you"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-sans font-medium transition-colors ${
+                  mineOnly
+                    ? "bg-gold/15 text-gold-dark border-gold"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gold hover:text-gold"
+                }`}
+              >
+                <UserCheck size={13} />
+                Assigned to me
+              </button>
+            )}
+
             {activeTypes.size !== ALL_TYPES.length && (
               <button
                 onClick={() => setActiveTypes(new Set(ALL_TYPES))}
                 className="text-xs font-sans text-gold hover:underline px-1"
               >
                 Show everything
+              </button>
+            )}
+
+            {snoozedCount > 0 && (
+              <button
+                onClick={() => setIncludeSnoozed((v) => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 text-xs font-sans text-gray-400 hover:text-gold hover:border-gold transition-colors"
+              >
+                <BellOff size={12} />
+                {includeSnoozed
+                  ? `Hide ${snoozedCount} snoozed`
+                  : `${snoozedCount} snoozed`}
+              </button>
+            )}
+
+            {includeSnoozed && snoozedCount > 0 && (
+              <button
+                onClick={restoreAllSnoozed}
+                className="text-xs font-sans text-gold hover:underline px-1"
+              >
+                Restore all
               </button>
             )}
           </div>
@@ -1097,7 +1210,24 @@ export default function CalendarPage() {
                 <div className="flex-1 flex flex-col items-center justify-center py-10 px-5 text-center">
                   {/* Three different empty states, because "no events" has
                       three different causes and they need different answers. */}
-                  {activeTypes.size !== ALL_TYPES.length ? (
+                  {mineOnly ? (
+                    <>
+                      <p className="text-sm font-sans text-gray-500">
+                        Nothing here is assigned to you.
+                      </p>
+                      <p className="text-xs font-sans text-gray-400 mt-1.5 max-w-xs">
+                        Only cases, maintenance visits and approvals carry an assignee.
+                        Leases, rent and compliance are property-wide, so they never
+                        show under this filter.
+                      </p>
+                      <button
+                        onClick={() => setMineOnly(false)}
+                        className="mt-2 text-xs text-gold hover:underline font-sans"
+                      >
+                        Show everyone&apos;s
+                      </button>
+                    </>
+                  ) : activeTypes.size !== ALL_TYPES.length ? (
                     <>
                       <p className="text-sm font-sans text-gray-500">
                         Nothing matches the filters you&apos;ve got on.
@@ -1165,6 +1295,7 @@ export default function CalendarPage() {
                         cluster={c}
                         onAction={runAction}
                         actingOn={actingOn}
+                        onSnooze={snoozeEvent}
                       />
                     ) : (
                       c.events.map((e) => (
@@ -1173,6 +1304,7 @@ export default function CalendarPage() {
                           event={e}
                           onAction={runAction}
                           busy={actingOn === e.id}
+                          onSnooze={snoozeEvent}
                         />
                       ))
                     )

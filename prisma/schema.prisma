@@ -120,6 +120,7 @@ model User {
   sessions         Session[]
   notificationPreferences NotificationPreference[]
   calendarFeedTokens      CalendarFeedToken[]
+  calendarEventSnoozes    CalendarEventSnooze[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -134,6 +135,24 @@ model User {
 // `propertyIds` empty = every property the owning user can access, resolved
 // live on each fetch, so revoking someone's PropertyAccess also narrows their
 // existing feed.
+// Per-user "not now" on a calendar event. Keyed on CalendarEvent.id — the
+// stable `{TYPE}-{refId}` string — which is precisely why that id must never
+// be randomised. `until` null means dismissed indefinitely.
+//
+// Per-user, not per-org: one manager deciding a renewal is next month's
+// problem must not hide it from a colleague.
+model CalendarEventSnooze {
+  id        String    @id @default(cuid())
+  userId    String
+  eventId   String
+  until     DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([userId])
+}
+
 model CalendarFeedToken {
   id             String    @id @default(cuid())
   userId         String

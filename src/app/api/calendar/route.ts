@@ -1,4 +1,5 @@
 import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
 import { buildCalendarEvents, getCalendarSourceStatus } from "@/lib/calendar-events";
 import {
   startOfMonth, endOfMonth, subDays, startOfDay, endOfDay, differenceInDays, isValid, parseISO,
@@ -19,12 +20,14 @@ const MAX_OVERDUE = 50;
 const MAX_RANGE_DAYS = 62;
 
 export async function GET(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
 
   const accessible = await getAccessiblePropertyIds();
   if (!accessible || accessible.length === 0) {
-    return Response.json({ events: [], overdueEvents: [], overdueTotal: 0, sources: null });
+    return Response.json({
+      events: [], overdueEvents: [], overdueTotal: 0, sources: null, snoozedCount: 0,
+    });
   }
 
   const { searchParams } = new URL(req.url);
@@ -86,15 +89,39 @@ export async function GET(req: Request) {
   // Most recently missed first — those are the ones still worth chasing.
   allOverdue.sort((a, b) => b.date.localeCompare(a.date));
 
+  // ── Per-user snoozes ──────────────────────────────────────────────────────
+  // Fetched for exactly the events in play rather than the whole table, and
+  // expired rows are ignored (a lapsed snooze simply stops applying; the row
+  // is tidied on next write, not on every read).
+  const now = new Date();
+  const inPlay = [...events, ...allOverdue].map((e) => e.id);
+  const snoozes = inPlay.length
+    ? await prisma.calendarEventSnooze.findMany({
+        where: {
+          userId: session!.user.id,
+          eventId: { in: inPlay },
+          OR: [{ until: null }, { until: { gt: now } }],
+        },
+        select: { eventId: true },
+      })
+    : [];
+  const hidden = new Set(snoozes.map((s) => s.eventId));
+
+  const includeSnoozed = searchParams.get("includeSnoozed") === "true";
+  const visibleEvents = includeSnoozed ? events : events.filter((e) => !hidden.has(e.id));
+  const visibleOverdue = includeSnoozed ? allOverdue : allOverdue.filter((e) => !hidden.has(e.id));
+
   // Only when the range is genuinely empty is it worth telling the user which
   // sources have no data at all — that's the difference between "quiet month"
-  // and "never configured".
+  // and "never configured". Snoozed-to-empty is not unconfigured, so this
+  // checks the raw result.
   const sources = events.length === 0 ? await getCalendarSourceStatus(propertyIds) : null;
 
   return Response.json({
-    events,
-    overdueEvents: allOverdue.slice(0, MAX_OVERDUE),
-    overdueTotal: allOverdue.length,
+    events: visibleEvents,
+    overdueEvents: visibleOverdue.slice(0, MAX_OVERDUE),
+    overdueTotal: visibleOverdue.length,
     sources,
+    snoozedCount: hidden.size,
   });
 }

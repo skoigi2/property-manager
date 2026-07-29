@@ -351,7 +351,9 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 ### Calendar
 
-Combined property-event view. Page: `/calendar`.
+Combined property-event view. Page: `/calendar` — **manager-only** (in `managerOnlyPaths`). It was previously reachable by OWNER while every API behind it was `requireManager()`, which gave owners a shell that could never load. An owner-facing calendar needs owner-appropriate deep links first (events currently link to `/tenants`, `/invoices`, `/cases` etc., all manager-only).
+
+**Relationship to the Inbox**: `/inbox` is the queue you work ("what do I do now"); `/calendar` is when things land. The calendar deliberately does **not** re-render the overdue queue — it reports the count, previews three, and links to `/inbox`, which owns the per-item actions. If you add overdue handling, add it there, not here.
 
 **Aggregator**: `buildCalendarEvents(propertyIds, from, to)` in [src/lib/calendar-events.ts](src/lib/calendar-events.ts) — same shape as `buildInbox()`: one `Promise.all`, reads only, no request state. Every calendar surface goes through it, so the in-app view and the ICS feed can't drift. Twelve `EventType`s: `LEASE_EXPIRY`, `LEASE_START`, `RENT_DUE` (Invoice.dueDate, excludes DRAFT/CANCELLED), `MAINTENANCE_DUE` (recurring schedule), `MAINTENANCE_VISIT` (`MaintenanceJob.scheduledDate`, excludes DONE/CANCELLED), `INSURANCE_RENEWAL`, `COMPLIANCE_EXPIRY`, `RECURRING_EXPENSE`, `RENT_REMITTANCE`, `MGMT_FEE_INVOICE`, `APPROVAL_DEADLINE` (`ApprovalRequest.expiresAt`), `CASE_SLA` (computed via `computeCaseSlaDueDate`, filtered in memory since it isn't a column).
 
@@ -361,7 +363,11 @@ Each event carries a **stable `id` (`{TYPE}-{refId}`) that doubles as the ICS UI
 
 **Empty state**: when a range returns zero events the route also returns `sources` — `getCalendarSourceStatus(propertyIds)`, seven counts naming which *configuration* sources hold no data (tenants, invoices, agreement, maintenance schedules, insurance, compliance, recurring). The UI lists the unconfigured ones with deep links, so "nothing is due" and "you never set this up" stop looking identical. Transactional sources (maintenance jobs, approvals, cases) are deliberately excluded — having none is normal. Note a configured `ManagementAgreement` synthesises remittance + mgmt-fee events in *every* month, so once one exists the calendar is rarely empty at all.
 
-**API**: `GET /api/calendar?year=&month=&propertyId=` or `?from=&to=` (YYYY-MM-DD, max 62 days, explicit range wins) returns `{ events, overdueEvents, overdueTotal, sources }`. Overdue is a second aggregator call over a trailing 90-day window filtered to `isOverdue`, capped at 50 rows (`overdueTotal` reports the true count). The 90-day bound applies uniformly to every source.
+**Assignment**: `CalendarEvent.assigneeId` is populated only where an owner genuinely exists — `CASE_SLA` (thread assignee), `MAINTENANCE_VISIT` (via its linked case), `APPROVAL_DEADLINE` (the requesting manager). Leases, rent, insurance and compliance are property-scoped obligations with no assignee, so the "Assigned to me" filter legitimately hides them; its empty state says so rather than looking broken.
+
+**Snooze**: `CalendarEventSnooze { userId, eventId, until }` (migration `20260730090000_calendar_event_snooze`) — per-user "not now", keyed on the stable `CalendarEvent.id`, which is another reason that id must never be randomised. `until` null = hidden until restored. Filtered in the page route only; the ICS feed intentionally ignores snoozes (a snooze is a UI-level "not now", not a statement that the obligation vanished). `?includeSnoozed=true` reveals them; `snoozedCount` drives the restore affordance.
+
+**API**: `GET /api/calendar?year=&month=&propertyId=` or `?from=&to=` (YYYY-MM-DD, max 62 days, explicit range wins) returns `{ events, overdueEvents, overdueTotal, sources, snoozedCount }`. `POST/DELETE /api/calendar/snooze`. Overdue is a second aggregator call over a trailing 90-day window filtered to `isOverdue`, capped at 50 rows (`overdueTotal` reports the true count). The 90-day bound applies uniformly to every source.
 
 **ICS feed** (subscribe-by-URL):
 - `CalendarFeedToken { userId, token @unique, propertyIds[], label, lastAccessedAt, revokedAt }` — migration `20260729180000_calendar_feed_token`. **Deliberately has no expiry column**: a silently-expiring subscription is worse than none. Revoke + rotate explicitly.

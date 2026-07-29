@@ -51,6 +51,7 @@ const mgrDrawerSections: DrawerSection[] = [
     heading: "Overview",
     items: [
       { href: "/properties", label: "Properties", icon: Building2 },
+      { href: "/calendar",   label: "Calendar",   icon: CalendarRange },
       { href: "/airbnb",     label: "Airbnb",     icon: CalendarDays },
       { href: "/report",     label: "Report",     icon: FileText },
     ],
@@ -101,6 +102,7 @@ const accountantDrawerSections: DrawerSection[] = [
     heading: "Overview",
     items: [
       { href: "/properties", label: "Properties", icon: Building2 },
+      { href: "/calendar",   label: "Calendar",   icon: CalendarRange },
       { href: "/airbnb",     label: "Airbnb",     icon: CalendarDays },
       { href: "/report",     label: "Report",     icon: FileText },
     ],

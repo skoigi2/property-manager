@@ -66,6 +66,15 @@ export interface CalendarEvent {
    */
   isOverdue: boolean;
   actions: CalendarAction[];
+  /**
+   * The user this event sits with, where that's a real concept.
+   *
+   * Only case-backed work has an owner: case SLAs, maintenance visits whose
+   * job is linked to a case, and approvals (the manager who requested it and
+   * is waiting on the answer). Leases, invoices, insurance and compliance are
+   * property-scoped obligations with no assignee — null, not "unassigned".
+   */
+  assigneeId?: string | null;
   /** In-app display only. Deliberately excluded from the feed. */
   amount?: number;
   currency?: string;
@@ -244,6 +253,8 @@ export async function buildCalendarEvents(
         property: { select: { id: true, name: true, currency: true } },
         unit: { select: { unitNumber: true } },
         vendor: { select: { name: true } },
+        // A job's owner lives on its case, not the job itself.
+        caseThread: { select: { assignedToUserId: true } },
       },
     }),
 
@@ -314,6 +325,7 @@ export async function buildCalendarEvents(
         stageStartedAt: true,
         stageSlaHours: true,
         waitingPausedSeconds: true,
+        assignedToUserId: true,
         property: { select: { id: true, name: true, currency: true } },
         unit: { select: { unitNumber: true } },
       },
@@ -466,6 +478,7 @@ export async function buildCalendarEvents(
       // Query already excludes DONE/CANCELLED, so a past visit is still open.
       isOverdue: days < 0,
       actions: [{ label: "Open job", href }],
+      assigneeId: j.caseThread?.assignedToUserId ?? null,
     });
   }
 
@@ -606,6 +619,8 @@ export async function buildCalendarEvents(
       urgency: days <= 1 ? "critical" : "warning",
       isOverdue: days < 0,
       actions: [{ label: "Open case", href: `/cases/${ap.caseThread.id}` }],
+      // The requester is the one waiting on the answer.
+      assigneeId: ap.requestedByUserId,
     });
   }
 
@@ -629,6 +644,7 @@ export async function buildCalendarEvents(
       urgency: days < 0 ? "critical" : days <= 1 ? "warning" : "ok",
       isOverdue: days < 0,
       actions: [{ label: "Open case", href: `/cases/${c.id}` }],
+      assigneeId: c.assignedToUserId,
     });
   }
 

@@ -66,7 +66,12 @@ export default auth((req) => {
   }
 
   // Manager-only routes (OWNER is blocked)
-  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors", "/cases", "/automations"];
+  // "/calendar" is manager-only because every API behind it (GET /api/calendar,
+  // /export, /calendar-feeds) is requireManager(), and its events deep-link to
+  // manager-only pages. Leaving the page reachable by OWNER gave them a shell
+  // that could never load. An owner-facing calendar needs owner-appropriate
+  // destinations first — see docs note in CLAUDE.md.
+  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors", "/cases", "/automations", "/calendar"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
     const role = req.auth?.user?.role;
     if (role === "OWNER") {

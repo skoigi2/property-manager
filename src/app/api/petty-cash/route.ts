@@ -38,6 +38,9 @@ export async function GET(req: Request) {
         { propertyId: null },
       ],
     },
+    // Linked expense (when this OUT row mirrors a paid-from-petty-cash
+    // expense) — drives the "From expense" badge on the ledger.
+    include: { expenseEntry: { select: { id: true, description: true, category: true } } },
     orderBy: { date: "asc" },
   });
   const withBalance = calcPettyCashBalance(entries);

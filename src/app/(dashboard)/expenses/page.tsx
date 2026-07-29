@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -327,6 +328,7 @@ export default function ExpensesPage() {
   const { selectedId, selected } = useProperty();
   const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
+  const searchParams = useSearchParams();
   // The header context list is minimal (?minimal=true — no units), so the
   // unit multi-select must load the full property list itself. Same cache
   // key as the Tenants page, so repeat navigations render instantly.
@@ -367,6 +369,7 @@ export default function ExpensesPage() {
   const [filterCategory, setFilterCategory] = useState("");
   const [filterScope, setFilterScope] = useState("");
   const [filterPayment, setFilterPayment] = useState("");
+  const [filterReceipts, setFilterReceipts] = useState("");
   const [filterSunk, setFilterSunk] = useState("");
 
   // Bulk selection
@@ -408,6 +411,9 @@ export default function ExpensesPage() {
 
   const scope = watch("scope");
   const paidFromPettyCash = watch("paidFromPettyCash");
+  const wCategory = watch("category");
+  const wAmount = watch("amount");
+  const wDate = watch("date");
   const allUnits = useMemo(
     () =>
       properties.flatMap((p: any) =>
@@ -476,6 +482,44 @@ export default function ExpensesPage() {
     setUnitSearch("");
     setShowForm(false);
   }, [reset]);
+
+  // Deep-link prefill from the Petty Cash page's "Record as expense instead"
+  // nudge — opens the form with the typed values and the petty-cash flag on.
+  const prefillDone = useRef(false);
+  useEffect(() => {
+    if (prefillDone.current) return;
+    if (searchParams.get("prefill") !== "petty") return;
+    prefillDone.current = true;
+    const propertyId = searchParams.get("propertyId") ?? "";
+    reset({
+      scope: propertyId ? "PROPERTY" : "PORTFOLIO",
+      propertyId: propertyId || undefined,
+      date: searchParams.get("date") || new Date().toISOString().split("T")[0],
+      amount: Number(searchParams.get("amount")) || 0,
+      description: searchParams.get("description") ?? "",
+      category: "OTHER",
+      isSunkCost: false,
+      paidFromPettyCash: true,
+    } as any);
+    setEditEntry(null);
+    setShowForm(true);
+  }, [searchParams, reset]);
+
+  // Soft duplicate check (create mode only): an entry with the same category
+  // and amount within ±3 days of the typed date probably means double entry.
+  const duplicateCandidate = useMemo(() => {
+    if (editEntry || !showForm) return null;
+    const amt = Number(wAmount);
+    if (!wCategory || !wDate || !amt) return null;
+    const target = new Date(wDate).getTime();
+    if (isNaN(target)) return null;
+    const DAY = 86_400_000;
+    return entries.find((e: any) =>
+      e.category === wCategory &&
+      Math.abs(e.amount - amt) < 0.005 &&
+      Math.abs(new Date(e.date).getTime() - target) <= 3 * DAY,
+    ) ?? null;
+  }, [editEntry, showForm, wCategory, wAmount, wDate, entries]);
 
   function openEdit(e: any) {
     setEditEntry(e);
@@ -677,7 +721,7 @@ export default function ExpensesPage() {
     }
   }
 
-  async function bulkAction(action: "delete" | "retype" | "mark_sunk" | "mark_operating") {
+  async function bulkAction(action: "delete" | "retype" | "mark_sunk" | "mark_operating" | "mark_paid") {
     if (selectedIds.size === 0) return;
     setBulkSubmitting(true);
     try {
@@ -784,7 +828,12 @@ export default function ExpensesPage() {
       .filter((e: any) => !filterCategory || e.category === filterCategory)
       .filter((e: any) => !filterScope || e.scope === filterScope)
       .filter((e: any) => !filterSunk || (filterSunk === "op" ? !e.isSunkCost : e.isSunkCost))
-      .filter((e: any) => !filterPayment || e.pay.status === filterPayment);
+      .filter((e: any) => !filterPayment || e.pay.status === filterPayment)
+      .filter((e: any) => {
+        if (!filterReceipts) return true;
+        const docCount = expenseDocs[e.id]?.length ?? e._count?.documents ?? 0;
+        return filterReceipts === "missing" ? docCount === 0 : docCount > 0;
+      });
 
     if (sortCol) {
       result = [...result].sort((a: any, b: any) => {
@@ -814,9 +863,9 @@ export default function ExpensesPage() {
     }
 
     return result;
-  }, [entriesWithPay, filterSearch, filterCategory, filterScope, filterSunk, filterPayment, sortCol, sortDir]);
+  }, [entriesWithPay, filterSearch, filterCategory, filterScope, filterSunk, filterPayment, filterReceipts, expenseDocs, sortCol, sortDir]);
 
-  const hasFilters = !!(filterSearch || filterCategory || filterScope || filterPayment || filterSunk);
+  const hasFilters = !!(filterSearch || filterCategory || filterScope || filterPayment || filterSunk || filterReceipts);
 
   // Outstanding payments — over ALL month entries, not the filtered view
   const { unpaidEntries, unpaidTotal, overdueEntries, overdueTotal } = useMemo(() => {
@@ -1064,9 +1113,19 @@ export default function ExpensesPage() {
               <option value="op">Operating only</option>
               <option value="sunk">Capital only</option>
             </select>
+            <select
+              value={filterReceipts}
+              onChange={(e) => setFilterReceipts(e.target.value)}
+              title="Filter by attached receipts/documents"
+              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+            >
+              <option value="">All receipts</option>
+              <option value="missing">Missing receipt</option>
+              <option value="has">Has receipt</option>
+            </select>
             {hasFilters && (
               <button
-                onClick={() => { setFilterSearch(""); setFilterCategory(""); setFilterScope(""); setFilterPayment(""); setFilterSunk(""); }}
+                onClick={() => { setFilterSearch(""); setFilterCategory(""); setFilterScope(""); setFilterPayment(""); setFilterSunk(""); setFilterReceipts(""); }}
                 className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-sans transition-colors"
               >
                 <X size={12} /> Clear filters
@@ -1141,6 +1200,19 @@ export default function ExpensesPage() {
 
               <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("mark_sunk")}>Mark as Capital</Button>
               <Button size="sm" variant="secondary" loading={bulkSubmitting} onClick={() => bulkAction("mark_operating")}>Mark as Operating</Button>
+
+              <div className="w-px h-5 bg-gray-200" />
+
+              <Button
+                size="sm"
+                variant="secondary"
+                className="text-income border-income/30 hover:bg-income/5"
+                loading={bulkSubmitting}
+                title="Settle each selected expense in full — sets amount paid to the total (line items included) with today's payment date"
+                onClick={() => bulkAction("mark_paid")}
+              >
+                <CheckCircle2 size={13} /> Mark paid
+              </Button>
 
               {canDelete && (<>
               <div className="w-px h-5 bg-gray-200" />
@@ -1409,6 +1481,18 @@ export default function ExpensesPage() {
                   currency={currency}
                 />
               </div>
+
+              {/* Possible duplicate warning (soft — saving is still allowed) */}
+              {duplicateCandidate && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs font-sans text-amber-800">
+                    Possible duplicate: <strong>{duplicateCandidate.description || CAT_LABELS[duplicateCandidate.category]}</strong> on{" "}
+                    {formatDate(duplicateCandidate.date)} for {formatCurrency(duplicateCandidate.amount, currency)} already
+                    exists. You can still save if this is a separate cost.
+                  </p>
+                </div>
+              )}
 
               {/* Receipts & documents */}
               <div className="border-t border-gray-100 pt-4 space-y-3">

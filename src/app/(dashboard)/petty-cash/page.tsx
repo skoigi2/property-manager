@@ -31,6 +31,9 @@ import { formatCurrency } from "@/lib/currency";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { ExportRangeDialog, type ExportRange } from "@/components/ui/ExportRangeDialog";
 import { exportPettyCash } from "@/lib/excel-export";
+import { useRouter } from "next/navigation";
+import { Modal } from "@/components/ui/Modal";
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/expense-categories";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
@@ -47,6 +50,14 @@ export default function PettyCashPage() {
   const [showForm, setShowForm] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [month, setMonth] = useSharedMonth();
+  const router = useRouter();
+
+  // Unlinked-OUT reconciliation (spending recorded here instead of Expenses)
+  const [showUnlinkedOnly, setShowUnlinkedOnly] = useState(false);
+  const [convertTarget, setConvertTarget] = useState<any | null>(null);
+  const [convertCategory, setConvertCategory] = useState<string>("OTHER");
+  const [convertDescription, setConvertDescription] = useState("");
+  const [converting, setConverting] = useState(false);
 
   // Filters
   const [filterSearch, setFilterSearch] = useState("");
@@ -95,6 +106,8 @@ export default function PettyCashPage() {
   const watchedType = watch("type");
   const watchedAmount = watch("amount");
   const watchedPropertyId = watch("propertyId");
+  const watchedDate = watch("date");
+  const watchedDescription = watch("description");
 
   const load = useCallback(() => {
     const params = new URLSearchParams();
@@ -284,6 +297,51 @@ export default function PettyCashPage() {
   const periodOut = filteredApproved.filter((e: any) => e.type === "OUT").reduce((s: number, e: any) => s + e.amount, 0);
   const periodNet = periodIn - periodOut;
 
+  // Manual OUT rows with no linked expense — cash spent that never reached the
+  // P&L. All-time, matching the balance card's semantics.
+  const isUnlinkedOut = (e: any) =>
+    e.type === "OUT" && !e.expenseEntryId && (e.status ?? "APPROVED") === "APPROVED";
+  const unlinkedOuts = entries.filter(isUnlinkedOut);
+  const unaccountedTotal = unlinkedOuts.reduce((s: number, e: any) => s + e.amount, 0);
+
+  function openConvert(e: any) {
+    setConvertTarget(e);
+    setConvertCategory("OTHER");
+    setConvertDescription(e.description ?? "");
+  }
+
+  async function handleConvert() {
+    if (!convertTarget) return;
+    setConverting(true);
+    try {
+      const res = await fetch(`/api/petty-cash/${convertTarget.id}/convert-to-expense`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: convertCategory, description: convertDescription || undefined }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Convert failed");
+      toast.success("Expense created and linked — it now appears in your P&L");
+      setConvertTarget(null);
+      load();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setConverting(false);
+    }
+  }
+
+  // Prefill the Expenses form with what's typed in this form (OUT nudge).
+  function recordAsExpenseInstead() {
+    const params = new URLSearchParams({ prefill: "petty" });
+    if (watchedAmount) params.set("amount", String(watchedAmount));
+    if (watchedDate) params.set("date", String(watchedDate));
+    if (watchedDescription) params.set("description", String(watchedDescription));
+    const propId = watchedPropertyId || selectedId;
+    if (propId) params.set("propertyId", propId);
+    router.push(`/expenses?${params.toString()}`);
+  }
+
   function handleSort(col: string) {
     if (sortCol === col) {
       if (sortDir === "asc") setSortDir("desc");
@@ -294,9 +352,11 @@ export default function PettyCashPage() {
     }
   }
 
-  // Further filtered + sorted for display (search + type + property + status filters)
+  // Further filtered + sorted for display (search + type + property + status filters).
+  // "Unlinked only" reconciliation mode is ALL-TIME (bypasses the month filter)
+  // so every not-in-P&L row is visible at once.
   const displayEntries = useMemo(() => {
-    let result = filtered
+    let result = (showUnlinkedOnly ? entries.filter(isUnlinkedOut) : filtered)
       .filter((e: any) => !filterSearch || e.description.toLowerCase().includes(filterSearch.toLowerCase()))
       .filter((e: any) => !filterType || e.type === filterType)
       .filter((e: any) => !filterStatus || e.status === filterStatus)
@@ -323,7 +383,8 @@ export default function PettyCashPage() {
     }
 
     return result;
-  }, [filtered, filterSearch, filterType, filterProperty, sortCol, sortDir]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, entries, showUnlinkedOnly, filterSearch, filterType, filterProperty, sortCol, sortDir]);
 
   const hasFilters = !!(filterSearch || filterType || filterProperty || filterStatus);
   const allDisplaySelected = displayEntries.length > 0 && selectedIds.size === displayEntries.length;
@@ -416,7 +477,26 @@ export default function PettyCashPage() {
       case "description":
         return (
           <td key={key} className="px-4 py-3 text-sm font-sans text-header">
-            <div>{e.description}</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>{e.description}</span>
+              {e.type === "OUT" && e.expenseEntryId && (
+                <span
+                  title={e.expenseEntry ? `Linked expense: ${e.expenseEntry.description ?? e.expenseEntry.category}` : "Linked to an expense"}
+                  className="text-[10px] font-sans font-medium text-gold-dark bg-gold/10 border border-gold/30 px-1.5 py-0.5 rounded-full cursor-help"
+                >
+                  From expense
+                </span>
+              )}
+              {isUnlinkedOut(e) && (
+                <button
+                  onClick={() => openConvert(e)}
+                  title="This cash out has no expense record — it doesn't appear in your P&L. Click to convert it into an expense."
+                  className="text-[10px] font-sans font-medium text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
+                >
+                  Not in P&L — convert
+                </button>
+              )}
+            </div>
             {e.receiptRef && <div className="text-xs text-gray-400 mt-0.5">Ref: {e.receiptRef}</div>}
             {e.status === "REJECTED" && e.rejectionReason && (
               <div className="text-xs text-expense mt-0.5">Rejected: {e.rejectionReason}</div>
@@ -556,6 +636,53 @@ export default function PettyCashPage() {
           </Card>
         </div>
 
+        {/* Unaccounted cash-out reconciliation banner */}
+        {unaccountedTotal > 0 && (
+          <div className="flex items-start sm:items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex-col sm:flex-row">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <TrendingDown size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-sm font-sans text-amber-800">
+                <strong>{formatCurrency(unaccountedTotal, currency)}</strong> of cash out ({unlinkedOuts.length} entr{unlinkedOuts.length === 1 ? "y" : "ies"}) is
+                not recorded as an expense — it doesn&apos;t appear in your P&amp;L or reports. Convert each entry to an
+                expense to keep the books accurate.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowUnlinkedOnly(!showUnlinkedOnly)}
+              className="shrink-0 text-xs font-sans font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              {showUnlinkedOnly ? "Show all entries" : "Show these entries"}
+            </button>
+          </div>
+        )}
+
+        {/* Deficit → top-up shortcut */}
+        {balance < 0 && (
+          <div className="flex items-start sm:items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex-col sm:flex-row">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <Wallet size={16} className="text-expense shrink-0 mt-0.5" />
+              <p className="text-sm font-sans text-red-800">
+                The fund is in deficit by <strong>{formatCurrency(Math.abs(balance), currency)}</strong> — more cash has
+                been paid out than put in. Record the top-up that covered it.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                reset({
+                  type: "IN",
+                  date: new Date().toISOString().split("T")[0],
+                  amount: Math.abs(balance),
+                  description: "Petty cash top-up",
+                } as any);
+                setShowForm(true);
+              }}
+              className="shrink-0 text-xs font-sans font-medium text-red-700 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              Record top-up
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <h2 className="section-header">Ledger</h2>
           <div className="flex items-center gap-2">
@@ -579,6 +706,22 @@ export default function PettyCashPage() {
               </div>
               <Input label="Description" tooltip="A clear description helps you audit the fund later — include what was purchased and why." {...register("description")} error={errors.description?.message} placeholder="What is this for?" />
               <Select label="Property" {...register("propertyId")} options={propertyOptions} />
+              {watchedType === "OUT" && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                  <p className="text-sm font-sans text-amber-800">
+                    <strong>Recording spending?</strong> Log it on the Expenses page with &quot;Paid from petty cash&quot;
+                    instead — it will appear in your P&amp;L and reports, and this ledger updates automatically.
+                    Use this form only for cash movements that aren&apos;t expenses (returns, corrections, transfers).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={recordAsExpenseInstead}
+                    className="text-xs font-sans font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                  >
+                    Record as expense instead →
+                  </button>
+                </div>
+              )}
               {watchedType === "OUT" && (() => {
                 const propId = watchedPropertyId || selectedId;
                 const limit = propId ? limitsByProperty[propId] : undefined;
@@ -679,6 +822,19 @@ export default function PettyCashPage() {
 
                       {/* Description + property */}
                       <p className="text-sm font-sans text-header">{e.description}</p>
+                      {e.type === "OUT" && e.expenseEntryId && (
+                        <span className="inline-block mt-1 text-[10px] font-sans font-medium text-gold-dark bg-gold/10 border border-gold/30 px-1.5 py-0.5 rounded-full">
+                          From expense
+                        </span>
+                      )}
+                      {isUnlinkedOut(e) && (
+                        <button
+                          onClick={() => openConvert(e)}
+                          className="inline-block mt-1 text-[10px] font-sans font-medium text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
+                        >
+                          Not in P&L — convert
+                        </button>
+                      )}
                       {e.receiptRef && <p className="text-xs text-gray-400 font-sans mt-0.5">Ref: {e.receiptRef}</p>}
                       {e.property?.name && (
                         <p className="text-xs text-gray-400 font-sans mt-0.5">{e.property.name}</p>
@@ -929,6 +1085,34 @@ export default function PettyCashPage() {
         selectedMonth={month}
         onExport={handleRangeExport}
       />
+
+      {/* Convert unlinked OUT → expense */}
+      <Modal open={!!convertTarget} onClose={() => setConvertTarget(null)} title="Convert to expense" size="md">
+        {convertTarget && (
+          <div className="space-y-4">
+            <p className="text-sm font-sans text-gray-600">
+              Creates an expense for <strong>{formatCurrency(convertTarget.amount, currency)}</strong> on{" "}
+              {formatDate(convertTarget.date)} (paid from petty cash, settled in cash) and links it to this ledger
+              entry — the spend will then appear in your P&amp;L and reports. The petty-cash balance doesn&apos;t change.
+            </p>
+            <Select
+              label="Expense category"
+              value={convertCategory}
+              onChange={(e) => setConvertCategory(e.target.value)}
+              options={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: EXPENSE_CATEGORY_LABELS[c] ?? c }))}
+            />
+            <Input
+              label="Description"
+              value={convertDescription}
+              onChange={(e) => setConvertDescription(e.target.value)}
+            />
+            <div className="flex gap-3 justify-end">
+              <Button variant="secondary" onClick={() => setConvertTarget(null)} disabled={converting}>Cancel</Button>
+              <Button variant="gold" onClick={handleConvert} loading={converting}>Create expense</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete entry?" message="This petty cash entry will be permanently deleted." loading={deleting} />
       <ConfirmDialog open={bulkDeleteConfirm} onClose={() => setBulkDeleteConfirm(false)} onConfirm={() => bulkAction("delete")} title={`Delete ${selectedIds.size} entries?`} message="These petty cash entries will be permanently deleted." loading={bulkSubmitting} />
     </div>

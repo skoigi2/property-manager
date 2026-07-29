@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { roleCan, PERMISSION_DENIED_MESSAGE } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,7 @@ const bulkSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("retype"),           ids: z.array(z.string()).min(1), category: z.enum(EXPENSE_CATEGORIES) }),
   z.object({ action: z.literal("mark_sunk"),        ids: z.array(z.string()).min(1) }),
   z.object({ action: z.literal("mark_operating"),   ids: z.array(z.string()).min(1) }),
+  z.object({ action: z.literal("mark_paid"),        ids: z.array(z.string()).min(1) }),
   // Delete every accessible expense, optionally scoped to one property. No ids
   // are sent from the client — the server resolves them under the access guard.
   z.object({ action: z.literal("delete_all"),       propertyId: z.string().optional() }),
@@ -117,6 +119,23 @@ export async function POST(req: Request) {
   if (action === "mark_operating") {
     await prisma.expenseEntry.updateMany({ where: { id: { in: ids } }, data: { isSunkCost: false } });
     await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, after: { isSunkCost: false } });
+    return Response.json({ success: true, count: ids.length });
+  }
+
+  if (action === "mark_paid") {
+    // Settle in full: payment status is DERIVED (calcExpensePayment), so we set
+    // the stored amounts it reads — line-item amountPaid when items exist (they
+    // take precedence), plus the expense-level fields. Column-from-column
+    // assignment needs raw SQL (updateMany can't copy a column's own value).
+    await prisma.$executeRaw`
+      UPDATE "ExpenseLineItem"
+      SET "amountPaid" = "amount", "paymentStatus" = 'PAID'
+      WHERE "expenseId" IN (${Prisma.join(ids)})`;
+    await prisma.$executeRaw`
+      UPDATE "ExpenseEntry"
+      SET "amountPaid" = "amount", "paymentDate" = COALESCE("paymentDate", NOW())
+      WHERE "id" IN (${Prisma.join(ids)})`;
+    await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "ExpenseEntry", resourceId: `bulk:${ids.length}`, organizationId: session!.user.organizationId, after: { bulkMarkPaid: ids.length } });
     return Response.json({ success: true, count: ids.length });
   }
 }

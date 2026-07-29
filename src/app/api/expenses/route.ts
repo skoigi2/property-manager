@@ -60,6 +60,11 @@ export async function GET(req: Request) {
       { propertyId: { in: effectivePropertyIds } },
       { unit: { propertyId: { in: effectivePropertyIds } } },
       { unitAllocations: { some: { unit: { propertyId: { in: effectivePropertyIds } } } } },
+      // True portfolio-scope expenses carry no property/unit at all — without
+      // this arm they were invisible in the list (the bulk route and petty-cash
+      // GET already include the equivalent). Only in the unscoped view: a
+      // single-property filter shouldn't show org-wide costs.
+      ...(propertyId ? [] : [{ AND: [{ propertyId: null }, { unitId: null }] }]),
     ],
     ...(unitId ? { unitId } : {}),
     ...(category ? { category: category as never } : {}),

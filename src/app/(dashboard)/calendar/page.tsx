@@ -36,31 +36,58 @@ import {
   Loader2,
   LayoutGrid,
   List,
+  Banknote,
+  Users,
+  Wrench,
+  ShieldCheck,
+  SlidersHorizontal,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import type { CalendarEvent, EventType, CalendarAction } from "@/lib/calendar-events";
 
 // ── Event type config ────────────────────────────────────────────────────────
 
-type TypeConfig = { label: string; dot: string; badge: string };
+type TypeConfig = {
+  label: string;
+  /** Plural noun for a rolled-up cluster, e.g. "12 rent payments due". */
+  plural: string;
+  dot: string;
+  badge: string;
+};
 
 const TYPE_CONFIG: Record<EventType, TypeConfig> = {
-  RENT_DUE:          { label: "Rent Due",     dot: "bg-green-600",   badge: "bg-green-100 text-green-800 border-green-300" },
-  LEASE_EXPIRY:      { label: "Lease Expiry", dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-800 border-amber-300" },
-  LEASE_START:       { label: "Lease Start",  dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-  MAINTENANCE_VISIT: { label: "Visit",        dot: "bg-sky-500",     badge: "bg-sky-100 text-sky-800 border-sky-300" },
-  MAINTENANCE_DUE:   { label: "Maintenance",  dot: "bg-blue-500",    badge: "bg-blue-100 text-blue-800 border-blue-300" },
-  INSURANCE_RENEWAL: { label: "Insurance",    dot: "bg-orange-500",  badge: "bg-orange-100 text-orange-800 border-orange-300" },
-  COMPLIANCE_EXPIRY: { label: "Compliance",   dot: "bg-purple-500",  badge: "bg-purple-100 text-purple-800 border-purple-300" },
-  RECURRING_EXPENSE: { label: "Recurring",    dot: "bg-teal-500",    badge: "bg-teal-100 text-teal-800 border-teal-300" },
-  APPROVAL_DEADLINE: { label: "Approval",     dot: "bg-pink-500",    badge: "bg-pink-100 text-pink-800 border-pink-300" },
-  CASE_SLA:          { label: "Case SLA",     dot: "bg-rose-500",    badge: "bg-rose-100 text-rose-800 border-rose-300" },
-  RENT_REMITTANCE:   { label: "Remittance",   dot: "bg-yellow-600",  badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-  MGMT_FEE_INVOICE:  { label: "Mgmt Fee",     dot: "bg-gray-500",    badge: "bg-gray-100 text-gray-700 border-gray-300" },
+  RENT_DUE:          { label: "Rent Due",     plural: "rent payments due",   dot: "bg-green-600",   badge: "bg-green-100 text-green-800 border-green-300" },
+  LEASE_EXPIRY:      { label: "Lease Expiry", plural: "leases expiring",     dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-800 border-amber-300" },
+  LEASE_START:       { label: "Lease Start",  plural: "leases starting",     dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  MAINTENANCE_VISIT: { label: "Visit",        plural: "maintenance visits",  dot: "bg-sky-500",     badge: "bg-sky-100 text-sky-800 border-sky-300" },
+  MAINTENANCE_DUE:   { label: "Maintenance",  plural: "maintenance tasks",   dot: "bg-blue-500",    badge: "bg-blue-100 text-blue-800 border-blue-300" },
+  INSURANCE_RENEWAL: { label: "Insurance",    plural: "policies renewing",   dot: "bg-orange-500",  badge: "bg-orange-100 text-orange-800 border-orange-300" },
+  COMPLIANCE_EXPIRY: { label: "Compliance",   plural: "certificates expiring", dot: "bg-purple-500", badge: "bg-purple-100 text-purple-800 border-purple-300" },
+  RECURRING_EXPENSE: { label: "Recurring",    plural: "recurring expenses",  dot: "bg-teal-500",    badge: "bg-teal-100 text-teal-800 border-teal-300" },
+  APPROVAL_DEADLINE: { label: "Approvals",    plural: "approvals expiring",  dot: "bg-pink-500",    badge: "bg-pink-100 text-pink-800 border-pink-300" },
+  // "SLA" is internal jargon — managers read this as a response deadline.
+  CASE_SLA:          { label: "Case deadline", plural: "case deadlines",     dot: "bg-rose-500",    badge: "bg-rose-100 text-rose-800 border-rose-300" },
+  RENT_REMITTANCE:   { label: "Remittance",   plural: "remittances due",     dot: "bg-yellow-600",  badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+  MGMT_FEE_INVOICE:  { label: "Mgmt Fee",     plural: "mgmt fee invoices",   dot: "bg-gray-500",    badge: "bg-gray-100 text-gray-700 border-gray-300" },
 };
+
+/**
+ * Twelve type chips is a menu, not a filter. Managers think in four buckets,
+ * so those are the default control; the per-type chips stay available behind
+ * "Refine" for when you genuinely need one type on its own.
+ */
+const EVENT_GROUPS: { key: string; label: string; icon: LucideIcon; types: EventType[] }[] = [
+  { key: "MONEY",    label: "Money",      icon: Banknote,    types: ["RENT_DUE", "RECURRING_EXPENSE", "RENT_REMITTANCE", "MGMT_FEE_INVOICE"] },
+  { key: "TENANCY",  label: "Tenancies",  icon: Users,       types: ["LEASE_EXPIRY", "LEASE_START"] },
+  { key: "BUILDING", label: "Building",   icon: Wrench,      types: ["MAINTENANCE_VISIT", "MAINTENANCE_DUE"] },
+  { key: "ADMIN",    label: "Compliance", icon: ShieldCheck, types: ["INSURANCE_RENEWAL", "COMPLIANCE_EXPIRY", "APPROVAL_DEADLINE", "CASE_SLA"] },
+];
 
 const BADGE_INACTIVE = "bg-white text-gray-400 border-gray-200";
 const ALL_TYPES = Object.keys(TYPE_CONFIG) as EventType[];
+/** Below this, a cluster is clearer listed out than summarised. */
+const ROLLUP_MIN = 3;
 // Monday-first, matching CaseCalendarView so the app has one week shape.
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const FILTER_KEY = "gw:calendarTypeFilter";
@@ -162,6 +189,107 @@ function EventRow({
   );
 }
 
+// ── Same-day rollup ──────────────────────────────────────────────────────────
+
+interface EventCluster {
+  key: string;
+  date: string;
+  type: EventType;
+  events: CalendarEvent[];
+}
+
+/**
+ * Buckets the list by (date, type) so a portfolio-scale cluster — 50 rents
+ * falling due on the 1st — reads as one line instead of fifty. Input is
+ * already date-sorted, so bucket insertion order preserves it.
+ */
+function clusterEvents(events: CalendarEvent[]): EventCluster[] {
+  const map = new Map<string, EventCluster>();
+  for (const e of events) {
+    const key = `${e.date}|${e.type}`;
+    if (!map.has(key)) map.set(key, { key, date: e.date, type: e.type, events: [] });
+    map.get(key)!.events.push(e);
+  }
+  return Array.from(map.values());
+}
+
+const URGENCY_RANK: Record<CalendarEvent["urgency"], number> = { ok: 0, warning: 1, critical: 2 };
+
+function ClusterRow({
+  cluster, onAction, actingOn,
+}: {
+  cluster: EventCluster;
+  onAction: (e: CalendarEvent, a: CalendarAction) => void;
+  actingOn: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const cfg = TYPE_CONFIG[cluster.type];
+  const { events } = cluster;
+
+  // The cluster inherits the worst urgency it contains, so a single overdue
+  // rent inside a routine batch still surfaces at the summary line.
+  const worst = events.reduce(
+    (acc, e) => (URGENCY_RANK[e.urgency] > URGENCY_RANK[acc.urgency] ? e : acc),
+    events[0]
+  );
+
+  const properties = Array.from(new Set(events.map((e) => e.propertyName)));
+  const overdueCount = events.filter((e) => e.isOverdue).length;
+
+  // Only total when every event shares one currency — a cross-currency sum
+  // would be a meaningless number.
+  const currencies = Array.from(new Set(events.map((e) => e.currency).filter(Boolean)));
+  const total =
+    currencies.length === 1 && events.every((e) => e.amount !== undefined)
+      ? events.reduce((sum, e) => sum + (e.amount ?? 0), 0)
+      : null;
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-start gap-2.5">
+          <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-sans text-gray-800">
+              {events.length} {cfg.plural}
+              {total !== null && (
+                <span className="text-gray-500"> · {formatCurrency(total, currencies[0]!)}</span>
+              )}
+            </p>
+            <p className="text-xs text-gray-400 font-sans mt-0.5 truncate">
+              {properties.length === 1 ? properties[0] : `${properties.length} properties`}
+              {overdueCount > 0 && (
+                <span className="text-red-500"> · {overdueCount} overdue</span>
+              )}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <Badge variant={urgencyVariant(worst.urgency)}>{daysLabel(worst.daysUntil)}</Badge>
+            {open
+              ? <ChevronUp size={14} className="text-gray-400" />
+              : <ChevronDown size={14} className="text-gray-400" />}
+          </div>
+        </div>
+        <p className="text-xs text-gray-300 font-sans mt-1 ml-[18px]">
+          {format(new Date(cluster.date + "T00:00:00"), "d MMM")} · tap to {open ? "collapse" : "see each one"}
+        </p>
+      </button>
+
+      {open && (
+        <div className="bg-gray-50/60 border-t border-gray-100 divide-y divide-gray-100">
+          {events.map((e) => (
+            <EventRow key={e.id} event={e} onAction={onAction} busy={actingOn === e.id} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
@@ -185,6 +313,7 @@ export default function CalendarPage() {
   const [overdueExpanded, setOverdueExpanded] = useState(false);
   const [mobileView, setMobileView] = useState<"grid" | "agenda">("agenda");
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [refineOpen, setRefineOpen] = useState(false);
 
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -252,11 +381,28 @@ export default function CalendarPage() {
     });
   }
 
-  /** Click a chip's label to isolate that type; click again to restore all. */
+  /** Isolate a single type; pressing "only" again on the same type restores all. */
   function soloType(t: EventType) {
     setActiveTypes((prev) =>
       prev.size === 1 && prev.has(t) ? new Set(ALL_TYPES) : new Set([t])
     );
+  }
+
+  /**
+   * Group chip: fully-on turns the whole bucket off, anything else turns it
+   * fully on — so a partially-filtered group resolves to "show me all of this"
+   * on first press rather than disappearing.
+   */
+  function toggleGroup(types: EventType[]) {
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      const allOn = types.every((t) => next.has(t));
+      for (const t of types) {
+        if (allOn) next.delete(t);
+        else next.add(t);
+      }
+      return next;
+    });
   }
 
   async function runAction(event: CalendarEvent, action: CalendarAction) {
@@ -311,6 +457,8 @@ export default function CalendarPage() {
     const key = format(selectedDay, "yyyy-MM-dd");
     return visibleEvents.filter((e) => e.date === key);
   }, [visibleEvents, selectedDay]);
+
+  const listClusters = useMemo(() => clusterEvents(listEvents), [listEvents]);
 
   const visibleOverdue = useMemo(
     () => overdueEvents.filter((e) => activeTypes.has(e.type)),
@@ -466,36 +614,93 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* ── Filter chips ──────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2">
-          {ALL_TYPES.map((t) => {
-            const cfg = TYPE_CONFIG[t];
-            const active = activeTypes.has(t);
-            const count = events.filter((e) => e.type === t).length;
-            return (
-              <button
-                key={t}
-                onClick={() => toggleType(t)}
-                onDoubleClick={() => soloType(t)}
-                title={`${cfg.label} — click to toggle, double-click to show only this`}
-                aria-pressed={active}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-sans font-medium transition-colors ${
-                  active ? cfg.badge : BADGE_INACTIVE
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${active ? cfg.dot : "bg-gray-300"}`} />
-                {cfg.label}
-                {count > 0 && <span className="opacity-60">{count}</span>}
-              </button>
-            );
-          })}
-          {activeTypes.size !== ALL_TYPES.length && (
+        {/* ── Filters — four buckets, per-type behind "Refine" ───────────── */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {EVENT_GROUPS.map((g) => {
+              const on = g.types.filter((t) => activeTypes.has(t));
+              const state = on.length === g.types.length ? "all" : on.length === 0 ? "none" : "some";
+              const count = events.filter((e) => g.types.includes(e.type)).length;
+              const Icon = g.icon;
+              return (
+                <button
+                  key={g.key}
+                  onClick={() => toggleGroup(g.types)}
+                  aria-pressed={state !== "none"}
+                  title={
+                    state === "some"
+                      ? `${g.label} — showing ${on.length} of ${g.types.length} types`
+                      : g.label
+                  }
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-sans font-medium transition-colors ${
+                    state === "none"
+                      ? BADGE_INACTIVE
+                      : "bg-header text-white border-header"
+                  }`}
+                >
+                  <Icon size={13} className={state === "none" ? "text-gray-300" : "text-gold"} />
+                  {g.label}
+                  {state === "some" && <span className="opacity-70">({on.length})</span>}
+                  {count > 0 && (
+                    <span className={state === "none" ? "opacity-60" : "opacity-70"}>{count}</span>
+                  )}
+                </button>
+              );
+            })}
+
             <button
-              onClick={() => setActiveTypes(new Set(ALL_TYPES))}
-              className="text-xs font-sans text-gold hover:underline px-1"
+              onClick={() => setRefineOpen((v) => !v)}
+              aria-expanded={refineOpen}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 text-xs font-sans text-gray-500 hover:text-gold hover:border-gold transition-colors"
             >
-              Show all
+              <SlidersHorizontal size={12} />
+              Refine
             </button>
+
+            {activeTypes.size !== ALL_TYPES.length && (
+              <button
+                onClick={() => setActiveTypes(new Set(ALL_TYPES))}
+                className="text-xs font-sans text-gold hover:underline px-1"
+              >
+                Show everything
+              </button>
+            )}
+          </div>
+
+          {refineOpen && (
+            <div className="flex flex-wrap items-center gap-2 pl-1 pt-1 border-t border-gray-100">
+              {ALL_TYPES.map((t) => {
+                const cfg = TYPE_CONFIG[t];
+                const active = activeTypes.has(t);
+                const count = events.filter((e) => e.type === t).length;
+                return (
+                  <span key={t} className="inline-flex items-center">
+                    <button
+                      onClick={() => toggleType(t)}
+                      aria-pressed={active}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-l-full border text-xs font-sans font-medium transition-colors ${
+                        active ? cfg.badge : BADGE_INACTIVE
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${active ? cfg.dot : "bg-gray-300"}`} />
+                      {cfg.label}
+                      {count > 0 && <span className="opacity-60">{count}</span>}
+                    </button>
+                    {/* Explicit control — the old double-click-to-isolate was
+                        hidden in a title attribute and effectively undiscoverable. */}
+                    <button
+                      onClick={() => soloType(t)}
+                      title={`Show only ${cfg.label}`}
+                      className={`px-1.5 py-1 rounded-r-full border border-l-0 text-[10px] font-sans transition-colors ${
+                        active ? cfg.badge : BADGE_INACTIVE
+                      } hover:text-gold`}
+                    >
+                      only
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -665,14 +870,25 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto divide-y divide-gray-50 max-h-[70vh]">
-                  {listEvents.map((e) => (
-                    <EventRow
-                      key={e.id}
-                      event={e}
-                      onAction={runAction}
-                      busy={actingOn === e.id}
-                    />
-                  ))}
+                  {listClusters.map((c) =>
+                    c.events.length >= ROLLUP_MIN ? (
+                      <ClusterRow
+                        key={c.key}
+                        cluster={c}
+                        onAction={runAction}
+                        actingOn={actingOn}
+                      />
+                    ) : (
+                      c.events.map((e) => (
+                        <EventRow
+                          key={e.id}
+                          event={e}
+                          onAction={runAction}
+                          busy={actingOn === e.id}
+                        />
+                      ))
+                    )
+                  )}
                 </div>
               )}
             </div>

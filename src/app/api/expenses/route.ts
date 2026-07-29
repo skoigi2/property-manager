@@ -32,8 +32,20 @@ export async function GET(req: Request) {
   const month = searchParams.get("month");
   const category = searchParams.get("category");
 
+  // Range params (YYYY-MM-DD, used by period exports) take precedence over the
+  // single year+month pair. Parsed component-wise to stay timezone-safe.
+  const parseDay = (s: string | null, endOfDay: boolean): Date | null => {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    const [y, m, d] = s.split("-").map(Number);
+    return endOfDay ? new Date(y, m - 1, d, 23, 59, 59) : new Date(y, m - 1, d);
+  };
+  const rangeFrom = parseDay(searchParams.get("from"), false);
+  const rangeTo = parseDay(searchParams.get("to"), true);
+
   let dateFilter = {};
-  if (year && month) {
+  if (rangeFrom || rangeTo) {
+    dateFilter = { date: { ...(rangeFrom ? { gte: rangeFrom } : {}), ...(rangeTo ? { lte: rangeTo } : {}) } };
+  } else if (year && month) {
     const from = new Date(parseInt(year), parseInt(month) - 1, 1);
     const to = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
     dateFilter = { date: { gte: from, lte: to } };
@@ -61,13 +73,15 @@ export async function GET(req: Request) {
     return Response.json({ count });
   }
 
+  // Exports may raise the row cap explicitly (bounded so it can't be abused).
+  const take = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "2000") || 2000, 1), 20000);
+
   const entries = await prisma.expenseEntry.findMany({
     where,
     include: EXPENSE_INCLUDE,
     orderBy: { date: "desc" },
-    // Safety cap — the UI always month-filters, so this only bounds the
-    // unfiltered path (full exports use /api/import/expenses/export).
-    take: 2000,
+    // Safety cap — the UI always month-filters; exports pass ?limit= to raise it.
+    take,
   });
 
   return Response.json(entries);

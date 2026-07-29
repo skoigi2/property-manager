@@ -24,6 +24,7 @@ import {
   ChevronsUpDown, GripVertical, Paperclip, RepeatIcon,
 } from "lucide-react";
 import { ExpenseDocumentUpload, type ExpenseDocumentUploadHandle } from "@/components/expenses/ExpenseDocumentUpload";
+import { ExportRangeDialog, toYmd, type ExportRange } from "@/components/ui/ExportRangeDialog";
 import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { exportExpenses } from "@/lib/excel-export";
@@ -348,6 +349,7 @@ export default function ExpensesPage() {
     useCachedFetch<any[]>(`expenses:${entriesQs}`, `/api/expenses?${entriesQs}`);
   const entries = entriesData ?? [];
   const [showForm, setShowForm] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const receiptUploaderRef = useRef<ExpenseDocumentUploadHandle>(null);
   const [pettyCashBalance, setPettyCashBalance] = useState<number | null>(null);
   const [editEntry, setEditEntry] = useState<any | null>(null);
@@ -619,6 +621,28 @@ export default function ExpensesPage() {
       toast.error("Failed to save");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // Range export: fetch the chosen period fresh from the API (not just the
+  // month on screen) and hand it to the same styled Excel generator.
+  async function handleRangeExport(range: ExportRange) {
+    try {
+      const params = new URLSearchParams({ limit: "20000" });
+      if (selectedId) params.set("propertyId", selectedId);
+      if (range.from) params.set("from", toYmd(range.from));
+      if (range.to) params.set("to", toYmd(range.to));
+      const res = await fetch(`/api/expenses?${params}`);
+      if (!res.ok) throw new Error();
+      const rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        toast.error("No expenses in that period");
+        return;
+      }
+      exportExpenses(rows, month, currency, range.label);
+      toast.success(`Exported ${rows.length} expense${rows.length !== 1 ? "s" : ""}`);
+    } catch {
+      toast.error("Export failed");
     }
   }
 
@@ -1133,15 +1157,13 @@ export default function ExpensesPage() {
         <div className="flex items-center justify-between">
           <h2 className="section-header">Entries</h2>
           <div className="flex items-center gap-2">
-            {entries.length > 0 && (
-              <button
-                onClick={() => exportExpenses(entries, month)}
-                title="Export to Excel"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
-              >
-                <FileDown size={13} /> Export
-              </button>
-            )}
+            <button
+              onClick={() => setShowExport(true)}
+              title="Export to Excel — pick a period or all history"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+            >
+              <FileDown size={13} /> Export
+            </button>
             {canDelete && (
             <button
               onClick={openDeleteAll}
@@ -1724,6 +1746,13 @@ export default function ExpensesPage() {
         title={`Delete ${selectedIds.size} expenses?`}
         message="These expense entries will be permanently deleted."
         loading={bulkSubmitting}
+      />
+      <ExportRangeDialog
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        title="Export expenses"
+        selectedMonth={month}
+        onExport={handleRangeExport}
       />
       <ConfirmDialog
         open={deleteAllConfirm}

@@ -47,7 +47,7 @@ const INCOME_TYPE_LABEL: Record<string, string> = {
   UTILITY_RECOVERY: "Utility Recovery", OTHER: "Other",
 };
 
-export function exportIncome(entries: any[], month: Date, currency?: string) {
+export function exportIncome(entries: any[], month: Date, currency?: string, filenameLabel?: string) {
   const cur = currency ?? entries[0]?.property?.currency ?? entries[0]?.unit?.property?.currency ?? "";
   const c = currLabel(cur);
 
@@ -78,7 +78,7 @@ export function exportIncome(entries: any[], month: Date, currency?: string) {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Income");
-  writeFile(wb, `Income-${fmtMonth(month).replace(" ", "-")}.xlsx`);
+  writeFile(wb, `Income-${filenameLabel ?? fmtMonth(month).replace(" ", "-")}.xlsx`);
 }
 
 // ── Expenses ──────────────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ const CAT_LABEL: Record<string, string> = {
   REINSTATEMENT: "Reinstatement", CAPITAL: "Capital Item", OTHER: "Other",
 };
 
-export function exportExpenses(entries: any[], month: Date, currency?: string) {
+export function exportExpenses(entries: any[], month: Date, currency?: string, filenameLabel?: string) {
   const cur = currency ?? entries[0]?.property?.currency ?? "";
   const c = currLabel(cur);
   const wb = XLSX.utils.book_new();
@@ -184,7 +184,84 @@ export function exportExpenses(entries: any[], month: Date, currency?: string) {
     XLSX.utils.book_append_sheet(wb, ws2, "Line Items");
   }
 
-  writeFile(wb, `Expenses-${fmtMonth(month).replace(" ", "-")}.xlsx`);
+  writeFile(wb, `Expenses-${filenameLabel ?? fmtMonth(month).replace(" ", "-")}.xlsx`);
+}
+
+// ── Petty Cash ────────────────────────────────────────────────────────────────
+
+/**
+ * Petty-cash ledger export. Receives ALL entries (the page holds full history),
+ * filters to the requested range, and renders a proper ledger: an opening
+ * balance carried in from before the range, a running balance per row
+ * (APPROVED entries only — pending/rejected rows appear but don't move the
+ * balance, mirroring the page), and closing totals.
+ */
+export function exportPettyCash(
+  allEntries: any[],
+  range: { from: Date | null; to: Date | null; label: string },
+  propertyNameById: Record<string, string>,
+  currency?: string,
+) {
+  const c = currLabel(currency);
+
+  // Ledger order: oldest first (running balance reads top-down).
+  const sorted = [...allEntries].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
+
+  const inRange = (d: Date) =>
+    (!range.from || d >= range.from) && (!range.to || d <= range.to);
+
+  // Opening balance = approved activity strictly before the range start.
+  const openingBalance = range.from
+    ? sorted.reduce((sum, e) => {
+        if (new Date(e.date) >= range.from!) return sum;
+        if ((e.status ?? "APPROVED") !== "APPROVED") return sum;
+        return sum + (e.type === "IN" ? e.amount : -e.amount);
+      }, 0)
+    : 0;
+
+  let running = openingBalance;
+  const bodyRows: (string | number | null)[][] = [];
+  let totalIn = 0, totalOut = 0;
+
+  for (const e of sorted) {
+    const d = new Date(e.date);
+    if (!inRange(d)) continue;
+    const approved = (e.status ?? "APPROVED") === "APPROVED";
+    const signed = e.type === "IN" ? e.amount : -e.amount;
+
+    if (approved) {
+      running += signed;
+      if (e.type === "IN") totalIn += e.amount; else totalOut += e.amount;
+    }
+
+    bodyRows.push([
+      fmtDate(e.date),
+      e.description ?? "",
+      e.propertyId ? (propertyNameById[e.propertyId] ?? "") : "Portfolio",
+      e.status ?? "APPROVED",
+      // Pending/rejected amounts shown in parentheses — they don't move the balance.
+      e.type === "IN" ? (approved ? e.amount : `(${e.amount})`) : null,
+      e.type === "OUT" ? (approved ? e.amount : `(${e.amount})`) : null,
+      approved ? running : null,
+    ]);
+  }
+
+  const headers = ["Date", "Description", "Property", "Status", `In${c}`, `Out${c}`, `Running Balance${c}`];
+  const rows: (string | number | null)[][] = [];
+  if (range.from) {
+    rows.push(["", "Opening balance", "", "", null, null, openingBalance]);
+  }
+  rows.push(...bodyRows);
+  rows.push(["", "TOTAL", "", "", totalIn, totalOut, openingBalance + totalIn - totalOut]);
+
+  const ws = buildSheet(headers, rows);
+  setColWidths(ws, [14, 36, 20, 12, 16, 16, 20]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Petty Cash");
+  writeFile(wb, `Petty-Cash-${range.label}.xlsx`);
 }
 
 // ── Tenants ───────────────────────────────────────────────────────────────────

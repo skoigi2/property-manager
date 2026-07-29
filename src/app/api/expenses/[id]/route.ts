@@ -15,7 +15,13 @@ const EXPENSE_INCLUDE = {
   },
 };
 
-async function loadExpensePropertyId(id: string): Promise<string | null> {
+// PORTFOLIO-scope expenses legitimately have no property (propertyId and
+// unitId both null) — distinguish "doesn't exist" from "exists, org-wide".
+// When no property resolves, the requireManagerWrite / requirePermissionWrite
+// gate at the top of each handler is the access check (same fallback the
+// documents sub-routes use); a 404 here would make portfolio expenses
+// permanently un-editable and un-deletable.
+async function loadExpensePropertyId(id: string): Promise<{ exists: boolean; propertyId: string | null }> {
   const e = await prisma.expenseEntry.findUnique({
     where: { id },
     select: {
@@ -23,18 +29,20 @@ async function loadExpensePropertyId(id: string): Promise<string | null> {
       unit: { select: { propertyId: true } },
     },
   });
-  if (!e) return null;
-  return e.propertyId ?? e.unit?.propertyId ?? null;
+  if (!e) return { exists: false, propertyId: null };
+  return { exists: true, propertyId: e.propertyId ?? e.unit?.propertyId ?? null };
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
-  const propertyId = await loadExpensePropertyId(params.id);
-  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
-  const access = await requirePropertyAccess(propertyId);
-  if (!access.ok) return access.error!;
+  const { exists, propertyId } = await loadExpensePropertyId(params.id);
+  if (!exists) return Response.json({ error: "Not found" }, { status: 404 });
+  if (propertyId) {
+    const access = await requirePropertyAccess(propertyId);
+    if (!access.ok) return access.error!;
+  }
 
   const body = await req.json();
   const parsed = expenseEntrySchema.safeParse(body);
@@ -201,10 +209,12 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 
-  const propertyId = await loadExpensePropertyId(params.id);
-  if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
-  const access = await requirePropertyAccess(propertyId);
-  if (!access.ok) return access.error!;
+  const { exists, propertyId } = await loadExpensePropertyId(params.id);
+  if (!exists) return Response.json({ error: "Not found" }, { status: 404 });
+  if (propertyId) {
+    const access = await requirePropertyAccess(propertyId);
+    if (!access.ok) return access.error!;
+  }
 
   const before = await prisma.expenseEntry.findUnique({
     where: { id: params.id },

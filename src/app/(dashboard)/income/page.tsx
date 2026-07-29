@@ -36,6 +36,7 @@ import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import { formatCurrency } from "@/lib/currency";
 import { useSharedMonth } from "@/lib/use-shared-month";
+import { ExportRangeDialog, toYmd, type ExportRange } from "@/components/ui/ExportRangeDialog";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -229,6 +230,7 @@ export default function IncomePage() {
   const [deleting, setDeleting]               = useState(false);
   const [month, setMonth]                     = useSharedMonth();
   const [showForm, setShowForm]               = useState(false);
+  const [showExport, setShowExport]           = useState(false);
   const [activeTenant, setActiveTenant]       = useState<{ id: string; name: string } | null>(null);
   const [tenantLookupLoading, setTenantLookupLoading] = useState(false);
 
@@ -803,6 +805,29 @@ export default function IncomePage() {
         `${created} recorded · ${failedRows.length} failed: ${names}. They're still selected — click "Record selected" to retry.`,
         { duration: 9000 },
       );
+    }
+  }
+
+  // ── Range export ──────────────────────────────────────────────────────────
+  // Fetches the chosen period fresh from the API (not just the month on
+  // screen) and hands it to the same styled Excel generator.
+  async function handleRangeExport(range: ExportRange) {
+    try {
+      const params = new URLSearchParams({ limit: "20000" });
+      if (selectedId) params.set("propertyId", selectedId);
+      if (range.from) params.set("from", toYmd(range.from));
+      if (range.to) params.set("to", toYmd(range.to));
+      const res = await fetch(`/api/income?${params}`);
+      if (!res.ok) throw new Error();
+      const rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        toast.error("No income entries in that period");
+        return;
+      }
+      exportIncome(rows, month, currency, range.label);
+      toast.success(`Exported ${rows.length} entr${rows.length === 1 ? "y" : "ies"}`);
+    } catch {
+      toast.error("Export failed");
     }
   }
 
@@ -1658,15 +1683,13 @@ export default function IncomePage() {
             <div className="flex items-center justify-between">
               <h2 className="section-header">Entries</h2>
               <div className="flex items-center gap-2">
-                {entries.length > 0 && (
-                  <button
-                    onClick={() => exportIncome(entries, month)}
-                    title="Export to Excel"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
-                  >
-                    <FileDown size={13} /> Export
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowExport(true)}
+                  title="Export to Excel — pick a period or all history"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+                >
+                  <FileDown size={13} /> Export
+                </button>
                 <Button
                   onClick={() => { reset({ type: "LONGTERM_RENT", agentCommission: 0 }); setActiveTenant(null); setShowForm(!showForm); }}
                   size="sm" variant="gold"
@@ -2199,6 +2222,13 @@ export default function IncomePage() {
 
       </div>
 
+      <ExportRangeDialog
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        title="Export income"
+        selectedMonth={month}
+        onExport={handleRangeExport}
+      />
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}

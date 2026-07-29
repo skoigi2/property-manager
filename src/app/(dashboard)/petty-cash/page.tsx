@@ -29,6 +29,8 @@ import { usePermissions } from "@/lib/use-permissions";
 import { useSharedMonth } from "@/lib/use-shared-month";
 import { formatCurrency } from "@/lib/currency";
 import { HelpTip } from "@/components/ui/HelpTip";
+import { ExportRangeDialog, type ExportRange } from "@/components/ui/ExportRangeDialog";
+import { exportPettyCash } from "@/lib/excel-export";
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
@@ -43,6 +45,7 @@ export default function PettyCashPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [month, setMonth] = useSharedMonth();
 
   // Filters
@@ -242,25 +245,21 @@ export default function PettyCashPage() {
     finally { setBulkSubmitting(false); }
   }
 
-  function exportCsv() {
-    const rows = [["Date", "Description", "Property", "Type", "In", "Out", "Balance"]];
-    displayEntries.forEach((e: any) => {
-      const propName = e.propertyId ? (properties.find((p) => p.id === e.propertyId)?.name ?? "") : "Portfolio";
-      rows.push([
-        formatDate(e.date),
-        `"${e.description.replace(/"/g, '""')}"`,
-        propName,
-        e.type,
-        e.type === "IN" ? e.amount : "",
-        e.type === "OUT" ? e.amount : "",
-        e.balance,
-      ]);
+  // Excel ledger export for the chosen period. The page already holds the full
+  // history (the API doesn't month-filter), so the range slice is client-side;
+  // the generator adds an opening-balance row + running balance per entry.
+  function handleRangeExport(range: ExportRange) {
+    const inRange = entries.filter((e: any) => {
+      const d = new Date(e.date);
+      return (!range.from || d >= range.from) && (!range.to || d <= range.to);
     });
-    const csv = rows.map((r) => r.join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `petty-cash-${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}.csv`;
-    a.click();
+    if (inRange.length === 0) {
+      toast.error("No petty cash entries in that period");
+      return;
+    }
+    const propertyNameById = Object.fromEntries(properties.map((p) => [p.id, p.name]));
+    exportPettyCash(entries, range, propertyNameById, currency);
+    toast.success(`Exported ${inRange.length} entr${inRange.length === 1 ? "y" : "ies"}`);
   }
 
   // Summaries — APPROVED entries only
@@ -561,8 +560,8 @@ export default function PettyCashPage() {
           <h2 className="section-header">Ledger</h2>
           <div className="flex items-center gap-2">
             {displayEntries.length > 0 && (
-              <Button onClick={exportCsv} size="sm" variant="secondary">
-                <Download size={14} /> Export CSV
+              <Button onClick={() => setShowExport(true)} size="sm" variant="secondary">
+                <Download size={14} /> Export Excel
               </Button>
             )}
             <Button onClick={() => setShowForm(!showForm)} size="sm" variant="gold"><Plus size={15} /> Add Entry</Button>
@@ -923,6 +922,13 @@ export default function PettyCashPage() {
         </Card>
       </div>
 
+      <ExportRangeDialog
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        title="Export petty cash"
+        selectedMonth={month}
+        onExport={handleRangeExport}
+      />
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Delete entry?" message="This petty cash entry will be permanently deleted." loading={deleting} />
       <ConfirmDialog open={bulkDeleteConfirm} onClose={() => setBulkDeleteConfirm(false)} onConfirm={() => bulkAction("delete")} title={`Delete ${selectedIds.size} entries?`} message="These petty cash entries will be permanently deleted." loading={bulkSubmitting} />
     </div>

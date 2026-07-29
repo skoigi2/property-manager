@@ -119,10 +119,34 @@ model User {
   accounts         Account[]
   sessions         Session[]
   notificationPreferences NotificationPreference[]
+  calendarFeedTokens      CalendarFeedToken[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
   @@index([organizationId])
+}
+
+// Subscribe-by-URL token for the read-only calendar ICS feed. Deliberately has
+// NO expiry column: a subscription that silently stops updating is worse than
+// one that never existed, because the manager keeps trusting a stale calendar.
+// Access is ended explicitly via `revokedAt` (rotate = revoke + create).
+//
+// `propertyIds` empty = every property the owning user can access, resolved
+// live on each fetch, so revoking someone's PropertyAccess also narrows their
+// existing feed.
+model CalendarFeedToken {
+  id             String    @id @default(cuid())
+  userId         String
+  token          String    @unique @default(uuid())
+  propertyIds    String[]
+  label          String
+  createdAt      DateTime  @default(now())
+  lastAccessedAt DateTime?
+  revokedAt      DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
 }
 
 // Per-user opt-out of automation emails by category. Sparse: a row exists only

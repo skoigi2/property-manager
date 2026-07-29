@@ -1,19 +1,26 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
+import { useProperty } from "@/lib/property-context";
+import { useSharedMonth } from "@/lib/use-shared-month";
+import { formatCurrency } from "@/lib/currency";
+import toast from "react-hot-toast";
 import {
   format,
   startOfMonth,
   endOfMonth,
+  startOfWeek,
+  endOfWeek,
   eachDayOfInterval,
-  getDay,
-  differenceInDays,
+  isSameMonth,
+  isSameDay,
   addMonths,
   subMonths,
+  startOfDay,
 } from "date-fns";
 import {
   ChevronLeft,
@@ -24,61 +31,63 @@ import {
   ChevronUp,
   CalendarDays,
   AlertCircle,
-  Info,
+  RefreshCw,
+  CalendarRange,
+  Loader2,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import Link from "next/link";
-import type { CalendarEvent, EventType } from "@/app/api/calendar/route";
+import type { CalendarEvent, EventType, CalendarAction } from "@/lib/calendar-events";
 
 // ── Event type config ────────────────────────────────────────────────────────
 
-type TypeConfig = {
-  label: string;
-  dot: string;
-  badge: string;
-  badgeInactive: string;
-};
+type TypeConfig = { label: string; dot: string; badge: string };
 
 const TYPE_CONFIG: Record<EventType, TypeConfig> = {
-  LEASE_EXPIRY:      { label: "Lease Expiry",   dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-800 border-amber-300",      badgeInactive: "bg-white text-gray-500 border-gray-200" },
-  LEASE_START:       { label: "Lease Start",    dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-300", badgeInactive: "bg-white text-gray-500 border-gray-200" },
-  MAINTENANCE_DUE:   { label: "Maintenance",    dot: "bg-blue-500",    badge: "bg-blue-100 text-blue-800 border-blue-300",          badgeInactive: "bg-white text-gray-500 border-gray-200" },
-  INSURANCE_RENEWAL: { label: "Insurance",      dot: "bg-orange-500",  badge: "bg-orange-100 text-orange-800 border-orange-300",    badgeInactive: "bg-white text-gray-500 border-gray-200" },
-  COMPLIANCE_EXPIRY: { label: "Compliance",     dot: "bg-purple-500",  badge: "bg-purple-100 text-purple-800 border-purple-300",    badgeInactive: "bg-white text-gray-500 border-gray-200" },
-  RECURRING_EXPENSE: { label: "Recurring Exp.", dot: "bg-teal-500",    badge: "bg-teal-100 text-teal-800 border-teal-300",          badgeInactive: "bg-white text-gray-500 border-gray-200" },
-  RENT_REMITTANCE:   { label: "Remittance",     dot: "bg-yellow-600",  badge: "bg-yellow-100 text-yellow-800 border-yellow-300",    badgeInactive: "bg-white text-gray-500 border-gray-200" },
-  MGMT_FEE_INVOICE:  { label: "Mgmt Fee",       dot: "bg-gray-500",    badge: "bg-gray-100 text-gray-700 border-gray-300",          badgeInactive: "bg-white text-gray-500 border-gray-200" },
+  RENT_DUE:          { label: "Rent Due",     dot: "bg-green-600",   badge: "bg-green-100 text-green-800 border-green-300" },
+  LEASE_EXPIRY:      { label: "Lease Expiry", dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-800 border-amber-300" },
+  LEASE_START:       { label: "Lease Start",  dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  MAINTENANCE_VISIT: { label: "Visit",        dot: "bg-sky-500",     badge: "bg-sky-100 text-sky-800 border-sky-300" },
+  MAINTENANCE_DUE:   { label: "Maintenance",  dot: "bg-blue-500",    badge: "bg-blue-100 text-blue-800 border-blue-300" },
+  INSURANCE_RENEWAL: { label: "Insurance",    dot: "bg-orange-500",  badge: "bg-orange-100 text-orange-800 border-orange-300" },
+  COMPLIANCE_EXPIRY: { label: "Compliance",   dot: "bg-purple-500",  badge: "bg-purple-100 text-purple-800 border-purple-300" },
+  RECURRING_EXPENSE: { label: "Recurring",    dot: "bg-teal-500",    badge: "bg-teal-100 text-teal-800 border-teal-300" },
+  APPROVAL_DEADLINE: { label: "Approval",     dot: "bg-pink-500",    badge: "bg-pink-100 text-pink-800 border-pink-300" },
+  CASE_SLA:          { label: "Case SLA",     dot: "bg-rose-500",    badge: "bg-rose-100 text-rose-800 border-rose-300" },
+  RENT_REMITTANCE:   { label: "Remittance",   dot: "bg-yellow-600",  badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+  MGMT_FEE_INVOICE:  { label: "Mgmt Fee",     dot: "bg-gray-500",    badge: "bg-gray-100 text-gray-700 border-gray-300" },
 };
 
+const BADGE_INACTIVE = "bg-white text-gray-400 border-gray-200";
 const ALL_TYPES = Object.keys(TYPE_CONFIG) as EventType[];
-const WEEKDAYS  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Monday-first, matching CaseCalendarView so the app has one week shape.
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const FILTER_KEY = "gw:calendarTypeFilter";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function urgencyVariant(u: CalendarEvent["urgency"]): "red" | "amber" | "green" {
   if (u === "critical") return "red";
-  if (u === "warning")  return "amber";
+  if (u === "warning") return "amber";
   return "green";
 }
 
 function daysLabel(n: number): string {
-  if (n === 0)  return "Today";
-  if (n === 1)  return "Tomorrow";
+  if (n === 0) return "Today";
+  if (n === 1) return "Tomorrow";
   if (n === -1) return "Yesterday";
-  if (n < 0)    return `${Math.abs(n)}d overdue`;
+  if (n < 0) return `${Math.abs(n)}d ago`;
   return `in ${n}d`;
 }
 
 // ── KPI strip ────────────────────────────────────────────────────────────────
 
-interface KpiCardProps {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  colour: string; // Tailwind text class
-  bg: string;     // Tailwind bg class
-}
-
-function KpiCard({ label, value, icon, colour, bg }: KpiCardProps) {
+function KpiCard({
+  label, value, icon, colour, bg,
+}: {
+  label: string; value: number; icon: React.ReactNode; colour: string; bg: string;
+}) {
   return (
     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${bg}`}>
       <div className={`shrink-0 ${colour}`}>{icon}</div>
@@ -90,90 +99,248 @@ function KpiCard({ label, value, icon, colour, bg }: KpiCardProps) {
   );
 }
 
+// ── Event row (shared by the side panel and the mobile agenda) ───────────────
+
+function EventRow({
+  event, onAction, busy,
+}: {
+  event: CalendarEvent;
+  onAction: (e: CalendarEvent, a: CalendarAction) => void;
+  busy: boolean;
+}) {
+  const cfg = TYPE_CONFIG[event.type];
+  const postActions = event.actions.filter((a) => a.endpoint);
+
+  return (
+    <div className="px-4 py-3 hover:bg-gray-50 transition-colors">
+      <div className="flex items-start gap-2.5">
+        <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+        <div className="flex-1 min-w-0">
+          <Link href={event.link} className="block group">
+            <p className="text-sm font-sans text-gray-800 group-hover:text-gold transition-colors">
+              {event.title}
+            </p>
+          </Link>
+          <p className="text-xs text-gray-400 font-sans mt-0.5 truncate">
+            {event.propertyName}
+            {event.unitName ? ` · Unit ${event.unitName}` : ""}
+            {event.amount !== undefined && event.currency
+              ? ` · ${formatCurrency(event.amount, event.currency)}`
+              : ""}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <Badge variant={urgencyVariant(event.urgency)}>{daysLabel(event.daysUntil)}</Badge>
+          <Link
+            href={event.link}
+            className="text-gray-300 hover:text-gold transition-colors"
+            title="Open record"
+            aria-label={`Open ${event.title}`}
+          >
+            <ExternalLink size={13} />
+          </Link>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mt-1.5 ml-[18px] flex-wrap">
+        <span className="text-xs text-gray-300 font-sans">
+          {format(new Date(event.date + "T00:00:00"), "d MMM")} · {cfg.label}
+        </span>
+        {postActions.map((a) => (
+          <button
+            key={a.label}
+            onClick={() => onAction(event, a)}
+            disabled={busy}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-gray-200 text-[11px] font-sans text-gray-600 hover:text-gold hover:border-gold transition-colors disabled:opacity-50"
+          >
+            {busy && <Loader2 size={10} className="animate-spin" />}
+            {a.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
   const { data: session } = useSession();
+  const { selectedId } = useProperty();
 
-  const today = useMemo(() => new Date(), []);
-  const [current, setCurrent]       = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
+  // Shared with Dashboard / Income / Expenses so the working month survives
+  // navigation, per the app-wide month convention.
+  const [month, setMonth] = useSharedMonth();
+
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [activeTypes, setActiveTypes] = useState<Set<EventType>>(new Set(ALL_TYPES));
-  const [events, setEvents]           = useState<CalendarEvent[]>([]);
+  const [filterReady, setFilterReady] = useState(false);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [overdueEvents, setOverdueEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [overdueExpanded, setOverdueExpanded] = useState(true);
+  const [overdueTotal, setOverdueTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  // Collapsed by default: an org with a long backlog shouldn't have the
+  // calendar itself pushed off-screen on arrival.
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
+  const [mobileView, setMobileView] = useState<"grid" | "agenda">("agenda");
+  const [actingOn, setActingOn] = useState<string | null>(null);
 
-  const year  = current.getFullYear();
-  const month = current.getMonth() + 1;
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const today = startOfDay(new Date());
+  const year = month.getFullYear();
+  const monthNum = month.getMonth() + 1;
+
+  // Restore the type filter once on mount (hydration-safe).
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(FILTER_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        const valid = parsed.filter((t): t is EventType => t in TYPE_CONFIG);
+        if (valid.length > 0) setActiveTypes(new Set(valid));
+      }
+    } catch { /* ignore */ }
+    setFilterReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filterReady) return;
+    try {
+      sessionStorage.setItem(FILTER_KEY, JSON.stringify(Array.from(activeTypes)));
+    } catch { /* ignore */ }
+  }, [activeTypes, filterReady]);
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/calendar?year=${year}&month=${month}`)
-      .then((r) => r.json())
+    setFailed(false);
+    const params = new URLSearchParams({ year: String(year), month: String(monthNum) });
+    if (selectedId) params.set("propertyId", selectedId);
+
+    fetch(`/api/calendar?${params}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Request failed");
+        return r.json();
+      })
       .then((d) => {
         setEvents(d.events ?? []);
         setOverdueEvents(d.overdueEvents ?? []);
+        setOverdueTotal(d.overdueTotal ?? 0);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [year, month]);
+      .catch(() => {
+        // A silent empty calendar reads as "nothing due" — say it failed.
+        setFailed(true);
+        setLoading(false);
+      });
+  }, [year, monthNum, selectedId]);
 
   useEffect(() => { load(); }, [load]);
 
-  function prevMonth() { setCurrent((c) => subMonths(c, 1)); setSelectedDay(null); }
-  function nextMonth() { setCurrent((c) => addMonths(c, 1)); setSelectedDay(null); }
+  function goToMonth(next: Date) {
+    setMonth(next);
+    setSelectedDay(null);
+  }
 
   function toggleType(t: EventType) {
     setActiveTypes((prev) => {
       const next = new Set(prev);
-      if (next.has(t)) {
-        if (next.size === 1) return prev;
-        next.delete(t);
-      } else {
-        next.add(t);
-      }
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
       return next;
     });
   }
 
-  // ── Calendar grid ────────────────────────────────────────────────────────
+  /** Click a chip's label to isolate that type; click again to restore all. */
+  function soloType(t: EventType) {
+    setActiveTypes((prev) =>
+      prev.size === 1 && prev.has(t) ? new Set(ALL_TYPES) : new Set([t])
+    );
+  }
 
-  const days = useMemo(
-    () => eachDayOfInterval({ start: startOfMonth(current), end: endOfMonth(current) }),
-    [current]
+  async function runAction(event: CalendarEvent, action: CalendarAction) {
+    if (!action.endpoint) return;
+    setActingOn(event.id);
+    try {
+      const r = await fetch(action.endpoint, {
+        method: action.method ?? "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action.body ?? {}),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(typeof d?.error === "string" ? d.error : "Action failed");
+      // send-reminders reports per-recipient failures without failing the call.
+      if (Array.isArray(d?.failures) && d.failures.length > 0) {
+        toast.error(d.failures[0]?.reason ?? "Couldn't send — tenant has no email address");
+      } else {
+        toast.success(`${action.label} — done`);
+      }
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setActingOn(null);
+    }
+  }
+
+  // ── Grid ─────────────────────────────────────────────────────────────────
+
+  const gridDays = useMemo(() => {
+    const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+    const end = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+    return eachDayOfInterval({ start, end });
+  }, [month]);
+
+  const visibleEvents = useMemo(
+    () => events.filter((e) => activeTypes.has(e.type)),
+    [events, activeTypes]
   );
-  const leadingBlanks  = getDay(startOfMonth(current));
-  const trailingBlanks = (7 - ((days.length + leadingBlanks) % 7)) % 7;
 
   const eventsByDay = useMemo(() => {
-    const map = new Map<number, CalendarEvent[]>();
-    for (const e of events) {
-      if (!activeTypes.has(e.type as EventType)) continue;
-      const d = parseInt(e.date.slice(8, 10), 10);
-      if (!map.has(d)) map.set(d, []);
-      map.get(d)!.push(e);
+    const map = new Map<string, CalendarEvent[]>();
+    for (const e of visibleEvents) {
+      if (!map.has(e.date)) map.set(e.date, []);
+      map.get(e.date)!.push(e);
     }
     return map;
-  }, [events, activeTypes]);
+  }, [visibleEvents]);
 
   const listEvents = useMemo(() => {
-    const base = events.filter((e) => activeTypes.has(e.type as EventType));
-    if (selectedDay !== null) {
-      const prefix = `${year}-${String(month).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
-      return base.filter((e) => e.date === prefix);
-    }
-    return base;
-  }, [events, activeTypes, selectedDay, year, month]);
+    if (!selectedDay) return visibleEvents;
+    const key = format(selectedDay, "yyyy-MM-dd");
+    return visibleEvents.filter((e) => e.date === key);
+  }, [visibleEvents, selectedDay]);
 
-  const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+  const visibleOverdue = useMemo(
+    () => overdueEvents.filter((e) => activeTypes.has(e.type)),
+    [overdueEvents, activeTypes]
+  );
 
-  // ── KPI values (computed from month events) ──────────────────────────────
+  // KPIs count what's actually on screen, so they can't contradict the grid.
+  const criticalCount = visibleEvents.filter((e) => e.urgency === "critical").length;
+  const warningCount = visibleEvents.filter((e) => e.urgency === "warning").length;
 
-  const totalEvents    = events.length;
-  const criticalCount  = events.filter((e) => e.urgency === "critical").length;
-  const warningCount   = events.filter((e) => e.urgency === "warning").length;
-  const overdueCount   = overdueEvents.length;
+  const isViewingCurrentMonth = isSameMonth(month, today);
+
+  /** Arrow-key navigation across the grid, as a date picker should have. */
+  function onGridKeyDown(e: React.KeyboardEvent, day: Date) {
+    const deltas: Record<string, number> = {
+      ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7,
+    };
+    const delta = deltas[e.key];
+    if (delta === undefined) return;
+    e.preventDefault();
+    const next = new Date(day);
+    next.setDate(next.getDate() + delta);
+    if (!isSameMonth(next, month)) setMonth(startOfMonth(next));
+    setSelectedDay(next);
+    requestAnimationFrame(() => {
+      gridRef.current
+        ?.querySelector<HTMLButtonElement>(`[data-day="${format(next, "yyyy-MM-dd")}"]`)
+        ?.focus();
+    });
+  }
 
   return (
     <div>
@@ -181,15 +348,24 @@ export default function CalendarPage() {
         title="Calendar"
         userName={session?.user?.name ?? session?.user?.email}
         role={session?.user?.role}
-      />
+      >
+        <Link
+          href="/settings/calendar"
+          className="hidden sm:inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-sm font-sans transition-colors"
+          title="Subscribe in Google, Outlook or Apple Calendar"
+        >
+          <CalendarRange size={13} className="text-gold" />
+          Subscribe
+        </Link>
+      </Header>
 
       <div className="page-container space-y-4 pb-24 lg:pb-8">
 
         {/* ── KPI strip ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <KpiCard
-            label={`Events in ${format(current, "MMM yyyy")}`}
-            value={totalEvents}
+            label={`Shown in ${format(month, "MMM yyyy")}`}
+            value={visibleEvents.length}
             icon={<CalendarDays size={20} />}
             colour="text-header"
             bg="bg-white border-gray-100 shadow-sm"
@@ -210,26 +386,44 @@ export default function CalendarPage() {
           />
           <KpiCard
             label="Overdue (last 90 days)"
-            value={overdueCount}
-            icon={<Info size={20} />}
-            colour={overdueCount > 0 ? "text-red-700" : "text-gray-400"}
-            bg={overdueCount > 0 ? "bg-red-50 border-red-200 shadow-sm" : "bg-white border-gray-100 shadow-sm"}
+            value={overdueTotal}
+            icon={<AlertCircle size={20} />}
+            colour={overdueTotal > 0 ? "text-red-700" : "text-gray-400"}
+            bg={overdueTotal > 0 ? "bg-red-50 border-red-200 shadow-sm" : "bg-white border-gray-100 shadow-sm"}
           />
         </div>
 
+        {/* ── Fetch failure ─────────────────────────────────────────────── */}
+        {failed && (
+          <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="text-sm font-sans text-red-700">
+              Couldn&apos;t load the calendar — this month may have events that aren&apos;t showing.
+            </p>
+            <button
+              onClick={load}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-xs font-sans text-red-700 hover:bg-red-100 transition-colors"
+            >
+              <RefreshCw size={12} /> Retry
+            </button>
+          </div>
+        )}
+
         {/* ── Overdue strip ─────────────────────────────────────────────── */}
-        {overdueEvents.length > 0 && (
+        {visibleOverdue.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden shadow-sm">
             <button
               onClick={() => setOverdueExpanded((v) => !v)}
+              aria-expanded={overdueExpanded}
               className="w-full flex items-center justify-between px-4 py-3 text-left"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <AlertTriangle size={16} className="text-red-600 shrink-0" />
-                <span className="text-sm font-sans font-semibold text-red-700">
-                  {overdueEvents.length} overdue item{overdueEvents.length !== 1 ? "s" : ""} — action required
+                <span className="text-sm font-sans font-semibold text-red-700 truncate">
+                  {overdueTotal} overdue item{overdueTotal !== 1 ? "s" : ""} — action required
                 </span>
-                <span className="text-xs text-red-500 font-sans hidden sm:inline">(past 90 days)</span>
+                <span className="text-xs text-red-500 font-sans hidden sm:inline shrink-0">
+                  (past 90 days)
+                </span>
               </div>
               {overdueExpanded
                 ? <ChevronUp size={16} className="text-red-500 shrink-0" />
@@ -237,20 +431,19 @@ export default function CalendarPage() {
             </button>
 
             {overdueExpanded && (
-              <div className="divide-y divide-red-100">
-                {overdueEvents.map((e) => {
-                  const cfg = TYPE_CONFIG[e.type as EventType];
-                  return (
+              <>
+                <div className="divide-y divide-red-100 max-h-80 overflow-y-auto">
+                  {visibleOverdue.map((e) => (
                     <Link
                       key={e.id}
                       href={e.link}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-100/50 transition-colors group"
                     >
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${TYPE_CONFIG[e.type].dot}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-sans text-gray-800 truncate">{e.title}</p>
                         <p className="text-xs text-gray-500 font-sans truncate">
-                          {e.propertyName}{e.unitName ? ` · ${e.unitName}` : ""}
+                          {e.propertyName}{e.unitName ? ` · Unit ${e.unitName}` : ""}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -260,31 +453,66 @@ export default function CalendarPage() {
                         <ExternalLink size={13} className="text-gray-300 group-hover:text-red-400" />
                       </div>
                     </Link>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+                {overdueTotal > overdueEvents.length && (
+                  <p className="px-4 py-2 text-xs text-red-600 font-sans bg-red-100/50 border-t border-red-200">
+                    Showing the {overdueEvents.length} most recent of {overdueTotal}. Clear these to
+                    see the rest.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
 
         {/* ── Filter chips ──────────────────────────────────────────────── */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {ALL_TYPES.map((t) => {
-            const cfg    = TYPE_CONFIG[t];
+            const cfg = TYPE_CONFIG[t];
             const active = activeTypes.has(t);
+            const count = events.filter((e) => e.type === t).length;
             return (
               <button
                 key={t}
                 onClick={() => toggleType(t)}
+                onDoubleClick={() => soloType(t)}
+                title={`${cfg.label} — click to toggle, double-click to show only this`}
+                aria-pressed={active}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-sans font-medium transition-colors ${
-                  active ? cfg.badge : cfg.badgeInactive
+                  active ? cfg.badge : BADGE_INACTIVE
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${active ? cfg.dot : "bg-gray-300"}`} />
                 {cfg.label}
+                {count > 0 && <span className="opacity-60">{count}</span>}
               </button>
             );
           })}
+          {activeTypes.size !== ALL_TYPES.length && (
+            <button
+              onClick={() => setActiveTypes(new Set(ALL_TYPES))}
+              className="text-xs font-sans text-gold hover:underline px-1"
+            >
+              Show all
+            </button>
+          )}
+        </div>
+
+        {/* ── Mobile view switch ────────────────────────────────────────── */}
+        <div className="flex xl:hidden items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+          {(["agenda", "grid"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setMobileView(v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-sans transition-colors ${
+                mobileView === v ? "bg-white text-header shadow-sm" : "text-gray-500"
+              }`}
+            >
+              {v === "agenda" ? <List size={13} /> : <LayoutGrid size={13} />}
+              {v === "agenda" ? "Agenda" : "Month"}
+            </button>
+          ))}
         </div>
 
         {loading ? (
@@ -293,20 +521,32 @@ export default function CalendarPage() {
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4">
 
             {/* ── Month grid ────────────────────────────────────────────── */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <div
+              className={`bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden ${
+                mobileView === "grid" ? "" : "hidden xl:block"
+              }`}
+            >
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100">
                 <button
-                  onClick={prevMonth}
+                  onClick={() => goToMonth(subMonths(month, 1))}
                   className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
                   aria-label="Previous month"
                 >
                   <ChevronLeft size={18} />
                 </button>
-                <h2 className="font-display text-base text-gray-900">
-                  {format(current, "MMMM yyyy")}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-base text-gray-900">{format(month, "MMMM yyyy")}</h2>
+                  {!isViewingCurrentMonth && (
+                    <button
+                      onClick={() => goToMonth(startOfMonth(new Date()))}
+                      className="px-2 py-0.5 rounded-md border border-gray-200 text-[11px] font-sans text-gray-500 hover:text-gold hover:border-gold transition-colors"
+                    >
+                      Today
+                    </button>
+                  )}
+                </div>
                 <button
-                  onClick={nextMonth}
+                  onClick={() => goToMonth(addMonths(month, 1))}
                   className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
                   aria-label="Next month"
                 >
@@ -322,26 +562,30 @@ export default function CalendarPage() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-7">
-                {Array.from({ length: leadingBlanks }).map((_, i) => (
-                  <div key={`blank-s-${i}`} className="min-h-[72px] border-b border-r border-gray-50" />
-                ))}
-
-                {days.map((day) => {
-                  const d          = day.getDate();
-                  const dayEvents  = eventsByDay.get(d) ?? [];
-                  const isToday    = isCurrentMonth && d === today.getDate();
-                  const isSelected = d === selectedDay;
-                  const dotTypes   = Array.from(new Set(dayEvents.map((e) => e.type as EventType))).slice(0, 5);
-                  const extraCount = dayEvents.length - dotTypes.length;
+              <div className="grid grid-cols-7" ref={gridRef}>
+                {gridDays.map((day) => {
+                  const key = format(day, "yyyy-MM-dd");
+                  const dayEvents = eventsByDay.get(key) ?? [];
+                  const inMonth = isSameMonth(day, month);
+                  const isToday = isSameDay(day, today);
+                  const isSelected = selectedDay !== null && isSameDay(day, selectedDay);
+                  // Dots represent distinct types; the overflow count is the
+                  // number of events those dots don't individually stand for.
+                  const dotTypes = Array.from(new Set(dayEvents.map((e) => e.type))).slice(0, 4);
+                  const hiddenCount = dayEvents.length - dotTypes.length;
 
                   return (
                     <button
-                      key={d}
-                      onClick={() => setSelectedDay(isSelected ? null : d)}
-                      className={`min-h-[72px] p-1.5 border-b border-r border-gray-50 flex flex-col items-start gap-1 transition-colors text-left ${
+                      key={key}
+                      data-day={key}
+                      onClick={() => setSelectedDay(isSelected ? null : day)}
+                      onKeyDown={(e) => onGridKeyDown(e, day)}
+                      aria-current={isToday ? "date" : undefined}
+                      aria-pressed={isSelected}
+                      aria-label={`${format(day, "d MMMM yyyy")}, ${dayEvents.length} event${dayEvents.length !== 1 ? "s" : ""}`}
+                      className={`min-h-[72px] p-1.5 border-b border-r border-gray-50 flex flex-col items-start gap-1 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 focus-visible:ring-inset ${
                         isSelected ? "bg-gold/10" : "hover:bg-gray-50"
-                      }`}
+                      } ${inMonth ? "" : "bg-gray-50/40"}`}
                     >
                       <span
                         className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans font-medium ${
@@ -349,13 +593,15 @@ export default function CalendarPage() {
                             ? "bg-header text-white"
                             : isSelected
                             ? "bg-gold text-white"
-                            : "text-gray-700"
+                            : inMonth
+                            ? "text-gray-700"
+                            : "text-gray-300"
                         }`}
                       >
-                        {d}
+                        {day.getDate()}
                       </span>
                       {dotTypes.length > 0 && (
-                        <div className="flex flex-wrap gap-0.5 px-0.5">
+                        <div className="flex flex-wrap items-center gap-0.5 px-0.5">
                           {dotTypes.map((t) => (
                             <span
                               key={t}
@@ -363,9 +609,9 @@ export default function CalendarPage() {
                               title={TYPE_CONFIG[t].label}
                             />
                           ))}
-                          {extraCount > 0 && (
-                            <span className="text-[9px] text-gray-400 leading-none self-center">
-                              +{extraCount}
+                          {hiddenCount > 0 && (
+                            <span className="text-[9px] text-gray-400 leading-none">
+                              +{hiddenCount}
                             </span>
                           )}
                         </div>
@@ -373,73 +619,60 @@ export default function CalendarPage() {
                     </button>
                   );
                 })}
-
-                {Array.from({ length: trailingBlanks }).map((_, i) => (
-                  <div key={`blank-e-${i}`} className="min-h-[72px] border-b border-r border-gray-50" />
-                ))}
               </div>
             </div>
 
             {/* ── Events list ───────────────────────────────────────────── */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-sans font-medium text-sm text-gray-800">
-                  {selectedDay !== null
-                    ? format(new Date(year, month - 1, selectedDay), "d MMMM yyyy")
-                    : `All events — ${format(current, "MMMM yyyy")}`}
+            <div
+              className={`bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col ${
+                mobileView === "agenda" ? "" : "hidden xl:flex"
+              }`}
+            >
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
+                <h3 className="font-sans font-medium text-sm text-gray-800 truncate">
+                  {selectedDay
+                    ? format(selectedDay, "d MMMM yyyy")
+                    : `All events — ${format(month, "MMMM yyyy")}`}
                 </h3>
-                <span className="text-xs text-gray-400 font-sans">
-                  {listEvents.length} event{listEvents.length !== 1 ? "s" : ""}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {selectedDay && (
+                    <button
+                      onClick={() => setSelectedDay(null)}
+                      className="text-xs text-gold hover:underline font-sans"
+                    >
+                      Whole month
+                    </button>
+                  )}
+                  <span className="text-xs text-gray-400 font-sans">
+                    {listEvents.length}
+                  </span>
+                </div>
               </div>
 
               {listEvents.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-12 text-gray-400">
                   <p className="text-sm font-sans">
-                    No events{selectedDay !== null ? " on this day" : " this month"}
+                    No events{selectedDay ? " on this day" : " this month"}
                   </p>
-                  {selectedDay !== null && (
+                  {activeTypes.size !== ALL_TYPES.length && (
                     <button
-                      onClick={() => setSelectedDay(null)}
+                      onClick={() => setActiveTypes(new Set(ALL_TYPES))}
                       className="mt-2 text-xs text-gold hover:underline"
                     >
-                      Show all month
+                      Some types are filtered out — show all
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-                  {listEvents.map((e) => {
-                    const cfg = TYPE_CONFIG[e.type as EventType];
-                    return (
-                      <div key={e.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start gap-2.5">
-                          <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-sans text-gray-800 truncate">{e.title}</p>
-                            <p className="text-xs text-gray-400 font-sans mt-0.5 truncate">
-                              {e.propertyName}{e.unitName ? ` · ${e.unitName}` : ""}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <Badge variant={urgencyVariant(e.urgency)}>
-                              {daysLabel(e.daysUntil)}
-                            </Badge>
-                            <Link
-                              href={e.link}
-                              className="text-gray-400 hover:text-gold transition-colors"
-                              title="Go to source"
-                            >
-                              <ExternalLink size={13} />
-                            </Link>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-300 font-sans mt-1 ml-[18px]">
-                          {format(new Date(e.date + "T00:00:00"), "d MMM yyyy")} · {cfg.label}
-                        </p>
-                      </div>
-                    );
-                  })}
+                <div className="flex-1 overflow-y-auto divide-y divide-gray-50 max-h-[70vh]">
+                  {listEvents.map((e) => (
+                    <EventRow
+                      key={e.id}
+                      event={e}
+                      onAction={runAction}
+                      busy={actingOn === e.id}
+                    />
+                  ))}
                 </div>
               )}
             </div>

@@ -150,28 +150,80 @@ export async function getCurrentOrgId(): Promise<string | null | undefined> {
 /**
  * Returns property IDs the current user may access, scoped by organization.
  *
- * - Super-admin (role=ADMIN, organizationId=null): ALL properties across all orgs
- * - Org-admin  (orgRole=ADMIN, organizationId=X):  all properties in their org
- * - OWNER:      their owned properties
- * - MANAGER / ACCOUNTANT: PropertyAccess grants only
- *
- * Returns null if unauthenticated.
+ * Thin wrapper over {@link getAccessiblePropertyIdsForUser} that sources the
+ * user from the active session. Returns null if unauthenticated.
  */
 export async function getAccessiblePropertyIds(): Promise<string[] | null> {
   const session = await auth();
   if (!session) return null;
+  return resolveAccessiblePropertyIds({
+    userId:  session.user.id,
+    orgId:   session.user.organizationId,
+    role:    session.user.role,
+    orgRole: session.user.orgRole,
+  });
+}
 
-  const userId = session.user.id;
-  const orgId  = session.user.organizationId;
+/**
+ * Session-less variant: resolves the same access scope from a user id alone,
+ * re-deriving `orgRole` from the user's membership in their active org exactly
+ * as the JWT callback does (`membership?.role ?? user.role`).
+ *
+ * Used by surfaces that authenticate with their own token instead of a session
+ * (e.g. the calendar ICS feed), so OWNER / manager scoping stays identical
+ * across both paths. Returns null when the user no longer exists.
+ */
+export async function getAccessiblePropertyIdsForUser(
+  userId: string
+): Promise<string[] | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true, organizationId: true },
+  });
+  if (!user) return null;
+
+  const membership = user.organizationId
+    ? await prisma.userOrganizationMembership.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: user.id,
+            organizationId: user.organizationId,
+          },
+        },
+        select: { role: true },
+      })
+    : null;
+
+  return resolveAccessiblePropertyIds({
+    userId:  user.id,
+    orgId:   user.organizationId ?? null,
+    role:    user.role,
+    orgRole: membership?.role ?? user.role,
+  });
+}
+
+/**
+ * Shared scope resolution — the single source of truth for "which properties
+ * may this user see".
+ *
+ * - Super-admin (role=ADMIN, organizationId=null): ALL properties across all orgs
+ * - Org-admin  (orgRole=ADMIN, organizationId=X):  all properties in their org
+ * - OWNER:      their owned properties
+ * - MANAGER / ACCOUNTANT: PropertyAccess grants only
+ */
+async function resolveAccessiblePropertyIds(actor: {
+  userId: string;
+  orgId: string | null;
+  role: string;
+  orgRole: string;
+}): Promise<string[]> {
+  const { userId, orgId, role, orgRole } = actor;
 
   // Platform super-admin — full access across all orgs
-  if (isSuperAdmin(session)) {
+  if (role === "ADMIN" && orgId === null) {
     const all = await prisma.property.findMany({ select: { id: true } });
     return all.map((p) => p.id);
   }
-
-  // Use orgRole (per-org) for all org-scoped checks
-  const orgRole = session.user.orgRole;
 
   // Org-level admin — all properties within their org
   if (orgRole === "ADMIN" && orgId) {

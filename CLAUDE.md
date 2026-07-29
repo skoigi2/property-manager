@@ -349,7 +349,25 @@ Each property has a `ManagementAgreement` record (`GET/PUT /api/properties/[id]/
 
 **Agents (commissions)** — separate from `Vendor`. API: `GET/POST /api/agents`, `GET/PATCH/DELETE /api/agents/[id]`. Tied to `IncomeEntry.agentCommission`.
 
-**Calendar** — combined property-event view (lease ends, invoice dues, maintenance, compliance expiries, etc.). API: `GET /api/calendar?propertyId=&from=&to=`. Page: `/calendar`.
+### Calendar
+
+Combined property-event view. Page: `/calendar`.
+
+**Aggregator**: `buildCalendarEvents(propertyIds, from, to)` in [src/lib/calendar-events.ts](src/lib/calendar-events.ts) — same shape as `buildInbox()`: one `Promise.all`, reads only, no request state. Every calendar surface goes through it, so the in-app view and the ICS feed can't drift. Twelve `EventType`s: `LEASE_EXPIRY`, `LEASE_START`, `RENT_DUE` (Invoice.dueDate, excludes DRAFT/CANCELLED), `MAINTENANCE_DUE` (recurring schedule), `MAINTENANCE_VISIT` (`MaintenanceJob.scheduledDate`, excludes DONE/CANCELLED), `INSURANCE_RENEWAL`, `COMPLIANCE_EXPIRY`, `RECURRING_EXPENSE`, `RENT_REMITTANCE`, `MGMT_FEE_INVOICE`, `APPROVAL_DEADLINE` (`ApprovalRequest.expiresAt`), `CASE_SLA` (computed via `computeCaseSlaDueDate`, filtered in memory since it isn't a column).
+
+Each event carries a **stable `id` (`{TYPE}-{refId}`) that doubles as the ICS UID — never randomise it**, or every feed refresh duplicates entries instead of updating them. `isOverdue` marks past-dated events that are still open obligations; synthesised agreement dates (remittance / mgmt fee) are never overdue because completion can't be verified. `feedSummary` is the PII-minimal string for the feed; `title` (which may contain a tenant name) is in-app only. Deep links use the app-wide `?focus=<id>` convention (see [use-focus-scroll.ts](src/lib/use-focus-scroll.ts)) wherever the target list page supports it.
+
+**API**: `GET /api/calendar?year=&month=&propertyId=` returns `{ events, overdueEvents, overdueTotal }`. Overdue is a second aggregator call over a trailing 90-day window filtered to `isOverdue`, capped at 50 rows (`overdueTotal` reports the true count). The 90-day bound applies uniformly to every source.
+
+**ICS feed** (subscribe-by-URL):
+- `CalendarFeedToken { userId, token @unique, propertyIds[], label, lastAccessedAt, revokedAt }` — migration `20260729180000_calendar_feed_token`. **Deliberately has no expiry column**: a silently-expiring subscription is worse than none. Revoke + rotate explicitly.
+- `validateCalendarFeedToken(token)` in [calendar-feed-auth.ts](src/lib/calendar-feed-auth.ts) mirrors `portal-auth.ts`. Scope is resolved **live** on every fetch via `getAccessiblePropertyIdsForUser(userId)`, so losing PropertyAccess narrows an existing feed; `propertyIds` is intersected with live access and can never widen it.
+- `getAccessiblePropertyIds()` is now a thin session wrapper over the shared `resolveAccessiblePropertyIds()`; use `getAccessiblePropertyIdsForUser(userId)` for any surface that authenticates with its own token instead of a session.
+- `GET /api/calendar/feed/[token]` — public (middleware's matcher excludes `/api` wholesale, so **no allow-list entry is needed or possible for API paths**; the `/api/*` entries in `isPublicPage` are vestigial). Fixed rolling `now−90d…now+365d` window, query params ignored. Headers: `text/calendar; charset=utf-8`, `Cache-Control: private, max-age=1800` (never `public` — the token is in the URL), `X-Robots-Tag: noindex`. Rate-limited 60/IP/hour. Revocation is server-side immediate, but subscribers may serve from their own HTTP cache for up to 30 min.
+- `GET /api/calendar/export` — same aggregator + serializer, session auth, attachment disposition. Snapshot, not a subscription.
+- Management: `GET/POST /api/calendar-feeds`, `DELETE /api/calendar-feeds/[id]` (soft-revoke, `logAudit` with the token redacted to last 4). UI: `/settings/calendar`.
+
+**`src/lib/ics.ts`** is a hand-rolled RFC 5545 serializer (no dependency). If you touch it, keep: CRLF endings, **75-octet** folding measured in UTF-8 bytes (not characters — otherwise multi-byte chars corrupt at the fold), TEXT escaping for `\ ; ,` and newlines, `DTSTAMP` on every VEVENT, all-day `DTSTART;VALUE=DATE` with an **exclusive** `DTEND` (+1 day), and unescaped `URL` values. Covered by [src/lib/__tests__/ics.test.ts](src/lib/__tests__/ics.test.ts) — extend it rather than eyeballing output.
 
 ### Cases (cross-cutting workflow)
 

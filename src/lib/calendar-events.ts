@@ -71,6 +71,77 @@ export interface CalendarEvent {
   currency?: string;
 }
 
+/**
+ * Which calendar sources actually hold data for these properties.
+ *
+ * An empty month is ambiguous — "nothing is due" and "you never configured the
+ * thing that produces these dates" look identical. This distinguishes them, so
+ * a fresh org isn't left concluding the page is broken. Only run when a month
+ * comes back empty; it's seven counts.
+ *
+ * Deliberately covers *configuration* sources only. Maintenance jobs,
+ * approvals and cases are transactional — having none of those is normal and
+ * not worth nagging about.
+ */
+export interface CalendarSourceStatus {
+  key: string;
+  label: string;
+  /** What this source contributes to the calendar, in the manager's words. */
+  powers: string;
+  href: string;
+  configured: boolean;
+}
+
+export async function getCalendarSourceStatus(
+  propertyIds: string[]
+): Promise<CalendarSourceStatus[]> {
+  if (propertyIds.length === 0) return [];
+
+  const [tenants, invoices, agreements, schedules, insurance, compliance, recurring] =
+    await Promise.all([
+      prisma.tenant.count({
+        where: { isActive: true, unit: { propertyId: { in: propertyIds } } },
+      }),
+      prisma.invoice.count({
+        where: {
+          status: { notIn: ["DRAFT", "CANCELLED"] },
+          tenant: { unit: { propertyId: { in: propertyIds } } },
+        },
+      }),
+      prisma.managementAgreement.count({ where: { propertyId: { in: propertyIds } } }),
+      prisma.assetMaintenanceSchedule.count({
+        where: {
+          isActive: true,
+          OR: [
+            { propertyId: { in: propertyIds } },
+            { asset: { propertyId: { in: propertyIds } } },
+          ],
+        },
+      }),
+      prisma.insurancePolicy.count({ where: { propertyId: { in: propertyIds } } }),
+      prisma.complianceCertificate.count({ where: { propertyId: { in: propertyIds } } }),
+      prisma.recurringExpense.count({
+        where: {
+          isActive: true,
+          OR: [
+            { propertyId: { in: propertyIds } },
+            { unit: { propertyId: { in: propertyIds } } },
+          ],
+        },
+      }),
+    ]);
+
+  return [
+    { key: "tenants",    label: "Tenants",              powers: "lease start and expiry dates",     href: "/tenants",                 configured: tenants > 0 },
+    { key: "invoices",   label: "Rent invoices",        powers: "rent due dates",                   href: "/invoices",                configured: invoices > 0 },
+    { key: "agreement",  label: "Management agreement", powers: "rent remittance and mgmt fee days", href: "/properties",              configured: agreements > 0 },
+    { key: "schedules",  label: "Maintenance schedules", powers: "recurring maintenance dates",     href: "/maintenance",             configured: schedules > 0 },
+    { key: "insurance",  label: "Insurance policies",   powers: "policy renewal dates",             href: "/insurance",               configured: insurance > 0 },
+    { key: "compliance", label: "Compliance certificates", powers: "certificate expiry dates",      href: "/compliance/certificates", configured: compliance > 0 },
+    { key: "recurring",  label: "Recurring expenses",   powers: "standing cost due dates",          href: "/recurring-expenses",      configured: recurring > 0 },
+  ];
+}
+
 function toDateStr(d: Date): string {
   return format(d, "yyyy-MM-dd");
 }

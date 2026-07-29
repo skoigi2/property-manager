@@ -18,8 +18,11 @@ import {
   eachDayOfInterval,
   isSameMonth,
   isSameDay,
+  isSameWeek,
   addMonths,
   subMonths,
+  addWeeks,
+  subWeeks,
   startOfDay,
 } from "date-fns";
 import {
@@ -41,10 +44,15 @@ import {
   Wrench,
   ShieldCheck,
   SlidersHorizontal,
+  Columns3,
+  Settings2,
+  CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import type { CalendarEvent, EventType, CalendarAction } from "@/lib/calendar-events";
+import type {
+  CalendarEvent, EventType, CalendarAction, CalendarSourceStatus,
+} from "@/lib/calendar-events";
 
 // ── Event type config ────────────────────────────────────────────────────────
 
@@ -88,6 +96,15 @@ const BADGE_INACTIVE = "bg-white text-gray-400 border-gray-200";
 const ALL_TYPES = Object.keys(TYPE_CONFIG) as EventType[];
 /** Below this, a cluster is clearer listed out than summarised. */
 const ROLLUP_MIN = 3;
+
+type CalendarView = "month" | "week" | "agenda";
+const VIEW_KEY = "gw:calendarView";
+
+const VIEWS: { key: CalendarView; label: string; icon: LucideIcon }[] = [
+  { key: "month",  label: "Month",  icon: LayoutGrid },
+  { key: "week",   label: "Week",   icon: Columns3 },
+  { key: "agenda", label: "Agenda", icon: List },
+];
 // Monday-first, matching CaseCalendarView so the app has one week shape.
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const FILTER_KEY = "gw:calendarTypeFilter";
@@ -311,9 +328,12 @@ export default function CalendarPage() {
   // Collapsed by default: an org with a long backlog shouldn't have the
   // calendar itself pushed off-screen on arrival.
   const [overdueExpanded, setOverdueExpanded] = useState(false);
-  const [mobileView, setMobileView] = useState<"grid" | "agenda">("agenda");
   const [actingOn, setActingOn] = useState<string | null>(null);
   const [refineOpen, setRefineOpen] = useState(false);
+  const [sources, setSources] = useState<CalendarSourceStatus[] | null>(null);
+  const [view, setView] = useState<CalendarView>("month");
+  // Anchor for week view — any date inside the week being shown.
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => new Date());
 
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -341,10 +361,23 @@ export default function CalendarPage() {
     } catch { /* ignore */ }
   }, [activeTypes, filterReady]);
 
+  // Week view spans month boundaries, so it asks for an explicit 7-day range
+  // rather than the month the grid happens to be showing.
+  const weekStart = useMemo(() => startOfWeek(weekAnchor, { weekStartsOn: 1 }), [weekAnchor]);
+  const weekEnd = useMemo(() => endOfWeek(weekAnchor, { weekStartsOn: 1 }), [weekAnchor]);
+  const weekDays = useMemo(
+    () => eachDayOfInterval({ start: weekStart, end: weekEnd }),
+    [weekStart, weekEnd]
+  );
+
+  const rangeKey = view === "week"
+    ? `from=${format(weekStart, "yyyy-MM-dd")}&to=${format(weekEnd, "yyyy-MM-dd")}`
+    : `year=${year}&month=${monthNum}`;
+
   const load = useCallback(() => {
     setLoading(true);
     setFailed(false);
-    const params = new URLSearchParams({ year: String(year), month: String(monthNum) });
+    const params = new URLSearchParams(rangeKey);
     if (selectedId) params.set("propertyId", selectedId);
 
     fetch(`/api/calendar?${params}`)
@@ -356,6 +389,7 @@ export default function CalendarPage() {
         setEvents(d.events ?? []);
         setOverdueEvents(d.overdueEvents ?? []);
         setOverdueTotal(d.overdueTotal ?? 0);
+        setSources(d.sources ?? null);
         setLoading(false);
       })
       .catch(() => {
@@ -363,13 +397,37 @@ export default function CalendarPage() {
         setFailed(true);
         setLoading(false);
       });
-  }, [year, monthNum, selectedId]);
+  }, [rangeKey, selectedId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Restore the view choice once on mount (hydration-safe).
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(VIEW_KEY);
+      if (stored === "month" || stored === "week" || stored === "agenda") setView(stored);
+    } catch { /* ignore */ }
+  }, []);
+
+  function changeView(next: CalendarView) {
+    setView(next);
+    try { sessionStorage.setItem(VIEW_KEY, next); } catch { /* ignore */ }
+    // Entering week view, land on the week containing whatever the user was
+    // last looking at rather than snapping back to today.
+    if (next === "week") setWeekAnchor(selectedDay ?? (isSameMonth(month, today) ? today : month));
+  }
 
   function goToMonth(next: Date) {
     setMonth(next);
     setSelectedDay(null);
+  }
+
+  function goToWeek(next: Date) {
+    setWeekAnchor(next);
+    setSelectedDay(null);
+    // Keep the shared month in step, so switching back to Month lands where
+    // you were rather than somewhere else.
+    if (!isSameMonth(next, month)) setMonth(startOfMonth(next));
   }
 
   function toggleType(t: EventType) {
@@ -460,6 +518,12 @@ export default function CalendarPage() {
 
   const listClusters = useMemo(() => clusterEvents(listEvents), [listEvents]);
 
+  // Only populated when the server found the range genuinely empty.
+  const unconfiguredSources = useMemo(
+    () => (sources ?? []).filter((s) => !s.configured),
+    [sources]
+  );
+
   const visibleOverdue = useMemo(
     () => overdueEvents.filter((e) => activeTypes.has(e.type)),
     [overdueEvents, activeTypes]
@@ -512,21 +576,25 @@ export default function CalendarPage() {
         {/* ── KPI strip ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <KpiCard
-            label={`Shown in ${format(month, "MMM yyyy")}`}
+            label={
+              view === "week"
+                ? `Shown this week`
+                : `Shown in ${format(month, "MMM yyyy")}`
+            }
             value={visibleEvents.length}
             icon={<CalendarDays size={20} />}
             colour="text-header"
             bg="bg-white border-gray-100 shadow-sm"
           />
           <KpiCard
-            label="Critical this month"
+            label={view === "week" ? "Critical this week" : "Critical this month"}
             value={criticalCount}
             icon={<AlertCircle size={20} />}
             colour={criticalCount > 0 ? "text-red-600" : "text-gray-400"}
             bg={criticalCount > 0 ? "bg-red-50 border-red-100 shadow-sm" : "bg-white border-gray-100 shadow-sm"}
           />
           <KpiCard
-            label="Warnings this month"
+            label={view === "week" ? "Warnings this week" : "Warnings this month"}
             value={warningCount}
             icon={<AlertTriangle size={20} />}
             colour={warningCount > 0 ? "text-amber-600" : "text-gray-400"}
@@ -704,31 +772,73 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* ── Mobile view switch ────────────────────────────────────────── */}
-        <div className="flex xl:hidden items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-          {(["agenda", "grid"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setMobileView(v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-sans transition-colors ${
-                mobileView === v ? "bg-white text-header shadow-sm" : "text-gray-500"
-              }`}
-            >
-              {v === "agenda" ? <List size={13} /> : <LayoutGrid size={13} />}
-              {v === "agenda" ? "Agenda" : "Month"}
-            </button>
-          ))}
+        {/* ── View switch ───────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+            {VIEWS.map((v) => {
+              const Icon = v.icon;
+              return (
+                <button
+                  key={v.key}
+                  onClick={() => changeView(v.key)}
+                  aria-pressed={view === v.key}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-sans transition-colors ${
+                    view === v.key ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <Icon size={13} />
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {view === "week" && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => goToWeek(subWeeks(weekAnchor, 1))}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+                aria-label="Previous week"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="font-sans text-sm text-gray-700 px-1">
+                {format(weekStart, "d MMM")} – {format(weekEnd, "d MMM yyyy")}
+              </span>
+              {!isSameWeek(weekAnchor, today, { weekStartsOn: 1 }) && (
+                <button
+                  onClick={() => goToWeek(new Date())}
+                  className="px-2 py-0.5 rounded-md border border-gray-200 text-[11px] font-sans text-gray-500 hover:text-gold hover:border-gold transition-colors"
+                >
+                  This week
+                </button>
+              )}
+              <button
+                onClick={() => goToWeek(addWeeks(weekAnchor, 1))}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+                aria-label="Next week"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4">
+          <div
+            className={
+              view === "month"
+                ? "grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4"
+                : "space-y-4"
+            }
+          >
 
             {/* ── Month grid ────────────────────────────────────────────── */}
             <div
               className={`bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden ${
-                mobileView === "grid" ? "" : "hidden xl:block"
+                view === "month" ? "" : "hidden"
               }`}
             >
               <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100">
@@ -869,10 +979,97 @@ export default function CalendarPage() {
               </div>
             </div>
 
+            {/* ── Week columns ──────────────────────────────────────────── */}
+            {/* All events are all-day, so a time-axis week grid would be
+                misleading — seven stacked day columns is the honest shape. */}
+            {view === "week" && (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                  {weekDays.map((day) => {
+                    const key = format(day, "yyyy-MM-dd");
+                    const dayEvents = visibleEvents.filter((e) => e.date === key);
+                    const isToday = isSameDay(day, today);
+                    const worstRank = dayEvents.reduce(
+                      (max, e) => Math.max(max, URGENCY_RANK[e.urgency]),
+                      -1
+                    );
+
+                    return (
+                      <div key={key} className="min-h-[120px] md:min-h-[420px] flex flex-col">
+                        <div
+                          className={`px-3 py-2 border-b border-gray-100 sticky top-0 ${
+                            worstRank === 2
+                              ? "bg-red-50"
+                              : worstRank === 1
+                              ? "bg-amber-50/70"
+                              : isToday
+                              ? "bg-header/5"
+                              : "bg-white"
+                          }`}
+                        >
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-[11px] font-sans uppercase tracking-wide text-gray-400">
+                              {format(day, "EEE")}
+                            </span>
+                            <span
+                              className={`text-sm font-sans ${
+                                isToday ? "font-bold text-header" : "text-gray-700"
+                              }`}
+                            >
+                              {format(day, "d")}
+                            </span>
+                          </div>
+                          {dayEvents.length > 0 && (
+                            <p className="text-[10px] font-sans text-gray-400 mt-0.5">
+                              {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
+                          {dayEvents.length === 0 ? (
+                            <p className="text-[11px] font-sans text-gray-300 px-1 py-2">—</p>
+                          ) : (
+                            dayEvents.map((e) => {
+                              const cfg = TYPE_CONFIG[e.type];
+                              return (
+                                <Link
+                                  key={e.id}
+                                  href={e.link}
+                                  title={`${e.title} — ${e.propertyName}`}
+                                  className={`block rounded-lg border px-2 py-1.5 hover:shadow-sm transition-shadow ${
+                                    e.urgency === "critical"
+                                      ? "border-red-200 bg-red-50/60"
+                                      : e.urgency === "warning"
+                                      ? "border-amber-200 bg-amber-50/60"
+                                      : "border-gray-200 bg-gray-50/60"
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-1.5">
+                                    <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+                                    <span className="text-[11px] font-sans text-gray-800 leading-snug line-clamp-3">
+                                      {e.title}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] font-sans text-gray-400 mt-0.5 truncate">
+                                    {e.unitName ? `Unit ${e.unitName}` : e.propertyName}
+                                  </p>
+                                </Link>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* ── Events list ───────────────────────────────────────────── */}
             <div
               className={`bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col ${
-                mobileView === "agenda" ? "" : "hidden xl:flex"
+                view === "week" ? "hidden" : ""
               }`}
             >
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
@@ -897,17 +1094,66 @@ export default function CalendarPage() {
               </div>
 
               {listEvents.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center py-12 text-gray-400">
-                  <p className="text-sm font-sans">
-                    No events{selectedDay ? " on this day" : " this month"}
-                  </p>
-                  {activeTypes.size !== ALL_TYPES.length && (
-                    <button
-                      onClick={() => setActiveTypes(new Set(ALL_TYPES))}
-                      className="mt-2 text-xs text-gold hover:underline"
-                    >
-                      Some types are filtered out — show all
-                    </button>
+                <div className="flex-1 flex flex-col items-center justify-center py-10 px-5 text-center">
+                  {/* Three different empty states, because "no events" has
+                      three different causes and they need different answers. */}
+                  {activeTypes.size !== ALL_TYPES.length ? (
+                    <>
+                      <p className="text-sm font-sans text-gray-500">
+                        Nothing matches the filters you&apos;ve got on.
+                      </p>
+                      <button
+                        onClick={() => setActiveTypes(new Set(ALL_TYPES))}
+                        className="mt-2 text-xs text-gold hover:underline font-sans"
+                      >
+                        Show everything
+                      </button>
+                    </>
+                  ) : selectedDay ? (
+                    <p className="text-sm font-sans text-gray-400">Nothing on this day.</p>
+                  ) : unconfiguredSources.length > 0 ? (
+                    <div className="w-full text-left">
+                      <p className="text-sm font-sans text-gray-700">
+                        Nothing scheduled in {format(month, "MMMM yyyy")}.
+                      </p>
+                      <p className="text-xs font-sans text-gray-500 mt-2 flex items-start gap-1.5">
+                        <Settings2 size={13} className="text-gold shrink-0 mt-0.5" />
+                        <span>
+                          Some of what fills this calendar isn&apos;t set up yet, so those
+                          dates can&apos;t appear at all:
+                        </span>
+                      </p>
+                      <ul className="mt-3 space-y-1.5">
+                        {unconfiguredSources.map((s) => (
+                          <li key={s.key}>
+                            <Link
+                              href={s.href}
+                              className="flex items-start gap-2 rounded-lg border border-gray-100 px-2.5 py-2 hover:border-gold hover:bg-gold/5 transition-colors group"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0 mt-1.5 group-hover:bg-gold" />
+                              <span className="min-w-0">
+                                <span className="block text-xs font-sans text-gray-700">
+                                  No {s.label.toLowerCase()}
+                                </span>
+                                <span className="block text-[11px] font-sans text-gray-400">
+                                  Powers {s.powers}
+                                </span>
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={22} className="text-green-500 mb-2" />
+                      <p className="text-sm font-sans text-gray-600">
+                        Nothing due in {format(month, "MMMM yyyy")}.
+                      </p>
+                      <p className="text-xs font-sans text-gray-400 mt-1">
+                        Your calendar is set up and this month is clear.
+                      </p>
+                    </>
                   )}
                 </div>
               ) : (

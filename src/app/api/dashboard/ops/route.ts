@@ -49,9 +49,15 @@ export async function GET(req: Request) {
         },
         select: { priority: true },
       }),
-      prisma.arrearsCase.findMany({
-        where: { propertyId: { in: propertyIds }, stage: { not: "RESOLVED" } },
-        select: { stage: true, amountOwed: true },
+      // Arrears live on CaseThread now. The owed figure is derived from unpaid
+      // invoices (see the invoiceStats aggregate below), so this only counts.
+      prisma.caseThread.findMany({
+        where: {
+          caseType: "ARREARS",
+          propertyId: { in: propertyIds },
+          status: { notIn: ["RESOLVED", "CLOSED"] },
+        },
+        select: { currentStageIndex: true },
       }),
       prisma.invoice.aggregate({
         where: {
@@ -98,10 +104,11 @@ export async function GET(req: Request) {
     };
     const arrearsSummary = {
       openCases: activeCases.length,
-      totalOwed: activeCases.reduce((s, c) => s + c.amountOwed, 0),
-      escalated: activeCases.filter(
-        (c) => c.stage === "LEGAL_NOTICE" || c.stage === "EVICTION"
-      ).length,
+      // Outstanding is the unpaid-invoice total — the same figure /arrears and
+      // the aging table show, rather than a separately maintained number.
+      totalOwed: invoiceStats._sum.totalAmount ?? 0,
+      // Index 3+ is legal_action / eviction in ARREARS_V1.
+      escalated: activeCases.filter((c) => c.currentStageIndex >= 3).length,
     };
     const invoiceSummary = {
       count: invoiceStats._count.id,

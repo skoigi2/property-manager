@@ -15,7 +15,9 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { calcLateInterest } from "@/lib/calculations";
-import { AlertTriangle, ChevronRight, CheckCircle, Plus, Trash2, FileText, Copy, FileDown, TrendingUp } from "lucide-react";
+import { getArrearsLetters, type LetterContext, type LetterTemplate } from "@/lib/arrears-letters";
+import Link from "next/link";
+import { AlertTriangle, ChevronRight, CheckCircle, Plus, Trash2, FileText, Copy, FileDown, TrendingUp, ExternalLink } from "lucide-react";
 import { exportArrears } from "@/lib/excel-export";
 import { useFocusScroll } from "@/lib/use-focus-scroll";
 import { clsx } from "clsx";
@@ -23,182 +25,160 @@ import { HelpTip } from "@/components/ui/HelpTip";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Stage = "INFORMAL_REMINDER" | "DEMAND_LETTER" | "LEGAL_NOTICE" | "EVICTION" | "RESOLVED";
-
-interface Escalation { id: string; stage: Stage; notes: string | null; createdAt: string; }
-interface Tenant { id: string; name: string; phone: string | null; email: string | null; unit: { unitNumber: string }; }
+/**
+ * Arrears is now CaseThread(caseType=ARREARS) — see src/lib/arrears.ts. This
+ * page is the list-and-triage view; /cases/[id] is the record, and owns the
+ * timeline, comments and attachments rather than duplicating them here.
+ */
 interface ArrearsCase {
   id: string;
   tenantId: string;
+  tenantName: string;
+  unitNumber: string;
+  phone: string | null;
+  email: string | null;
   propertyId: string;
-  stage: Stage;
+  propertyName: string;
+  currency: string;
+  status: string;
+  stageKey: string;
+  stageLabel: string;
+  stageIndex: number;
+  /** Derived live from unpaid invoices — no longer hand-entered. */
   amountOwed: number;
-  notes: string | null;
-  resolvedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  tenant: Tenant;
-  property: { name: string; currency?: string };
-  escalations: Escalation[];
-  latePaymentInterestRate?: number; // annual %, from ManagementAgreement (default 12)
+  oldestAgeDays: number;
+  invoiceCount: number;
+  lastActivityAt: string;
+  stageStartedAt: string | null;
+  latePaymentInterestRate: number;
+  isResolved: boolean;
 }
 
-const MS_PER_DAY = 86_400_000;
-
-function daysOpen(arrearsCase: ArrearsCase): number {
-  const from = new Date(arrearsCase.createdAt).getTime();
-  const to   = arrearsCase.resolvedAt
-    ? new Date(arrearsCase.resolvedAt).getTime()
-    : Date.now();
-  return Math.max(0, Math.floor((to - from) / MS_PER_DAY));
+function accruedInterest(c: ArrearsCase): number {
+  const rate = c.latePaymentInterestRate ?? 12;
+  if (rate === 0 || c.amountOwed <= 0) return 0;
+  // Interest runs from the oldest unpaid invoice, not from when someone
+  // happened to open the case.
+  return calcLateInterest(c.amountOwed, rate, c.oldestAgeDays);
 }
 
-function accruedInterest(arrearsCase: ArrearsCase): number {
-  const rate = arrearsCase.latePaymentInterestRate ?? 12;
-  if (rate === 0) return 0;
-  return calcLateInterest(arrearsCase.amountOwed, rate, daysOpen(arrearsCase));
+// ── Stage metadata, keyed on ARREARS_V1 stage keys ────────────────────────────
+
+const STAGE_ORDER = [
+  "informal_reminder", "formal_notice", "demand_letter",
+  "legal_action", "eviction", "settled", "closed",
+] as const;
+
+const STAGE_BADGE: Record<string, "amber" | "gold" | "red" | "green" | "gray"> = {
+  informal_reminder: "amber",
+  formal_notice:     "amber",
+  demand_letter:     "gold",
+  legal_action:      "red",
+  eviction:          "red",
+  settled:           "green",
+  closed:            "gray",
+};
+
+const STAGE_TIPS: Record<string, string> = {
+  informal_reminder: "Initial polite contact about the overdue balance. Most cases resolve at this stage.",
+  formal_notice:     "Written notice stating the balance and a date to pay by. No threat of action yet.",
+  demand_letter:     "Formal demand requiring payment within 7 days, stating that legal action follows. This is the pre-action document.",
+  legal_action:      "Proceedings have begun. Seek professional advice before going further.",
+  eviction:          "Possession sought. This does not extinguish the outstanding debt.",
+  settled:           "The balance was paid or a settlement agreed.",
+  closed:            "Closed without settlement — written off, tenant vacated, or otherwise ended.",
+};
+
+/** Next stage in the ladder, or null at the end. */
+function nextStageKey(stageKey: string): string | null {
+  const i = STAGE_ORDER.indexOf(stageKey as typeof STAGE_ORDER[number]);
+  if (i < 0 || i >= STAGE_ORDER.length - 1) return null;
+  return STAGE_ORDER[i + 1];
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────────
+function stageLabelFor(key: string): string {
+  return key.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+}
 
-const STAGES: Stage[] = ["INFORMAL_REMINDER","DEMAND_LETTER","LEGAL_NOTICE","EVICTION","RESOLVED"];
-const STAGE_LABELS: Record<Stage, string> = {
-  INFORMAL_REMINDER: "Informal Reminder",
-  DEMAND_LETTER:     "Demand Letter",
-  LEGAL_NOTICE:      "Legal Notice",
-  EVICTION:          "Eviction Notice",
-  RESOLVED:          "Resolved",
-};
-const STAGE_BADGE: Record<Stage, "amber"|"gold"|"red"|"red"|"green"> = {
-  INFORMAL_REMINDER: "amber",
-  DEMAND_LETTER:     "gold",
-  LEGAL_NOTICE:      "red",
-  EVICTION:          "red",
-  RESOLVED:          "green",
-};
-const STAGE_NEXT: Partial<Record<Stage, Stage>> = {
-  INFORMAL_REMINDER: "DEMAND_LETTER",
-  DEMAND_LETTER:     "LEGAL_NOTICE",
-  LEGAL_NOTICE:      "EVICTION",
-  EVICTION:          "RESOLVED",
-};
-const STAGE_NEXT_LABEL: Partial<Record<Stage, string>> = {
-  INFORMAL_REMINDER: "Escalate to Demand Letter",
-  DEMAND_LETTER:     "Escalate to Legal Notice",
-  LEGAL_NOTICE:      "Escalate to Eviction Notice",
-  EVICTION:          "Mark Resolved",
-};
-const STAGE_TIPS: Record<Stage, string> = {
-  INFORMAL_REMINDER: "Initial polite contact about the overdue balance. Most cases resolve at this stage.",
-  DEMAND_LETTER:     "Formal written demand requiring payment within 7 days. Creates a paper trail.",
-  LEGAL_NOTICE:      "Legal proceedings have begun. Seek professional advice before proceeding.",
-  EVICTION:          "Eviction notice served. This is the final escalation before court action.",
-  RESOLVED:          "The balance has been paid or a settlement agreed. Case is closed.",
-};
-
-// ── Demand letter templates ────────────────────────────────────────────────────
-
-function demandLetterTemplate(arrearsCase: ArrearsCase, stage: Stage): string {
-  const tenant  = arrearsCase.tenant;
-  const unit    = tenant.unit.unitNumber;
-  const prop    = arrearsCase.property.name;
-  const amount  = formatCurrency(arrearsCase.amountOwed, arrearsCase.property.currency ?? "USD");
-  const today   = formatDate(new Date());
-
-  if (stage === "DEMAND_LETTER") {
-    return `DEMAND FOR RENT PAYMENT\n\nDate: ${today}\n\nTo: ${tenant.name}\nUnit ${unit}, ${prop}\n\nDear ${tenant.name.split(" ")[0]},\n\nDespite our previous reminder, we note that your rent account is in arrears of ${amount}.\n\nYou are hereby formally demanded to settle the outstanding balance in full within SEVEN (7) days of the date of this letter.\n\nFailure to comply will compel us to take legal action to recover the debt, including costs.\n\nYours faithfully,\nProperty Manager\n${prop}`;
-  }
-  if (stage === "LEGAL_NOTICE") {
-    return `NOTICE TO REMEDY BREACH\n\nDate: ${today}\n\nTo: ${tenant.name}\nUnit ${unit}, ${prop}\n\nDear ${tenant.name.split(" ")[0]},\n\nYou are hereby given LEGAL NOTICE that your tenancy is in breach due to outstanding rent arrears of ${amount}.\n\nUnder the terms of your lease agreement, you are required to remedy this breach within FOURTEEN (14) days.\n\nIf the arrears are not cleared within this period, legal proceedings will be commenced without further notice.\n\nYours faithfully,\nProperty Manager\n${prop}`;
-  }
-  if (stage === "EVICTION") {
-    return `NOTICE TO VACATE\n\nDate: ${today}\n\nTo: ${tenant.name}\nUnit ${unit}, ${prop}\n\nDear ${tenant.name.split(" ")[0]},\n\nYou are hereby given formal notice to VACATE the above premises.\n\nAs of this date, your rent arrears stand at ${amount} and previous notices have not resulted in payment.\n\nYou are required to vacate the premises and surrender vacant possession within THIRTY (30) days of this notice.\n\nThis notice does not extinguish the outstanding debt owed.\n\nYours faithfully,\nProperty Manager\n${prop}`;
-  }
-  return "";
+function letterContext(c: ArrearsCase): LetterContext {
+  return {
+    tenantName: c.tenantName,
+    unitNumber: c.unitNumber,
+    propertyName: c.propertyName,
+    amount: formatCurrency(c.amountOwed, c.currency),
+    today: formatDate(new Date()),
+  };
 }
 
 // ── Case card ──────────────────────────────────────────────────────────────────
 
-function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }: {
+function CaseCard({ arrearsCase, isManager, onEscalate, onDelete }: {
   arrearsCase: ArrearsCase;
   isManager: boolean;
-  onEscalate: (c: ArrearsCase, stage: Stage, notes?: string) => void;
+  onEscalate: (c: ArrearsCase, stageKey: string, notes?: string) => void;
   onDelete: (id: string) => void;
-  onAmountEdit: (c: ArrearsCase, amount: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [escNotes, setEscNotes] = useState("");
   const [letterModal, setLetterModal] = useState(false);
-  const [letterStage, setLetterStage] = useState<Stage>("DEMAND_LETTER");
+  const [letter, setLetter] = useState<LetterTemplate | null>(null);
   const [copied, setCopied] = useState(false);
-  const [editAmount, setEditAmount] = useState(false);
-  const [newAmount, setNewAmount] = useState(String(arrearsCase.amountOwed));
 
-  const nextStage = STAGE_NEXT[arrearsCase.stage];
-  const letter = demandLetterTemplate(arrearsCase, letterStage);
+  const nextKey = arrearsCase.isResolved ? null : nextStageKey(arrearsCase.stageKey);
+  // Letters live on the stage that produces them, so a manager can only send
+  // the document appropriate to where the case actually is.
+  const letters = getArrearsLetters(arrearsCase.stageKey);
+  const ctx = letterContext(arrearsCase);
+  const letterBody = letter ? letter.body(ctx) : "";
 
   const copyLetter = () => {
-    navigator.clipboard.writeText(letter);
+    navigator.clipboard.writeText(letterBody);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleAmountSave = () => {
-    const n = parseFloat(newAmount);
-    if (!isNaN(n) && n > 0) { onAmountEdit(arrearsCase, n); setEditAmount(false); }
-  };
-
   return (
-    <Card padding="md" className={arrearsCase.stage === "RESOLVED" ? "opacity-60" : ""}>
+    <Card padding="md" className={arrearsCase.isResolved ? "opacity-60" : ""}>
       {/* Header row */}
       <div className="flex items-start gap-3">
         <div className={clsx("w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-          arrearsCase.stage === "RESOLVED" ? "bg-green-50" : "bg-red-50")}>
-          {arrearsCase.stage === "RESOLVED"
+          arrearsCase.isResolved ? "bg-green-50" : "bg-red-50")}>
+          {arrearsCase.isResolved
             ? <CheckCircle size={16} className="text-income" />
             : <AlertTriangle size={16} className="text-expense" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium text-sm text-header">{arrearsCase.tenant.name}</p>
+            <p className="font-medium text-sm text-header">{arrearsCase.tenantName}</p>
             <span className="inline-flex items-center gap-1">
-              <Badge variant={STAGE_BADGE[arrearsCase.stage] as any}>{STAGE_LABELS[arrearsCase.stage]}</Badge>
-              <HelpTip text={STAGE_TIPS[arrearsCase.stage]} />
+              <Badge variant={STAGE_BADGE[arrearsCase.stageKey] ?? "gray"}>{arrearsCase.stageLabel}</Badge>
+              <HelpTip text={STAGE_TIPS[arrearsCase.stageKey] ?? ""} />
             </span>
           </div>
           <p className="text-xs text-gray-400 font-sans mt-0.5">
-            Unit {arrearsCase.tenant.unit.unitNumber} · {arrearsCase.property.name} · Opened {formatDate(new Date(arrearsCase.createdAt))}
-            {arrearsCase.resolvedAt && ` · Resolved ${formatDate(new Date(arrearsCase.resolvedAt))}`}
+            Unit {arrearsCase.unitNumber} · {arrearsCase.propertyName}
+            {arrearsCase.invoiceCount > 0 && ` · ${arrearsCase.invoiceCount} unpaid invoice${arrearsCase.invoiceCount === 1 ? "" : "s"}`}
+            {` · Last activity ${formatDate(new Date(arrearsCase.lastActivityAt))}`}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {editAmount ? (
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={newAmount}
-                onChange={e => setNewAmount(e.target.value)}
-                className="w-28 border border-gray-200 rounded px-2 py-1 text-sm font-mono"
-              />
-              <button onClick={handleAmountSave} className="text-xs text-income font-medium px-2 py-1 hover:bg-green-50 rounded">Save</button>
-              <button onClick={() => { setEditAmount(false); setNewAmount(String(arrearsCase.amountOwed)); }} className="text-xs text-gray-400 px-1 py-1">✕</button>
-            </div>
-          ) : (
-            <button onClick={() => isManager && setEditAmount(true)} className={clsx("font-mono text-sm font-medium text-expense", isManager && "hover:underline cursor-pointer")}>
-              {formatCurrency(arrearsCase.amountOwed, arrearsCase.property.currency ?? "USD")}
-            </button>
-          )}
+          <span
+            className="font-mono text-sm font-medium text-expense"
+            title="Outstanding balance across this tenant's unpaid invoices. Calculated live — settle or credit an invoice to change it."
+          >
+            {formatCurrency(arrearsCase.amountOwed, arrearsCase.currency)}
+          </span>
           {/* Accrued interest */}
           {(() => {
             const interest = accruedInterest(arrearsCase);
             const rate     = arrearsCase.latePaymentInterestRate ?? 12;
-            const days     = daysOpen(arrearsCase);
+            const days     = arrearsCase.oldestAgeDays;
             if (interest <= 0) return null;
             return (
               <div className="flex items-center gap-1 text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1" title={`${rate}% p.a. × ${days} days`}>
                 <TrendingUp size={11} />
                 <span className="font-mono text-xs font-medium">
-                  +{formatCurrency(interest, arrearsCase.property.currency ?? "USD")}
+                  +{formatCurrency(interest, arrearsCase.currency)}
                 </span>
                 <span className="text-[10px] text-amber-500 font-sans">{days}d interest</span>
               </div>
@@ -210,63 +190,74 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }
         </div>
       </div>
 
-      {/* Escalation history */}
+      {/* Detail */}
       {expanded && (
         <div className="mt-4 pl-12 space-y-3">
           {/* Interest detail */}
           {(() => {
             const interest = accruedInterest(arrearsCase);
             const rate     = arrearsCase.latePaymentInterestRate ?? 12;
-            const days     = daysOpen(arrearsCase);
+            const days     = arrearsCase.oldestAgeDays;
             if (interest <= 0) return null;
             return (
               <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs font-sans text-amber-700">
                 <span className="font-medium">Interest accrued: </span>
-                {formatCurrency(interest, arrearsCase.property.currency ?? "USD")}
-                <span className="text-amber-500"> · {rate}% p.a. × {days} days on {formatCurrency(arrearsCase.amountOwed, arrearsCase.property.currency ?? "USD")} outstanding</span>
+                {formatCurrency(interest, arrearsCase.currency)}
+                <span className="text-amber-500"> · {rate}% p.a. × {days} days on {formatCurrency(arrearsCase.amountOwed, arrearsCase.currency)} outstanding</span>
               </div>
             );
           })()}
-          {/* Timeline */}
-          <div className="space-y-2">
-            {arrearsCase.escalations.map(e => (
-              <div key={e.id} className="flex items-start gap-2 text-xs font-sans">
-                <span className="mt-0.5 w-2 h-2 rounded-full bg-gray-300 shrink-0" />
-                <div>
-                  <span className="font-medium text-header">{STAGE_LABELS[e.stage]}</span>
-                  <span className="text-gray-400 ml-1">· {formatDate(new Date(e.createdAt))}</span>
-                  {e.notes && <p className="text-gray-500 mt-0.5">{e.notes}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
 
-          {/* Generate letter */}
-          {arrearsCase.stage !== "INFORMAL_REMINDER" && arrearsCase.stage !== "RESOLVED" && (
-            <button onClick={() => { setLetterStage(arrearsCase.stage); setLetterModal(true); }}
-              className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
-              <FileText size={12} />
-              Generate {STAGE_LABELS[arrearsCase.stage]} letter
-            </button>
+          {/* The case record owns the timeline — this page doesn't duplicate it. */}
+          <Link
+            href={`/cases/${arrearsCase.id}`}
+            className="inline-flex items-center gap-1.5 text-xs text-gold hover:underline font-medium"
+          >
+            <ExternalLink size={12} />
+            Full history, notes and attachments
+          </Link>
+
+          {/* Letters for this stage */}
+          {letters.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {letters.map((l) => (
+                <button
+                  key={l.key}
+                  onClick={() => { setLetter(l); setLetterModal(true); }}
+                  title={l.purpose}
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 transition-colors"
+                >
+                  <FileText size={12} />
+                  {l.title}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Actions */}
-          {isManager && arrearsCase.stage !== "RESOLVED" && (
+          {isManager && !arrearsCase.isResolved && (
             <div className="space-y-2 pt-1">
               <textarea
                 value={escNotes}
                 onChange={e => setEscNotes(e.target.value)}
-                placeholder="Notes for escalation (optional)..."
+                placeholder="Notes for escalation (optional)…"
                 rows={2}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
               />
               <div className="flex items-center gap-2 flex-wrap">
-                {nextStage && (
-                  <Button variant="secondary" size="sm" onClick={() => { onEscalate(arrearsCase, nextStage, escNotes); setEscNotes(""); }}>
+                {nextKey && (
+                  <Button variant="secondary" size="sm" onClick={() => { onEscalate(arrearsCase, nextKey, escNotes); setEscNotes(""); }}>
                     <ChevronRight size={13} className="mr-1" />
-                    {STAGE_NEXT_LABEL[arrearsCase.stage]}
+                    Escalate to {stageLabelFor(nextKey)}
                   </Button>
                 )}
+                <Link
+                  href={`/cases/${arrearsCase.id}`}
+                  className="text-xs text-gray-400 hover:text-gold px-2 py-1.5 rounded hover:bg-gold/5 transition-colors"
+                  title="Jump stages or step back on the case record — skipping requires a reason"
+                >
+                  Skip or step back…
+                </Link>
                 <button onClick={() => onDelete(arrearsCase.id)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-expense px-2 py-1.5 rounded hover:bg-red-50 transition-colors">
                   <Trash2 size={12} />
                   Close case
@@ -278,19 +269,16 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete, onAmountEdit }
       )}
 
       {/* Letter modal */}
-      <Modal open={letterModal} onClose={() => setLetterModal(false)} title={`${STAGE_LABELS[letterStage]} Letter`} size="lg">
+      <Modal open={letterModal} onClose={() => setLetterModal(false)} title={letter?.title ?? "Letter"} size="lg">
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-            {(["DEMAND_LETTER","LEGAL_NOTICE","EVICTION"] as Stage[]).map(s => (
-              <button key={s} onClick={() => setLetterStage(s)}
-                className={clsx("px-3 py-1.5 rounded-full border transition-colors", letterStage === s ? "bg-header text-white border-header" : "border-gray-200 hover:border-gray-300")}>
-                {STAGE_LABELS[s]}
-              </button>
-            ))}
-          </div>
+          {letter && (
+            <p className="text-xs text-gray-500 font-sans bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+              {letter.purpose}
+            </p>
+          )}
           <textarea
             readOnly
-            value={letter}
+            value={letterBody}
             rows={18}
             className="w-full border border-gray-200 rounded-lg px-3 py-3 text-xs font-mono bg-gray-50 resize-none focus:outline-none"
           />
@@ -336,14 +324,14 @@ function OpenCaseModal({ open, onClose, onCreated, prefill }: {
   const selectedTenant = tenants.find((t:any) => t.id === tenantId);
 
   const submit = async () => {
-    if (!tenantId || !amount) return;
+    if (!tenantId) return;
     const propertyId = selectedTenant?.unit?.property?.id;
     if (!propertyId) { toast.error("Could not determine property"); return; }
     setLoading(true);
     const res = await fetch("/api/arrears", {
       method: "POST",
       headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ tenantId, propertyId, amountOwed: parseFloat(amount), notes }),
+      body: JSON.stringify({ tenantId, propertyId, notes }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -369,11 +357,14 @@ function OpenCaseModal({ open, onClose, onCreated, prefill }: {
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Amount Owed</label>
-          <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
-        </div>
+        {/* No amount field — the balance is read from this tenant's unpaid
+            invoices, so it can't drift from the aging table or the reports. */}
+        {amount && (
+          <p className="text-xs text-gray-500 font-sans bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+            Outstanding balance is calculated from unpaid invoices — currently{" "}
+            <span className="font-mono text-header">{amount}</span>.
+          </p>
+        )}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
           <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Context or initial contact notes…"
@@ -381,7 +372,7 @@ function OpenCaseModal({ open, onClose, onCreated, prefill }: {
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="gold" onClick={submit} loading={loading} disabled={!tenantId || !amount}>Open Case</Button>
+          <Button variant="gold" onClick={submit} loading={loading} disabled={!tenantId}>Open Case</Button>
         </div>
       </div>
     </Modal>
@@ -605,44 +596,47 @@ export default function ArrearsPage() {
     if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("ring-2", "ring-gold", "rounded-2xl"); setTimeout(() => el.classList.remove("ring-2", "ring-gold", "rounded-2xl"), 2000); }
   };
 
-  const escalate = async (arrearsCase: ArrearsCase, stage: Stage, notes?: string) => {
-    const res = await fetch(`/api/arrears/${arrearsCase.id}`, {
-      method: "PATCH",
+  // The one-click button and the underlying API are independent decisions:
+  // managers keep the affordance they know, while the call is a normal case
+  // stage advance — so the SLA clock, timeline and audit trail all behave.
+  const escalate = async (arrearsCase: ArrearsCase, stageKey: string, notes?: string) => {
+    const res = await fetch(`/api/cases/${arrearsCase.id}/advance`, {
+      method: "POST",
       headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ stage, notes }),
+      body: JSON.stringify({ toKey: stageKey, note: notes?.trim() || undefined }),
     });
-    if (!res.ok) { toast.error("Failed to escalate"); return; }
-    toast.success(`Escalated to ${STAGE_LABELS[stage]}`);
-    load();
-  };
-
-  const updateAmount = async (arrearsCase: ArrearsCase, amountOwed: number) => {
-    const res = await fetch(`/api/arrears/${arrearsCase.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ amountOwed }),
-    });
-    if (!res.ok) { toast.error("Failed to update amount"); return; }
-    toast.success("Amount updated");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(typeof err.error === "string" ? err.error : "Failed to escalate");
+      return;
+    }
+    toast.success(`Escalated to ${stageLabelFor(stageKey)}`);
     load();
   };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
-    await fetch(`/api/arrears/${deleteId}`, { method: "DELETE" });
+    // Closing an arrears case is a case status change, not a deletion — the
+    // debt history has to survive.
+    const res = await fetch(`/api/cases/${deleteId}`, {
+      method: "PATCH",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ status: "CLOSED" }),
+    });
     setDeleting(false);
     setDeleteId(null);
+    if (!res.ok) { toast.error("Failed to close case"); return; }
     toast.success("Case closed");
     load();
   };
 
-  const open        = cases.filter(c => c.stage !== "RESOLVED");
-  const resolved    = cases.filter(c => c.stage === "RESOLVED");
+  const open        = cases.filter(c => !c.isResolved);
+  const resolved    = cases.filter(c => c.isResolved);
   const totalOwed   = open.reduce((s, c) => s + c.amountOwed, 0);
   const totalInterest = open.reduce((s, c) => s + accruedInterest(c), 0);
 
-  const stageCount = (s: Stage) => open.filter(c => c.stage === s).length;
+  const stageCount = (key: string) => open.filter(c => c.stageKey === key).length;
 
   return (
     <div>
@@ -733,7 +727,7 @@ export default function ArrearsPage() {
           <div className="space-y-3">
             {open.map(c => (
               <div key={c.id} id={`item-${c.id}`}>
-                <CaseCard arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} onAmountEdit={updateAmount} />
+                <CaseCard arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} />
               </div>
             ))}
             {resolved.length > 0 && (
@@ -744,7 +738,7 @@ export default function ArrearsPage() {
                 </button>
                 {showResolved && resolved.map(c => (
                   <div key={c.id} id={`item-${c.id}`}>
-                    <CaseCard arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} onAmountEdit={updateAmount} />
+                    <CaseCard arrearsCase={c} isManager={isManager} onEscalate={escalate} onDelete={setDeleteId} />
                   </div>
                 ))}
               </div>

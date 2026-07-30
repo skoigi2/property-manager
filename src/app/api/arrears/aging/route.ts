@@ -33,13 +33,18 @@ export async function GET(req: Request) {
 
   // Open arrears cases for these tenants → flag rows
   const tenantIds = aging.rows.map((r) => r.tenantId);
+  // subjectId on an ARREARS thread is the tenant id.
   const openCases = tenantIds.length
-    ? await prisma.arrearsCase.findMany({
-        where: { tenantId: { in: tenantIds }, stage: { not: "RESOLVED" } },
-        select: { id: true, tenantId: true },
+    ? await prisma.caseThread.findMany({
+        where: {
+          caseType: "ARREARS",
+          subjectId: { in: tenantIds },
+          status: { notIn: ["RESOLVED", "CLOSED"] },
+        },
+        select: { id: true, subjectId: true },
       })
     : [];
-  const caseByTenant = new Map(openCases.map((c) => [c.tenantId, c.id]));
+  const caseByTenant = new Map(openCases.map((c) => [c.subjectId, c.id]));
 
   const rows = aging.rows.map((r) => ({
     ...r,

@@ -42,13 +42,16 @@ interface OwnerStatement {
   currency: string;
 }
 
+/** Shape returned by GET /api/arrears — CaseThread-backed, see src/lib/arrears.ts. */
 interface ArrearsCase {
   id: string;
   amountOwed: number;
-  stage: string;
-  createdAt: string;
-  tenant: { name: string; unit: { unitNumber: string } };
-  property: { name: string; currency?: string };
+  stageLabel: string;
+  isResolved: boolean;
+  tenantName: string;
+  unitNumber: string;
+  propertyName: string;
+  currency: string;
 }
 
 interface OwnerInvoice {
@@ -89,6 +92,17 @@ const INVOICE_STATUS_CONFIG = {
   PAID:      { label: "Paid",      variant: "green" as const },
   OVERDUE:   { label: "Overdue",   variant: "red"   as const },
   CANCELLED: { label: "Cancelled", variant: "gray"  as const },
+};
+
+/** Badge tone per ARREARS_V1 stage label. */
+const ARREARS_STAGE_TONE: Record<string, "amber" | "gold" | "red" | "green" | "gray"> = {
+  "Informal reminder": "amber",
+  "Formal notice":     "amber",
+  "Demand letter":     "gold",
+  "Legal action":      "red",
+  "Eviction":          "red",
+  "Settled":           "green",
+  "Closed":            "gray",
 };
 
 const CAT_LABELS: Record<string, string> = {
@@ -286,7 +300,7 @@ export function OwnerDashboard() {
     ])
       .then(([stmts, arr, inv]) => {
         setStatements(Array.isArray(stmts) ? stmts : []);
-        setArrears(Array.isArray(arr) ? arr.filter((c: ArrearsCase) => c.stage !== "RESOLVED") : []);
+        setArrears(Array.isArray(arr) ? arr.filter((c: ArrearsCase) => !c.isResolved) : []);
         setInvoices(Array.isArray(inv) ? inv.slice(0, 12) : []);
         setLoading(false);
       })
@@ -438,17 +452,17 @@ export function OwnerDashboard() {
                   {arrears.map((c) => (
                     <div key={c.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 flex-wrap gap-2">
                       <div>
-                        <p className="text-sm font-sans text-header">{c.tenant.name}</p>
+                        <p className="text-sm font-sans text-header">{c.tenantName}</p>
                         <p className="text-xs text-gray-400 font-sans">
-                          Unit {c.tenant.unit.unitNumber} · {c.property.name} · Since {format(new Date(c.createdAt), "d MMM yyyy")}
+                          Unit {c.unitNumber} · {c.propertyName}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={c.stage === "EVICTION" ? "red" : c.stage === "LEGAL_NOTICE" ? "red" : c.stage === "DEMAND_LETTER" ? "gold" : "amber"}>
-                          {c.stage.replace(/_/g, " ")}
+                        <Badge variant={ARREARS_STAGE_TONE[c.stageLabel] ?? "amber"}>
+                          {c.stageLabel}
                         </Badge>
                         <span className="font-mono text-sm font-semibold text-expense">
-                          {fmt(c.amountOwed, c.property.currency)}
+                          {fmt(c.amountOwed, c.currency)}
                         </span>
                       </div>
                     </div>

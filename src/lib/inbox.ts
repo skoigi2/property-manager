@@ -109,7 +109,6 @@ export async function buildInbox(
     portalJobs,
     complianceCerts,
     insurancePolicies,
-    arrearsCases,
     cases,
     pendingApprovals,
   ] = await Promise.all([
@@ -191,20 +190,15 @@ export async function buildInbox(
       },
       include: { property: { select: { id: true, name: true, currency: true } } },
     }),
-    // 7. Arrears cases not RESOLVED and untouched >7d
-    prisma.arrearsCase.findMany({
-      where: {
-        stage: { not: "RESOLVED" },
-        updatedAt: { lt: ago7 },
-        propertyId: { in: propertyIds },
-      },
-      include: {
-        tenant: { select: { id: true, name: true } },
-        property: { select: { id: true, name: true, currency: true } },
-      },
-    }),
-    // 8. Cases needing attention — open and either waiting on manager OR
+    // 7. Cases needing attention — open and either waiting on manager OR
     //    stale (no activity for >7 days). Excludes resolved/closed.
+    //
+    //    Arrears now arrive through here too. The old bespoke rule (ArrearsCase
+    //    where stage != RESOLVED and updatedAt < 7d ago) both duplicated this
+    //    query and behaved worse: a case you had been commenting on but not
+    //    escalating never fired, because any touch reset updatedAt. The stage
+    //    SLA clock — enforced by checkCaseSlaBreaches — is the right signal for
+    //    "this escalation has stalled", and it survives chatter.
     prisma.caseThread.findMany({
       where: {
         propertyId: { in: propertyIds },
@@ -400,61 +394,54 @@ export async function buildInbox(
     });
   }
 
-  // 7. Arrears cases
-  for (const c of arrearsCases) {
-    const dOver = daysOverdueFrom(c.updatedAt) ?? 0;
-    const escalated = c.stage === "LEGAL_NOTICE" || c.stage === "EVICTION";
-    const severity: InboxSeverity = escalated ? "URGENT" : "WARNING";
-    items.push({
-      id: `arrears:${c.id}`,
-      refId: c.id,
-      type: "ARREARS_ESCALATION",
-      severity,
-      title: `Arrears case — ${c.tenant.name}`,
-      subtitle: `Stage: ${c.stage.replace(/_/g, " ")} · ${dOver} day${dOver === 1 ? "" : "s"} without update`,
-      propertyId: c.property.id,
-      propertyName: c.property.name,
-      propertyCurrency: c.property.currency,
-      tenantId: c.tenant.id,
-      unitId: null,
-      dueDate: c.updatedAt.toISOString(),
-      daysOverdue: dOver,
-      href: `/arrears?focus=${c.id}`,
-      actions: [{ label: "View", action: `/arrears?focus=${c.id}` }],
-    });
-  }
-
-  // 8. Cases needing attention
+  // 7. Cases needing attention — arrears keep their own framing
   for (const c of cases) {
     const daysStale = differenceInDays(now, c.lastActivityAt);
     const isStale = daysStale > 7;
     const waitingOnManager = c.waitingOn === "MANAGER";
+    const isArrears = c.caseType === "ARREARS";
+
+    // An arrears case at legal action or eviction is urgent regardless of how
+    // recently someone typed in it.
+    const lateStageArrears = isArrears && c.currentStageIndex >= 3;
     const severity: InboxSeverity =
-      waitingOnManager && isStale ? "URGENT" : waitingOnManager ? "WARNING" : "INFO";
+      lateStageArrears || (waitingOnManager && isStale)
+        ? "URGENT"
+        : waitingOnManager || isArrears
+        ? "WARNING"
+        : "INFO";
+
     const subtitleParts: string[] = [];
     if (waitingOnManager) subtitleParts.push("Waiting on manager");
     if (isStale) subtitleParts.push(`No activity for ${daysStale} days`);
     if (c.stage) subtitleParts.push(c.stage);
+
     items.push({
-      id: `case:${c.id}`,
+      id: isArrears ? `arrears:${c.id}` : `case:${c.id}`,
       refId: c.id,
-      type: "CASE_NEEDS_ATTENTION",
+      type: isArrears ? "ARREARS_ESCALATION" : "CASE_NEEDS_ATTENTION",
       severity,
-      title: `Case — ${c.title}`,
+      title: isArrears ? c.title : `Case — ${c.title}`,
       subtitle: subtitleParts.join(" · ") || `Status: ${c.status.replace(/_/g, " ")}`,
       propertyId: c.property.id,
       propertyName: c.property.name,
       propertyCurrency: c.property.currency,
-      tenantId: null,
+      // subjectId on an ARREARS thread is the tenant id.
+      tenantId: isArrears ? c.subjectId : null,
       unitId: c.unit?.id ?? null,
       dueDate: c.lastActivityAt.toISOString(),
       daysOverdue: isStale ? daysStale : null,
-      href: `/cases/${c.id}`,
-      actions: [
-        { label: "Open case", action: `/cases/${c.id}` },
-        { label: "Reassign", action: `/api/cases/${c.id}`, method: "PATCH" },
-        { label: "Set waiting on", action: `/api/cases/${c.id}`, method: "PATCH" },
-      ],
+      href: isArrears ? `/arrears?focus=${c.id}` : `/cases/${c.id}`,
+      actions: isArrears
+        ? [
+            { label: "Open arrears", action: `/arrears?focus=${c.id}` },
+            { label: "Open case", action: `/cases/${c.id}` },
+          ]
+        : [
+            { label: "Open case", action: `/cases/${c.id}` },
+            { label: "Reassign", action: `/api/cases/${c.id}`, method: "PATCH" },
+            { label: "Set waiting on", action: `/api/cases/${c.id}`, method: "PATCH" },
+          ],
     });
   }
 

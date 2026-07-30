@@ -34,6 +34,25 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return Response.json({ error: "advance must go forward — use /regress to go back" }, { status: 400 });
   }
 
+  // Skipping stages in an arrears ladder needs a reason on the record, mirroring
+  // the mandatory reason on /regress. Skipping must stay possible — a tenant
+  // four months down who has stopped answering does not get an informal
+  // reminder — but a ladder people routinely skip silently stops being evidence
+  // that proper notice was given, and arrears is the workflow most likely to be
+  // read back in a dispute. Enforced server-side, not just in the client, since
+  // that record is the whole point.
+  const isSkip = toIndex > thread.currentStageIndex + 1;
+  if (isSkip && thread.caseType === "ARREARS" && !parsed.data.note?.trim()) {
+    return Response.json(
+      {
+        error:
+          "Skipping arrears stages requires a note explaining why. Advance one stage at a time, or record the reason.",
+        code: "SKIP_REASON_REQUIRED",
+      },
+      { status: 400 }
+    );
+  }
+
   await advanceCase(thread.id, toIndex, {
     actorUserId: session!.user.id,
     actorEmail: session!.user.email ?? null,

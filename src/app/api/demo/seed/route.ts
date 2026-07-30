@@ -6,7 +6,7 @@ import {
   PropertyType, PropertyCategory, UnitType, UnitStatus,
   IncomeType, ExpenseCategory, ExpenseScope, PettyCashType,
   InsuranceType, PremiumFrequency, AssetCategory, MaintenanceFrequency,
-  RecurringFrequency, ArrearsStage, InvoiceStatus, RenewalStage,
+  RecurringFrequency, InvoiceStatus, RenewalStage,
   MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
   VendorCategory, OwnerInvoiceType, TaxType,
   LineItemCategory, LineItemPaymentStatus,
@@ -14,7 +14,7 @@ import {
   CaseEventKind,
 } from "@prisma/client";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
-import { getWorkflow, getStageByIndex, computeDefaultStageSlaHours } from "@/lib/case-workflows";
+import { getWorkflow, getStageByIndex, getStageByKey, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { startOfMonth, subMonths } from "date-fns";
 
 // Seeding does hundreds of inserts; on Vercel (higher per-query latency than
@@ -143,6 +143,76 @@ async function seedStandaloneCase(opts: {
   await prisma.caseEvent.create({
     data: { caseThreadId: thread.id, kind: CaseEventKind.COMMENT, actorName: "Property Manager", body: opts.commentBody, createdAt: opts.stageStartedAt },
   });
+}
+
+/**
+ * Seed an arrears case as a CaseThread — the only arrears model since the
+ * consolidation (see src/lib/arrears.ts). Escalation history becomes
+ * STAGE_CHANGE events on the case timeline.
+ *
+ * `subjectId` MUST be the tenant id: that's what the ARREARS_7D automation
+ * writes and what buildArrearsCases() joins on. (The previous seeder passed the
+ * ArrearsCase id here, so its demo case could never resolve to a tenant.)
+ *
+ * No amountOwed — the balance is derived from unpaid invoices, so the demo's
+ * arrears figures come from the invoices it already seeds.
+ */
+async function seedArrearsCase(opts: {
+  tenantId: string;
+  tenantName: string;
+  organizationId: string;
+  propertyId: string;
+  unitId?: string | null;
+  /** ARREARS_V1 stage key the case has reached. */
+  stageKey: string;
+  status?: string;
+  waitingOn?: string;
+  stageStartedAt: Date;
+  openedNote: string;
+  escalations?: { stageKey: string; notes: string; createdAt: Date }[];
+}) {
+  const wf = getWorkflow("ARREARS");
+  const resolved = getStageByKey(wf, opts.stageKey);
+  const stageIndex = resolved?.index ?? 0;
+
+  const thread = await prisma.caseThread.create({
+    data: {
+      caseType: "ARREARS",
+      subjectId: opts.tenantId,
+      propertyId: opts.propertyId,
+      unitId: opts.unitId ?? null,
+      organizationId: opts.organizationId,
+      title: `Arrears — ${opts.tenantName}`,
+      status: (opts.status ?? "IN_PROGRESS") as never,
+      stage: resolved?.stage.label ?? null,
+      currentStageIndex: stageIndex,
+      workflowKey: "ARREARS_V1",
+      stageSlaHours: computeDefaultStageSlaHours(wf),
+      waitingOn: (opts.waitingOn ?? "MANAGER") as never,
+      stageStartedAt: opts.stageStartedAt,
+      lastActivityAt: opts.stageStartedAt,
+    },
+  });
+
+  const events = [
+    {
+      caseThreadId: thread.id,
+      kind: CaseEventKind.COMMENT,
+      actorName: "Property Manager",
+      body: opts.openedNote,
+      createdAt: opts.stageStartedAt,
+    },
+    ...(opts.escalations ?? []).map((e) => ({
+      caseThreadId: thread.id,
+      kind: CaseEventKind.STAGE_CHANGE,
+      actorName: "Property Manager",
+      body: `${getStageByKey(wf, e.stageKey)?.stage.label ?? e.stageKey} — ${e.notes}`,
+      createdAt: e.createdAt,
+    })),
+  ];
+  await prisma.caseEvent.createMany({ data: events });
+
+  return thread;
 }
 
 /** Create a linked MAINTENANCE CaseThread for every job on a property that lacks one.
@@ -646,26 +716,40 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   }
 
   // ── Arrears cases ───────────────────────────────────────────────────────────
-  await prisma.arrearsCase.create({
-    data: {
-      tenantId: tenants["102"].id,
-      propertyId: property.id,
-      stage: ArrearsStage.INFORMAL_REMINDER,
-      amountOwed: 800,
-      notes:
-        "Tenant has not paid rent for the last two months (BD 400 × 2). Called recently — promised to clear by end of month. Follow up required.",
-    },
+  // CaseThread-backed, with escalation history on the timeline. The outstanding
+  // balance is derived from this property's unpaid invoices, so no amount here.
+  await seedArrearsCase({
+    tenantId: tenants["102"].id,
+    tenantName: "Priya Sharma",
+    organizationId,
+    propertyId: property.id,
+    unitId: units["102"].id,
+    stageKey: "demand_letter",
+    status: "AWAITING_TENANT",
+    waitingOn: "TENANT",
+    stageStartedAt: addD(now, -9),
+    openedNote:
+      "Tenant has not paid rent for the last two months (BD 400 × 2). Called recently — promised to clear by end of month. Follow up required.",
+    escalations: [
+      { stageKey: "informal_reminder", notes: "WhatsApp reminder sent. Tenant acknowledged but did not pay.", createdAt: wDate(WIN, 1, 3) },
+      { stageKey: "informal_reminder", notes: "Follow-up call. Tenant promised to pay by month-end. Current month also missed.", createdAt: wDate(WIN, 1, 15) },
+      { stageKey: "demand_letter",     notes: "Formal demand letter issued via registered post. 7-day payment window given.", createdAt: wDate(WIN, 2, 2) },
+    ],
   });
 
-  await prisma.arrearsCase.create({
-    data: {
-      tenantId: tenants["304"].id,
-      propertyId: property.id,
-      stage: ArrearsStage.INFORMAL_REMINDER,
-      amountOwed: 595,
-      notes:
-        "Current-month rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent. Tenant mid-renewal — chase payment.",
-    },
+  await seedArrearsCase({
+    tenantId: tenants["304"].id,
+    tenantName: "Deepak & Meera Pillai",
+    organizationId,
+    propertyId: property.id,
+    unitId: units["304"].id,
+    stageKey: "informal_reminder",
+    stageStartedAt: wDate(WIN, 2, 4),
+    openedNote:
+      "Current-month rent outstanding (BD 520 + BD 75 service charge). SMS reminder sent. Tenant mid-renewal — chase payment.",
+    escalations: [
+      { stageKey: "informal_reminder", notes: "SMS reminder sent. Tenant mid-renewal — chase payment.", createdAt: wDate(WIN, 2, 4) },
+    ],
   });
 
   // ── Vendors ─────────────────────────────────────────────────────────────────
@@ -821,15 +905,10 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     ],
   });
 
-  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
-  {
-    const arr = await prisma.arrearsCase.findFirst({ where: { propertyId: property.id, tenantId: tenants["102"].id }, select: { id: true } });
-    if (arr) await seedStandaloneCase({
-      caseType: "ARREARS", subjectId: arr.id, organizationId, propertyId: property.id, unitId: units["102"].id,
-      title: "Rent arrears — Priya Sharma (unit 102)", status: "AWAITING_TENANT", stageIndex: 2, waitingOn: "TENANT",
-      stageStartedAt: addD(now, -9), commentBody: "Two months' rent outstanding (BD 800). Demand letter issued; awaiting tenant response.",
-    });
-  }
+  // ── Standalone LEASE_RENEWAL case ────────────────────────────────────────────
+  // (The ARREARS case for unit 102 is seeded above by seedArrearsCase — it used
+  // to be created twice, once as an ArrearsCase and again as a CaseThread whose
+  // subjectId wrongly pointed at the ArrearsCase rather than the tenant.)
   await seedStandaloneCase({
     caseType: "LEASE_RENEWAL", subjectId: tenants["304"].id, organizationId, propertyId: property.id, unitId: units["304"].id,
     title: "Lease renewal — Deepak & Meera Pillai (unit 304)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",
@@ -967,43 +1046,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     ],
   });
 
-  // ── Arrears escalations ─────────────────────────────────────────────────────
-  const asrArrearsCases = await prisma.arrearsCase.findMany({
-    where: { propertyId: property.id },
-    select: { id: true, tenantId: true },
-  });
-  const asrCaseByTenant = Object.fromEntries(asrArrearsCases.map((c) => [c.tenantId, c.id]));
-
-  await prisma.arrearsEscalation.createMany({
-    data: [
-      // Priya Sharma (unit 102) — 2 months overdue
-      {
-        caseId: asrCaseByTenant[tenants["102"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "WhatsApp reminder sent. Tenant acknowledged but did not pay.",
-        createdAt: wDate(WIN, 1, 3),
-      },
-      {
-        caseId: asrCaseByTenant[tenants["102"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "Follow-up call. Tenant promised to pay by month-end. Current month also missed.",
-        createdAt: wDate(WIN, 1, 15),
-      },
-      {
-        caseId: asrCaseByTenant[tenants["102"].id],
-        stage: ArrearsStage.DEMAND_LETTER,
-        notes: "Formal demand letter issued via registered post. 7-day payment window given.",
-        createdAt: wDate(WIN, 2, 2),
-      },
-      // Deepak & Meera Pillai (unit 304) — current-month rent outstanding
-      {
-        caseId: asrCaseByTenant[tenants["304"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "SMS reminder sent. Tenant mid-renewal — chase payment.",
-        createdAt: wDate(WIN, 2, 4),
-      },
-    ],
-  });
+  // (Arrears escalation history is seeded with the cases above, as CaseEvents.)
 
   // ── Tax configurations ──────────────────────────────────────────────────────
   // Bahrain introduced 10% VAT in January 2022 (Value Added Tax Act)
@@ -1420,21 +1463,22 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
     ],
   });
 
-  // ── Arrears case + escalations (Faith Chebet, unit 103) ──────────────────────
-  const arrearsCase = await prisma.arrearsCase.create({
-    data: {
-      tenantId: tenants["103"].id,
-      propertyId: property.id,
-      stage: ArrearsStage.DEMAND_LETTER,
-      amountOwed: (85000 + 8000) * 2,
-      notes: "Rent unpaid for the last two months (KES 93,000 × 2). Informal reminders ignored. Demand letter issued.",
-    },
-  });
-  await prisma.arrearsEscalation.createMany({
-    data: [
-      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "M-Pesa reminder & call. Tenant cited delayed salary.",          createdAt: wDate(WIN, 1, 8) },
-      { caseId: arrearsCase.id, stage: ArrearsStage.INFORMAL_REMINDER, notes: "Follow-up call. Promised payment by month-end — not received.", createdAt: wDate(WIN, 1, 20) },
-      { caseId: arrearsCase.id, stage: ArrearsStage.DEMAND_LETTER,     notes: "Demand letter hand-delivered. 14-day window given.",            createdAt: wDate(WIN, 2, 2) },
+  // ── Arrears case + escalation history (Faith Chebet, unit 103) ───────────────
+  await seedArrearsCase({
+    tenantId: tenants["103"].id,
+    tenantName: "Faith Chebet",
+    organizationId,
+    propertyId: property.id,
+    unitId: units["103"].id,
+    stageKey: "demand_letter",
+    status: "AWAITING_TENANT",
+    waitingOn: "TENANT",
+    stageStartedAt: wDate(WIN, 2, 2),
+    openedNote: "Rent unpaid for the last two months (KES 93,000 × 2). Informal reminders ignored. Demand letter issued.",
+    escalations: [
+      { stageKey: "informal_reminder", notes: "M-Pesa reminder & call. Tenant cited delayed salary.",          createdAt: wDate(WIN, 1, 8) },
+      { stageKey: "informal_reminder", notes: "Follow-up call. Promised payment by month-end — not received.", createdAt: wDate(WIN, 1, 20) },
+      { stageKey: "demand_letter",     notes: "Demand letter hand-delivered. 14-day window given.",            createdAt: wDate(WIN, 2, 2) },
     ],
   });
 
@@ -1556,13 +1600,8 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
     ],
   });
 
-  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
-  await seedStandaloneCase({
-    caseType: "ARREARS", subjectId: arrearsCase.id, organizationId, propertyId: property.id, unitId: units["103"].id,
-    title: "Rent arrears — Faith Chebet (unit 103)", status: "AWAITING_TENANT", stageIndex: 1, waitingOn: "TENANT",
-    stageStartedAt: addD(now, -10),
-    commentBody: "Two months' rent outstanding (KES 186,000). Demand letter issued; awaiting tenant response.",
-  });
+  // ── Standalone LEASE_RENEWAL case ────────────────────────────────────────────
+  // (Faith Chebet's arrears case is seeded above by seedArrearsCase.)
   await seedStandaloneCase({
     caseType: "LEASE_RENEWAL", subjectId: tenants["203"].id, organizationId, propertyId: property.id, unitId: units["203"].id,
     title: "Lease renewal — James & Lucy Njoroge (unit 203)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",
@@ -2198,28 +2237,45 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   }
 
   // ── Arrears cases ───────────────────────────────────────────────────────────
-  // Unit 102: 3 months overdue (Feb + Mar + Apr) = R9,000 × 3 = R27,000
-  await prisma.arrearsCase.create({
-    data: {
-      tenantId: tenants["102"].id,
-      propertyId: property.id,
-      stage: ArrearsStage.DEMAND_LETTER,
-      amountOwed: 27000,
-      notes:
-        "Tenant has not paid rent for the last three months (R9,000 × 3). Section 4 notice issued. Court proceedings under review if no settlement soon.",
-    },
+  // Unit 102: 3 months overdue (R9,000 × 3 = R27,000)
+  await seedArrearsCase({
+    tenantId: tenants["102"].id,
+    tenantName: "Priya Naidoo",
+    organizationId,
+    propertyId: property.id,
+    unitId: units["102"].id,
+    stageKey: "demand_letter",
+    status: "AWAITING_TENANT",
+    waitingOn: "TENANT",
+    stageStartedAt: wDate(WIN, 2, 20),
+    openedNote:
+      "Tenant has not paid rent for the last three months (R9,000 × 3). Section 4 notice issued. Court proceedings under review if no settlement soon.",
+    escalations: [
+      { stageKey: "informal_reminder", notes: "WhatsApp reminder sent. Tenant read message but did not respond.", createdAt: wDate(WIN, 1, 5) },
+      { stageKey: "informal_reminder", notes: "Phone call. Tenant cited financial difficulty — requested 2-week extension. Following month also missed.", createdAt: wDate(WIN, 1, 18) },
+      { stageKey: "demand_letter",     notes: "Section 4 notice issued via registered post. 20-business-day compliance window.", createdAt: wDate(WIN, 2, 20) },
+      { stageKey: "demand_letter",     notes: "Current month also unpaid. Total arrears R27,000. Compliance window expired. Court application being prepared.", createdAt: wDate(WIN, 3, 15) },
+    ],
   });
 
   // Unit 302: 2 months overdue (incl current) = R15,150 × 2 = R30,300
-  await prisma.arrearsCase.create({
-    data: {
-      tenantId: tenants["302"].id,
-      propertyId: property.id,
-      stage: ArrearsStage.INFORMAL_REMINDER,
-      amountOwed: 30300,
-      notes:
-        "Last two months' rent outstanding (R14,500 + R650 service charge = R15,150 × 2). Tenant unresponsive. Escalation to formal demand under review.",
-    },
+  await seedArrearsCase({
+    tenantId: tenants["302"].id,
+    tenantName: "Rajesh Govender",
+    organizationId,
+    propertyId: property.id,
+    unitId: units["302"].id,
+    stageKey: "informal_reminder",
+    status: "AWAITING_TENANT",
+    waitingOn: "TENANT",
+    stageStartedAt: wDate(WIN, 3, 10),
+    openedNote:
+      "Last two months' rent outstanding (R14,500 + R650 service charge = R15,150 × 2). Tenant unresponsive. Escalation to formal demand under review.",
+    escalations: [
+      { stageKey: "informal_reminder", notes: "WhatsApp reminder sent. Tenant acknowledged and promised payment within a week.", createdAt: wDate(WIN, 2, 8) },
+      { stageKey: "informal_reminder", notes: "Follow-up call. Tenant did not pay by promised date. Escalation under review.", createdAt: wDate(WIN, 2, 20) },
+      { stageKey: "informal_reminder", notes: "Current month also not paid. Total arrears R30,300. Formal demand letter to be issued if not settled soon.", createdAt: wDate(WIN, 3, 10) },
+    ],
   });
 
   // ── Agent ────────────────────────────────────────────────────────────────────
@@ -2345,15 +2401,8 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     ],
   });
 
-  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
-  for (const u of ["102", "302"]) {
-    const arr = await prisma.arrearsCase.findFirst({ where: { propertyId: property.id, tenantId: tenants[u].id }, select: { id: true } });
-    if (arr) await seedStandaloneCase({
-      caseType: "ARREARS", subjectId: arr.id, organizationId, propertyId: property.id, unitId: units[u].id,
-      title: `Rent arrears — unit ${u}`, status: "AWAITING_TENANT", stageIndex: u === "102" ? 2 : 1, waitingOn: "TENANT",
-      stageStartedAt: addD(now, -9), commentBody: "Rent outstanding over multiple months. Escalation in progress; awaiting tenant response.",
-    });
-  }
+  // ── Standalone LEASE_RENEWAL case ────────────────────────────────────────────
+  // (Units 102 and 302 get their arrears cases from seedArrearsCase above.)
   await seedStandaloneCase({
     caseType: "LEASE_RENEWAL", subjectId: tenants["303"].id, organizationId, propertyId: property.id, unitId: units["303"].id,
     title: "Lease renewal — Michael & Sarah Pretorius (unit 303)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",
@@ -2510,61 +2559,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     ],
   });
 
-  // ── Arrears escalations ─────────────────────────────────────────────────────
-  const shArrearsCases = await prisma.arrearsCase.findMany({
-    where: { propertyId: property.id },
-    select: { id: true, tenantId: true },
-  });
-  const shCaseByTenant = Object.fromEntries(shArrearsCases.map((c) => [c.tenantId, c.id]));
-
-  await prisma.arrearsEscalation.createMany({
-    data: [
-      // Priya Naidoo (unit 102) — 3 months overdue
-      {
-        caseId: shCaseByTenant[tenants["102"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "WhatsApp reminder sent. Tenant read message but did not respond.",
-        createdAt: wDate(WIN, 1, 5),
-      },
-      {
-        caseId: shCaseByTenant[tenants["102"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "Phone call. Tenant cited financial difficulty — requested 2-week extension. Following month also missed.",
-        createdAt: wDate(WIN, 1, 18),
-      },
-      {
-        caseId: shCaseByTenant[tenants["102"].id],
-        stage: ArrearsStage.DEMAND_LETTER,
-        notes: "Section 4 notice issued via registered post. 20-business-day compliance window.",
-        createdAt: wDate(WIN, 2, 20),
-      },
-      {
-        caseId: shCaseByTenant[tenants["102"].id],
-        stage: ArrearsStage.DEMAND_LETTER,
-        notes: "Current month also unpaid. Total arrears R27,000. Compliance window expired. Court application being prepared.",
-        createdAt: wDate(WIN, 3, 15),
-      },
-      // Rajesh Govender (unit 302) — 2 months overdue
-      {
-        caseId: shCaseByTenant[tenants["302"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "WhatsApp reminder sent. Tenant acknowledged and promised payment within a week.",
-        createdAt: wDate(WIN, 2, 8),
-      },
-      {
-        caseId: shCaseByTenant[tenants["302"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "Follow-up call. Tenant did not pay by promised date. Escalation under review.",
-        createdAt: wDate(WIN, 2, 20),
-      },
-      {
-        caseId: shCaseByTenant[tenants["302"].id],
-        stage: ArrearsStage.INFORMAL_REMINDER,
-        notes: "Current month also not paid. Total arrears R30,300. Formal demand letter to be issued if not settled soon.",
-        createdAt: wDate(WIN, 3, 10),
-      },
-    ],
-  });
+  // (Arrears escalation history is seeded with the cases above, as CaseEvents.)
 
   // ── Tax configurations ──────────────────────────────────────────────────────
   // South Africa: VAT at 15% (raised from 14% in April 2018)
@@ -3148,43 +3143,45 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     ],
   });
 
-  // ── Arrears Cases & Escalations ──────────────────────────────────────────────
+  // ── Arrears cases (with escalation history on the case timeline) ─────────────
   for (const at of [
     {
-      unit: "201", stage: ArrearsStage.INFORMAL_REMINDER, amountOwed: 5200,
+      unit: "201", tenantName: "Oliver Thompson", stageKey: "informal_reminder",
       notes: "Oliver Thompson — 2 months overdue (incl current). Total: £5,200 (rent £4,700 + SC £500).",
+      stageStartedAt: wDate(WIN, 3, 2),
       escalations: [
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email & phone call. Tenant cited delayed bank transfer.", createdAt: wDate(WIN, 2, 8) },
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder issued. Tenant acknowledged arrears. Partial payment of £2,600 promised — not received.", createdAt: wDate(WIN, 3, 2) },
+        { stageKey: "informal_reminder", notes: "Informal reminder email & phone call. Tenant cited delayed bank transfer.", createdAt: wDate(WIN, 2, 8) },
+        { stageKey: "informal_reminder", notes: "Second reminder issued. Tenant acknowledged arrears. Partial payment of £2,600 promised — not received.", createdAt: wDate(WIN, 3, 2) },
       ],
     },
     {
-      unit: "302", stage: ArrearsStage.DEMAND_LETTER, amountOwed: 10350,
+      unit: "302", tenantName: "Natasha Singh", stageKey: "demand_letter",
       notes: "Natasha Singh — 3 months overdue. Total: £10,350 (rent £9,600 + SC £750). Demand letter served.",
+      stageStartedAt: wDate(WIN, 3, 2),
       escalations: [
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Informal reminder email and text. No response from tenant.",                                                         createdAt: wDate(WIN, 1, 8) },
-        { stage: ArrearsStage.INFORMAL_REMINDER, notes: "Second reminder. Tenant responded citing financial difficulty. No payment made.",                                    createdAt: wDate(WIN, 2, 12) },
-        { stage: ArrearsStage.DEMAND_LETTER,     notes: "Section 8 demand letter served via solicitors (Ground 10 & 11). 14-day cure period running.",                       createdAt: wDate(WIN, 3, 2) },
+        { stageKey: "informal_reminder", notes: "Informal reminder email and text. No response from tenant.",                                                         createdAt: wDate(WIN, 1, 8) },
+        { stageKey: "informal_reminder", notes: "Second reminder. Tenant responded citing financial difficulty. No payment made.",                                    createdAt: wDate(WIN, 2, 12) },
+        { stageKey: "demand_letter",     notes: "Section 8 demand letter served via solicitors (Ground 10 & 11). 14-day cure period running.",                       createdAt: wDate(WIN, 3, 2) },
       ],
     },
   ]) {
-    const arrearsCase = await prisma.arrearsCase.create({
-      data: { tenantId: tenants[at.unit].id, propertyId: property.id, stage: at.stage, amountOwed: at.amountOwed, notes: at.notes },
-    });
-    await prisma.arrearsEscalation.createMany({
-      data: at.escalations.map((e) => ({ caseId: arrearsCase.id, stage: e.stage, notes: e.notes, createdAt: e.createdAt })),
+    await seedArrearsCase({
+      tenantId: tenants[at.unit].id,
+      tenantName: at.tenantName,
+      organizationId,
+      propertyId: property.id,
+      unitId: units[at.unit].id,
+      stageKey: at.stageKey,
+      status: "AWAITING_TENANT",
+      waitingOn: "TENANT",
+      stageStartedAt: at.stageStartedAt,
+      openedNote: at.notes,
+      escalations: at.escalations,
     });
   }
 
-  // ── Standalone ARREARS + LEASE_RENEWAL cases ─────────────────────────────────
-  for (const u of ["201", "302"]) {
-    const arr = await prisma.arrearsCase.findFirst({ where: { propertyId: property.id, tenantId: tenants[u].id }, select: { id: true } });
-    if (arr) await seedStandaloneCase({
-      caseType: "ARREARS", subjectId: arr.id, organizationId, propertyId: property.id, unitId: units[u].id,
-      title: `Rent arrears — unit ${u}`, status: "AWAITING_TENANT", stageIndex: u === "302" ? 2 : 1, waitingOn: "TENANT",
-      stageStartedAt: addD(now, -9), commentBody: "Rent outstanding over multiple months. Escalation in progress; awaiting tenant response.",
-    });
-  }
+  // ── Standalone LEASE_RENEWAL case ────────────────────────────────────────────
+  // (Units 201 and 302 get their arrears cases from seedArrearsCase above.)
   await seedStandaloneCase({
     caseType: "LEASE_RENEWAL", subjectId: tenants["103"].id, organizationId, propertyId: property.id, unitId: units["103"].id,
     title: "Lease renewal — Sophie Bennett (unit 103)", status: "AWAITING_TENANT", stageIndex: 3, waitingOn: "TENANT",

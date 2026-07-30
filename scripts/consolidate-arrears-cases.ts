@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { LEGACY_STAGE_TO_KEY } from "../src/lib/arrears";
+import { buildAgingSnapshot } from "../src/lib/arrears-aging";
 import { getWorkflow, getStageByKey, getStageByIndex, computeDefaultStageSlaHours } from "../src/lib/case-workflows";
 
 /**
@@ -63,6 +64,43 @@ async function main() {
   });
 
   console.log(`\nFound ${legacy.length} legacy ArrearsCase row(s).`);
+
+  // ── Variance report: was amountOwed used as an override? ─────────────────
+  // amountOwed becomes derived from unpaid invoices. If managers were only ever
+  // correcting the aging calculation the two figures agree and nothing is lost.
+  // If they were recording *disputed* or *part-paid* balances, they agree
+  // poorly — and switching to derived removes an escape hatch. This reports the
+  // difference so that's a decision made on evidence rather than assumption.
+  if (legacy.length > 0) {
+    const propertyIds = Array.from(new Set(legacy.map((l) => l.propertyId)));
+    const aging = await buildAgingSnapshot(propertyIds);
+    const derivedByTenant = new Map(aging.rows.map((r) => [r.tenantId, r.outstanding]));
+
+    let agree = 0;
+    const diverged: string[] = [];
+
+    for (const lc of legacy) {
+      if (lc.stage === "RESOLVED") continue; // settled cases legitimately owe nothing
+      const legacyAmount = Number(lc.amountOwed);
+      const derived = derivedByTenant.get(lc.tenantId) ?? 0;
+      // Tolerate rounding; flag anything a manager would notice.
+      if (Math.abs(legacyAmount - derived) < 1) { agree++; continue; }
+      diverged.push(
+        `    ${lc.tenant.name.padEnd(26)} recorded ${String(legacyAmount).padStart(12)} vs derived ${String(derived).padStart(12)}` +
+        (derived === 0 ? "  ← no unpaid invoices at all" : "")
+      );
+    }
+
+    console.log(`\n  Amount check — ${agree} row(s) match the derived balance.`);
+    if (diverged.length > 0) {
+      console.log(`  ${diverged.length} row(s) DIVERGE. Review before relying on the derived figure:`);
+      diverged.forEach((d) => console.log(d));
+      console.log(
+        `    A "derived 0" usually means the debt was tracked here but never invoiced —\n` +
+        `    those tenants will show as owing nothing once the switch lands.`
+      );
+    }
+  }
 
   let migrated = 0;
   let skipped = 0;

@@ -73,7 +73,15 @@ const LEASE_RENEWAL_V1: CaseWorkflow = {
 const ARREARS_V1: CaseWorkflow = {
   key: "ARREARS_V1",
   caseType: "ARREARS",
-  naturalCompletionIndex: 3, // `legal_action` (i.e. went through the escalation ladder)
+  // 0, unlike every other workflow — and deliberately.
+  //
+  // Elsewhere, finishing the ladder is success. In arrears the ladder is an
+  // escalation you hope to avoid: a tenant who pays after the informal reminder
+  // is the BEST outcome, not a bypassed process. With this at 3, resolving at
+  // stage 0 rendered as terminalReason=BYPASSED — amber banner, struck-through
+  // stages — i.e. the UI reported your best result as a process failure.
+  // At 0, every terminal resolution is COMPLETED_NORMALLY.
+  naturalCompletionIndex: 0,
   stages: [
     { key: "informal_reminder", label: "Informal reminder", defaultSlaHours: 72 },
     { key: "formal_notice",     label: "Formal notice",     defaultSlaHours: 168 },

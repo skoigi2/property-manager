@@ -62,6 +62,14 @@ const LEASE_RENEWAL_V1: CaseWorkflow = {
   ],
 };
 
+// `eviction` exists so the legacy ArrearsStage.EVICTION has somewhere to land.
+// Collapsing it into `legal_action` would understate a tenant's actual legal
+// position, which is not an acceptable rounding error in a debt record.
+//
+// NOTE: inserting a stage shifts the indices of everything after it, and
+// getWorkflow() resolves by caseType rather than the thread's stored
+// workflowKey — so `npm run arrears:consolidate` remaps existing ARREARS
+// threads by stage *label*, never by index.
 const ARREARS_V1: CaseWorkflow = {
   key: "ARREARS_V1",
   caseType: "ARREARS",
@@ -71,6 +79,7 @@ const ARREARS_V1: CaseWorkflow = {
     { key: "formal_notice",     label: "Formal notice",     defaultSlaHours: 168 },
     { key: "demand_letter",     label: "Demand letter",     defaultSlaHours: 336 },
     { key: "legal_action",      label: "Legal action",      defaultSlaHours: null },
+    { key: "eviction",          label: "Eviction",          defaultSlaHours: null },
     { key: "settled",           label: "Settled",           terminal: true, terminalStatus: "RESOLVED" },
     { key: "closed",            label: "Closed",            terminal: true, terminalStatus: "CLOSED" },
   ],

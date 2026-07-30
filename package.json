@@ -18,7 +18,8 @@
     "cases:backfill": "ts-node -P tsconfig.seed.json scripts/backfill-cases.ts",
     "cases:backfill-stages": "ts-node -P tsconfig.seed.json scripts/backfill-case-stages.ts",
     "cases:backfill-invoice-links": "ts-node -P tsconfig.seed.json scripts/backfill-invoice-case-links.ts",
-    "cases:backfill-terminal-reasons": "ts-node -P tsconfig.seed.json scripts/backfill-case-terminal-reasons.ts"
+    "cases:backfill-terminal-reasons": "ts-node -P tsconfig.seed.json scripts/backfill-case-terminal-reasons.ts",
+    "arrears:consolidate": "ts-node -P tsconfig.scripts.json -r tsconfig-paths/register scripts/consolidate-arrears-cases.ts"
   },
   "prisma": {
     "seed": "ts-node -P tsconfig.seed.json prisma/seed.ts"

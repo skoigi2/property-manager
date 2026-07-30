@@ -1,0 +1,10 @@
+{
+  "//": "For scripts that import from src/lib. tsconfig.json declares `paths` but no `baseUrl`, so tsconfig-paths skips resolution and `@/lib/*` imports fail. Kept separate from tsconfig.seed.json so adding baseUrl can't affect module resolution for the seeders.",
+  "extends": "./tsconfig.seed.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}

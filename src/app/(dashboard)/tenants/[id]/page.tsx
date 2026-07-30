@@ -515,7 +515,18 @@ export default function TenantDetailPage() {
   const totalExpected  = ledger.reduce((s, r) => s + r.expected, 0);
   const totalReceived  = ledger.reduce((s, r) => s + r.received, 0);
   const totalArrears   = totalReceived - totalExpected;
-  const monthsInArrears = ledger.filter((r) => r.shortfall > 0).length;
+  const periodsWithShortfall = ledger.filter((r) => r.shortfall > 0).length;
+  // Ledger rows are billing periods, so counts are labelled by the tenant's
+  // payment cadence — "13 years with shortfall" for an annual payer, not
+  // "13 months".
+  const PERIOD_NOUN: Record<string, [string, string]> = {
+    MONTHLY:   ["month", "months"],
+    QUARTERLY: ["quarter", "quarters"],
+    BIANNUAL:  ["half-year", "half-years"],
+    ANNUAL:    ["year", "years"],
+  };
+  const periodNounPair = PERIOD_NOUN[tenant?.paymentFrequency ?? "MONTHLY"] ?? PERIOD_NOUN.MONTHLY;
+  const periodNoun = (n: number) => (n === 1 ? periodNounPair[0] : periodNounPair[1]);
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number | string }[] = [
     { id: "ledger",    label: "Ledger",       icon: <TrendingUp size={14} /> },
@@ -722,7 +733,7 @@ export default function TenantDetailPage() {
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Expected</p>
                 <CurrencyDisplay currency={currency} amount={totalExpected} className="block mt-1 text-gray-600" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-1">{ledger.length} month{ledger.length !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-gray-400 font-sans mt-1">{ledger.length} {periodNoun(ledger.length)}</p>
               </Card>
               <Card padding="sm">
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Received</p>
@@ -777,8 +788,8 @@ export default function TenantDetailPage() {
                       <h2 className="section-header">Payment Ledger</h2>
                       <div className="flex items-center gap-2 text-xs text-gray-400 font-sans">
                         <TrendingUp size={14} />
-                        {monthsInArrears > 0 ? (
-                          <span className="text-expense">{monthsInArrears} month{monthsInArrears > 1 ? "s" : ""} with shortfall</span>
+                        {periodsWithShortfall > 0 ? (
+                          <span className="text-expense">{periodsWithShortfall} {periodNoun(periodsWithShortfall)} with shortfall</span>
                         ) : (
                           <span className="text-income">All payments up to date</span>
                         )}

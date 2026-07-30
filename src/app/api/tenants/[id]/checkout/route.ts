@@ -2,6 +2,18 @@ import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { checkoutProcessSchema } from "@/lib/validations";
+import { calcDepositPosition } from "@/lib/deposit";
+
+// Contractual vs received: refunds are computed from the DEPOSIT receipt
+// trail when one exists (see src/lib/deposit.ts), never blindly from
+// Tenant.depositAmount — a partially-paid deposit must not be refunded in full.
+async function loadDepositPosition(tenantId: string, contractual: number) {
+  const receipts = await prisma.incomeEntry.findMany({
+    where: { tenantId, type: "DEPOSIT" },
+    select: { grossAmount: true },
+  });
+  return calcDepositPosition(contractual, receipts);
+}
 
 async function loadTenant(id: string) {
   const propertyIds = await getAccessiblePropertyIds();
@@ -44,6 +56,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     0
   );
 
+  const deposit = await loadDepositPosition(tenant!.id, tenant!.depositAmount);
+
   return Response.json({
     tenant: {
       id: tenant!.id,
@@ -71,6 +85,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ? { id: tenant!.unit.property.organization.id, name: tenant!.unit.property.organization.name }
       : null,
     outstandingBalance,
+    deposit,
     checkout: tenant!.checkoutProcess ?? null,
   });
 }
@@ -95,8 +110,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const data = parsed.data;
 
   const totalDeductions = data.deductions.reduce((s, d) => s + d.amount, 0);
+  const deposit = await loadDepositPosition(tenant!.id, tenant!.depositAmount);
   const balanceToRefund =
-    tenant!.depositAmount -
+    deposit.held -
     (data.damageFound ? data.inventoryDamageAmount : 0) -
     data.rentBalanceOwing -
     totalDeductions;
@@ -113,6 +129,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     rentBalanceOwing: data.rentBalanceOwing,
     rentBalanceSource: data.rentBalanceSource ?? null,
     originalDeposit: tenant!.depositAmount,
+    depositReceived: deposit.received,
     totalDeductions,
     balanceToRefund,
     keysReturned: (data.keysReturned ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,

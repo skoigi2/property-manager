@@ -1941,6 +1941,9 @@ model CheckoutProcess {
   rentBalanceOwing      Decimal          @default(0) @db.Decimal(14, 2)
   rentBalanceSource     String?
   originalDeposit       Decimal @db.Decimal(14, 2)
+  // Sum of DEPOSIT income receipts at finalize time. Null = no receipt trail
+  // existed (settlement fell back to the contractual originalDeposit).
+  depositReceived       Decimal? @db.Decimal(14, 2)
   totalDeductions       Decimal          @default(0) @db.Decimal(14, 2)
   balanceToRefund       Decimal          @default(0) @db.Decimal(14, 2)
   keysReturned          Json?

@@ -83,6 +83,8 @@ export type CheckoutPdfData = {
     deductions: { description: string; amount: number }[];
     totalDeductions: number;
     balanceToRefund: number;
+    /** DEPOSIT receipts sum at finalize; null = no trail (contractual used). */
+    depositReceived?: number | null;
     keysReturned?: { mainDoor?: number; bedroom?: number; gate?: number; mailbox?: number } | null;
     utilityTransfers?: {
       electricity?: { done?: boolean; date?: string | null };
@@ -251,17 +253,24 @@ function CheckoutPDF({ data }: { data: CheckoutPdfData }) {
           <Text style={styles.sectionHeaderText}>4. Rent Deposit Held</Text>
         </View>
         <View style={styles.fieldRow}>
-          <Text style={styles.fieldLabel}>Original Deposit:</Text>
+          <Text style={styles.fieldLabel}>Contractual Deposit:</Text>
           <Text style={[styles.fieldValue, { fontFamily: "Helvetica-Bold" }]}>{fmt(tenant.depositAmount)}</Text>
         </View>
+        {checkout.depositReceived != null && (
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Deposit Received (per receipts):</Text>
+            <Text style={[styles.fieldValue, { fontFamily: "Helvetica-Bold" }]}>{fmt(checkout.depositReceived)}</Text>
+          </View>
+        )}
 
-        {/* 5. Final Settlement */}
+        {/* 5. Final Settlement — base is the received amount when a receipt
+            trail exists; contractual only when none was recorded. */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionHeaderText}>5. Final Settlement</Text>
         </View>
         <View style={styles.settlementRow}>
-          <Text style={styles.settlementLabel}>Rent Deposit:</Text>
-          <Text style={styles.settlementAmt}>{fmt(tenant.depositAmount)}</Text>
+          <Text style={styles.settlementLabel}>Rent Deposit{checkout.depositReceived != null ? " (received)" : ""}:</Text>
+          <Text style={styles.settlementAmt}>{fmt(checkout.depositReceived ?? tenant.depositAmount)}</Text>
         </View>
         <View style={styles.settlementRow}>
           <Text style={styles.settlementLabel}>Less: Inventory Damage (Item 1):</Text>

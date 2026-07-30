@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/currency";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { calcDepositPosition } from "@/lib/deposit";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
@@ -59,13 +60,19 @@ function SettleDepositModal({
   tenantId,
   tenantName,
   depositAmount,
+  contractualAmount,
+  unverified,
   currency,
   onSettled,
   onClose,
 }: {
   tenantId:      string;
   tenantName:    string;
+  /** Settlement base: receipts sum when a trail exists, else contractual. */
   depositAmount: number;
+  contractualAmount: number;
+  /** True when no DEPOSIT receipts are linked (base fell back to contract). */
+  unverified:    boolean;
   currency:      string;
   onSettled:     (s: DepositSettlement) => void;
   onClose:       () => void;
@@ -132,10 +139,24 @@ function SettleDepositModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Deposit held */}
-          <div className="bg-cream-dark rounded-xl p-4 flex items-center justify-between">
-            <p className="text-sm font-sans text-gray-500">Deposit held</p>
-            <CurrencyDisplay currency={currency} amount={depositAmount} size="lg" className="text-header font-medium" />
+          {/* Deposit held — receipts-based when a trail exists */}
+          <div className="bg-cream-dark rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-sans text-gray-500">Deposit held</p>
+              <CurrencyDisplay currency={currency} amount={depositAmount} size="lg" className="text-header font-medium" />
+            </div>
+            {!unverified && depositAmount < contractualAmount && (
+              <p className="text-xs text-amber-600 font-sans mt-2">
+                Receipts total {formatCurrency(depositAmount, currency)} of the contractual{" "}
+                {formatCurrency(contractualAmount, currency)} — settlement refunds what was received.
+              </p>
+            )}
+            {unverified && contractualAmount > 0 && (
+              <p className="text-xs text-amber-600 font-sans mt-2">
+                No deposit receipts recorded — this is the contractual amount. Verify it was
+                actually received before refunding.
+              </p>
+            )}
           </div>
 
           {/* Settlement date */}
@@ -485,6 +506,12 @@ export default function TenantDetailPage() {
   const allIncomeEntries: any[] = tenant?.unit?.incomeEntries ?? [];
   const tenantEntries  = allIncomeEntries.filter((e) => !e.tenantId || e.tenantId === tenant?.id);
   const ledger         = tenant ? buildLedger(tenant, tenantEntries) : [];
+  // Deposit position: receipts must be explicitly linked to THIS tenant —
+  // an untagged unit deposit may belong to a previous tenant, so it is
+  // surfaced as a hint instead of silently counted.
+  const depositReceipts = allIncomeEntries.filter((e) => e.type === "DEPOSIT" && e.tenantId === tenant?.id);
+  const depositPosition = calcDepositPosition(tenant?.depositAmount ?? 0, depositReceipts);
+  const unlinkedUnitDeposits: any[] = allIncomeEntries.filter((e) => e.type === "DEPOSIT" && !e.tenantId);
   const totalExpected  = ledger.reduce((s, r) => s + r.expected, 0);
   const totalReceived  = ledger.reduce((s, r) => s + r.received, 0);
   const totalArrears   = totalReceived - totalExpected;
@@ -1037,7 +1064,7 @@ export default function TenantDetailPage() {
                   <>
                     <div className="flex items-center justify-between mb-5">
                       <h2 className="section-header">Deposit Management</h2>
-                      {canLifecycle && !settlement && !settlementLoading && tenant?.depositAmount > 0 && (
+                      {canLifecycle && !settlement && !settlementLoading && (depositPosition.held > 0 || (tenant?.depositAmount ?? 0) > 0) && (
                         <Button size="sm" onClick={() => setShowSettleModal(true)}>
                           <ShieldCheck size={14} className="mr-1.5" /> Settle Deposit
                         </Button>
@@ -1049,10 +1076,23 @@ export default function TenantDetailPage() {
                     ) : !settlement ? (
                       /* ── No settlement yet ── */
                       <div className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                           <div className="bg-cream-dark rounded-xl p-4">
-                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Deposit Held</p>
+                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Contractual Deposit</p>
                             <CurrencyDisplay currency={currency} amount={tenant?.depositAmount ?? 0} size="lg" className="text-header font-medium" />
+                          </div>
+                          <div className="bg-cream-dark rounded-xl p-4">
+                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Received</p>
+                            {depositPosition.received !== null ? (
+                              <CurrencyDisplay
+                                currency={currency}
+                                amount={depositPosition.received}
+                                size="lg"
+                                className={depositPosition.shortfall > 0 ? "text-expense font-medium" : "text-income font-medium"}
+                              />
+                            ) : (
+                              <p className="text-sm font-sans text-gray-400 font-medium mt-1">No receipts recorded</p>
+                            )}
                           </div>
                           <div className="bg-cream-dark rounded-xl p-4">
                             <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Date Received</p>
@@ -1069,6 +1109,38 @@ export default function TenantDetailPage() {
                             </div>
                           </div>
                         </div>
+
+                        {depositPosition.shortfall > 0 && (
+                          <div className="border border-amber-100 bg-amber-50/60 rounded-xl p-4 flex items-start gap-3">
+                            <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium font-sans text-amber-800">
+                                Deposit shortfall of {formatCurrency(depositPosition.shortfall, currency)}
+                              </p>
+                              <p className="text-xs text-amber-600 font-sans mt-0.5">
+                                Receipts total {formatCurrency(depositPosition.received ?? 0, currency)} against a contractual
+                                deposit of {formatCurrency(depositPosition.contractual, currency)}. Settlement will refund
+                                only what was received.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {depositPosition.received === null && (tenant?.depositAmount ?? 0) > 0 && (
+                          <div className="border border-gray-200 bg-gray-50 rounded-xl p-4 flex items-start gap-3">
+                            <AlertTriangle size={16} className="text-gray-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium font-sans text-gray-600">Deposit unverified — no receipts on record</p>
+                              <p className="text-xs text-gray-500 font-sans mt-0.5">
+                                The contractual amount is shown, but no DEPOSIT income entry is linked to this tenant.
+                                Record the deposit on the Income page (type &ldquo;Deposit&rdquo;) so settlement can work from
+                                what was actually received.
+                                {unlinkedUnitDeposits.length > 0 &&
+                                  ` Note: ${unlinkedUnitDeposits.length} deposit ${unlinkedUnitDeposits.length === 1 ? "entry" : "entries"} on this unit ${unlinkedUnitDeposits.length === 1 ? "is" : "are"} not linked to any tenant.`}
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
                         {!tenant?.isActive && (
                           <div className="border border-amber-100 bg-amber-50/60 rounded-xl p-4 flex items-start gap-3">
@@ -1210,7 +1282,9 @@ export default function TenantDetailPage() {
         <SettleDepositModal
           tenantId={tenantId}
           tenantName={tenant.name}
-          depositAmount={tenant.depositAmount}
+          depositAmount={depositPosition.held}
+          contractualAmount={depositPosition.contractual}
+          unverified={depositPosition.verification === "UNVERIFIED"}
           currency={currency}
           onSettled={(s) => { setSettlement(s); setShowSettleModal(false); }}
           onClose={() => setShowSettleModal(false)}

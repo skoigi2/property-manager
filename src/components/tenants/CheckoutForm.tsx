@@ -10,6 +10,15 @@ import { format } from "date-fns";
 import { Plus, Trash2, FileText, Save, Loader2, Pencil, Lock, Download } from "lucide-react";
 import toast from "react-hot-toast";
 
+type DepositPosition = {
+  contractual: number;
+  received: number | null;
+  held: number;
+  shortfall: number;
+  excess: number;
+  verification: "VERIFIED" | "UNVERIFIED";
+};
+
 type CheckoutPrefill = {
   tenant: {
     id: string;
@@ -26,6 +35,7 @@ type CheckoutPrefill = {
   property: { id: string; name: string; currency: string; organizationId: string | null };
   organization: { id: string; name: string } | null;
   outstandingBalance: number;
+  deposit: DepositPosition;
   checkout: ExistingCheckout | null;
 };
 
@@ -40,6 +50,7 @@ type ExistingCheckout = {
   rentBalanceOwing: number;
   rentBalanceSource: string | null;
   originalDeposit: number;
+  depositReceived: number | null;
   totalDeductions: number;
   balanceToRefund: number;
   keysReturned: KeysReturned | null;
@@ -184,7 +195,12 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
 
   const inventoryDamage = damageFound ? parseFloat(inventoryDamageAmount) || 0 : 0;
   const rentBal = parseFloat(rentBalanceOwing) || 0;
-  const deposit = data?.tenant.depositAmount ?? 0;
+  // Settlement base = deposit actually received (receipt trail), falling back
+  // to the contractual amount only when no receipts exist — mirrors the server.
+  const depositPosition = data?.deposit ?? null;
+  const deposit = depositPosition?.held ?? data?.tenant.depositAmount ?? 0;
+  const depositUnverified = depositPosition?.verification === "UNVERIFIED";
+  const depositShortfall = depositPosition?.shortfall ?? 0;
   const balanceToRefund = deposit - inventoryDamage - rentBal - totalDeductions;
   const isOwed = balanceToRefund < 0;
 
@@ -318,10 +334,25 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
               value={data.tenant.leaseEnd ? format(new Date(data.tenant.leaseEnd), "d MMM yyyy") : "—"}
             />
             <Field label="Monthly Rent" value={formatCurrency(data.tenant.monthlyRent, currency)} />
-            <Field label="Deposit Held" value={formatCurrency(data.tenant.depositAmount, currency)} />
+            <Field label="Deposit Held" value={formatCurrency(deposit, currency)} />
             <Field label="Phone" value={data.tenant.phone ?? "—"} />
             <Field label="Email" value={data.tenant.email ?? "—"} />
           </div>
+          {depositShortfall > 0 && (
+            <div className="mt-3 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 text-sm font-sans text-amber-800">
+              Deposit received {formatCurrency(depositPosition!.received ?? 0, currency)} of the
+              contractual {formatCurrency(depositPosition!.contractual, currency)} — the settlement
+              below refunds only what was actually received
+              (shortfall {formatCurrency(depositShortfall, currency)}).
+            </div>
+          )}
+          {depositUnverified && data.tenant.depositAmount > 0 && (
+            <div className="mt-3 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 text-sm font-sans text-amber-800">
+              No deposit receipts are recorded for this tenant — the settlement uses the
+              contractual amount. Verify the deposit was actually received in full before refunding,
+              or record the deposit on the Income page first.
+            </div>
+          )}
         </Card>
 
         {/* Check-out date */}
@@ -646,7 +677,10 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
       <aside className="lg:sticky lg:top-4 lg:self-start space-y-3">
         <Card className="!p-5">
           <h3 className="font-display text-base text-header mb-4">Final Settlement</h3>
-          <SettleRow label="Original Deposit"  value={formatCurrency(deposit, currency)} />
+          <SettleRow
+            label={depositUnverified ? "Deposit (contractual)" : "Deposit Received"}
+            value={formatCurrency(deposit, currency)}
+          />
           <SettleRow label="− Inventory Damage" value={formatCurrency(inventoryDamage, currency)} />
           <SettleRow label="− Rent Balance"     value={formatCurrency(rentBal, currency)} />
           <SettleRow label="− Itemised Deductions" value={formatCurrency(totalDeductions, currency)} />

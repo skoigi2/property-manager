@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { checkoutProcessSchema } from "@/lib/validations";
+import { calcDepositPosition } from "@/lib/deposit";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requirePermissionWrite("TENANT_LIFECYCLE");
@@ -33,8 +34,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const totalDeductions = data.deductions.reduce((s, d) => s + d.amount, 0);
   const inventoryDamage = data.damageFound ? data.inventoryDamageAmount : 0;
+  // Settlement base is what was actually RECEIVED (DEPOSIT receipt trail),
+  // not the contractual depositAmount — a partially-paid deposit must not be
+  // refunded in full. Tenants with no receipt trail fall back to contractual.
+  const depositReceipts = await prisma.incomeEntry.findMany({
+    where: { tenantId: tenant.id, type: "DEPOSIT" },
+    select: { grossAmount: true },
+  });
+  const deposit = calcDepositPosition(tenant.depositAmount, depositReceipts);
   const balanceToRefund =
-    tenant.depositAmount - inventoryDamage - data.rentBalanceOwing - totalDeductions;
+    deposit.held - inventoryDamage - data.rentBalanceOwing - totalDeductions;
   const checkOutDate = new Date(data.checkOutDate);
 
   // Step 1: upsert + replace deductions, then atomically finalize.
@@ -52,6 +61,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     rentBalanceOwing: data.rentBalanceOwing,
     rentBalanceSource: data.rentBalanceSource ?? null,
     originalDeposit: tenant.depositAmount,
+    depositReceived: deposit.received,
     totalDeductions,
     balanceToRefund,
     keysReturned: (data.keysReturned ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
@@ -150,7 +160,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           prisma.depositSettlement.create({
             data: {
               tenantId: tenant.id,
-              depositHeld: tenant.depositAmount,
+              depositHeld: deposit.held,
               deductions: settlementDeductions,
               totalDeductions: settlementTotalDeductions,
               netRefunded: balanceToRefund,
@@ -192,6 +202,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       tenantId: tenant.id,
       status: "COMPLETED",
       originalDeposit: tenant.depositAmount,
+      depositReceived: deposit.received,
+      depositShortfall: deposit.shortfall,
       totalDeductions: settlementTotalDeductions,
       balanceToRefund,
       expenseEntryId: createdExpenseId,

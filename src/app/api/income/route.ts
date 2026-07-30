@@ -101,9 +101,12 @@ export async function POST(req: Request) {
   const propertyId = unitWithProperty?.propertyId ?? null;
   const orgId = unitWithProperty?.property?.organizationId ?? session!.user.organizationId ?? null;
 
-  // Auto-link the active tenant if not explicitly provided and type is long-term
+  // Auto-link the active tenant if not explicitly provided. DEPOSIT entries
+  // must carry a tenantId too — they are the receipt trail behind the
+  // deposit-held calculation (src/lib/deposit.ts); an unlinked deposit is
+  // invisible to settlement.
   let resolvedTenantId = tenantId ?? null;
-  if (!resolvedTenantId && rest.type === "LONGTERM_RENT") {
+  if (!resolvedTenantId && (rest.type === "LONGTERM_RENT" || rest.type === "DEPOSIT")) {
     const activeTenant = await prisma.tenant.findFirst({
       where: { unitId: rest.unitId, isActive: true },
       select: { id: true },

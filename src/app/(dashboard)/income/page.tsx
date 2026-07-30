@@ -28,7 +28,7 @@ import { exportIncome } from "@/lib/excel-export";
 import { calcLateInterest } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
-import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
+import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -105,7 +105,11 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
       (e.tenantId === tenant.id || e.unitId === tenant.unitId),
   );
 
-  // First pass: expected (RentHistory-aware) + cash received per month.
+  // First pass: expected (RentHistory-aware, schedule-aware) + cash received
+  // per month. Quarterly/biannual/annual payers owe the FULL period amount on
+  // billing months (anchored to lease start) and nothing in between, matching
+  // the This Month view and invoice generation.
+  const periodMonths = frequencyMonths(tenant.paymentFrequency);
   const rawMonths: { year: number; month: number; expected: number; received: number }[] = [];
   let cursor = new Date(start);
   while (cursor <= end) {
@@ -120,18 +124,30 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
     rawMonths.push({
       year: yr,
       month: mo,
-      expected: resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, cursor),
+      expected: scheduledExpectedForMonth({
+        leaseStart: tenant.leaseStart,
+        frequency: tenant.paymentFrequency,
+        month: cursor,
+        rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+      }).amount,
       received: paid,
     });
     cursor = new Date(yr, mo + 1, 1);
   }
 
+  // Drop filler months (nothing due, nothing received) so a period payer's
+  // breakdown shows one row per billing period. Such rows contribute nothing
+  // to the allocation pot, so filtering before allocation is safe.
+  const ledgerMonths = periodMonths > 1
+    ? rawMonths.filter((m) => m.expected > 0 || m.received > 0)
+    : rawMonths;
+
   // Statement-style allocation: receipts pool and cover months oldest-first,
   // so quarterly/annual prepayers and late catch-ups aren't falsely flagged.
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
-  const allocations = allocatePayments(rawMonths);
+  const allocations = allocatePayments(ledgerMonths);
   const months: MonthRow[] = allocations.map((a, i) => {
-    const { year: yr, month: mo } = rawMonths[i];
+    const { year: yr, month: mo } = ledgerMonths[i];
     const dueDate = new Date(yr, mo + 1, 1); // 1st of next month
     const daysOverdue = a.shortfall > 0
       ? Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / MS_PER_DAY))
@@ -161,7 +177,9 @@ function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0):
     unpaidMonths,
     totalArrears,
     totalInterest,
-    totalMonthsOwed: unpaidMonths.length,
+    // Month-equivalents: an unpaid annual billing period counts as 12 months
+    // owed, so "months overdue" stays truthful for non-monthly payers.
+    totalMonthsOwed: unpaidMonths.length * periodMonths,
     lastPaymentDate: sorted[0]?.date ?? null,
     hasArrears: totalArrears > 0,
   };

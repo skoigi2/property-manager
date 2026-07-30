@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getMonthRange } from "@/lib/date-utils";
 import { RIARA_MGMT_FEE } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
+import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
 import { format } from "date-fns";
 
 export interface OwnerStatementLine {
@@ -94,8 +95,15 @@ export async function buildOwnerStatements(
         unit:          tenant.unit.unitNumber,
         unitType:      tenant.unit.type,
         // Rent that applied in the STATEMENT month (statements are often
-        // generated for past periods), resolved from RentHistory.
-        rentExpected:  resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent, from),
+        // generated for past periods), resolved from RentHistory and the
+        // tenant's payment schedule — quarterly/biannual/annual payers owe
+        // the full period amount on billing months and 0 in between.
+        rentExpected:  scheduledExpectedForMonth({
+          leaseStart: tenant.leaseStart,
+          frequency: tenant.paymentFrequency,
+          month: from,
+          rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent, m),
+        }).amount,
         rentReceived,
         serviceCharge: svcReceived,
         otherIncome,

@@ -12,6 +12,7 @@ import { getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
+import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
@@ -272,17 +273,32 @@ function buildLedger(tenant: any, incomeEntries: any[]) {
     });
     const received = payments.reduce((s: number, e: any) => s + e.grossAmount, 0);
     // Expected rent is resolved per month from the RentHistory timeline so
-    // past months reflect the rent that applied THEN, not today's rate.
+    // past months reflect the rent that applied THEN, not today's rate, and
+    // follows the payment schedule: quarterly/biannual/annual payers owe the
+    // FULL period amount (rent + service charge) on billing months only.
+    const sched = scheduledExpectedForMonth({
+      leaseStart: tenant.leaseStart,
+      frequency: tenant.paymentFrequency,
+      month: monthDate,
+      rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+    });
     const expected =
-      resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, monthDate) +
-      (tenant.serviceCharge ?? 0);
+      sched.amount +
+      (sched.due ? (tenant.serviceCharge ?? 0) * frequencyMonths(tenant.paymentFrequency) : 0);
     rows.push({ monthLabel: format(monthDate, "MMM yyyy"), monthDate, expected, received, payments });
   }
+  // Drop filler months (nothing due, nothing received) so a period payer's
+  // ledger shows one row per billing period; they contribute nothing to the
+  // allocation pot, so filtering before allocation is safe.
+  const ledgerRows =
+    frequencyMonths(tenant.paymentFrequency) > 1
+      ? rows.filter((r) => r.expected > 0 || r.received > 0)
+      : rows;
   // Statement-style allocation: receipts pool and cover months oldest-first,
   // so a quarterly/annual prepayment covers the following months instead of
   // showing them Unpaid, and a late catch-up clears older months.
-  const allocated = allocatePayments(rows);
-  return rows.map((r, i) => ({ ...r, ...allocated[i] })).reverse();
+  const allocated = allocatePayments(ledgerRows);
+  return ledgerRows.map((r, i) => ({ ...r, ...allocated[i] })).reverse();
 }
 
 type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages";

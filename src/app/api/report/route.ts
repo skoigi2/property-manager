@@ -4,7 +4,8 @@ import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { getMonthRange, getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { calcUnitSummary, calcPettyCashTotal, RIARA_MGMT_FEE } from "@/lib/calculations";
-import { resolveExpectedRent, resolveExpectedRentForRange } from "@/lib/rent-resolution";
+import { resolveExpectedRent } from "@/lib/rent-resolution";
+import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
@@ -94,18 +95,27 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
 
   // Rent collection — expected rent resolved for the REPORT month, so past
   // months use the rent that applied then (RentHistory), not today's rate.
+  // Schedule-aware: quarterly/biannual/annual payers owe the FULL period
+  // amount on billing months (anchored to lease start) and 0 in between.
   const rentCollection = riaraTenants.map((t) => {
     const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
-    const expectedRent = resolveExpectedRent(t.rentHistory, t.monthlyRent, from);
+    const sched = scheduledExpectedForMonth({
+      leaseStart: t.leaseStart,
+      frequency: t.paymentFrequency,
+      month: from,
+      rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
+    });
+    const expectedRent  = sched.amount;
+    const serviceCharge = sched.due ? t.serviceCharge * frequencyMonths(t.paymentFrequency) : 0;
     return {
       tenantName:    t.name,
       unit:          t.unit.unitNumber,
       type:          t.unit.type,
       expectedRent,
-      serviceCharge: t.serviceCharge,
+      serviceCharge,
       received,
-      variance:      received - (expectedRent + t.serviceCharge),
+      variance:      received - (expectedRent + serviceCharge),
       status:        getLeaseStatus(t.leaseEnd),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };
@@ -305,18 +315,31 @@ async function buildRangeReportData(
 
   // Rent collection — expected summed per month across the period, resolving
   // each month's rent from RentHistory (an escalation mid-period is respected).
+  // Schedule-aware: only billing months (per the tenant's payment cadence)
+  // contribute expected rent + service charge to the period total.
   const rentCollection = riaraTenants.map((t) => {
     const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
-    const expectedRent = resolveExpectedRentForRange(t.rentHistory, t.monthlyRent, from, monthsMult);
+    let expectedRent  = 0;
+    let serviceCharge = 0;
+    for (let i = 0; i < monthsMult; i++) {
+      const sched = scheduledExpectedForMonth({
+        leaseStart: t.leaseStart,
+        frequency: t.paymentFrequency,
+        month: new Date(from.getFullYear(), from.getMonth() + i, 1),
+        rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
+      });
+      expectedRent += sched.amount;
+      if (sched.due) serviceCharge += t.serviceCharge * frequencyMonths(t.paymentFrequency);
+    }
     return {
       tenantName:    t.name,
       unit:          t.unit.unitNumber,
       type:          t.unit.type,
       expectedRent,
-      serviceCharge: t.serviceCharge * monthsMult,
+      serviceCharge,
       received,
-      variance:      received - (expectedRent + t.serviceCharge * monthsMult),
+      variance:      received - (expectedRent + serviceCharge),
       status:        getLeaseStatus(t.leaseEnd),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };

@@ -4,7 +4,7 @@ import { getMonthRange, daysUntilExpiry, getLeaseStatus } from "@/lib/date-utils
 import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
-import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
+import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { getDaysInMonth } from "date-fns";
 
 export async function GET(req: Request) {
@@ -215,14 +215,25 @@ export async function GET(req: Request) {
             })
             .reduce((s, e) => s + e.grossAmount, 0);
           rawMonths.push({
-            expected: resolveExpectedRent(t.rentHistory, t.monthlyRent ?? 0, cursor),
+            // Schedule-aware: quarterly/biannual/annual payers owe the FULL
+            // period amount on billing months (anchored to lease start) and
+            // nothing in between — matching the collection view + invoicing.
+            expected: scheduledExpectedForMonth({
+              leaseStart: t.leaseStart,
+              frequency: t.paymentFrequency,
+              month: cursor,
+              rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent ?? 0, m),
+            }).amount,
             received: paid,
           });
           cursor = new Date(yr, mo + 1, 1);
         }
         const allocations = allocatePayments(rawMonths);
         const totalArrears = allocations.reduce((s, a) => s + a.shortfall, 0);
-        const monthsUnpaid = allocations.filter((a) => a.shortfall > 0).length;
+        // Month-equivalents so one unpaid annual billing period reads as 12
+        // months, not 1 (which the <= 1 gate below would silently drop).
+        const monthsUnpaid =
+          allocations.filter((a) => a.shortfall > 0).length * frequencyMonths(t.paymentFrequency);
 
         if (monthsUnpaid <= 1) return null; // single-month covered by noRentAlerts
         return {

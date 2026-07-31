@@ -5,6 +5,7 @@ import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { calcPropertyManagementFee } from "@/lib/management-fee";
 import { getDaysInMonth } from "date-fns";
 
 export async function GET(req: Request) {
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
       pettyCash,
       allRentEntries,
       feeConfigs,
+      agreements,
     ] = await Promise.all([
       prisma.property.findMany({
         where: { id: { in: propertyIds } },
@@ -125,6 +127,11 @@ export async function GET(req: Request) {
           effectiveFrom: { lte: to },
           OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }],
         },
+      }),
+      // Agreement fee rates — part of the shared fee-precedence chain
+      prisma.managementAgreement.findMany({
+        where: { propertyId: { in: propertyIds } },
+        select: { propertyId: true, managementFeeRate: true },
       }),
     ]);
 
@@ -341,14 +348,22 @@ export async function GET(req: Request) {
         return acc;
       }, {});
 
-    // Management fee reconciliation — feeConfigs already loaded above
-    const mgmtFeeOwing =
-      longtermTenants.reduce((s, t) => {
-        const cfg = feeConfigs.find((c) => c.unitId === t.unitId);
-        if (!cfg) return s;
-        return s + (cfg.flatAmount ?? (cfg.ratePercent / 100) * t.monthlyRent);
-      }, 0) +
-      airbnbRevenue.reduce((s, u) => s + u.grossIncome * 0.1, 0);
+    // Management fee reconciliation — derived per property from real
+    // configuration (per-unit config → property rate/flat → agreement rate
+    // → 0), same precedence as statements/reports/invoicing. A property with
+    // no fee arrangement owes nothing — no hardcoded 10%.
+    const mgmtFeeOwing = properties.reduce((total, p) => {
+      const unitIds = new Set(p.units.map((u) => u.id));
+      const propIncome = incomeEntries.filter((e) => e.unitId && unitIds.has(e.unitId));
+      return total + calcPropertyManagementFee({
+        tenants: tenants.filter((t) => unitIds.has(t.unitId)),
+        feeConfigs: feeConfigs.filter((c) => unitIds.has(c.unitId)),
+        propertyRatePercent: p.managementFeeRate,
+        propertyFlatAmount: p.managementFeeFlat,
+        agreementRatePercent: agreements.find((a) => a.propertyId === p.id)?.managementFeeRate,
+        grossIncome: propIncome.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+      });
+    }, 0);
 
     const mgmtFeePaid = expenseEntries
       .filter((e) => e.category === "MANAGEMENT_FEE")

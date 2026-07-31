@@ -14,6 +14,7 @@ import { Header } from "@/components/layout/Header";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { useSharedMonth } from "@/lib/use-shared-month";
+import { TbcDateFix } from "@/components/tenants/TbcDateFix";
 
 // recharts is ~200 KB gzipped — keep it out of the initial dashboard chunk so
 // the KPI cards render before the chart bundle is parsed.
@@ -33,12 +34,22 @@ import { clsx } from "clsx";
 
 // ── Action Card ────────────────────────────────────────────────────────────────
 
-function ActionCard({ icon, title, severity, lines, href }: {
+interface ActionCardItem {
+  key: string;
+  label: string;
+  /** Per-item deep link (e.g. a tenant's Renewal tab). */
+  href?: string;
+  /** Inline atomic action (e.g. the TBC lease-end date fix). */
+  inline?: React.ReactNode;
+}
+
+function ActionCard({ icon, title, severity, lines, href, items }: {
   icon: React.ReactNode;
   title: string;
   severity: "red" | "amber" | "green";
   lines: string[];
   href: string;
+  items?: ActionCardItem[];
 }) {
   const c = {
     red:   { border: "border-red-200",   bg: "bg-red-50/50",   iconColor: "text-red-500",   chevron: "text-red-300"   },
@@ -46,20 +57,40 @@ function ActionCard({ icon, title, severity, lines, href }: {
     green: { border: "border-green-100", bg: "bg-green-50/30", iconColor: "text-green-500", chevron: "text-green-300" },
   }[severity];
 
+  // The card header is the section link; per-item rows carry their own deep
+  // links / inline actions, so the card can't be one big <Link> anymore.
   return (
-    <Link
-      href={href}
-      className={`flex items-start gap-3 rounded-xl border ${c.border} ${c.bg} p-4 hover:shadow-sm transition-shadow`}
-    >
-      <div className={`shrink-0 mt-0.5 ${c.iconColor}`}>{icon}</div>
-      <div className="flex-1 min-w-0">
-        <p className=" font-semibold text-body text-header">{title}</p>
-        {lines.map((line, i) => (
-          <p key={i} className="text-caption text-gray-500 mt-0.5 ">{line}</p>
-        ))}
-      </div>
-      <ChevronRight size={14} className={`${c.chevron} shrink-0 mt-1`} />
-    </Link>
+    <div className={`rounded-xl border ${c.border} ${c.bg} hover:shadow-sm transition-shadow`}>
+      <Link href={href} className="flex items-start gap-3 p-4">
+        <div className={`shrink-0 mt-0.5 ${c.iconColor}`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+          <p className=" font-semibold text-body text-header">{title}</p>
+          {lines.map((line, i) => (
+            <p key={i} className="text-caption text-gray-500 mt-0.5 ">{line}</p>
+          ))}
+        </div>
+        <ChevronRight size={14} className={`${c.chevron} shrink-0 mt-1`} />
+      </Link>
+      {items && items.length > 0 && (
+        <div className="border-t border-black/5 px-4 py-2 space-y-1.5">
+          {items.map((it) => (
+            <div key={it.key} className="flex items-center justify-between gap-2 flex-wrap">
+              {it.href ? (
+                <Link
+                  href={it.href}
+                  className="text-caption text-gray-600 hover:text-header hover:underline underline-offset-2 truncate min-w-0"
+                >
+                  {it.label}
+                </Link>
+              ) : (
+                <span className="text-caption text-gray-600 truncate min-w-0">{it.label}</span>
+              )}
+              {it.inline}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -82,7 +113,7 @@ export default function DashboardPage() {
   // scope. Switching either reads a different cache slot, so going back to a
   // previously-visited combination is instant.
   const cacheScope = `${month.getFullYear()}-${month.getMonth() + 1}:${selectedId ?? "all"}`;
-  const { data, loading, error, refresh } = useCachedFetch<any>(`dashboard:${cacheScope}`, `/api/dashboard?${params}`);
+  const { data, setData, loading, error, refresh } = useCachedFetch<any>(`dashboard:${cacheScope}`, `/api/dashboard?${params}`);
   const { data: opsData, loading: opsLoading } = useCachedFetch<any>(`dashboard-ops:${cacheScope}`, `/api/dashboard/ops?${params}`);
 
   // Portfolio mode gets a combined "All properties" pseudo-tab (default) ahead
@@ -121,10 +152,13 @@ export default function DashboardPage() {
   const arrears        = opsData?.arrearsSummary     ?? { openCases: 0, totalOwed: 0, escalated: 0 };
   const invSum         = opsData?.invoiceSummary     ?? { count: 0, amount: 0 };
 
+  const ledgerArrearsCount = data?.alerts?.arrearsAlerts?.length ?? 0;
   const leaseSev   = criticalLeases > 0 ? "red" : (warningLeases > 0 || tbcLeases > 0) ? "amber" : "green";
   const rentSev    = (noRentCount > 0 || invSum.count > 0) ? "amber" : "green";
   const maintSev   = maint.urgent > 0 ? "red" : (maint.high > 0 || maint.open > 0) ? "amber" : "green";
-  const arrearsSev = arrears.escalated > 0 ? "red" : arrears.openCases > 0 ? "amber" : "green";
+  // Ledger debtors (multi-period arrears without an opened case) count too —
+  // otherwise the card sits green while tenants owe months of rent.
+  const arrearsSev = arrears.escalated > 0 ? "red" : (arrears.openCases > 0 || ledgerArrearsCount > 0) ? "amber" : "green";
   const allClear   = leaseSev === "green" && rentSev === "green" && maintSev === "green" && arrearsSev === "green";
 
   const leaseLines = criticalLeases === 0 && warningLeases === 0 && tbcLeases === 0
@@ -149,13 +183,77 @@ export default function DashboardPage() {
         `${maint.open} job${maint.open > 1 ? "s" : ""} total open`,
       ];
 
-  const arrearsLines = arrears.openCases === 0
+  const arrearsLines = arrears.openCases === 0 && ledgerArrearsCount === 0
     ? ["No active arrears cases"]
     : [
-        `${arrears.openCases} active case${arrears.openCases > 1 ? "s" : ""}`,
+        ...(arrears.openCases > 0 ? [`${arrears.openCases} active case${arrears.openCases > 1 ? "s" : ""}`] : []),
+        ...(ledgerArrearsCount > 0 ? [`${ledgerArrearsCount} tenant${ledgerArrearsCount > 1 ? "s" : ""} in multi-period arrears`] : []),
         ...(arrears.escalated > 0 ? [`${arrears.escalated} escalated to legal/eviction`] : []),
         ...(arrears.totalOwed > 0 ? [`${formatCurrency(arrears.totalOwed, currency)} total owed`] : []),
       ];
+
+  // Per-item rows under the cards: each lease alert deep-links to the
+  // tenant's Renewal tab; TBC rows get the inline lease-end fix (removing the
+  // row from the cached alert list on save, no refetch needed).
+  const ITEM_CAP = 5;
+  const leaseAlertList: any[] = data?.alerts?.leaseAlerts ?? [];
+  const sortedLeaseAlerts = [...leaseAlertList].sort((a, b) => {
+    const rank = (s: string) => (s === "CRITICAL" ? 0 : s === "TBC" ? 1 : 2);
+    return rank(a.status) - rank(b.status);
+  });
+  const leaseItems: any[] = sortedLeaseAlerts.slice(0, ITEM_CAP).map((a: any) => ({
+    key: `${a.tenantId}-${a.unitNumber}`,
+    label: `${a.tenantName} (${a.unitNumber}) — ${
+      a.status === "TBC" ? "no end date" : a.status === "CRITICAL" ? "expired" : `${a.days}d left`
+    }`,
+    ...(a.status === "TBC"
+      ? {
+          inline: (
+            <TbcDateFix
+              tenantId={a.tenantId}
+              onSaved={() =>
+                setData((prev: any) =>
+                  prev
+                    ? {
+                        ...prev,
+                        alerts: {
+                          ...prev.alerts,
+                          leaseAlerts: (prev.alerts?.leaseAlerts ?? []).filter(
+                            (x: any) => x.tenantId !== a.tenantId,
+                          ),
+                        },
+                      }
+                    : prev,
+                )
+              }
+            />
+          ),
+        }
+      : { href: `/tenants/${a.tenantId}?tab=renewal` }),
+  }));
+  if (sortedLeaseAlerts.length > ITEM_CAP) {
+    leaseItems.push({
+      key: "lease-more",
+      label: `+${sortedLeaseAlerts.length - ITEM_CAP} more…`,
+      href: "/tenants",
+    });
+  }
+
+  // Ledger arrears (multi-period debtors) deep-link into the Income page's
+  // Arrears view; the card header keeps linking to /arrears (cases).
+  const arrearsAlertList: any[] = data?.alerts?.arrearsAlerts ?? [];
+  const arrearsItems: any[] = arrearsAlertList.slice(0, ITEM_CAP).map((a: any) => ({
+    key: a.tenantId,
+    label: `${a.tenantName} (${a.unitNumber}) — ${a.monthsUnpaid}mo · ${formatCurrency(a.totalArrears, currency)}`,
+    href: "/income?view=arrears",
+  }));
+  if (arrearsAlertList.length > ITEM_CAP) {
+    arrearsItems.push({
+      key: "arrears-more",
+      label: `+${arrearsAlertList.length - ITEM_CAP} more…`,
+      href: "/income?view=arrears",
+    });
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -275,6 +373,7 @@ export default function DashboardPage() {
                     severity={leaseSev as "red" | "amber" | "green"}
                     lines={leaseLines}
                     href="/tenants"
+                    items={leaseItems}
                   />
                   <ActionCard
                     icon={<ScrollText size={18} />}
@@ -296,6 +395,7 @@ export default function DashboardPage() {
                     severity={arrearsSev as "red" | "amber" | "green"}
                     lines={arrearsLines}
                     href="/arrears"
+                    items={arrearsItems}
                   />
                 </div>
               )}

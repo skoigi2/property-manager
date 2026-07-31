@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -80,9 +81,13 @@ export default function IncomePage() {
   const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
 
-  // Tab & collection mode
+  // Tab & collection mode. ?view=arrears deep-links straight into the
+  // Arrears sub-view (used by the dashboard's arrears alerts).
+  const searchParams = useSearchParams();
   const [tab, setTab]                         = useState<Tab>("collection");
-  const [collectionMode, setCollectionMode]   = useState<CollectionMode>("monthly");
+  const [collectionMode, setCollectionMode]   = useState<CollectionMode>(
+    searchParams.get("view") === "arrears" ? "arrears" : "monthly",
+  );
   const [expandedRows, setExpandedRows]       = useState<Set<string>>(new Set());
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 

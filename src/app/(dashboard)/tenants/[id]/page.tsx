@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -278,6 +278,7 @@ interface Invoice {
 // page's arrears conventions.
 
 type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages";
+const VALID_TABS: Tab[] = ["ledger", "invoices", "documents", "renewal", "deposit", "history", "comms", "messages"];
 
 export default function TenantDetailPage() {
   const canLifecycle = usePermissions().can("TENANT_LIFECYCLE");
@@ -296,7 +297,13 @@ export default function TenantDetailPage() {
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
-  const [tab,       setTab]       = useState<Tab>("ledger");
+  // Deep-linkable tab: /tenants/[id]?tab=renewal lands directly on that tab
+  // (used by the lease-attention banner; safe fallback for unknown values).
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab") as Tab | null;
+  const [tab,       setTab]       = useState<Tab>(
+    requestedTab && VALID_TABS.includes(requestedTab) ? requestedTab : "ledger",
+  );
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [proofInvoiceId, setProofInvoiceId] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);

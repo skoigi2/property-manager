@@ -122,15 +122,34 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const parsed = z.object({ chargeLatePenalty: z.boolean() }).safeParse(body);
+  // Partial update: interest toggle (income page) or a quick lease-end fix
+  // (the "Lease date TBC" inline action on the tenants banner).
+  const parsed = z
+    .object({
+      chargeLatePenalty: z.boolean().optional(),
+      leaseEnd: z.string().min(1).optional(),
+    })
+    .safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  if (parsed.data.chargeLatePenalty === undefined && parsed.data.leaseEnd === undefined) {
+    return Response.json({ error: "Nothing to update" }, { status: 400 });
+  }
+  const leaseEndDate = parsed.data.leaseEnd ? new Date(parsed.data.leaseEnd) : undefined;
+  if (leaseEndDate && isNaN(leaseEndDate.getTime())) {
+    return Response.json({ error: "Invalid lease end date" }, { status: 400 });
   }
 
   const tenant = await prisma.tenant.update({
     where: { id: params.id },
-    data:  { chargeLatePenalty: parsed.data.chargeLatePenalty },
-    select: { id: true, chargeLatePenalty: true },
+    data: {
+      ...(parsed.data.chargeLatePenalty !== undefined
+        ? { chargeLatePenalty: parsed.data.chargeLatePenalty }
+        : {}),
+      ...(leaseEndDate ? { leaseEnd: leaseEndDate } : {}),
+    },
+    select: { id: true, chargeLatePenalty: true, leaseEnd: true },
   });
 
   return Response.json(tenant);

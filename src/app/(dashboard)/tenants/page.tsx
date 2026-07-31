@@ -50,6 +50,54 @@ function isDepositUnverified(t: any): boolean {
   return !!t?.isActive && (t?.depositAmount ?? 0) > 0 && t?.depositReceived == null;
 }
 
+/** Inline lease-end quick fix for "Lease date TBC" banner rows — the one
+ *  lease action that is atomic enough to complete without leaving the page. */
+function TbcDateFix({ tenantId, onSaved }: { tenantId: string; onSaved: (leaseEnd: string) => void }) {
+  const [date, setDate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!date) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaseEnd: date }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err.error === "string" ? err.error : "Failed to save lease end date");
+      }
+      toast.success("Lease end date set");
+      onSaved(date);
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save lease end date");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <span className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="border border-amber-200 bg-white rounded-lg px-2 py-1 text-caption text-header focus:outline-none focus:ring-2 focus:ring-gold/40"
+        aria-label="Lease end date"
+      />
+      <button
+        disabled={saving || !date}
+        onClick={save}
+        className="text-caption font-medium text-white bg-gold hover:bg-gold-dark px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+      >
+        {saving ? "Saving…" : "Set date"}
+      </button>
+    </span>
+  );
+}
+
 function DepositUnverifiedBadge() {
   return (
     <span title="Deposit unverified — no receipts recorded. Click the Deposits held card above to verify.">
@@ -383,15 +431,41 @@ export default function TenantsPage() {
                 Lease Attention Required
               </h3>
             </div>
-            <div className="space-y-1">
-              {urgentTenants.map((t) => (
-                <p key={t.id} className="text-body text-amber-600 ">
-                  {t.name} ({t.unit?.unitNumber}):{" "}
-                  {getLeaseStatus(toDate(t.leaseEnd)) === "TBC"
-                    ? "Lease date TBC"
-                    : `expires ${t.leaseEnd ? formatDate(t.leaseEnd) : "unknown"}`}
-                </p>
-              ))}
+            <div className="space-y-1.5">
+              {urgentTenants.map((t) => {
+                const status = getLeaseStatus(toDate(t.leaseEnd));
+                const isTBC = status === "TBC";
+                return (
+                  <div key={t.id} className="flex items-center justify-between gap-3 flex-wrap">
+                    <Link
+                      href={`/tenants/${t.id}?tab=renewal`}
+                      className="text-body text-amber-600 hover:text-amber-800 hover:underline underline-offset-2 min-w-0"
+                    >
+                      {t.name} ({t.unit?.unitNumber}):{" "}
+                      {isTBC
+                        ? "Lease date TBC"
+                        : `expires ${t.leaseEnd ? formatDate(t.leaseEnd) : "unknown"}`}
+                    </Link>
+                    {isTBC ? (
+                      <TbcDateFix
+                        tenantId={t.id}
+                        onSaved={(leaseEnd) =>
+                          setTenants((prev) =>
+                            (prev ?? []).map((x: any) => (x.id === t.id ? { ...x, leaseEnd } : x)),
+                          )
+                        }
+                      />
+                    ) : (
+                      <Link
+                        href={`/tenants/${t.id}?tab=renewal`}
+                        className="text-caption font-medium text-amber-700 hover:text-amber-900 flex items-center gap-0.5 whitespace-nowrap shrink-0"
+                      >
+                        Renew <ChevronRight size={13} />
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Card>
         )}

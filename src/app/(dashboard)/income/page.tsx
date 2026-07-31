@@ -729,18 +729,44 @@ export default function IncomePage() {
   function handleQuickRecord(tenant: any, forMonth?: Date, amount?: number) {
     const targetMonth = forMonth ?? month;
     const dateStr = `${targetMonth.getFullYear()}-${String(targetMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    // Default amount follows the payment schedule: the target month's billed
+    // amount when it is a billing month, else one full period at the current
+    // rate (never bare monthlyRent, which shorts quarterly/annual payers).
+    let defaultAmount = amount;
+    if (defaultAmount == null) {
+      const sched = scheduledExpectedForMonth({
+        leaseStart: tenant.leaseStart,
+        frequency: tenant.paymentFrequency,
+        month: targetMonth,
+        rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+      });
+      defaultAmount = sched.due
+        ? sched.amount
+        : (tenant.monthlyRent ?? 0) * frequencyMonths(tenant.paymentFrequency);
+    }
     openFormWithDefaults(
       {
         type: "LONGTERM_RENT",
         unitId: tenant.unitId,
         tenantId: tenant.id,
-        // Billing month of a quarterly/annual plan prefills the period amount
-        grossAmount: amount ?? tenant.monthlyRent,
+        grossAmount: defaultAmount,
         date: dateStr,
       },
       forMonth,
     );
     setActiveTenant({ id: tenant.id, name: tenant.name });
+  }
+
+  // Arrears-row Record: prefill the OLDEST unpaid billing period (its month
+  // and billed amount) so an annual payer gets e.g. Jun 2014 / 150,000 —
+  // not the working month at one month's rent.
+  function handleQuickRecordArrears(tenant: any, summary: ArrearsSummary) {
+    const oldest = summary.unpaidMonths[0];
+    handleQuickRecord(
+      tenant,
+      oldest ? new Date(oldest.year, oldest.month, 1) : undefined,
+      oldest ? oldest.expected : undefined,
+    );
   }
 
   // ── Bulk selection ────────────────────────────────────────────────────────
@@ -1466,7 +1492,7 @@ export default function IncomePage() {
                             </div>
                             <div className="flex items-center gap-2">
                               {summary.hasArrears && (
-                                <Button size="sm" variant="gold" onClick={() => handleQuickRecord(tenant)}>
+                                <Button size="sm" variant="gold" onClick={() => handleQuickRecordArrears(tenant, summary)}>
                                   <Plus size={12} /> Record
                                 </Button>
                               )}
@@ -1586,7 +1612,7 @@ export default function IncomePage() {
                                         <Button
                                           size="sm"
                                           variant="gold"
-                                          onClick={() => handleQuickRecord(tenant)}
+                                          onClick={() => handleQuickRecordArrears(tenant, summary)}
                                         >
                                           <Plus size={12} /> Record
                                         </Button>

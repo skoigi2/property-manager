@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -116,11 +116,14 @@ export default function TenantsPage() {
   // Layout (persisted)
   const [layout, setLayout] = useState<LayoutMode>("grid");
 
-  // Filters
+  // Filters. ?filter=renewals deep-links the renewal pipeline (dashboard
+  // Renewals tile); ?add=1 auto-opens the Add Tenant modal (Vacant Units tile).
+  const searchParams = useSearchParams();
   const [search, setSearch]           = useState("");
   const [propFilter, setPropFilter]   = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [leaseFilter, setLeaseFilter] = useState("ALL");
+  const [renewalsOnly, setRenewalsOnly] = useState(searchParams.get("filter") === "renewals");
 
   // Sort (table view)
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -142,6 +145,12 @@ export default function TenantsPage() {
   useEffect(() => {
     const saved = localStorage.getItem("tenants-layout") as LayoutMode | null;
     if (saved === "grid" || saved === "table") setLayout(saved);
+  }, []);
+
+  // ?add=1 → open the Add Tenant modal on arrival (vacant-units deep link)
+  useEffect(() => {
+    if (searchParams.get("add") === "1") openAdd();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // useCachedFetch drives loading; reflect into the page's `loading` flag.
@@ -193,6 +202,13 @@ export default function TenantsPage() {
       list = list.filter((t) => getLeaseStatus(toDate(t.leaseEnd)) === leaseFilter);
     }
 
+    // Renewal pipeline (mirrors the dashboard tile's definition)
+    if (renewalsOnly) {
+      list = list.filter(
+        (t) => t.isActive && ["NOTICE_SENT", "TERMS_AGREED"].includes(t.renewalStage),
+      );
+    }
+
     // Sort
     list.sort((a, b) => {
       let va: string | number = "";
@@ -210,7 +226,7 @@ export default function TenantsPage() {
     });
 
     return list;
-  }, [tenants, search, propFilter, statusFilter, leaseFilter, sortKey, sortDir]);
+  }, [tenants, search, propFilter, statusFilter, leaseFilter, renewalsOnly, sortKey, sortDir]);
 
   // Org-wide deposit liability: what is actually held for active tenants.
   // depositReceived (Σ DEPOSIT receipts, from the tenants API) wins; tenants
@@ -254,6 +270,7 @@ export default function TenantsPage() {
     propFilter !== "ALL" && propFilter,
     statusFilter !== "ALL" && (statusFilter === "ACTIVE" ? "Active" : "Vacated"),
     leaseFilter !== "ALL" && ({ OK: "Active Lease", WARNING: "Expiring Soon", TBC: "Lease TBC", CRITICAL: "Expired" }[leaseFilter]),
+    renewalsOnly && "Renewal pipeline",
   ].filter(Boolean);
 
   function clearFilters() {
@@ -261,6 +278,7 @@ export default function TenantsPage() {
     setPropFilter("ALL");
     setStatusFilter("ALL");
     setLeaseFilter("ALL");
+    setRenewalsOnly(false);
   }
 
   // ── Modal helpers ──────────────────────────────────────────────────────────

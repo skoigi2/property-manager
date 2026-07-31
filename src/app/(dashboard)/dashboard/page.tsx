@@ -472,10 +472,19 @@ export default function DashboardPage() {
             </Card>
 
             {/* ── Operations Strip ──────────────────────────────────────────── */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Mgmt Fee tile only renders when a fee is actually in play —
+                a no-fee org/period would just show a meaningless "KSh 0". */}
+            <div
+              className={clsx(
+                "grid gap-3",
+                data.mgmtFeeReconciliation.owing > 0 || data.mgmtFeeReconciliation.paid > 0
+                  ? "grid-cols-3"
+                  : "grid-cols-2",
+              )}
+            >
               {/* Renewal Pipeline */}
               <Link
-                href="/tenants"
+                href="/tenants?filter=renewals"
                 className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 hover:shadow-md transition-shadow text-center"
               >
                 <RepeatIcon size={18} className="text-gold mb-1" />
@@ -493,8 +502,14 @@ export default function DashboardPage() {
                 <p className="text-caption text-gray-400 ">in pipeline</p>
               </Link>
 
-              {/* Management Fee */}
-              <div className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 text-center">
+              {/* Management Fee — links to Expenses (where the fee payment is
+                  logged); hidden entirely when no fee is configured/paid */}
+              {(data.mgmtFeeReconciliation.owing > 0 || data.mgmtFeeReconciliation.paid > 0) && (
+              <Link
+                href="/expenses"
+                title={`Owing ${formatCurrency(data.mgmtFeeReconciliation.owing, currency)} · Paid ${formatCurrency(data.mgmtFeeReconciliation.paid, currency)}`}
+                className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 hover:shadow-md transition-shadow text-center"
+              >
                 <DollarSign size={18} className="text-gold mb-1" />
                 <CurrencyDisplay
                   currency={currency}
@@ -512,10 +527,15 @@ export default function DashboardPage() {
                 )}>
                   {data.mgmtFeeReconciliation.balance >= 0 ? "settled" : "outstanding"}
                 </p>
-              </div>
+              </Link>
+              )}
 
-              {/* Vacant Units */}
-              <div className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 text-center">
+              {/* Vacant Units — one click from the count to the Add Tenant
+                  form (which lists exactly the vacant/listed units) */}
+              <Link
+                href="/tenants?add=1"
+                className="flex flex-col items-center justify-center gap-1 bg-white rounded-xl border border-gray-100 shadow-card p-4 hover:shadow-md transition-shadow text-center"
+              >
                 <Building2 size={18} className="text-gold mb-1" />
                 {opsLoading ? (
                   <Spinner size="sm" />
@@ -531,7 +551,7 @@ export default function DashboardPage() {
                 <p className="text-caption text-gray-400 ">
                   {(opsData?.vacantUnits ?? 0) === 0 ? "fully occupied" : "need tenants"}
                 </p>
-              </div>
+              </Link>
             </div>
           </>
         ) : (

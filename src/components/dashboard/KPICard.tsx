@@ -37,7 +37,8 @@ export function KPICard({ label, amount, type = "neutral", icon, subtext, curren
         </p>
         {icon && <span className="text-gray-300 shrink-0">{icon}</span>}
       </div>
-      <CurrencyDisplay currency={currency} amount={amount} className={clsx("block mt-2", textColors[type])} size="xl" />
+      {/* size lg (h2) matches the Income page KPI strip — xl reads oversized on mobile */}
+      <CurrencyDisplay currency={currency} amount={amount} className={clsx("block mt-2", textColors[type])} size="lg" />
       {subtext && <p className="text-caption text-gray-400 mt-1">{subtext}</p>}
     </div>
   );

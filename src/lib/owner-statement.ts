@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getMonthRange } from "@/lib/date-utils";
-import { RIARA_MGMT_FEE } from "@/lib/calculations";
+import { calcPropertyManagementFee } from "@/lib/management-fee";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
 import { format } from "date-fns";
@@ -52,7 +52,7 @@ export async function buildOwnerStatements(
     include: { units: true, owner: { select: { name: true, email: true } } },
   });
 
-  const [tenants, incomeEntries, expenseEntries] = await Promise.all([
+  const [tenants, incomeEntries, expenseEntries, agreements, feeConfigs] = await Promise.all([
     prisma.tenant.findMany({
       where: { unit: { propertyId: { in: targetPropertyIds } }, isActive: true },
       include: {
@@ -74,6 +74,18 @@ export async function buildOwnerStatements(
         isSunkCost: false,
       },
       include: { unit: { select: { unitNumber: true } } },
+    }),
+    prisma.managementAgreement.findMany({
+      where: { propertyId: { in: targetPropertyIds } },
+      select: { propertyId: true, managementFeeRate: true },
+    }),
+    prisma.managementFeeConfig.findMany({
+      where: {
+        unit: { propertyId: { in: targetPropertyIds } },
+        effectiveFrom: { lte: to },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }],
+      },
+      select: { unitId: true, flatAmount: true, ratePercent: true },
     }),
   ]);
 
@@ -133,14 +145,18 @@ export async function buildOwnerStatements(
 
     const grossIncome = lines.reduce((s, l) => s + l.grossTotal, 0);
 
-    // Management fee
-    let managementFee = 0;
-    if (property.type === "LONGTERM") {
-      managementFee = propTenants.reduce((s, t) => s + (RIARA_MGMT_FEE[t.unit.type] ?? 0), 0);
-    } else {
-      const airbnbGross = propIncome.filter(e => e.type !== "DEPOSIT").reduce((s,e) => s + e.grossAmount, 0);
-      managementFee = airbnbGross * 0.1;
-    }
+    // Management fee — derived from real configuration only (per-unit
+    // ManagementFeeConfig, then property-level rate/flat, then the agreement
+    // rate). A property with no fee arrangement shows NO fee.
+    const propUnitIds = new Set(property.units.map(u => u.id));
+    const managementFee = calcPropertyManagementFee({
+      tenants: propTenants.map(t => ({ unitId: t.unitId, monthlyRent: t.monthlyRent })),
+      feeConfigs: feeConfigs.filter(c => propUnitIds.has(c.unitId)),
+      propertyRatePercent: property.managementFeeRate,
+      propertyFlatAmount: property.managementFeeFlat,
+      agreementRatePercent: agreements.find(a => a.propertyId === property.id)?.managementFeeRate,
+      grossIncome: propIncome.filter(e => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+    });
 
     // Expenses (exclude management fee from P&L — already deducted above)
     const expenses = propExpenses

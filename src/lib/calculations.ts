@@ -1,5 +1,3 @@
-import type { UnitType } from "@prisma/client";
-
 // Structural input types — money fields are plain numbers (the Prisma client
 // converts Decimal columns to number at the boundary; see src/lib/prisma.ts).
 export interface PettyCashLike {
@@ -74,12 +72,6 @@ export function calcNetIncome(
     .reduce((sum, e) => sum + e.amount, 0);
   return grossIncome - commissions - operatingExpenses;
 }
-
-/** Riara One flat management fees — only defined for types used in the property */
-export const RIARA_MGMT_FEE: Partial<Record<UnitType, number>> = {
-  ONE_BED: 6000,
-  TWO_BED: 8800,
-};
 
 /** Calculate occupancy rate for Alba Gardens units */
 export function calcOccupancyRate(

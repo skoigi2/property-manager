@@ -3,7 +3,8 @@ export const maxDuration = 30;
 import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { getMonthRange, getLeaseStatus, formatDate } from "@/lib/date-utils";
-import { calcUnitSummary, calcPettyCashTotal, RIARA_MGMT_FEE } from "@/lib/calculations";
+import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
+import { calcPropertyManagementFee } from "@/lib/management-fee";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { generateReportPDF } from "@/lib/pdf-generator";
@@ -38,7 +39,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const { from, to } = getMonthRange(y, m);
   const periodLabel = format(from, "MMMM yyyy");
 
-  const [properties, tenants, incomeEntries, expenseEntries, pettyCash] = await Promise.all([
+  const [properties, tenants, incomeEntries, expenseEntries, pettyCash, agreements, feeConfigs] = await Promise.all([
     prisma.property.findMany({
       where: { id: { in: propertyIds } },
       include: {
@@ -73,6 +74,18 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
       },
     }),
     prisma.pettyCash.findMany({ where: { propertyId: { in: propertyIds } }, orderBy: { date: "asc" } }),
+    prisma.managementAgreement.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { propertyId: true, managementFeeRate: true },
+    }),
+    prisma.managementFeeConfig.findMany({
+      where: {
+        unit: { propertyId: { in: propertyIds } },
+        effectiveFrom: { lte: to },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }],
+      },
+      select: { unitId: true, flatAmount: true, ratePercent: true },
+    }),
   ]);
 
   const grossIncome       = incomeEntries.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0);
@@ -160,13 +173,21 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const pcIn  = pettyCash.filter((e) => e.type === "IN").reduce((s, e) => s + e.amount, 0);
   const pcOut = pettyCash.filter((e) => e.type === "OUT").reduce((s, e) => s + e.amount, 0);
 
-  // Management fee
-  const mgmtOwing =
-    riaraTenants.reduce((s, t) => s + (RIARA_MGMT_FEE[t.unit.type] ?? 0), 0) +
-    albaUnits.reduce((s, unit) => {
-      const unitIncome = incomeEntries.filter((e) => e.unitId === unit.id);
-      return s + unitIncome.reduce((sum, e) => sum + e.grossAmount, 0) * 0.1;
-    }, 0);
+  // Management fee — derived per property from real configuration (per-unit
+  // ManagementFeeConfig → property rate/flat → agreement rate → 0). A
+  // property with no fee arrangement contributes nothing.
+  const mgmtOwing = properties.reduce((total, p) => {
+    const unitIds = new Set(p.units.map((u) => u.id));
+    const propIncome = incomeEntries.filter((e) => unitIds.has(e.unitId));
+    return total + calcPropertyManagementFee({
+      tenants: tenants.filter((t) => unitIds.has(t.unitId)),
+      feeConfigs: feeConfigs.filter((c) => unitIds.has(c.unitId)),
+      propertyRatePercent: p.managementFeeRate,
+      propertyFlatAmount: p.managementFeeFlat,
+      agreementRatePercent: agreements.find((a) => a.propertyId === p.id)?.managementFeeRate,
+      grossIncome: propIncome.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+    });
+  }, 0);
   const mgmtPaid = expenseEntries
     .filter((e) => e.category === "MANAGEMENT_FEE")
     .reduce((s, e) => s + e.amount, 0);
@@ -258,7 +279,7 @@ async function buildRangeReportData(
   session: any,
   propertyIds: string[],
 ): Promise<ReportData> {
-  const [properties, tenants, incomeEntries, expenseEntries, pettyCash] = await Promise.all([
+  const [properties, tenants, incomeEntries, expenseEntries, pettyCash, agreements, feeConfigs] = await Promise.all([
     prisma.property.findMany({
       where: { id: { in: propertyIds } },
       include: {
@@ -293,6 +314,18 @@ async function buildRangeReportData(
       },
     }),
     prisma.pettyCash.findMany({ where: { propertyId: { in: propertyIds } }, orderBy: { date: "asc" } }),
+    prisma.managementAgreement.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { propertyId: true, managementFeeRate: true },
+    }),
+    prisma.managementFeeConfig.findMany({
+      where: {
+        unit: { propertyId: { in: propertyIds } },
+        effectiveFrom: { lte: to },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }],
+      },
+      select: { unitId: true, flatAmount: true, ratePercent: true },
+    }),
   ]);
 
   const grossIncome      = incomeEntries.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0);
@@ -376,13 +409,22 @@ async function buildRangeReportData(
   const pcIn  = pettyCash.filter((e) => e.type === "IN").reduce((s, e) => s + e.amount, 0);
   const pcOut = pettyCash.filter((e) => e.type === "OUT").reduce((s, e) => s + e.amount, 0);
 
-  // Management fee — Riara flat rate scaled across the period
-  const mgmtOwing =
-    riaraTenants.reduce((s, t) => s + (RIARA_MGMT_FEE[t.unit.type] ?? 0), 0) * monthsMult +
-    albaUnitsQ.reduce((s, unit) => {
-      const unitIncome = incomeEntries.filter((e) => e.unitId === unit.id);
-      return s + unitIncome.reduce((sum, e) => sum + e.grossAmount, 0) * 0.1;
-    }, 0);
+  // Management fee — derived per property from real configuration (per-unit
+  // ManagementFeeConfig → property rate/flat → agreement rate → 0), with
+  // flat/per-unit fees scaled across the period. No fee arrangement = no fee.
+  const mgmtOwing = properties.reduce((total, p) => {
+    const unitIds = new Set(p.units.map((u) => u.id));
+    const propIncome = incomeEntries.filter((e) => unitIds.has(e.unitId));
+    return total + calcPropertyManagementFee({
+      tenants: tenants.filter((t) => unitIds.has(t.unitId)),
+      feeConfigs: feeConfigs.filter((c) => unitIds.has(c.unitId)),
+      propertyRatePercent: p.managementFeeRate,
+      propertyFlatAmount: p.managementFeeFlat,
+      agreementRatePercent: agreements.find((a) => a.propertyId === p.id)?.managementFeeRate,
+      grossIncome: propIncome.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+      monthsMult,
+    });
+  }, 0);
   const mgmtPaid = expenseEntries.filter((e) => e.category === "MANAGEMENT_FEE").reduce((s, e) => s + e.amount, 0);
 
   // Vendor spend

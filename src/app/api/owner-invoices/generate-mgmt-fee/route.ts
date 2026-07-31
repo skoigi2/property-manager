@@ -52,11 +52,11 @@ export async function POST(req: Request) {
   const [property, agreement, activeTenants, feeConfigs, incomeAgg] = await Promise.all([
     prisma.property.findUnique({
       where: { id: propertyId },
-      select: { type: true, ownerId: true, currency: true },
+      select: { type: true, ownerId: true, currency: true, managementFeeRate: true, managementFeeFlat: true },
     }),
     prisma.managementAgreement.findUnique({
       where: { propertyId },
-      select: { mgmtFeeInvoiceDay: true },
+      select: { mgmtFeeInvoiceDay: true, managementFeeRate: true },
     }),
     prisma.tenant.findMany({
       where: { isActive: true, unit: { propertyId } },
@@ -86,7 +86,11 @@ export async function POST(req: Request) {
   const label = `${MONTH_NAMES[periodMonth - 1]} ${periodYear}`;
   const lineItems: { description: string; amount: number; unitId: null; tenantId: null; incomeType: string }[] = [];
 
-  if (property.type === "LONGTERM") {
+  // Fee precedence mirrors calcPropertyManagementFee (src/lib/management-fee.ts):
+  // per-unit ManagementFeeConfig lines first; else the property's rate/flat;
+  // else the agreement rate. No configuration → no line items → 400 below.
+  // "No management fee" is a first-class state — nothing is hardcoded.
+  if (feeConfigs.length > 0) {
     for (const t of activeTenants) {
       const cfg = feeConfigs.find((c) => c.unitId === t.unitId);
       if (!cfg) continue;
@@ -97,15 +101,38 @@ export async function POST(req: Request) {
       lineItems.push({ description: desc, amount, unitId: null, tenantId: null, incomeType: "OTHER" });
     }
   } else {
-    // AIRBNB — 10% of gross income
-    const amount = grossIncome * 0.1;
-    lineItems.push({
-      description: `Management Fee — ${label} (10% \u00d7 ${formatCurrency(grossIncome, property!.currency ?? "USD")} gross income)`,
-      amount,
-      unitId: null,
-      tenantId: null,
-      incomeType: "OTHER",
-    });
+    const propertyRate =
+      property.managementFeeRate != null && property.managementFeeRate > 0
+        ? property.managementFeeRate
+        : null;
+    const propertyFlat =
+      propertyRate == null && property.managementFeeFlat != null && property.managementFeeFlat > 0
+        ? property.managementFeeFlat
+        : null;
+    const agreementRate =
+      propertyRate == null && propertyFlat == null &&
+      agreement?.managementFeeRate != null && agreement.managementFeeRate > 0
+        ? agreement.managementFeeRate
+        : null;
+    const rate = propertyRate ?? agreementRate;
+
+    if (rate != null) {
+      lineItems.push({
+        description: `Management Fee — ${label} (${rate}% \u00d7 ${formatCurrency(grossIncome, property!.currency ?? "USD")} gross income)`,
+        amount: (rate / 100) * grossIncome,
+        unitId: null,
+        tenantId: null,
+        incomeType: "OTHER",
+      });
+    } else if (propertyFlat != null) {
+      lineItems.push({
+        description: `Management Fee — ${label} (flat)`,
+        amount: propertyFlat,
+        unitId: null,
+        tenantId: null,
+        incomeType: "OTHER",
+      });
+    }
   }
 
   const mgmtFeeSubtotal = lineItems.reduce((s, i) => s + i.amount, 0);

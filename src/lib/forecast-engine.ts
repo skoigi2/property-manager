@@ -14,6 +14,7 @@ import type {
   RentBreakdownItem,
   ExpenseBreakdownItem,
 } from "@/types/forecast";
+import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 
 // ── Minimal shapes (only fields we need) ────────────────────────────────────
 
@@ -28,6 +29,7 @@ interface TenantInput {
   renewalStage: string;
   proposedRent: number | null;
   proposedLeaseEnd: Date | null;
+  paymentFrequency?: string | null;
   unit: {
     unitNumber: string;
     property: { id: string; name: string };
@@ -159,13 +161,26 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
     // ── RENT ────────────────────────────────────────────────────────────────
     for (const tenant of tenants) {
       let effectiveLeaseEnd = tenant.leaseEnd;
-      let effectiveRent = getEscalatedRent(tenant, monthStart);
       let isRenewalProjection = false;
 
-      // TERMS_AGREED: extend effective end and optionally use proposedRent
+      // Per-month rent resolver: escalation, with the TERMS_AGREED renewal
+      // override applied for months past the current lease end.
+      const rentAt = (m: Date): number => {
+        if (
+          tenant.renewalStage === "TERMS_AGREED" &&
+          tenant.proposedLeaseEnd &&
+          tenant.leaseEnd &&
+          m > tenant.leaseEnd &&
+          tenant.proposedRent != null
+        ) {
+          return tenant.proposedRent;
+        }
+        return getEscalatedRent(tenant, m);
+      };
+
+      // TERMS_AGREED: extend effective end and flag renewal-rate months
       if (tenant.renewalStage === "TERMS_AGREED" && tenant.proposedLeaseEnd) {
         if (tenant.leaseEnd && monthStart > tenant.leaseEnd && tenant.proposedRent != null) {
-          effectiveRent = tenant.proposedRent;
           isRenewalProjection = true;
         }
         effectiveLeaseEnd = tenant.proposedLeaseEnd;
@@ -176,6 +191,18 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
         continue;
       }
 
+      // Payment-schedule aware: quarterly/biannual/annual payers produce ONE
+      // full-period inflow on billing months (anchored to lease start) and
+      // nothing in between — cash forecasting must show the spike, not a
+      // smooth monthly average that never actually lands in the account.
+      const sched = scheduledExpectedForMonth({
+        leaseStart: tenant.leaseStart,
+        frequency: tenant.paymentFrequency,
+        month: monthStart,
+        rentForMonth: rentAt,
+      });
+      if (!sched.due) continue;
+
       const isLastMonth =
         effectiveLeaseEnd !== null && isSameMonth(effectiveLeaseEnd, monthStart);
 
@@ -184,8 +211,8 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
         tenantName: tenant.name,
         unitNumber: tenant.unit.unitNumber,
         propertyName: tenant.unit.property.name,
-        rent: effectiveRent,
-        serviceCharge: tenant.serviceCharge,
+        rent: sched.amount,
+        serviceCharge: tenant.serviceCharge * frequencyMonths(tenant.paymentFrequency),
         isLastMonth,
         isRenewalProjection,
       });

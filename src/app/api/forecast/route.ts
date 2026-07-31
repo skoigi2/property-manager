@@ -44,6 +44,7 @@ export async function GET(req: Request) {
           renewalStage: true,
           proposedRent: true,
           proposedLeaseEnd: true,
+          paymentFrequency: true,
           unit: {
             select: {
               unitNumber: true,

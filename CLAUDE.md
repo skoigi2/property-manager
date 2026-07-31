@@ -237,7 +237,7 @@ Three properties are seeded:
 
 - **Currency**: use `formatCurrency(amount, currency)` from `src/lib/currency.ts` — supports KES, USD, GBP, EUR, TZS, UGX, ZAR, AED, INR, CHF. `formatKSh()` is kept for backward compat (defaults to KES) — prefer `formatCurrency` for new code that receives a currency string
 - **Colours**: `text-income` (green), `text-expense` (red), `text-gold` / `text-gold-dark` — defined in `tailwind.config.ts`
-- **Fonts**: `font-display` (DM Serif Display), `font-mono` (DM Mono), `font-sans` (DM Sans)
+- **Fonts**: Inter for everything (`font-sans`, body default — never re-declare it). `font-display` (DM Serif Display) is the **logo wordmark only**; `font-mono` is a system stack for API keys/tokens/reference codes only — never money. See the Typography section below.
 - **Badge variants**: `"green" | "red" | "amber" | "gray" | "gold" | "blue"` — no `"purple"` or `"yellow"`
 - **CurrencyDisplay sizes**: `"sm" | "md" | "lg" | "xl"` — no `"base"`
 - Pages use `<Header>` + `<div className="page-container">` shell from the dashboard layout
@@ -251,6 +251,19 @@ Three properties are seeded:
 - **HelpTip**: `<HelpTip text="..." position="above|below" />` (`src/components/ui/HelpTip.tsx`) — small ℹ icon that shows a dark tooltip on hover. Default position is `"above"`; use `"below"` for elements near the top of the page (KPI cards, summary strips). Render inside label rows as `<span className="flex items-center gap-1.5"><span>Label</span><HelpTip text="..." /></span>`. The `Input`, `Select`, and `VendorSelect` components accept a `tooltip` prop that wires this up automatically.
 - **Mobile table pattern**: pages with data tables use `md:hidden` stacked card list + `hidden md:block overflow-x-auto` desktop table. The `<main>` in `src/app/(dashboard)/layout.tsx` carries `overflow-x-hidden` to prevent any overflowing child from creating a page-level horizontal scroll (which shifts the fixed bottom nav). `MobileNav` bar items require `min-w-0` on each flex child and `truncate w-full` on each label `<span>` to prevent long labels pushing items off-screen on narrow devices.
 - Components are organised under `src/components/` by feature: `dashboard/`, `expenses/`, `forecast/`, `guests/`, `income/`, `landing/` (marketing-page sections like MarketingHero / InboxMock / SpreadsheetComparison / Pricing — used by `(marketing)/page.tsx`), `layout/`, `petty-cash/`, `report/`, `settings/`, `tenants/`, `ui/`
+
+### Typography
+
+Single token scale, defined as `fontSize` tuples in `tailwind.config.ts` (size + line height + letter-spacing + default weight baked in). **Stock Tailwind sizes are removed from the theme** — `text-sm`, `text-2xl`, `text-[13px]` etc. do not compile; use only these 8 tokens:
+
+`text-display` (48, marketing hero desktop) · `text-h1` (28, page titles + KPI values) · `text-h2` (20, card/section headings — also `.section-header`) · `text-h3` (16, sub-headings/modal titles) · `text-body-lg` (16/400, marketing paragraphs) · `text-body` (14, default UI text) · `text-caption` (12, meta/badges/helper) · `text-label` (11/500, uppercase micro-labels — pair with `uppercase`)
+
+Rules (full doc: [docs/typography.md](docs/typography.md), specimen at `/dev/typography` in dev):
+- **Three weights only: 400 / 500 / 600** (`font-normal` / `font-medium` / `font-semibold`). Never `font-bold` or lighter-than-400. Heading tokens bake 600 — don't add a weight to them.
+- **Serif is logo-only**: `font-display` may appear only on the "Groundwork PM" wordmark (Sidebar, LandingNav, marketing footer, auth lockups — with `font-normal`, the face ships 400 only).
+- **Mono is references-only**: `font-mono` (system stack, no webfont) for API keys, tokens, audit IDs, case refs, account numbers. Money is never mono — numeric columns and KPI values use Inter + `tabular-nums` (`CurrencyDisplay` applies it automatically).
+- **No arbitrary font sizes, no `leading-*` / `tracking-*`** in normal use (spacing lives in the tokens; `leading-none` is grandfathered only in MobileNav labels, the Sidebar wordmark, and count badges). Charts use `CHART_FONT` from `src/lib/chart-style.ts` — the one sanctioned home for inline font sizes.
+- PDF generators and email templates are exempt (own font registration / web-safe stacks).
 
 ### Document Storage
 

@@ -1053,7 +1053,14 @@ export default function IncomePage() {
                 <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Expected</p>
                 <CurrencyDisplay currency={currency} amount={expected} className="block mt-1 text-header" size="lg" />
                 <p className="text-xs text-gray-400 font-sans mt-0.5">
-                  {collectionSummary.total} active {collectionSummary.total === 1 ? "tenant" : "tenants"}
+                  {/* collectionSummary.total counts tenants with rent DUE this
+                      month — quarterly/annual payers mid-period are active but
+                      not due, and must not read as "0 active tenants". */}
+                  {allTenants.length === 0
+                    ? "no active tenants"
+                    : collectionSummary.total === 0
+                      ? `${allTenants.length} ${allTenants.length === 1 ? "tenant" : "tenants"} · none due this month`
+                      : `${collectionSummary.total} ${collectionSummary.total === 1 ? "tenant" : "tenants"} due this month`}
                 </p>
               </Card>
 
@@ -1075,7 +1082,9 @@ export default function IncomePage() {
                     <p className="text-xs text-gray-400 font-sans mt-0.5">
                       {expected > 0
                         ? `${Math.round((totalGross / expected) * 100)}% collected`
-                        : "no active tenants"}
+                        : allTenants.length > 0
+                          ? "no rent due this month"
+                          : "no active tenants"}
                     </p>
                   </>
                 )}
@@ -1107,7 +1116,8 @@ export default function IncomePage() {
           >
             <TableProperties size={15} />
             Rent Collection
-            {!tenantsLoading && !loading && collectionMode === "monthly" && (
+            {/* Hide the 0/0 badge when nothing is due (period payers mid-cycle) */}
+            {!tenantsLoading && !loading && collectionMode === "monthly" && collectionSummary.total > 0 && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                 collectionSummary.paid === collectionSummary.total
                   ? "bg-green-100 text-green-700"
@@ -1197,7 +1207,9 @@ export default function IncomePage() {
                   <div className="flex items-center justify-between mb-2">
                     <div>
                       <p className="text-sm font-display text-header">
-                        {collectionSummary.paid} of {collectionSummary.total} units collected
+                        {collectionSummary.total === 0 && allTenants.length > 0
+                          ? "No rent due this month"
+                          : `${collectionSummary.paid} of ${collectionSummary.total} units collected`}
                       </p>
                       <p className="text-xs text-gray-400 font-sans mt-0.5">
                         {MONTH_NAMES[month.getMonth()]} {month.getFullYear()} — long-term tenants

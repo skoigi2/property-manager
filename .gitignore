@@ -39,3 +39,8 @@ next-env.d.ts
 /src/generated/prisma
 
 .vercel
+
+# typography review artifacts (local only — never commit)
+docs/typography-shots/
+docs/typography-comparison.md
+scripts/typography-shots.ts

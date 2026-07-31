@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot } from "@/lib/tax-engine";
+import { frequencyMonths } from "@/lib/rent-schedule";
+import { clearHints } from "@/lib/hints";
+import { dispatchWebhookEvent } from "@/lib/webhooks";
+import { tryAutoAdvance } from "@/lib/case-workflows";
 
 export async function GET(req: Request) {
   const { error } = await requireAuth();
@@ -114,20 +118,51 @@ export async function POST(req: Request) {
     resolvedTenantId = activeTenant?.id ?? null;
   }
 
-  // If no invoiceId provided, try to find a matching open invoice for this tenant/month
+  // If no invoiceId provided, try to find a matching open invoice. The match
+  // is COVERED-PERIOD based, not exact-calendar-month: a quarterly/annual
+  // invoice anchors at its periodYear/periodMonth and covers frequencyMonths
+  // forward, so an annual payer paying a month late still hits their invoice.
+  const invoiceSelect = {
+    id: true,
+    invoiceNumber: true,
+    periodYear: true,
+    periodMonth: true,
+    totalAmount: true,
+    paidAmount: true,
+    status: true,
+    caseThreadId: true,
+  } as const;
   let resolvedInvoiceId = invoiceId ?? null;
+  let matchedInvoice:
+    | { id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null }
+    | null = null;
   if (!resolvedInvoiceId && resolvedTenantId && rest.type === "LONGTERM_RENT") {
     const entryDate = new Date(date);
-    const matchingInvoice = await prisma.invoice.findFirst({
-      where: {
-        tenantId: resolvedTenantId,
-        periodYear: entryDate.getFullYear(),
-        periodMonth: entryDate.getMonth() + 1,
-        status: { in: ["DRAFT", "SENT", "OVERDUE"] },
-      },
-      select: { id: true },
+    const [tenantMeta, openInvoices] = await Promise.all([
+      prisma.tenant.findUnique({
+        where: { id: resolvedTenantId },
+        select: { paymentFrequency: true },
+      }),
+      prisma.invoice.findMany({
+        where: { tenantId: resolvedTenantId, status: { in: ["DRAFT", "SENT", "OVERDUE"] } },
+        orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+        take: 24,
+        select: invoiceSelect,
+      }),
+    ]);
+    const n = frequencyMonths(tenantMeta?.paymentFrequency);
+    const entryIndex = entryDate.getFullYear() * 12 + entryDate.getMonth();
+    matchedInvoice =
+      openInvoices.find((inv) => {
+        const startIndex = inv.periodYear * 12 + (inv.periodMonth - 1);
+        return entryIndex >= startIndex && entryIndex < startIndex + n;
+      }) ?? null;
+    resolvedInvoiceId = matchedInvoice?.id ?? null;
+  } else if (resolvedInvoiceId) {
+    matchedInvoice = await prisma.invoice.findUnique({
+      where: { id: resolvedInvoiceId },
+      select: invoiceSelect,
     });
-    resolvedInvoiceId = matchingInvoice?.id ?? null;
   }
 
   // Tax snapshot — skip if tenant is exempt or no property/org context
@@ -163,20 +198,44 @@ export async function POST(req: Request) {
       },
     }),
   ];
-  if (resolvedInvoiceId) {
+  // Settle the invoice from accumulated payments: a short payment records
+  // paidAmount but leaves the invoice SENT/OVERDUE — it must NOT flip to
+  // fully PAID off a partial amount. ~1% tolerance mirrors the collection
+  // view's paid >= expected * 0.99 convention.
+  const prevPaid = matchedInvoice?.paidAmount ?? 0;
+  const newPaidTotal = prevPaid + rest.grossAmount;
+  const becomesPaid =
+    !!matchedInvoice &&
+    matchedInvoice.status !== "PAID" &&
+    newPaidTotal >= matchedInvoice.totalAmount * 0.99;
+  if (resolvedInvoiceId && matchedInvoice && matchedInvoice.status !== "PAID") {
     ops.push(
       prisma.invoice.update({
         where: { id: resolvedInvoiceId },
-        data: {
-          status: "PAID",
-          paidAt: new Date(date),
-          paidAmount: rest.grossAmount,
-        },
+        data: becomesPaid
+          ? { status: "PAID", paidAt: new Date(date), paidAmount: newPaidTotal }
+          : { paidAmount: newPaidTotal },
       }),
     );
   }
   const txResults = await prisma.$transaction(ops);
   const entry = txResults[0];
+
+  // Parity with PATCH /api/invoices/[id] when a payment settles the invoice.
+  if (becomesPaid && matchedInvoice) {
+    await clearHints(matchedInvoice.id, "INVOICE_OVERDUE");
+    if (matchedInvoice.caseThreadId) {
+      await tryAutoAdvance(matchedInvoice.caseThreadId, { kind: "INVOICE_PAID" });
+    }
+    void dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
+      invoiceId: matchedInvoice.id,
+      invoiceNumber: matchedInvoice.invoiceNumber,
+      totalAmount: matchedInvoice.totalAmount,
+      paidAmount: newPaidTotal,
+      paidAt: new Date(date),
+      tenantId: resolvedTenantId,
+    });
+  }
 
   await logAudit({
     userId: session!.user.id,

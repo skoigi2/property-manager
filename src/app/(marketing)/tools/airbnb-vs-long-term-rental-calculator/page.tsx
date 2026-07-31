@@ -107,17 +107,17 @@ export default function AirbnbVsLtrCalculatorPage() {
       <div className="max-w-6xl mx-auto">
         {/* ── Hero (server-rendered, indexable without JS) ── */}
         <header className="max-w-3xl mx-auto text-center mb-12">
-          <p className="text-gold-dark dark:text-gold text-xs font-semibold uppercase tracking-widest mb-4">
+          <p className="text-gold-dark dark:text-gold text-label font-semibold uppercase mb-4">
             Free calculator · No signup required
           </p>
-          <h1 className="font-display text-3xl sm:text-5xl text-header dark:text-white leading-tight">
+          <h1 className=" text-h1 sm:text-display text-header dark:text-white ">
             Should You Airbnb It or Rent It Out Long-Term?
           </h1>
-          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mt-5 leading-relaxed">
+          <p className="text-body-lg text-gray-600 dark:text-gray-300 mt-5 ">
             Compare the true profitability of both strategies using real operating costs and discover the
             occupancy rate Airbnb needs to beat traditional renting.
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+          <p className="text-body text-gray-500 dark:text-gray-400 mt-3">
             Most investors compare gross income. Smart investors compare net income, risk, and operational complexity.
           </p>
         </header>
@@ -127,10 +127,10 @@ export default function AirbnbVsLtrCalculatorPage() {
 
         {/* ── SEO copy: methodology (server-rendered) ── */}
         <section aria-labelledby="method-heading" className="mt-16 max-w-3xl mx-auto">
-          <h2 id="method-heading" className="font-display text-2xl sm:text-3xl text-header dark:text-white mb-4">
+          <h2 id="method-heading" className=" text-h1 text-header dark:text-white mb-4">
             How this Airbnb vs long-term rental calculator works
           </h2>
-          <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+          <div className="space-y-4 text-body text-gray-600 dark:text-gray-300 ">
             <p>
               This calculator treats short-term and long-term rental as <strong>two completely separate businesses</strong>.
               It never estimates Airbnb income from monthly rent, or rent from nightly rates — a shortcut that makes most
@@ -154,7 +154,7 @@ export default function AirbnbVsLtrCalculatorPage() {
 
         {/* ── FAQ (server-rendered, matches FAQPage schema) ── */}
         <section aria-labelledby="faq-heading" className="mt-16 max-w-3xl mx-auto">
-          <h2 id="faq-heading" className="font-display text-2xl sm:text-3xl text-header dark:text-white mb-6">
+          <h2 id="faq-heading" className=" text-h1 text-header dark:text-white mb-6">
             Frequently asked questions
           </h2>
           <div className="space-y-3">
@@ -163,18 +163,18 @@ export default function AirbnbVsLtrCalculatorPage() {
                 key={f.q}
                 className="group bg-white dark:bg-white/[0.04] border border-gray-100 dark:border-white/10 rounded-2xl px-5 sm:px-6 py-4 open:shadow-card transition-shadow"
               >
-                <summary className="flex items-center justify-between cursor-pointer list-none text-sm sm:text-base font-medium text-header dark:text-white">
+                <summary className="flex items-center justify-between cursor-pointer list-none text-body sm:text-body-lg font-medium text-header dark:text-white">
                   <span>{f.q}</span>
-                  <span className="ml-4 text-gold transition-transform duration-200 group-open:rotate-45 text-xl leading-none" aria-hidden="true">+</span>
+                  <span className="ml-4 text-gold transition-transform duration-200 group-open:rotate-45 text-h2 " aria-hidden="true">+</span>
                 </summary>
-                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mt-3">{f.a}</p>
+                <p className="text-body text-gray-600 dark:text-gray-300 mt-3">{f.a}</p>
               </details>
             ))}
           </div>
         </section>
 
         {/* ── Disclaimer ── */}
-        <p className="mt-14 max-w-3xl mx-auto text-xs text-gray-400 dark:text-gray-500 leading-relaxed text-center">
+        <p className="mt-14 max-w-3xl mx-auto text-caption text-gray-400 dark:text-gray-500 text-center">
           This calculator provides estimates only and should not replace professional financial, tax, or legal advice.
           Actual results depend on market conditions, local regulations, operating performance, and execution.
         </p>

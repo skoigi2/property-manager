@@ -23,10 +23,10 @@ export function HomeProblems() {
     <section className="py-24 px-6 bg-cream-dark dark:bg-[#091525]">
       <div className="max-w-5xl mx-auto">
         <div className="text-center max-w-xl mx-auto mb-14">
-          <h2 className="font-display text-3xl md:text-4xl text-header dark:text-white leading-tight mb-4">
+          <h2 className=" text-h1 text-header dark:text-white mb-4">
             Property management gets messy fast.
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 font-sans text-base leading-relaxed">
+          <p className="text-gray-500 dark:text-gray-400 text-body-lg ">
             As portfolios grow, information scatters — and the result is delays, missed follow-ups and constant firefighting.
           </p>
         </div>
@@ -40,8 +40,8 @@ export function HomeProblems() {
               <div className="w-11 h-11 rounded-xl bg-gold/10 dark:bg-gold/15 flex items-center justify-center mb-5">
                 <Icon size={20} className="text-gold-dark" />
               </div>
-              <h3 className="font-display text-lg text-header dark:text-white mb-2">{title}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-sans leading-relaxed">{body}</p>
+              <h3 className=" text-h3 text-header dark:text-white mb-2">{title}</h3>
+              <p className="text-body text-gray-500 dark:text-gray-400 ">{body}</p>
             </div>
           ))}
         </div>

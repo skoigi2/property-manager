@@ -19,13 +19,13 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <main className="pt-28 pb-20 max-w-3xl mx-auto px-6 dark:text-gray-300">
-        <h1 className="font-display text-4xl text-header mb-2">Privacy Policy</h1>
-        <p className="text-sm text-gray-400 mb-10">Last updated: April 2025</p>
+        <h1 className=" text-h1 text-header mb-2">Privacy Policy</h1>
+        <p className="text-body text-gray-400 mb-10">Last updated: April 2025</p>
 
-        <div className="prose prose-gray max-w-none space-y-8 text-gray-600 leading-relaxed">
+        <div className="prose prose-gray max-w-none space-y-8 text-gray-600 ">
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">1. Who We Are</h2>
+            <h2 className=" text-h2 text-header mb-3">1. Who We Are</h2>
             <p>
               Groundwork PM (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;) is a property management
               software business operating from the Kingdom of Bahrain. We operate the Groundwork PM platform
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">2. Data We Collect</h2>
+            <h2 className=" text-h2 text-header mb-3">2. Data We Collect</h2>
             <p>We collect the following categories of data:</p>
             <ul className="list-disc pl-6 mt-2 space-y-2">
               <li>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">3. How We Use Your Data</h2>
+            <h2 className=" text-h2 text-header mb-3">3. How We Use Your Data</h2>
             <p>We use your data to:</p>
             <ul className="list-disc pl-6 mt-2 space-y-1">
               <li>Create and manage your account and provide access to the Service</li>
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">4. Third-Party Service Providers</h2>
+            <h2 className=" text-h2 text-header mb-3">4. Third-Party Service Providers</h2>
             <p>
               We share data with the following trusted third-party processors who help us deliver the Service.
               Each is bound by data processing agreements and handles data only as instructed by us:
@@ -90,25 +90,25 @@ export default function PrivacyPage() {
             <div className="mt-3 space-y-3">
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="font-medium text-gray-700">Paddle.com Market Limited</p>
-                <p className="text-sm mt-1">Payment processing and subscription management. Acts as Merchant of Record for all transactions. <a href="https://www.paddle.com/legal/privacy" className="text-header hover:underline" target="_blank" rel="noopener noreferrer">Paddle Privacy Policy →</a></p>
+                <p className="text-body mt-1">Payment processing and subscription management. Acts as Merchant of Record for all transactions. <a href="https://www.paddle.com/legal/privacy" className="text-header hover:underline" target="_blank" rel="noopener noreferrer">Paddle Privacy Policy →</a></p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="font-medium text-gray-700">Supabase</p>
-                <p className="text-sm mt-1">Database hosting and file storage for all application data and uploaded documents. Data is stored in encrypted cloud infrastructure.</p>
+                <p className="text-body mt-1">Database hosting and file storage for all application data and uploaded documents. Data is stored in encrypted cloud infrastructure.</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="font-medium text-gray-700">Resend</p>
-                <p className="text-sm mt-1">Transactional email delivery for notifications, invoices, and account emails.</p>
+                <p className="text-body mt-1">Transactional email delivery for notifications, invoices, and account emails.</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="font-medium text-gray-700">Google (OAuth)</p>
-                <p className="text-sm mt-1">Optional sign-in with Google. If you use Google sign-in, Google shares your name and email address with us to create your account. No additional Google data is accessed.</p>
+                <p className="text-body mt-1">Optional sign-in with Google. If you use Google sign-in, Google shares your name and email address with us to create your account. No additional Google data is accessed.</p>
               </div>
             </div>
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">5. Cookies</h2>
+            <h2 className=" text-h2 text-header mb-3">5. Cookies</h2>
             <p>
               We use only essential session cookies necessary for you to remain logged in and use the Service
               securely. We do not use advertising, tracking, or analytics cookies. No third-party advertising
@@ -117,7 +117,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">6. Data Retention</h2>
+            <h2 className=" text-h2 text-header mb-3">6. Data Retention</h2>
             <p>
               We retain your data for as long as your account is active. If you close your account, your data
               will be available for export for 30 days, after which it will be permanently and irreversibly
@@ -126,7 +126,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">7. Your Rights</h2>
+            <h2 className=" text-h2 text-header mb-3">7. Your Rights</h2>
             <p>You have the right to:</p>
             <ul className="list-disc pl-6 mt-2 space-y-1">
               <li><strong className="text-gray-700">Access</strong> — request a copy of the personal data we hold about you</li>
@@ -144,7 +144,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">8. Data Security</h2>
+            <h2 className=" text-h2 text-header mb-3">8. Data Security</h2>
             <p>
               We implement industry-standard security measures including encrypted data transmission (TLS),
               encrypted data at rest, access controls, and regular security reviews. However, no system is
@@ -153,7 +153,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">9. Children&rsquo;s Privacy</h2>
+            <h2 className=" text-h2 text-header mb-3">9. Children&rsquo;s Privacy</h2>
             <p>
               The Service is not intended for use by persons under the age of 18. We do not knowingly collect
               personal data from minors. If you believe we have inadvertently collected such data, please
@@ -162,7 +162,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">10. Changes to This Policy</h2>
+            <h2 className=" text-h2 text-header mb-3">10. Changes to This Policy</h2>
             <p>
               We may update this Privacy Policy from time to time. We will notify you of material changes by
               email or by displaying a notice within the Service. The &ldquo;Last updated&rdquo; date at the top
@@ -171,7 +171,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">11. Contact Us</h2>
+            <h2 className=" text-h2 text-header mb-3">11. Contact Us</h2>
             <p>
               For privacy questions, data requests, or concerns, please contact us at{" "}
               <a href="mailto:support@groundworkpm.com" className="text-header hover:underline">

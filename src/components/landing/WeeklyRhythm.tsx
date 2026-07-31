@@ -24,10 +24,10 @@ export function WeeklyRhythm() {
     <section className="py-24 px-6 bg-white dark:bg-[#0C1B2E] border-y border-gray-100 dark:border-white/10">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-14 max-w-2xl mx-auto">
-          <h2 className="font-display text-3xl md:text-4xl text-header dark:text-white mb-4 leading-snug">
+          <h2 className=" text-h1 text-header dark:text-white mb-4 ">
             How it works in your week.
           </h2>
-          <p className="text-base text-gray-500 dark:text-gray-400 font-sans leading-relaxed">
+          <p className="text-body-lg text-gray-500 dark:text-gray-400 ">
             Not three onboarding steps. The shape of an operating week with the platform running.
           </p>
         </div>
@@ -38,13 +38,13 @@ export function WeeklyRhythm() {
               key={d.label}
               className="bg-cream-dark dark:bg-[#162032] rounded-2xl p-7 border border-gray-100 dark:border-white/10"
             >
-              <p className="text-[10px] font-mono uppercase tracking-widest text-gold-dark dark:text-gold/80 mb-4">
+              <p className="text-label tabular-nums uppercase text-gold-dark dark:text-gold/80 mb-4">
                 {d.label}
               </p>
-              <h3 className="font-display text-lg md:text-xl text-header dark:text-white mb-3 leading-snug">
+              <h3 className=" text-h3 md:text-h2 text-header dark:text-white mb-3 ">
                 {d.heading}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-sans leading-relaxed">
+              <p className="text-body text-gray-500 dark:text-gray-400 ">
                 {d.body}
               </p>
             </div>

@@ -16,7 +16,7 @@ function Tick({ muted }: { muted?: boolean }) {
 }
 
 function Dash() {
-  return <span className="text-gray-300 dark:text-white/20 text-lg">—</span>;
+  return <span className="text-gray-300 dark:text-white/20 text-body-lg">—</span>;
 }
 
 // ─── Feature matrix (slimmed — see plan §7) ──────────────────────────────────
@@ -124,7 +124,7 @@ const FEATURES: { section: string; rows: FeatureRowDef[] }[] = [
 ];
 
 function CellValue({ val }: { val: boolean | string }) {
-  if (typeof val === "string") return <span className="text-xs font-sans text-gray-600 dark:text-gray-300">{val}</span>;
+  if (typeof val === "string") return <span className="text-caption text-gray-600 dark:text-gray-300">{val}</span>;
   return val ? <Tick /> : <Dash />;
 }
 
@@ -172,17 +172,17 @@ export default function PricingPage() {
     <>
       {/* ── Hero — variant (c): bold/contrarian, leads with what we don't do ── */}
       <section className="pt-32 pb-10 px-6 text-center">
-        <h1 className="font-display text-3xl md:text-5xl text-header dark:text-white leading-tight mb-5 max-w-3xl mx-auto">
+        <h1 className=" text-h1 md:text-display text-header dark:text-white mb-5 max-w-3xl mx-auto">
           Pricing for agencies, not for everyone.
         </h1>
-        <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 font-sans max-w-2xl mx-auto leading-relaxed">
+        <p className="text-body-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto ">
           Most SaaS gates features arbitrarily. We gate by portfolio size. Every plan includes every automation. You pay for capacity, not for a workflow you should already have.
         </p>
       </section>
 
       {/* ── Framing line (locked from homepage) ── */}
       <section className="pb-6 px-6 text-center">
-        <p className="font-display text-lg md:text-xl text-header dark:text-white">
+        <p className=" text-h3 md:text-h2 text-header dark:text-white">
           Compare to the cost of one missed lease renewal.
         </p>
       </section>
@@ -192,7 +192,7 @@ export default function PricingPage() {
         <div className={`inline-flex items-center gap-3 border rounded-xl p-1 ${toggleBg}`}>
           <button
             onClick={() => setAnnual(false)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-5 py-2 rounded-lg text-body font-medium transition-colors ${
               !annual
                 ? "bg-header dark:bg-gold text-white dark:text-header"
                 : "text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white"
@@ -202,14 +202,14 @@ export default function PricingPage() {
           </button>
           <button
             onClick={() => setAnnual(true)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            className={`px-5 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               annual
                 ? "bg-header dark:bg-gold text-white dark:text-header"
                 : "text-gray-500 dark:text-gray-400 hover:text-header dark:hover:text-white"
             }`}
           >
             Annual
-            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${annual ? "bg-gold text-header" : "bg-gold/10 text-gold-dark"}`}>
+            <span className={`text-caption px-2 py-0.5 rounded-full font-semibold ${annual ? "bg-gold text-header" : "bg-gold/10 text-gold-dark"}`}>
               Save 2 months
             </span>
           </button>
@@ -222,14 +222,14 @@ export default function PricingPage() {
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:items-center">
           {/* Starter — muted */}
           <div className="order-3 md:order-1 rounded-2xl p-5 border bg-gray-50 dark:bg-white/[0.03] border-gray-200 dark:border-white/10 flex flex-col">
-            <h2 className="font-display text-lg text-gray-700 dark:text-gray-300 mb-1">Starter</h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-sans mb-4">For smaller portfolios</p>
+            <h2 className=" text-h3 text-gray-700 dark:text-gray-300 mb-1">Starter</h2>
+            <p className="text-caption text-gray-400 dark:text-gray-500 mb-4">For smaller portfolios</p>
             <PriceBlock plan={PLANS[0]} annual={annual} muted />
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 italic mb-5">Best if you manage 1–2 properties yourself.</p>
+            <p className="text-caption text-gray-400 dark:text-gray-500 italic mb-5">Best if you manage 1–2 properties yourself.</p>
             <BulletList bullets={STARTER_BULLETS} muted />
             <Link
               href={`/signup?plan=starter&billing=${annual ? "annual" : "monthly"}`}
-              className="w-full text-center py-2.5 rounded-lg text-sm font-semibold transition-colors mt-auto bg-white dark:bg-white/5 border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
+              className="w-full text-center py-2.5 rounded-lg text-body font-semibold transition-colors mt-auto bg-white dark:bg-white/5 border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
             >
               Start free trial
             </Link>
@@ -237,31 +237,31 @@ export default function PricingPage() {
 
           {/* Growth — emphasised */}
           <div className="order-1 md:order-2 rounded-2xl p-7 border-2 border-gold-dark bg-header shadow-xl md:scale-105 flex flex-col text-white relative z-10">
-            <span className="text-xs font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-3">
+            <span className="text-caption font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-3">
               Most chosen
             </span>
-            <h2 className="font-display text-2xl mb-1">Growth</h2>
-            <p className="text-xs text-white/60 font-sans mb-4">Most agencies start here.</p>
+            <h2 className=" text-h1 mb-1">Growth</h2>
+            <p className="text-caption text-white/60 mb-4">Most agencies start here.</p>
             <PriceBlock plan={PLANS[1]} annual={annual} highlight />
             <BulletList bullets={GROWTH_BULLETS} highlight />
             <Link
               href={`/signup?plan=growth&billing=${annual ? "annual" : "monthly"}`}
-              className="w-full text-center py-3 rounded-lg text-sm font-semibold transition-colors mt-auto bg-gold text-header hover:bg-gold/90"
+              className="w-full text-center py-3 rounded-lg text-body font-semibold transition-colors mt-auto bg-gold text-header hover:bg-gold/90"
             >
               Start free trial
             </Link>
-            <p className="text-xs text-center text-white/40 mt-3">30 days free · No card required</p>
+            <p className="text-caption text-center text-white/40 mt-3">30 days free · No card required</p>
           </div>
 
           {/* Pro — standard */}
           <div className="order-2 md:order-3 rounded-2xl p-6 border bg-white dark:bg-[#111F30] border-gray-100 dark:border-white/10 shadow-sm flex flex-col">
-            <h2 className="font-display text-xl text-header dark:text-white mb-1">Pro</h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-sans mb-4">For agencies with multiple teams and portfolios.</p>
+            <h2 className=" text-h2 text-header dark:text-white mb-1">Pro</h2>
+            <p className="text-caption text-gray-400 dark:text-gray-500 mb-4">For agencies with multiple teams and portfolios.</p>
             <PriceBlock plan={PLANS[2]} annual={annual} />
             <BulletList bullets={PRO_BULLETS} />
             <Link
               href={`/signup?plan=pro&billing=${annual ? "annual" : "monthly"}`}
-              className="w-full text-center py-2.5 rounded-lg text-sm font-semibold transition-colors mt-auto bg-header dark:bg-gold text-white dark:text-header hover:bg-header/90 dark:hover:bg-gold/90"
+              className="w-full text-center py-2.5 rounded-lg text-body font-semibold transition-colors mt-auto bg-header dark:bg-gold text-white dark:text-header hover:bg-header/90 dark:hover:bg-gold/90"
             >
               Start free trial
             </Link>
@@ -271,7 +271,7 @@ export default function PricingPage() {
 
       {/* ── Reassurance strip ── */}
       <section className="bg-cream-dark dark:bg-[#091525] py-4 px-6 border-y border-gray-100 dark:border-white/10">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-xs text-gray-500 dark:text-gray-400 font-sans text-center">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 text-caption text-gray-500 dark:text-gray-400 text-center">
           <span>Trial ends → read-only access.</span>
           <span className="hidden md:inline text-gray-300 dark:text-white/20">·</span>
           <span>Data stays.</span>
@@ -285,10 +285,10 @@ export default function PricingPage() {
       {/* ── "Why no feature gates?" explainer ── */}
       <section className="bg-white dark:bg-[#0C1B2E] py-10 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="font-display text-base md:text-lg text-header dark:text-white mb-2">
+          <h2 className=" text-h3 text-header dark:text-white mb-2">
             Why no feature gates?
           </h2>
-          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-sans leading-relaxed">
+          <p className="text-caption md:text-body text-gray-500 dark:text-gray-400 ">
             You shouldn&apos;t have to upgrade to access core property management features. Tiers exist for capacity — properties and team members — not to gate workflows you need.
           </p>
         </div>
@@ -297,10 +297,10 @@ export default function PricingPage() {
       {/* ── Feature matrix ── */}
       <section className="pb-20 px-6">
         <div className="max-w-4xl mx-auto mb-8 text-center">
-          <h2 className="font-display text-2xl text-header dark:text-white mb-2">
+          <h2 className=" text-h1 text-header dark:text-white mb-2">
             Every tier includes the full feature set.
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-sans">
+          <p className="text-body text-gray-500 dark:text-gray-400 ">
             Tiers differ by portfolio size and team headcount.
           </p>
         </div>
@@ -318,7 +318,7 @@ export default function PricingPage() {
                     isGrowth ? "bg-gold/10 dark:bg-gold/15 border-l-2 border-r-2 border-gold/30" : ""
                   }`}
                 >
-                  <span className={`font-display text-sm ${isGrowth ? "text-gold-dark dark:text-gold" : "text-header dark:text-white"}`}>
+                  <span className={` text-body font-medium ${isGrowth ? "text-gold-dark dark:text-gold" : "text-header dark:text-white"}`}>
                     {p}
                   </span>
                 </div>
@@ -329,11 +329,11 @@ export default function PricingPage() {
           {FEATURES.map((section) => (
             <div key={section.section}>
               <div className="bg-cream dark:bg-[#091525] px-4 py-2.5 border-b border-gray-100 dark:border-white/10">
-                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{section.section}</span>
+                <span className="text-label font-semibold text-gray-400 dark:text-gray-500 uppercase ">{section.section}</span>
               </div>
               {section.rows.map((row) => (
                 <div key={row.label} className="grid grid-cols-4 border-b border-gray-50 dark:border-white/5 hover:bg-cream/40 dark:hover:bg-white/5 transition-colors">
-                  <div className="p-3 px-4 text-xs text-gray-600 dark:text-gray-300 font-sans flex items-center">{row.label}</div>
+                  <div className="p-3 px-4 text-caption text-gray-600 dark:text-gray-300 flex items-center">{row.label}</div>
                   {(["starter", "growth", "pro"] as const).map((tier) => {
                     const isGrowth = tier === "growth";
                     return (
@@ -357,7 +357,7 @@ export default function PricingPage() {
       {/* ── FAQ ── */}
       <section className={`pb-20 px-6 border-t ${tableBg}`}>
         <div className="max-w-2xl mx-auto pt-16">
-          <h2 className="font-display text-2xl text-header dark:text-white mb-8 text-center">Frequently asked questions</h2>
+          <h2 className=" text-h1 text-header dark:text-white mb-8 text-center">Frequently asked questions</h2>
           <div className="space-y-6">
             {[
               {
@@ -386,8 +386,8 @@ export default function PricingPage() {
               },
             ].map(({ q, a }) => (
               <div key={q} className="border-b border-gray-100 dark:border-white/10 pb-6">
-                <h3 className="font-sans font-semibold text-header dark:text-white text-sm mb-2">{q}</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{a}</p>
+                <h3 className=" font-semibold text-header dark:text-white text-body mb-2">{q}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-body ">{a}</p>
               </div>
             ))}
           </div>
@@ -397,19 +397,19 @@ export default function PricingPage() {
       {/* ── Closing CTA (echo of homepage FinalCTA variant (b)) ── */}
       <section className="py-24 px-6 bg-cream-dark dark:bg-[#091525]">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="font-display text-2xl md:text-4xl text-header dark:text-white mb-5 leading-tight">
+          <h2 className=" text-h1 text-header dark:text-white mb-5 ">
             Try it on your real portfolio for a month.
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 font-sans text-base leading-relaxed max-w-lg mx-auto mb-8">
+          <p className="text-gray-500 dark:text-gray-400 text-body-lg max-w-lg mx-auto mb-8">
             Import a property in under 10 minutes. Or click around the demo first. Either way, no card and no setup call required.
           </p>
           <Link
             href="/signup"
-            className="inline-block bg-header text-white px-10 py-4 rounded-xl font-semibold text-base hover:bg-header/90 transition-all shadow-[0_4px_20px_rgba(26,26,46,0.25)] hover:shadow-[0_6px_28px_rgba(26,26,46,0.35)] hover:-translate-y-0.5"
+            className="inline-block bg-header text-white px-10 py-4 rounded-xl text-h3 hover:bg-header/90 transition-all shadow-[0_4px_20px_rgba(26,26,46,0.25)] hover:shadow-[0_6px_28px_rgba(26,26,46,0.35)] hover:-translate-y-0.5"
           >
             Open my first property →
           </Link>
-          <p className="text-xs text-gray-400 dark:text-gray-500 font-sans mt-4 italic">
+          <p className="text-caption text-gray-400 dark:text-gray-500 mt-4 italic">
             Includes the cron, the inbox, the cases workspace, the owner portal — everything.
           </p>
         </div>
@@ -440,9 +440,9 @@ function PriceBlock({ plan, annual, highlight, muted }: PriceBlockProps) {
 
   return (
     <div className="mb-4">
-      <span className={`text-3xl md:text-4xl font-display ${priceColour}`}>${price}</span>
-      <span className={`text-xs ml-1 ${suffixColour}`}>{suffix}</span>
-      {annual && <p className={`text-xs mt-1 ${annualLineColour}`}>${plan.annual}/year</p>}
+      <span className={`text-h1 ${priceColour}`}>${price}</span>
+      <span className={`text-caption ml-1 ${suffixColour}`}>{suffix}</span>
+      {annual && <p className={`text-caption mt-1 ${annualLineColour}`}>${plan.annual}/year</p>}
     </div>
   );
 }
@@ -463,7 +463,7 @@ function BulletList({ bullets, highlight, muted }: BulletListProps) {
   return (
     <ul className="space-y-2 mb-6 flex-1">
       {bullets.map((b, i) => (
-        <li key={b} className="flex items-start gap-2 text-sm font-sans">
+        <li key={b} className="flex items-start gap-2 text-body ">
           <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${tickColour}`} />
           <span className={textColour}>
             {i === 0 ? <strong className={highlight ? "text-white" : "text-header dark:text-white"}>{b}</strong> : b}

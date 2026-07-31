@@ -142,8 +142,8 @@ export default function Article() {
 
       <h2>The mindset shift: data entry is not overhead — it&apos;s your management system</h2>
       <p>
-        The reason landlords resist moving off spreadsheets is usually the same: "I don&apos;t want
-        more admin." But recording a payment or logging a maintenance job in a proper system takes
+        The reason landlords resist moving off spreadsheets is usually the same: &ldquo;I don&apos;t want
+        more admin.&rdquo; But recording a payment or logging a maintenance job in a proper system takes
         the same time as doing it in a spreadsheet — and it does ten times more with that data.
       </p>
       <p>

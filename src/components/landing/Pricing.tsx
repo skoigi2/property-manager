@@ -17,22 +17,22 @@ function PricingCard({ name, monthlyPrice, annualPrice, properties, features, hi
         : "bg-white dark:bg-[#162032] border-gray-100 dark:border-white/10 text-header shadow-sm"
     }`}>
       {highlight && (
-        <span className="text-xs font-sans font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-4">
+        <span className="text-caption font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-4">
           Most popular
         </span>
       )}
-      <h3 className={`font-display text-xl mb-1 ${highlight ? "text-white" : "text-header dark:text-white"}`}>{name}</h3>
-      <p className={`text-xs font-sans mb-4 ${highlight ? "text-white/60" : "text-gray-400"}`}>{properties}</p>
+      <h3 className={` text-h2 mb-1 ${highlight ? "text-white" : "text-header dark:text-white"}`}>{name}</h3>
+      <p className={`text-caption mb-4 ${highlight ? "text-white/60" : "text-gray-400"}`}>{properties}</p>
       <div className="mb-1">
-        <span className={`text-3xl font-display ${highlight ? "text-white" : "text-header dark:text-white"}`}>${monthlyPrice}</span>
-        <span className={`text-sm font-sans ml-1 ${highlight ? "text-white/60" : "text-gray-400"}`}>/mo</span>
+        <span className={`text-h1 ${highlight ? "text-white" : "text-header dark:text-white"}`}>${monthlyPrice}</span>
+        <span className={`text-body ml-1 ${highlight ? "text-white/60" : "text-gray-400"}`}>/mo</span>
       </div>
-      <p className={`text-xs font-sans mb-6 ${highlight ? "text-white/50" : "text-gray-400"}`}>
+      <p className={`text-caption mb-6 ${highlight ? "text-white/50" : "text-gray-400"}`}>
         or ${annualPrice}/yr — save 2 months
       </p>
       <ul className="space-y-2 mb-8 flex-1">
         {features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm font-sans">
+          <li key={f} className="flex items-start gap-2 text-body ">
             <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
@@ -42,7 +42,7 @@ function PricingCard({ name, monthlyPrice, annualPrice, properties, features, hi
       </ul>
       <Link
         href="/signup"
-        className={`w-full text-center py-2.5 rounded-lg text-sm font-sans font-semibold transition-colors ${
+        className={`w-full text-center py-2.5 rounded-lg text-body font-semibold transition-colors ${
           highlight
             ? "bg-gold text-header hover:bg-gold/90"
             : "bg-header dark:bg-gold text-white dark:text-header hover:bg-header/90 dark:hover:bg-gold/90"
@@ -84,13 +84,13 @@ export function Pricing() {
     <section className="py-20 px-6 bg-white dark:bg-[#111F30] border-b border-gray-100 dark:border-white/10">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-3 max-w-2xl mx-auto">
-          <p className="font-display text-lg md:text-xl text-header dark:text-white">
+          <p className=" text-h3 md:text-h2 text-header dark:text-white">
             Compare to the cost of one missed lease renewal.
           </p>
         </div>
         <div className="text-center mb-12">
-          <h2 className="font-display text-2xl md:text-3xl text-header dark:text-white mb-3">Simple, transparent pricing</h2>
-          <p className="text-gray-500 dark:text-gray-400 font-sans text-sm">
+          <h2 className=" text-h1 text-header dark:text-white mb-3">Simple, transparent pricing</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-body">
             Start free for 30 days. No credit card required.{" "}
             <Link href="/pricing" className="text-gold hover:underline">See full feature list →</Link>
           </p>

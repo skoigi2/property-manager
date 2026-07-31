@@ -53,15 +53,15 @@ export default function SelectOrgPage() {
         <div className="flex items-center gap-3 mb-8 justify-center">
           <BrandLogo size={40} />
           <div>
-            <p className="font-display text-[#1a2332] text-base leading-none">Groundwork PM</p>
-            <p className="text-gray-400 text-xs font-sans mt-0.5">Groundwork PM</p>
+            <p className="font-display font-normal text-[#1a2332] text-h3">Groundwork PM</p>
+            <p className="text-gray-400 text-caption mt-0.5">Groundwork PM</p>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="mb-6">
-            <h1 className="font-display text-xl text-[#1a2332]">Select Organisation</h1>
-            <p className="text-sm text-gray-500 font-sans mt-1">
+            <h1 className=" text-h2 text-[#1a2332]">Select Organisation</h1>
+            <p className="text-body text-gray-500 mt-1">
               Welcome back{session?.user?.name ? `, ${session.user.name}` : ""}. You have access to multiple organisations — choose one to continue.
             </p>
           </div>
@@ -73,7 +73,7 @@ export default function SelectOrgPage() {
               ))}
             </div>
           ) : orgs.length === 0 ? (
-            <p className="text-sm text-gray-400 font-sans text-center py-6">No organisations found.</p>
+            <p className="text-body text-gray-400 text-center py-6">No organisations found.</p>
           ) : (
             <div className="space-y-2">
               {orgs.map((org) => {
@@ -94,9 +94,9 @@ export default function SelectOrgPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-sans text-sm font-medium text-[#1a2332] truncate">{org.name}</p>
+                      <p className=" text-body font-medium text-[#1a2332] truncate">{org.name}</p>
                       {!org.isActive && (
-                        <p className="text-xs text-red-400 font-sans">Inactive</p>
+                        <p className="text-caption text-red-400 ">Inactive</p>
                       )}
                     </div>
                     {busy ? (

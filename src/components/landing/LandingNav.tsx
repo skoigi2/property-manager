@@ -27,11 +27,11 @@ export function LandingNav() {
           <div className="flex items-center gap-10">
             <Link href="/" className="flex items-center gap-2">
               <BrandLogo size={32} />
-              <span className="font-display text-lg text-header dark:text-white">Groundwork PM</span>
+              <span className="font-display text-body-lg text-header dark:text-white">Groundwork PM</span>
             </Link>
 
             {/* Desktop links */}
-            <div className="hidden md:flex items-center gap-8 text-sm font-sans">
+            <div className="hidden md:flex items-center gap-8 text-body ">
               {links.map((l) =>
                 l.anchor ? (
                   <a
@@ -76,7 +76,7 @@ export function LandingNav() {
             {/* CTA — hidden on mobile to give room to hamburger */}
             <Link
               href="/signup"
-              className="hidden sm:inline-block bg-header dark:bg-gold text-white dark:text-header text-sm font-sans font-medium px-6 py-2.5 rounded-lg hover:bg-header/90 dark:hover:bg-gold/90 transition-colors"
+              className="hidden sm:inline-block bg-header dark:bg-gold text-white dark:text-header text-body font-medium px-6 py-2.5 rounded-lg hover:bg-header/90 dark:hover:bg-gold/90 transition-colors"
             >
               Start free trial
             </Link>
@@ -109,7 +109,7 @@ export function LandingNav() {
                   key={l.label}
                   href={l.href}
                   onClick={() => setMenuOpen(false)}
-                  className="text-sm font-sans text-gray-600 dark:text-gray-300 hover:text-header dark:hover:text-white transition-colors py-1"
+                  className="text-body text-gray-600 dark:text-gray-300 hover:text-header dark:hover:text-white transition-colors py-1"
                 >
                   {l.label}
                 </a>
@@ -118,7 +118,7 @@ export function LandingNav() {
                   key={l.label}
                   href={l.href}
                   onClick={() => setMenuOpen(false)}
-                  className="text-sm font-sans text-gray-600 dark:text-gray-300 hover:text-header dark:hover:text-white transition-colors py-1"
+                  className="text-body text-gray-600 dark:text-gray-300 hover:text-header dark:hover:text-white transition-colors py-1"
                 >
                   {l.label}
                 </Link>
@@ -127,7 +127,7 @@ export function LandingNav() {
             <Link
               href="/signup"
               onClick={() => setMenuOpen(false)}
-              className="mt-2 w-full text-center bg-header dark:bg-gold text-white dark:text-header text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-header/90 dark:hover:bg-gold/90 transition-colors"
+              className="mt-2 w-full text-center bg-header dark:bg-gold text-white dark:text-header text-body font-semibold px-6 py-2.5 rounded-lg hover:bg-header/90 dark:hover:bg-gold/90 transition-colors"
             >
               Start free trial
             </Link>

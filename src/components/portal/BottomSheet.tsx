@@ -39,10 +39,10 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
         aria-modal="true"
       >
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
-          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+          <h3 className="text-h3 text-gray-900">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center"
+            className="text-gray-400 hover:text-gray-600 text-h1 w-8 h-8 flex items-center justify-center"
             aria-label="Close"
           >
             ×

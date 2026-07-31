@@ -170,7 +170,7 @@ export default function Article() {
       </p>
       <ul>
         <li>You&apos;ve missed a rent payment or only noticed it weeks late</li>
-        <li>You can&apos;t quickly answer "what did I spend on repairs at Property B last quarter?"</li>
+        <li>You can&apos;t quickly answer &ldquo;what did I spend on repairs at Property B last quarter?&rdquo;</li>
         <li>Producing an owner report takes more than 30 minutes</li>
         <li>You have a maintenance job sitting in WhatsApp that you&apos;re not sure has been resolved</li>
         <li>You&apos;re adding a new property and the spreadsheet is already straining</li>

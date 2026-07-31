@@ -374,9 +374,9 @@ export default function PortalPage({ params }: { params: { token: string } }) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="text-5xl mb-4">🔗</div>
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Link invalid or expired</h1>
-          <p className="text-gray-500 text-sm">
+          <div className="text-display mb-4">🔗</div>
+          <h1 className="text-h2 text-gray-900 mb-2">Link invalid or expired</h1>
+          <p className="text-gray-500 text-body">
             This link is no longer active. Please contact your property manager for a new link.
           </p>
         </div>
@@ -414,13 +414,13 @@ export default function PortalPage({ params }: { params: { token: string } }) {
               <img src={orgLogo} alt={orgName} className="max-h-full max-w-full object-contain" />
             </div>
           ) : (
-            <div className="h-10 w-10 rounded-lg bg-gray-900 flex items-center justify-center text-white font-semibold text-sm shrink-0">
+            <div className="h-10 w-10 rounded-lg bg-gray-900 flex items-center justify-center text-white font-semibold text-body shrink-0">
               {orgName.charAt(0)}
             </div>
           )}
           <div className="min-w-0">
-            <div className="font-semibold text-gray-900 text-sm leading-tight truncate">{displayName}</div>
-            <div className="text-gray-500 text-xs truncate">{tenant.name} · Unit {unit.unitNumber}</div>
+            <div className="font-semibold text-gray-900 text-body truncate">{displayName}</div>
+            <div className="text-gray-500 text-caption truncate">{tenant.name} · Unit {unit.unitNumber}</div>
           </div>
         </div>
       </div>
@@ -441,7 +441,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap relative ${
+                className={`px-4 py-3 text-body font-medium border-b-2 transition-colors whitespace-nowrap relative ${
                   tab === t
                     ? "border-gray-900 text-gray-900"
                     : "border-transparent text-gray-500 hover:text-gray-700"
@@ -462,46 +462,46 @@ export default function PortalPage({ params }: { params: { token: string } }) {
         {tab === "overview" && (
           <>
             <div className={`rounded-xl p-5 ${outstandingBalance > 0 ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"}`}>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+              <p className="text-label font-medium uppercase text-gray-500 mb-1">
                 Outstanding Balance
               </p>
-              <p className={`text-3xl font-bold ${outstandingBalance > 0 ? "text-red-600" : "text-green-600"}`}>
+              <p className={`text-h1 ${outstandingBalance > 0 ? "text-red-600" : "text-green-600"}`}>
                 {formatCurrency(outstandingBalance, currency)}
               </p>
               {outstandingBalance === 0 && (
-                <p className="text-green-600 text-sm mt-1">All paid up ✓</p>
+                <p className="text-green-600 text-body mt-1">All paid up ✓</p>
               )}
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
               <div className="px-4 py-3 flex justify-between items-center">
-                <span className="text-sm text-gray-500">Monthly Rent</span>
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-body text-gray-500">Monthly Rent</span>
+                <span className="text-body font-semibold text-gray-900">
                   {formatCurrency(tenant.monthlyRent, currency)}
                 </span>
               </div>
               {tenant.serviceCharge > 0 && (
                 <div className="px-4 py-3 flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Service Charge</span>
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-body text-gray-500">Service Charge</span>
+                  <span className="text-body font-semibold text-gray-900">
                     {formatCurrency(tenant.serviceCharge, currency)}
                   </span>
                 </div>
               )}
               <div className="px-4 py-3 flex justify-between items-center">
-                <span className="text-sm text-gray-500">Next Due</span>
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-body text-gray-500">Next Due</span>
+                <span className="text-body font-semibold text-gray-900">
                   {format(nextDue, "d MMM yyyy")}
                 </span>
               </div>
               <div className="px-4 py-3 flex justify-between items-center">
-                <span className="text-sm text-gray-500">Lease Start</span>
-                <span className="text-sm text-gray-900">{format(new Date(tenant.leaseStart), "d MMM yyyy")}</span>
+                <span className="text-body text-gray-500">Lease Start</span>
+                <span className="text-body text-gray-900">{format(new Date(tenant.leaseStart), "d MMM yyyy")}</span>
               </div>
               {tenant.leaseEnd && (
                 <div className="px-4 py-3 flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Lease End</span>
-                  <span className="text-sm text-gray-900">{format(new Date(tenant.leaseEnd), "d MMM yyyy")}</span>
+                  <span className="text-body text-gray-500">Lease End</span>
+                  <span className="text-body text-gray-900">{format(new Date(tenant.leaseEnd), "d MMM yyyy")}</span>
                 </div>
               )}
             </div>
@@ -511,15 +511,15 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                 onClick={() => setTab("balance")}
                 className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:border-gray-400 transition-colors"
               >
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">View</div>
-                <div className="text-sm font-semibold text-gray-900">My Balance →</div>
+                <div className="text-label text-gray-400 uppercase mb-1">View</div>
+                <div className="text-body font-semibold text-gray-900">My Balance →</div>
               </button>
               <button
                 onClick={() => setTab("messages")}
                 className="bg-white rounded-xl border border-gray-200 p-4 text-left hover:border-gray-400 transition-colors"
               >
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Send</div>
-                <div className="text-sm font-semibold text-gray-900">Message Manager →</div>
+                <div className="text-label text-gray-400 uppercase mb-1">Send</div>
+                <div className="text-body font-semibold text-gray-900">Message Manager →</div>
               </button>
             </div>
           </>
@@ -536,14 +536,14 @@ export default function PortalPage({ params }: { params: { token: string } }) {
               <>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-1">Invoiced</p>
-                    <p className="text-base font-bold text-gray-900">
+                    <p className="text-label text-gray-400 uppercase font-medium mb-1">Invoiced</p>
+                    <p className="text-h3 text-gray-900">
                       {formatCurrency(ledger.summary.totalInvoiced, currency)}
                     </p>
                   </div>
                   <div className="bg-white rounded-xl border border-gray-200 p-3 text-center">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-1">Paid</p>
-                    <p className="text-base font-bold text-green-600">
+                    <p className="text-label text-gray-400 uppercase font-medium mb-1">Paid</p>
+                    <p className="text-h3 text-green-600">
                       {formatCurrency(ledger.summary.totalPaid, currency)}
                     </p>
                   </div>
@@ -552,16 +552,16 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                       ledger.summary.outstanding > 0 ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"
                     }`}
                   >
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-1">Outstanding</p>
-                    <p className={`text-base font-bold ${ledger.summary.outstanding > 0 ? "text-red-600" : "text-green-600"}`}>
+                    <p className="text-label text-gray-400 uppercase font-medium mb-1">Outstanding</p>
+                    <p className={`text-h3 ${ledger.summary.outstanding > 0 ? "text-red-600" : "text-green-600"}`}>
                       {formatCurrency(ledger.summary.outstanding, currency)}
                     </p>
                   </div>
                 </div>
 
-                <h2 className="text-sm font-semibold text-gray-700 mt-4">Invoices</h2>
+                <h2 className="text-body font-semibold text-gray-700 mt-4">Invoices</h2>
                 {invoices.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-sm">
+                  <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-body">
                     No invoices yet
                   </div>
                 ) : (
@@ -573,16 +573,16 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                         <div key={inv.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3">
                           <div className="flex items-center justify-between gap-3 mb-2">
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-body font-medium text-gray-900">
                                 {MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}
                               </div>
-                              <div className="text-xs text-gray-400">{inv.invoiceNumber}</div>
+                              <div className="text-caption text-gray-400">{inv.invoiceNumber}</div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="text-sm font-semibold text-gray-900">
+                              <div className="text-body font-semibold text-gray-900">
                                 {formatCurrency(inv.totalAmount, currency)}
                               </div>
-                              <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+                              <span className={`inline-block text-caption font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
                                 {s.label}
                               </span>
                             </div>
@@ -593,7 +593,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                                 href={`/api/portal/${params.token}/invoices/${inv.id}/pdf`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-xs text-blue-600 hover:underline font-medium px-2 py-1"
+                                className="text-caption text-blue-600 hover:underline font-medium px-2 py-1"
                               >
                                 Invoice PDF
                               </a>
@@ -603,7 +603,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                                 href={`/api/portal/${params.token}/invoices/${inv.id}/receipt`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-xs text-green-700 hover:underline font-medium px-2 py-1"
+                                className="text-caption text-green-700 hover:underline font-medium px-2 py-1"
                               >
                                 Download Receipt
                               </a>
@@ -611,9 +611,9 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                             {canSubmitProof && (
                               <button
                                 onClick={() => setProofInvoice({ id: inv.id, number: inv.invoiceNumber })}
-                                className="ml-auto text-xs bg-gray-900 text-white font-medium px-3 py-1.5 rounded-lg hover:bg-gray-800"
+                                className="ml-auto text-caption bg-gray-900 text-white font-medium px-3 py-1.5 rounded-lg hover:bg-gray-800"
                               >
-                                I've Paid This
+                                I&apos;ve Paid This
                               </button>
                             )}
                           </div>
@@ -623,9 +623,9 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                   </div>
                 )}
 
-                <h2 className="text-sm font-semibold text-gray-700 mt-6">Activity Timeline</h2>
+                <h2 className="text-body font-semibold text-gray-700 mt-6">Activity Timeline</h2>
                 {ledger.events.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-6">No activity yet</p>
+                  <p className="text-caption text-gray-400 text-center py-6">No activity yet</p>
                 ) : (
                   <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
                     {ledger.events.map((e, i) => (
@@ -633,26 +633,26 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                         <div className="min-w-0">
                           {e.kind === "INVOICE_ISSUED" ? (
                             <>
-                              <p className="text-sm text-gray-900">
+                              <p className="text-body text-gray-900">
                                 Invoice <span className="font-medium">{e.invoiceNumber}</span> issued
                               </p>
-                              <p className="text-xs text-gray-400">
+                              <p className="text-caption text-gray-400">
                                 {format(new Date(e.date), "d MMM yyyy")} · {MONTH_NAMES[e.periodMonth - 1]} {e.periodYear}
                               </p>
                             </>
                           ) : (
                             <>
-                              <p className="text-sm text-green-700">
+                              <p className="text-body text-green-700">
                                 Payment received{e.invoiceNumber ? ` for ${e.invoiceNumber}` : ""}
                               </p>
-                              <p className="text-xs text-gray-400">
+                              <p className="text-caption text-gray-400">
                                 {format(new Date(e.date), "d MMM yyyy")}
                                 {e.paymentMethod ? ` · ${PAYMENT_METHOD_LABEL[e.paymentMethod] ?? e.paymentMethod}` : ""}
                               </p>
                             </>
                           )}
                         </div>
-                        <div className={`text-sm font-semibold shrink-0 ${e.kind === "PAYMENT_RECEIVED" ? "text-green-600" : "text-gray-900"}`}>
+                        <div className={`text-body font-semibold shrink-0 ${e.kind === "PAYMENT_RECEIVED" ? "text-green-600" : "text-gray-900"}`}>
                           {e.kind === "PAYMENT_RECEIVED" ? "+" : ""}{formatCurrency(e.amount, currency)}
                         </div>
                       </div>
@@ -672,7 +672,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                 <div className="w-6 h-6 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
               </div>
             ) : docs.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 px-4 py-10 text-center text-gray-400 text-sm">
+              <div className="bg-white rounded-xl border border-gray-200 px-4 py-10 text-center text-gray-400 text-body">
                 No documents yet. Contact your manager if you need copies.
               </div>
             ) : (
@@ -685,7 +685,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                 ] as const).map((group) =>
                   group.items.length === 0 ? null : (
                     <div key={group.key}>
-                      <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      <h2 className="text-label font-semibold text-gray-500 uppercase mb-2">
                         {group.title}
                       </h2>
                       <div className="space-y-2">
@@ -694,12 +694,12 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                             key={doc.id}
                             className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-3"
                           >
-                            <div className="text-2xl shrink-0">{fileIcon(doc.mimeType)}</div>
+                            <div className="text-h1 shrink-0">{fileIcon(doc.mimeType)}</div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-900 truncate">
+                              <div className="text-body font-medium text-gray-900 truncate">
                                 {doc.label || doc.fileName}
                               </div>
-                              <div className="text-xs text-gray-400">
+                              <div className="text-caption text-gray-400">
                                 Updated {format(new Date(doc.uploadedAt), "d MMM yyyy")}
                                 {doc.fileSize ? ` · ${formatBytes(doc.fileSize)}` : ""}
                               </div>
@@ -709,7 +709,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                                 href={doc.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg"
+                                className="shrink-0 text-caption font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg"
                               >
                                 Download
                               </a>
@@ -729,10 +729,10 @@ export default function PortalPage({ params }: { params: { token: string } }) {
         {tab === "messages" && (
           <>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700">My Messages</h2>
+              <h2 className="text-body font-semibold text-gray-700">My Messages</h2>
               <button
                 onClick={() => setComposeOpen(true)}
-                className="text-xs font-semibold bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800"
+                className="text-caption font-semibold bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800"
               >
                 + New Message
               </button>
@@ -743,8 +743,8 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                 <div className="w-6 h-6 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
               </div>
             ) : threads.length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 px-4 py-10 text-center text-gray-400 text-sm">
-                No messages yet. Tap "New Message" to contact your manager.
+              <div className="bg-white rounded-xl border border-gray-200 px-4 py-10 text-center text-gray-400 text-body">
+                No messages yet. Tap &ldquo;New Message&rdquo; to contact your manager.
               </div>
             ) : (
               <div className="space-y-2">
@@ -757,15 +757,15 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                       className="w-full text-left bg-white rounded-xl border border-gray-200 px-4 py-3 hover:bg-gray-50"
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-sm font-semibold text-gray-900 line-clamp-1">{t.subject}</p>
+                        <p className="text-body font-semibold text-gray-900 line-clamp-1">{t.subject}</p>
                         {t.unreadCount > 0 && (
-                          <span className="shrink-0 text-xs font-bold bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center">
+                          <span className="shrink-0 text-caption font-semibold bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center">
                             {t.unreadCount}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 line-clamp-2 mb-1">{t.preview}</p>
-                      <div className="flex items-center justify-between text-xs">
+                      <p className="text-caption text-gray-500 line-clamp-2 mb-1">{t.preview}</p>
+                      <div className="flex items-center justify-between text-caption">
                         <span className="text-gray-400">{cat}</span>
                         <span className="text-gray-400">
                           {format(new Date(t.lastMessageAt), "d MMM")}
@@ -797,8 +797,8 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                             m.sender === "TENANT" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900"
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{m.body}</p>
-                          <p className={`text-[10px] mt-1 ${m.sender === "TENANT" ? "text-gray-300" : "text-gray-500"}`}>
+                          <p className="text-body whitespace-pre-wrap">{m.body}</p>
+                          <p className={`text-caption mt-1 ${m.sender === "TENANT" ? "text-gray-300" : "text-gray-500"}`}>
                             {m.sender === "TENANT" ? "You" : "Manager"} · {format(new Date(m.createdAt), "d MMM, HH:mm")}
                           </p>
                         </div>
@@ -812,18 +812,18 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                         value={reply}
                         onChange={(e) => setReply(e.target.value)}
                         placeholder="Type your reply..."
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
                       />
                       <button
                         onClick={sendThreadReply}
                         disabled={!reply.trim()}
-                        className="w-full bg-gray-900 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50"
+                        className="w-full bg-gray-900 text-white rounded-lg py-2.5 text-body font-semibold disabled:opacity-50"
                       >
                         Send Reply
                       </button>
                     </div>
                   ) : (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center text-sm text-green-700">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center text-body text-green-700">
                       This thread is resolved.
                     </div>
                   )}
@@ -835,11 +835,11 @@ export default function PortalPage({ params }: { params: { token: string } }) {
             <BottomSheet open={composeOpen} onClose={() => setComposeOpen(false)} title="New Message">
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <label className="block text-body font-medium text-gray-700 mb-1">Category</label>
                   <select
                     value={composeForm.category}
                     onChange={(e) => setComposeForm((f) => ({ ...f, category: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
                   >
                     {MSG_CATEGORIES.map((c) => (
                       <option key={c.value} value={c.value}>{c.label}</option>
@@ -847,28 +847,28 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                  <label className="block text-body font-medium text-gray-700 mb-1">Subject</label>
                   <input
                     type="text"
                     value={composeForm.subject}
                     onChange={(e) => setComposeForm((f) => ({ ...f, subject: e.target.value }))}
                     placeholder="e.g. Lease renewal question"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                  <label className="block text-body font-medium text-gray-700 mb-1">Message</label>
                   <textarea
                     rows={5}
                     value={composeForm.body}
                     onChange={(e) => setComposeForm((f) => ({ ...f, body: e.target.value }))}
                     placeholder="Type your message..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
                   />
                 </div>
                 <button
                   onClick={sendNewMessage}
-                  className="w-full bg-gray-900 text-white rounded-lg py-3 text-sm font-semibold hover:bg-gray-800"
+                  className="w-full bg-gray-900 text-white rounded-lg py-3 text-body font-semibold hover:bg-gray-800"
                 >
                   Send Message
                 </button>
@@ -881,27 +881,27 @@ export default function PortalPage({ params }: { params: { token: string } }) {
         {tab === "request" && (
           <>
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-base font-semibold text-gray-900 mb-1">Submit a Maintenance Request</h2>
-              <p className="text-sm text-gray-500 mb-4">
+              <h2 className="text-h3 text-gray-900 mb-1">Submit a Maintenance Request</h2>
+              <p className="text-body text-gray-500 mb-4">
                 Describe the issue and we&apos;ll get back to you as soon as possible.
               </p>
 
               {submitted ? (
                 <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-4 text-center">
-                  <div className="text-2xl mb-2">✓</div>
-                  <p className="text-green-700 font-medium text-sm">Request submitted!</p>
-                  <button onClick={() => setSubmitted(false)} className="mt-3 text-xs text-green-700 underline">
+                  <div className="text-h1 mb-2">✓</div>
+                  <p className="text-green-700 font-medium text-body">Request submitted!</p>
+                  <button onClick={() => setSubmitted(false)} className="mt-3 text-caption text-green-700 underline">
                     Submit another
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmitMaint} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <label className="block text-body font-medium text-gray-700 mb-1">Category</label>
                     <select
                       value={maintForm.category}
                       onChange={(e) => setMaintForm((f) => ({ ...f, category: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
                     >
                       {MAINT_CATEGORIES.map((c) => (
                         <option key={c.value} value={c.value}>{c.label}</option>
@@ -909,7 +909,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-body font-medium text-gray-700 mb-1">
                       What&apos;s the issue? <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -917,16 +917,16 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                       placeholder="e.g. Leaking tap in kitchen"
                       value={maintForm.title}
                       onChange={(e) => setMaintForm((f) => ({ ...f, title: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Additional details</label>
+                    <label className="block text-body font-medium text-gray-700 mb-1">Additional details</label>
                     <textarea
                       rows={3}
                       value={maintForm.description}
                       onChange={(e) => setMaintForm((f) => ({ ...f, description: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
                     />
                   </div>
                   <label className="flex items-center gap-3 cursor-pointer select-none">
@@ -936,11 +936,11 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                       onChange={(e) => setMaintForm((f) => ({ ...f, isEmergency: e.target.checked }))}
                       className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                     />
-                    <span className="text-sm text-gray-700">This is an emergency</span>
+                    <span className="text-body text-gray-700">This is an emergency</span>
                   </label>
                   <button
                     type="submit" disabled={submitting || !maintForm.title.trim()}
-                    className="w-full bg-gray-900 text-white rounded-lg py-3 text-sm font-medium disabled:opacity-50 hover:bg-gray-800"
+                    className="w-full bg-gray-900 text-white rounded-lg py-3 text-body font-medium disabled:opacity-50 hover:bg-gray-800"
                   >
                     {submitting ? "Submitting..." : "Submit Request"}
                   </button>
@@ -949,13 +949,13 @@ export default function PortalPage({ params }: { params: { token: string } }) {
             </div>
 
             <div>
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">My Requests</h2>
+              <h2 className="text-body font-semibold text-gray-700 mb-2">My Requests</h2>
               {requestsLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="w-6 h-6 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
                 </div>
               ) : requests.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-sm">
+                <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-body">
                   No requests submitted yet
                 </div>
               ) : (
@@ -965,15 +965,15 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                     return (
                       <div key={req.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-gray-900">{req.title}</p>
-                          <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+                          <p className="text-body font-medium text-gray-900">{req.title}</p>
+                          <span className={`shrink-0 text-caption font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
                             {s.label}
                           </span>
                         </div>
                         {req.description && (
-                          <p className="text-xs text-gray-500 line-clamp-2">{req.description}</p>
+                          <p className="text-caption text-gray-500 line-clamp-2">{req.description}</p>
                         )}
-                        <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                        <div className="flex items-center gap-3 text-caption text-gray-400 flex-wrap">
                           <span>{MAINT_CATEGORIES.find((c) => c.value === req.category)?.label ?? req.category}</span>
                           <span>{format(new Date(req.reportedDate), "d MMM yyyy")}</span>
                           {req.isEmergency && <span className="text-red-500 font-medium">Emergency</span>}

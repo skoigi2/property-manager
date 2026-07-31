@@ -19,13 +19,13 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <main className="pt-28 pb-20 max-w-3xl mx-auto px-6 dark:text-gray-300">
-        <h1 className="font-display text-4xl text-header mb-2">Terms and Conditions</h1>
-        <p className="text-sm text-gray-400 mb-10">Last updated: April 2025</p>
+        <h1 className=" text-h1 text-header mb-2">Terms and Conditions</h1>
+        <p className="text-body text-gray-400 mb-10">Last updated: April 2025</p>
 
-        <div className="prose prose-gray max-w-none space-y-8 text-gray-600 leading-relaxed">
+        <div className="prose prose-gray max-w-none space-y-8 text-gray-600 ">
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">1. Acceptance of Terms</h2>
+            <h2 className=" text-h2 text-header mb-3">1. Acceptance of Terms</h2>
             <p>
               By accessing or using Groundwork PM (&ldquo;the Service&rdquo;), you agree to be bound by these Terms and
               Conditions (&ldquo;Terms&rdquo;). If you do not agree to these Terms, you may not use the Service. These
@@ -34,7 +34,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">2. Description of Service</h2>
+            <h2 className=" text-h2 text-header mb-3">2. Description of Service</h2>
             <p>
               Groundwork PM is a cloud-based property management platform that provides tools for tracking rental
               income, managing expenses, monitoring tenant leases, generating financial reports, and related property
@@ -44,7 +44,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">3. Free Trial</h2>
+            <h2 className=" text-h2 text-header mb-3">3. Free Trial</h2>
             <p>
               New accounts receive a 30-day free trial with full access to the Service. No payment information is
               required to start a trial. At the end of the trial period, your account will transition to a paid
@@ -54,7 +54,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">4. Subscriptions and Billing</h2>
+            <h2 className=" text-h2 text-header mb-3">4. Subscriptions and Billing</h2>
             <p>
               Paid subscriptions are available on monthly or annual billing cycles. Subscriptions automatically
               renew at the end of each billing period unless cancelled before the renewal date. Billing is processed
@@ -68,7 +68,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">5. Account Registration</h2>
+            <h2 className=" text-h2 text-header mb-3">5. Account Registration</h2>
             <p>
               You must provide accurate, current, and complete information when creating an account. You are
               responsible for maintaining the confidentiality of your login credentials and for all activity that
@@ -81,7 +81,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">6. User Obligations</h2>
+            <h2 className=" text-h2 text-header mb-3">6. User Obligations</h2>
             <p>You agree that you will not:</p>
             <ul className="list-disc pl-6 mt-2 space-y-1">
               <li>Use the Service for any unlawful purpose or in violation of any applicable regulations</li>
@@ -94,7 +94,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">7. Data and Intellectual Property</h2>
+            <h2 className=" text-h2 text-header mb-3">7. Data and Intellectual Property</h2>
             <p>
               You retain full ownership of all data you enter into the Service, including property details, tenant
               records, and financial information (&ldquo;Your Data&rdquo;). You grant Groundwork PM a limited licence
@@ -108,7 +108,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">8. Data Export and Portability</h2>
+            <h2 className=" text-h2 text-header mb-3">8. Data Export and Portability</h2>
             <p>
               You may export your property data at any time using the built-in export tools available within the
               Service. Upon account closure, you will have 30 days to export your data before it is permanently
@@ -117,7 +117,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">9. Availability and Uptime</h2>
+            <h2 className=" text-h2 text-header mb-3">9. Availability and Uptime</h2>
             <p>
               We strive to maintain high availability of the Service but do not guarantee uninterrupted access.
               Scheduled maintenance, infrastructure outages, or circumstances beyond our control may cause
@@ -127,7 +127,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">10. Disclaimer of Warranties</h2>
+            <h2 className=" text-h2 text-header mb-3">10. Disclaimer of Warranties</h2>
             <p>
               The Service is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo; without warranties of any kind,
               express or implied, including but not limited to merchantability, fitness for a particular purpose, or
@@ -137,7 +137,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">11. Limitation of Liability</h2>
+            <h2 className=" text-h2 text-header mb-3">11. Limitation of Liability</h2>
             <p>
               To the maximum extent permitted by applicable law, Groundwork PM shall not be liable for any indirect,
               incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill,
@@ -147,7 +147,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">12. Termination</h2>
+            <h2 className=" text-h2 text-header mb-3">12. Termination</h2>
             <p>
               You may cancel your subscription at any time through your account settings. Cancellation takes effect
               at the end of your current billing period, after which your account will revert to a limited state.
@@ -160,7 +160,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">13. Governing Law</h2>
+            <h2 className=" text-h2 text-header mb-3">13. Governing Law</h2>
             <p>
               These Terms are governed by and construed in accordance with the laws of the Kingdom of Bahrain. Any
               disputes arising under or in connection with these Terms shall be subject to the exclusive jurisdiction
@@ -169,7 +169,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">14. Changes to These Terms</h2>
+            <h2 className=" text-h2 text-header mb-3">14. Changes to These Terms</h2>
             <p>
               We may update these Terms from time to time. When we make material changes, we will notify you by
               email or by displaying a prominent notice within the Service. Continued use of the Service after
@@ -178,7 +178,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">15. Contact</h2>
+            <h2 className=" text-h2 text-header mb-3">15. Contact</h2>
             <p>
               If you have questions about these Terms, please contact us at{" "}
               <a href="mailto:support@groundworkpm.com" className="text-header hover:underline">

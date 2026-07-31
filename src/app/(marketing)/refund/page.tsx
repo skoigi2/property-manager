@@ -19,13 +19,13 @@ export const metadata: Metadata = {
 export default function RefundPage() {
   return (
     <main className="pt-28 pb-20 max-w-3xl mx-auto px-6 dark:text-gray-300">
-        <h1 className="font-display text-4xl text-header mb-2">Refund Policy</h1>
-        <p className="text-sm text-gray-400 mb-10">Last updated: April 2025</p>
+        <h1 className=" text-h1 text-header mb-2">Refund Policy</h1>
+        <p className="text-body text-gray-400 mb-10">Last updated: April 2025</p>
 
-        <div className="prose prose-gray max-w-none space-y-8 text-gray-600 leading-relaxed">
+        <div className="prose prose-gray max-w-none space-y-8 text-gray-600 ">
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">1. Free Trial</h2>
+            <h2 className=" text-h2 text-header mb-3">1. Free Trial</h2>
             <p>
               All new Groundwork PM accounts include a 30-day free trial. No payment is required to start your
               trial, and you will not be charged unless you explicitly choose to subscribe after your trial ends.
@@ -34,7 +34,7 @@ export default function RefundPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">2. Monthly Subscriptions</h2>
+            <h2 className=" text-h2 text-header mb-3">2. Monthly Subscriptions</h2>
             <p>
               Monthly subscriptions are billed in advance at the start of each billing cycle. If you are not
               satisfied with the Service, you may request a full refund within <strong className="text-gray-700">7 days</strong> of
@@ -48,7 +48,7 @@ export default function RefundPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">3. Annual Subscriptions</h2>
+            <h2 className=" text-h2 text-header mb-3">3. Annual Subscriptions</h2>
             <p>
               Annual subscriptions are billed upfront for a full 12-month period at a discounted rate. Refund
               eligibility for annual plans:
@@ -70,7 +70,7 @@ export default function RefundPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">4. How to Request a Refund</h2>
+            <h2 className=" text-h2 text-header mb-3">4. How to Request a Refund</h2>
             <p>
               To request a refund, email us at{" "}
               <a href="mailto:support@groundworkpm.com" className="text-header hover:underline">
@@ -91,7 +91,7 @@ export default function RefundPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">5. Exceptional Circumstances</h2>
+            <h2 className=" text-h2 text-header mb-3">5. Exceptional Circumstances</h2>
             <p>
               We understand that unexpected situations arise. If you have a circumstance that falls outside the
               standard policy above — such as a serious illness, a billing error, or a Service outage that
@@ -101,7 +101,7 @@ export default function RefundPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">6. Cancellation</h2>
+            <h2 className=" text-h2 text-header mb-3">6. Cancellation</h2>
             <p>
               You may cancel your subscription at any time from your account settings. Cancellation stops future
               renewals but does not trigger a refund for the current period unless you are within the eligible
@@ -111,7 +111,7 @@ export default function RefundPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">7. Payment Processing</h2>
+            <h2 className=" text-h2 text-header mb-3">7. Payment Processing</h2>
             <p>
               All payments are processed by Paddle.com Market Limited, who act as our Merchant of Record. Refunds
               are issued back to the original payment method. Paddle may have their own policies that apply to
@@ -124,7 +124,7 @@ export default function RefundPage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl text-header mb-3">8. Contact</h2>
+            <h2 className=" text-h2 text-header mb-3">8. Contact</h2>
             <p>
               Questions about this policy? Reach us at{" "}
               <a href="mailto:support@groundworkpm.com" className="text-header hover:underline">

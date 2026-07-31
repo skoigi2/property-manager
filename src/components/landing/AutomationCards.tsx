@@ -40,10 +40,10 @@ export function AutomationCards() {
     <section id="outcomes" className="py-24 px-6 bg-white dark:bg-[#0C1B2E]">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-14">
-          <h2 className="font-display text-3xl md:text-4xl text-header dark:text-white mb-4 leading-snug">
+          <h2 className=" text-h1 text-header dark:text-white mb-4 ">
             What changes when you switch.
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 font-sans text-base max-w-xl mx-auto leading-relaxed">
+          <p className="text-gray-500 dark:text-gray-400 text-body-lg max-w-xl mx-auto ">
             Four automations that remove manual admin from the daily rhythm.
           </p>
         </div>
@@ -57,13 +57,13 @@ export function AutomationCards() {
               <div className="w-12 h-12 bg-gold/10 dark:bg-gold/15 rounded-xl flex items-center justify-center mb-5">
                 {card.icon}
               </div>
-              <h3 className="font-display text-lg md:text-xl text-header dark:text-white mb-3 leading-snug">
+              <h3 className=" text-h3 md:text-h2 text-header dark:text-white mb-3 ">
                 {card.heading}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-sans leading-relaxed mb-4 flex-1">
+              <p className="text-body text-gray-500 dark:text-gray-400 mb-4 flex-1">
                 {card.body}
               </p>
-              <p className="text-xs font-mono text-gold-dark dark:text-gold/80 leading-relaxed pt-3 border-t border-gray-100 dark:border-white/5">
+              <p className="text-caption tabular-nums text-gold-dark dark:text-gold/80 pt-3 border-t border-gray-100 dark:border-white/5">
                 {card.proof}
               </p>
             </div>
@@ -71,7 +71,7 @@ export function AutomationCards() {
         </div>
 
         <div className="text-center mt-10">
-          <Link href="/signup?demo=al-seef" className="text-sm font-sans text-gold hover:text-gold-dark transition-colors">
+          <Link href="/signup?demo=al-seef" className="text-body text-gold hover:text-gold-dark transition-colors">
             See it in the demo →
           </Link>
         </div>

@@ -40,8 +40,8 @@ export default function ForgotPasswordPage() {
           <div className="mx-auto mb-4 w-fit">
             <BrandLogo size={56} dark />
           </div>
-          <h1 className="font-display text-2xl text-white">Groundwork PM</h1>
-          <p className="text-white/60 text-sm mt-1 font-sans">Reset your password</p>
+          <h1 className="font-display font-normal text-h1 text-white">Groundwork PM</h1>
+          <p className="text-white/60 text-body mt-1 ">Reset your password</p>
         </div>
 
         {/* Form Card */}
@@ -53,36 +53,36 @@ export default function ForgotPasswordPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="font-display text-lg text-header mb-2">Check your email</h2>
-              <p className="text-sm text-gray-500 font-sans mb-6 leading-relaxed">
+              <h2 className=" text-h3 text-header mb-2">Check your email</h2>
+              <p className="text-body text-gray-500 mb-6 ">
                 If an account exists for <strong>{email}</strong>, we&apos;ve sent a password reset link. It expires in 1 hour.
               </p>
-              <Link href="/login" className="text-sm text-header font-medium hover:underline font-sans">
+              <Link href="/login" className="text-body text-header font-medium hover:underline ">
                 ← Back to sign in
               </Link>
             </div>
           ) : (
             <>
-              <h2 className="font-display text-lg text-header mb-2">Forgot your password?</h2>
-              <p className="text-sm text-gray-500 font-sans mb-6 leading-relaxed">
+              <h2 className=" text-h3 text-header mb-2">Forgot your password?</h2>
+              <p className="text-body text-gray-500 mb-6 ">
                 Enter your email address and we&apos;ll send you a link to reset it.
               </p>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1.5">Email</label>
+                  <label className="block text-body font-medium text-gray-600 mb-1.5">Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="jane@example.com"
                     required
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-header text-white py-2.5 px-4 rounded-lg font-sans font-medium text-sm hover:bg-header/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full bg-header text-white py-2.5 px-4 rounded-lg font-medium text-body hover:bg-header/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
                   )}
                 </button>
               </form>
-              <p className="text-xs text-gray-400 text-center mt-6 font-sans">
+              <p className="text-caption text-gray-400 text-center mt-6 ">
                 <Link href="/login" className="text-header font-medium hover:underline">
                   ← Back to sign in
                 </Link>

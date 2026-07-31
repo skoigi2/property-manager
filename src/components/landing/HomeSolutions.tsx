@@ -28,10 +28,10 @@ export function HomeSolutions() {
     <section id="outcomes" className="py-24 px-6 scroll-mt-20">
       <div className="max-w-5xl mx-auto">
         <div className="text-center max-w-xl mx-auto mb-14">
-          <h2 className="font-display text-3xl md:text-4xl text-header dark:text-white leading-tight mb-4">
+          <h2 className=" text-h1 text-header dark:text-white mb-4">
             One place to run your property operations.
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 font-sans text-base leading-relaxed">
+          <p className="text-gray-500 dark:text-gray-400 text-body-lg ">
             Built around the workflows property managers do every day — not just storing information, but moving work forward.
           </p>
         </div>
@@ -46,8 +46,8 @@ export function HomeSolutions() {
                 <Icon size={20} className="text-gold-dark" />
               </div>
               <div>
-                <h3 className="font-display text-lg text-header dark:text-white mb-1.5">{title}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-sans leading-relaxed">{body}</p>
+                <h3 className=" text-h3 text-header dark:text-white mb-1.5">{title}</h3>
+                <p className="text-body text-gray-500 dark:text-gray-400 ">{body}</p>
               </div>
             </div>
           ))}

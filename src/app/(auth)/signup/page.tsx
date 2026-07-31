@@ -66,20 +66,20 @@ export default function SignupPage() {
           <div className="mx-auto mb-4 w-fit">
             <BrandLogo size={56} dark />
           </div>
-          <h1 className="font-display text-2xl text-white">Groundwork PM</h1>
-          <p className="text-white/60 text-sm mt-1 font-sans">Property insights. Built on solid groundwork.</p>
+          <h1 className="font-display font-normal text-h1 text-white">Groundwork PM</h1>
+          <p className="text-white/60 text-body mt-1 ">Property insights. Built on solid groundwork.</p>
         </div>
 
         {/* Form Card */}
         <div className="bg-white rounded-b-2xl px-8 py-8 shadow-card">
-          <h2 className="font-display text-lg text-header mb-6">Create your account</h2>
+          <h2 className=" text-h3 text-header mb-6">Create your account</h2>
 
           {/* Google sign-up */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-3 border border-gray-200 bg-white text-gray-700 py-2.5 px-4 rounded-lg font-sans font-medium text-sm hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mb-5"
+            className="w-full flex items-center justify-center gap-3 border border-gray-200 bg-white text-gray-700 py-2.5 px-4 rounded-lg font-medium text-body hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mb-5"
           >
             {googleLoading ? (
               <svg className="animate-spin h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none">
@@ -99,46 +99,46 @@ export default function SignupPage() {
 
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px bg-gray-100" />
-            <span className="text-xs text-gray-400 font-sans">or sign up with email</span>
+            <span className="text-caption text-gray-400 ">or sign up with email</span>
             <div className="flex-1 h-px bg-gray-100" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1.5">Your name</label>
+              <label className="block text-body font-medium text-gray-600 mb-1.5">Your name</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Jane Smith"
                 required
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1.5">Company / agency name</label>
+              <label className="block text-body font-medium text-gray-600 mb-1.5">Company / agency name</label>
               <input
                 type="text"
                 value={form.organizationName}
                 onChange={(e) => update("organizationName", e.target.value)}
                 placeholder="Oakwood Property Group"
                 required
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1.5">Email</label>
+              <label className="block text-body font-medium text-gray-600 mb-1.5">Email</label>
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => update("email", e.target.value)}
                 placeholder="jane@example.com"
                 required
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1.5">Password</label>
+              <label className="block text-body font-medium text-gray-600 mb-1.5">Password</label>
               <input
                 type="password"
                 value={form.password}
@@ -146,13 +146,13 @@ export default function SignupPage() {
                 placeholder="At least 8 characters"
                 required
                 minLength={8}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
             </div>
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className="w-full bg-gold text-header py-2.5 px-4 rounded-lg font-sans font-semibold text-sm hover:bg-gold/90 active:bg-gold/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+              className="w-full bg-gold text-header py-2.5 px-4 rounded-lg font-semibold text-body hover:bg-gold/90 active:bg-gold/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -168,7 +168,7 @@ export default function SignupPage() {
             </button>
           </form>
 
-          <p className="text-xs text-gray-400 text-center mt-6 font-sans">
+          <p className="text-caption text-gray-400 text-center mt-6 ">
             Already have an account?{" "}
             <Link href="/login" className="text-header font-medium hover:underline">
               Sign in

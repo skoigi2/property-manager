@@ -10,13 +10,13 @@ function MarketingFooter() {
         <Link href="/" className="flex flex-col items-start gap-1">
           <span className="flex items-center gap-2">
             <BrandLogo size={24} />
-            <span className="font-display text-sm text-header dark:text-white">Groundwork PM</span>
+            <span className="font-display text-body text-header dark:text-white">Groundwork PM</span>
           </span>
-          <span className="text-xs font-sans text-gray-400 dark:text-gray-500">
+          <span className="text-caption text-gray-400 dark:text-gray-500">
             The operating system for modern property management teams.
           </span>
         </Link>
-        <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400 dark:text-gray-500 font-sans">
+        <div className="flex flex-wrap items-center justify-center gap-6 text-caption text-gray-400 dark:text-gray-500 ">
           <Link href="/pricing" className="hover:text-header dark:hover:text-white transition-colors">Pricing</Link>
           <Link href="/examples" className="hover:text-header dark:hover:text-white transition-colors">Examples</Link>
           <Link href="/tools/airbnb-vs-long-term-rental-calculator" className="hover:text-header dark:hover:text-white transition-colors">Airbnb vs Rent Calculator</Link>
@@ -28,7 +28,7 @@ function MarketingFooter() {
           <Link href="/refund" className="hover:text-header dark:hover:text-white transition-colors">Refund Policy</Link>
           <a href="mailto:support@groundworkpm.com" className="hover:text-header dark:hover:text-white transition-colors">Support</a>
         </div>
-        <p className="text-xs text-gray-300 dark:text-gray-600 font-sans">
+        <p className="text-caption text-gray-300 dark:text-gray-600 ">
           © {new Date().getFullYear()} Groundwork PM
         </p>
       </div>
@@ -39,7 +39,7 @@ function MarketingFooter() {
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <LandingThemeProvider>
-      <div className="min-h-screen bg-cream dark:bg-[#0C1B2E] font-sans flex flex-col">
+      <div className="min-h-screen bg-cream dark:bg-[#0C1B2E] flex flex-col">
         <LandingNav />
         <div className="flex-1">
           {children}

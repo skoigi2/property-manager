@@ -74,7 +74,7 @@ export default function Article() {
       <h3>2. Expense management</h3>
       <p>
         Every cost should be logged, categorised, and linked to the correct property. Not thrown
-        into a general "expenses" column. When your repair costs, management fees, insurance, and
+        into a general &ldquo;expenses&rdquo; column. When your repair costs, management fees, insurance, and
         utilities are properly categorised, you can answer questions that matter: what did I
         spend on repairs at Property B last quarter? What&apos;s my expense ratio across the portfolio?
         Is this property still profitable after maintenance?

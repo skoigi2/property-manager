@@ -39,22 +39,22 @@ export function SpreadsheetComparison() {
     <section className="py-24 px-6 bg-white dark:bg-[#0C1B2E] border-y border-gray-100 dark:border-white/10">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12 max-w-2xl mx-auto">
-          <h2 className="font-display text-3xl md:text-4xl text-header dark:text-white mb-4 leading-snug">
+          <h2 className=" text-h1 text-header dark:text-white mb-4 ">
             Why teams switch from spreadsheets.
           </h2>
-          <p className="text-base text-gray-500 dark:text-gray-400 font-sans leading-relaxed">
+          <p className="text-body-lg text-gray-500 dark:text-gray-400 ">
             Six tasks. Same agency. Two timelines.
           </p>
         </div>
 
         {/* Desktop table */}
         <div className="hidden md:block rounded-2xl border border-gray-100 dark:border-white/10 overflow-hidden">
-          <table className="w-full text-sm font-sans">
+          <table className="w-full text-body ">
             <thead>
               <tr className="bg-cream-dark dark:bg-[#162032] text-left">
-                <th className="px-5 py-4 text-xs font-mono uppercase tracking-widest text-gray-400 dark:text-gray-500 w-1/4">Task</th>
-                <th className="px-5 py-4 text-xs font-mono uppercase tracking-widest text-gray-400 dark:text-gray-500 w-2/5">Excel + WhatsApp + email</th>
-                <th className="px-5 py-4 text-xs font-mono uppercase tracking-widest text-gold-dark dark:text-gold/80">Groundwork PM</th>
+                <th className="px-5 py-4 text-label tabular-nums uppercase text-gray-400 dark:text-gray-500 w-1/4">Task</th>
+                <th className="px-5 py-4 text-label tabular-nums uppercase text-gray-400 dark:text-gray-500 w-2/5">Excel + WhatsApp + email</th>
+                <th className="px-5 py-4 text-label tabular-nums uppercase text-gold-dark dark:text-gold/80">Groundwork PM</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-white/5 bg-white dark:bg-[#0C1B2E]">
@@ -78,18 +78,18 @@ export function SpreadsheetComparison() {
         <div className="md:hidden space-y-6">
           {ROWS.map((row) => (
             <div key={row.task} className="rounded-xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#162032] overflow-hidden">
-              <p className="px-4 py-3 font-display text-sm text-header dark:text-white border-b border-gray-100 dark:border-white/5">
+              <p className="px-4 py-3 text-body font-medium text-header dark:text-white border-b border-gray-100 dark:border-white/5">
                 {row.task}
               </p>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 bg-cream-dark/40 dark:bg-[#0C1B2E]">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-gray-400 mb-1">Excel + WhatsApp + email</p>
-                <p className="text-sm font-sans text-gray-500 dark:text-gray-400">{row.spreadsheet}</p>
+                <p className="text-label tabular-nums uppercase text-gray-400 mb-1">Excel + WhatsApp + email</p>
+                <p className="text-body text-gray-500 dark:text-gray-400">{row.spreadsheet}</p>
               </div>
               <div className="px-4 py-3 flex items-start gap-2">
                 <Check className="w-4 h-4 mt-0.5 shrink-0 text-gold" />
                 <div>
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-gold-dark dark:text-gold/80 mb-1">Groundwork PM</p>
-                  <p className="text-sm font-sans text-header dark:text-white">{row.groundwork}</p>
+                  <p className="text-label tabular-nums uppercase text-gold-dark dark:text-gold/80 mb-1">Groundwork PM</p>
+                  <p className="text-body text-header dark:text-white">{row.groundwork}</p>
                 </div>
               </div>
             </div>
@@ -97,7 +97,7 @@ export function SpreadsheetComparison() {
         </div>
 
         <div className="text-center mt-10">
-          <Link href="/signup" className="text-sm font-sans text-gold hover:text-gold-dark transition-colors">
+          <Link href="/signup" className="text-body text-gold hover:text-gold-dark transition-colors">
             Start your 30-day trial →
           </Link>
         </div>

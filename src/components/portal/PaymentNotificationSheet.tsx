@@ -63,33 +63,33 @@ export default function PaymentNotificationSheet({
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Notify Manager of Payment">
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-body text-gray-500 mb-4">
         Invoice <span className="font-medium text-gray-700">{invoiceNumber}</span>. Add a reference,
         a screenshot, or both — whatever you have to hand.
       </p>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label className="block text-body font-medium text-gray-700 mb-1.5">
             Upload screenshot or PDF
           </label>
           <input
             type="file"
             accept="image/*,application/pdf"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+            className="block w-full text-body text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
           />
           {file && (
-            <p className="text-xs text-gray-500 mt-1.5">
+            <p className="text-caption text-gray-500 mt-1.5">
               {file.name} · {(file.size / 1024).toFixed(0)} KB
             </p>
           )}
         </div>
 
-        <div className="text-center text-xs text-gray-400 uppercase tracking-wide">and / or</div>
+        <div className="text-center text-label text-gray-400 uppercase ">and / or</div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label className="block text-body font-medium text-gray-700 mb-1.5">
             Paste your transaction reference / SMS
           </label>
           <textarea
@@ -98,21 +98,21 @@ export default function PaymentNotificationSheet({
             placeholder="Paste M-Pesa SMS or bank transfer reference here..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
           />
-          <p className="text-xs text-gray-400 mt-1">{text.length} / 2000 characters</p>
+          <p className="text-caption text-gray-400 mt-1">{text.length} / 2000 characters</p>
         </div>
 
         <button
           onClick={handleSubmit}
           disabled={submitting || (!text.trim() && !file)}
-          className="w-full bg-gray-900 text-white rounded-lg py-3 text-sm font-semibold disabled:opacity-50 hover:bg-gray-800 transition-colors"
+          className="w-full bg-gray-900 text-white rounded-lg py-3 text-body font-semibold disabled:opacity-50 hover:bg-gray-800 transition-colors"
         >
           {submitting ? "Submitting..." : "Submit Proof"}
         </button>
 
-        <p className="text-xs text-gray-400 text-center pb-2">
-          Your manager is notified immediately. They'll verify and mark the invoice as paid.
+        <p className="text-caption text-gray-400 text-center pb-2">
+          Your manager is notified immediately. They&apos;ll verify and mark the invoice as paid.
         </p>
       </div>
     </BottomSheet>

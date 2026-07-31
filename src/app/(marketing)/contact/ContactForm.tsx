@@ -85,10 +85,10 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="font-display text-2xl text-header dark:text-white mb-3">
+        <h3 className=" text-h1 text-header dark:text-white mb-3">
           {isDemo ? "Demo request received!" : "Message sent!"}
         </h3>
-        <p className="text-gray-500 dark:text-gray-400 font-sans text-sm leading-relaxed max-w-sm mx-auto">
+        <p className="text-gray-500 dark:text-gray-400 text-body max-w-sm mx-auto">
           {isDemo
             ? "Thanks! We'll email you 2–3 time options that fit your availability within 1 business day. Check your inbox for a confirmation."
             : "Thanks for reaching out. We'll reply within 1 business day. Check your inbox for a confirmation."}
@@ -98,13 +98,13 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
   }
 
   const inputClass =
-    "w-full bg-white dark:bg-[#111F30] border border-gray-200 dark:border-white/10 rounded-lg px-4 py-3 text-sm font-sans text-header dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/60 transition-colors";
+    "w-full bg-white dark:bg-[#111F30] border border-gray-200 dark:border-white/10 rounded-lg px-4 py-3 text-body text-header dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/60 transition-colors";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+          <label className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase ">
             Name <span className="text-red-400">*</span>
           </label>
           <input
@@ -116,7 +116,7 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+          <label className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase ">
             Email <span className="text-red-400">*</span>
           </label>
           <input
@@ -130,7 +130,7 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+        <label className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase ">
           Subject <span className="text-red-400">*</span>
         </label>
         <select
@@ -151,14 +151,14 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
       {isDemo && (
         <div className="space-y-5 rounded-xl border border-gold/30 bg-gold/5 dark:bg-gold/10 p-5">
           <div>
-            <span className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2.5 uppercase tracking-wide">
-              When suits you? <span className="font-normal normal-case tracking-normal text-gray-400">(pick any)</span>
+            <span className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2.5 uppercase ">
+              When suits you? <span className=" normal-case text-gray-400">(pick any)</span>
             </span>
             <div className="flex flex-wrap gap-2">
               {TIME_WINDOWS.map((t) => (
                 <label
                   key={t}
-                  className="flex items-center gap-2 text-sm font-sans text-header dark:text-white bg-white dark:bg-[#111F30] border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 cursor-pointer hover:border-gold/50 transition-colors"
+                  className="flex items-center gap-2 text-body text-header dark:text-white bg-white dark:bg-[#111F30] border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 cursor-pointer hover:border-gold/50 transition-colors"
                 >
                   <input type="checkbox" name="preferredTime" value={t} className="accent-gold" />
                   {t}
@@ -169,13 +169,13 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+              <label className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase ">
                 Time zone
               </label>
               <input name="timezone" type="text" placeholder="e.g. EAT (GMT+3)" className={inputClass} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+              <label className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase ">
                 Portfolio size
               </label>
               <input name="portfolio" type="text" placeholder="e.g. 25 properties" className={inputClass} />
@@ -183,8 +183,8 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
-              Phone / WhatsApp <span className="font-normal normal-case tracking-normal text-gray-400">(optional)</span>
+            <label className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase ">
+              Phone / WhatsApp <span className=" normal-case text-gray-400">(optional)</span>
             </label>
             <input name="phone" type="tel" placeholder="+254 700 000 000" className={inputClass} />
           </div>
@@ -192,9 +192,9 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
       )}
 
       <div>
-        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 font-sans mb-2 uppercase tracking-wide">
+        <label className="block text-label font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase ">
           {isDemo ? (
-            <>Anything specific you&apos;d like to see? <span className="font-normal normal-case tracking-normal text-gray-400">(optional)</span></>
+            <>Anything specific you&apos;d like to see? <span className=" normal-case text-gray-400">(optional)</span></>
           ) : (
             <>Message <span className="text-red-400">*</span></>
           )}
@@ -210,7 +210,7 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
       </div>
 
       {error && (
-        <p className="text-sm text-red-500 font-sans bg-red-50 dark:bg-red-950/40 rounded-lg px-4 py-3">
+        <p className="text-body text-red-500 bg-red-50 dark:bg-red-950/40 rounded-lg px-4 py-3">
           {error}
         </p>
       )}
@@ -218,7 +218,7 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-header dark:bg-gold text-white dark:text-header font-semibold text-sm px-8 py-3.5 rounded-lg hover:bg-header/90 dark:hover:bg-gold/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+        className="w-full bg-header dark:bg-gold text-white dark:text-header font-semibold text-body px-8 py-3.5 rounded-lg hover:bg-header/90 dark:hover:bg-gold/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {loading ? (
           <>
@@ -233,7 +233,7 @@ export function ContactForm({ defaultDemo = false }: { defaultDemo?: boolean }) 
         )}
       </button>
 
-      <p className="text-center text-xs text-gray-400 font-sans">
+      <p className="text-center text-caption text-gray-400 ">
         {isDemo
           ? "We'll email you a few time options within 1 business day."
           : "We typically reply within 1 business day."}

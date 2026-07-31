@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     },
     include: {
       unit: {
-        include: { property: { select: { id: true, name: true, type: true } } },
+        include: { property: { select: { id: true, name: true, type: true, currency: true } } },
       },
       // Rent escalation timeline — consumers resolve per-month expected rent
       // from this (see src/lib/rent-resolution.ts) instead of assuming the

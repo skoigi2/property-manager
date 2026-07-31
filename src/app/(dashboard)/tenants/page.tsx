@@ -29,6 +29,7 @@ import {
 import { exportTenants } from "@/lib/excel-export";
 import { formatCurrency } from "@/lib/currency";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
+import { DepositVerifyDrawer, type UnverifiedDepositTenant } from "@/components/tenants/DepositVerifyDrawer";
 import { clsx } from "clsx";
 import { HelpTip } from "@/components/ui/HelpTip";
 
@@ -42,6 +43,19 @@ type LayoutMode = "grid" | "table";
 
 function toDate(val: string | null | undefined): Date | null {
   return val ? new Date(val) : null;
+}
+
+/** Active tenant with a contractual deposit but no DEPOSIT receipt trail. */
+function isDepositUnverified(t: any): boolean {
+  return !!t?.isActive && (t?.depositAmount ?? 0) > 0 && t?.depositReceived == null;
+}
+
+function DepositUnverifiedBadge() {
+  return (
+    <span title="Deposit unverified — no receipts recorded. Click the Deposits held card above to verify.">
+      <Badge variant="amber">Deposit ⚠</Badge>
+    </span>
+  );
 }
 
 function LeaseStatusBadge({ leaseEnd }: { leaseEnd: string | null }) {
@@ -216,6 +230,24 @@ export default function TenantsPage() {
     return { held, unverified, count: active.length };
   }, [tenants]);
 
+  // Drawer task list: active tenants with a contractual deposit but no
+  // receipt trail. Verification = recording the DEPOSIT receipt per tenant.
+  const [showDepositDrawer, setShowDepositDrawer] = useState(false);
+  const unverifiedDeposits: UnverifiedDepositTenant[] = useMemo(() => {
+    return tenants
+      .filter((t: any) => t.isActive && (t.depositAmount ?? 0) > 0 && t.depositReceived == null)
+      .map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        unitId: t.unitId,
+        unitNumber: t.unit?.unitNumber ?? "—",
+        propertyName: t.unit?.property?.name ?? "—",
+        currency: t.unit?.property?.currency ?? currency,
+        contractual: t.depositAmount ?? 0,
+        leaseStart: t.leaseStart ?? null,
+      }));
+  }, [tenants, currency]);
+
   const activeFilters = [
     search && `"${search}"`,
     propFilter !== "ALL" && propFilter,
@@ -364,9 +396,17 @@ export default function TenantsPage() {
           </Card>
         )}
 
-        {/* Deposit liability summary */}
+        {/* Deposit liability summary — clicking opens the verification drawer
+            (the primary way to work through unverified deposits) */}
         {!tenantsLoading && depositLiability.held > 0 && (
-          <Card padding="sm">
+          <Card
+            padding="sm"
+            className={clsx(
+              depositLiability.unverified > 0 &&
+                "cursor-pointer transition-shadow hover:shadow-md hover:ring-1 hover:ring-gold/30",
+            )}
+            onClick={depositLiability.unverified > 0 ? () => setShowDepositDrawer(true) : undefined}
+          >
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-label text-gray-400 uppercase flex items-center gap-1.5">
@@ -376,10 +416,17 @@ export default function TenantsPage() {
               </div>
               <div className="text-right text-caption text-gray-400 ">
                 <p>{depositLiability.count} active tenant{depositLiability.count !== 1 ? "s" : ""}</p>
-                {depositLiability.unverified > 0 && (
-                  <p className="text-amber-600 mt-0.5">
-                    {depositLiability.unverified} unverified — contractual amount, no receipts
-                  </p>
+                {depositLiability.unverified > 0 ? (
+                  <>
+                    <p className="text-amber-600 mt-0.5">
+                      {depositLiability.unverified} unverified — contractual amount, no receipts
+                    </p>
+                    <p className="text-gold font-medium mt-1 flex items-center justify-end gap-0.5">
+                      Verify now <ChevronRight size={13} />
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-green-600 mt-0.5">All receipts on record ✓</p>
                 )}
               </div>
             </div>
@@ -558,7 +605,10 @@ export default function TenantsPage() {
                         {tenant.unit?.unitNumber} · {tenant.unit?.property?.name}
                       </p>
                     </div>
-                    <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                    <div className="flex flex-col items-end gap-1">
+                      <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                      {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
+                    </div>
                   </div>
 
                   {/* Stats grid */}
@@ -641,10 +691,13 @@ export default function TenantsPage() {
                           {tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}
                         </p>
                       </div>
-                      {tenant.isActive
-                        ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
-                        : <Badge variant="gray">Vacated</Badge>
-                      }
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {tenant.isActive
+                          ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                          : <Badge variant="gray">Vacated</Badge>
+                        }
+                        {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
+                      </div>
                     </div>
                     {/* Finance + lease row */}
                     <div className="grid grid-cols-2 gap-2 mt-2 mb-2.5">
@@ -825,10 +878,13 @@ export default function TenantsPage() {
                         </td>
                         {/* Status badge */}
                         <td className="px-4 py-3 text-center">
-                          {tenant.isActive
-                            ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
-                            : <Badge variant="gray">Vacated</Badge>
-                          }
+                          <div className="inline-flex flex-col items-center gap-1">
+                            {tenant.isActive
+                              ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                              : <Badge variant="gray">Vacated</Badge>
+                            }
+                            {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
+                          </div>
                         </td>
                         {/* Actions */}
                         <td className="px-4 py-3">
@@ -950,6 +1006,20 @@ export default function TenantsPage() {
           </form>
         )}
       </Modal>
+
+      {/* ── Deposit Verification Drawer ── */}
+      <DepositVerifyDrawer
+        open={showDepositDrawer}
+        tenants={unverifiedDeposits}
+        onVerified={(tenantId, amount) => {
+          // Flip the tenant to verified in place so the card, badges and
+          // drawer counts update without a refetch.
+          setTenants((prev) =>
+            (prev ?? []).map((t: any) => (t.id === tenantId ? { ...t, depositReceived: amount } : t)),
+          );
+        }}
+        onClose={() => setShowDepositDrawer(false)}
+      />
 
       {/* ── Letting Fee Prompt ── */}
       {lettingFeePrompt && (

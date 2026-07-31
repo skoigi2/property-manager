@@ -1476,21 +1476,29 @@ export default function IncomePage() {
                   <Card padding="none">
                     {/* Mobile: stacked cards */}
                     <div className="md:hidden divide-y divide-gray-50">
-                      {arrearsRows.map(({ tenant, summary, annualRate }) => (
+                      {arrearsRows.map(({ tenant, summary, annualRate }) => {
+                        const isExpanded = expandedRows.has(tenant.id);
+                        return (
                         <div
                           key={tenant.id}
-                          className={`px-4 py-3 border-l-4 ${summary.totalArrears > tenant.monthlyRent * 2 ? "border-red-300 bg-red-50/30" : summary.totalArrears > 0 ? "border-amber-300 bg-amber-50/20" : "border-transparent"}`}
+                          className={`px-4 py-3 border-l-4 cursor-pointer ${summary.totalArrears > tenant.monthlyRent * 2 ? "border-red-300 bg-red-50/30" : summary.totalArrears > 0 ? "border-amber-300 bg-amber-50/20" : "border-transparent"}`}
+                          onClick={() => toggleRow(tenant.id)}
                         >
-                          {/* Header */}
+                          {/* Header — tap anywhere on the card to expand the breakdown */}
                           <div className="flex items-start justify-between gap-2 mb-2">
-                            <div>
-                              <p className="text-sm font-medium font-sans text-gray-700">{tenant.name}</p>
-                              <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                            <div className="flex items-start gap-1.5 min-w-0">
+                              <span className="text-gray-400 mt-0.5 shrink-0">
+                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium font-sans text-gray-700">{tenant.name}</p>
+                                <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                              </div>
                             </div>
                             {summary.totalMonthsOwed === 0 ? (
-                              <span className="text-xs text-green-700 font-sans bg-green-50 px-2 py-1 rounded-lg">Up to date</span>
+                              <span className="text-xs text-green-700 font-sans bg-green-50 px-2 py-1 rounded-lg shrink-0">Up to date</span>
                             ) : (
-                              <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-lg">{summary.totalMonthsOwed}mo overdue</span>
+                              <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-lg shrink-0">{summary.totalMonthsOwed}mo overdue</span>
                             )}
                           </div>
                           {/* Arrears + actions */}
@@ -1502,7 +1510,7 @@ export default function IncomePage() {
                                 <span className="text-xs text-green-600 font-sans">No arrears</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               {summary.hasArrears && (
                                 <Button size="sm" variant="gold" onClick={() => handleQuickRecordArrears(tenant, summary)}>
                                   <Plus size={12} /> Record
@@ -1532,8 +1540,48 @@ export default function IncomePage() {
                               )}
                             </div>
                           </div>
+                          {/* Expanded: per-period breakdown (mirrors the desktop expand row) */}
+                          {isExpanded && (
+                            <div className="mt-3 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center text-[10px] text-gray-400 uppercase tracking-wide font-sans pb-1.5">
+                                <span className="flex-1">Month</span>
+                                <span className="w-24 text-right">Expected</span>
+                                <span className="w-20 text-right">Paid</span>
+                                <span className="w-16 text-right">Status</span>
+                              </div>
+                              <div className="divide-y divide-gray-50">
+                                {[...summary.months].reverse().map((m) => (
+                                  <div key={`${m.year}-${m.month}`} className={`flex items-center py-1.5 text-xs font-sans ${!m.isPaid ? "text-gray-700" : "text-gray-400"}`}>
+                                    <span className="flex-1 font-medium">
+                                      {MONTH_SHORT[m.month]} {m.year}
+                                      {!m.isPaid && (
+                                        <button
+                                          className="ml-2 text-gold hover:text-gold-dark font-medium underline underline-offset-2"
+                                          onClick={() => handleQuickRecord(tenant, new Date(m.year, m.month, 1))}
+                                        >
+                                          Record
+                                        </button>
+                                      )}
+                                    </span>
+                                    <span className="w-24 text-right font-mono">{fmt(m.expected)}</span>
+                                    <span className="w-20 text-right font-mono">{m.totalPaid > 0 ? fmt(m.totalPaid) : "—"}</span>
+                                    <span className="w-16 text-right">
+                                      {m.isPaid ? (
+                                        <span className="text-green-600">✓ Paid</span>
+                                      ) : m.isPartial ? (
+                                        <span className="text-amber-600">⏱ Part</span>
+                                      ) : (
+                                        <span className="text-red-500">⚠ Due</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     {/* Desktop table */}
                     <div className="hidden md:block overflow-x-auto">

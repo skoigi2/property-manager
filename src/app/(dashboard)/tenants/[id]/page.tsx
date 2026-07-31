@@ -10,9 +10,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Spinner } from "@/components/ui/Spinner";
 import { getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
-import { resolveExpectedRent } from "@/lib/rent-resolution";
-import { allocatePayments } from "@/lib/ledger-allocation";
-import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { buildLedger } from "@/lib/rent-ledger";
 import { calcDepositPosition } from "@/lib/deposit";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
@@ -36,7 +34,7 @@ import {
   ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy, History, MessageSquare, LogOut, ClipboardCheck,
   Pencil,
 } from "lucide-react";
-import { differenceInMonths, startOfMonth, addMonths, format } from "date-fns";
+import { format } from "date-fns";
 
 // ── Deposit Settlement Types ───────────────────────────────────────────────────
 
@@ -275,52 +273,9 @@ interface Invoice {
   paidAt?: string | null; paidAmount?: number | null;
 }
 
-function buildLedger(tenant: any, incomeEntries: any[]) {
-  if (!tenant?.leaseStart) return [];
-  const leaseStart    = new Date(tenant.leaseStart);
-  const leaseEnd      = tenant.leaseEnd ? new Date(tenant.leaseEnd) : new Date();
-  const today         = new Date();
-  const end           = leaseEnd < today ? leaseEnd : today;
-  const totalMonths   = Math.max(differenceInMonths(startOfMonth(end), startOfMonth(leaseStart)) + 1, 1);
-
-  const rows = [];
-  for (let i = 0; i < totalMonths; i++) {
-    const monthDate  = addMonths(startOfMonth(leaseStart), i);
-    const monthStart = monthDate;
-    const monthEnd   = addMonths(monthDate, 1);
-    const payments   = incomeEntries.filter((e) => {
-      const d = new Date(e.date);
-      return d >= monthStart && d < monthEnd && e.type === "LONGTERM_RENT";
-    });
-    const received = payments.reduce((s: number, e: any) => s + e.grossAmount, 0);
-    // Expected rent is resolved per month from the RentHistory timeline so
-    // past months reflect the rent that applied THEN, not today's rate, and
-    // follows the payment schedule: quarterly/biannual/annual payers owe the
-    // FULL period amount (rent + service charge) on billing months only.
-    const sched = scheduledExpectedForMonth({
-      leaseStart: tenant.leaseStart,
-      frequency: tenant.paymentFrequency,
-      month: monthDate,
-      rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
-    });
-    const expected =
-      sched.amount +
-      (sched.due ? (tenant.serviceCharge ?? 0) * frequencyMonths(tenant.paymentFrequency) : 0);
-    rows.push({ monthLabel: format(monthDate, "MMM yyyy"), monthDate, expected, received, payments });
-  }
-  // Drop filler months (nothing due, nothing received) so a period payer's
-  // ledger shows one row per billing period; they contribute nothing to the
-  // allocation pot, so filtering before allocation is safe.
-  const ledgerRows =
-    frequencyMonths(tenant.paymentFrequency) > 1
-      ? rows.filter((r) => r.expected > 0 || r.received > 0)
-      : rows;
-  // Statement-style allocation: receipts pool and cover months oldest-first,
-  // so a quarterly/annual prepayment covers the following months instead of
-  // showing them Unpaid, and a late catch-up clears older months.
-  const allocated = allocatePayments(ledgerRows);
-  return ledgerRows.map((r, i) => ({ ...r, ...allocated[i] })).reverse();
-}
+// Payment-ledger construction lives in src/lib/rent-ledger.ts (buildLedger) —
+// extracted so the money math is unit-tested and shared with the Income
+// page's arrears conventions.
 
 type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages";
 

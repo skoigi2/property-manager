@@ -4,7 +4,6 @@ import {
   calcPettyCashTotal,
   calcExpensePayment,
   calcNetIncome,
-  calcManagementFee,
   calcOccupancyRate,
   calcLateInterest,
   calcUnitSummary,
@@ -97,23 +96,6 @@ describe("calcNetIncome", () => {
       exp({ amount: 50000, isSunkCost: true }), // capital item — excluded from P&L
     ];
     expect(calcNetIncome(100000, 5000, expenses)).toBe(92000);
-  });
-});
-
-describe("calcManagementFee", () => {
-  it("returns 0 with no config", () => {
-    expect(calcManagementFee(null, 100000)).toBe(0);
-    expect(calcManagementFee(undefined, 100000)).toBe(0);
-  });
-
-  it("flat amount wins over rate when both set", () => {
-    const config = { flatAmount: 6000, ratePercent: 10 } as never;
-    expect(calcManagementFee(config, 100000)).toBe(6000);
-  });
-
-  it("applies percentage when no flat amount", () => {
-    const config = { flatAmount: null, ratePercent: 10 } as never;
-    expect(calcManagementFee(config, 100000)).toBe(10000);
   });
 });
 

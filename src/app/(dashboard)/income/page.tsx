@@ -25,10 +25,9 @@ import {
   Phone, Mail, Building2, BookUser, Pencil, X,
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
-import { calcLateInterest } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
-import { allocatePayments } from "@/lib/ledger-allocation";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { computeArrears, type ArrearsSummary } from "@/lib/rent-ledger";
 import { GuestPanel } from "@/components/guests/GuestPanel";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -69,121 +68,9 @@ const EXCLUDED_FROM_PL = ["DEPOSIT"];
 type Tab = "collection" | "entries" | "commissions";
 type CollectionMode = "monthly" | "arrears";
 
-interface MonthRow {
-  year: number;
-  month: number; // 0-indexed
-  expected: number;
-  totalPaid: number;
-  balance: number; // negative = short
-  isPaid: boolean;
-  isPartial: boolean;
-  interest: number;
-}
-
-interface ArrearsSummary {
-  months: MonthRow[];
-  unpaidMonths: MonthRow[];
-  totalArrears: number;
-  totalInterest: number;
-  totalMonthsOwed: number;
-  lastPaymentDate: string | null;
-  hasArrears: boolean;
-}
-
-// ── Arrears computation ────────────────────────────────────────────────────────
-
-function computeArrears(tenant: any, allEntries: any[], annualInterestRate = 0): ArrearsSummary {
-  const leaseStart = new Date(tenant.leaseStart);
-  const today = new Date();
-
-  const start = new Date(leaseStart.getFullYear(), leaseStart.getMonth(), 1);
-  const end   = new Date(today.getFullYear(), today.getMonth(), 1);
-
-  const tenantEntries = allEntries.filter(
-    (e: any) =>
-      e.type === "LONGTERM_RENT" &&
-      (e.tenantId === tenant.id || e.unitId === tenant.unitId),
-  );
-
-  // First pass: expected (RentHistory-aware, schedule-aware) + cash received
-  // per month. Quarterly/biannual/annual payers owe the FULL period amount on
-  // billing months (anchored to lease start) and nothing in between, matching
-  // the This Month view and invoice generation.
-  const periodMonths = frequencyMonths(tenant.paymentFrequency);
-  const rawMonths: { year: number; month: number; expected: number; received: number }[] = [];
-  let cursor = new Date(start);
-  while (cursor <= end) {
-    const yr = cursor.getFullYear();
-    const mo = cursor.getMonth();
-    const paid = tenantEntries
-      .filter((e: any) => {
-        const d = new Date(e.date);
-        return d.getFullYear() === yr && d.getMonth() === mo;
-      })
-      .reduce((s: number, e: any) => s + e.grossAmount, 0);
-    rawMonths.push({
-      year: yr,
-      month: mo,
-      expected: scheduledExpectedForMonth({
-        leaseStart: tenant.leaseStart,
-        frequency: tenant.paymentFrequency,
-        month: cursor,
-        rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
-      }).amount,
-      received: paid,
-    });
-    cursor = new Date(yr, mo + 1, 1);
-  }
-
-  // Drop filler months (nothing due, nothing received) so a period payer's
-  // breakdown shows one row per billing period. Such rows contribute nothing
-  // to the allocation pot, so filtering before allocation is safe.
-  const ledgerMonths = periodMonths > 1
-    ? rawMonths.filter((m) => m.expected > 0 || m.received > 0)
-    : rawMonths;
-
-  // Statement-style allocation: receipts pool and cover months oldest-first,
-  // so quarterly/annual prepayers and late catch-ups aren't falsely flagged.
-  const MS_PER_DAY = 1000 * 60 * 60 * 24;
-  const allocations = allocatePayments(ledgerMonths);
-  const months: MonthRow[] = allocations.map((a, i) => {
-    const { year: yr, month: mo } = ledgerMonths[i];
-    const dueDate = new Date(yr, mo + 1, 1); // 1st of next month
-    const daysOverdue = a.shortfall > 0
-      ? Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / MS_PER_DAY))
-      : 0;
-    return {
-      year: yr,
-      month: mo,
-      expected: a.expected,
-      totalPaid: a.received,
-      balance: a.balance,
-      isPaid: a.status === "PAID",
-      isPartial: a.status === "PARTIAL",
-      interest: calcLateInterest(a.shortfall, annualInterestRate, daysOverdue),
-    };
-  });
-
-  const unpaidMonths = months.filter((m) => !m.isPaid);
-  const totalArrears = allocations.reduce((s, a) => s + a.shortfall, 0);
-  const totalInterest = unpaidMonths.reduce((s, m) => s + m.interest, 0);
-
-  const sorted = [...tenantEntries].sort(
-    (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-  );
-
-  return {
-    months,
-    unpaidMonths,
-    totalArrears,
-    totalInterest,
-    // Month-equivalents: an unpaid annual billing period counts as 12 months
-    // owed, so "months overdue" stays truthful for non-monthly payers.
-    totalMonthsOwed: unpaidMonths.length * periodMonths,
-    lastPaymentDate: sorted[0]?.date ?? null,
-    hasArrears: totalArrears > 0,
-  };
-}
+// Arrears computation lives in src/lib/rent-ledger.ts (computeArrears) —
+// extracted so the money math is unit-tested and shared conventions can't
+// drift from the tenant detail ledger.
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 

@@ -75,24 +75,11 @@ export function calcNetIncome(
   return grossIncome - commissions - operatingExpenses;
 }
 
-/** Calculate management fee for a unit given its config */
-export function calcManagementFee(
-  config: { flatAmount: number | null; ratePercent: number } | null | undefined,
-  grossRevenue: number
-): number {
-  if (!config) return 0;
-  if (config.flatAmount != null) return config.flatAmount;
-  return (config.ratePercent / 100) * grossRevenue;
-}
-
 /** Riara One flat management fees — only defined for types used in the property */
 export const RIARA_MGMT_FEE: Partial<Record<UnitType, number>> = {
   ONE_BED: 6000,
   TWO_BED: 8800,
 };
-
-/** Alba Gardens management fee rate */
-export const ALBA_MGMT_FEE_RATE = 0.1; // 10%
 
 /** Calculate occupancy rate for Alba Gardens units */
 export function calcOccupancyRate(

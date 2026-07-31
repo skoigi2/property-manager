@@ -81,7 +81,7 @@ export function ProgressChip({ c }: { c: CaseRow }) {
       <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
         <div className={`h-1.5 ${isTerminal ? "bg-green-500" : "bg-gold"}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-[10px] font-mono text-gray-500 shrink-0">{cur}/{total}</span>
+      <span className="text-caption font-mono text-gray-500 shrink-0">{cur}/{total}</span>
     </div>
   );
 }
@@ -95,16 +95,16 @@ export function CaseCard({ c, showProperty = true }: { c: CaseRow; showProperty?
       className="block rounded-lg border border-gray-100 bg-white p-3 hover:border-gold/40 hover:shadow-sm transition-colors"
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <p className="font-sans font-medium text-sm text-gray-900 leading-snug line-clamp-2">{c.title}</p>
+        <p className=" font-medium text-body text-gray-900 line-clamp-2">{c.title}</p>
         <Badge variant={STATUS_BADGE[c.status]}>{STATUS_LABEL[c.status]}</Badge>
       </div>
       {showProperty && (
-        <p className="text-xs text-gray-500 font-sans mb-2 truncate">
+        <p className="text-caption text-gray-500 mb-2 truncate">
           {c.property.name}{c.unit ? ` · ${c.unit.unitNumber}` : ""}
         </p>
       )}
       <ProgressChip c={c} />
-      <div className="flex items-center justify-between mt-2 text-xs font-sans">
+      <div className="flex items-center justify-between mt-2 text-caption ">
         <span className="text-gray-500">Waiting: {WAITING_LABEL[c.waitingOn]}</span>
         <span className="text-gray-400" title={t.full}>{t.short}</span>
       </div>

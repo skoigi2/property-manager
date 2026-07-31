@@ -31,14 +31,14 @@ export function KPICard({ label, amount, type = "neutral", icon, subtext, curren
   return (
     <div className={clsx("rounded-xl border-2 p-4 bg-white shadow-card", colors[type])}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium text-gray-500 font-sans uppercase tracking-wide leading-tight flex items-center gap-1.5">
+        <p className="text-label font-medium text-gray-500 uppercase flex items-center gap-1.5">
           {label}
           {tooltip && <HelpTip text={tooltip} position="below" />}
         </p>
         {icon && <span className="text-gray-300 shrink-0">{icon}</span>}
       </div>
       <CurrencyDisplay currency={currency} amount={amount} className={clsx("block mt-2", textColors[type])} size="xl" />
-      {subtext && <p className="text-xs text-gray-400 font-sans mt-1">{subtext}</p>}
+      {subtext && <p className="text-caption text-gray-400 mt-1">{subtext}</p>}
     </div>
   );
 }

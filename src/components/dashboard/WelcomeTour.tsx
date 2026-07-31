@@ -85,12 +85,12 @@ export function WelcomeTour() {
           <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center mx-auto mb-4">
             <Icon size={26} className="text-gold" />
           </div>
-          <h2 className="font-display text-xl text-header mb-2">{s.title}</h2>
-          <p className="text-sm text-gray-500 font-sans leading-relaxed">{s.body}</p>
+          <h2 className=" text-h2 text-header mb-2">{s.title}</h2>
+          <p className="text-body text-gray-500 ">{s.body}</p>
 
           <button
             onClick={() => finish(s.cta.href)}
-            className="mt-5 text-xs font-sans font-medium text-gold hover:text-gold-dark underline underline-offset-2"
+            className="mt-5 text-caption font-medium text-gold hover:text-gold-dark underline underline-offset-2"
           >
             {s.cta.label} →
           </button>
@@ -111,21 +111,21 @@ export function WelcomeTour() {
             <button
               onClick={() => setStep((v) => Math.max(0, v - 1))}
               disabled={step === 0}
-              className="inline-flex items-center gap-1 text-sm font-sans text-gray-400 hover:text-gray-700 disabled:opacity-0 transition-colors"
+              className="inline-flex items-center gap-1 text-body text-gray-400 hover:text-gray-700 disabled:opacity-0 transition-colors"
             >
               <ChevronLeft size={15} /> Back
             </button>
             {isLast ? (
               <button
                 onClick={() => finish()}
-                className="inline-flex items-center gap-1.5 bg-header text-white text-sm font-sans font-medium px-5 py-2.5 rounded-xl hover:bg-header/90 transition-colors"
+                className="inline-flex items-center gap-1.5 bg-header text-white text-body font-medium px-5 py-2.5 rounded-xl hover:bg-header/90 transition-colors"
               >
                 Get started
               </button>
             ) : (
               <button
                 onClick={() => setStep((v) => v + 1)}
-                className="inline-flex items-center gap-1.5 bg-header text-white text-sm font-sans font-medium px-5 py-2.5 rounded-xl hover:bg-header/90 transition-colors"
+                className="inline-flex items-center gap-1.5 bg-header text-white text-body font-medium px-5 py-2.5 rounded-xl hover:bg-header/90 transition-colors"
               >
                 Next <ChevronRight size={15} />
               </button>

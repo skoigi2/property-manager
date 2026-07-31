@@ -37,13 +37,13 @@ export function TenantFormFields({
       {/* Additional contacts — spouse, accounts office, guarantor… */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-sm font-medium text-gray-600 font-sans">
-            Additional contacts <span className="text-gray-400 font-normal">(optional)</span>
+          <label className="text-body font-medium text-gray-600 ">
+            Additional contacts <span className="text-gray-400 ">(optional)</span>
           </label>
           <button
             type="button"
             onClick={() => contacts.append({ label: "", email: "", phone: "" })}
-            className="flex items-center gap-1 text-xs font-sans font-medium text-gold hover:text-gold-dark transition-colors"
+            className="flex items-center gap-1 text-caption font-medium text-gold hover:text-gold-dark transition-colors"
           >
             <Plus size={13} /> Add contact
           </button>
@@ -120,13 +120,13 @@ export function TenantFormFields({
         <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
         <Input label="Lease End" tooltip="Leave blank if the end date isn't agreed yet. The tenant will show as 'Lease TBC' until a date is set." type="date" {...register("leaseEnd")} />
       </div>
-      <p className="text-xs text-gray-400 font-sans">Leave Lease End blank to mark as TBC</p>
+      <p className="text-caption text-gray-400 ">Leave Lease End blank to mark as TBC</p>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-600 font-sans">Notes</label>
+        <label className="text-body font-medium text-gray-600 ">Notes</label>
         <textarea
           rows={3}
           placeholder="Any lease detail not captured in the structured fields — special clauses, banking notes, status caveats…"
-          className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+          className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
           {...register("notes")}
         />
       </div>

@@ -106,13 +106,13 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="section-header">Portal Messages</h2>
-        <span className="text-xs text-gray-400">Tenant ↔ Manager threads from the portal</span>
+        <span className="text-caption text-gray-400">Tenant ↔ Manager threads from the portal</span>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-400 text-center py-8">Loading...</p>
+        <p className="text-body text-gray-400 text-center py-8">Loading...</p>
       ) : threads.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-8">No portal messages yet.</p>
+        <p className="text-body text-gray-400 text-center py-8">No portal messages yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Thread list */}
@@ -129,15 +129,15 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="text-sm font-semibold text-gray-900 line-clamp-1">{t.subject}</p>
+                    <p className="text-body font-semibold text-gray-900 line-clamp-1">{t.subject}</p>
                     {t.unreadCount > 0 && (
-                      <span className="shrink-0 text-xs font-bold bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center">
+                      <span className="shrink-0 text-caption font-semibold bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center">
                         {t.unreadCount}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 line-clamp-2 mb-1.5">{t.preview}</p>
-                  <div className="flex items-center justify-between text-xs">
+                  <p className="text-caption text-gray-500 line-clamp-2 mb-1.5">{t.preview}</p>
+                  <div className="flex items-center justify-between text-caption">
                     <span className="text-gray-400">{CATEGORY_LABELS[t.category] ?? t.category}</span>
                     <span className={`px-1.5 py-0.5 rounded font-medium ${s.bg} ${s.text}`}>{s.label}</span>
                   </div>
@@ -149,26 +149,26 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
           {/* Active thread */}
           <div className="md:col-span-2">
             {!detail ? (
-              <div className="border border-gray-200 rounded-lg p-8 text-center text-gray-400 text-sm">
+              <div className="border border-gray-200 rounded-lg p-8 text-center text-gray-400 text-body">
                 Select a thread to view the conversation.
               </div>
             ) : (
               <div className="border border-gray-200 rounded-lg flex flex-col h-[600px]">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">{detail.subject}</p>
-                    <p className="text-xs text-gray-400">{CATEGORY_LABELS[detail.category]}</p>
+                    <p className="text-body font-semibold text-gray-900">{detail.subject}</p>
+                    <p className="text-caption text-gray-400">{CATEGORY_LABELS[detail.category]}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {detail.status !== "RESOLVED" && (
                       <button
                         onClick={() => setStatus("RESOLVED")}
-                        className="text-xs px-2 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+                        className="text-caption px-2 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
                       >
                         Mark Resolved
                       </button>
                     )}
-                    <span className={`text-xs px-2 py-0.5 rounded ${STATUS_STYLES[detail.status].bg} ${STATUS_STYLES[detail.status].text}`}>
+                    <span className={`text-caption px-2 py-0.5 rounded ${STATUS_STYLES[detail.status].bg} ${STATUS_STYLES[detail.status].text}`}>
                       {STATUS_STYLES[detail.status].label}
                     </span>
                   </div>
@@ -185,8 +185,8 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
                           m.sender === "MANAGER" ? "bg-gold/20 text-gray-900" : "bg-white border border-gray-200 text-gray-900"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{m.body}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">
+                        <p className="text-body whitespace-pre-wrap">{m.body}</p>
+                        <p className="text-caption text-gray-400 mt-1">
                           {m.sender === "MANAGER" ? "You" : detail.tenantName} ·{" "}
                           {format(new Date(m.createdAt), "d MMM, HH:mm")}
                         </p>
@@ -202,13 +202,13 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
                       value={reply}
                       onChange={(e) => setReply(e.target.value)}
                       placeholder="Type your reply..."
-                      className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold resize-none"
+                      className="w-full border border-gray-200 rounded px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold resize-none"
                     />
                     <div className="flex justify-end mt-2">
                       <button
                         onClick={handleReply}
                         disabled={sending || !reply.trim()}
-                        className="px-4 py-1.5 bg-gray-900 text-white text-sm rounded disabled:opacity-50 hover:bg-gray-800"
+                        className="px-4 py-1.5 bg-gray-900 text-white text-body rounded disabled:opacity-50 hover:bg-gray-800"
                       >
                         {sending ? "Sending..." : "Send Reply"}
                       </button>

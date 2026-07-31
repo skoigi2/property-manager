@@ -149,7 +149,7 @@ export default function CaseDetailPage() {
     <>
       <Header title={c.title} />
       <div className="page-container">
-        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm font-sans">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-body ">
           <Link href="/cases" className="text-gray-500 hover:text-gold inline-flex items-center gap-1">
             <ChevronLeft size={14} /> Cases
           </Link>
@@ -161,7 +161,7 @@ export default function CaseDetailPage() {
           {c.caseType === "MAINTENANCE" && (
             <Link
               href={`/maintenance?jobId=${c.subjectId}`}
-              className="ml-auto text-xs text-gray-500 hover:text-gold inline-flex items-center gap-1"
+              className="ml-auto text-caption text-gray-500 hover:text-gold inline-flex items-center gap-1"
             >
               <Wrench size={12} /> View as maintenance job
             </Link>
@@ -202,7 +202,7 @@ export default function CaseDetailPage() {
         <div className="grid md:grid-cols-3 gap-4">
           {/* Timeline + composer */}
           <div className="md:col-span-2 bg-white rounded-xl border border-gray-100 p-4">
-            <h3 className="font-display text-base mb-3">Timeline</h3>
+            <h3 className=" text-h3 mb-3">Timeline</h3>
             <div className="space-y-3">
               {c.events.map((e) => {
                 const isSystem = SYSTEM_KINDS.has(e.kind);
@@ -210,7 +210,7 @@ export default function CaseDetailPage() {
                 const full = formatFull(e.createdAt);
                 if (isSystem) {
                   return (
-                    <div key={e.id} className="flex items-start gap-2 text-xs font-sans text-gray-500 py-1.5 px-2 bg-gray-50 rounded">
+                    <div key={e.id} className="flex items-start gap-2 text-caption text-gray-500 py-1.5 px-2 bg-gray-50 rounded">
                       <GitBranch size={12} className="mt-0.5 text-gray-400" />
                       <span className="flex-1">{e.body ?? e.kind}</span>
                       <span title={full} className="text-gray-400">{short}</span>
@@ -219,11 +219,11 @@ export default function CaseDetailPage() {
                 }
                 return (
                   <div key={e.id} className="rounded-lg bg-cream/40 border border-gray-100 p-3">
-                    <div className="flex items-center justify-between text-xs text-gray-500 font-sans mb-1">
+                    <div className="flex items-center justify-between text-caption text-gray-500 mb-1">
                       <span className="font-medium text-gray-700">{e.actorName ?? e.actorEmail ?? "Unknown"}</span>
                       <span title={full}>{short}</span>
                     </div>
-                    {e.body && <p className="text-sm font-sans whitespace-pre-wrap">{e.body}</p>}
+                    {e.body && <p className="text-body whitespace-pre-wrap">{e.body}</p>}
                     {e.attachmentLinks && e.attachmentLinks.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {e.attachmentLinks.map((a) => (
@@ -232,7 +232,7 @@ export default function CaseDetailPage() {
                             href={a.url ?? "#"}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                            className="inline-flex items-center gap-1 text-caption text-gold hover:underline"
                           >
                             <Paperclip size={12} /> Attachment
                           </a>
@@ -243,7 +243,7 @@ export default function CaseDetailPage() {
                 );
               })}
               {c.events.length === 0 && (
-                <p className="text-sm font-sans text-gray-400">No activity yet.</p>
+                <p className="text-body text-gray-400">No activity yet.</p>
               )}
             </div>
 
@@ -254,15 +254,15 @@ export default function CaseDetailPage() {
                 onChange={(e) => setComposer(e.target.value)}
                 placeholder="Add a comment…"
                 rows={3}
-                className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
               <div className="flex items-center justify-between mt-2">
-                <input ref={fileRef} type="file" multiple accept="image/*,application/pdf" className="text-xs font-sans" />
+                <input ref={fileRef} type="file" multiple accept="image/*,application/pdf" className="text-caption " />
                 <Button onClick={postComment} disabled={saving}>
                   <Send size={14} /> Add comment
                 </Button>
               </div>
-              <p className="mt-1.5 text-xs font-sans text-gray-400">
+              <p className="mt-1.5 text-caption text-gray-400">
                 📎 Attach photos (before/after repair shots) or PDFs — quotes, invoices, receipts.
                 They&apos;re saved to this case&apos;s timeline as a permanent record of the repair.
               </p>
@@ -271,7 +271,7 @@ export default function CaseDetailPage() {
 
           {/* Action panel */}
           <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
-            <h3 className="font-display text-base">Actions</h3>
+            <h3 className=" text-h3">Actions</h3>
             <Select
               label="Status"
               value={c.status}
@@ -299,8 +299,8 @@ export default function CaseDetailPage() {
               ]}
             />
             <div>
-              <label className="text-sm font-medium text-gray-600 font-sans">Stage</label>
-              <div className="mt-1 text-sm font-sans">
+              <label className="text-body font-medium text-gray-600 ">Stage</label>
+              <div className="mt-1 text-body ">
                 {c.terminalReason === "BYPASSED" || c.terminalReason === "CANCELLED" ? (
                   <span className="text-amber-700">
                     {c.terminalReason === "CANCELLED" ? "Cancelled" : "Bypassed"}
@@ -315,13 +315,13 @@ export default function CaseDetailPage() {
                 )}
               </div>
             </div>
-            <div className="text-xs font-sans text-gray-500 pt-2 border-t border-gray-100 space-y-2">
+            <div className="text-caption text-gray-500 pt-2 border-t border-gray-100 space-y-2">
               <p className="flex items-center gap-1"><UserCheck size={12} /> Assigned: {c.assignedTo?.name ?? c.assignedTo?.email ?? "—"}</p>
 
               {c.tenantContext && (
                 <button
                   onClick={() => setEmailTenantOpen(true)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm font-sans hover:bg-gray-50"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-body hover:bg-gray-50"
                 >
                   <Mail size={14} /> Email tenant
                 </button>
@@ -329,14 +329,14 @@ export default function CaseDetailPage() {
               {c.vendorContext && (
                 <button
                   onClick={() => setEmailVendorOpen(true)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm font-sans hover:bg-gray-50"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-body hover:bg-gray-50"
                 >
                   <Briefcase size={14} /> Email vendor
                 </button>
               )}
               <button
                 onClick={() => setApprovalOpen(true)}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-gold text-white text-sm font-sans hover:bg-gold-dark"
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-gold text-white text-body hover:bg-gold-dark"
               >
                 <ShieldQuestion size={14} /> Request approval
               </button>
@@ -429,13 +429,13 @@ function RequestApprovalModal({
           placeholder="owner@example.com"
         />
         <div>
-          <label className="text-sm font-medium text-gray-600 font-sans mb-1 block">Question</label>
+          <label className="text-body font-medium text-gray-600 mb-1 block">Question</label>
           <textarea
             rows={4}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder="What needs sign-off? Include any context."
-            className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50"
+            className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50"
           />
         </div>
         <Input

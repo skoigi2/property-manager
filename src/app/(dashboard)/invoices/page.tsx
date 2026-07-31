@@ -115,7 +115,7 @@ function StatusBadge({ status }: { status: Invoice["status"] }) {
   const cfg = STATUS_CONFIG[status];
   const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-caption font-medium ${cfg.bg} ${cfg.text}`}>
       <Icon size={11} />
       {cfg.label}
     </span>
@@ -201,7 +201,7 @@ function CreateModal({
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="font-display text-lg text-header">New Invoice</h2>
+          <h2 className=" text-h3 text-header">New Invoice</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
           </button>
@@ -210,17 +210,17 @@ function CreateModal({
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Tenant */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+            <label className="text-label font-medium text-gray-500 uppercase block mb-1">
               Tenant *
             </label>
             {loadingTenants ? (
-              <div className="flex items-center gap-2 text-gray-400 text-sm py-2">
+              <div className="flex items-center gap-2 text-gray-400 text-body py-2">
                 <Loader2 size={14} className="animate-spin" /> Loading tenants…
               </div>
             ) : (
               <select
                 {...register("tenantId")}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 <option value="">Select tenant…</option>
                 {tenants.map((t) => (
@@ -230,16 +230,16 @@ function CreateModal({
                 ))}
               </select>
             )}
-            {errors.tenantId && <p className="text-red-500 text-xs mt-1">{errors.tenantId.message}</p>}
+            {errors.tenantId && <p className="text-red-500 text-caption mt-1">{errors.tenantId.message}</p>}
           </div>
 
           {/* Period */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Month *</label>
+              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Month *</label>
               <select
                 {...register("periodMonth", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 {MONTH_NAMES.map((m, i) => (
                   <option key={m} value={i + 1}>{m}</option>
@@ -247,10 +247,10 @@ function CreateModal({
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Year *</label>
+              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Year *</label>
               <select
                 {...register("periodYear", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 {[2024, 2025, 2026, 2027].map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -262,33 +262,33 @@ function CreateModal({
           {/* Amounts */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Rent *</label>
+              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Rent *</label>
               <input
                 type="number"
                 min={0}
                 {...register("rentAmount", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                 placeholder="0"
               />
-              {errors.rentAmount && <p className="text-red-500 text-xs mt-1">{errors.rentAmount.message}</p>}
+              {errors.rentAmount && <p className="text-red-500 text-caption mt-1">{errors.rentAmount.message}</p>}
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Svc Charge</label>
+              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Svc Charge</label>
               <input
                 type="number"
                 min={0}
                 {...register("serviceCharge", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                 placeholder="0"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Other</label>
+              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Other</label>
               <input
                 type="number"
                 min={0}
                 {...register("otherCharges", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                 placeholder="0"
               />
             </div>
@@ -296,22 +296,22 @@ function CreateModal({
 
           {/* Due date */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Due Date *</label>
+            <label className="text-label font-medium text-gray-500 uppercase block mb-1">Due Date *</label>
             <input
               type="date"
               {...register("dueDate")}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
-            {errors.dueDate && <p className="text-red-500 text-xs mt-1">{errors.dueDate.message}</p>}
+            {errors.dueDate && <p className="text-red-500 text-caption mt-1">{errors.dueDate.message}</p>}
           </div>
 
           {/* Notes */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Notes</label>
+            <label className="text-label font-medium text-gray-500 uppercase block mb-1">Notes</label>
             <textarea
               {...register("notes")}
               rows={2}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
               placeholder="Optional note for tenant…"
             />
           </div>
@@ -321,14 +321,14 @@ function CreateModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Receipt size={14} />}
               Create Invoice
@@ -386,55 +386,55 @@ function MarkPaidModal({
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="font-display text-base text-header">Mark as Paid</h2>
+          <h2 className=" text-h3 text-header">Mark as Paid</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-body text-green-800">
             <p className="font-medium">{invoice.invoiceNumber}</p>
-            <p className="text-xs mt-0.5 text-green-600">
+            <p className="text-caption mt-0.5 text-green-600">
               {invoice.tenant.name} · {MONTH_NAMES[invoice.periodMonth - 1]} {invoice.periodYear}
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Payment Date *</label>
+            <label className="text-label font-medium text-gray-500 uppercase block mb-1">Payment Date *</label>
             <input
               type="date"
               {...register("paidAt")}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
-            {errors.paidAt && <p className="text-red-500 text-xs mt-1">{errors.paidAt.message}</p>}
+            {errors.paidAt && <p className="text-red-500 text-caption mt-1">{errors.paidAt.message}</p>}
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+            <label className="text-label font-medium text-gray-500 uppercase block mb-1">
               Amount Paid
             </label>
             <input
               type="number"
               min={0}
               {...register("paidAmount", { valueAsNumber: true })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
-            <p className="text-xs text-gray-400 mt-1">Leave as total if fully paid</p>
+            <p className="text-caption text-gray-400 mt-1">Leave as total if fully paid</p>
           </div>
 
           <div className="flex gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-body font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
               Confirm Paid
@@ -508,9 +508,9 @@ function LateFeeModal({
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
-        <h3 className="font-display text-lg text-header mb-1">Late Payment Fee</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          <span className="font-mono text-xs">{invoice.invoiceNumber}</span> — {invoice.tenant.name}
+        <h3 className=" text-h3 text-header mb-1">Late Payment Fee</h3>
+        <p className="text-body text-gray-500 mb-4">
+          <span className="tabular-nums text-caption">{invoice.invoiceNumber}</span> — {invoice.tenant.name}
         </p>
 
         {loading || !preview ? (
@@ -519,18 +519,18 @@ function LateFeeModal({
           </div>
         ) : preview.alreadyApplied ? (
           <>
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-5 text-sm text-amber-800">
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-5 text-body text-amber-800">
               A late fee of <strong>{formatCurrency(preview.appliedAmount, currency)}</strong> is already on this invoice.
               Removing it will reduce the invoice total accordingly.
             </div>
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors">
                 Close
               </button>
               <button
                 onClick={remove}
                 disabled={working}
-                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg text-body font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {working ? <Loader2 size={14} className="animate-spin" /> : null}
                 Remove fee
@@ -539,39 +539,39 @@ function LateFeeModal({
           </>
         ) : !preview.eligible ? (
           <>
-            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-5 text-sm text-gray-600">
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-5 text-body text-gray-600">
               {preview.rate <= 0
                 ? "No late payment interest rate is set for this property. Configure it under the property's Management Agreement (Late Payment Interest % p.a.) first."
                 : preview.daysOverdue <= 0
                 ? "This invoice is not past its due date yet."
                 : "No late fee can be applied to this invoice."}
             </div>
-            <button onClick={onClose} className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <button onClick={onClose} className="w-full px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors">
               Close
             </button>
           </>
         ) : (
           <>
-            <div className="space-y-2 text-sm mb-5">
-              <div className="flex justify-between"><span className="text-gray-500">Outstanding</span><span className="font-mono">{formatCurrency(preview.outstanding, currency)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Days overdue</span><span className="font-mono">{preview.daysOverdue}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Interest rate</span><span className="font-mono">{preview.rate}% p.a.</span></div>
+            <div className="space-y-2 text-body mb-5">
+              <div className="flex justify-between"><span className="text-gray-500">Outstanding</span><span className="tabular-nums">{formatCurrency(preview.outstanding, currency)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Days overdue</span><span className="tabular-nums">{preview.daysOverdue}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Interest rate</span><span className="tabular-nums">{preview.rate}% p.a.</span></div>
               <div className="flex justify-between pt-2 border-t border-gray-100 font-medium">
                 <span className="text-header">Late fee to apply</span>
-                <span className="font-mono text-amber-700">{formatCurrency(preview.fee, currency)}</span>
+                <span className="tabular-nums text-amber-700">{formatCurrency(preview.fee, currency)}</span>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mb-5">
+            <p className="text-caption text-gray-400 mb-5">
               The fee is added to the invoice total as a &quot;Late Payment Fee&quot; line and appears on the PDF. You can remove it later if needed.
             </p>
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
               <button
                 onClick={apply}
                 disabled={working}
-                className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {working ? <Loader2 size={14} className="animate-spin" /> : null}
                 Apply fee
@@ -674,8 +674,8 @@ function InvoiceRow({
       </td>
       {/* Invoice # + Period */}
       <td className="px-4 py-3">
-        <p className="font-mono text-xs font-medium text-header">{invoice.invoiceNumber}</p>
-        <p className="text-xs text-gray-400 mt-0.5">
+        <p className="tabular-nums text-caption font-medium text-header">{invoice.invoiceNumber}</p>
+        <p className="text-caption text-gray-400 mt-0.5">
           {MONTH_NAMES[invoice.periodMonth - 1]} {invoice.periodYear}
         </p>
       </td>
@@ -687,8 +687,8 @@ function InvoiceRow({
             <User size={12} className="text-gold" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-800">{invoice.tenant.name}</p>
-            <p className="text-xs text-gray-400">
+            <p className="text-body font-medium text-gray-800">{invoice.tenant.name}</p>
+            <p className="text-caption text-gray-400">
               Unit {invoice.tenant.unit.unitNumber} · {invoice.tenant.unit.property.name}
             </p>
           </div>
@@ -697,19 +697,19 @@ function InvoiceRow({
 
       {/* Amount */}
       <td className="px-4 py-3 text-right">
-        <p className="text-sm font-medium font-mono text-gray-800">
+        <p className="text-body font-medium tabular-nums text-gray-800">
           {formatCurrency(invoice.totalAmount, currency)}
         </p>
         {(invoice.lateFeeAmount ?? 0) > 0 && (
-          <p className="text-xs text-amber-600 mt-0.5">incl. late fee {formatCurrency(invoice.lateFeeAmount!, currency)}</p>
+          <p className="text-caption text-amber-600 mt-0.5">incl. late fee {formatCurrency(invoice.lateFeeAmount!, currency)}</p>
         )}
         {invoice.status === "PAID" && invoice.paidAmount && invoice.paidAmount !== invoice.totalAmount && (
-          <p className="text-xs text-green-600 mt-0.5">Paid: {formatCurrency(invoice.paidAmount, currency)}</p>
+          <p className="text-caption text-green-600 mt-0.5">Paid: {formatCurrency(invoice.paidAmount, currency)}</p>
         )}
       </td>
 
       {/* Due Date */}
-      <td className="px-4 py-3 text-sm text-gray-500 text-center">
+      <td className="px-4 py-3 text-body text-gray-500 text-center">
         {format(new Date(invoice.dueDate), "d MMM yyyy")}
       </td>
 
@@ -717,12 +717,12 @@ function InvoiceRow({
       <td className="px-4 py-3 text-center">
         <StatusBadge status={invoice.status} />
         {invoice.status === "PAID" && invoice.paidAt && (
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-caption text-gray-400 mt-0.5">
             {format(new Date(invoice.paidAt), "d MMM")}
           </p>
         )}
         {needsSync && (
-          <p className="text-xs text-amber-600 mt-0.5 font-sans">⚠ No income entry</p>
+          <p className="text-caption text-amber-600 mt-0.5 ">⚠ No income entry</p>
         )}
       </td>
 
@@ -786,7 +786,7 @@ function InvoiceRow({
             {showActions && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                <div className="absolute right-0 top-8 z-20 bg-white border border-gray-100 rounded-xl shadow-lg w-44 py-1 text-sm">
+                <div className="absolute right-0 top-8 z-20 bg-white border border-gray-100 rounded-xl shadow-lg w-44 py-1 text-body">
                   {invoice.status === "PAID" ? (
                     /* A naive status flip would strand the auto-created income
                        entry and double-count when the real payment lands — the
@@ -887,7 +887,7 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="flex items-center gap-2">
             <Zap size={18} className="text-gold" />
-            <h2 className="font-display text-base text-header">Generate All Invoices</h2>
+            <h2 className=" text-h3 text-header">Generate All Invoices</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
@@ -895,18 +895,18 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
         <div className="p-6 space-y-4">
           {!result ? (
             <>
-              <p className="text-sm text-gray-500 font-sans">
+              <p className="text-body text-gray-500 ">
                 Auto-generates invoices for all active long-term tenants for the selected month.
                 Already-existing invoices are skipped.
               </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Month</label>
+                  <label className="text-label font-medium text-gray-500 uppercase block mb-1">Month</label>
                   <select
                     value={month}
                     onChange={(e) => setMonth(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                   >
                     {MONTH_NAMES.map((m, i) => (
                       <option key={m} value={i + 1}>{m}</option>
@@ -914,11 +914,11 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Year</label>
+                  <label className="text-label font-medium text-gray-500 uppercase block mb-1">Year</label>
                   <select
                     value={year}
                     onChange={(e) => setYear(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                   >
                     {[2024, 2025, 2026, 2027].map((y) => (
                       <option key={y} value={y}>{y}</option>
@@ -927,21 +927,21 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
                 </div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700 font-sans">
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-caption text-amber-700 ">
                 Due date will be set to the 5th of the selected month. You can edit individual invoices after generation.
               </div>
 
               <div className="flex gap-3 pt-1">
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleGenerate}
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
                   {loading ? "Generating…" : `Generate for ${MONTH_NAMES[Number(month) - 1]} ${year}`}
@@ -959,31 +959,31 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
                   }
                 </div>
                 <div>
-                  <p className="font-medium text-header text-sm">{result.message}</p>
+                  <p className="font-medium text-header text-body">{result.message}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-green-50 rounded-xl p-3">
-                  <p className="text-2xl font-display text-green-700">{result.created}</p>
-                  <p className="text-xs text-green-600 font-sans">Created</p>
+                  <p className="text-h1 text-green-700">{result.created}</p>
+                  <p className="text-caption text-green-600 ">Created</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-2xl font-display text-gray-500">{result.skipped}</p>
-                  <p className="text-xs text-gray-400 font-sans">Skipped</p>
+                  <p className="text-h1 text-gray-500">{result.skipped}</p>
+                  <p className="text-caption text-gray-400 ">Skipped</p>
                 </div>
                 <div className={`rounded-xl p-3 ${result.errors > 0 ? "bg-red-50" : "bg-gray-50"}`}>
-                  <p className={`text-2xl font-display ${result.errors > 0 ? "text-red-600" : "text-gray-300"}`}>{result.errors}</p>
-                  <p className={`text-xs font-sans ${result.errors > 0 ? "text-red-500" : "text-gray-300"}`}>Errors</p>
+                  <p className={`text-h1 ${result.errors > 0 ? "text-red-600" : "text-gray-300"}`}>{result.errors}</p>
+                  <p className={`text-caption ${result.errors > 0 ? "text-red-500" : "text-gray-300"}`}>Errors</p>
                 </div>
               </div>
 
               {result.createdNames.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Created for:</p>
+                  <p className="text-label font-medium text-gray-500 uppercase mb-1.5">Created for:</p>
                   <ul className="space-y-1">
                     {result.createdNames.map((n) => (
-                      <li key={n} className="flex items-center gap-2 text-sm text-gray-600 font-sans">
+                      <li key={n} className="flex items-center gap-2 text-body text-gray-600 ">
                         <CheckCircle size={12} className="text-green-500 shrink-0" /> {n}
                       </li>
                     ))}
@@ -993,10 +993,10 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 
               {result.skippedNames.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5">Already existed (skipped):</p>
+                  <p className="text-label font-medium text-gray-400 uppercase mb-1.5">Already existed (skipped):</p>
                   <ul className="space-y-1">
                     {result.skippedNames.map((n) => (
-                      <li key={n} className="text-xs text-gray-400 font-sans pl-5">— {n}</li>
+                      <li key={n} className="text-caption text-gray-400 pl-5">— {n}</li>
                     ))}
                   </ul>
                 </div>
@@ -1004,7 +1004,7 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors"
+                className="w-full px-4 py-2 bg-gold text-white rounded-lg text-body font-medium hover:bg-gold-dark transition-colors"
               >
                 Done
               </button>
@@ -1262,14 +1262,14 @@ export default function InvoicesPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowBulkGenerate(true)}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-3 py-1.5 rounded-lg text-sm font-sans transition-colors"
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-3 py-1.5 rounded-lg text-body transition-colors"
           >
             <Zap size={14} className="text-gold" />
             <span className="hidden sm:inline">Generate All</span>
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-gold hover:bg-gold-dark text-white px-3 py-1.5 rounded-lg text-sm font-sans font-medium transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-gold hover:bg-gold-dark text-white px-3 py-1.5 rounded-lg text-body font-medium transition-colors shadow-sm"
           >
             <Plus size={15} />
             <span className="hidden sm:inline">New Invoice</span>
@@ -1282,13 +1282,13 @@ export default function InvoicesPage() {
       <div className="flex border-b border-gray-200">
         <button
           onClick={() => setActiveTab("tenant")}
-          className={`px-4 py-2.5 text-sm font-medium font-sans border-b-2 transition-colors ${activeTab === "tenant" ? "border-gold text-gold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          className={`px-4 py-2.5 text-body font-medium border-b-2 transition-colors ${activeTab === "tenant" ? "border-gold text-gold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
         >
           Tenant Invoices
         </button>
         <button
           onClick={() => setActiveTab("owner")}
-          className={`px-4 py-2.5 text-sm font-medium font-sans border-b-2 transition-colors ${activeTab === "owner" ? "border-gold text-gold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+          className={`px-4 py-2.5 text-body font-medium border-b-2 transition-colors ${activeTab === "owner" ? "border-gold text-gold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
         >
           Owner Invoices
         </button>
@@ -1299,24 +1299,24 @@ export default function InvoicesPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total</p>
-          <p className="text-2xl font-display text-header mt-1">{stats.total}</p>
-          <p className="text-xs text-gray-400 mt-0.5">invoices</p>
+          <p className="text-label text-gray-500 font-medium uppercase ">Total</p>
+          <p className="text-h1 text-header mt-1">{stats.total}</p>
+          <p className="text-caption text-gray-400 mt-0.5">invoices</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Paid</p>
-          <p className="text-2xl font-display text-green-700 mt-1">{stats.paid}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(stats.paidAmt, currency)}</p>
+          <p className="text-label text-gray-500 font-medium uppercase ">Paid</p>
+          <p className="text-h1 text-green-700 mt-1">{stats.paid}</p>
+          <p className="text-caption text-gray-400 mt-0.5">{formatCurrency(stats.paidAmt, currency)}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Overdue</p>
-          <p className="text-2xl font-display text-red-600 mt-1">{stats.overdue}</p>
-          <p className="text-xs text-gray-400 mt-0.5">require attention</p>
+          <p className="text-label text-gray-500 font-medium uppercase ">Overdue</p>
+          <p className="text-h1 text-red-600 mt-1">{stats.overdue}</p>
+          <p className="text-caption text-gray-400 mt-0.5">require attention</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding</p>
-          <p className="text-2xl font-display text-gold mt-1">{stats.pending}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(stats.dueAmt, currency)}</p>
+          <p className="text-label text-gray-500 font-medium uppercase ">Outstanding</p>
+          <p className="text-h1 text-gold mt-1">{stats.pending}</p>
+          <p className="text-caption text-gray-400 mt-0.5">{formatCurrency(stats.dueAmt, currency)}</p>
         </div>
       </div>
 
@@ -1330,13 +1330,13 @@ export default function InvoicesPage() {
               placeholder="Search by name, invoice # or unit…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
           >
             <option value="ALL">All statuses</option>
             <option value="DRAFT">Draft</option>
@@ -1348,7 +1348,7 @@ export default function InvoicesPage() {
           <select
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+            className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
           >
             <option value="ALL">All periods</option>
             {months.map((m) => {
@@ -1366,12 +1366,12 @@ export default function InvoicesPage() {
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
         <div className="sticky top-2 z-30 bg-header text-white rounded-xl shadow-lg px-4 py-2.5 flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <span className="text-body font-medium">{selectedIds.size} selected</span>
           <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={handleBulkSend}
               disabled={bulkWorking !== null}
-              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm font-sans transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-body transition-colors disabled:opacity-50"
             >
               {bulkWorking === "send" ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
               Email to tenants
@@ -1379,7 +1379,7 @@ export default function InvoicesPage() {
             <button
               onClick={() => setBulkPaidConfirm(true)}
               disabled={bulkWorking !== null}
-              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg text-sm font-sans transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg text-body transition-colors disabled:opacity-50"
             >
               {bulkWorking === "paid" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
               Mark paid
@@ -1387,7 +1387,7 @@ export default function InvoicesPage() {
             <button
               onClick={() => setSelectedIds(new Set())}
               disabled={bulkWorking !== null}
-              className="text-white/60 hover:text-white text-sm px-2 py-1.5 transition-colors disabled:opacity-50"
+              className="text-white/60 hover:text-white text-body px-2 py-1.5 transition-colors disabled:opacity-50"
             >
               Clear
             </button>
@@ -1405,8 +1405,8 @@ export default function InvoicesPage() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400">
             <Receipt size={40} className="mb-3 opacity-30" />
-            <p className="text-sm font-medium">No invoices found</p>
-            <p className="text-xs mt-1">
+            <p className="text-body font-medium">No invoices found</p>
+            <p className="text-caption mt-1">
               {invoices.length === 0
                 ? "Create your first invoice to get started"
                 : "Try adjusting your filters"}
@@ -1414,7 +1414,7 @@ export default function InvoicesPage() {
             {invoices.length === 0 && (
               <button
                 onClick={() => setShowCreate(true)}
-                className="mt-4 flex items-center gap-1.5 bg-gold text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gold-dark transition-colors"
+                className="mt-4 flex items-center gap-1.5 bg-gold text-white px-4 py-2 rounded-lg text-body font-medium hover:bg-gold-dark transition-colors"
               >
                 <Plus size={14} />
                 New Invoice
@@ -1432,32 +1432,32 @@ export default function InvoicesPage() {
                     {/* Invoice # + period + status */}
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
-                        <p className="font-mono text-xs font-semibold text-header">{inv.invoiceNumber}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</p>
+                        <p className="tabular-nums text-caption font-semibold text-header">{inv.invoiceNumber}</p>
+                        <p className="text-caption text-gray-400 mt-0.5">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</p>
                       </div>
                       <StatusBadge status={inv.status} />
                     </div>
                     {/* Tenant + amount */}
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div>
-                        <p className="text-sm font-medium text-gray-800">{inv.tenant.name}</p>
-                        <p className="text-xs text-gray-400">Unit {inv.tenant.unit.unitNumber} · {inv.tenant.unit.property.name}</p>
+                        <p className="text-body font-medium text-gray-800">{inv.tenant.name}</p>
+                        <p className="text-caption text-gray-400">Unit {inv.tenant.unit.unitNumber} · {inv.tenant.unit.property.name}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium font-mono text-gray-800">{formatCurrency(inv.totalAmount, currency)}</p>
+                        <p className="text-body font-medium tabular-nums text-gray-800">{formatCurrency(inv.totalAmount, currency)}</p>
                         {inv.status === "PAID" && inv.paidAmount && inv.paidAmount !== inv.totalAmount && (
-                          <p className="text-xs text-green-600">Paid: {formatCurrency(inv.paidAmount, currency)}</p>
+                          <p className="text-caption text-green-600">Paid: {formatCurrency(inv.paidAmount, currency)}</p>
                         )}
                       </div>
                     </div>
                     {/* Due date + actions */}
                     <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                      <p className="text-xs text-gray-400 font-sans">Due {format(new Date(inv.dueDate), "d MMM yyyy")}</p>
+                      <p className="text-caption text-gray-400 ">Due {format(new Date(inv.dueDate), "d MMM yyyy")}</p>
                       <div className="flex items-center gap-2">
                         {inv.status !== "PAID" && (
                           <button
                             onClick={() => setMarkPaidTarget(inv)}
-                            className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-lg font-sans hover:bg-green-100 transition-colors"
+                            className="text-caption text-green-700 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100 transition-colors"
                           >
                             Mark Paid
                           </button>
@@ -1465,7 +1465,7 @@ export default function InvoicesPage() {
                         {inv.status === "PAID" && (
                           <button
                             onClick={() => setUnpayTarget(inv)}
-                            className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg font-sans hover:bg-amber-100 transition-colors"
+                            className="text-caption text-amber-700 bg-amber-50 px-2 py-1 rounded-lg hover:bg-amber-100 transition-colors"
                           >
                             Revert
                           </button>
@@ -1473,7 +1473,7 @@ export default function InvoicesPage() {
                         {needsSync && (
                           <button
                             onClick={() => handleSync(inv.id)}
-                            className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-lg font-sans"
+                            className="text-caption text-amber-700 bg-amber-50 px-2 py-1 rounded-lg "
                           >
                             Sync
                           </button>
@@ -1481,7 +1481,7 @@ export default function InvoicesPage() {
                         {canDelete && (
                         <button
                           onClick={() => setDeleteTarget(inv)}
-                          className="text-xs text-gray-400 hover:text-expense transition-colors p-1"
+                          className="text-caption text-gray-400 hover:text-expense transition-colors p-1"
                         >
                           <XCircle size={14} />
                         </button>
@@ -1495,7 +1495,7 @@ export default function InvoicesPage() {
 
             {/* Desktop: scrollable table */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     <th className="pl-4 py-3 w-8">
@@ -1510,11 +1510,11 @@ export default function InvoicesPage() {
                         title="Select all unpaid invoices"
                       />
                     </th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Invoice</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Tenant</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</th>
-                    <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Due</th>
-                    <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                    <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Invoice</th>
+                    <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Tenant</th>
+                    <th className="text-right px-4 py-3 text-label font-medium text-gray-500 uppercase ">Amount</th>
+                    <th className="text-center px-4 py-3 text-label font-medium text-gray-500 uppercase ">Due</th>
+                    <th className="text-center px-4 py-3 text-label font-medium text-gray-500 uppercase ">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -1542,7 +1542,7 @@ export default function InvoicesPage() {
 
         {/* Footer count + pagination */}
         {!loading && filtered.length > 0 && (
-          <div className="border-t border-gray-50 px-4 py-2.5 text-xs text-gray-400 flex items-center justify-between gap-3">
+          <div className="border-t border-gray-50 px-4 py-2.5 text-caption text-gray-400 flex items-center justify-between gap-3">
             <span>
               Showing {filtered.length} of {invoices.length} loaded
               {totalCount > invoices.length ? ` (${totalCount} total)` : ""}
@@ -1592,27 +1592,27 @@ export default function InvoicesPage() {
       {unpayTarget && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
-            <h3 className="font-display text-lg text-header mb-2">Revert to unpaid?</h3>
-            <p className="text-sm text-gray-600 mb-1">
+            <h3 className=" text-h3 text-header mb-2">Revert to unpaid?</h3>
+            <p className="text-body text-gray-600 mb-1">
               <span className="font-medium">{unpayTarget.invoiceNumber}</span> — {unpayTarget.tenant.name}
             </p>
-            <p className="text-sm text-gray-600 mb-1">
+            <p className="text-body text-gray-600 mb-1">
               The invoice returns to {new Date(unpayTarget.dueDate) < new Date() ? "Overdue" : "Sent"} and its payment
               details are cleared. Any income entry linked to this invoice is <strong>deleted</strong> so the books
               don&apos;t double-count when the real payment is recorded.
             </p>
-            <p className="text-xs text-gray-400 mb-5">Use this to fix an accidental &quot;mark paid&quot;.</p>
+            <p className="text-caption text-gray-400 mb-5">Use this to fix an accidental &quot;mark paid&quot;.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setUnpayTarget(null)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUnpay}
                 disabled={unpaying}
-                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg text-body font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {unpaying ? <Loader2 size={14} className="animate-spin" /> : null}
                 Revert
@@ -1626,21 +1626,21 @@ export default function InvoicesPage() {
       {bulkPaidConfirm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
-            <h3 className="font-display text-lg text-header mb-2">Mark {selectedIds.size} invoice{selectedIds.size !== 1 ? "s" : ""} as paid?</h3>
-            <p className="text-sm text-gray-600 mb-1">
+            <h3 className=" text-h3 text-header mb-2">Mark {selectedIds.size} invoice{selectedIds.size !== 1 ? "s" : ""} as paid?</h3>
+            <p className="text-body text-gray-600 mb-1">
               Each invoice is marked PAID for its full amount (dated today) and a matching income entry is created where missing.
             </p>
-            <p className="text-xs text-gray-400 mb-5">Already-paid or cancelled invoices are skipped.</p>
+            <p className="text-caption text-gray-400 mb-5">Already-paid or cancelled invoices are skipped.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setBulkPaidConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkMarkPaid}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-body font-medium hover:bg-green-700 transition-colors"
               >
                 Mark paid
               </button>
@@ -1653,22 +1653,22 @@ export default function InvoicesPage() {
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
-            <h3 className="font-display text-lg text-header mb-2">Delete Invoice?</h3>
-            <p className="text-sm text-gray-600 mb-1">
+            <h3 className=" text-h3 text-header mb-2">Delete Invoice?</h3>
+            <p className="text-body text-gray-600 mb-1">
               <span className="font-medium">{deleteTarget.invoiceNumber}</span> — {deleteTarget.tenant.name}
             </p>
-            <p className="text-xs text-gray-400 mb-5">This action cannot be undone.</p>
+            <p className="text-caption text-gray-400 mb-5">This action cannot be undone.</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-body font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : null}
                 Delete

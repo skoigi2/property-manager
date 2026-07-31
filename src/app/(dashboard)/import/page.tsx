@@ -761,10 +761,10 @@ function ImportSection({
             <Download size={16} className="text-green-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-header font-sans">
+            <p className="text-body font-medium text-header ">
               Step 1 — Download Template
             </p>
-            <p className="text-sm text-gray-500 font-sans mt-0.5">{description}</p>
+            <p className="text-body text-gray-500 mt-0.5">{description}</p>
           </div>
           <div className="flex flex-col items-stretch gap-2 shrink-0">
             <Button variant="secondary" size="sm" onClick={onDownloadTemplate}>
@@ -795,7 +795,7 @@ function ImportSection({
           </div>
         </div>
         {onExportExisting && (
-          <p className="text-xs text-gray-400 font-sans mt-2 pl-11">
+          <p className="text-caption text-gray-400 mt-2 pl-11">
             To <span className="font-medium">edit existing records</span>, click{" "}
             <span className="font-medium">Export existing</span> to download them with their IDs,
             change values in Excel, then re-upload with <span className="font-medium">Update existing records</span> ticked.
@@ -806,7 +806,7 @@ function ImportSection({
 
       {/* Step 2 — Upload */}
       <Card className="border border-gray-100">
-        <p className="text-sm font-medium text-header font-sans mb-3">
+        <p className="text-body font-medium text-header mb-3">
           Step 2 — Upload Filled Template
         </p>
 
@@ -828,11 +828,11 @@ function ImportSection({
             size={28}
             className={dragOver ? "text-gold" : "text-gray-400"}
           />
-          <p className="text-sm text-gray-500 font-sans text-center">
+          <p className="text-body text-gray-500 text-center">
             Drag & drop your Excel file here, or click to browse
           </p>
           {fileName && (
-            <p className="text-xs text-gray-400 font-mono">{fileName}</p>
+            <p className="text-caption text-gray-400 font-mono">{fileName}</p>
           )}
         </div>
 
@@ -848,7 +848,7 @@ function ImportSection({
         {parsedRows.length > 0 && (
           <div className="mt-3 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-gray-600 font-sans">
+              <span className="text-body text-gray-600 ">
                 <span className="font-medium">{parsedRows.length}</span> rows parsed —{" "}
                 <span className="text-green-600 font-medium">{validRows.length} valid</span>,{" "}
                 <span className="text-red-500 font-medium">{errorRows.length} with errors</span>
@@ -860,7 +860,7 @@ function ImportSection({
               <div className="border border-red-100 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setErrorsExpanded((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 bg-red-50 text-sm font-sans text-red-700 hover:bg-red-100 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-red-50 text-body text-red-700 hover:bg-red-100 transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     <AlertTriangle size={14} />
@@ -872,12 +872,12 @@ function ImportSection({
                   <div className="divide-y divide-red-100 max-h-48 overflow-y-auto">
                     {errorRows.map((row) => (
                       <div key={row.rowIndex} className="px-4 py-2 bg-white">
-                        <p className="text-xs font-medium text-gray-700 font-sans">
+                        <p className="text-caption font-medium text-gray-700 ">
                           Row {row.rowIndex}
                         </p>
                         <ul className="mt-0.5 space-y-0.5">
                           {row.errors.map((e, ei) => (
-                            <li key={ei} className="text-xs text-red-600 font-sans">
+                            <li key={ei} className="text-caption text-red-600 ">
                               • {e}
                             </li>
                           ))}
@@ -896,15 +896,15 @@ function ImportSection({
       {parsedRows.length > 0 && (
         <Card padding="none" className="border border-gray-100 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-            <p className="text-sm font-medium text-header font-sans">
+            <p className="text-body font-medium text-header ">
               Preview{" "}
-              <span className="text-gray-400 font-normal">
+              <span className="text-gray-400 ">
                 (showing first {Math.min(50, parsedRows.length)} rows)
               </span>
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs font-sans">
+            <table className="w-full text-caption ">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="w-8 px-3 py-2 text-left text-gray-500"></th>
@@ -970,7 +970,7 @@ function ImportSection({
       {parsedRows.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
           {validRows.length === 0 ? (
-            <p className="text-sm text-gray-500 font-sans">No valid rows to import.</p>
+            <p className="text-body text-gray-500 ">No valid rows to import.</p>
           ) : (
             <Button
               onClick={handleImport}
@@ -991,7 +991,7 @@ function ImportSection({
           )}
 
           {supportsUpsert && validRows.length > 0 && (
-            <label className="flex items-center gap-2 text-sm font-sans text-gray-600 cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-body text-gray-600 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={upsertMode}
@@ -1014,7 +1014,7 @@ function ImportSection({
         <Card className="border border-gray-100 space-y-3">
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} className="text-green-500 shrink-0" />
-            <p className="text-sm font-medium text-green-700 font-sans">
+            <p className="text-body font-medium text-green-700 ">
               {result.imported} record{result.imported !== 1 ? "s" : ""} imported
               {result.updated ? `, ${result.updated} updated` : ""}
               {" "}successfully
@@ -1022,7 +1022,7 @@ function ImportSection({
           </div>
 
           {result.skipped > 0 && (
-            <p className="text-sm text-gray-500 font-sans">
+            <p className="text-body text-gray-500 ">
               {result.skipped} skipped (duplicates or errors)
             </p>
           )}
@@ -1031,7 +1031,7 @@ function ImportSection({
             <div className="border border-red-100 rounded-lg overflow-hidden">
               <button
                 onClick={() => setServerErrorsExpanded((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-2.5 bg-red-50 text-sm font-sans text-red-700 hover:bg-red-100 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-red-50 text-body text-red-700 hover:bg-red-100 transition-colors"
               >
                 <span className="flex items-center gap-2">
                   <AlertTriangle size={14} />
@@ -1043,10 +1043,10 @@ function ImportSection({
                 <div className="divide-y divide-red-100 max-h-48 overflow-y-auto">
                   {result.errors.map((e, i) => (
                     <div key={i} className="px-4 py-2 bg-white flex gap-3">
-                      <span className="text-xs text-gray-400 font-mono shrink-0">
+                      <span className="text-caption text-gray-400 font-mono shrink-0">
                         Row {e.row}
                       </span>
-                      <span className="text-xs text-red-600 font-sans">{e.reason}</span>
+                      <span className="text-caption text-red-600 ">{e.reason}</span>
                     </div>
                   ))}
                 </div>
@@ -1091,8 +1091,8 @@ export default function ImportPage() {
           <div className="flex gap-3">
             <Info size={18} className="text-blue-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-blue-800 font-sans">How to import</p>
-              <p className="text-sm text-blue-600 font-sans">
+              <p className="text-body font-medium text-blue-800 ">How to import</p>
+              <p className="text-body text-blue-600 ">
                 1. Download the template &middot; 2. Fill in the Data sheet (row 2 shows which fields are required) &middot; 3. Upload and preview &middot; 4. Confirm import. Duplicate records are automatically skipped.
               </p>
             </div>
@@ -1106,7 +1106,7 @@ export default function ImportPage() {
               <button
                 key={id}
                 onClick={() => setTab(id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all whitespace-nowrap ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-body font-medium transition-all whitespace-nowrap ${
                   tab === id
                     ? "bg-white text-header shadow-sm"
                     : "text-gray-500 hover:text-header"
@@ -1250,11 +1250,11 @@ export default function ImportPage() {
                 <PackageOpen size={20} className="text-gold" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-header font-sans">Import from Handover Package</p>
-                <p className="text-xs text-gray-500 font-sans mt-0.5">
+                <p className="text-body font-semibold text-header ">Import from Handover Package</p>
+                <p className="text-caption text-gray-500 mt-0.5">
                   Restores a property from a .zip handover export — pulls in property metadata, units, tenants, income, expenses, petty cash, owner invoices, and tenant documents in one shot.
                 </p>
-                <p className="text-xs text-gray-400 font-sans mt-2">
+                <p className="text-caption text-gray-400 mt-2">
                   Management agreement settings must be configured manually after import.
                 </p>
               </div>

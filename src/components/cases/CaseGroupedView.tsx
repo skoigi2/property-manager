@@ -54,11 +54,11 @@ export function CaseGroupedView({
               onClick={() => toggle(g.key)}
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
             >
-              <span className="flex items-center gap-2 font-sans font-medium text-sm text-gray-900">
+              <span className="flex items-center gap-2 font-medium text-body text-gray-900">
                 {isCollapsed ? <ChevronRight size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                 {g.label}
               </span>
-              <span className="text-xs font-mono text-gray-400">{g.cases.length}</span>
+              <span className="text-caption font-mono text-gray-400">{g.cases.length}</span>
             </button>
             {!isCollapsed && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-3 pt-0">

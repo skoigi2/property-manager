@@ -59,11 +59,11 @@ export default function AdminHintsPage() {
         {hints === null ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : hints.length === 0 ? (
-          <p className="text-sm text-gray-500">No hints.</p>
+          <p className="text-body text-gray-500">No hints.</p>
         ) : (
           <div className="overflow-x-auto bg-white rounded-xl border border-gray-100">
-            <table className="min-w-[900px] w-full text-sm font-sans">
-              <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+            <table className="min-w-[900px] w-full text-body ">
+              <thead className="bg-gray-50 text-left text-label uppercase text-gray-500">
                 <tr>
                   <th className="px-3 py-2">Type</th>
                   <th className="px-3 py-2">Sev</th>
@@ -76,18 +76,18 @@ export default function AdminHintsPage() {
               <tbody className="divide-y divide-gray-100">
                 {hints.map((h) => (
                   <tr key={h.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-xs font-mono">{h.hintType}</td>
+                    <td className="px-3 py-2 text-caption font-mono">{h.hintType}</td>
                     <td className="px-3 py-2"><Badge variant={SEVERITY_BADGE[h.severity]}>{h.severity}</Badge></td>
                     <td className="px-3 py-2">
                       <p className="font-medium">{h.title}</p>
-                      <p className="text-xs text-gray-500">{h.subtitle}</p>
+                      <p className="text-caption text-gray-500">{h.subtitle}</p>
                     </td>
-                    <td className="px-3 py-2 text-gray-600 text-xs">
+                    <td className="px-3 py-2 text-gray-600 text-caption">
                       {h.property?.name ?? "—"}<br />
                       <span className="text-gray-400">{h.organization?.name ?? ""}</span>
                     </td>
-                    <td className="px-3 py-2 text-xs">{h.status}</td>
-                    <td className="px-3 py-2 text-xs text-gray-400">{new Date(h.createdAt).toLocaleString()}</td>
+                    <td className="px-3 py-2 text-caption">{h.status}</td>
+                    <td className="px-3 py-2 text-caption text-gray-400">{new Date(h.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

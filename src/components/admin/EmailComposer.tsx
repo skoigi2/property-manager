@@ -77,12 +77,12 @@ export function EmailComposer({ open, onClose, onSent, initial }: Props) {
         <Input label="Reply-To" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} placeholder="support@groundworkpm.com" />
         <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-600 font-sans">Message</label>
+          <label className="text-body font-medium text-gray-600 ">Message</label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={12}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold"
             placeholder="Write your message…"
           />
         </div>

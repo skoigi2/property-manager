@@ -70,8 +70,8 @@ export function ImportHandoverModal({ onClose, onImported }: Props) {
           <div className="flex items-center gap-2">
             <PackageOpen size={18} className="text-gold shrink-0" />
             <div>
-              <h3 className="font-display text-header text-lg">Import from Handover Package</h3>
-              <p className="text-xs text-gray-400 font-sans mt-0.5">Restores a property from a .zip handover export</p>
+              <h3 className=" text-header text-h3">Import from Handover Package</h3>
+              <p className="text-caption text-gray-400 mt-0.5">Restores a property from a .zip handover export</p>
             </div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -83,15 +83,15 @@ export function ImportHandoverModal({ onClose, onImported }: Props) {
           <>
             {/* File picker */}
             <div>
-              <label className="text-xs text-gray-500 font-sans uppercase tracking-wide font-medium block mb-2">
+              <label className="text-label text-gray-500 uppercase font-medium block mb-2">
                 Handover ZIP file
               </label>
               <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-8 cursor-pointer transition-colors ${file ? "border-gold/40 bg-gold/5" : "border-gray-200 hover:border-gold/40"}`}>
                 <PackageOpen size={28} className={file ? "text-gold" : "text-gray-300"} />
-                <span className="text-sm font-sans text-gray-500">
+                <span className="text-body text-gray-500">
                   {file ? file.name : "Click to select a .zip handover package"}
                 </span>
-                {file && <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>}
+                {file && <span className="text-caption text-gray-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>}
                 <input
                   type="file"
                   accept=".zip"
@@ -102,13 +102,13 @@ export function ImportHandoverModal({ onClose, onImported }: Props) {
             </div>
 
             {apiError && (
-              <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-2 text-xs text-expense font-sans">
+              <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-2 text-caption text-expense ">
                 <AlertTriangle size={13} className="shrink-0 mt-0.5" />
                 {apiError}
               </div>
             )}
 
-            <p className="text-xs text-gray-400 font-sans">
+            <p className="text-caption text-gray-400 ">
               Will import: property, units, tenants, income, expenses, petty cash, owner invoices, and tenant documents.
               Management agreement settings must be configured manually after import.
             </p>
@@ -117,11 +117,11 @@ export function ImportHandoverModal({ onClose, onImported }: Props) {
               <button
                 onClick={handleSubmit}
                 disabled={loading || !file}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-body rounded-lg hover:bg-gold-dark disabled:opacity-50"
               >
                 {loading ? <><Loader2 size={14} className="animate-spin" /> Importing…</> : <><PackageOpen size={14} /> Import Property</>}
               </button>
-              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50">
                 Cancel
               </button>
             </div>
@@ -132,9 +132,9 @@ export function ImportHandoverModal({ onClose, onImported }: Props) {
             <div className="bg-green-50 border border-green-100 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CheckCircle size={16} className="text-income" />
-                <p className="text-sm font-sans font-semibold text-income">{result.propertyName} imported successfully</p>
+                <p className="text-body font-semibold text-income">{result.propertyName} imported successfully</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-sans text-gray-600">
+              <div className="grid grid-cols-2 gap-2 text-caption text-gray-600">
                 {[
                   ["Units",           result.summary.units],
                   ["Tenants",         result.summary.tenants],
@@ -154,9 +154,9 @@ export function ImportHandoverModal({ onClose, onImported }: Props) {
 
             {result.errors.length > 0 && (
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 max-h-36 overflow-y-auto">
-                <p className="text-xs font-sans font-semibold text-amber-800 mb-1">{result.errors.length} row(s) skipped:</p>
+                <p className="text-caption font-semibold text-amber-800 mb-1">{result.errors.length} row(s) skipped:</p>
                 {result.errors.map((e, i) => (
-                  <p key={i} className="text-xs text-amber-700 font-sans">
+                  <p key={i} className="text-caption text-amber-700 ">
                     {e.sheet} row {e.row}: {e.reason}
                   </p>
                 ))}
@@ -166,11 +166,11 @@ export function ImportHandoverModal({ onClose, onImported }: Props) {
             <div className="flex gap-3">
               <Link
                 href="/properties"
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-body rounded-lg hover:bg-gold-dark"
               >
                 <Building2 size={14} /> View Properties
               </Link>
-              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+              <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50">
                 Close
               </button>
             </div>

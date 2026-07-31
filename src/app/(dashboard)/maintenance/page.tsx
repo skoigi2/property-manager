@@ -166,7 +166,7 @@ function CasesBanner() {
   }, []);
   if (dismissed !== false) return null;
   return (
-    <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm font-sans">
+    <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-body ">
       <span className="text-header">
         💡 Each repair has a Case with a full timeline — add comments, photos (before/after shots), and quote/invoice PDFs for a permanent history.{" "}
         <a href="/cases?caseType=MAINTENANCE" className="text-gold underline">Open the Cases view →</a>
@@ -176,7 +176,7 @@ function CasesBanner() {
           localStorage.setItem("cases-banner-dismissed", "1");
           setDismissed(true);
         }}
-        className="text-gray-400 hover:text-gray-600 text-xs"
+        className="text-gray-400 hover:text-gray-600 text-caption"
         aria-label="Dismiss"
       >
         Dismiss
@@ -270,8 +270,8 @@ function LogExpenseModal({ job, onClose, onLogged }: {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
-            <h2 className="font-display text-base text-header">Log as Expense</h2>
-            <p className="text-xs text-gray-400 font-sans mt-0.5 truncate max-w-[280px]">{job.title}</p>
+            <h2 className=" text-h3 text-header">Log as Expense</h2>
+            <p className="text-caption text-gray-400 mt-0.5 truncate max-w-[280px]">{job.title}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 shrink-0">
             <X size={18} />
@@ -280,7 +280,7 @@ function LogExpenseModal({ job, onClose, onLogged }: {
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Info strip */}
-          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-xs text-green-800 font-sans space-y-0.5">
+          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-caption text-green-800 space-y-0.5">
             <p className="font-medium">This will create an expense entry linked to this job.</p>
             <p className="text-green-600">
               {job.property.name}{job.unit ? ` · Unit ${job.unit.unitNumber}` : ""}
@@ -290,50 +290,50 @@ function LogExpenseModal({ job, onClose, onLogged }: {
 
           {/* Amount */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+            <label className="text-label font-medium text-gray-500 uppercase block mb-1">
               Amount *
             </label>
             <input
               type="number"
               min={0}
               {...register("amount", { valueAsNumber: true })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
-            {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount.message}</p>}
+            {errors.amount && <p className="text-red-500 text-caption mt-1">{errors.amount.message}</p>}
           </div>
 
           {/* Description */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+            <label className="text-label font-medium text-gray-500 uppercase block mb-1">
               Description *
             </label>
             <input
               type="text"
               {...register("description")}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
-            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
+            {errors.description && <p className="text-red-500 text-caption mt-1">{errors.description.message}</p>}
           </div>
 
           {/* Date + Category */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+              <label className="text-label font-medium text-gray-500 uppercase block mb-1">
                 Date *
               </label>
               <input
                 type="date"
                 {...register("date")}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+              <label className="text-label font-medium text-gray-500 uppercase block mb-1">
                 Category
               </label>
               <select
                 {...register("category")}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
               >
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -349,9 +349,9 @@ function LogExpenseModal({ job, onClose, onLogged }: {
               {...register("isSunkCost")}
               className="w-4 h-4 accent-gold"
             />
-            <span className="text-sm text-gray-600 font-sans">
+            <span className="text-body text-gray-600 ">
               Mark as sunk cost{" "}
-              <span className="text-xs text-gray-400">(excluded from monthly P&L)</span>
+              <span className="text-caption text-gray-400">(excluded from monthly P&L)</span>
             </span>
           </label>
 
@@ -360,14 +360,14 @@ function LogExpenseModal({ job, onClose, onLogged }: {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-body font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isSubmitting
                 ? <Loader2 size={14} className="animate-spin" />
@@ -404,20 +404,20 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2 hover:shadow-md transition-shadow">
       {/* Title + priority */}
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-header font-sans leading-snug">{job.title}</p>
-        <Badge variant={PRIORITY_BADGE[job.priority]} className="shrink-0 text-xs">
+        <p className="text-body font-medium text-header ">{job.title}</p>
+        <Badge variant={PRIORITY_BADGE[job.priority]} className="shrink-0 text-caption">
           {job.priority}
         </Badge>
       </div>
 
       {job.caseThreadId && (
-        <a href={`/cases/${job.caseThreadId}`} className="text-xs text-gold hover:underline inline-flex items-center gap-1">
+        <a href={`/cases/${job.caseThreadId}`} className="text-caption text-gold hover:underline inline-flex items-center gap-1">
           Open case →
         </a>
       )}
 
       {/* Meta chips */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-400 font-sans flex-wrap">
+      <div className="flex items-center gap-1.5 text-caption text-gray-400 flex-wrap">
         <span className="bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded">
           {CATEGORY_LABELS[job.category]}
         </span>
@@ -432,11 +432,11 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
 
       {/* Description */}
       {job.description && (
-        <p className="text-xs text-gray-500 font-sans line-clamp-2">{job.description}</p>
+        <p className="text-caption text-gray-500 line-clamp-2">{job.description}</p>
       )}
 
       {/* Details */}
-      <div className="space-y-1 text-xs text-gray-400 font-sans">
+      <div className="space-y-1 text-caption text-gray-400 ">
         {job.assignedTo && (
           <div className="flex items-center gap-1">
             <User size={10} />
@@ -464,7 +464,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
 
       {/* Expense status badge (Done cards only) */}
       {isDone && hasCost && (
-        <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-sans font-medium ${
+        <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-caption font-medium ${
           expensed
             ? "bg-green-50 border border-green-200 text-green-700"
             : "bg-amber-50 border border-amber-200 text-amber-700"
@@ -492,7 +492,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
 
       {/* Done with no cost — just a note */}
       {isDone && !hasCost && (
-        <p className="text-xs text-gray-300 font-sans italic">No cost recorded</p>
+        <p className="text-caption text-gray-300 italic">No cost recorded</p>
       )}
 
       {/* Actions footer */}
@@ -503,7 +503,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
             <button
               onClick={() => onAdvance(job)}
               disabled={advancing}
-              className="flex items-center gap-1 text-xs font-medium font-sans text-gold hover:text-gold-dark transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 text-caption font-medium text-gold hover:text-gold-dark transition-colors disabled:opacity-50"
             >
               {advancing
                 ? <span className="w-3 h-3 rounded-full border-2 border-gold border-t-transparent animate-spin" />
@@ -517,7 +517,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
           {isDone && hasCost && !expensed && (
             <button
               onClick={() => onLogExpense(job)}
-              className="flex items-center gap-1 text-xs font-medium font-sans text-green-600 hover:text-green-700 transition-colors bg-green-50 hover:bg-green-100 px-2 py-0.5 rounded-lg"
+              className="flex items-center gap-1 text-caption font-medium text-green-600 hover:text-green-700 transition-colors bg-green-50 hover:bg-green-100 px-2 py-0.5 rounded-lg"
             >
               <Receipt size={11} />
               Log expense
@@ -912,7 +912,7 @@ export default function MaintenancePage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as "jobs" | "schedules")}
-              className={`px-4 py-3 text-sm font-sans font-medium border-b-2 transition-colors ${
+              className={`px-4 py-3 text-body font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
                   ? "border-gold text-gold"
                   : "border-transparent text-gray-500 hover:text-header hover:border-gray-300"
@@ -920,12 +920,12 @@ export default function MaintenancePage() {
             >
               {tab.label}
               {tab.key === "jobs" && openCount > 0 && (
-                <span className="ml-2 bg-red-100 text-expense rounded-full px-1.5 py-0.5 text-xs font-mono">
+                <span className="ml-2 bg-red-100 text-expense rounded-full px-1.5 py-0.5 text-caption tabular-nums">
                   {openCount}
                 </span>
               )}
               {tab.key === "schedules" && overdueCount > 0 && (
-                <span className="ml-2 bg-red-100 text-expense rounded-full px-1.5 py-0.5 text-xs font-mono">
+                <span className="ml-2 bg-red-100 text-expense rounded-full px-1.5 py-0.5 text-caption tabular-nums">
                   {overdueCount}
                 </span>
               )}
@@ -941,17 +941,17 @@ export default function MaintenancePage() {
           <>
             {/* Summary strip */}
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 bg-red-50 text-expense rounded-xl px-4 py-2 text-sm font-sans">
+              <div className="flex items-center gap-2 bg-red-50 text-expense rounded-xl px-4 py-2 text-body ">
                 <Wrench size={14} />
                 <span><strong>{openCount}</strong> open job{openCount !== 1 ? "s" : ""}</span>
               </div>
               {urgentCount > 0 && (
-                <div className="flex items-center gap-2 bg-red-100 text-red-700 rounded-xl px-4 py-2 text-sm font-sans font-medium">
+                <div className="flex items-center gap-2 bg-red-100 text-red-700 rounded-xl px-4 py-2 text-body font-medium">
                   ⚡ {urgentCount} urgent
                 </div>
               )}
               {doneUnlogged > 0 && (
-                <div className="flex items-center gap-2 bg-amber-50 text-amber-700 rounded-xl px-4 py-2 text-sm font-sans">
+                <div className="flex items-center gap-2 bg-amber-50 text-amber-700 rounded-xl px-4 py-2 text-body ">
                   <Receipt size={14} />
                   <span><strong>{doneUnlogged}</strong> done job{doneUnlogged !== 1 ? "s" : ""} with unlogged cost</span>
                 </div>
@@ -960,14 +960,14 @@ export default function MaintenancePage() {
                 <select
                   value={filterProperty}
                   onChange={(e) => setFilterProperty(e.target.value)}
-                  className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-gold/30"
                 >
                   <option value="">All properties</option>
                   {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <button
                   onClick={() => setFilterPortalOnly(!filterPortalOnly)}
-                  className={`text-xs font-sans px-3 py-1.5 rounded-lg border transition-colors ${
+                  className={`text-caption px-3 py-1.5 rounded-lg border transition-colors ${
                     filterPortalOnly
                       ? "bg-blue-50 border-blue-300 text-blue-700"
                       : "border-gray-200 text-gray-400 hover:text-header"
@@ -977,14 +977,14 @@ export default function MaintenancePage() {
                 </button>
                 <button
                   onClick={() => setShowDone(!showDone)}
-                  className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
+                  className="text-caption text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
                 >
                   {showDone ? "Hide done" : "Show done"}
                 </button>
                 {jobs.length > 0 && (
                   <button
                     onClick={() => exportMaintenance(jobs, selected?.currency)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
                   >
                     <FileDown size={13} /> Export
                   </button>
@@ -994,7 +994,7 @@ export default function MaintenancePage() {
 
             {/* Workflow guide — only shown when there's content */}
             {!loading && jobs.length > 0 && (
-              <div className="hidden lg:flex items-center gap-2 text-xs text-gray-400 font-sans bg-gray-50 rounded-xl px-4 py-2">
+              <div className="hidden lg:flex items-center gap-2 text-caption text-gray-400 bg-gray-50 rounded-xl px-4 py-2">
                 <span className="font-medium text-gray-500">Workflow:</span>
                 {["Open", "In Progress", "Awaiting Parts", "Done"].map((s, i, arr) => (
                   <span key={s} className="flex items-center gap-2">
@@ -1024,10 +1024,10 @@ export default function MaintenancePage() {
                     <div key={col.status}>
                       {/* Column header */}
                       <div className={`flex items-center justify-between px-3 py-2 rounded-xl mb-3 ${col.bg}`}>
-                        <span className={`text-xs font-bold font-sans uppercase tracking-wide ${col.color}`}>
+                        <span className={`text-label font-semibold uppercase ${col.color}`}>
                           {col.label}
                         </span>
-                        <span className={`text-xs font-mono font-bold ${col.color} bg-white rounded-full w-5 h-5 flex items-center justify-center`}>
+                        <span className={`text-caption tabular-nums font-semibold ${col.color} bg-white rounded-full w-5 h-5 flex items-center justify-center`}>
                           {colJobs.length}
                         </span>
                       </div>
@@ -1035,7 +1035,7 @@ export default function MaintenancePage() {
                       {/* Cards */}
                       <div className="space-y-2 min-h-[120px]">
                         {colJobs.length === 0 ? (
-                          <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 text-center text-xs text-gray-300 font-sans">
+                          <div className="border-2 border-dashed border-gray-100 rounded-xl p-4 text-center text-caption text-gray-300 ">
                             No jobs
                           </div>
                         ) : (
@@ -1057,7 +1057,7 @@ export default function MaintenancePage() {
                         {isManager && col.status === "OPEN" && (
                           <button
                             onClick={openAdd}
-                            className="w-full border-2 border-dashed border-gray-200 hover:border-gold/40 rounded-xl p-3 text-xs text-gray-300 hover:text-gold font-sans transition-colors flex items-center justify-center gap-1"
+                            className="w-full border-2 border-dashed border-gray-200 hover:border-gold/40 rounded-xl p-3 text-caption text-gray-300 hover:text-gold transition-colors flex items-center justify-center gap-1"
                           >
                             <Plus size={12} /> Add job
                           </button>
@@ -1080,10 +1080,10 @@ export default function MaintenancePage() {
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex gap-3">
                 <AlertTriangle size={18} className="text-expense shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-sans font-semibold text-red-800">
+                  <p className="text-body font-semibold text-red-800">
                     {overdueCount} maintenance {overdueCount === 1 ? "task is" : "tasks are"} overdue
                   </p>
-                  <p className="text-xs font-sans text-red-600 mt-0.5">
+                  <p className="text-caption text-red-600 mt-0.5">
                     {schedules
                       .filter(s => taskStatus(s.nextDue).group === "overdue")
                       .map(s => `${s.asset?.name ?? s.property?.name ?? "Task"} — ${s.taskName}`)
@@ -1096,24 +1096,24 @@ export default function MaintenancePage() {
             {/* KPI cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="p-4">
-                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Overdue</p>
-                <p className="text-2xl font-display text-expense mt-1">{overdueCount}</p>
-                <p className="text-xs font-sans text-gray-400 mt-0.5">tasks past due</p>
+                <p className="text-label text-gray-500 uppercase ">Overdue</p>
+                <p className="text-h1 text-expense mt-1">{overdueCount}</p>
+                <p className="text-caption text-gray-400 mt-0.5">tasks past due</p>
               </Card>
               <Card className="p-4">
-                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Due This Week</p>
-                <p className="text-2xl font-display text-amber-600 mt-1">{weekCount}</p>
-                <p className="text-xs font-sans text-gray-400 mt-0.5">within 7 days</p>
+                <p className="text-label text-gray-500 uppercase ">Due This Week</p>
+                <p className="text-h1 text-amber-600 mt-1">{weekCount}</p>
+                <p className="text-caption text-gray-400 mt-0.5">within 7 days</p>
               </Card>
               <Card className="p-4">
-                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Due This Month</p>
-                <p className="text-2xl font-display text-blue-600 mt-1">{monthCount}</p>
-                <p className="text-xs font-sans text-gray-400 mt-0.5">within 30 days</p>
+                <p className="text-label text-gray-500 uppercase ">Due This Month</p>
+                <p className="text-h1 text-blue-600 mt-1">{monthCount}</p>
+                <p className="text-caption text-gray-400 mt-0.5">within 30 days</p>
               </Card>
               <Card className="p-4">
-                <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">YTD Maintenance Cost</p>
-                <p className="text-lg font-display text-header mt-1">{formatCurrency(ytdCost, currency)}</p>
-                <p className="text-xs font-sans text-gray-400 mt-0.5">{new Date().getFullYear()} total</p>
+                <p className="text-label text-gray-500 uppercase ">YTD Maintenance Cost</p>
+                <p className="text-h3 text-header mt-1">{formatCurrency(ytdCost, currency)}</p>
+                <p className="text-caption text-gray-400 mt-0.5">{new Date().getFullYear()} total</p>
               </Card>
             </div>
 
@@ -1127,7 +1127,7 @@ export default function MaintenancePage() {
               <select
                 value={filterScheduleProperty}
                 onChange={(e) => setFilterScheduleProperty(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 <option value="">All properties</option>
                 {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -1135,7 +1135,7 @@ export default function MaintenancePage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 <option value="">All statuses</option>
                 <option value="overdue">Overdue</option>
@@ -1149,7 +1149,7 @@ export default function MaintenancePage() {
                 value={scheduleSearch}
                 onChange={(e) => setScheduleSearch(e.target.value)}
                 placeholder="Search asset, task, property..."
-                className="flex-1 min-w-[200px] text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="flex-1 min-w-[200px] text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
 
@@ -1163,10 +1163,10 @@ export default function MaintenancePage() {
               <div className="space-y-6">
                 {scheduleGroups.map(group => (
                   <div key={group.key}>
-                    <h3 className={`text-sm font-sans font-semibold mb-3 flex items-center gap-2 ${group.color}`}>
+                    <h3 className={`text-body font-semibold mb-3 flex items-center gap-2 ${group.color}`}>
                       <span className="w-2 h-2 rounded-full bg-current inline-block" />
                       {group.label}
-                      <span className="font-normal text-gray-400">({group.items.length})</span>
+                      <span className=" text-gray-400">({group.items.length})</span>
                     </h3>
                     <div className="space-y-2">
                       {group.items.map(s => {
@@ -1182,8 +1182,8 @@ export default function MaintenancePage() {
                                       <Badge variant={CAT_BADGE[s.asset.category] ?? "gray"}>
                                         {CAT_LABELS[s.asset.category] ?? s.asset.category}
                                       </Badge>
-                                      <span className="font-sans font-semibold text-header">{s.asset.name}</span>
-                                      <span className="text-xs font-sans text-gray-400">
+                                      <span className=" font-semibold text-header">{s.asset.name}</span>
+                                      <span className="text-caption text-gray-400">
                                         {s.asset.property.name}
                                         {s.asset.unit && ` · Unit ${s.asset.unit.unitNumber}`}
                                       </span>
@@ -1191,7 +1191,7 @@ export default function MaintenancePage() {
                                   ) : (
                                     <>
                                       <Badge variant="gray">{s.taskCategory ?? "Other"}</Badge>
-                                      <span className="font-sans font-semibold text-header">
+                                      <span className=" font-semibold text-header">
                                         {s.property?.name ?? "Property task"}
                                       </span>
                                     </>
@@ -1200,15 +1200,15 @@ export default function MaintenancePage() {
                                 </div>
                                 {/* Row 2: task name + frequency + status */}
                                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                  <span className="text-sm font-sans text-header font-medium">{s.taskName}</span>
+                                  <span className="text-body text-header font-medium">{s.taskName}</span>
                                   <Badge variant="blue">{FREQ_LABELS[s.frequency] ?? s.frequency}</Badge>
                                   <Badge variant={st.variant}>{st.label}</Badge>
                                   {s.estimatedCost && s.estimatedCost > 0 && (
-                                    <span className="text-xs font-sans text-gray-400">Est. {formatCurrency(s.estimatedCost, currency)}</span>
+                                    <span className="text-caption text-gray-400">Est. {formatCurrency(s.estimatedCost, currency)}</span>
                                   )}
                                 </div>
                                 {/* Row 3: last done / next due dates */}
-                                <div className="flex gap-4 mt-1.5 text-xs font-sans text-gray-400">
+                                <div className="flex gap-4 mt-1.5 text-caption text-gray-400">
                                   <span>
                                     Last done:{" "}
                                     {s.lastDone
@@ -1219,7 +1219,7 @@ export default function MaintenancePage() {
                                   {s.nextDue && <span>Next due: {formatDate(new Date(s.nextDue))}</span>}
                                 </div>
                                 {s.description && (
-                                  <p className="text-xs font-sans text-gray-500 mt-1">{s.description}</p>
+                                  <p className="text-caption text-gray-500 mt-1">{s.description}</p>
                                 )}
                               </div>
                               {/* Action buttons */}
@@ -1234,7 +1234,7 @@ export default function MaintenancePage() {
                                       technician: "", notes: "",
                                     });
                                   }}
-                                  className="flex items-center gap-1.5 text-sm"
+                                  className="flex items-center gap-1.5 text-body"
                                 >
                                   <CheckCircle2 size={14} /> Log
                                 </Button>
@@ -1330,17 +1330,17 @@ export default function MaintenancePage() {
           {/* Emergency toggle */}
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <input type="checkbox" className="w-4 h-4 rounded" {...register("isEmergency")} />
-            <span className="text-sm font-sans text-gray-700">
+            <span className="text-body text-gray-700">
               <span className="font-semibold text-red-600">Emergency</span> — requires acknowledgement within 24 hrs
             </span>
           </label>
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600 font-sans">Description</label>
+            <label className="text-body font-medium text-gray-600 ">Description</label>
             <textarea
               rows={2}
               placeholder="Details about the issue…"
-              className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+              className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               {...register("description")}
             />
           </div>
@@ -1376,7 +1376,7 @@ export default function MaintenancePage() {
 
           {/* Repair authority limit warning */}
           {watchedCost && Number(watchedCost) > REPAIR_AUTHORITY_LIMIT && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-sm font-sans text-red-700">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-body text-red-700">
               <span className="mt-0.5 shrink-0">⚠️</span>
               <span>
                 Cost exceeds repair authority limit ({formatCurrency(REPAIR_AUTHORITY_LIMIT, currency)}).{" "}
@@ -1386,11 +1386,11 @@ export default function MaintenancePage() {
           )}
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600 font-sans">Notes</label>
+            <label className="text-body font-medium text-gray-600 ">Notes</label>
             <textarea
               rows={2}
               placeholder="Any extra notes…"
-              className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+              className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               {...register("notes")}
             />
           </div>
@@ -1431,41 +1431,41 @@ export default function MaintenancePage() {
       <Modal open={addSchedOpen} onClose={() => setAddSchedOpen(false)} title="Add Maintenance Schedule" size="md">
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Property <span className="text-expense">*</span></label>
-            <select value={addSchedForm.propertyId} onChange={e => setAddSchedForm(f => ({ ...f, propertyId: e.target.value, assetId: "" }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+            <label className="block text-caption font-medium text-gray-500 mb-1">Property <span className="text-expense">*</span></label>
+            <select value={addSchedForm.propertyId} onChange={e => setAddSchedForm(f => ({ ...f, propertyId: e.target.value, assetId: "" }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
               <option value="">Select property...</option>
               {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           {addSchedForm.propertyId && (
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Asset <span className="text-gray-400">(optional)</span></label>
-              <select value={addSchedForm.assetId} onChange={e => setAddSchedForm(f => ({ ...f, assetId: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+              <label className="block text-caption font-medium text-gray-500 mb-1">Asset <span className="text-gray-400">(optional)</span></label>
+              <select value={addSchedForm.assetId} onChange={e => setAddSchedForm(f => ({ ...f, assetId: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
                 <option value="">No specific asset (property-wide task)</option>
                 {scheduleAssets.map((a: any) => <option key={a.id} value={a.id}>{a.name} ({CAT_LABELS[a.category] ?? a.category})</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Task Name <span className="text-expense">*</span></label>
-            <input type="text" value={addSchedForm.taskName} onChange={e => setAddSchedForm(f => ({ ...f, taskName: e.target.value }))} placeholder="e.g. Quarterly pest control" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            <label className="block text-caption font-medium text-gray-500 mb-1">Task Name <span className="text-expense">*</span></label>
+            <input type="text" value={addSchedForm.taskName} onChange={e => setAddSchedForm(f => ({ ...f, taskName: e.target.value }))} placeholder="e.g. Quarterly pest control" className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30" />
           </div>
           {!addSchedForm.assetId && (
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Category <span className="text-expense">*</span></label>
-              <select value={addSchedForm.taskCategory} onChange={e => setAddSchedForm(f => ({ ...f, taskCategory: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+              <label className="block text-caption font-medium text-gray-500 mb-1">Category <span className="text-expense">*</span></label>
+              <select value={addSchedForm.taskCategory} onChange={e => setAddSchedForm(f => ({ ...f, taskCategory: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
                 {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description</label>
-            <textarea value={addSchedForm.description} onChange={e => setAddSchedForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Optional notes..." className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
+            <label className="block text-caption font-medium text-gray-500 mb-1">Description</label>
+            <textarea value={addSchedForm.description} onChange={e => setAddSchedForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Optional notes..." className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Frequency</label>
-              <select value={addSchedForm.frequency} onChange={e => setAddSchedForm(f => ({ ...f, frequency: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+              <label className="block text-caption font-medium text-gray-500 mb-1">Frequency</label>
+              <select value={addSchedForm.frequency} onChange={e => setAddSchedForm(f => ({ ...f, frequency: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
                 <option value="WEEKLY">Weekly</option>
                 <option value="MONTHLY">Monthly</option>
                 <option value="QUARTERLY">Quarterly</option>
@@ -1474,15 +1474,15 @@ export default function MaintenancePage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Last Done</label>
-              <input type="date" value={addSchedForm.lastDone} onChange={e => setAddSchedForm(f => ({ ...f, lastDone: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+              <label className="block text-caption font-medium text-gray-500 mb-1">Last Done</label>
+              <input type="date" value={addSchedForm.lastDone} onChange={e => setAddSchedForm(f => ({ ...f, lastDone: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost</label>
-            <input type="number" min="0" value={addSchedForm.estimatedCost} onChange={e => setAddSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            <label className="block text-caption font-medium text-gray-500 mb-1">Estimated Cost</label>
+            <input type="number" min="0" value={addSchedForm.estimatedCost} onChange={e => setAddSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30" />
             {parseFloat(addSchedForm.estimatedCost) > 0 && addSchedForm.frequency !== "WEEKLY" && (
-              <p className="text-xs text-gold mt-1">A recurring expense will be created for financial tracking</p>
+              <p className="text-caption text-gold mt-1">A recurring expense will be created for financial tracking</p>
             )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -1496,17 +1496,17 @@ export default function MaintenancePage() {
       <Modal open={!!editSchedTarget} onClose={() => setEditSchedTarget(null)} title="Edit Schedule" size="md">
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Task Name</label>
-            <input type="text" value={editSchedForm.taskName} onChange={e => setEditSchedForm(f => ({ ...f, taskName: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            <label className="block text-caption font-medium text-gray-500 mb-1">Task Name</label>
+            <input type="text" value={editSchedForm.taskName} onChange={e => setEditSchedForm(f => ({ ...f, taskName: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30" />
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description</label>
-            <textarea value={editSchedForm.description} onChange={e => setEditSchedForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
+            <label className="block text-caption font-medium text-gray-500 mb-1">Description</label>
+            <textarea value={editSchedForm.description} onChange={e => setEditSchedForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Frequency</label>
-              <select value={editSchedForm.frequency} onChange={e => setEditSchedForm(f => ({ ...f, frequency: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+              <label className="block text-caption font-medium text-gray-500 mb-1">Frequency</label>
+              <select value={editSchedForm.frequency} onChange={e => setEditSchedForm(f => ({ ...f, frequency: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
                 <option value="WEEKLY">Weekly</option>
                 <option value="MONTHLY">Monthly</option>
                 <option value="QUARTERLY">Quarterly</option>
@@ -1515,15 +1515,15 @@ export default function MaintenancePage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Last Done</label>
-              <input type="date" value={editSchedForm.lastDone} onChange={e => setEditSchedForm(f => ({ ...f, lastDone: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+              <label className="block text-caption font-medium text-gray-500 mb-1">Last Done</label>
+              <input type="date" value={editSchedForm.lastDone} onChange={e => setEditSchedForm(f => ({ ...f, lastDone: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost</label>
-            <input type="number" min="0" value={editSchedForm.estimatedCost} onChange={e => setEditSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30" />
+            <label className="block text-caption font-medium text-gray-500 mb-1">Estimated Cost</label>
+            <input type="number" min="0" value={editSchedForm.estimatedCost} onChange={e => setEditSchedForm(f => ({ ...f, estimatedCost: e.target.value }))} placeholder="0" className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30" />
             {parseFloat(editSchedForm.estimatedCost) > 0 && editSchedForm.frequency !== "WEEKLY" && (
-              <p className="text-xs text-gold mt-1">{editSchedTarget?.recurringExpenseId ? "Linked recurring expense will be updated" : "A recurring expense will be created"}</p>
+              <p className="text-caption text-gold mt-1">{editSchedTarget?.recurringExpenseId ? "Linked recurring expense will be updated" : "A recurring expense will be created"}</p>
             )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -1557,7 +1557,7 @@ export default function MaintenancePage() {
         {logModal && (
           <div className="space-y-4">
             {/* Context line */}
-            <div className="bg-cream rounded-lg px-3 py-2 text-xs font-sans text-gray-600 flex items-center gap-2">
+            <div className="bg-cream rounded-lg px-3 py-2 text-caption text-gray-600 flex items-center gap-2">
               {logModal.asset ? (
                 <>
                   <span className="font-medium">{logModal.asset.name}</span>
@@ -1576,30 +1576,30 @@ export default function MaintenancePage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+                <label className="block text-caption font-medium text-gray-500 mb-1">
                   Date <span className="text-expense">*</span>
                 </label>
                 <input
                   type="date"
                   value={logForm.date}
                   onChange={(e) => setLogForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
                 />
               </div>
               <div>
-                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Cost</label>
+                <label className="block text-caption font-medium text-gray-500 mb-1">Cost</label>
                 <input
                   type="number"
                   value={logForm.cost}
                   min="0"
                   onChange={(e) => setLogForm(f => ({ ...f, cost: e.target.value }))}
                   placeholder="0"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Description <span className="text-expense">*</span>
               </label>
               <input
@@ -1607,27 +1607,27 @@ export default function MaintenancePage() {
                 value={logForm.description}
                 onChange={(e) => setLogForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="What was done?"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Technician</label>
+              <label className="block text-caption font-medium text-gray-500 mb-1">Technician</label>
               <input
                 type="text"
                 value={logForm.technician}
                 onChange={(e) => setLogForm(f => ({ ...f, technician: e.target.value }))}
                 placeholder="Name or company"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Notes</label>
+              <label className="block text-caption font-medium text-gray-500 mb-1">Notes</label>
               <textarea
                 value={logForm.notes}
                 rows={2}
                 onChange={(e) => setLogForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="Additional notes..."
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">

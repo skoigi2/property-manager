@@ -15,12 +15,12 @@ export default function TenantCheckoutPage() {
       <div className="page-container">
         <button
           onClick={() => router.push(`/tenants/${tenantId}`)}
-          className="flex items-center gap-1 text-sm text-gray-400 hover:text-gold mb-3 font-sans"
+          className="flex items-center gap-1 text-body text-gray-400 hover:text-gold mb-3 "
         >
           <ChevronLeft size={14} /> Back to tenant
         </button>
-        <h1 className="font-display text-2xl text-header mb-1">Tenant Check-Out</h1>
-        <p className="text-sm text-gray-500 font-sans mb-5">
+        <h1 className=" text-h1 text-header mb-1">Tenant Check-Out</h1>
+        <p className="text-body text-gray-500 mb-5">
           Settle the deposit, record condition and key returns, and generate the signed PDF statement.
         </p>
         <CheckoutForm tenantId={tenantId} />

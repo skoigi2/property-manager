@@ -132,12 +132,12 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
             <Building2 size={18} className="text-gold" />
           </div>
           <div>
-            <h3 className="font-display text-base text-header">{stmt.propertyName}</h3>
+            <h3 className=" text-h3 text-header">{stmt.propertyName}</h3>
             <div className="flex items-center gap-2 mt-0.5">
               <Badge variant="gray">{stmt.propertyType === "AIRBNB" ? "Short-let" : "Long-term"}</Badge>
               {collectionRate !== null && (
                 <span className={clsx(
-                  "text-xs font-sans font-medium",
+                  "text-caption font-medium",
                   collectionRate >= 90 ? "text-income" : collectionRate >= 70 ? "text-amber-600" : "text-expense",
                 )}>
                   {collectionRate}% collected
@@ -147,7 +147,7 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Net Payable</p>
+          <p className="text-label text-gray-400 uppercase mb-1">Net Payable</p>
           <CurrencyDisplay
             currency={stmt.currency}
             amount={stmt.netPayable}
@@ -156,7 +156,7 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
           />
           <a
             href={`/api/report/owner-statement/pdf?propertyId=${stmt.propertyId}&year=${year}&month=${month}`}
-            className="inline-flex items-center gap-1.5 mt-2 text-xs font-sans font-medium text-gold hover:text-gold-dark transition-colors"
+            className="inline-flex items-center gap-1.5 mt-2 text-caption font-medium text-gold hover:text-gold-dark transition-colors"
           >
             <Download size={12} /> Statement PDF
           </a>
@@ -172,8 +172,8 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
           { label: "Net Payable",     value: stmt.netPayable,     color: stmt.netPayable >= 0 ? "text-income" : "text-expense" },
         ].map((k) => (
           <div key={k.label} className="bg-cream rounded-xl p-3">
-            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">{k.label}</p>
-            <span className={clsx("font-mono text-sm font-semibold", k.color)}>
+            <p className="text-label text-gray-400 uppercase mb-1">{k.label}</p>
+            <span className={clsx("tabular-nums text-body font-semibold", k.color)}>
               {k.value < 0 ? "-" : ""}{fmt(Math.abs(k.value))}
             </span>
           </div>
@@ -185,7 +185,7 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
         <>
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-gold font-medium font-sans mb-3"
+            className="flex items-center gap-1.5 text-caption text-gold font-medium mb-3"
           >
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             {expanded ? "Hide" : "Show"} {stmt.lines.length} unit{stmt.lines.length !== 1 ? "s" : ""}
@@ -193,11 +193,11 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
 
           {expanded && (
             <div className="overflow-x-auto border border-gray-100 rounded-xl">
-              <table className="w-full min-w-[520px] text-sm">
+              <table className="w-full min-w-[520px] text-body">
                 <thead className="bg-cream-dark">
                   <tr>
                     {["Unit/Tenant", "Expected", "Received", "Svc Charge", "Other", "Total"].map((h) => (
-                      <th key={h} className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans whitespace-nowrap">
+                      <th key={h} className="px-3 py-2 text-left text-label font-medium text-gray-400 uppercase whitespace-nowrap">
                         {h}
                       </th>
                     ))}
@@ -210,22 +210,22 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
                     return (
                       <tr key={i} className={clsx("border-t border-gray-50", isShort && "bg-red-50/40")}>
                         <td className="px-3 py-2.5">
-                          <p className="font-sans text-sm text-header">{line.tenantName}</p>
-                          <p className="font-mono text-xs text-gray-400">{line.unit}</p>
+                          <p className=" text-body text-header">{line.tenantName}</p>
+                          <p className="tabular-nums text-caption text-gray-400">{line.unit}</p>
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-sm text-gray-500">
+                        <td className="px-3 py-2.5 tabular-nums text-body text-gray-500">
                           {line.rentExpected > 0 ? fmt(line.rentExpected) : "—"}
                         </td>
-                        <td className={clsx("px-3 py-2.5 font-mono text-sm font-medium", isPaid ? "text-income" : isShort ? "text-expense" : "text-gray-600")}>
+                        <td className={clsx("px-3 py-2.5 tabular-nums text-body font-medium", isPaid ? "text-income" : isShort ? "text-expense" : "text-gray-600")}>
                           {fmt(line.rentReceived)}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-sm text-gray-500">
+                        <td className="px-3 py-2.5 tabular-nums text-body text-gray-500">
                           {line.serviceCharge > 0 ? fmt(line.serviceCharge) : "—"}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-sm text-gray-500">
+                        <td className="px-3 py-2.5 tabular-nums text-body text-gray-500">
                           {line.otherIncome > 0 ? fmt(line.otherIncome) : "—"}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-sm font-semibold text-header">
+                        <td className="px-3 py-2.5 tabular-nums text-body font-semibold text-header">
                           {fmt(line.grossTotal)}
                         </td>
                       </tr>
@@ -234,20 +234,20 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-200 bg-cream">
-                    <td className="px-3 py-2 text-xs font-medium font-sans text-gray-500 uppercase">Total</td>
-                    <td className="px-3 py-2 font-mono text-sm text-gray-500">
+                    <td className="px-3 py-2 text-label font-medium text-gray-500 uppercase">Total</td>
+                    <td className="px-3 py-2 tabular-nums text-body text-gray-500">
                       {fmt(stmt.lines.reduce((s, l) => s + l.rentExpected, 0))}
                     </td>
-                    <td className="px-3 py-2 font-mono text-sm text-income font-medium">
+                    <td className="px-3 py-2 tabular-nums text-body text-income font-medium">
                       {fmt(stmt.lines.reduce((s, l) => s + l.rentReceived, 0))}
                     </td>
-                    <td className="px-3 py-2 font-mono text-sm text-gray-500">
+                    <td className="px-3 py-2 tabular-nums text-body text-gray-500">
                       {fmt(stmt.lines.reduce((s, l) => s + l.serviceCharge, 0))}
                     </td>
-                    <td className="px-3 py-2 font-mono text-sm text-gray-500">
+                    <td className="px-3 py-2 tabular-nums text-body text-gray-500">
                       {fmt(stmt.lines.reduce((s, l) => s + l.otherIncome, 0))}
                     </td>
-                    <td className="px-3 py-2 font-mono text-sm font-bold text-income">
+                    <td className="px-3 py-2 tabular-nums text-body font-semibold text-income">
                       {fmt(stmt.grossIncome)}
                     </td>
                   </tr>
@@ -262,15 +262,15 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
       {(stmt.managementFee > 0 || stmt.totalExpenses > 0) && (
         <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
           {stmt.managementFee > 0 && (
-            <div className="flex justify-between text-xs font-sans text-gray-500">
+            <div className="flex justify-between text-caption text-gray-500">
               <span>Management Fee</span>
-              <span className="font-mono text-expense">({fmt(stmt.managementFee)})</span>
+              <span className="tabular-nums text-expense">({fmt(stmt.managementFee)})</span>
             </div>
           )}
           {stmt.expenses.map((e, i) => (
-            <div key={i} className="flex justify-between text-xs font-sans text-gray-500">
+            <div key={i} className="flex justify-between text-caption text-gray-500">
               <span>{CAT_LABELS[e.category] ?? e.category}{e.description !== e.category ? ` — ${e.description}` : ""}</span>
-              <span className="font-mono text-expense">({fmt(e.amount)})</span>
+              <span className="tabular-nums text-expense">({fmt(e.amount)})</span>
             </div>
           ))}
         </div>
@@ -339,7 +339,7 @@ export function OwnerDashboard() {
       {/* ── Period Picker ─────────────────────────────────────────────────── */}
       <Card padding="sm">
         <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-xs font-sans font-medium text-gray-500 uppercase tracking-wide">Period</p>
+          <p className="text-label font-medium text-gray-500 uppercase ">Period</p>
           <div className="flex items-center gap-2">
             <Select
               value={month}
@@ -352,7 +352,7 @@ export function OwnerDashboard() {
               options={YEARS}
             />
           </div>
-          <span className="text-xs text-gray-400 font-sans">{periodLabel}</span>
+          <span className="text-caption text-gray-400 ">{periodLabel}</span>
         </div>
       </Card>
 
@@ -365,15 +365,15 @@ export function OwnerDashboard() {
             <Card padding="sm" className="border-l-4 border-income">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp size={15} className="text-income" />
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Gross Income</p>
+                <p className="text-label text-gray-400 uppercase ">Gross Income</p>
               </div>
               <CurrencyDisplay currency={primaryCurrency} amount={totalGross} size="lg" className="text-income font-semibold" />
-              <p className="text-xs text-gray-400 font-sans mt-1">{statements.length} propert{statements.length !== 1 ? "ies" : "y"}</p>
+              <p className="text-caption text-gray-400 mt-1">{statements.length} propert{statements.length !== 1 ? "ies" : "y"}</p>
             </Card>
             <Card padding="sm" className={clsx("border-l-4", totalNetPayable >= 0 ? "border-income" : "border-expense")}>
               <div className="flex items-center gap-2 mb-1">
                 <Wallet size={15} className={totalNetPayable >= 0 ? "text-income" : "text-expense"} />
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net Payable</p>
+                <p className="text-label text-gray-400 uppercase ">Net Payable</p>
               </div>
               <CurrencyDisplay
                 currency={primaryCurrency}
@@ -381,7 +381,7 @@ export function OwnerDashboard() {
                 size="lg"
                 className={clsx("font-semibold", totalNetPayable >= 0 ? "text-income" : "text-expense")}
               />
-              <p className="text-xs text-gray-400 font-sans mt-1">After fees & expenses</p>
+              <p className="text-caption text-gray-400 mt-1">After fees & expenses</p>
             </Card>
             <Card padding="sm" className={clsx("border-l-4", arrears.length > 0 ? "border-expense" : "border-income")}>
               <div className="flex items-center gap-2 mb-1">
@@ -390,27 +390,27 @@ export function OwnerDashboard() {
                 ) : (
                   <CheckCircle size={15} className="text-income" />
                 )}
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Rent Arrears</p>
+                <p className="text-label text-gray-400 uppercase ">Rent Arrears</p>
               </div>
               {arrears.length > 0 ? (
                 <>
                   <CurrencyDisplay currency={primaryCurrency} amount={totalArrears} size="lg" className="text-expense font-semibold" />
-                  <p className="text-xs text-expense font-sans mt-1">{arrears.length} open case{arrears.length !== 1 ? "s" : ""}</p>
+                  <p className="text-caption text-expense mt-1">{arrears.length} open case{arrears.length !== 1 ? "s" : ""}</p>
                 </>
               ) : (
                 <>
-                  <p className="text-lg font-display text-income mt-1">Clear</p>
-                  <p className="text-xs text-income font-sans mt-1">No outstanding arrears</p>
+                  <p className="text-h3 text-income mt-1">Clear</p>
+                  <p className="text-caption text-income mt-1">No outstanding arrears</p>
                 </>
               )}
             </Card>
             <Card padding="sm">
               <div className="flex items-center gap-2 mb-1">
                 <Receipt size={15} className="text-gold" />
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Invoices</p>
+                <p className="text-label text-gray-400 uppercase ">Invoices</p>
               </div>
-              <p className="text-2xl font-display text-header mt-1">{invoices.length}</p>
-              <p className="text-xs text-gray-400 font-sans mt-1">
+              <p className="text-h1 text-header mt-1">{invoices.length}</p>
+              <p className="text-caption text-gray-400 mt-1">
                 {invoices.filter((i) => i.status === "PAID").length} paid ·{" "}
                 {invoices.filter((i) => i.status === "OVERDUE").length} overdue
               </p>
@@ -422,13 +422,13 @@ export function OwnerDashboard() {
             <Card>
               <div className="flex flex-col items-center py-10 gap-2 text-center">
                 <TrendingDown size={28} className="text-gray-300" />
-                <p className="text-sm font-sans text-gray-500">No income data for {periodLabel}</p>
-                <p className="text-xs font-sans text-gray-400">Try selecting a different month.</p>
+                <p className="text-body text-gray-500">No income data for {periodLabel}</p>
+                <p className="text-caption text-gray-400">Try selecting a different month.</p>
               </div>
             </Card>
           ) : (
             <div className="space-y-4">
-              <h2 className="text-sm font-sans font-semibold text-gray-500 uppercase tracking-wide">
+              <h2 className="text-label font-semibold text-gray-500 uppercase ">
                 Property Performance — {periodLabel}
               </h2>
               {statements.map((stmt) => (
@@ -440,20 +440,20 @@ export function OwnerDashboard() {
           {/* ── Arrears ───────────────────────────────────────────────────── */}
           {arrears.length > 0 && (
             <div>
-              <h2 className="text-sm font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              <h2 className="text-label font-semibold text-gray-500 uppercase mb-3">
                 Outstanding Rent Arrears
               </h2>
               <Card className="border border-red-100">
                 <div className="flex items-center gap-2 mb-3 text-expense">
                   <AlertTriangle size={15} />
-                  <p className="text-sm font-medium font-sans">{arrears.length} open arrears case{arrears.length !== 1 ? "s" : ""} — {fmt(totalArrears)} total outstanding</p>
+                  <p className="text-body font-medium ">{arrears.length} open arrears case{arrears.length !== 1 ? "s" : ""} — {fmt(totalArrears)} total outstanding</p>
                 </div>
                 <div className="space-y-2">
                   {arrears.map((c) => (
                     <div key={c.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 flex-wrap gap-2">
                       <div>
-                        <p className="text-sm font-sans text-header">{c.tenantName}</p>
-                        <p className="text-xs text-gray-400 font-sans">
+                        <p className="text-body text-header">{c.tenantName}</p>
+                        <p className="text-caption text-gray-400 ">
                           Unit {c.unitNumber} · {c.propertyName}
                         </p>
                       </div>
@@ -461,7 +461,7 @@ export function OwnerDashboard() {
                         <Badge variant={ARREARS_STAGE_TONE[c.stageLabel] ?? "amber"}>
                           {c.stageLabel}
                         </Badge>
-                        <span className="font-mono text-sm font-semibold text-expense">
+                        <span className="tabular-nums text-body font-semibold text-expense">
                           {fmt(c.amountOwed, c.currency)}
                         </span>
                       </div>
@@ -475,16 +475,16 @@ export function OwnerDashboard() {
           {/* ── Owner Invoices ────────────────────────────────────────────── */}
           {invoices.length > 0 && (
             <div>
-              <h2 className="text-sm font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              <h2 className="text-label font-semibold text-gray-500 uppercase mb-3">
                 Recent Owner Invoices
               </h2>
               <Card padding="none">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-sm">
+                  <table className="w-full min-w-[560px] text-body">
                     <thead className="bg-cream-dark">
                       <tr>
                         {["Invoice #", "Type", "Property", "Period", "Amount", "Status", ""].map((h) => (
-                          <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans whitespace-nowrap">
+                          <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase whitespace-nowrap">
                             {h}
                           </th>
                         ))}
@@ -496,21 +496,21 @@ export function OwnerDashboard() {
                         const cur = inv.currency ?? primaryCurrency;
                         return (
                           <tr key={inv.id} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
-                            <td className="px-4 py-3 font-mono text-xs font-medium text-header whitespace-nowrap">
+                            <td className="px-4 py-3 tabular-nums text-caption font-medium text-header whitespace-nowrap">
                               {inv.invoiceNumber}
                             </td>
-                            <td className="px-4 py-3 text-xs font-sans text-gray-600 whitespace-nowrap">
+                            <td className="px-4 py-3 text-caption text-gray-600 whitespace-nowrap">
                               {INVOICE_TYPE_LABELS[inv.type] ?? inv.type}
                             </td>
-                            <td className="px-4 py-3 text-xs font-sans text-gray-600">
+                            <td className="px-4 py-3 text-caption text-gray-600">
                               {inv.property.name}
                             </td>
-                            <td className="px-4 py-3 text-xs font-sans text-gray-500 whitespace-nowrap">
+                            <td className="px-4 py-3 text-caption text-gray-500 whitespace-nowrap">
                               {inv.periodMonth
                                 ? `${MONTHS[inv.periodMonth - 1]} ${inv.periodYear}`
                                 : String(inv.periodYear)}
                             </td>
-                            <td className="px-4 py-3 font-mono text-sm font-medium text-header whitespace-nowrap">
+                            <td className="px-4 py-3 tabular-nums text-body font-medium text-header whitespace-nowrap">
                               {formatCurrency(inv.totalAmount, cur)}
                             </td>
                             <td className="px-4 py-3">

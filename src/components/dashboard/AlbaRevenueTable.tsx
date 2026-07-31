@@ -44,10 +44,10 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
               {/* Unit + occupancy badge */}
               <div className="flex items-start justify-between gap-2 mb-2.5">
                 <div>
-                  <p className="font-sans font-medium text-sm text-header leading-tight">
+                  <p className=" font-medium text-body text-header ">
                     Unit {row.unitNumber}
                   </p>
-                  <p className="text-xs text-gray-400 font-sans mt-0.5">
+                  <p className="text-caption text-gray-400 mt-0.5">
                     {unitTypeLabel(row.type)}
                     {showProperty && row.propertyName ? ` · ${row.propertyName}` : ""}
                   </p>
@@ -57,9 +57,9 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
                     {row.status === "OWNER_OCCUPIED" ? "Owner" : "Vacant"}
                   </Badge>
                 ) : (
-                  <span className="text-sm font-mono text-gray-600">
+                  <span className="text-body tabular-nums text-gray-600">
                     {row.bookedNights}n{" "}
-                    <span className="text-gray-400 text-xs">({occ}%)</span>
+                    <span className="text-gray-400 text-caption">({occ}%)</span>
                   </span>
                 )}
               </div>
@@ -67,19 +67,19 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
               {/* Financials grid */}
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50">
                 <div>
-                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Gross</p>
+                  <p className="text-label text-gray-400 uppercase mb-0.5">Gross</p>
                   <CurrencyDisplay currency={currency} amount={row.grossIncome} size="sm" colorize />
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Net</p>
+                  <p className="text-label text-gray-400 uppercase mb-0.5">Net</p>
                   <CurrencyDisplay currency={currency} amount={row.netProfit} size="sm" colorize />
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Commission</p>
+                  <p className="text-label text-gray-400 uppercase mb-0.5">Commission</p>
                   <CurrencyDisplay currency={currency} amount={-row.totalCommissions} size="sm" colorize />
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expenses</p>
+                  <p className="text-label text-gray-400 uppercase mb-0.5">Expenses</p>
                   <CurrencyDisplay currency={currency} amount={-(row.fixedExpenses + row.variableExpenses)} size="sm" colorize />
                 </div>
               </div>
@@ -89,14 +89,14 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
 
         {/* Totals card */}
         <div className="rounded-xl border border-gold/25 bg-cream p-3">
-          <p className="text-xs font-medium text-header font-sans mb-2">Totals</p>
+          <p className="text-caption font-medium text-header mb-2">Totals</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Gross</p>
+              <p className="text-label text-gray-400 uppercase mb-0.5">Gross</p>
               <CurrencyDisplay currency={currency} amount={totalGross} size="sm" colorize />
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Net</p>
+              <p className="text-label text-gray-400 uppercase mb-0.5">Net</p>
               <CurrencyDisplay currency={currency} amount={totalNet} size="sm" colorize />
             </div>
           </div>
@@ -110,7 +110,7 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
             <thead className="sticky top-0 bg-white z-10">
               <tr className="text-left">
                 {[...(showProperty ? ["Property"] : []), "Unit", "Type", "Gross", "Commission", "Fixed Costs", "Variable", "Net", "Nights"].map((h) => (
-                  <th key={h} className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans last:text-center">
+                  <th key={h} className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase last:text-center">
                     {h}
                   </th>
                 ))}
@@ -121,9 +121,9 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
                 const occ = row.daysInMonth > 0 ? Math.round((row.bookedNights / row.daysInMonth) * 100) : 0;
                 return (
                   <tr key={row.unitId} className="border-t border-gray-100">
-                    {showProperty && <td className="py-3 pr-3 text-sm font-sans text-gray-500">{row.propertyName ?? "—"}</td>}
-                    <td className="py-3 pr-3 text-sm font-mono text-header font-medium">{row.unitNumber}</td>
-                    <td className="py-3 pr-3 text-sm font-sans text-gray-500">{unitTypeLabel(row.type)}</td>
+                    {showProperty && <td className="py-3 pr-3 text-body text-gray-500">{row.propertyName ?? "—"}</td>}
+                    <td className="py-3 pr-3 text-body tabular-nums text-header font-medium">{row.unitNumber}</td>
+                    <td className="py-3 pr-3 text-body text-gray-500">{unitTypeLabel(row.type)}</td>
                     <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.grossIncome} size="sm" colorize /></td>
                     <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={-row.totalCommissions} size="sm" colorize /></td>
                     <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={-row.fixedExpenses} size="sm" colorize /></td>
@@ -135,8 +135,8 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
                           {row.status === "OWNER_OCCUPIED" ? "Owner" : "Vacant"}
                         </Badge>
                       ) : (
-                        <span className="text-sm font-mono text-gray-600">
-                          {row.bookedNights}n <span className="text-gray-400 text-xs">({occ}%)</span>
+                        <span className="text-body tabular-nums text-gray-600">
+                          {row.bookedNights}n <span className="text-gray-400 text-caption">({occ}%)</span>
                         </span>
                       )}
                     </td>
@@ -146,7 +146,7 @@ export function AlbaRevenueTable({ rows, currency = "USD", showProperty = false 
             </tbody>
             <tfoot className="sticky bottom-0 bg-white">
               <tr className="border-t-2 border-gold/30">
-                <td colSpan={showProperty ? 3 : 2} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
+                <td colSpan={showProperty ? 3 : 2} className="pt-3 text-body font-medium text-header">Total</td>
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalGross} size="sm" colorize /></td>
                 <td colSpan={3} />
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalNet} size="sm" colorize /></td>

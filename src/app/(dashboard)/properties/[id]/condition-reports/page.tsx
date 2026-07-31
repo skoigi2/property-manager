@@ -65,17 +65,17 @@ function ReportCard({ report }: { report: ConditionReport }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-display text-sm text-header">
+              <p className=" text-body font-medium text-header">
                 Inspection Report — {format(new Date(report.reportDate), "d MMM yyyy")}
               </p>
               <Badge variant={cfg.variant}>{cfg.label}</Badge>
               {actionItems.length > 0 && (
-                <span className="flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+                <span className="flex items-center gap-1 text-caption text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
                   <AlertTriangle size={10} /> {actionItems.length} action{actionItems.length > 1 ? "s" : ""} required
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 font-sans flex-wrap">
+            <div className="flex items-center gap-3 mt-1 text-caption text-gray-400 flex-wrap">
               {report.inspector && (
                 <span className="flex items-center gap-1">
                   <User size={11} /> {report.inspector}
@@ -91,7 +91,7 @@ function ReportCard({ report }: { report: ConditionReport }) {
               )}
             </div>
             {report.summary && (
-              <p className="text-xs text-gray-500 font-sans mt-1.5 line-clamp-2">{report.summary}</p>
+              <p className="text-caption text-gray-500 mt-1.5 line-clamp-2">{report.summary}</p>
             )}
           </div>
         </div>
@@ -108,11 +108,11 @@ function ReportCard({ report }: { report: ConditionReport }) {
       {expanded && items.length > 0 && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs font-sans">
+            <table className="w-full text-caption ">
               <thead>
                 <tr className="bg-cream-dark">
                   {["Area", "Condition", "Notes", "Action Req."].map((h) => (
-                    <th key={h} className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                    <th key={h} className="px-3 py-2 text-left text-label font-medium text-gray-400 uppercase whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -210,7 +210,7 @@ function AddReportModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="font-display text-lg text-header">New Condition Report</h2>
+          <h2 className=" text-h3 text-header">New Condition Report</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
             <X size={18} />
           </button>
@@ -220,7 +220,7 @@ function AddReportModal({
           {/* Basic details */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1.5">
                 Inspection Date *
               </label>
               <input
@@ -228,11 +228,11 @@ function AddReportModal({
                 value={reportDate}
                 onChange={(e) => setReportDate(e.target.value)}
                 required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1.5">
                 Inspector
               </label>
               <input
@@ -240,21 +240,21 @@ function AddReportModal({
                 value={inspector}
                 onChange={(e) => setInspector(e.target.value)}
                 placeholder="Name or company"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1.5">
                 Overall Condition *
               </label>
               <select
                 value={overallCondition}
                 onChange={(e) => setOverallCondition(e.target.value as Condition)}
                 required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body bg-white focus:outline-none focus:ring-2 focus:ring-gold/40"
               >
                 {(["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL"] as Condition[]).map((c) => (
                   <option key={c} value={c}>{CONDITION_CONFIG[c].label}</option>
@@ -262,20 +262,20 @@ function AddReportModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1.5">
                 Next Review Date
               </label>
               <input
                 type="date"
                 value={nextReviewDate}
                 onChange={(e) => setNextReviewDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">
+            <label className="block text-label font-medium text-gray-500 uppercase mb-1.5">
               Summary
             </label>
             <textarea
@@ -283,26 +283,26 @@ function AddReportModal({
               onChange={(e) => setSummary(e.target.value)}
               rows={2}
               placeholder="Overall observations about the property condition..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
             />
           </div>
 
           {/* Inspection items */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide font-sans">
+              <label className="text-label font-medium text-gray-500 uppercase ">
                 Inspection Items
               </label>
               <button
                 type="button"
                 onClick={addItem}
-                className="flex items-center gap-1 text-xs text-gold hover:text-gold-dark font-sans font-medium transition-colors"
+                className="flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium transition-colors"
               >
                 <Plus size={12} /> Add item
               </button>
             </div>
             {items.length === 0 && (
-              <p className="text-xs text-gray-400 font-sans italic py-2">
+              <p className="text-caption text-gray-400 italic py-2">
                 No items added — click &quot;Add item&quot; to log per-area observations
               </p>
             )}
@@ -314,23 +314,23 @@ function AddReportModal({
                     placeholder="Area (e.g. Roof)"
                     value={item.area}
                     onChange={(e) => updateItem(i, "area", e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                    className="border border-gray-200 rounded-lg px-2.5 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                   />
                   <input
                     type="text"
                     placeholder="Condition"
                     value={item.condition}
                     onChange={(e) => updateItem(i, "condition", e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                    className="border border-gray-200 rounded-lg px-2.5 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                   />
                   <input
                     type="text"
                     placeholder="Notes"
                     value={item.notes}
                     onChange={(e) => updateItem(i, "notes", e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                    className="border border-gray-200 rounded-lg px-2.5 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                   />
-                  <label className="flex items-center gap-1.5 text-xs text-gray-500 font-sans whitespace-nowrap pt-2.5">
+                  <label className="flex items-center gap-1.5 text-caption text-gray-500 whitespace-nowrap pt-2.5">
                     <input
                       type="checkbox"
                       checked={item.actionRequired}
@@ -355,14 +355,14 @@ function AddReportModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-body text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2.5 bg-gold text-white rounded-xl text-sm font-sans font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2.5 bg-gold text-white rounded-xl text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {submitting
                 ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
@@ -428,12 +428,12 @@ export default function ConditionReportsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-header font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white transition-colors"
+              className="flex items-center gap-1.5 text-caption text-gray-500 hover:text-header border border-gray-200 rounded-lg px-3 py-1.5 bg-white transition-colors"
             >
               <ArrowLeft size={13} /> Back
             </button>
             {propertyName && (
-              <p className="text-sm text-gray-500 font-sans">{propertyName}</p>
+              <p className="text-body text-gray-500 ">{propertyName}</p>
             )}
           </div>
           <Button onClick={() => setShowForm(true)} size="sm" variant="primary">
@@ -444,7 +444,7 @@ export default function ConditionReportsPage() {
         {/* Summary strip */}
         {reports.length > 0 && (
           <Card padding="sm">
-            <div className="flex items-center gap-4 flex-wrap text-sm font-sans">
+            <div className="flex items-center gap-4 flex-wrap text-body ">
               <div className="flex items-center gap-2">
                 <ClipboardList size={15} className="text-gold" />
                 <span className="text-gray-500">{reports.length} inspection report{reports.length > 1 ? "s" : ""}</span>
@@ -461,7 +461,7 @@ export default function ConditionReportsPage() {
                 </div>
               )}
               {reports.some((r) => Array.isArray(r.items) && (r.items as ConditionItem[]).some((i) => i.actionRequired)) && (
-                <span className="flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+                <span className="flex items-center gap-1 text-caption text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
                   <AlertTriangle size={11} /> Outstanding actions
                 </span>
               )}
@@ -476,11 +476,11 @@ export default function ConditionReportsPage() {
           <Card>
             <div className="text-center py-12">
               <ClipboardList size={32} className="text-gray-200 mx-auto mb-3" />
-              <p className="text-sm font-sans text-gray-400">No inspection reports yet</p>
-              <p className="text-xs font-sans text-gray-300 mt-1">Add the first condition report to track property health</p>
+              <p className="text-body text-gray-400">No inspection reports yet</p>
+              <p className="text-caption text-gray-300 mt-1">Add the first condition report to track property health</p>
               <button
                 onClick={() => setShowForm(true)}
-                className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-dark font-sans transition-colors"
+                className="mt-4 inline-flex items-center gap-1.5 text-caption font-medium text-gold hover:text-gold-dark transition-colors"
               >
                 <Plus size={13} /> Add report
               </button>

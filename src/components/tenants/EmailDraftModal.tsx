@@ -172,7 +172,7 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Mail size={18} className="text-gold" />
-            <h3 className="font-display text-lg text-header">Email Draft</h3>
+            <h3 className=" text-h3 text-header">Email Draft</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
             <X size={18} />
@@ -186,7 +186,7 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
               <button
                 key={t.value}
                 onClick={() => setTemplate(t.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-full text-caption font-medium transition-colors ${
                   template === t.value
                     ? "bg-gold text-white"
                     : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -200,21 +200,21 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
           {/* To field */}
           {tenant.email && (
             <div>
-              <label className="text-xs text-gray-400 font-sans uppercase tracking-wide">To</label>
-              <p className="text-sm font-sans text-gray-700 mt-0.5">{tenant.email}</p>
+              <label className="text-label text-gray-400 uppercase ">To</label>
+              <p className="text-body text-gray-700 mt-0.5">{tenant.email}</p>
             </div>
           )}
 
           {/* Subject */}
           <div>
-            <label className="text-xs text-gray-400 font-sans uppercase tracking-wide">Subject</label>
-            <p className="text-sm font-sans font-medium text-header mt-0.5">{draft.subject}</p>
+            <label className="text-label text-gray-400 uppercase ">Subject</label>
+            <p className="text-body font-medium text-header mt-0.5">{draft.subject}</p>
           </div>
 
           {/* Body */}
           <div>
-            <label className="text-xs text-gray-400 font-sans uppercase tracking-wide">Body</label>
-            <pre className="mt-1.5 whitespace-pre-wrap text-sm font-sans text-gray-700 bg-cream rounded-xl p-4 leading-relaxed">
+            <label className="text-label text-gray-400 uppercase ">Body</label>
+            <pre className="mt-1.5 whitespace-pre-wrap text-body text-gray-700 bg-cream rounded-xl p-4 ">
               {draft.body}
             </pre>
           </div>
@@ -223,7 +223,7 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
           <div className="flex gap-2 pt-1">
             <button
               onClick={copyBody}
-              className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50 transition-colors"
             >
               {copied ? <Check size={14} className="text-income" /> : <Copy size={14} />}
               {copied ? "Copied!" : "Copy body"}
@@ -234,7 +234,7 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={autoLog}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-body rounded-lg hover:bg-gold-dark transition-colors"
               >
                 <ExternalLink size={14} />
                 Open in mail app
@@ -242,7 +242,7 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
             )}
           </div>
           {!tenant.email && (
-            <p className="text-xs text-amber-600 font-sans">No email on file — add tenant email to enable mailto link.</p>
+            <p className="text-caption text-amber-600 ">No email on file — add tenant email to enable mailto link.</p>
           )}
         </div>
       </div>

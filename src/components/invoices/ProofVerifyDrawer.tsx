@@ -113,16 +113,16 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
       >
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Verify Payment Proof</h3>
+            <h3 className="text-h3 text-gray-900">Verify Payment Proof</h3>
             {data && (
-              <p className="text-xs text-gray-500">
+              <p className="text-caption text-gray-500">
                 {data.tenantName} · Invoice {data.invoiceNumber}
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center"
+            className="text-gray-400 hover:text-gray-600 text-h1 w-8 h-8 flex items-center justify-center"
           >
             ×
           </button>
@@ -130,12 +130,12 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {loading ? (
-            <p className="text-sm text-gray-400 text-center py-8">Loading proof...</p>
+            <p className="text-body text-gray-400 text-center py-8">Loading proof...</p>
           ) : !data ? (
-            <p className="text-sm text-gray-400 text-center py-8">No proof found.</p>
+            <p className="text-body text-gray-400 text-center py-8">No proof found.</p>
           ) : (
             <>
-              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+              <div className="bg-gray-50 rounded-lg p-3 text-body">
                 <div className="flex justify-between mb-1">
                   <span className="text-gray-500">Invoice Total</span>
                   <span className="font-semibold text-gray-900">{data.totalAmount.toLocaleString()}</span>
@@ -151,13 +151,13 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
               {data.proofOfPaymentText && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    <label className="text-label font-semibold text-gray-700 uppercase ">
                       Reference / SMS
                     </label>
-                    <button onClick={copyText} className="text-xs text-blue-600 hover:underline">Copy</button>
+                    <button onClick={copyText} className="text-caption text-blue-600 hover:underline">Copy</button>
                   </div>
                   <pre
-                    className="bg-gray-100 rounded-lg p-3 text-xs font-mono whitespace-pre-wrap text-gray-900 max-h-48 overflow-y-auto select-all"
+                    className="bg-gray-100 rounded-lg p-3 text-caption font-mono whitespace-pre-wrap text-gray-900 max-h-48 overflow-y-auto select-all"
                   >
                     {data.proofOfPaymentText}
                   </pre>
@@ -166,7 +166,7 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
 
               {data.proofFileUrl && (
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide block mb-1.5">
+                  <label className="text-label font-semibold text-gray-700 uppercase block mb-1.5">
                     Attached File
                   </label>
                   {isImage ? (
@@ -187,7 +187,7 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
                       href={data.proofFileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-block text-sm text-blue-600 hover:underline"
+                      className="inline-block text-body text-blue-600 hover:underline"
                     >
                       Download {data.proofFileName ?? "file"}
                     </a>
@@ -197,21 +197,21 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
 
               <div className="border-t border-gray-100 pt-4 space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Paid Amount</label>
+                  <label className="block text-caption font-medium text-gray-700 mb-1">Paid Amount</label>
                   <input
                     type="number"
                     step="0.01"
                     value={paidAmount}
                     onChange={(e) => setPaidAmount(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
+                  <label className="block text-caption font-medium text-gray-700 mb-1">Payment Method</label>
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gold"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body bg-white focus:outline-none focus:ring-2 focus:ring-gold"
                   >
                     {PAYMENT_METHODS.map((m) => (
                       <option key={m.value} value={m.value}>{m.label}</option>
@@ -228,14 +228,14 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
             <button
               onClick={() => submit("reject")}
               disabled={submitting}
-              className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-body font-medium hover:bg-gray-50 disabled:opacity-50"
             >
               Reject Proof
             </button>
             <button
               onClick={() => submit("approve")}
               disabled={submitting}
-              className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg text-body font-semibold hover:bg-green-700 disabled:opacity-50"
             >
               {submitting ? "..." : "Mark as Paid"}
             </button>

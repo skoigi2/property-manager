@@ -64,7 +64,7 @@ export function DocumentList({ tenantId, documents, onDeleted }: Props) {
     return (
       <div className="flex flex-col items-center py-8 gap-2 text-gray-400">
         <FileText size={28} className="opacity-30" />
-        <p className="text-sm font-sans">No documents uploaded yet</p>
+        <p className="text-body ">No documents uploaded yet</p>
       </div>
     );
   }
@@ -82,12 +82,12 @@ export function DocumentList({ tenantId, documents, onDeleted }: Props) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-sans font-medium text-header truncate">{doc.label}</p>
-              <span className={clsx("text-xs px-1.5 py-0.5 rounded font-sans shrink-0", categoryColor(doc.category))}>
+              <p className="text-body font-medium text-header truncate">{doc.label}</p>
+              <span className={clsx("text-caption px-1.5 py-0.5 rounded shrink-0", categoryColor(doc.category))}>
                 {categoryLabel(doc.category)}
               </span>
             </div>
-            <p className="text-xs text-gray-400 font-sans mt-0.5">
+            <p className="text-caption text-gray-400 mt-0.5">
               {doc.fileName}
               {doc.fileSize ? ` · ${formatBytes(doc.fileSize)}` : ""}
               {" · "}

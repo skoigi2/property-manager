@@ -256,14 +256,14 @@ function DocumentPanel({ assetId }: { assetId: string }) {
 
   return (
     <div className="mt-3 border-t border-gray-100 pt-3 space-y-3">
-      <h4 className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide">Documents</h4>
+      <h4 className="text-label font-semibold text-gray-500 uppercase ">Documents</h4>
 
       {docs.length === 0 && (
-        <p className="text-sm text-gray-400 font-sans">No documents uploaded yet.</p>
+        <p className="text-body text-gray-400 ">No documents uploaded yet.</p>
       )}
 
       {docs.map((doc) => (
-        <div key={doc.id} className="flex items-center justify-between gap-2 text-sm font-sans">
+        <div key={doc.id} className="flex items-center justify-between gap-2 text-body ">
           <div className="flex items-center gap-2 min-w-0">
             <FileText size={14} className="text-gray-400 shrink-0" />
             <a
@@ -276,7 +276,7 @@ function DocumentPanel({ assetId }: { assetId: string }) {
               <ExternalLink size={11} />
             </a>
             {doc.fileSize && (
-              <span className="text-gray-400 text-xs shrink-0">{formatFileSize(doc.fileSize)}</span>
+              <span className="text-gray-400 text-caption shrink-0">{formatFileSize(doc.fileSize)}</span>
             )}
           </div>
           <button
@@ -295,7 +295,7 @@ function DocumentPanel({ assetId }: { assetId: string }) {
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Document label (optional)"
-          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+          className="flex-1 text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-gold/30"
         />
         <label className="cursor-pointer">
           <input
@@ -306,7 +306,7 @@ function DocumentPanel({ assetId }: { assetId: string }) {
             onChange={handleUpload}
             disabled={uploading}
           />
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-cream rounded-lg text-sm font-sans text-header hover:bg-cream-dark transition-colors">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-cream rounded-lg text-body text-header hover:bg-cream-dark transition-colors">
             {uploading ? <Spinner size="sm" /> : <Upload size={13} />}
             Upload
           </span>
@@ -466,17 +466,17 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
     <div className="mt-3 border-t border-gray-100 pt-3 space-y-4">
       {/* Schedules */}
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide">Maintenance Schedules</h4>
+        <h4 className="text-label font-semibold text-gray-500 uppercase ">Maintenance Schedules</h4>
         <button
           onClick={openAddSchedule}
-          className="flex items-center gap-1 text-xs font-sans text-gold hover:text-gold-dark transition-colors"
+          className="flex items-center gap-1 text-caption text-gold hover:text-gold-dark transition-colors"
         >
           <Plus size={12} /> Add Schedule
         </button>
       </div>
 
       {schedules.length === 0 && (
-        <p className="text-sm text-gray-400 font-sans">No maintenance schedules defined.</p>
+        <p className="text-body text-gray-400 ">No maintenance schedules defined.</p>
       )}
 
       {schedules.map((s) => {
@@ -485,16 +485,16 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
           <div key={s.id} className="flex items-start justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2.5">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-sans font-medium text-sm text-header">{s.taskName}</span>
+                <span className=" font-medium text-body text-header">{s.taskName}</span>
                 <Badge variant="blue">{FREQ_LABELS[s.frequency] ?? s.frequency}</Badge>
                 <Badge variant={ms.variant}>{ms.label}</Badge>
                 {s.estimatedCost && s.estimatedCost > 0 && (
-                  <span className="text-xs text-gray-400">Est. {formatCurrency(s.estimatedCost, currency)}</span>
+                  <span className="text-caption text-gray-400">Est. {formatCurrency(s.estimatedCost, currency)}</span>
                 )}
                 {s.recurringExpenseId && <Badge variant="green">Recurring</Badge>}
               </div>
-              {s.description && <p className="text-xs font-sans text-gray-500 mt-0.5">{s.description}</p>}
-              <div className="flex gap-3 mt-1 text-xs font-sans text-gray-400">
+              {s.description && <p className="text-caption text-gray-500 mt-0.5">{s.description}</p>}
+              <div className="flex gap-3 mt-1 text-caption text-gray-400">
                 {s.lastDone && <span>Last done: {formatDate(new Date(s.lastDone))}</span>}
                 {s.nextDue && <span>Next due: {formatDate(new Date(s.nextDue))}</span>}
               </div>
@@ -502,19 +502,19 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => openLogModal(s)}
-                className="flex items-center gap-1 text-xs font-sans text-green-600 hover:text-green-700 px-2 py-1 rounded-md hover:bg-green-50 transition-colors"
+                className="flex items-center gap-1 text-caption text-green-600 hover:text-green-700 px-2 py-1 rounded-md hover:bg-green-50 transition-colors"
               >
                 <CheckCircle2 size={12} /> Log
               </button>
               <button
                 onClick={() => openEditSchedule(s)}
-                className="flex items-center gap-1 text-xs font-sans text-gray-500 hover:text-header px-2 py-1 rounded-md hover:bg-cream transition-colors"
+                className="flex items-center gap-1 text-caption text-gray-500 hover:text-header px-2 py-1 rounded-md hover:bg-cream transition-colors"
               >
                 <Pencil size={12} />
               </button>
               <button
                 onClick={() => setDeleteScheduleId(s.id)}
-                className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-expense px-2 py-1 rounded-md hover:bg-red-50 transition-colors"
+                className="flex items-center gap-1 text-caption text-gray-400 hover:text-expense px-2 py-1 rounded-md hover:bg-red-50 transition-colors"
               >
                 <Trash2 size={12} />
               </button>
@@ -526,12 +526,12 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
       {/* Recent logs */}
       {logs.length > 0 && (
         <div>
-          <h4 className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          <h4 className="text-label font-semibold text-gray-500 uppercase mb-2">
             <History size={11} className="inline mr-1" />Maintenance History
           </h4>
           <div className="space-y-1.5">
             {logs.slice(0, 8).map((log) => (
-              <div key={log.id} className="flex items-start justify-between gap-2 text-xs font-sans">
+              <div key={log.id} className="flex items-start justify-between gap-2 text-caption ">
                 <div className="flex-1 min-w-0">
                   <span className="text-gray-400">{formatDate(new Date(log.date))}</span>
                   {log.schedule && <span className="mx-1 text-blue-500">[{log.schedule.taskName}]</span>}
@@ -560,32 +560,32 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Task Name <span className="text-expense">*</span></label>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Task Name <span className="text-expense">*</span></label>
             <input
               type="text"
               value={schedForm.taskName}
               onChange={(e) => setSchedForm((f) => ({ ...f, taskName: e.target.value }))}
               placeholder="e.g. Generator oil change"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description</label>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Description</label>
             <textarea
               value={schedForm.description}
               onChange={(e) => setSchedForm((f) => ({ ...f, description: e.target.value }))}
               rows={2}
               placeholder="Optional task details..."
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Frequency <span className="text-expense">*</span></label>
+              <label className="block text-caption font-medium text-gray-500 mb-1">Frequency <span className="text-expense">*</span></label>
               <select
                 value={schedForm.frequency}
                 onChange={(e) => setSchedForm((f) => ({ ...f, frequency: e.target.value }))}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 {Object.entries(FREQ_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -593,27 +593,27 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Last Done (optional)</label>
+              <label className="block text-caption font-medium text-gray-500 mb-1">Last Done (optional)</label>
               <input
                 type="date"
                 value={schedForm.lastDone}
                 onChange={(e) => setSchedForm((f) => ({ ...f, lastDone: e.target.value }))}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Estimated Cost</label>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Estimated Cost</label>
             <input
               type="number"
               min="0"
               value={schedForm.estimatedCost}
               onChange={(e) => setSchedForm((f) => ({ ...f, estimatedCost: e.target.value }))}
               placeholder="0"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
             {parseFloat(schedForm.estimatedCost) > 0 && schedForm.frequency !== "WEEKLY" && (
-              <p className="text-xs text-gold mt-1">A recurring expense will be created for financial tracking</p>
+              <p className="text-caption text-gold mt-1">A recurring expense will be created for financial tracking</p>
             )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -635,34 +635,34 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Date <span className="text-expense">*</span></label>
+              <label className="block text-caption font-medium text-gray-500 mb-1">Date <span className="text-expense">*</span></label>
               <input
                 type="date"
                 value={logForm.date}
                 onChange={(e) => setLogForm((f) => ({ ...f, date: e.target.value }))}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Cost</label>
+              <label className="block text-caption font-medium text-gray-500 mb-1">Cost</label>
               <input
                 type="number"
                 value={logForm.cost}
                 onChange={(e) => setLogForm((f) => ({ ...f, cost: e.target.value }))}
                 placeholder="0"
                 min="0"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description <span className="text-expense">*</span></label>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Description <span className="text-expense">*</span></label>
             <input
               type="text"
               value={logForm.description}
               onChange={(e) => setLogForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="What was done?"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
           <VendorSelect
@@ -671,13 +671,13 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
             onChange={setLogVendorId}
           />
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Notes</label>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Notes</label>
             <textarea
               value={logForm.notes}
               onChange={(e) => setLogForm((f) => ({ ...f, notes: e.target.value }))}
               rows={2}
               placeholder="Additional notes..."
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -901,14 +901,14 @@ export default function AssetsPage() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex gap-3">
             <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-sans font-semibold text-amber-800">
+              <p className="text-body font-semibold text-amber-800">
                 {alertAssets.length} {alertAssets.length === 1 ? "asset warranty" : "asset warranties"} require attention
               </p>
               <ul className="mt-1 space-y-0.5">
                 {alertAssets.map((a) => {
                   const days = daysUntil(a.warrantyExpiry!);
                   return (
-                    <li key={a.id} className="text-xs font-sans text-amber-700">
+                    <li key={a.id} className="text-caption text-amber-700">
                       <span className="font-medium">{a.name}</span> ({a.property.name}) —{" "}
                       {days < 0
                         ? `warranty expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? "s" : ""} ago`
@@ -926,14 +926,14 @@ export default function AssetsPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex gap-3">
             <Wrench size={18} className="text-blue-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-sans font-semibold text-blue-800">
+              <p className="text-body font-semibold text-blue-800">
                 {maintAlertAssets.length} {maintAlertAssets.length === 1 ? "asset has" : "assets have"} maintenance due within 30 days
               </p>
               <ul className="mt-1 space-y-0.5">
                 {maintAlertAssets.map((a) => {
                   const dueSoon = a.maintenanceSchedules.filter((s) => s.nextDue && daysUntil(s.nextDue) <= 30);
                   return (
-                    <li key={a.id} className="text-xs font-sans text-blue-700">
+                    <li key={a.id} className="text-caption text-blue-700">
                       <span className="font-medium">{a.name}</span> ({a.property.name}) —{" "}
                       {dueSoon.map((s) => {
                         const d = daysUntil(s.nextDue!);
@@ -950,22 +950,22 @@ export default function AssetsPage() {
         {/* KPI cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Total Assets</p>
-            <p className="text-2xl font-display text-header mt-1">{totalAssets}</p>
+            <p className="text-label text-gray-500 uppercase ">Total Assets</p>
+            <p className="text-h1 text-header mt-1">{totalAssets}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Total Purchase Value</p>
-            <p className="text-lg font-display text-header mt-1">{formatCurrency(totalValue, currency)}</p>
+            <p className="text-label text-gray-500 uppercase ">Total Purchase Value</p>
+            <p className="text-h3 text-header mt-1">{formatCurrency(totalValue, currency)}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Warranties Expiring</p>
-            <p className="text-2xl font-display text-expense mt-1">{warrantiesExpiring}</p>
-            <p className="text-xs font-sans text-gray-400 mt-0.5">within 90 days</p>
+            <p className="text-label text-gray-500 uppercase ">Warranties Expiring</p>
+            <p className="text-h1 text-expense mt-1">{warrantiesExpiring}</p>
+            <p className="text-caption text-gray-400 mt-0.5">within 90 days</p>
           </Card>
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Maintenance Due</p>
-            <p className="text-2xl font-display text-expense mt-1">{maintenanceDue}</p>
-            <p className="text-xs font-sans text-gray-400 mt-0.5">within 30 days</p>
+            <p className="text-label text-gray-500 uppercase ">Maintenance Due</p>
+            <p className="text-h1 text-expense mt-1">{maintenanceDue}</p>
+            <p className="text-caption text-gray-400 mt-0.5">within 30 days</p>
           </Card>
         </div>
 
@@ -974,7 +974,7 @@ export default function AssetsPage() {
           <select
             value={filterProperty}
             onChange={(e) => setFilterProperty(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
           >
             <option value="">All properties</option>
             {properties.map((p) => (
@@ -984,7 +984,7 @@ export default function AssetsPage() {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
           >
             <option value="">All categories</option>
             {Object.entries(CAT_LABELS).map(([k, v]) => (
@@ -996,7 +996,7 @@ export default function AssetsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, serial, provider..."
-            className="flex-1 min-w-[200px] text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="flex-1 min-w-[200px] text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
           />
           <Button onClick={openAdd} className="ml-auto flex items-center gap-2">
             <Plus size={15} /> Add Asset
@@ -1026,12 +1026,12 @@ export default function AssetsPage() {
                         <Badge variant={CAT_BADGE[asset.category] ?? "gray"}>
                           {CAT_LABELS[asset.category] ?? asset.category}
                         </Badge>
-                        <span className="font-sans font-semibold text-header">{asset.name}</span>
+                        <span className=" font-semibold text-header">{asset.name}</span>
                         {asset.serialNumber && (
-                          <span className="font-mono text-xs text-gray-400">S/N: {asset.serialNumber}</span>
+                          <span className="tabular-nums text-caption text-gray-400">S/N: {asset.serialNumber}</span>
                         )}
                       </div>
-                      <p className="text-xs font-sans text-gray-500 mt-0.5">
+                      <p className="text-caption text-gray-500 mt-0.5">
                         {asset.property.name}
                         {asset.unit && ` · Unit ${asset.unit.unitNumber}`}
                       </p>
@@ -1039,27 +1039,27 @@ export default function AssetsPage() {
                   </div>
 
                   {/* Body grid */}
-                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm font-sans">
+                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-body ">
                     <div>
-                      <span className="text-gray-400 text-xs">Purchase Date</span>
+                      <span className="text-gray-400 text-caption">Purchase Date</span>
                       <p className="text-header">
                         {asset.purchaseDate ? formatDate(new Date(asset.purchaseDate)) : "—"}
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-400 text-xs">Purchase Cost</span>
+                      <span className="text-gray-400 text-caption">Purchase Cost</span>
                       <p className="text-header font-medium">
                         {asset.purchaseCost ? formatCurrency(asset.purchaseCost, currency) : "—"}
                       </p>
                     </div>
                     {asset.modelNumber && (
                       <div>
-                        <span className="text-gray-400 text-xs">Model</span>
-                        <p className="text-header font-mono text-xs">{asset.modelNumber}</p>
+                        <span className="text-gray-400 text-caption">Model</span>
+                        <p className="text-header tabular-nums text-caption">{asset.modelNumber}</p>
                       </div>
                     )}
                     <div>
-                      <span className="text-gray-400 text-xs">Warranty Expiry</span>
+                      <span className="text-gray-400 text-caption">Warranty Expiry</span>
                       <p className="text-header flex items-center gap-1.5">
                         {asset.warrantyExpiry
                           ? formatDate(new Date(asset.warrantyExpiry))
@@ -1069,7 +1069,7 @@ export default function AssetsPage() {
                     </div>
                     {(asset.serviceProvider || asset.serviceContact) && (
                       <div className="col-span-2">
-                        <span className="text-gray-400 text-xs">Service Provider</span>
+                        <span className="text-gray-400 text-caption">Service Provider</span>
                         <p className="text-header">
                           {[asset.serviceProvider, asset.serviceContact].filter(Boolean).join(" · ")}
                         </p>
@@ -1096,7 +1096,7 @@ export default function AssetsPage() {
                       onClick={() => setExpandedPanel(
                         expandedPanel?.assetId === asset.id && expandedPanel.tab === "documents" ? null : { assetId: asset.id, tab: "documents" }
                       )}
-                      className={`flex items-center gap-1 text-xs font-sans transition-colors px-2 py-1 rounded-md ${
+                      className={`flex items-center gap-1 text-caption transition-colors px-2 py-1 rounded-md ${
                         expandedPanel?.assetId === asset.id && expandedPanel.tab === "documents"
                           ? "text-gold bg-cream"
                           : "text-gray-500 hover:text-header hover:bg-cream"
@@ -1109,7 +1109,7 @@ export default function AssetsPage() {
                       onClick={() => setExpandedPanel(
                         expandedPanel?.assetId === asset.id && expandedPanel.tab === "maintenance" ? null : { assetId: asset.id, tab: "maintenance" }
                       )}
-                      className={`flex items-center gap-1 text-xs font-sans transition-colors px-2 py-1 rounded-md ${
+                      className={`flex items-center gap-1 text-caption transition-colors px-2 py-1 rounded-md ${
                         expandedPanel?.assetId === asset.id && expandedPanel.tab === "maintenance"
                           ? "text-gold bg-cream"
                           : "text-gray-500 hover:text-header hover:bg-cream"
@@ -1119,10 +1119,10 @@ export default function AssetsPage() {
                       {expandedPanel?.assetId === asset.id && expandedPanel.tab === "maintenance" ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </button>
                     <div className="ml-auto flex items-center gap-2">
-                      <button onClick={() => openEdit(asset)} className="flex items-center gap-1 text-xs font-sans text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream">
+                      <button onClick={() => openEdit(asset)} className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream">
                         <Pencil size={12} /> Edit
                       </button>
-                      <button onClick={() => setDeleteId(asset.id)} className="flex items-center gap-1 text-xs font-sans text-gray-500 hover:text-expense transition-colors px-2 py-1 rounded-md hover:bg-red-50">
+                      <button onClick={() => setDeleteId(asset.id)} className="flex items-center gap-1 text-caption text-gray-500 hover:text-expense transition-colors px-2 py-1 rounded-md hover:bg-red-50">
                         <Trash2 size={12} /> Delete
                       </button>
                     </div>
@@ -1152,13 +1152,13 @@ export default function AssetsPage() {
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           {/* Property */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Property <span className="text-expense">*</span>
             </label>
             <select
               value={form.propertyId}
               onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value, unitId: "" }))}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
             >
               <option value="">Select property</option>
               {properties.map((p) => (
@@ -1169,14 +1169,14 @@ export default function AssetsPage() {
 
           {/* Unit (optional) */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Unit (optional)
             </label>
             <select
               value={form.unitId}
               onChange={(e) => setForm((f) => ({ ...f, unitId: e.target.value }))}
               disabled={!form.propertyId}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 disabled:opacity-50"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 disabled:opacity-50"
             >
               <option value="">No specific unit</option>
               {formUnits.map((u) => (
@@ -1187,7 +1187,7 @@ export default function AssetsPage() {
 
           {/* Asset Name */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Asset Name <span className="text-expense">*</span>
             </label>
             <input
@@ -1195,19 +1195,19 @@ export default function AssetsPage() {
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Backup Generator"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Category <span className="text-expense">*</span>
             </label>
             <select
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
             >
               {Object.entries(CAT_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -1219,7 +1219,7 @@ export default function AssetsPage() {
                 value={form.categoryOther}
                 onChange={(e) => setForm((f) => ({ ...f, categoryOther: e.target.value }))}
                 placeholder="Specify category..."
-                className="mt-2 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="mt-2 w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             )}
           </div>
@@ -1227,7 +1227,7 @@ export default function AssetsPage() {
           {/* Serial / Model */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Serial Number
               </label>
               <input
@@ -1235,11 +1235,11 @@ export default function AssetsPage() {
                 value={form.serialNumber}
                 onChange={(e) => setForm((f) => ({ ...f, serialNumber: e.target.value }))}
                 placeholder="S/N"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Model Number
               </label>
               <input
@@ -1247,7 +1247,7 @@ export default function AssetsPage() {
                 value={form.modelNumber}
                 onChange={(e) => setForm((f) => ({ ...f, modelNumber: e.target.value }))}
                 placeholder="Model"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
           </div>
@@ -1255,18 +1255,18 @@ export default function AssetsPage() {
           {/* Purchase Date / Cost */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Purchase Date
               </label>
               <input
                 type="date"
                 value={form.purchaseDate}
                 onChange={(e) => setForm((f) => ({ ...f, purchaseDate: e.target.value }))}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Purchase Cost
               </label>
               <input
@@ -1275,21 +1275,21 @@ export default function AssetsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, purchaseCost: e.target.value }))}
                 placeholder="0"
                 min="0"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
           </div>
 
           {/* Warranty Expiry */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Warranty Expiry
             </label>
             <input
               type="date"
               value={form.warrantyExpiry}
               onChange={(e) => setForm((f) => ({ ...f, warrantyExpiry: e.target.value }))}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
 
@@ -1302,13 +1302,13 @@ export default function AssetsPage() {
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Notes</label>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               rows={3}
               placeholder="Additional notes..."
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
             />
           </div>
 

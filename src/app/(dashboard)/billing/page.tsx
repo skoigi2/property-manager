@@ -71,16 +71,16 @@ function BillingToggle({ annual, onChange }: { annual: boolean; onChange: (v: bo
     <div className="inline-flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-1">
       <button
         onClick={() => onChange(false)}
-        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${!annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
+        className={`px-4 py-1.5 rounded-lg text-body font-medium transition-colors ${!annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
       >
         Monthly
       </button>
       <button
         onClick={() => onChange(true)}
-        className={`px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
+        className={`px-4 py-1.5 rounded-lg text-body font-medium flex items-center gap-2 transition-colors ${annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
       >
         Annual
-        <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${annual ? "bg-gold text-header" : "bg-gold/10 text-gold-dark"}`}>
+        <span className={`text-caption px-1.5 py-0.5 rounded-full font-semibold ${annual ? "bg-gold text-header" : "bg-gold/10 text-gold-dark"}`}>
           -17%
         </span>
       </button>
@@ -108,20 +108,20 @@ function PlanCard({
       plan.highlight ? "bg-header border-header" : "bg-white border-gray-100"
     }`}>
       {plan.highlight && (
-        <span className="text-xs font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-3">
+        <span className="text-caption font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-3">
           Most popular
         </span>
       )}
-      <h3 className={`font-display text-lg mb-1 ${plan.highlight ? "text-white" : "text-header"}`}>{plan.name}</h3>
+      <h3 className={` text-h3 mb-1 ${plan.highlight ? "text-white" : "text-header"}`}>{plan.name}</h3>
       <div className="mb-4">
-        <span className={`text-3xl font-display ${plan.highlight ? "text-white" : "text-header"}`}>${price}</span>
-        <span className={`text-xs ml-1 ${plan.highlight ? "text-white/50" : "text-gray-400"}`}>
+        <span className={`text-h1 ${plan.highlight ? "text-white" : "text-header"}`}>${price}</span>
+        <span className={`text-caption ml-1 ${plan.highlight ? "text-white/50" : "text-gray-400"}`}>
           /mo{annual ? ", billed annually" : ""}
         </span>
       </div>
       <ul className="space-y-1.5 mb-6 flex-1">
         {[plan.properties, plan.team].map((feat) => (
-          <li key={feat} className="flex items-center gap-2 text-xs font-sans">
+          <li key={feat} className="flex items-center gap-2 text-caption ">
             <svg className="w-3.5 h-3.5 flex-shrink-0 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
@@ -130,7 +130,7 @@ function PlanCard({
         ))}
       </ul>
       {isCurrent ? (
-        <div className={`text-center py-2.5 rounded-lg text-sm font-semibold ${
+        <div className={`text-center py-2.5 rounded-lg text-body font-semibold ${
           plan.highlight ? "bg-white/10 text-white/60" : "bg-gray-50 text-gray-400"
         }`}>
           Current plan
@@ -139,7 +139,7 @@ function PlanCard({
         <button
           onClick={() => onUpgrade(plan.key, annual ? "annual" : "monthly")}
           disabled={!!loading}
-          className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+          className={`w-full py-2.5 rounded-lg text-body font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
             plan.highlight ? "bg-gold text-header hover:bg-gold/90" : "bg-header text-white hover:bg-header/90"
           }`}
         >
@@ -178,25 +178,25 @@ function CurrentPlanCard({ info, onCancel, cancelling }: {
     <div className={`rounded-2xl p-6 border ${locked ? "border-red-200 bg-red-50" : "border-gray-100 bg-white"}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider font-sans mb-1">Current plan</p>
-          <h2 className="font-display text-2xl text-header">{tier}</h2>
+          <p className="text-label font-semibold text-gray-400 uppercase mb-1">Current plan</p>
+          <h2 className=" text-h1 text-header">{tier}</h2>
 
           {info.pricingTier === "TRIAL" && !locked && (
-            <p className="text-sm text-gray-500 font-sans mt-1">
+            <p className="text-body text-gray-500 mt-1">
               {info.trialDaysLeft > 0
                 ? `${info.trialDaysLeft} day${info.trialDaysLeft === 1 ? "" : "s"} remaining`
                 : "Trial expires today"}
             </p>
           )}
           {locked && (
-            <p className="text-sm text-red-600 font-sans mt-1">
+            <p className="text-body text-red-600 mt-1">
               {info.pricingTier === "TRIAL"
                 ? "Your trial has expired. Data is safe — upgrade to continue."
                 : "Subscription cancelled. Upgrade to restore access."}
             </p>
           )}
           {info.pricingTier !== "TRIAL" && !locked && (
-            <p className="text-sm text-gray-500 font-sans mt-1 capitalize">
+            <p className="text-body text-gray-500 mt-1 capitalize">
               {info.subscriptionStatus ?? "Active"}
               {periodEnd ? ` · renews ${periodEnd}` : ""}
             </p>
@@ -204,10 +204,10 @@ function CurrentPlanCard({ info, onCancel, cancelling }: {
         </div>
 
         <div className="text-right flex-shrink-0">
-          <p className="text-xs text-gray-400 font-sans mb-1">Properties</p>
-          <p className="font-display text-xl text-header">
+          <p className="text-caption text-gray-400 mb-1">Properties</p>
+          <p className=" text-h2 text-header">
             {info.propertyCount}
-            <span className="text-sm text-gray-400">
+            <span className="text-body text-gray-400">
               {info.propertyLimit ? ` / ${info.propertyLimit}` : ""}
             </span>
           </p>
@@ -219,13 +219,13 @@ function CurrentPlanCard({ info, onCancel, cancelling }: {
           <button
             onClick={onCancel}
             disabled={cancelling}
-            className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 font-sans hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {cancelling ? "Cancelling…" : "Cancel subscription"}
           </button>
           <Link
             href="/pricing"
-            className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 font-sans hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
           >
             View all features
           </Link>
@@ -313,8 +313,8 @@ function BillingInner() {
   return (
     <div className="page-container">
       <div className="mb-8">
-        <h1 className="font-display text-2xl text-header">Billing & Subscription</h1>
-        <p className="text-sm text-gray-500 font-sans mt-1">Manage your plan, view usage, and upgrade at any time.</p>
+        <h1 className=" text-h1 text-header">Billing & Subscription</h1>
+        <p className="text-body text-gray-500 mt-1">Manage your plan, view usage, and upgrade at any time.</p>
       </div>
 
       {/* Current plan */}
@@ -331,8 +331,8 @@ function BillingInner() {
         <>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="font-display text-xl text-header">Choose a plan</h2>
-              <p className="text-sm text-gray-500 font-sans mt-0.5">No card required during your trial.</p>
+              <h2 className=" text-h2 text-header">Choose a plan</h2>
+              <p className="text-body text-gray-500 mt-0.5">No card required during your trial.</p>
             </div>
             <BillingToggle annual={annual} onChange={setAnnual} />
           </div>
@@ -341,7 +341,7 @@ function BillingInner() {
               <PlanCard key={plan.key} plan={plan} annual={annual} currentTier={info?.pricingTier ?? "TRIAL"} onUpgrade={handleUpgrade} loading={loading} />
             ))}
           </div>
-          <p className="text-xs text-gray-400 font-sans mt-6">
+          <p className="text-caption text-gray-400 mt-6">
             Payments processed securely by Paddle. Cancel anytime.{" "}
             <Link href="/refund" className="text-header hover:underline">Refund policy →</Link>
           </p>
@@ -353,8 +353,8 @@ function BillingInner() {
         <>
           <div className="flex items-center justify-between mb-6 mt-2">
             <div>
-              <h2 className="font-display text-xl text-header">Upgrade your plan</h2>
-              <p className="text-sm text-gray-500 font-sans mt-0.5">Changes take effect immediately.</p>
+              <h2 className=" text-h2 text-header">Upgrade your plan</h2>
+              <p className="text-body text-gray-500 mt-0.5">Changes take effect immediately.</p>
             </div>
             <BillingToggle annual={annual} onChange={setAnnual} />
           </div>

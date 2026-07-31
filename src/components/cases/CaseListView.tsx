@@ -13,16 +13,16 @@ export function CaseListView({ rows }: { rows: CaseRow[] }) {
           return (
             <Link key={c.id} href={`/cases/${c.id}`} className="block p-4 hover:bg-gray-50">
               <div className="flex items-start justify-between gap-2 mb-1">
-                <p className="font-sans font-medium text-sm truncate">{c.title}</p>
+                <p className=" font-medium text-body truncate">{c.title}</p>
                 <Badge variant={STATUS_BADGE[c.status]}>{STATUS_LABEL[c.status]}</Badge>
               </div>
-              <p className="text-xs text-gray-500 font-sans">
+              <p className="text-caption text-gray-500 ">
                 {c.property.name}{c.unit ? ` · ${c.unit.unitNumber}` : ""}
               </p>
               <div className="mt-2">
                 <ProgressChip c={c} />
               </div>
-              <div className="flex items-center justify-between mt-2 text-xs font-sans">
+              <div className="flex items-center justify-between mt-2 text-caption ">
                 <span className="text-gray-500">Waiting: {WAITING_LABEL[c.waitingOn]}</span>
                 <span className="text-gray-400" title={t.full}>{t.short}</span>
               </div>
@@ -33,8 +33,8 @@ export function CaseListView({ rows }: { rows: CaseRow[] }) {
 
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto bg-white rounded-xl border border-gray-100">
-        <table className="min-w-[800px] w-full text-sm font-sans">
-          <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+        <table className="min-w-[800px] w-full text-body ">
+          <thead className="bg-gray-50 text-left text-label uppercase text-gray-500">
             <tr>
               <th className="px-4 py-2">Title</th>
               <th className="px-4 py-2">Property / unit</th>
@@ -53,7 +53,7 @@ export function CaseListView({ rows }: { rows: CaseRow[] }) {
                   <td className="px-4 py-2">
                     <Link href={`/cases/${c.id}`} className="text-gray-900 hover:text-gold">{c.title}</Link>
                     {c.caseType !== "MAINTENANCE" && (
-                      <span className="ml-2 text-[10px] uppercase text-gray-400">{c.caseType}</span>
+                      <span className="ml-2 text-label uppercase text-gray-400">{c.caseType}</span>
                     )}
                   </td>
                   <td className="px-4 py-2 text-gray-600">

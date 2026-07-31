@@ -197,7 +197,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-6 py-4 text-sm text-gray-400 font-sans">
+      <div className="flex items-center gap-2 px-6 py-4 text-body text-gray-400 ">
         <Loader2 size={14} className="animate-spin" /> Loading guests…
       </div>
     );
@@ -209,13 +209,13 @@ export function GuestPanel({ incomeEntryId }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <User size={14} className="text-gray-400" />
-          <span className="text-xs font-medium text-gray-500 font-sans uppercase tracking-wide">
+          <span className="text-label font-medium text-gray-500 uppercase ">
             Guests {bookingGuests.length > 0 && `(${bookingGuests.length})`}
           </span>
         </div>
         <button
           onClick={() => { setShowAdd((v) => !v); setShowNewForm(false); setSearchQuery(""); }}
-          className="flex items-center gap-1 text-xs font-medium text-gold hover:text-gold-dark font-sans transition-colors"
+          className="flex items-center gap-1 text-caption font-medium text-gold hover:text-gold-dark transition-colors"
         >
           {showAdd ? <X size={12} /> : <Plus size={12} />}
           {showAdd ? "Cancel" : "Add Guest"}
@@ -234,7 +234,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search returning guest by name or email…"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                   autoFocus
                 />
                 {searching && <Loader2 size={14} className="animate-spin absolute right-3 top-2.5 text-gray-400" />}
@@ -246,19 +246,19 @@ export function GuestPanel({ incomeEntryId }: Props) {
                   {searchResults.map((g) => (
                     <div key={g.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-cream transition-colors">
                       <div>
-                        <p className="text-sm font-medium text-gray-700 font-sans">{g.name}</p>
-                        <p className="text-xs text-gray-400 font-sans">
+                        <p className="text-body font-medium text-gray-700 ">{g.name}</p>
+                        <p className="text-caption text-gray-400 ">
                           {g.nationality && `${g.nationality} · `}{g.email ?? ""}
                           {g._count.bookings > 1 && <span className="text-gold ml-1">★ {g._count.bookings} stays</span>}
                         </p>
                         {g.preferences && (
-                          <p className="text-xs text-gray-500 font-sans italic mt-0.5 line-clamp-1">{g.preferences}</p>
+                          <p className="text-caption text-gray-500 italic mt-0.5 line-clamp-1">{g.preferences}</p>
                         )}
                       </div>
                       <button
                         disabled={submitting}
                         onClick={() => linkGuest(g.id)}
-                        className="text-xs font-medium text-gold hover:text-gold-dark font-sans disabled:opacity-50 whitespace-nowrap ml-4"
+                        className="text-caption font-medium text-gold hover:text-gold-dark disabled:opacity-50 whitespace-nowrap ml-4"
                       >
                         Link to booking
                       </button>
@@ -268,12 +268,12 @@ export function GuestPanel({ incomeEntryId }: Props) {
               )}
 
               {searchQuery.trim() && !searching && searchResults.length === 0 && (
-                <p className="text-xs text-gray-400 font-sans">No existing guests found.</p>
+                <p className="text-caption text-gray-400 ">No existing guests found.</p>
               )}
 
               <button
                 onClick={() => setShowNewForm(true)}
-                className="text-xs font-medium text-gray-500 hover:text-gray-700 font-sans underline underline-offset-2"
+                className="text-caption font-medium text-gray-500 hover:text-gray-700 underline underline-offset-2"
               >
                 + New guest
               </button>
@@ -281,32 +281,32 @@ export function GuestPanel({ incomeEntryId }: Props) {
           ) : (
             /* New guest form */
             <div className="space-y-3">
-              <p className="text-xs font-medium text-gray-500 font-sans uppercase tracking-wide">New Guest</p>
+              <p className="text-label font-medium text-gray-500 uppercase ">New Guest</p>
               <div className="grid grid-cols-2 gap-2">
                 <input placeholder="Full name *" value={newGuest.name} onChange={(e) => setNewGuest((p) => ({ ...p, name: e.target.value }))}
-                  className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+                  className="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30" />
                 <input placeholder="Email" value={newGuest.email} onChange={(e) => setNewGuest((p) => ({ ...p, email: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30" />
                 <input placeholder="Phone" value={newGuest.phone} onChange={(e) => setNewGuest((p) => ({ ...p, phone: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30" />
                 <input placeholder="Nationality" value={newGuest.nationality} onChange={(e) => setNewGuest((p) => ({ ...p, nationality: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30" />
                 <input placeholder="Passport / ID number" value={newGuest.passportNumber} onChange={(e) => setNewGuest((p) => ({ ...p, passportNumber: e.target.value }))}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30" />
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30" />
               </div>
               <textarea placeholder="Preferences, requests, dietary needs, complaints…" value={newGuest.preferences}
                 onChange={(e) => setNewGuest((p) => ({ ...p, preferences: e.target.value }))} rows={2}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
               <div className="flex gap-2">
                 <button
                   disabled={!newGuest.name.trim() || submitting}
                   onClick={createGuest}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-sm font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-body font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
                 >
                   {submitting ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                   Add Guest
                 </button>
-                <button onClick={() => setShowNewForm(false)} className="px-3 py-2 text-sm font-sans text-gray-500 hover:text-gray-700">Back</button>
+                <button onClick={() => setShowNewForm(false)} className="px-3 py-2 text-body text-gray-500 hover:text-gray-700">Back</button>
               </div>
             </div>
           )}
@@ -315,7 +315,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
 
       {/* Guest cards */}
       {bookingGuests.length === 0 && !showAdd && (
-        <p className="text-xs text-gray-400 font-sans italic">No guests recorded for this booking.</p>
+        <p className="text-caption text-gray-400 italic">No guests recorded for this booking.</p>
       )}
 
       <div className="space-y-3">
@@ -329,13 +329,13 @@ export function GuestPanel({ incomeEntryId }: Props) {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-medium text-header font-sans truncate">{g.name}</p>
+                    <p className="text-body font-medium text-header truncate">{g.name}</p>
                     {isPrimary && <span className="text-gold"><Star size={11} fill="currentColor" /></span>}
                     {g._count.bookings > 1 && (
-                      <span className="text-xs text-gold font-sans">★ {g._count.bookings} stays</span>
+                      <span className="text-caption text-gold ">★ {g._count.bookings} stays</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 font-sans">
+                  <p className="text-caption text-gray-400 ">
                     {[g.nationality, g.passportNumber ? `Passport: ${g.passportNumber}` : null, g.email, g.phone]
                       .filter(Boolean).join(" · ")}
                   </p>
@@ -360,7 +360,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
                     onChange={(e) => setPrefsValue(e.target.value)}
                     rows={2}
                     placeholder="Preferences, requests, complaints…"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-caption focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
                     autoFocus
                   />
                   <button onClick={() => savePrefs(guestId)} className="p-1.5 text-gold hover:text-gold-dark">
@@ -376,9 +376,9 @@ export function GuestPanel({ incomeEntryId }: Props) {
                   className="group flex items-start gap-1.5 text-left w-full"
                 >
                   {g.preferences ? (
-                    <p className="text-xs text-gray-500 font-sans italic flex-1">{g.preferences}</p>
+                    <p className="text-caption text-gray-500 italic flex-1">{g.preferences}</p>
                   ) : (
-                    <p className="text-xs text-gray-300 font-sans italic flex-1">Add preferences, requests or notes…</p>
+                    <p className="text-caption text-gray-300 italic flex-1">Add preferences, requests or notes…</p>
                   )}
                   <Pencil size={11} className="text-gray-300 group-hover:text-gold mt-0.5 shrink-0 transition-colors" />
                 </button>
@@ -388,7 +388,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
             {/* Documents */}
             <div className="space-y-1.5">
               {g.documents.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-2 text-xs font-sans text-gray-600">
+                <div key={doc.id} className="flex items-center gap-2 text-caption text-gray-600">
                   <FileText size={12} className="text-gray-400 shrink-0" />
                   {doc.url ? (
                     <a href={doc.url} target="_blank" rel="noopener noreferrer"
@@ -423,11 +423,11 @@ export function GuestPanel({ incomeEntryId }: Props) {
                 />
                 {uploadFile[guestId] ? (
                   <>
-                    <span className="text-xs text-gray-500 font-sans truncate flex-1">{uploadFile[guestId]!.name}</span>
+                    <span className="text-caption text-gray-500 truncate flex-1">{uploadFile[guestId]!.name}</span>
                     <button
                       disabled={uploadingFor === guestId}
                       onClick={() => uploadDoc(guestId)}
-                      className="flex items-center gap-1 text-xs font-medium text-gold hover:text-gold-dark font-sans disabled:opacity-50"
+                      className="flex items-center gap-1 text-caption font-medium text-gold hover:text-gold-dark disabled:opacity-50"
                     >
                       {uploadingFor === guestId ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
                       Upload
@@ -438,7 +438,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
                 ) : (
                   <button
                     onClick={() => fileRefs.current[guestId]?.click()}
-                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-gold font-sans transition-colors"
+                    className="flex items-center gap-1 text-caption text-gray-400 hover:text-gold transition-colors"
                   >
                     <Upload size={11} /> Upload passport / ID
                   </button>

@@ -128,8 +128,8 @@ function SettleDepositModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
           <div>
-            <h2 className="font-display text-lg text-header">Settle Deposit</h2>
-            <p className="text-xs text-gray-400 font-sans mt-0.5">{tenantName}</p>
+            <h2 className=" text-h3 text-header">Settle Deposit</h2>
+            <p className="text-caption text-gray-400 mt-0.5">{tenantName}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
             <X size={18} />
@@ -140,17 +140,17 @@ function SettleDepositModal({
           {/* Deposit held — receipts-based when a trail exists */}
           <div className="bg-cream-dark rounded-xl p-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-sans text-gray-500">Deposit held</p>
+              <p className="text-body text-gray-500">Deposit held</p>
               <CurrencyDisplay currency={currency} amount={depositAmount} size="lg" className="text-header font-medium" />
             </div>
             {!unverified && depositAmount < contractualAmount && (
-              <p className="text-xs text-amber-600 font-sans mt-2">
+              <p className="text-caption text-amber-600 mt-2">
                 Receipts total {formatCurrency(depositAmount, currency)} of the contractual{" "}
                 {formatCurrency(contractualAmount, currency)} — settlement refunds what was received.
               </p>
             )}
             {unverified && contractualAmount > 0 && (
-              <p className="text-xs text-amber-600 font-sans mt-2">
+              <p className="text-caption text-amber-600 mt-2">
                 No deposit receipts recorded — this is the contractual amount. Verify it was
                 actually received before refunding.
               </p>
@@ -159,26 +159,26 @@ function SettleDepositModal({
 
           {/* Settlement date */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">Settlement Date</label>
+            <label className="block text-label font-medium text-gray-500 uppercase mb-1.5">Settlement Date</label>
             <input
               type="date"
               value={settledDate}
               onChange={(e) => setSettledDate(e.target.value)}
               required
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans text-header focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body text-header focus:outline-none focus:ring-2 focus:ring-gold/40"
             />
           </div>
 
           {/* Deductions */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide font-sans">Deductions</label>
-              <button type="button" onClick={addDeduction} className="flex items-center gap-1 text-xs text-gold hover:text-gold-dark font-sans font-medium transition-colors">
+              <label className="text-label font-medium text-gray-500 uppercase ">Deductions</label>
+              <button type="button" onClick={addDeduction} className="flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium transition-colors">
                 <Plus size={12} /> Add deduction
               </button>
             </div>
             {deductions.length === 0 && (
-              <p className="text-xs text-gray-400 font-sans italic py-2">No deductions — full deposit will be refunded</p>
+              <p className="text-caption text-gray-400 italic py-2">No deductions — full deposit will be refunded</p>
             )}
             <div className="space-y-2">
               {deductions.map((d, i) => (
@@ -188,7 +188,7 @@ function SettleDepositModal({
                     placeholder="Reason (e.g. damage, cleaning)"
                     value={d.reason}
                     onChange={(e) => updateDeduction(i, "reason", e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                   />
                   <input
                     type="number"
@@ -197,7 +197,7 @@ function SettleDepositModal({
                     step="100"
                     value={d.amount}
                     onChange={(e) => updateDeduction(i, "amount", e.target.value)}
-                    className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                    className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
                   />
                   <button type="button" onClick={() => removeDeduction(i)} className="p-2 text-gray-400 hover:text-expense transition-colors">
                     <X size={14} />
@@ -208,15 +208,15 @@ function SettleDepositModal({
           </div>
 
           {/* Summary */}
-          <div className="bg-cream-dark rounded-xl p-4 space-y-2 text-sm font-sans">
+          <div className="bg-cream-dark rounded-xl p-4 space-y-2 text-body ">
             <div className="flex justify-between text-gray-500">
               <span>Deposit held</span>
-              <span className="font-mono">{formatCurrency(depositAmount, currency)}</span>
+              <span className="tabular-nums">{formatCurrency(depositAmount, currency)}</span>
             </div>
             {totalDeductions > 0 && (
               <div className="flex justify-between text-expense">
                 <span>Total deductions</span>
-                <span className="font-mono">− {formatCurrency(totalDeductions, currency)}</span>
+                <span className="tabular-nums">− {formatCurrency(totalDeductions, currency)}</span>
               </div>
             )}
             <div className="flex justify-between font-medium text-header border-t border-gray-200 pt-2 mt-1">
@@ -227,24 +227,24 @@ function SettleDepositModal({
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-1.5">Notes (optional)</label>
+            <label className="block text-label font-medium text-gray-500 uppercase mb-1.5">Notes (optional)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Any additional notes about the settlement..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
             />
           </div>
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-body text-gray-600 hover:bg-gray-50 transition-colors">
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2.5 bg-gold text-white rounded-xl text-sm font-sans font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2.5 bg-gold text-white rounded-xl text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : "Record Settlement"}
             </button>
@@ -521,7 +521,7 @@ export default function TenantDetailPage() {
       >
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1 text-white/70 hover:text-white text-sm font-sans transition-colors"
+          className="flex items-center gap-1 text-white/70 hover:text-white text-body transition-colors"
         >
           <ChevronLeft size={16} />Back
         </button>
@@ -538,17 +538,17 @@ export default function TenantDetailPage() {
             <Card>
               <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
                 <div>
-                  <h2 className="font-display text-xl text-header">{tenant.name}</h2>
-                  <p className="text-sm text-gray-400 font-mono mt-1">
+                  <h2 className=" text-h2 text-header">{tenant.name}</h2>
+                  <p className="text-body text-gray-400 tabular-nums mt-1">
                     {tenant.unit?.unitNumber} · {tenant.unit?.property?.name}
                   </p>
                   {tenant.unit?.property?.manager && (
-                    <p className="text-xs text-gray-400 font-sans mt-0.5">
+                    <p className="text-caption text-gray-400 mt-0.5">
                       Manager: {tenant.unit.property.manager.name ?? tenant.unit.property.manager.email}
                     </p>
                   )}
                   {(tenant.email || tenant.phone) && (
-                    <p className="text-xs text-gray-400 font-sans mt-1">
+                    <p className="text-caption text-gray-400 mt-1">
                       {[tenant.email, tenant.phone].filter(Boolean).join(" · ")}
                     </p>
                   )}
@@ -572,7 +572,7 @@ export default function TenantDetailPage() {
                   {/* Edit button — edit in place, no need to go back to the list */}
                   <button
                     onClick={openEditModal}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-xs font-sans rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-caption rounded-lg transition-colors"
                   >
                     <Pencil size={13} /> Edit
                   </button>
@@ -580,7 +580,7 @@ export default function TenantDetailPage() {
                   {tenant.unit?.id && tenant.isActive && (
                     <button
                       onClick={() => router.push(`/units/${tenant.unit.id}/condition-report/new`)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 text-xs font-sans rounded-lg transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 text-caption rounded-lg transition-colors"
                       title="Walk through the unit and record its condition"
                     >
                       <ClipboardCheck size={13} /> Move-In Report
@@ -590,7 +590,7 @@ export default function TenantDetailPage() {
                   {canLifecycle && (
                   <button
                     onClick={() => router.push(`/tenants/${tenantId}/checkout`)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300 text-xs font-sans rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300 text-caption rounded-lg transition-colors"
                   >
                     <LogOut size={13} /> Checkout
                   </button>
@@ -598,7 +598,7 @@ export default function TenantDetailPage() {
                   {/* Email button */}
                   <button
                     onClick={() => setShowEmail(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-xs font-sans rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-caption rounded-lg transition-colors"
                   >
                     <Mail size={13} /> Draft Email
                   </button>
@@ -607,7 +607,7 @@ export default function TenantDetailPage() {
                     <button
                       onClick={generatePortalLink}
                       disabled={portalGenerating}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 text-xs font-sans rounded-lg transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 text-caption rounded-lg transition-colors disabled:opacity-50"
                     >
                       {portalGenerating ? <Loader2 size={13} className="animate-spin" /> : <Link2 size={13} />}
                       Portal Link
@@ -619,7 +619,7 @@ export default function TenantDetailPage() {
                           navigator.clipboard.writeText(`${window.location.origin}/portal/${tenant.portalToken}`);
                           toast.success("Link copied!");
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-sans rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 text-caption rounded-lg transition-colors"
                         title="Copy portal link"
                       >
                         <Copy size={13} /> Copy Link
@@ -627,7 +627,7 @@ export default function TenantDetailPage() {
                       <button
                         onClick={revokePortalLink}
                         disabled={portalRevoking}
-                        className="flex items-center gap-1.5 px-2 py-1.5 border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 text-xs font-sans rounded-lg transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-2 py-1.5 border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 text-caption rounded-lg transition-colors disabled:opacity-50"
                         title="Revoke portal link"
                       >
                         {portalRevoking ? <Loader2 size={13} className="animate-spin" /> : <Link2Off size={13} />}
@@ -645,7 +645,7 @@ export default function TenantDetailPage() {
                   { label: "Total Monthly",  value: (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0) },
                 ].map((item) => (
                   <div key={item.label}>
-                    <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">{item.label}</p>
+                    <p className="text-label text-gray-400 uppercase mb-1">{item.label}</p>
                     <CurrencyDisplay currency={currency} amount={item.value} size="md" />
                   </div>
                 ))}
@@ -653,40 +653,40 @@ export default function TenantDetailPage() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-50">
                 <div>
-                  <p className="text-xs text-gray-400 font-sans">Lease Start</p>
-                  <p className="text-sm font-sans text-header">{tenant.leaseStart ? formatDate(tenant.leaseStart) : "—"}</p>
+                  <p className="text-caption text-gray-400 ">Lease Start</p>
+                  <p className="text-body text-header">{tenant.leaseStart ? formatDate(tenant.leaseStart) : "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400 font-sans">Lease End</p>
-                  <p className="text-sm font-sans text-header">{tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "Open-ended"}</p>
+                  <p className="text-caption text-gray-400 ">Lease End</p>
+                  <p className="text-body text-header">{tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "Open-ended"}</p>
                 </div>
                 {tenant.paymentFrequency && (
                   <div>
-                    <p className="text-xs text-gray-400 font-sans">Payment Frequency</p>
-                    <p className="text-sm font-sans text-header">
+                    <p className="text-caption text-gray-400 ">Payment Frequency</p>
+                    <p className="text-body text-header">
                       {{ MONTHLY: "Monthly", QUARTERLY: "Quarterly (in advance)", BIANNUAL: "Bi-annual (in advance)", ANNUAL: "Annual (in advance)" }[tenant.paymentFrequency as string] ?? tenant.paymentFrequency}
                     </p>
                   </div>
                 )}
                 {tenant.escalationRate != null && (
                   <div>
-                    <p className="text-xs text-gray-400 font-sans">Rent Escalation</p>
-                    <p className="text-sm font-sans text-header">
+                    <p className="text-caption text-gray-400 ">Rent Escalation</p>
+                    <p className="text-body text-header">
                       {tenant.escalationRate}% every {tenant.escalationIntervalYears ?? 1} year{(tenant.escalationIntervalYears ?? 1) > 1 ? "s" : ""}
                     </p>
                   </div>
                 )}
                 {tenant.poBox && (
                   <div>
-                    <p className="text-xs text-gray-400 font-sans">P.O. Box / Postal</p>
-                    <p className="text-sm font-sans text-header">{tenant.poBox}</p>
+                    <p className="text-caption text-gray-400 ">P.O. Box / Postal</p>
+                    <p className="text-body text-header">{tenant.poBox}</p>
                   </div>
                 )}
                 {Array.isArray(tenant.additionalContacts) && tenant.additionalContacts.length > 0 && (
                   <div className="col-span-2 sm:col-span-3">
-                    <p className="text-xs text-gray-400 font-sans">Additional Contacts</p>
+                    <p className="text-caption text-gray-400 ">Additional Contacts</p>
                     {tenant.additionalContacts.map((c: any, i: number) => (
-                      <p key={i} className="text-sm font-sans text-gray-600">
+                      <p key={i} className="text-body text-gray-600">
                         {[c.label, c.email, c.phone].filter(Boolean).join(" · ")}
                       </p>
                     ))}
@@ -694,8 +694,8 @@ export default function TenantDetailPage() {
                 )}
                 {tenant.notes && (
                   <div>
-                    <p className="text-xs text-gray-400 font-sans">Notes</p>
-                    <p className="text-sm font-sans text-gray-600">{tenant.notes}</p>
+                    <p className="text-caption text-gray-400 ">Notes</p>
+                    <p className="text-body text-gray-600">{tenant.notes}</p>
                   </div>
                 )}
               </div>
@@ -704,26 +704,26 @@ export default function TenantDetailPage() {
             {/* ── Ledger Summary Cards ──────────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Expected</p>
+                <p className="text-label text-gray-400 uppercase ">Total Expected</p>
                 <CurrencyDisplay currency={currency} amount={totalExpected} className="block mt-1 text-gray-600" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-1">{ledger.length} {periodNoun(ledger.length)}</p>
+                <p className="text-caption text-gray-400 mt-1">{ledger.length} {periodNoun(ledger.length)}</p>
               </Card>
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Received</p>
+                <p className="text-label text-gray-400 uppercase ">Total Received</p>
                 <CurrencyDisplay currency={currency} amount={totalReceived} className="block mt-1 text-income" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-1">{tenantEntries.filter((e) => e.type === "LONGTERM_RENT").length} payment{tenantEntries.length !== 1 ? "s" : ""}</p>
+                <p className="text-caption text-gray-400 mt-1">{tenantEntries.filter((e) => e.type === "LONGTERM_RENT").length} payment{tenantEntries.length !== 1 ? "s" : ""}</p>
               </Card>
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Balance</p>
+                <p className="text-label text-gray-400 uppercase ">Balance</p>
                 <CurrencyDisplay currency={currency} amount={totalArrears} className={`block mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`} size="lg" />
-                <p className={`text-xs font-sans mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`}>
+                <p className={`text-caption mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`}>
                   {totalArrears >= 0 ? "Overpaid / Advance" : "In arrears"}
                 </p>
               </Card>
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Deposit</p>
+                <p className="text-label text-gray-400 uppercase ">Deposit</p>
                 <CurrencyDisplay currency={currency} amount={tenant.depositAmount} className="block mt-1 text-gray-600" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-1">
+                <p className="text-caption text-gray-400 mt-1">
                   {tenant.depositPaidDate ? `Paid ${formatDate(tenant.depositPaidDate)}` : "Date unknown"}
                 </p>
               </Card>
@@ -736,7 +736,7 @@ export default function TenantDetailPage() {
                   <button
                     key={t.id}
                     onClick={() => setTab(t.id)}
-                    className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-medium font-sans transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                    className={`flex items-center gap-1.5 px-5 py-3.5 text-body font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                       tab === t.id
                         ? "border-gold text-header"
                         : "border-transparent text-gray-400 hover:text-gray-600"
@@ -745,7 +745,7 @@ export default function TenantDetailPage() {
                     {t.icon}
                     {t.label}
                     {t.badge !== undefined && Number(t.badge) > 0 && (
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono font-bold ${tab === t.id ? "bg-gold/20 text-gold-dark" : "bg-gray-100 text-gray-500"}`}>
+                      <span className={`text-caption px-1.5 py-0.5 rounded-full tabular-nums font-semibold ${tab === t.id ? "bg-gold/20 text-gold-dark" : "bg-gray-100 text-gray-500"}`}>
                         {t.badge}
                       </span>
                     )}
@@ -759,7 +759,7 @@ export default function TenantDetailPage() {
                   <>
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="section-header">Payment Ledger</h2>
-                      <div className="flex items-center gap-2 text-xs text-gray-400 font-sans">
+                      <div className="flex items-center gap-2 text-caption text-gray-400 ">
                         <TrendingUp size={14} />
                         {periodsWithShortfall > 0 ? (
                           <span className="text-expense">{periodsWithShortfall} {periodNoun(periodsWithShortfall)} with shortfall</span>
@@ -769,7 +769,7 @@ export default function TenantDetailPage() {
                       </div>
                     </div>
                     {ledger.length === 0 ? (
-                      <p className="text-gray-400 text-sm font-sans text-center py-6">No ledger data available</p>
+                      <p className="text-gray-400 text-body text-center py-6">No ledger data available</p>
                     ) : (
                       <>
                       {/* Mobile: stacked month cards */}
@@ -777,31 +777,31 @@ export default function TenantDetailPage() {
                         {ledger.map((row) => (
                           <div key={row.monthLabel} className="rounded-xl border border-gray-100 bg-white p-3">
                             <div className="flex items-start justify-between gap-2 mb-2">
-                              <p className="text-sm font-medium font-sans text-header">{row.monthLabel}</p>
+                              <p className="text-body font-medium text-header">{row.monthLabel}</p>
                               {row.status === "UNPAID" ? (
-                                <span className="flex items-center gap-1 text-xs text-expense font-sans"><AlertTriangle size={12} /> Unpaid</span>
+                                <span className="flex items-center gap-1 text-caption text-expense "><AlertTriangle size={12} /> Unpaid</span>
                               ) : row.status === "PAID" ? (
-                                <span className="flex items-center gap-1 text-xs text-income font-sans"><CheckCircle2 size={12} /> Paid</span>
+                                <span className="flex items-center gap-1 text-caption text-income "><CheckCircle2 size={12} /> Paid</span>
                               ) : (
-                                <span className="flex items-center gap-1 text-xs text-amber-600 font-sans"><Clock size={12} /> Partial</span>
+                                <span className="flex items-center gap-1 text-caption text-amber-600 "><Clock size={12} /> Partial</span>
                               )}
                             </div>
                             <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50">
                               <div>
-                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                                <p className="text-label text-gray-400 uppercase mb-0.5">Expected</p>
                                 <CurrencyDisplay currency={currency} amount={row.expected} size="sm" className="text-gray-500" />
                               </div>
                               <div>
-                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+                                <p className="text-label text-gray-400 uppercase mb-0.5">Received</p>
                                 <CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize />
                               </div>
                               <div>
-                                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Balance</p>
+                                <p className="text-label text-gray-400 uppercase mb-0.5">Balance</p>
                                 <CurrencyDisplay currency={currency} amount={row.balance} size="sm" className={row.balance >= 0 ? "text-income" : "text-expense"} />
                               </div>
                             </div>
                             {row.payments.length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-gray-50 text-xs text-gray-400 font-sans">
+                              <div className="mt-2 pt-2 border-t border-gray-50 text-caption text-gray-400 ">
                                 {row.payments.map((p: any) => (
                                   <span key={p.id} className="block">
                                     {formatDate(p.date)} · {formatCurrency(p.grossAmount, currency)}
@@ -819,14 +819,14 @@ export default function TenantDetailPage() {
                           <thead className="bg-cream-dark">
                             <tr>
                               {["Month", "Expected", "Received", "Balance", "Status", "Payments"].map((h) => (
-                                <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                                <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase ">{h}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody>
                             {ledger.map((row) => (
                               <tr key={row.monthLabel} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
-                                <td className="px-4 py-3 text-sm font-sans font-medium text-header">{row.monthLabel}</td>
+                                <td className="px-4 py-3 text-body font-medium text-header">{row.monthLabel}</td>
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={row.expected} size="sm" className="text-gray-500" /></td>
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize /></td>
                                 <td className="px-4 py-3 text-right">
@@ -834,14 +834,14 @@ export default function TenantDetailPage() {
                                 </td>
                                 <td className="px-4 py-3">
                                   {row.status === "UNPAID" ? (
-                                    <span className="flex items-center gap-1 text-xs text-expense font-sans"><AlertTriangle size={12} /> Unpaid</span>
+                                    <span className="flex items-center gap-1 text-caption text-expense "><AlertTriangle size={12} /> Unpaid</span>
                                   ) : row.status === "PAID" ? (
-                                    <span className="flex items-center gap-1 text-xs text-income font-sans"><CheckCircle2 size={12} /> Paid</span>
+                                    <span className="flex items-center gap-1 text-caption text-income "><CheckCircle2 size={12} /> Paid</span>
                                   ) : (
-                                    <span className="flex items-center gap-1 text-xs text-amber-600 font-sans"><Clock size={12} /> Partial</span>
+                                    <span className="flex items-center gap-1 text-caption text-amber-600 "><Clock size={12} /> Partial</span>
                                   )}
                                 </td>
-                                <td className="px-4 py-3 text-xs text-gray-400 font-sans">
+                                <td className="px-4 py-3 text-caption text-gray-400 ">
                                   {row.payments.length === 0 ? "—" : row.payments.map((p: any) => (
                                     <span key={p.id} className="block">
                                       {formatDate(p.date)} · {formatCurrency(p.grossAmount, currency)}
@@ -865,7 +865,7 @@ export default function TenantDetailPage() {
                     <div className="flex items-center gap-2 mb-4">
                       <h2 className="section-header">Invoices</h2>
                       {invoices.length > 0 && (
-                        <span className="text-xs text-gray-400 font-sans ml-auto">
+                        <span className="text-caption text-gray-400 ml-auto">
                           {invoices.filter((i) => i.status === "PAID").length} paid ·{" "}
                           {invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").length} outstanding
                         </span>
@@ -874,8 +874,8 @@ export default function TenantDetailPage() {
                     {invoices.length === 0 ? (
                       <div className="flex flex-col items-center py-8 gap-2 text-gray-400">
                         <FileText size={28} className="opacity-30" />
-                        <p className="text-sm font-sans">No invoices yet</p>
-                        <p className="text-xs font-sans">Generate invoices from the Invoices page</p>
+                        <p className="text-body ">No invoices yet</p>
+                        <p className="text-caption ">Generate invoices from the Invoices page</p>
                       </div>
                     ) : (
                       <>
@@ -887,24 +887,24 @@ export default function TenantDetailPage() {
                               <div key={inv.id} className="rounded-xl border border-gray-100 bg-white p-3">
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                   <div>
-                                    <p className="font-mono text-xs font-semibold text-header">{inv.invoiceNumber}</p>
-                                    <p className="text-xs text-gray-400 font-sans mt-0.5">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</p>
+                                    <p className="tabular-nums text-caption font-semibold text-header">{inv.invoiceNumber}</p>
+                                    <p className="text-caption text-gray-400 mt-0.5">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</p>
                                   </div>
                                   {inv.status === "PENDING_VERIFICATION" ? (
                                     <button
                                       onClick={() => setProofInvoiceId(inv.id)}
-                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls}`}
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-caption font-medium ${cfg.cls}`}
                                     >
                                       {cfg.label}
                                     </button>
                                   ) : (
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls}`}>{cfg.label}</span>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-caption font-medium ${cfg.cls}`}>{cfg.label}</span>
                                   )}
                                 </div>
                                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-50">
                                   <div>
                                     <CurrencyDisplay currency={currency} amount={inv.totalAmount} size="sm" className="text-gray-700" />
-                                    <p className="text-xs text-gray-400 font-sans mt-0.5">
+                                    <p className="text-caption text-gray-400 mt-0.5">
                                       Due {format(new Date(inv.dueDate), "d MMM yyyy")}
                                       {inv.status === "PAID" && inv.paidAt ? ` · Paid ${format(new Date(inv.paidAt), "d MMM")}` : ""}
                                     </p>
@@ -940,7 +940,7 @@ export default function TenantDetailPage() {
                             <thead className="bg-cream-dark">
                               <tr>
                                 {["Invoice #", "Period", "Amount", "Due Date", "Status", ""].map((h) => (
-                                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                                  <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase ">{h}</th>
                                 ))}
                               </tr>
                             </thead>
@@ -949,30 +949,30 @@ export default function TenantDetailPage() {
                                 const cfg = INVOICE_STATUS_CONFIG[inv.status];
                                 return (
                                   <tr key={inv.id} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
-                                    <td className="px-4 py-3"><span className="font-mono text-xs font-medium text-header">{inv.invoiceNumber}</span></td>
-                                    <td className="px-4 py-3 text-sm font-sans text-gray-600">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</td>
+                                    <td className="px-4 py-3"><span className="tabular-nums text-caption font-medium text-header">{inv.invoiceNumber}</span></td>
+                                    <td className="px-4 py-3 text-body text-gray-600">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</td>
                                     <td className="px-4 py-3 text-right">
                                       <CurrencyDisplay currency={currency} amount={inv.totalAmount} size="sm" className="text-gray-700" />
                                       {inv.status === "PAID" && inv.paidAmount && inv.paidAmount !== inv.totalAmount && (
-                                        <span className="block text-xs text-green-600 font-sans mt-0.5">Paid: {formatCurrency(inv.paidAmount, currency)}</span>
+                                        <span className="block text-caption text-green-600 mt-0.5">Paid: {formatCurrency(inv.paidAmount, currency)}</span>
                                       )}
                                     </td>
-                                    <td className="px-4 py-3 text-sm font-sans text-gray-500">
+                                    <td className="px-4 py-3 text-body text-gray-500">
                                       {format(new Date(inv.dueDate), "d MMM yyyy")}
                                       {inv.status === "PAID" && inv.paidAt && (
-                                        <span className="block text-xs text-green-600 font-sans mt-0.5">Paid {format(new Date(inv.paidAt), "d MMM yyyy")}</span>
+                                        <span className="block text-caption text-green-600 mt-0.5">Paid {format(new Date(inv.paidAt), "d MMM yyyy")}</span>
                                       )}
                                     </td>
                                     <td className="px-4 py-3">
                                       {inv.status === "PENDING_VERIFICATION" ? (
                                         <button
                                           onClick={() => setProofInvoiceId(inv.id)}
-                                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls} hover:ring-2 hover:ring-amber-300`}
+                                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-caption font-medium ${cfg.cls} hover:ring-2 hover:ring-amber-300`}
                                         >
                                           {cfg.label}
                                         </button>
                                       ) : (
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-sans ${cfg.cls}`}>{cfg.label}</span>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-caption font-medium ${cfg.cls}`}>{cfg.label}</span>
                                       )}
                                     </td>
                                     <td className="px-4 py-3">
@@ -1003,10 +1003,10 @@ export default function TenantDetailPage() {
                             </tbody>
                           </table>
                         </div>
-                        <div className="border-t border-gray-100 pt-3 mt-1 flex flex-wrap gap-4 text-xs font-sans text-gray-500">
-                          <span>Total billed: <strong className="text-gray-700 font-mono">{formatCurrency(invoices.reduce((s, i) => s + i.totalAmount, 0), currency)}</strong></span>
-                          <span>Total paid: <strong className="text-green-700 font-mono">{formatCurrency(invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + (i.paidAmount ?? i.totalAmount), 0), currency)}</strong></span>
-                          <span>Outstanding: <strong className="text-amber-700 font-mono">{formatCurrency(invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").reduce((s, i) => s + i.totalAmount, 0), currency)}</strong></span>
+                        <div className="border-t border-gray-100 pt-3 mt-1 flex flex-wrap gap-4 text-caption text-gray-500">
+                          <span>Total billed: <strong className="text-gray-700 tabular-nums">{formatCurrency(invoices.reduce((s, i) => s + i.totalAmount, 0), currency)}</strong></span>
+                          <span>Total paid: <strong className="text-green-700 tabular-nums">{formatCurrency(invoices.filter((i) => i.status === "PAID").reduce((s, i) => s + (i.paidAmount ?? i.totalAmount), 0), currency)}</strong></span>
+                          <span>Outstanding: <strong className="text-amber-700 tabular-nums">{formatCurrency(invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").reduce((s, i) => s + i.totalAmount, 0), currency)}</strong></span>
                         </div>
                       </>
                     )}
@@ -1018,11 +1018,11 @@ export default function TenantDetailPage() {
                   <>
                     <h2 className="section-header mb-4">Documents</h2>
                     <div className="mb-5">
-                      <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-3">Upload new document</p>
+                      <p className="text-label text-gray-400 uppercase mb-3">Upload new document</p>
                       <DocumentUpload tenantId={tenantId} onUploaded={fetchDocuments} />
                     </div>
                     <div className="border-t border-gray-100 pt-4">
-                      <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-3">
+                      <p className="text-label text-gray-400 uppercase mb-3">
                         Uploaded files {documents.length > 0 && `(${documents.length})`}
                       </p>
                       {docsLoading ? (
@@ -1062,11 +1062,11 @@ export default function TenantDetailPage() {
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                           <div className="bg-cream-dark rounded-xl p-4">
-                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Contractual Deposit</p>
+                            <p className="text-label text-gray-400 uppercase mb-1">Contractual Deposit</p>
                             <CurrencyDisplay currency={currency} amount={tenant?.depositAmount ?? 0} size="lg" className="text-header font-medium" />
                           </div>
                           <div className="bg-cream-dark rounded-xl p-4">
-                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Received</p>
+                            <p className="text-label text-gray-400 uppercase mb-1">Received</p>
                             {depositPosition.received !== null ? (
                               <CurrencyDisplay
                                 currency={currency}
@@ -1075,17 +1075,17 @@ export default function TenantDetailPage() {
                                 className={depositPosition.shortfall > 0 ? "text-expense font-medium" : "text-income font-medium"}
                               />
                             ) : (
-                              <p className="text-sm font-sans text-gray-400 font-medium mt-1">No receipts recorded</p>
+                              <p className="text-body text-gray-400 font-medium mt-1">No receipts recorded</p>
                             )}
                           </div>
                           <div className="bg-cream-dark rounded-xl p-4">
-                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Date Received</p>
-                            <p className="text-sm font-sans text-header font-medium mt-1">
+                            <p className="text-label text-gray-400 uppercase mb-1">Date Received</p>
+                            <p className="text-body text-header font-medium mt-1">
                               {tenant?.depositPaidDate ? formatDate(tenant.depositPaidDate) : "Not recorded"}
                             </p>
                           </div>
                           <div className="bg-cream-dark rounded-xl p-4">
-                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Status</p>
+                            <p className="text-label text-gray-400 uppercase mb-1">Status</p>
                             <div className="mt-1">
                               <Badge variant={tenant?.isActive ? "green" : "amber"}>
                                 {tenant?.isActive ? "Held — tenant active" : "Pending settlement"}
@@ -1098,10 +1098,10 @@ export default function TenantDetailPage() {
                           <div className="border border-amber-100 bg-amber-50/60 rounded-xl p-4 flex items-start gap-3">
                             <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
                             <div>
-                              <p className="text-sm font-medium font-sans text-amber-800">
+                              <p className="text-body font-medium text-amber-800">
                                 Deposit shortfall of {formatCurrency(depositPosition.shortfall, currency)}
                               </p>
-                              <p className="text-xs text-amber-600 font-sans mt-0.5">
+                              <p className="text-caption text-amber-600 mt-0.5">
                                 Receipts total {formatCurrency(depositPosition.received ?? 0, currency)} against a contractual
                                 deposit of {formatCurrency(depositPosition.contractual, currency)}. Settlement will refund
                                 only what was received.
@@ -1114,8 +1114,8 @@ export default function TenantDetailPage() {
                           <div className="border border-gray-200 bg-gray-50 rounded-xl p-4 flex items-start gap-3">
                             <AlertTriangle size={16} className="text-gray-400 shrink-0 mt-0.5" />
                             <div>
-                              <p className="text-sm font-medium font-sans text-gray-600">Deposit unverified — no receipts on record</p>
-                              <p className="text-xs text-gray-500 font-sans mt-0.5">
+                              <p className="text-body font-medium text-gray-600">Deposit unverified — no receipts on record</p>
+                              <p className="text-caption text-gray-500 mt-0.5">
                                 The contractual amount is shown, but no DEPOSIT income entry is linked to this tenant.
                                 Record the deposit on the Income page (type &ldquo;Deposit&rdquo;) so settlement can work from
                                 what was actually received.
@@ -1126,18 +1126,18 @@ export default function TenantDetailPage() {
 
                         {unlinkedUnitDeposits.length > 0 && (
                           <div className="border border-gray-200 rounded-xl overflow-hidden">
-                            <div className="px-4 py-2.5 bg-cream-dark text-xs text-gray-500 font-sans uppercase tracking-wide">
+                            <div className="px-4 py-2.5 bg-cream-dark text-label text-gray-500 uppercase ">
                               Deposit entries on this unit not linked to any tenant
                             </div>
                             {unlinkedUnitDeposits.map((e) => (
                               <div key={e.id} className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100">
-                                <span className="text-sm font-sans text-gray-600">
-                                  {formatDate(e.date)} · <span className="font-mono">{formatCurrency(e.grossAmount, currency)}</span>
-                                  {e.note ? <span className="text-xs text-gray-400"> — {e.note}</span> : null}
+                                <span className="text-body text-gray-600">
+                                  {formatDate(e.date)} · <span className="tabular-nums">{formatCurrency(e.grossAmount, currency)}</span>
+                                  {e.note ? <span className="text-caption text-gray-400"> — {e.note}</span> : null}
                                 </span>
                                 <button
                                   onClick={() => linkDepositToTenant(e.id)}
-                                  className="text-xs font-medium text-gold hover:text-gold-dark underline underline-offset-2 whitespace-nowrap ml-3"
+                                  className="text-caption font-medium text-gold hover:text-gold-dark underline underline-offset-2 whitespace-nowrap ml-3"
                                 >
                                   Link to {tenant.name}
                                 </button>
@@ -1150,14 +1150,14 @@ export default function TenantDetailPage() {
                           <div className="border border-amber-100 bg-amber-50/60 rounded-xl p-4 flex items-start gap-3">
                             <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
                             <div>
-                              <p className="text-sm font-medium font-sans text-amber-800">Tenant has vacated — deposit needs settlement</p>
-                              <p className="text-xs text-amber-600 font-sans mt-0.5">Record deductions and the net amount refunded to close this out.</p>
+                              <p className="text-body font-medium text-amber-800">Tenant has vacated — deposit needs settlement</p>
+                              <p className="text-caption text-amber-600 mt-0.5">Record deductions and the net amount refunded to close this out.</p>
                             </div>
                           </div>
                         )}
 
                         {tenant?.isActive && (
-                          <p className="text-sm text-gray-400 font-sans text-center py-4">
+                          <p className="text-body text-gray-400 text-center py-4">
                             Settlement is recorded when the tenant vacates and the deposit is returned (or partially withheld).
                           </p>
                         )}
@@ -1167,34 +1167,34 @@ export default function TenantDetailPage() {
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-income mb-1">
                           <CheckCircle2 size={16} />
-                          <p className="text-sm font-medium font-sans">
+                          <p className="text-body font-medium ">
                             Settled on {formatDate(settlement.settledDate)}
                           </p>
                         </div>
 
                         <div className="border border-gray-100 rounded-xl overflow-hidden">
-                          <table className="w-full text-sm">
+                          <table className="w-full text-body">
                             <tbody>
                               <tr className="bg-cream-dark">
-                                <td className="px-4 py-3 font-sans text-gray-500">Deposit held</td>
-                                <td className="px-4 py-3 text-right font-mono text-header">{formatCurrency(settlement.depositHeld, currency)}</td>
+                                <td className="px-4 py-3 text-gray-500">Deposit held</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-header">{formatCurrency(settlement.depositHeld, currency)}</td>
                               </tr>
                               {(settlement.deductions as { reason: string; amount: number }[]).map((d, i) => (
                                 <tr key={i} className="border-t border-gray-50">
-                                  <td className="px-4 py-3 font-sans text-gray-500 pl-6">
+                                  <td className="px-4 py-3 text-gray-500 pl-6">
                                     <span className="text-expense mr-1">−</span>{d.reason}
                                   </td>
-                                  <td className="px-4 py-3 text-right font-mono text-expense">{formatCurrency(d.amount, currency)}</td>
+                                  <td className="px-4 py-3 text-right tabular-nums text-expense">{formatCurrency(d.amount, currency)}</td>
                                 </tr>
                               ))}
                               {settlement.totalDeductions > 0 && (
                                 <tr className="border-t border-gray-100 bg-cream-dark/50">
-                                  <td className="px-4 py-3 font-sans text-gray-500">Total deductions</td>
-                                  <td className="px-4 py-3 text-right font-mono text-expense">− {formatCurrency(settlement.totalDeductions, currency)}</td>
+                                  <td className="px-4 py-3 text-gray-500">Total deductions</td>
+                                  <td className="px-4 py-3 text-right tabular-nums text-expense">− {formatCurrency(settlement.totalDeductions, currency)}</td>
                                 </tr>
                               )}
                               <tr className="border-t-2 border-gray-200 bg-cream-dark">
-                                <td className="px-4 py-3 font-sans font-medium text-header">Net refunded to tenant</td>
+                                <td className="px-4 py-3 font-medium text-header">Net refunded to tenant</td>
                                 <td className="px-4 py-3 text-right">
                                   <CurrencyDisplay currency={currency} amount={settlement.netRefunded} size="md" className={settlement.netRefunded >= 0 ? "text-income font-medium" : "text-expense font-medium"} />
                                 </td>
@@ -1205,8 +1205,8 @@ export default function TenantDetailPage() {
 
                         {settlement.notes && (
                           <div className="bg-cream-dark rounded-xl p-4">
-                            <p className="text-xs text-gray-400 font-sans uppercase tracking-wide mb-1">Notes</p>
-                            <p className="text-sm font-sans text-gray-600">{settlement.notes}</p>
+                            <p className="text-label text-gray-400 uppercase mb-1">Notes</p>
+                            <p className="text-body text-gray-600">{settlement.notes}</p>
                           </div>
                         )}
                       </div>
@@ -1233,7 +1233,7 @@ export default function TenantDetailPage() {
                       <h2 className="section-header">Lease Renewal</h2>
                       <button
                         onClick={() => setShowEmail(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-xs font-sans rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-caption rounded-lg transition-colors"
                       >
                         <Mail size={13} /> Draft renewal email
                       </button>
@@ -1304,11 +1304,11 @@ export default function TenantDetailPage() {
                 <Banknote size={18} className="text-gold" />
               </div>
               <div>
-                <h3 className="font-display text-header text-base">Generate Renewal Fee Invoice?</h3>
-                <p className="text-xs text-gray-400 font-sans mt-0.5">Lease marked as Renewed</p>
+                <h3 className=" text-header text-h3">Generate Renewal Fee Invoice?</h3>
+                <p className="text-caption text-gray-400 mt-0.5">Lease marked as Renewed</p>
               </div>
             </div>
-            <p className="text-sm font-sans text-gray-600">
+            <p className="text-body text-gray-600">
               A lease renewal fee of <span className="font-semibold text-header">{formatCurrency(3000, currency)}</span> will be invoiced to the owner. Mark it paid once settled.
             </p>
             <div className="flex gap-3 pt-1">
@@ -1350,13 +1350,13 @@ export default function TenantDetailPage() {
                     setRenewalFeePrompt(null);
                   }
                 }}
-                className="px-4 py-2 bg-navy text-white text-sm font-sans rounded-lg hover:bg-navy/90 disabled:opacity-60"
+                className="px-4 py-2 bg-navy text-white text-body rounded-lg hover:bg-navy/90 disabled:opacity-60"
               >
                 {renewalFeeLogging ? "Generating…" : "Generate Invoice"}
               </button>
               <button
                 onClick={() => setRenewalFeePrompt(null)}
-                className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50"
               >
                 Skip
               </button>

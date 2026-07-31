@@ -461,7 +461,7 @@ export default function IncomePage() {
         }}
         onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node)) setDragOverCol(null); }}
         className={clsx(
-          "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans select-none",
+          "px-4 py-3 text-left text-label font-medium text-gray-400 uppercase select-none",
           dragOverCol === key && "border-l-2 border-gold bg-gold/5"
         )}
       >
@@ -500,24 +500,24 @@ export default function IncomePage() {
     const isDeposit = entry.type === "DEPOSIT";
     switch (key) {
       case "date":
-        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(entry.date)}</td>;
+        return <td key={key} className="px-4 py-3 text-body text-gray-600">{formatDate(entry.date)}</td>;
       case "unit":
-        return <td key={key} className="px-4 py-3 text-sm font-mono text-header">{entry.unit?.unitNumber}</td>;
+        return <td key={key} className="px-4 py-3 text-body tabular-nums text-header">{entry.unit?.unitNumber}</td>;
       case "tenant":
         return (
-          <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500">
+          <td key={key} className="px-4 py-3 text-body text-gray-500">
             {entry.tenant ? <span className="flex items-center gap-1 text-gray-600"><User size={11} className="text-gray-400" />{entry.tenant.name}</span> : "—"}
           </td>
         );
       case "type":
         return <td key={key} className="px-4 py-3"><Badge variant={typeInfo.badge}>{typeInfo.label}</Badge></td>;
       case "platform":
-        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500">{entry.platform ? PLATFORM_LABELS[entry.platform] : "—"}{entry.agentName ? ` · ${entry.agentName}` : ""}</td>;
+        return <td key={key} className="px-4 py-3 text-body text-gray-500">{entry.platform ? PLATFORM_LABELS[entry.platform] : "—"}{entry.agentName ? ` · ${entry.agentName}` : ""}</td>;
       case "invoice":
         return (
           <td key={key} className="px-4 py-3">
             {entry.invoice ? (
-              <span className="flex items-center gap-1 text-xs text-green-700 font-sans bg-green-50 px-1.5 py-0.5 rounded">
+              <span className="flex items-center gap-1 text-caption text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
                 <Receipt size={10} />{entry.invoice.invoiceNumber}
               </span>
             ) : "—"}
@@ -527,7 +527,7 @@ export default function IncomePage() {
         return (
           <td key={key} className="px-4 py-3 text-right">
             <CurrencyDisplay currency={currency} amount={entry.grossAmount} size="sm" colorize />
-            {isDeposit && <p className="text-xs text-purple-500 font-sans">deposit</p>}
+            {isDeposit && <p className="text-caption text-purple-500 ">deposit</p>}
           </td>
         );
       case "commission":
@@ -535,7 +535,7 @@ export default function IncomePage() {
       case "net":
         return (
           <td key={key} className="px-4 py-3 text-right">
-            {isDeposit ? <span className="text-xs text-gray-400 font-sans italic">excluded</span> : <CurrencyDisplay currency={currency} amount={entry.grossAmount - entry.agentCommission} size="sm" colorize />}
+            {isDeposit ? <span className="text-caption text-gray-400 italic">excluded</span> : <CurrencyDisplay currency={currency} amount={entry.grossAmount - entry.agentCommission} size="sm" colorize />}
           </td>
         );
       default:
@@ -547,33 +547,33 @@ export default function IncomePage() {
     const { tenant, totalPaid, expected, isPaid, notDue } = row;
     switch (key) {
       case "unit":
-        return <td key={key} className="px-4 py-3 text-sm font-mono text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>;
+        return <td key={key} className="px-4 py-3 text-body tabular-nums text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>;
       case "tenant":
         return (
           <td key={key} className="px-4 py-3">
-            <p className="text-sm font-sans text-gray-700 font-medium">{tenant.name}</p>
-            {tenant.phone && <p className="text-xs text-gray-400 font-sans">{tenant.phone}</p>}
+            <p className="text-body text-gray-700 font-medium">{tenant.name}</p>
+            {tenant.phone && <p className="text-caption text-gray-400 ">{tenant.phone}</p>}
           </td>
         );
       case "property":
-        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500">{tenant.unit?.property?.name ?? "—"}</td>;
+        return <td key={key} className="px-4 py-3 text-body text-gray-500">{tenant.unit?.property?.name ?? "—"}</td>;
       case "expected":
         return (
           <td key={key} className="px-4 py-3">
             {notDue ? (
               <>
-                <span className="text-xs text-gray-400 font-sans">—</span>
-                <p className="text-xs text-gray-400 font-sans mt-0.5">Covered by advance payment</p>
+                <span className="text-caption text-gray-400 ">—</span>
+                <p className="text-caption text-gray-400 mt-0.5">Covered by advance payment</p>
               </>
             ) : (
               <>
                 <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
                 {tenant.paymentFrequency && tenant.paymentFrequency !== "MONTHLY" && (
-                  <p className="text-xs text-gray-400 font-sans mt-0.5">
+                  <p className="text-caption text-gray-400 mt-0.5">
                     {{ QUARTERLY: "Quarter", BIANNUAL: "Half-year", ANNUAL: "Year" }[tenant.paymentFrequency as string]} in advance
                   </p>
                 )}
-                {tenant.serviceCharge > 0 && <p className="text-xs text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                {tenant.serviceCharge > 0 && <p className="text-caption text-gray-400 mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
               </>
             )}
           </td>
@@ -581,20 +581,20 @@ export default function IncomePage() {
       case "received":
         return (
           <td key={key} className="px-4 py-3">
-            {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+            {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-caption text-gray-400 ">—</span>}
           </td>
         );
       case "status":
         return (
           <td key={key} className="px-4 py-3">
             {notDue && totalPaid === 0 ? (
-              <span className="flex items-center gap-1.5 text-xs font-sans text-gray-500 bg-gray-100 px-2 py-1 rounded-lg w-fit"><CheckCircle2 size={12} /> Not due</span>
+              <span className="flex items-center gap-1.5 text-caption text-gray-500 bg-gray-100 px-2 py-1 rounded-lg w-fit"><CheckCircle2 size={12} /> Not due</span>
             ) : isPaid ? (
-              <span className="flex items-center gap-1.5 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg w-fit"><CheckCircle2 size={12} /> Paid</span>
+              <span className="flex items-center gap-1.5 text-caption text-green-700 bg-green-50 px-2 py-1 rounded-lg w-fit"><CheckCircle2 size={12} /> Paid</span>
             ) : totalPaid > 0 ? (
-              <span className="flex items-center gap-1.5 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg w-fit"><AlertCircle size={12} /> Partial</span>
+              <span className="flex items-center gap-1.5 text-caption text-amber-700 bg-amber-50 px-2 py-1 rounded-lg w-fit"><AlertCircle size={12} /> Partial</span>
             ) : (
-              <span className="flex items-center gap-1.5 text-xs font-sans text-red-600 bg-red-50 px-2 py-1 rounded-lg w-fit"><AlertCircle size={12} /> Pending</span>
+              <span className="flex items-center gap-1.5 text-caption text-red-600 bg-red-50 px-2 py-1 rounded-lg w-fit"><AlertCircle size={12} /> Pending</span>
             )}
           </td>
         );
@@ -911,7 +911,7 @@ export default function IncomePage() {
             {!(month.getFullYear() === new Date().getFullYear() && month.getMonth() === new Date().getMonth()) && (
               <button
                 onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
-                className="text-xs text-gold hover:text-gold-dark font-sans font-medium underline underline-offset-2 transition-colors"
+                className="text-caption text-gold hover:text-gold-dark font-medium underline underline-offset-2 transition-colors"
               >
                 Back to {MONTH_SHORT[new Date().getMonth()]}
               </button>
@@ -928,18 +928,18 @@ export default function IncomePage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {/* Collected */}
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Collected</p>
+                <p className="text-label text-gray-400 uppercase ">Collected</p>
                 <CurrencyDisplay currency={currency} amount={totalGross} className="block mt-1 text-income" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-0.5">
+                <p className="text-caption text-gray-400 mt-0.5">
                   {MONTH_SHORT[month.getMonth()]} {month.getFullYear()} · excl. deposits
                 </p>
               </Card>
 
               {/* Expected */}
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Expected</p>
+                <p className="text-label text-gray-400 uppercase ">Expected</p>
                 <CurrencyDisplay currency={currency} amount={expected} className="block mt-1 text-header" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-0.5">
+                <p className="text-caption text-gray-400 mt-0.5">
                   {/* collectionSummary.total counts tenants with rent DUE this
                       month — quarterly/annual payers mid-period are active but
                       not due, and must not read as "0 active tenants". */}
@@ -953,11 +953,11 @@ export default function IncomePage() {
 
               {/* Outstanding */}
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Outstanding</p>
+                <p className="text-label text-gray-400 uppercase ">Outstanding</p>
                 {fullyCollected ? (
                   <>
-                    <p className="block mt-1 text-income text-lg font-display font-semibold">All clear ✓</p>
-                    <p className="text-xs text-gray-400 font-sans mt-0.5">fully collected</p>
+                    <p className="block mt-1 text-income text-h3 ">All clear ✓</p>
+                    <p className="text-caption text-gray-400 mt-0.5">fully collected</p>
                   </>
                 ) : (
                   <>
@@ -966,7 +966,7 @@ export default function IncomePage() {
                       className={`block mt-1 ${outstanding > 0 ? "text-expense" : "text-income"}`}
                       size="lg"
                     />
-                    <p className="text-xs text-gray-400 font-sans mt-0.5">
+                    <p className="text-caption text-gray-400 mt-0.5">
                       {expected > 0
                         ? `${Math.round((totalGross / expected) * 100)}% collected`
                         : allTenants.length > 0
@@ -979,13 +979,13 @@ export default function IncomePage() {
 
               {/* Net Income */}
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net Income</p>
+                <p className="text-label text-gray-400 uppercase ">Net Income</p>
                 <CurrencyDisplay
                   amount={totalGross - totalComm}
                   className={`block mt-1 ${totalGross - totalComm >= 0 ? "text-income" : "text-expense"}`}
                   size="lg"
                 />
-                <p className="text-xs text-gray-400 font-sans mt-0.5">
+                <p className="text-caption text-gray-400 mt-0.5">
                   {totalComm > 0 ? `after ${fmt(totalComm)} commission` : "no commissions"}
                 </p>
               </Card>
@@ -997,7 +997,7 @@ export default function IncomePage() {
         <div className="flex items-center gap-1 bg-cream-dark rounded-xl p-1 overflow-x-auto">
           <button
             onClick={() => { setTab("collection"); setSortCol(null); setSortDir("asc"); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-body font-medium transition-all ${
               tab === "collection" ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-header"
             }`}
           >
@@ -1005,7 +1005,7 @@ export default function IncomePage() {
             Rent Collection
             {/* Hide the 0/0 badge when nothing is due (period payers mid-cycle) */}
             {!tenantsLoading && !loading && collectionMode === "monthly" && collectionSummary.total > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+              <span className={`text-caption px-1.5 py-0.5 rounded-full font-medium ${
                 collectionSummary.paid === collectionSummary.total
                   ? "bg-green-100 text-green-700"
                   : "bg-amber-100 text-amber-700"
@@ -1014,31 +1014,31 @@ export default function IncomePage() {
               </span>
             )}
             {!tenantsLoading && collectionMode === "arrears" && arrearsSummary.tenantsWithArrears > 0 && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+              <span className="text-caption px-1.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
                 {arrearsSummary.tenantsWithArrears} in arrears
               </span>
             )}
           </button>
           <button
             onClick={() => { setTab("entries"); setSortCol(null); setSortDir("asc"); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-body font-medium transition-all ${
               tab === "entries" ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-header"
             }`}
           >
             <LayoutList size={15} />
             All Entries
-            <span className="text-xs text-gray-400">({entries.length})</span>
+            <span className="text-caption text-gray-400">({entries.length})</span>
           </button>
           <button
             onClick={() => { setTab("commissions"); setSortCol(null); setSortDir("asc"); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-body font-medium transition-all ${
               tab === "commissions" ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-header"
             }`}
           >
             <DollarSign size={15} />
             Commissions
             {outstandingComm > 0 && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
+              <span className="text-caption px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700">
                 {commissionEntries.filter((e: any) => !e.commissionPaidAt).length} unpaid
               </span>
             )}
@@ -1056,7 +1056,7 @@ export default function IncomePage() {
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
                 <button
                   onClick={() => setCollectionMode("monthly")}
-                  className={`px-3 py-1.5 rounded-md text-xs font-sans font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-md text-caption font-medium transition-all ${
                     collectionMode === "monthly"
                       ? "bg-white text-header shadow-sm"
                       : "text-gray-500 hover:text-header"
@@ -1066,7 +1066,7 @@ export default function IncomePage() {
                 </button>
                 <button
                   onClick={() => { setCollectionMode("arrears"); setArrearsSeq((s) => s + 1); }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-sans font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-md text-caption font-medium transition-all ${
                     collectionMode === "arrears"
                       ? "bg-white text-header shadow-sm"
                       : "text-gray-500 hover:text-header"
@@ -1078,7 +1078,7 @@ export default function IncomePage() {
               {collectionMode === "arrears" && (
                 <button
                   onClick={() => setArrearsSeq((s) => s + 1)}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-header font-sans transition-colors"
+                  className="flex items-center gap-1.5 text-caption text-gray-400 hover:text-header transition-colors"
                 >
                   <RefreshCw size={12} className={arrearsLoading ? "animate-spin" : ""} />
                   Refresh
@@ -1093,18 +1093,18 @@ export default function IncomePage() {
                 <Card padding="sm">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="text-sm font-display text-header">
+                      <p className="text-body font-medium text-header">
                         {collectionSummary.total === 0 && allTenants.length > 0
                           ? "No rent due this month"
                           : `${collectionSummary.paid} of ${collectionSummary.total} units collected`}
                       </p>
-                      <p className="text-xs text-gray-400 font-sans mt-0.5">
+                      <p className="text-caption text-gray-400 mt-0.5">
                         {MONTH_NAMES[month.getMonth()]} {month.getFullYear()} — long-term tenants
                       </p>
                     </div>
                     <div className="text-right">
                       <CurrencyDisplay currency={currency} amount={collectionSummary.totalReceived} size="md" className="text-income font-medium" />
-                      <p className="text-xs text-gray-400 font-sans">
+                      <p className="text-caption text-gray-400 ">
                         of <span className="font-medium text-gray-500">{fmt(collectionSummary.totalExpected)}</span> expected
                       </p>
                     </div>
@@ -1122,14 +1122,14 @@ export default function IncomePage() {
                       payments are captured correctly) */}
                   {collectionSummary.paid < collectionSummary.total && !tenantsLoading && !loading && (
                     <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                      <p className="text-xs text-gray-400 font-sans">
+                      <p className="text-caption text-gray-400 ">
                         {collectionSummary.total - collectionSummary.paid} tenant{collectionSummary.total - collectionSummary.paid > 1 ? "s" : ""} still pending
                       </p>
                       <button
                         onClick={selectAllUnpaid}
                         disabled={bulkRecording}
                         title="Selects every unpaid tenant with the expected amount prefilled — adjust any amount, then click Record selected"
-                        className="flex items-center gap-1.5 text-xs font-medium font-sans text-gold hover:text-gold-dark transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 text-caption font-medium text-gold hover:text-gold-dark transition-colors disabled:opacity-50"
                       >
                         <Zap size={12} /> Record all pending…
                       </button>
@@ -1147,28 +1147,28 @@ export default function IncomePage() {
                     {/* ── Bulk action bar ───────────────────────────────────── */}
                     {bulkSelected.size > 0 && (
                       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gold/10 border border-gold/30 rounded-xl">
-                        <p className="text-sm font-medium font-sans text-header">
+                        <p className="text-body font-medium text-header">
                           {bulkSelected.size} tenant{bulkSelected.size !== 1 ? "s" : ""} selected
                         </p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <button
                             onClick={selectAllUnpaid}
                             disabled={bulkRecording}
-                            className="text-xs font-sans text-gold hover:text-gold-dark transition-colors disabled:opacity-40"
+                            className="text-caption text-gold hover:text-gold-dark transition-colors disabled:opacity-40"
                           >
                             Select all unpaid
                           </button>
                           <button
                             onClick={() => setBulkSelected(new Map())}
                             disabled={bulkRecording}
-                            className="text-xs font-sans text-gray-500 hover:text-gray-700 flex items-center gap-0.5 transition-colors disabled:opacity-40"
+                            className="text-caption text-gray-500 hover:text-gray-700 flex items-center gap-0.5 transition-colors disabled:opacity-40"
                           >
                             <X size={11} /> Clear
                           </button>
                           <button
                             onClick={handleBulkRecord}
                             disabled={bulkRecording}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-caption font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
                           >
                             {bulkRecording ? (
                               <><Loader2 size={12} className="animate-spin" /> Recording… {bulkProgress ? `(${bulkProgress.done}/${bulkProgress.total})` : ""}</>
@@ -1199,34 +1199,34 @@ export default function IncomePage() {
                                     className="mt-0.5 accent-[#c9a84c] disabled:opacity-30 cursor-pointer disabled:cursor-default"
                                   />
                                   <div>
-                                    <p className="text-sm font-medium font-sans text-header">{tenant.name}</p>
-                                    <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                                    <p className="text-body font-medium text-header">{tenant.name}</p>
+                                    <p className="text-caption text-gray-400 tabular-nums mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
                                   </div>
                                 </div>
                                 {notDue && totalPaid === 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-gray-500 bg-gray-100 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Not due</span>
+                                  <span className="inline-flex items-center gap-1 text-caption text-gray-500 bg-gray-100 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Not due</span>
                                 ) : isPaid ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-green-700 bg-green-50 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Paid</span>
+                                  <span className="inline-flex items-center gap-1 text-caption text-green-700 bg-green-50 px-2 py-1 rounded-lg whitespace-nowrap"><CheckCircle2 size={12} /> Paid</span>
                                 ) : totalPaid > 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-amber-700 bg-amber-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Partial</span>
+                                  <span className="inline-flex items-center gap-1 text-caption text-amber-700 bg-amber-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Partial</span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-xs font-sans text-red-600 bg-red-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Pending</span>
+                                  <span className="inline-flex items-center gap-1 text-caption text-red-600 bg-red-50 px-2 py-1 rounded-lg whitespace-nowrap"><AlertCircle size={12} /> Pending</span>
                                 )}
                               </div>
                               {/* Financials */}
                               <div className="grid grid-cols-2 gap-2 mb-2.5">
                                 <div>
-                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                                  <p className="text-label text-gray-400 uppercase mb-0.5">Expected</p>
                                   {notDue ? (
-                                    <p className="text-xs text-gray-400 font-sans">— covered in advance</p>
+                                    <p className="text-caption text-gray-400 ">— covered in advance</p>
                                   ) : (
                                     <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
                                   )}
-                                  {!notDue && tenant.serviceCharge > 0 && <p className="text-[10px] text-gray-400 font-sans mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                                  {!notDue && tenant.serviceCharge > 0 && <p className="text-caption text-gray-400 mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
-                                  {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+                                  <p className="text-label text-gray-400 uppercase mb-0.5">Received</p>
+                                  {totalPaid > 0 ? <CurrencyDisplay currency={currency} amount={totalPaid} size="sm" className="text-income" /> : <span className="text-caption text-gray-400 ">—</span>}
                                 </div>
                               </div>
                               {/* Action */}
@@ -1238,14 +1238,14 @@ export default function IncomePage() {
                                     min="0"
                                     value={bulkSelected.get(tenant.id) ?? (expected || tenant.monthlyRent)}
                                     onChange={(e) => setBulkAmount(tenant.id, parseFloat(e.target.value) || 0)}
-                                    className="w-32 border border-gold/50 rounded-lg px-2 py-1.5 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                                    className="w-32 border border-gold/50 rounded-lg px-2 py-1.5 text-body text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
                                   />
                                 ) : isPaid ? (
-                                  <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
+                                  <button onClick={() => setTab("entries")} className="text-caption text-gray-400 hover:text-header underline underline-offset-2 transition-colors">
                                     {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
                                   </button>
                                 ) : notDue ? (
-                                  <span className="text-xs text-gray-400 font-sans">Nothing due this month</span>
+                                  <span className="text-caption text-gray-400 ">Nothing due this month</span>
                                 ) : (
                                   <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant, undefined, expected)}>
                                     <Plus size={12} /> Record
@@ -1297,14 +1297,14 @@ export default function IncomePage() {
                                         min="0"
                                         value={bulkSelected.get(row.tenant.id) ?? (row.expected || row.tenant.monthlyRent)}
                                         onChange={(e) => setBulkAmount(row.tenant.id, parseFloat(e.target.value) || 0)}
-                                        className="w-28 border border-gold/50 rounded-lg px-2 py-1 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                                        className="w-28 border border-gold/50 rounded-lg px-2 py-1 text-body text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
                                       />
                                     ) : row.isPaid ? (
-                                      <button onClick={() => setTab("entries")} className="text-xs text-gray-400 hover:text-header font-sans underline underline-offset-2 transition-colors">
+                                      <button onClick={() => setTab("entries")} className="text-caption text-gray-400 hover:text-header underline underline-offset-2 transition-colors">
                                         {row.paid.length} {row.paid.length === 1 ? "entry" : "entries"}
                                       </button>
                                     ) : row.notDue ? (
-                                      <span className="text-xs text-gray-400 font-sans whitespace-nowrap">Nothing due</span>
+                                      <span className="text-caption text-gray-400 whitespace-nowrap">Nothing due</span>
                                     ) : (
                                       <Button size="sm" variant="gold" onClick={() => handleQuickRecord(row.tenant, undefined, row.expected)}>
                                         <Plus size={12} /> Record
@@ -1332,16 +1332,16 @@ export default function IncomePage() {
                     <AlertTriangle size={20} className="text-red-500 shrink-0" />
                     <div className="flex-1 grid grid-cols-3 gap-4">
                       <div>
-                        <p className="text-xs text-red-500 font-sans uppercase tracking-wide">Total Outstanding</p>
-                        <CurrencyDisplay currency={currency} amount={arrearsSummary.totalOutstanding} size="lg" className="text-red-700 font-bold" />
+                        <p className="text-label text-red-500 uppercase ">Total Outstanding</p>
+                        <CurrencyDisplay currency={currency} amount={arrearsSummary.totalOutstanding} size="lg" className="text-red-700 font-semibold" />
                       </div>
                       <div>
-                        <p className="text-xs text-red-500 font-sans uppercase tracking-wide">Tenants in Arrears</p>
-                        <p className="text-lg font-display text-red-700 font-bold">{arrearsSummary.tenantsWithArrears}</p>
+                        <p className="text-label text-red-500 uppercase ">Tenants in Arrears</p>
+                        <p className="text-h3 text-red-700 ">{arrearsSummary.tenantsWithArrears}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-red-500 font-sans uppercase tracking-wide">Months Overdue</p>
-                        <p className="text-lg font-display text-red-700 font-bold">{arrearsSummary.totalMonthsOwed}</p>
+                        <p className="text-label text-red-500 uppercase ">Months Overdue</p>
+                        <p className="text-h3 text-red-700 ">{arrearsSummary.totalMonthsOwed}</p>
                       </div>
                     </div>
                   </div>
@@ -1350,7 +1350,7 @@ export default function IncomePage() {
                 {!arrearsLoading && arrearsSummary.totalOutstanding === 0 && !tenantsLoading && allTenants.length > 0 && (
                   <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-100 rounded-xl">
                     <CheckCircle2 size={20} className="text-green-500" />
-                    <p className="text-sm font-sans text-green-700 font-medium">All tenants are up to date — no arrears outstanding.</p>
+                    <p className="text-body text-green-700 font-medium">All tenants are up to date — no arrears outstanding.</p>
                   </div>
                 )}
 
@@ -1378,14 +1378,14 @@ export default function IncomePage() {
                                 {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                               </span>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium font-sans text-gray-700">{tenant.name}</p>
-                                <p className="text-xs text-gray-400 font-mono mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
+                                <p className="text-body font-medium text-gray-700">{tenant.name}</p>
+                                <p className="text-caption text-gray-400 tabular-nums mt-0.5">{tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}</p>
                               </div>
                             </div>
                             {summary.totalMonthsOwed === 0 ? (
-                              <span className="text-xs text-green-700 font-sans bg-green-50 px-2 py-1 rounded-lg shrink-0">Up to date</span>
+                              <span className="text-caption text-green-700 bg-green-50 px-2 py-1 rounded-lg shrink-0">Up to date</span>
                             ) : (
-                              <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-lg shrink-0">{summary.totalMonthsOwed}mo overdue</span>
+                              <span className="text-caption font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-lg shrink-0">{summary.totalMonthsOwed}mo overdue</span>
                             )}
                           </div>
                           {/* Arrears + actions */}
@@ -1394,7 +1394,7 @@ export default function IncomePage() {
                               {summary.totalArrears > 0 ? (
                                 <CurrencyDisplay currency={currency} amount={summary.totalArrears} size="sm" className="text-red-600 font-semibold" />
                               ) : (
-                                <span className="text-xs text-green-600 font-sans">No arrears</span>
+                                <span className="text-caption text-green-600 ">No arrears</span>
                               )}
                             </div>
                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -1407,7 +1407,7 @@ export default function IncomePage() {
                                 openCases[tenant.id] ? (
                                   <Link
                                     href="/arrears"
-                                    className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded-lg hover:bg-amber-100 transition-colors whitespace-nowrap"
+                                    className="flex items-center gap-1 text-caption font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded-lg hover:bg-amber-100 transition-colors whitespace-nowrap"
                                   >
                                     <FolderOpen size={11} />
                                     Case Open
@@ -1416,7 +1416,7 @@ export default function IncomePage() {
                                   <button
                                     disabled={openingCaseFor === tenant.id}
                                     onClick={() => handleOpenCase(tenant, summary.totalArrears)}
-                                    className="flex items-center gap-1 text-xs font-medium text-gray-500 border border-gray-200 px-2 py-1.5 rounded-lg hover:border-gray-300 hover:text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50"
+                                    className="flex items-center gap-1 text-caption font-medium text-gray-500 border border-gray-200 px-2 py-1.5 rounded-lg hover:border-gray-300 hover:text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50"
                                   >
                                     {openingCaseFor === tenant.id
                                       ? <Loader2 size={11} className="animate-spin" />
@@ -1430,7 +1430,7 @@ export default function IncomePage() {
                           {/* Expanded: per-period breakdown (mirrors the desktop expand row) */}
                           {isExpanded && (
                             <div className="mt-3 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center text-[10px] text-gray-400 uppercase tracking-wide font-sans pb-1.5">
+                              <div className="flex items-center text-label text-gray-400 uppercase pb-1.5">
                                 <span className="flex-1">Month</span>
                                 <span className="w-24 text-right">Expected</span>
                                 <span className="w-20 text-right">Paid</span>
@@ -1438,7 +1438,7 @@ export default function IncomePage() {
                               </div>
                               <div className="divide-y divide-gray-50">
                                 {[...summary.months].reverse().map((m) => (
-                                  <div key={`${m.year}-${m.month}`} className={`flex items-center py-1.5 text-xs font-sans ${!m.isPaid ? "text-gray-700" : "text-gray-400"}`}>
+                                  <div key={`${m.year}-${m.month}`} className={`flex items-center py-1.5 text-caption ${!m.isPaid ? "text-gray-700" : "text-gray-400"}`}>
                                     <span className="flex-1 font-medium">
                                       {MONTH_SHORT[m.month]} {m.year}
                                       {!m.isPaid && (
@@ -1450,8 +1450,8 @@ export default function IncomePage() {
                                         </button>
                                       )}
                                     </span>
-                                    <span className="w-24 text-right font-mono">{fmt(m.expected)}</span>
-                                    <span className="w-20 text-right font-mono">{m.totalPaid > 0 ? fmt(m.totalPaid) : "—"}</span>
+                                    <span className="w-24 text-right tabular-nums">{fmt(m.expected)}</span>
+                                    <span className="w-20 text-right tabular-nums">{m.totalPaid > 0 ? fmt(m.totalPaid) : "—"}</span>
                                     <span className="w-16 text-right">
                                       {m.isPaid ? (
                                         <span className="text-green-600">✓ Paid</span>
@@ -1477,7 +1477,7 @@ export default function IncomePage() {
                           <tr>
                             <th className="w-8 px-4 py-3" />
                             {["Unit","Tenant","Months Unpaid","Total Arrears","Interest","Last Payment",""].map((h) => (
-                              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                              <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase ">{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -1500,16 +1500,16 @@ export default function IncomePage() {
                                   <td className="px-4 py-3 text-gray-400">
                                     {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                   </td>
-                                  <td className="px-4 py-3 text-sm font-mono text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>
+                                  <td className="px-4 py-3 text-body tabular-nums text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>
                                   <td className="px-4 py-3">
-                                    <p className="text-sm font-sans text-gray-700 font-medium">{tenant.name}</p>
-                                    <p className="text-xs text-gray-400 font-sans">{tenant.unit?.property?.name ?? "—"}</p>
+                                    <p className="text-body text-gray-700 font-medium">{tenant.name}</p>
+                                    <p className="text-caption text-gray-400 ">{tenant.unit?.property?.name ?? "—"}</p>
                                   </td>
                                   <td className="px-4 py-3">
                                     {summary.totalMonthsOwed === 0 ? (
-                                      <span className="text-xs text-green-700 font-sans">Up to date</span>
+                                      <span className="text-caption text-green-700 ">Up to date</span>
                                     ) : (
-                                      <span className="text-sm font-sans font-semibold text-red-600">
+                                      <span className="text-body font-semibold text-red-600">
                                         {summary.totalMonthsOwed} {summary.totalMonthsOwed === 1 ? "month" : "months"}
                                       </span>
                                     )}
@@ -1518,7 +1518,7 @@ export default function IncomePage() {
                                     {summary.totalArrears > 0 ? (
                                       <CurrencyDisplay currency={currency} amount={summary.totalArrears} size="sm" className="text-red-600 font-semibold" />
                                     ) : (
-                                      <span className="text-xs text-green-600 font-sans">—</span>
+                                      <span className="text-caption text-green-600 ">—</span>
                                     )}
                                   </td>
                                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -1532,7 +1532,7 @@ export default function IncomePage() {
                                         <button
                                           disabled={togglingInterest === tenant.id}
                                           onClick={() => toggleInterest(tenant.id, tenant.chargeLatePenalty)}
-                                          className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors font-sans whitespace-nowrap disabled:opacity-50 ${
+                                          className={`flex items-center gap-1 text-caption px-2 py-0.5 rounded-full border transition-colors whitespace-nowrap disabled:opacity-50 ${
                                             tenant.chargeLatePenalty
                                               ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
                                               : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
@@ -1545,13 +1545,13 @@ export default function IncomePage() {
                                         </button>
                                       </div>
                                     ) : (
-                                      <span className="text-xs text-gray-300 font-sans">—</span>
+                                      <span className="text-caption text-gray-300 ">—</span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3 text-sm font-sans text-gray-500">
+                                  <td className="px-4 py-3 text-body text-gray-500">
                                     {summary.lastPaymentDate
                                       ? formatDate(summary.lastPaymentDate)
-                                      : <span className="text-xs text-gray-400 italic">Never</span>}
+                                      : <span className="text-caption text-gray-400 italic">Never</span>}
                                   </td>
                                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center gap-2">
@@ -1568,7 +1568,7 @@ export default function IncomePage() {
                                         openCases[tenant.id] ? (
                                           <Link
                                             href="/arrears"
-                                            className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded-lg hover:bg-amber-100 transition-colors whitespace-nowrap"
+                                            className="flex items-center gap-1 text-caption font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1.5 rounded-lg hover:bg-amber-100 transition-colors whitespace-nowrap"
                                           >
                                             <FolderOpen size={11} />
                                             Case Open
@@ -1577,7 +1577,7 @@ export default function IncomePage() {
                                           <button
                                             disabled={openingCaseFor === tenant.id}
                                             onClick={() => handleOpenCase(tenant, summary.totalArrears)}
-                                            className="flex items-center gap-1 text-xs font-medium text-gray-500 border border-gray-200 px-2 py-1.5 rounded-lg hover:border-gray-300 hover:text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50"
+                                            className="flex items-center gap-1 text-caption font-medium text-gray-500 border border-gray-200 px-2 py-1.5 rounded-lg hover:border-gray-300 hover:text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50"
                                           >
                                             {openingCaseFor === tenant.id
                                               ? <Loader2 size={11} className="animate-spin" />
@@ -1595,9 +1595,9 @@ export default function IncomePage() {
                                   <tr key={`${tenant.id}-expanded`} className="border-t border-gray-50">
                                     <td colSpan={8} className="px-0 py-0">
                                       <div className="bg-gray-50 border-t border-gray-100 px-8 py-3">
-                                        <table className="w-full text-xs font-sans">
+                                        <table className="w-full text-caption ">
                                           <thead>
-                                            <tr className="text-gray-400 uppercase tracking-wide">
+                                            <tr className="text-gray-400 uppercase ">
                                               <th className="pb-2 text-left font-medium">Month</th>
                                               <th className="pb-2 text-right font-medium">Expected</th>
                                               <th className="pb-2 text-right font-medium">Paid</th>
@@ -1677,7 +1677,7 @@ export default function IncomePage() {
                 <button
                   onClick={() => setShowExport(true)}
                   title="Export to Excel — pick a period or all history"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
                 >
                   <FileDown size={13} /> Export
                 </button>
@@ -1693,7 +1693,7 @@ export default function IncomePage() {
             {/* Form */}
             {showForm && (
               <Card>
-                <h3 className="font-display text-base text-header mb-4">New Income Entry</h3>
+                <h3 className=" text-h3 text-header mb-4">New Income Entry</h3>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                   <input type="hidden" {...register("tenantId")} />
                   <input type="hidden" {...register("invoiceId")} />
@@ -1717,7 +1717,7 @@ export default function IncomePage() {
 
                   {incomeType === "AIRBNB" && (
                     <>
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-sans flex items-start gap-2">
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-caption text-amber-800 flex items-start gap-2">
                         <span>💡</span>
                         <span>Tip: Use the <a href="/airbnb" className="font-semibold underline hover:text-amber-900">Airbnb page</a> to create bookings with the visual calendar.</span>
                       </div>
@@ -1729,7 +1729,7 @@ export default function IncomePage() {
                   )}
 
                   {incomeType === "DEPOSIT" && (
-                    <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-xs text-purple-700 font-sans">
+                    <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-caption text-purple-700 ">
                       Deposits are held on behalf of the tenant and are <strong>not counted as P&L income</strong>. They appear separately in the summary.
                     </div>
                   )}
@@ -1745,14 +1745,14 @@ export default function IncomePage() {
                     {["LONGTERM_RENT", "SERVICE_CHARGE", "DEPOSIT"].includes(incomeType) && selectedUnitId && (
                       <div className="mt-1.5 flex items-center gap-2">
                         {tenantLookupLoading ? (
-                          <span className="text-xs text-gray-400 font-sans">Looking up tenant…</span>
+                          <span className="text-caption text-gray-400 ">Looking up tenant…</span>
                         ) : activeTenant ? (
-                          <span className="flex items-center gap-1.5 text-xs font-sans text-income bg-green-50 px-2 py-1 rounded-lg">
+                          <span className="flex items-center gap-1.5 text-caption text-income bg-green-50 px-2 py-1 rounded-lg">
                             <User size={11} />
                             Linked to: <span className="font-medium">{activeTenant.name}</span>
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400 font-sans italic">No active tenant found for this unit</span>
+                          <span className="text-caption text-gray-400 italic">No active tenant found for this unit</span>
                         )}
                       </div>
                     )}
@@ -1789,7 +1789,7 @@ export default function IncomePage() {
                         <div>
                           <Input label="Nightly Rate" tooltip="The per-night price charged to the guest. Helps you track average rate performance across bookings." type="number" step="1" {...register("nightlyRate")} placeholder={suggestedNightlyRate ? String(suggestedNightlyRate) : "Optional"} />
                           {suggestedNightlyRate && (
-                            <button type="button" onClick={() => setValue("nightlyRate", suggestedNightlyRate)} className="mt-1 text-xs text-gold hover:text-gold-dark font-sans transition-colors">
+                            <button type="button" onClick={() => setValue("nightlyRate", suggestedNightlyRate)} className="mt-1 text-caption text-gold hover:text-gold-dark transition-colors">
                               Use suggested: {formatCurrency(suggestedNightlyRate, currency)}
                             </button>
                           )}
@@ -1829,19 +1829,19 @@ export default function IncomePage() {
                         <div key={entry.id} className={clsx("px-4 py-3", entry.type === "DEPOSIT" && "opacity-75")}>
                           {/* Date + badge */}
                           <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <span className="text-xs text-gray-400 font-mono">{formatDate(entry.date)}</span>
+                            <span className="text-caption text-gray-400 tabular-nums">{formatDate(entry.date)}</span>
                             <Badge variant={typeInfo.badge}>{typeInfo.label}</Badge>
                           </div>
                           {/* Unit + tenant */}
                           <div className="mb-2">
-                            <p className="text-sm font-medium font-sans text-header">
+                            <p className="text-body font-medium text-header">
                               {entry.tenant?.name ?? entry.unit?.unitNumber ?? "—"}
                             </p>
                             {entry.tenant?.name && entry.unit?.unitNumber && (
-                              <p className="text-xs text-gray-400 font-mono mt-0.5">{entry.unit.unitNumber}</p>
+                              <p className="text-caption text-gray-400 tabular-nums mt-0.5">{entry.unit.unitNumber}</p>
                             )}
                             {entry.invoice?.invoiceNumber && (
-                              <p className="text-xs text-gray-400 font-sans mt-0.5">Inv {entry.invoice.invoiceNumber}</p>
+                              <p className="text-caption text-gray-400 mt-0.5">Inv {entry.invoice.invoiceNumber}</p>
                             )}
                           </div>
                           {/* Amount + delete */}
@@ -1849,7 +1849,7 @@ export default function IncomePage() {
                             <div>
                               <CurrencyDisplay currency={currency} amount={entry.grossAmount ?? 0} size="sm" className="text-income font-semibold" />
                               {(entry.agentCommission ?? 0) > 0 && (
-                                <p className="text-[10px] text-gray-400 font-sans mt-0.5">Net: {fmt(net)}</p>
+                                <p className="text-caption text-gray-400 mt-0.5">Net: {fmt(net)}</p>
                               )}
                             </div>
                             {canDelete && (
@@ -1926,19 +1926,19 @@ export default function IncomePage() {
             {/* KPI cards */}
             <div className="grid grid-cols-3 gap-3">
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Commission</p>
+                <p className="text-label text-gray-400 uppercase ">Total Commission</p>
                 <CurrencyDisplay currency={currency} amount={totalCommission} className="block mt-1 text-header" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.length} entr{commissionEntries.length === 1 ? "y" : "ies"}</p>
+                <p className="text-caption text-gray-400 mt-0.5">{commissionEntries.length} entr{commissionEntries.length === 1 ? "y" : "ies"}</p>
               </Card>
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Paid to Agent</p>
+                <p className="text-label text-gray-400 uppercase ">Paid to Agent</p>
                 <CurrencyDisplay currency={currency} amount={paidCommission} className="block mt-1 text-income" size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.filter((e: any) => e.commissionPaidAt).length} settled</p>
+                <p className="text-caption text-gray-400 mt-0.5">{commissionEntries.filter((e: any) => e.commissionPaidAt).length} settled</p>
               </Card>
               <Card padding="sm">
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Outstanding</p>
+                <p className="text-label text-gray-400 uppercase ">Outstanding</p>
                 <CurrencyDisplay currency={currency} amount={outstandingComm} className={`block mt-1 ${outstandingComm > 0 ? "text-expense" : "text-income"}`} size="lg" />
-                <p className="text-xs text-gray-400 font-sans mt-0.5">{commissionEntries.filter((e: any) => !e.commissionPaidAt).length} unpaid</p>
+                <p className="text-caption text-gray-400 mt-0.5">{commissionEntries.filter((e: any) => !e.commissionPaidAt).length} unpaid</p>
               </Card>
             </div>
 
@@ -1947,16 +1947,16 @@ export default function IncomePage() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <button
                   onClick={() => setShowAgentDir((v) => !v)}
-                  className="flex items-center gap-2 text-sm font-display text-header hover:text-gold transition-colors"
+                  className="flex items-center gap-2 text-body font-medium text-header hover:text-gold transition-colors"
                 >
                   <BookUser size={15} className="text-gold" />
                   Agent Directory
-                  <span className="text-xs text-gray-400 font-sans">({agents.length})</span>
+                  <span className="text-caption text-gray-400 ">({agents.length})</span>
                   {showAgentDir ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
                 </button>
                 <button
                   onClick={() => { setShowAgentForm(true); setEditingAgent(null); setAgentFormData({ name: "", phone: "", email: "", agency: "", notes: "" }); }}
-                  className="flex items-center gap-1.5 text-xs font-sans font-medium text-gold hover:text-gold-dark transition-colors"
+                  className="flex items-center gap-1.5 text-caption font-medium text-gold hover:text-gold-dark transition-colors"
                 >
                   <Plus size={13} /> Add Agent
                 </button>
@@ -1967,66 +1967,66 @@ export default function IncomePage() {
                   {/* Add / inline form */}
                   {(showAgentForm || editingAgent) && (
                     <div className="border border-gold/30 rounded-xl p-4 bg-amber-50/30 space-y-3">
-                      <p className="text-xs font-medium font-sans text-header">{editingAgent ? "Edit Agent" : "New Agent"}</p>
+                      <p className="text-caption font-medium text-header">{editingAgent ? "Edit Agent" : "New Agent"}</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Name *</label>
+                          <label className="block text-caption text-gray-500 mb-1">Name *</label>
                           <input
                             value={agentFormData.name}
                             onChange={(e) => setAgentFormData((p) => ({ ...p, name: e.target.value }))}
                             placeholder="Agent name"
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                            className="w-full text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold/50"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Agency / Company</label>
+                          <label className="block text-caption text-gray-500 mb-1">Agency / Company</label>
                           <input
                             value={agentFormData.agency}
                             onChange={(e) => setAgentFormData((p) => ({ ...p, agency: e.target.value }))}
                             placeholder="e.g. Prime Lets Ltd"
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                            className="w-full text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold/50"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Phone</label>
+                          <label className="block text-caption text-gray-500 mb-1">Phone</label>
                           <input
                             value={agentFormData.phone}
                             onChange={(e) => setAgentFormData((p) => ({ ...p, phone: e.target.value }))}
                             placeholder="+1 555 000 0000"
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                            className="w-full text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold/50"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Email</label>
+                          <label className="block text-caption text-gray-500 mb-1">Email</label>
                           <input
                             value={agentFormData.email}
                             onChange={(e) => setAgentFormData((p) => ({ ...p, email: e.target.value }))}
                             placeholder="agent@example.com"
                             type="email"
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                            className="w-full text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold/50"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Notes</label>
+                        <label className="block text-caption text-gray-500 mb-1">Notes</label>
                         <textarea
                           value={agentFormData.notes}
                           onChange={(e) => setAgentFormData((p) => ({ ...p, notes: e.target.value }))}
                           rows={2}
                           placeholder="Any notes about this agent..."
-                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
+                          className="w-full text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
                         />
                       </div>
                       <div className="flex gap-2">
                         <button
                           onClick={handleSaveAgent}
                           disabled={savingAgent || !agentFormData.name.trim()}
-                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gold text-white rounded-lg font-sans font-medium hover:bg-gold-dark transition-colors disabled:opacity-40"
+                          className="flex items-center gap-1.5 text-caption px-3 py-1.5 bg-gold text-white rounded-lg font-medium hover:bg-gold-dark transition-colors disabled:opacity-40"
                         >
                           {savingAgent ? <Loader2 size={12} className="animate-spin" /> : null}
                           {editingAgent ? "Save Changes" : "Add Agent"}
                         </button>
-                        <button onClick={cancelAgentForm} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg font-sans text-gray-500 hover:bg-gray-50 transition-colors">
+                        <button onClick={cancelAgentForm} className="text-caption px-3 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
                           Cancel
                         </button>
                       </div>
@@ -2036,7 +2036,7 @@ export default function IncomePage() {
                   {agentsLoading ? (
                     <div className="flex justify-center py-6"><Spinner /></div>
                   ) : agents.length === 0 && !showAgentForm ? (
-                    <p className="text-xs text-gray-400 font-sans text-center py-4">No agents saved yet. Add one above.</p>
+                    <p className="text-caption text-gray-400 text-center py-4">No agents saved yet. Add one above.</p>
                   ) : (
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {agents.map((agent) => (
@@ -2044,26 +2044,26 @@ export default function IncomePage() {
                           <div key={agent.id} className="border border-gray-100 rounded-xl p-3 bg-white hover:border-gray-200 transition-colors">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="text-sm font-medium font-sans text-header truncate">{agent.name}</p>
+                                <p className="text-body font-medium text-header truncate">{agent.name}</p>
                                 {agent.agency && (
-                                  <p className="flex items-center gap-1 text-xs text-gray-500 font-sans mt-0.5">
+                                  <p className="flex items-center gap-1 text-caption text-gray-500 mt-0.5">
                                     <Building2 size={10} className="shrink-0 text-gray-400" /> {agent.agency}
                                   </p>
                                 )}
                                 {agent.phone && (
-                                  <p className="flex items-center gap-1 text-xs text-gray-600 font-sans mt-0.5">
+                                  <p className="flex items-center gap-1 text-caption text-gray-600 mt-0.5">
                                     <Phone size={10} className="shrink-0 text-gray-400" />
                                     <a href={`tel:${agent.phone}`} className="hover:text-gold transition-colors">{agent.phone}</a>
                                   </p>
                                 )}
                                 {agent.email && (
-                                  <p className="flex items-center gap-1 text-xs text-gray-600 font-sans mt-0.5">
+                                  <p className="flex items-center gap-1 text-caption text-gray-600 mt-0.5">
                                     <Mail size={10} className="shrink-0 text-gray-400" />
                                     <a href={`mailto:${agent.email}`} className="hover:text-gold transition-colors truncate">{agent.email}</a>
                                   </p>
                                 )}
                                 {agent.notes && (
-                                  <p className="text-xs text-gray-400 font-sans mt-1 italic line-clamp-2">{agent.notes}</p>
+                                  <p className="text-caption text-gray-400 mt-1 italic line-clamp-2">{agent.notes}</p>
                                 )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
@@ -2088,8 +2088,8 @@ export default function IncomePage() {
               <Card>
                 <div className="flex flex-col items-center py-10 gap-2 text-gray-400">
                   <DollarSign size={28} className="opacity-30" />
-                  <p className="text-sm font-sans">No commission entries for {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}</p>
-                  <p className="text-xs font-sans">Commissions are recorded on Airbnb / agent income entries</p>
+                  <p className="text-body ">No commission entries for {MONTH_NAMES[month.getMonth()]} {month.getFullYear()}</p>
+                  <p className="text-caption ">Commissions are recorded on Airbnb / agent income entries</p>
                 </div>
               </Card>
             ) : (
@@ -2103,7 +2103,7 @@ export default function IncomePage() {
                         <thead className="bg-cream-dark">
                           <tr>
                             {["Agent", "Contact", "Bookings", "Total Commission", "Paid", "Outstanding", "Status"].map((h) => (
-                              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                              <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase ">{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -2113,21 +2113,21 @@ export default function IncomePage() {
                             const allPaid = outstanding === 0;
                             return (
                               <tr key={agent} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
-                                <td className="px-4 py-3 text-sm font-medium font-sans text-header">{agent}</td>
+                                <td className="px-4 py-3 text-body font-medium text-header">{agent}</td>
                                 <td className="px-4 py-3">
                                   {(() => {
                                     const dir = agents.find((a) => a.name.toLowerCase() === agent.toLowerCase());
-                                    if (!dir) return <span className="text-xs text-gray-400 font-sans">—</span>;
+                                    if (!dir) return <span className="text-caption text-gray-400 ">—</span>;
                                     return (
                                       <div className="space-y-0.5">
-                                        {dir.phone && <p className="flex items-center gap-1 text-xs text-gray-600 font-sans"><Phone size={10} className="text-gray-400 shrink-0" />{dir.phone}</p>}
-                                        {dir.email && <p className="flex items-center gap-1 text-xs text-gray-600 font-sans"><Mail size={10} className="text-gray-400 shrink-0" />{dir.email}</p>}
-                                        {!dir.phone && !dir.email && <span className="text-xs text-gray-400 font-sans">—</span>}
+                                        {dir.phone && <p className="flex items-center gap-1 text-caption text-gray-600 "><Phone size={10} className="text-gray-400 shrink-0" />{dir.phone}</p>}
+                                        {dir.email && <p className="flex items-center gap-1 text-caption text-gray-600 "><Mail size={10} className="text-gray-400 shrink-0" />{dir.email}</p>}
+                                        {!dir.phone && !dir.email && <span className="text-caption text-gray-400 ">—</span>}
                                       </div>
                                     );
                                   })()}
                                 </td>
-                                <td className="px-4 py-3 text-sm font-sans text-gray-500 text-center">{stats.count}</td>
+                                <td className="px-4 py-3 text-body text-gray-500 text-center">{stats.count}</td>
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={stats.total} size="sm" className="text-header" /></td>
                                 <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={stats.paid} size="sm" className="text-income" /></td>
                                 <td className="px-4 py-3 text-right">
@@ -2135,8 +2135,8 @@ export default function IncomePage() {
                                 </td>
                                 <td className="px-4 py-3">
                                   {allPaid
-                                    ? <span className="flex items-center gap-1 text-xs text-income font-sans"><CheckCheck size={12} /> All paid</span>
-                                    : <span className="flex items-center gap-1 text-xs text-amber-600 font-sans"><Clock size={12} /> Outstanding</span>
+                                    ? <span className="flex items-center gap-1 text-caption text-income "><CheckCheck size={12} /> All paid</span>
+                                    : <span className="flex items-center gap-1 text-caption text-amber-600 "><Clock size={12} /> Outstanding</span>
                                   }
                                 </td>
                               </tr>
@@ -2156,7 +2156,7 @@ export default function IncomePage() {
                       <thead className="bg-cream-dark">
                         <tr>
                           {["Date", "Unit", "Agent", "Gross Income", "Commission", "Status", "Action"].map((h) => (
-                            <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                            <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase ">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -2166,22 +2166,22 @@ export default function IncomePage() {
                           const isMarking = markingCommission === entry.id;
                           return (
                             <tr key={entry.id} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
-                              <td className="px-4 py-3 text-sm font-sans text-gray-600">{formatDate(entry.date)}</td>
-                              <td className="px-4 py-3 text-xs font-mono text-gray-500">
+                              <td className="px-4 py-3 text-body text-gray-600">{formatDate(entry.date)}</td>
+                              <td className="px-4 py-3 text-caption tabular-nums text-gray-500">
                                 {entry.unit?.unitNumber}
                                 <span className="block text-gray-400">{entry.unit?.property?.name}</span>
                               </td>
-                              <td className="px-4 py-3 text-sm font-sans text-header">{entry.agentName ?? "—"}</td>
+                              <td className="px-4 py-3 text-body text-header">{entry.agentName ?? "—"}</td>
                               <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={entry.grossAmount} size="sm" className="text-gray-600" /></td>
                               <td className="px-4 py-3 text-right"><CurrencyDisplay currency={currency} amount={entry.agentCommission} size="sm" className="text-expense" /></td>
                               <td className="px-4 py-3">
                                 {isPaid ? (
-                                  <span className="flex items-center gap-1 text-xs text-income font-sans">
+                                  <span className="flex items-center gap-1 text-caption text-income ">
                                     <CheckCheck size={12} />
                                     {entry.commissionPaidAt ? `Paid ${formatDate(entry.commissionPaidAt)}` : "Paid"}
                                   </span>
                                 ) : (
-                                  <span className="flex items-center gap-1 text-xs text-amber-600 font-sans">
+                                  <span className="flex items-center gap-1 text-caption text-amber-600 ">
                                     <Clock size={12} /> Unpaid
                                   </span>
                                 )}
@@ -2190,7 +2190,7 @@ export default function IncomePage() {
                                 <button
                                   disabled={isMarking}
                                   onClick={() => handleMarkCommission(entry.id, !isPaid)}
-                                  className={`text-xs px-2.5 py-1 rounded-lg font-sans font-medium transition-colors disabled:opacity-40 ${
+                                  className={`text-caption px-2.5 py-1 rounded-lg font-medium transition-colors disabled:opacity-40 ${
                                     isPaid
                                       ? "border border-gray-200 text-gray-500 hover:bg-gray-50"
                                       : "bg-income/10 text-income hover:bg-income/20"

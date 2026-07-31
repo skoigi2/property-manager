@@ -202,14 +202,14 @@ function DocumentPanel({ policyId }: { policyId: string }) {
 
   return (
     <div className="mt-3 border-t border-gray-100 pt-3 space-y-3">
-      <h4 className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide">Documents</h4>
+      <h4 className="text-label font-semibold text-gray-500 uppercase ">Documents</h4>
 
       {docs.length === 0 && (
-        <p className="text-sm text-gray-400 font-sans">No documents uploaded yet.</p>
+        <p className="text-body text-gray-400 ">No documents uploaded yet.</p>
       )}
 
       {docs.map((doc) => (
-        <div key={doc.id} className="flex items-center justify-between gap-2 text-sm font-sans">
+        <div key={doc.id} className="flex items-center justify-between gap-2 text-body ">
           <div className="flex items-center gap-2 min-w-0">
             <FileText size={14} className="text-gray-400 shrink-0" />
             <a
@@ -222,7 +222,7 @@ function DocumentPanel({ policyId }: { policyId: string }) {
               <ExternalLink size={11} />
             </a>
             {doc.fileSize && (
-              <span className="text-gray-400 text-xs shrink-0">{formatFileSize(doc.fileSize)}</span>
+              <span className="text-gray-400 text-caption shrink-0">{formatFileSize(doc.fileSize)}</span>
             )}
           </div>
           <button
@@ -241,7 +241,7 @@ function DocumentPanel({ policyId }: { policyId: string }) {
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Document label (optional)"
-          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+          className="flex-1 text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-gold/30"
         />
         <label className="cursor-pointer">
           <input
@@ -252,7 +252,7 @@ function DocumentPanel({ policyId }: { policyId: string }) {
             onChange={handleUpload}
             disabled={uploading}
           />
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-cream rounded-lg text-sm font-sans text-header hover:bg-cream-dark transition-colors">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-cream rounded-lg text-body text-header hover:bg-cream-dark transition-colors">
             {uploading ? <Spinner size="sm" /> : <Upload size={13} />}
             Upload
           </span>
@@ -438,14 +438,14 @@ export default function InsurancePage() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex gap-3">
             <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-sans font-semibold text-amber-800">
+              <p className="text-body font-semibold text-amber-800">
                 {alertPolicies.length} {alertPolicies.length === 1 ? "policy requires" : "policies require"} attention
               </p>
               <ul className="mt-1 space-y-0.5">
                 {alertPolicies.map((p) => {
                   const days = daysUntil(p.endDate);
                   return (
-                    <li key={p.id} className="text-xs font-sans text-amber-700">
+                    <li key={p.id} className="text-caption text-amber-700">
                       <span className="font-medium">{p.insurer}</span> ({p.policyNumber}) —{" "}
                       {days < 0
                         ? `expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? "s" : ""} ago`
@@ -461,23 +461,23 @@ export default function InsurancePage() {
         {/* KPI cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Total Policies</p>
-            <p className="text-2xl font-display text-header mt-1">{totalPolicies}</p>
+            <p className="text-label text-gray-500 uppercase ">Total Policies</p>
+            <p className="text-h1 text-header mt-1">{totalPolicies}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Active</p>
-            <p className="text-2xl font-display text-income mt-1">{activePolicies}</p>
+            <p className="text-label text-gray-500 uppercase ">Active</p>
+            <p className="text-h1 text-income mt-1">{activePolicies}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Expiring / Expired</p>
-            <p className="text-2xl font-display text-expense mt-1">{expiringSoon + expired}</p>
+            <p className="text-label text-gray-500 uppercase ">Expiring / Expired</p>
+            <p className="text-h1 text-expense mt-1">{expiringSoon + expired}</p>
             {expiringSoon > 0 && (
-              <p className="text-xs font-sans text-amber-600 mt-0.5">{expiringSoon} expiring soon</p>
+              <p className="text-caption text-amber-600 mt-0.5">{expiringSoon} expiring soon</p>
             )}
           </Card>
           <Card className="p-4">
-            <p className="text-xs font-sans text-gray-500 uppercase tracking-wide">Total Annual Premium</p>
-            <p className="text-lg font-display text-header mt-1">{formatCurrency(totalAnnualPremium, currency)}</p>
+            <p className="text-label text-gray-500 uppercase ">Total Annual Premium</p>
+            <p className="text-h3 text-header mt-1">{formatCurrency(totalAnnualPremium, currency)}</p>
           </Card>
         </div>
 
@@ -486,7 +486,7 @@ export default function InsurancePage() {
           <select
             value={filterProperty}
             onChange={(e) => setFilterProperty(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
           >
             <option value="">All properties</option>
             {properties.map((p) => (
@@ -496,7 +496,7 @@ export default function InsurancePage() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
           >
             <option value="">All types</option>
             {Object.entries(TYPE_LABELS).map(([k, v]) => (
@@ -508,7 +508,7 @@ export default function InsurancePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search insurer, policy no..."
-            className="flex-1 min-w-[200px] text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="flex-1 min-w-[200px] text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
           />
           <Button onClick={openAdd} className="ml-auto flex items-center gap-2">
             <Plus size={15} /> Add Policy
@@ -540,23 +540,23 @@ export default function InsurancePage() {
                         <Badge variant={TYPE_BADGE[policy.type] ?? "gray"}>
                           {TYPE_LABELS[policy.type] ?? policy.type}
                         </Badge>
-                        <span className="font-sans font-semibold text-header">{policy.insurer}</span>
-                        <span className="font-mono text-xs text-gray-400">{policy.policyNumber}</span>
+                        <span className=" font-semibold text-header">{policy.insurer}</span>
+                        <span className="tabular-nums text-caption text-gray-400">{policy.policyNumber}</span>
                       </div>
-                      <p className="text-xs font-sans text-gray-500 mt-0.5">{policy.property.name}</p>
+                      <p className="text-caption text-gray-500 mt-0.5">{policy.property.name}</p>
                     </div>
                   </div>
 
                   {/* Body grid */}
-                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm font-sans">
+                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-body ">
                     <div>
-                      <span className="text-gray-400 text-xs">Coverage</span>
+                      <span className="text-gray-400 text-caption">Coverage</span>
                       <p className="text-header font-medium">
                         {policy.coverageAmount ? formatCurrency(policy.coverageAmount, currency) : "—"}
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-400 text-xs">Premium</span>
+                      <span className="text-gray-400 text-caption">Premium</span>
                       <p className="text-header font-medium">
                         {policy.premiumAmount
                           ? `${formatCurrency(policy.premiumAmount, currency)} / ${FREQ_LABELS[policy.premiumFrequency ?? ""] ?? ""}`
@@ -564,16 +564,16 @@ export default function InsurancePage() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-gray-400 text-xs">Start date</span>
+                      <span className="text-gray-400 text-caption">Start date</span>
                       <p className="text-header">{formatDate(new Date(policy.startDate))}</p>
                     </div>
                     <div>
-                      <span className="text-gray-400 text-xs">End date</span>
+                      <span className="text-gray-400 text-caption">End date</span>
                       <p className="text-header">{formatDate(new Date(policy.endDate))}</p>
                     </div>
                     {(policy.brokerName || policy.brokerContact) && (
                       <div className="col-span-2">
-                        <span className="text-gray-400 text-xs">Broker</span>
+                        <span className="text-gray-400 text-caption">Broker</span>
                         <p className="text-header">
                           {[policy.brokerName, policy.brokerContact].filter(Boolean).join(" · ")}
                         </p>
@@ -586,7 +586,7 @@ export default function InsurancePage() {
                     <Badge variant={status.variant}>{status.label}</Badge>
                     <button
                       onClick={() => setExpandedDocPanel(docsOpen ? null : policy.id)}
-                      className="flex items-center gap-1 text-xs font-sans text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream"
+                      className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream"
                     >
                       <FileText size={12} />
                       {policy.documentsCount} doc{policy.documentsCount !== 1 ? "s" : ""}
@@ -595,13 +595,13 @@ export default function InsurancePage() {
                     <div className="ml-auto flex items-center gap-2">
                       <button
                         onClick={() => openEdit(policy)}
-                        className="flex items-center gap-1 text-xs font-sans text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream"
+                        className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream"
                       >
                         <Pencil size={12} /> Edit
                       </button>
                       <button
                         onClick={() => setDeleteId(policy.id)}
-                        className="flex items-center gap-1 text-xs font-sans text-gray-500 hover:text-expense transition-colors px-2 py-1 rounded-md hover:bg-red-50"
+                        className="flex items-center gap-1 text-caption text-gray-500 hover:text-expense transition-colors px-2 py-1 rounded-md hover:bg-red-50"
                       >
                         <Trash2 size={12} /> Delete
                       </button>
@@ -628,13 +628,13 @@ export default function InsurancePage() {
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           {/* Property */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Property <span className="text-expense">*</span>
             </label>
             <select
               value={form.propertyId}
               onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
             >
               <option value="">Select property</option>
               {properties.map((p) => (
@@ -645,13 +645,13 @@ export default function InsurancePage() {
 
           {/* Type */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Type <span className="text-expense">*</span>
             </label>
             <select
               value={form.type}
               onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
             >
               {Object.entries(TYPE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -663,14 +663,14 @@ export default function InsurancePage() {
                 value={form.typeOther}
                 onChange={(e) => setForm((f) => ({ ...f, typeOther: e.target.value }))}
                 placeholder="Specify type..."
-                className="mt-2 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="mt-2 w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             )}
           </div>
 
           {/* Insurer */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Insurer <span className="text-expense">*</span>
             </label>
             <input
@@ -678,13 +678,13 @@ export default function InsurancePage() {
               value={form.insurer}
               onChange={(e) => setForm((f) => ({ ...f, insurer: e.target.value }))}
               placeholder="e.g. Jubilee Insurance"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
 
           {/* Policy Number */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Policy Number <span className="text-expense">*</span>
             </label>
             <input
@@ -692,39 +692,39 @@ export default function InsurancePage() {
               value={form.policyNumber}
               onChange={(e) => setForm((f) => ({ ...f, policyNumber: e.target.value }))}
               placeholder="e.g. POL-2024-001"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
 
           {/* Start / End dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Start Date <span className="text-expense">*</span>
               </label>
               <input
                 type="date"
                 value={form.startDate}
                 onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 End Date <span className="text-expense">*</span>
               </label>
               <input
                 type="date"
                 value={form.endDate}
                 onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
           </div>
 
           {/* Coverage Amount */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+            <label className="block text-caption font-medium text-gray-500 mb-1">
               Coverage Amount
             </label>
             <input
@@ -733,14 +733,14 @@ export default function InsurancePage() {
               onChange={(e) => setForm((f) => ({ ...f, coverageAmount: e.target.value }))}
               placeholder="0"
               min="0"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
           </div>
 
           {/* Premium Amount + Frequency */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Premium Amount
               </label>
               <input
@@ -749,17 +749,17 @@ export default function InsurancePage() {
                 onChange={(e) => setForm((f) => ({ ...f, premiumAmount: e.target.value }))}
                 placeholder="0"
                 min="0"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Frequency
               </label>
               <select
                 value={form.premiumFrequency}
                 onChange={(e) => setForm((f) => ({ ...f, premiumFrequency: e.target.value }))}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
               >
                 <option value="">Select...</option>
                 {Object.entries(FREQ_LABELS).map(([k, v]) => (
@@ -772,7 +772,7 @@ export default function InsurancePage() {
           {/* Broker Name / Contact */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Broker Name
               </label>
               <input
@@ -780,11 +780,11 @@ export default function InsurancePage() {
                 value={form.brokerName}
                 onChange={(e) => setForm((f) => ({ ...f, brokerName: e.target.value }))}
                 placeholder="Broker name"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-sans font-medium text-gray-500 mb-1">
+              <label className="block text-caption font-medium text-gray-500 mb-1">
                 Broker Contact
               </label>
               <input
@@ -792,20 +792,20 @@ export default function InsurancePage() {
                 value={form.brokerContact}
                 onChange={(e) => setForm((f) => ({ ...f, brokerContact: e.target.value }))}
                 placeholder="+1 555 000 0000"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Notes</label>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               rows={3}
               placeholder="Additional notes..."
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
             />
           </div>
 

@@ -125,7 +125,7 @@ export function OwnerEmailDraftModal({ statement, onClose }: Props) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-2">
             <Mail size={16} className="text-gold" />
-            <h2 className="font-display text-base text-header">Email Owner</h2>
+            <h2 className=" text-h3 text-header">Email Owner</h2>
           </div>
           <button
             onClick={onClose}
@@ -139,11 +139,11 @@ export function OwnerEmailDraftModal({ statement, onClose }: Props) {
         <div className="overflow-y-auto flex-1 p-5 space-y-4">
           {/* To */}
           <div>
-            <p className="text-xs font-sans text-gray-400 uppercase tracking-wide mb-1">To</p>
+            <p className="text-label text-gray-400 uppercase mb-1">To</p>
             {statement.ownerEmail ? (
-              <p className="text-sm font-sans text-header">{statement.ownerEmail}</p>
+              <p className="text-body text-header">{statement.ownerEmail}</p>
             ) : (
-              <p className="text-xs font-sans text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              <p className="text-caption text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
                 No email on file for this owner. Add the owner&apos;s email in Settings to enable the mailto link.
               </p>
             )}
@@ -151,14 +151,14 @@ export function OwnerEmailDraftModal({ statement, onClose }: Props) {
 
           {/* Subject */}
           <div>
-            <p className="text-xs font-sans text-gray-400 uppercase tracking-wide mb-1">Subject</p>
-            <p className="text-sm font-sans text-header">{draft.subject}</p>
+            <p className="text-label text-gray-400 uppercase mb-1">Subject</p>
+            <p className="text-body text-header">{draft.subject}</p>
           </div>
 
           {/* Body */}
           <div>
-            <p className="text-xs font-sans text-gray-400 uppercase tracking-wide mb-1">Body</p>
-            <pre className="text-xs font-mono text-gray-700 bg-cream rounded-xl p-4 whitespace-pre-wrap leading-relaxed overflow-x-auto">
+            <p className="text-label text-gray-400 uppercase mb-1">Body</p>
+            <pre className="text-caption font-mono text-gray-700 bg-cream rounded-xl p-4 whitespace-pre-wrap overflow-x-auto">
               {draft.body}
             </pre>
           </div>
@@ -168,7 +168,7 @@ export function OwnerEmailDraftModal({ statement, onClose }: Props) {
         <div className="flex items-center gap-2 px-5 py-4 border-t border-gray-100 shrink-0">
           <button
             onClick={copyBody}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-sans font-medium bg-gold text-white rounded-xl hover:bg-gold-dark transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 text-body font-medium bg-gold text-white rounded-xl hover:bg-gold-dark transition-colors"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "Copied!" : "Copy body"}
@@ -176,7 +176,7 @@ export function OwnerEmailDraftModal({ statement, onClose }: Props) {
           {mailtoLink && (
             <a
               href={mailtoLink}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-sans font-medium border border-gray-200 rounded-xl text-gray-600 hover:border-gold/40 hover:text-gold transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 text-body font-medium border border-gray-200 rounded-xl text-gray-600 hover:border-gold/40 hover:text-gold transition-colors"
             >
               <ExternalLink size={14} /> Open in mail app
             </a>

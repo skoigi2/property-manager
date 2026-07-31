@@ -135,7 +135,7 @@ function TaxConfigForm({
 
       {/* Type */}
       <div>
-        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-2">
+        <label className="block text-label font-medium text-gray-500 uppercase mb-2">
           Tax Mechanism
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -144,14 +144,14 @@ function TaxConfigForm({
               key={t}
               type="button"
               onClick={() => setType(t)}
-              className={`px-3 py-2.5 rounded-xl border text-sm font-sans text-left transition-colors ${
+              className={`px-3 py-2.5 rounded-xl border text-body text-left transition-colors ${
                 type === t
                   ? "border-gold bg-gold/5 text-header font-medium"
                   : "border-gray-200 text-gray-500 hover:border-gray-300"
               }`}
             >
               <p className="font-medium">{t === "ADDITIVE" ? "Additive" : "Withheld"}</p>
-              <p className="text-xs text-gray-400 mt-0.5 leading-snug">
+              <p className="text-caption text-gray-400 mt-0.5 ">
                 {t === "ADDITIVE"
                   ? "Added on top — VAT, GST. Increases invoice total."
                   : "Deducted from gross — WHT, TDS. Reduces remittance."}
@@ -163,18 +163,18 @@ function TaxConfigForm({
 
       {/* Applies To */}
       <div>
-        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide font-sans mb-2">
+        <label className="block text-label font-medium text-gray-500 uppercase mb-2">
           Applies To
         </label>
         <div className="space-y-2">
-          <p className="text-xs text-gray-400 font-sans">Income transactions</p>
+          <p className="text-caption text-gray-400 ">Income transactions</p>
           <div className="flex flex-wrap gap-2">
             {incomeOptions.map((o) => (
               <button
                 key={o.value}
                 type="button"
                 onClick={() => toggleAppliesTo(o.value)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-sans border transition-colors ${
+                className={`px-2.5 py-1 rounded-lg text-caption border transition-colors ${
                   appliesTo.includes(o.value)
                     ? "border-gold bg-gold/10 text-gold-dark font-medium"
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
@@ -184,14 +184,14 @@ function TaxConfigForm({
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-400 font-sans mt-2">Expense line items</p>
+          <p className="text-caption text-gray-400 mt-2">Expense line items</p>
           <div className="flex flex-wrap gap-2">
             {expenseOptions.map((o) => (
               <button
                 key={o.value}
                 type="button"
                 onClick={() => toggleAppliesTo(o.value)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-sans border transition-colors ${
+                className={`px-2.5 py-1 rounded-lg text-caption border transition-colors ${
                   appliesTo.includes(o.value)
                     ? "border-gold bg-gold/10 text-gold-dark font-medium"
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
@@ -213,7 +213,7 @@ function TaxConfigForm({
             onChange={(e) => setIsInclusive(e.target.checked)}
             className="rounded border-gray-300 text-gold focus:ring-gold"
           />
-          <span className="text-sm font-sans text-gray-600">Tax-inclusive (extract from stated amount)</span>
+          <span className="text-body text-gray-600">Tax-inclusive (extract from stated amount)</span>
         </label>
       </div>
 
@@ -308,13 +308,13 @@ export function TaxConfigPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 font-sans">
+          <p className="text-body text-gray-500 ">
             {propertyId
               ? "Tax rules for this property. These override org-level defaults."
               : "Organisation-level defaults, applied to all properties unless overridden."}
           </p>
           {configs.length === 0 && !loading && (
-            <div className="mt-2 flex items-start gap-1.5 text-xs text-gray-400 font-sans">
+            <div className="mt-2 flex items-start gap-1.5 text-caption text-gray-400 ">
               <Info size={12} className="mt-0.5 shrink-0" />
               <span>No tax configs — system behaves as tax-free. A US user would leave this empty.</span>
             </div>
@@ -322,7 +322,7 @@ export function TaxConfigPanel({
         </div>
         <Button
           onClick={() => { setEditing(null); setShowModal(true); }}
-          className="flex items-center gap-1.5 text-sm"
+          className="flex items-center gap-1.5 text-body"
         >
           <Plus size={14} /> Add Tax Rule
         </Button>
@@ -338,7 +338,7 @@ export function TaxConfigPanel({
           ].map(({ label, list }) =>
             list.length === 0 ? null : (
               <div key={label}>
-                <p className="text-xs text-gray-400 uppercase tracking-wide font-sans mb-1.5">{label}</p>
+                <p className="text-label text-gray-400 uppercase mb-1.5">{label}</p>
                 <div className="space-y-2">
                   {list.map((config) => (
                     <div
@@ -350,7 +350,7 @@ export function TaxConfigPanel({
                       <div className="flex items-center gap-3 min-w-0">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm font-medium text-header">
+                            <span className="tabular-nums text-body font-medium text-header">
                               {config.label} ({(config.rate * 100).toFixed(0)}%)
                             </span>
                             <Badge variant={config.type === "ADDITIVE" ? "blue" : "amber"}>
@@ -359,7 +359,7 @@ export function TaxConfigPanel({
                             {!config.isActive && <Badge variant="gray">Inactive</Badge>}
                             {config.isInclusive && <Badge variant="gray">Inclusive</Badge>}
                           </div>
-                          <p className="text-xs text-gray-400 font-sans mt-0.5 truncate">
+                          <p className="text-caption text-gray-400 mt-0.5 truncate">
                             {appliesToLabel(config.appliesTo)}
                           </p>
                         </div>

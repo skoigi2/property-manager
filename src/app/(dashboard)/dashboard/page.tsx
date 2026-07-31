@@ -53,9 +53,9 @@ function ActionCard({ icon, title, severity, lines, href }: {
     >
       <div className={`shrink-0 mt-0.5 ${c.iconColor}`}>{icon}</div>
       <div className="flex-1 min-w-0">
-        <p className="font-sans font-semibold text-sm text-header">{title}</p>
+        <p className=" font-semibold text-body text-header">{title}</p>
         {lines.map((line, i) => (
-          <p key={i} className="text-xs text-gray-500 font-sans mt-0.5 leading-snug">{line}</p>
+          <p key={i} className="text-caption text-gray-500 mt-0.5 ">{line}</p>
         ))}
       </div>
       <ChevronRight size={14} className={`${c.chevron} shrink-0 mt-1`} />
@@ -178,14 +178,14 @@ export default function DashboardPage() {
           {!isCurrentMonth && (
             <button
               onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}
-              className="text-xs text-gold hover:text-gold-dark font-sans font-medium underline underline-offset-2 transition-colors"
+              className="text-caption text-gold hover:text-gold-dark font-medium underline underline-offset-2 transition-colors"
             >
               Back to current month
             </button>
           )}
           {data?.generatedAt && (
             <span
-              className="ml-auto text-[11px] text-gray-400 font-sans"
+              className="ml-auto text-caption text-gray-400 "
               title="When these numbers were computed — the app may briefly serve cached data while refreshing"
             >
               Updated{" "}
@@ -196,7 +196,7 @@ export default function DashboardPage() {
             <button
               onClick={() => refresh()}
               title="The last background refresh failed — these numbers may be stale. Click to retry."
-              className="flex items-center gap-1 text-[11px] font-sans text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
+              className="flex items-center gap-1 text-caption text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
             >
               ⚠ Refresh failed — retry
             </button>
@@ -263,7 +263,7 @@ export default function DashboardPage() {
               {allClear ? (
                 <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
                   <CheckCircle size={18} className="text-green-500 shrink-0" />
-                  <p className="text-sm font-sans text-green-700 font-medium">
+                  <p className="text-body text-green-700 font-medium">
                     All clear — no urgent items require attention
                   </p>
                 </div>
@@ -309,7 +309,7 @@ export default function DashboardPage() {
                     <button
                       onClick={() => setTab(ALL_TAB)}
                       className={clsx(
-                        "px-5 py-3.5 text-sm font-medium font-sans transition-colors border-b-2 -mb-px whitespace-nowrap",
+                        "px-5 py-3.5 text-body font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
                         tab === ALL_TAB
                           ? "border-gold text-header"
                           : "border-transparent text-gray-400 hover:text-gray-600"
@@ -323,7 +323,7 @@ export default function DashboardPage() {
                       key={p.id}
                       onClick={() => setTab(p.id)}
                       className={clsx(
-                        "px-5 py-3.5 text-sm font-medium font-sans transition-colors border-b-2 -mb-px whitespace-nowrap",
+                        "px-5 py-3.5 text-body font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
                         tab === p.id
                           ? "border-gold text-header"
                           : "border-transparent text-gray-400 hover:text-gray-600"
@@ -338,18 +338,18 @@ export default function DashboardPage() {
                     <>
                       {data.rentStatus?.length > 0 && (
                         <div>
-                          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide font-sans mb-3">Long-term rent</h3>
+                          <h3 className="text-label font-medium text-gray-400 uppercase mb-3">Long-term rent</h3>
                           <RentStatusTable currency={currency} showProperty rows={withPropertyName(data.rentStatus)} />
                         </div>
                       )}
                       {data.airbnbRevenue?.length > 0 && (
                         <div>
-                          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide font-sans mb-3">Short-let revenue</h3>
+                          <h3 className="text-label font-medium text-gray-400 uppercase mb-3">Short-let revenue</h3>
                           <AlbaRevenueTable currency={currency} showProperty rows={withPropertyName(data.airbnbRevenue)} />
                         </div>
                       )}
                       {!(data.rentStatus?.length > 0) && !(data.airbnbRevenue?.length > 0) && (
-                        <p className="text-sm text-gray-400 font-sans text-center py-6">No unit data for this month</p>
+                        <p className="text-body text-gray-400 text-center py-6">No unit data for this month</p>
                       )}
                     </>
                   ) : activeProperty?.type === "LONGTERM" ? (
@@ -383,14 +383,14 @@ export default function DashboardPage() {
                   <Spinner size="sm" />
                 ) : (
                   <p className={clsx(
-                    "font-mono text-2xl font-semibold",
+                    "tabular-nums text-h1 ",
                     (opsData?.renewalPipeline ?? 0) > 0 ? "text-amber-600" : "text-gray-300"
                   )}>
                     {opsData?.renewalPipeline ?? 0}
                   </p>
                 )}
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Renewals</p>
-                <p className="text-xs text-gray-400 font-sans">in pipeline</p>
+                <p className="text-label text-gray-400 uppercase ">Renewals</p>
+                <p className="text-caption text-gray-400 ">in pipeline</p>
               </Link>
 
               {/* Management Fee */}
@@ -405,9 +405,9 @@ export default function DashboardPage() {
                     data.mgmtFeeReconciliation.balance >= 0 ? "text-income" : "text-expense"
                   )}
                 />
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Mgmt Fee</p>
+                <p className="text-label text-gray-400 uppercase ">Mgmt Fee</p>
                 <p className={clsx(
-                  "text-xs font-sans",
+                  "text-caption ",
                   data.mgmtFeeReconciliation.balance >= 0 ? "text-income" : "text-expense"
                 )}>
                   {data.mgmtFeeReconciliation.balance >= 0 ? "settled" : "outstanding"}
@@ -421,14 +421,14 @@ export default function DashboardPage() {
                   <Spinner size="sm" />
                 ) : (
                   <p className={clsx(
-                    "font-mono text-2xl font-semibold",
+                    "tabular-nums text-h1 ",
                     (opsData?.vacantUnits ?? 0) > 0 ? "text-amber-600" : "text-income"
                   )}>
                     {opsData?.vacantUnits ?? 0}
                   </p>
                 )}
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Vacant Units</p>
-                <p className="text-xs text-gray-400 font-sans">
+                <p className="text-label text-gray-400 uppercase ">Vacant Units</p>
+                <p className="text-caption text-gray-400 ">
                   {(opsData?.vacantUnits ?? 0) === 0 ? "fully occupied" : "need tenants"}
                 </p>
               </div>
@@ -436,10 +436,10 @@ export default function DashboardPage() {
           </>
         ) : (
           <div className="flex flex-col items-center gap-3 py-12">
-            <p className="text-gray-400 text-sm font-sans">Couldn&apos;t load the dashboard — check your connection.</p>
+            <p className="text-gray-400 text-body ">Couldn&apos;t load the dashboard — check your connection.</p>
             <button
               onClick={() => refresh()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-sm font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white text-body font-medium rounded-lg hover:bg-gold-dark transition-colors"
             >
               Try again
             </button>

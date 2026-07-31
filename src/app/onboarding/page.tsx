@@ -45,10 +45,10 @@ const CURRENCIES = [
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
 const inputCls =
-  "w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50";
+  "w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50";
 
 const selectCls =
-  "w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50";
+  "w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50";
 
 // ─── UI primitives ────────────────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ function Steps({ current, total }: { current: number; total: number }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-600 mb-1.5 font-sans">{label}</label>
+      <label className="block text-body font-medium text-gray-600 mb-1.5 ">{label}</label>
       {children}
     </div>
   );
@@ -218,7 +218,7 @@ function StepProperty({ needsOrg, onNext }: StepPropertyProps) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-header text-white py-2.5 rounded-lg font-sans font-medium text-sm hover:bg-header/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+        className="w-full bg-header text-white py-2.5 rounded-lg font-medium text-body hover:bg-header/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2"><Spinner />Setting up…</span>
@@ -276,21 +276,21 @@ function StepUnits({ propertyId, onNext }: { propertyId: string; onNext: () => v
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-xs text-gray-400 font-sans -mt-2 mb-1">
+      <p className="text-caption text-gray-400 -mt-2 mb-1">
         Add units now, or skip and add them from the dashboard later.
       </p>
 
       {units.map((unit, i) => (
         <div key={i} className="bg-cream/60 rounded-xl p-4 space-y-3 border border-gray-100">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-400 font-sans uppercase tracking-wide">
+            <span className="text-label font-semibold text-gray-400 uppercase ">
               Unit {i + 1}
             </span>
             {units.length > 1 && (
               <button
                 type="button"
                 onClick={() => setUnits((p) => p.filter((_, idx) => idx !== i))}
-                className="text-xs text-red-400 hover:text-red-600 font-sans"
+                className="text-caption text-red-400 hover:text-red-600 "
               >
                 Remove
               </button>
@@ -330,7 +330,7 @@ function StepUnits({ propertyId, onNext }: { propertyId: string; onNext: () => v
       <button
         type="button"
         onClick={() => setUnits((p) => [...p, { unitNumber: "", type: "ONE_BED", monthlyRent: "" }])}
-        className="w-full py-2 border border-dashed border-gray-200 rounded-lg text-xs text-gray-400 font-sans hover:border-gold hover:text-gold transition-colors"
+        className="w-full py-2 border border-dashed border-gray-200 rounded-lg text-caption text-gray-400 hover:border-gold hover:text-gold transition-colors"
       >
         + Add another unit
       </button>
@@ -340,14 +340,14 @@ function StepUnits({ propertyId, onNext }: { propertyId: string; onNext: () => v
           type="button"
           onClick={onNext}
           disabled={loading}
-          className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-500 font-sans hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="flex-1 py-2.5 border border-gray-200 rounded-lg text-body text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
           Skip for now
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 bg-header text-white py-2.5 rounded-lg font-sans font-medium text-sm hover:bg-header/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex-1 bg-header text-white py-2.5 rounded-lg font-medium text-body hover:bg-header/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2"><Spinner />Saving…</span>
@@ -446,8 +446,8 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <h2 className="font-display text-2xl text-header mb-2">You&apos;re all set!</h2>
-      <p className="text-sm text-gray-500 font-sans leading-relaxed mb-6 max-w-xs mx-auto">
+      <h2 className=" text-h1 text-header mb-2">You&apos;re all set!</h2>
+      <p className="text-body text-gray-500 mb-6 max-w-xs mx-auto">
         Your property is ready. Head to the dashboard to track income, manage tenants, and generate reports.
       </p>
 
@@ -455,7 +455,7 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       <button
         onClick={goToDashboard}
         disabled={loading || seedLoading}
-        className="w-full bg-header text-white py-3 rounded-xl font-sans font-semibold text-sm hover:bg-header/90 transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full bg-header text-white py-3 rounded-xl font-semibold text-body hover:bg-header/90 transition-colors shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? "Taking you there…" : "Go to Dashboard →"}
       </button>
@@ -463,7 +463,7 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       {/* Divider */}
       <div className="flex items-center gap-3 my-5">
         <div className="flex-1 h-px bg-gray-100" />
-        <span className="text-xs text-gray-400 font-sans">or explore with sample data</span>
+        <span className="text-caption text-gray-400 ">or explore with sample data</span>
         <div className="flex-1 h-px bg-gray-100" />
       </div>
 
@@ -481,10 +481,10 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
                 : "border-gray-100 hover:border-gray-200"
             }`}
           >
-            <span className="text-2xl leading-none">{demo.flag}</span>
+            <span className="text-h1 ">{demo.flag}</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium font-sans text-[#1a2332]">{demo.name}</p>
-              <p className="text-xs text-gray-400 font-sans mt-0.5">{demo.description}</p>
+              <p className="text-body font-medium text-[#1a2332]">{demo.name}</p>
+              <p className="text-caption text-gray-400 mt-0.5">{demo.description}</p>
             </div>
             {selectedDemo === demo.key && (
               <span className="w-4 h-4 rounded-full bg-gold flex-shrink-0 mt-0.5" />
@@ -497,7 +497,7 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       <button
         onClick={loadSampleData}
         disabled={loading || seedLoading || !selectedDemo}
-        className="w-full border border-gold text-gold py-2.5 rounded-xl font-sans font-semibold text-sm hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full border border-gold text-gold py-2.5 rounded-xl font-semibold text-body hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {seedLoading ? (
           <span className="flex items-center justify-center gap-2">
@@ -510,7 +510,7 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       </button>
       {seedLoading && <SeedProgress />}
 
-      <p className="text-xs text-gray-400 font-sans mt-6">
+      <p className="text-caption text-gray-400 mt-6">
         Need help?{" "}
         <a href="mailto:support@groundworkpm.com" className="text-gold hover:underline">
           support@groundworkpm.com
@@ -552,7 +552,7 @@ export default function OnboardingPage() {
           <div className="mx-auto mb-3 w-fit">
             <BrandLogo size={52} />
           </div>
-          <p className="text-xs text-gray-400 font-sans">
+          <p className="text-caption text-gray-400 ">
             Step {step + 1} of 3 — {STEP_TITLES[step]}
           </p>
         </div>
@@ -560,8 +560,8 @@ export default function OnboardingPage() {
         <div className="bg-white rounded-2xl shadow-card px-8 py-8">
           <Steps current={step} total={3} />
 
-          <h2 className="font-display text-xl text-header mb-1">{STEP_TITLES[step]}</h2>
-          <p className="text-xs text-gray-400 font-sans mb-6 leading-relaxed">
+          <h2 className=" text-h2 text-header mb-1">{STEP_TITLES[step]}</h2>
+          <p className="text-caption text-gray-400 mb-6 ">
             {STEP_SUBTITLES[step]}
           </p>
 

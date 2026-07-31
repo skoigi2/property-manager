@@ -288,15 +288,15 @@ export function MoveInWalkthrough({ unit, defaultReportType = "MOVE_IN" }: Props
       <Card className="!p-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 className="font-display text-lg text-header">
+            <h2 className=" text-h3 text-header">
               {reportType === "MOVE_IN" ? "Move-In Walkthrough" : reportType === "MOVE_OUT" ? "Move-Out Walkthrough" : "Mid-Term Inspection"}
             </h2>
-            <p className="text-sm text-gray-500 font-sans">
+            <p className="text-body text-gray-500 ">
               Unit {unit.unitNumber}{unit.activeTenant ? ` · ${unit.activeTenant.name}` : ""}
             </p>
           </div>
-          <div className="text-sm font-sans text-gray-500">
-            <span className="font-mono">{completedCount}</span>
+          <div className="text-body text-gray-500">
+            <span className="tabular-nums">{completedCount}</span>
             <span className="text-gray-400"> / {items.length} rated</span>
             {uploadingCount > 0 && (
               <span className="ml-3 text-amber-600 inline-flex items-center gap-1">
@@ -325,7 +325,7 @@ export function MoveInWalkthrough({ unit, defaultReportType = "MOVE_IN" }: Props
                 key={r}
                 type="button"
                 onClick={() => setStep(idx)}
-                className={`shrink-0 px-3 py-1.5 text-xs font-sans rounded-lg border transition-colors ${
+                className={`shrink-0 px-3 py-1.5 text-caption rounded-lg border transition-colors ${
                   step === idx
                     ? "border-gold bg-gold/10 text-gold-dark"
                     : allRated
@@ -341,7 +341,7 @@ export function MoveInWalkthrough({ unit, defaultReportType = "MOVE_IN" }: Props
           <button
             type="button"
             onClick={() => setStep(rooms.length)}
-            className={`shrink-0 px-3 py-1.5 text-xs font-sans rounded-lg border transition-colors ${
+            className={`shrink-0 px-3 py-1.5 text-caption rounded-lg border transition-colors ${
               step === rooms.length
                 ? "border-gold bg-gold/10 text-gold-dark"
                 : "border-gray-200 text-gray-500 hover:border-gold/50"
@@ -429,14 +429,14 @@ function RoomStep({
 
   return (
     <Card>
-      <h3 className="font-display text-base text-header mb-4">{room}</h3>
+      <h3 className=" text-h3 text-header mb-4">{room}</h3>
       <div className="space-y-4">
         {items.map((item) => {
           const itemPhotos = photos.filter((p) => p.itemId === item.id);
           return (
             <div key={item.id} className="border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium font-sans text-header">{item.feature}</p>
+                <p className="text-body font-medium text-header">{item.feature}</p>
                 <button
                   type="button"
                   onClick={() => onRemove(item.id)}
@@ -454,7 +454,7 @@ function RoomStep({
                     key={s}
                     type="button"
                     onClick={() => onStatus(item.id, s)}
-                    className={`text-xs font-sans px-2 py-1.5 rounded-lg border transition-colors ${
+                    className={`text-caption px-2 py-1.5 rounded-lg border transition-colors ${
                       item.status === s ? statusActiveClass(s) : "border-gray-200 text-gray-400 hover:border-gray-300"
                     }`}
                   >
@@ -469,7 +469,7 @@ function RoomStep({
                 placeholder="Notes (optional)"
                 value={item.notes ?? ""}
                 onChange={(e) => onNotes(item.id, e.target.value)}
-                className="w-full mt-2 border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full mt-2 border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
 
               {/* Photo row */}
@@ -485,7 +485,7 @@ function RoomStep({
                       </div>
                     )}
                     {p.status === "error" && (
-                      <div className="absolute inset-0 bg-red-500/60 flex items-center justify-center text-white text-[9px] font-sans">
+                      <div className="absolute inset-0 bg-red-500/60 flex items-center justify-center text-white text-label ">
                         Failed
                       </div>
                     )}
@@ -510,7 +510,7 @@ function RoomStep({
             value={newFeature}
             onChange={(e) => setNewFeature(e.target.value)}
             placeholder="Add custom feature (e.g. AC unit)"
-            className="flex-1 border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+            className="flex-1 border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
           <Button
             type="button"
@@ -596,21 +596,21 @@ function SummaryStep({
 
   return (
     <Card>
-      <h3 className="font-display text-base text-header mb-3">Summary &amp; Submit</h3>
+      <h3 className=" text-h3 text-header mb-3">Summary &amp; Submit</h3>
 
-      <div className="grid grid-cols-3 gap-3 text-sm font-sans mb-4">
+      <div className="grid grid-cols-3 gap-3 text-body mb-4">
         <Stat label="Items rated" value={`${completedCount}/${totalCount}`} />
         <Stat label="Pending uploads" value={String(uploadingCount)} highlight={uploadingCount > 0} />
         <Stat label="Type" value={reportType.replace("_", "-")} />
       </div>
 
-      <label className="text-sm font-medium text-gray-600 font-sans block mb-1">Overall comments</label>
+      <label className="text-body font-medium text-gray-600 block mb-1">Overall comments</label>
       <textarea
         rows={4}
         value={overallComments}
         onChange={(e) => setOverallComments(e.target.value)}
         placeholder="General observations, anything not captured above…"
-        className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+        className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
       />
 
       {/* Add custom room */}
@@ -620,7 +620,7 @@ function SummaryStep({
           value={newRoom}
           onChange={(e) => setNewRoom(e.target.value)}
           placeholder="Add another room (e.g. Garage)"
-          className="flex-1 border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+          className="flex-1 border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
         />
         <Button
           type="button"
@@ -633,7 +633,7 @@ function SummaryStep({
       </div>
 
       <div className="mt-5 space-y-2">
-        <label className="flex items-center gap-2 text-sm font-sans text-gray-700">
+        <label className="flex items-center gap-2 text-body text-gray-700">
           <input
             type="checkbox"
             checked={signedByTenant}
@@ -641,7 +641,7 @@ function SummaryStep({
           />
           Tenant has reviewed and acknowledged the condition above
         </label>
-        <label className="flex items-center gap-2 text-sm font-sans text-gray-700">
+        <label className="flex items-center gap-2 text-body text-gray-700">
           <input
             type="checkbox"
             checked={signedByManager}
@@ -652,7 +652,7 @@ function SummaryStep({
       </div>
 
       {needsTenant && (
-        <p className="mt-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+        <p className="mt-4 text-body text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
           {reportType.replace("_", "-")} reports must be linked to a tenant. Assign a tenant on this unit before finalising.
         </p>
       )}
@@ -668,7 +668,7 @@ function SummaryStep({
         </Button>
       </div>
       {blocked && (
-        <p className="mt-2 text-xs text-amber-600 font-sans text-right">
+        <p className="mt-2 text-caption text-amber-600 text-right">
           Waiting for {uploadingCount} photo upload{uploadingCount === 1 ? "" : "s"} to finish…
         </p>
       )}
@@ -679,8 +679,8 @@ function SummaryStep({
 function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className={`rounded-lg p-3 ${highlight ? "bg-amber-50 border border-amber-200" : "bg-cream-dark"}`}>
-      <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{label}</p>
-      <p className={`text-lg font-display mt-1 ${highlight ? "text-amber-700" : "text-header"}`}>{value}</p>
+      <p className="text-label text-gray-400 uppercase ">{label}</p>
+      <p className={`text-h3 mt-1 ${highlight ? "text-amber-700" : "text-header"}`}>{value}</p>
     </div>
   );
 }

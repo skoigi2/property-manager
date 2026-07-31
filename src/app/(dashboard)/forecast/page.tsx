@@ -42,7 +42,7 @@ function HorizonToggle({
           key={n}
           onClick={() => onChange(n)}
           className={clsx(
-            "px-3 py-1 rounded-md text-sm font-sans transition-colors",
+            "px-3 py-1 rounded-md text-body transition-colors",
             value === n
               ? "bg-gold text-white"
               : "text-white/60 hover:text-white"
@@ -72,18 +72,18 @@ function MonthDetailRow({
   return (
     <>
       <tr className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-        <td className="px-4 py-3 text-sm font-sans text-header font-medium">
+        <td className="px-4 py-3 text-body text-header font-medium">
           {month.label}
         </td>
-        <td className="px-4 py-3 text-right text-sm font-mono text-income">
+        <td className="px-4 py-3 text-right text-body tabular-nums text-income">
           {formatCurrency(month.forecastedRent, currency)}
         </td>
-        <td className="px-4 py-3 text-right text-sm font-mono text-expense">
+        <td className="px-4 py-3 text-right text-body tabular-nums text-expense">
           {formatCurrency(month.projectedExpenses, currency)}
         </td>
         <td
           className={clsx(
-            "px-4 py-3 text-right text-sm font-mono font-medium",
+            "px-4 py-3 text-right text-body tabular-nums font-medium",
             net >= 0 ? "text-income" : "text-expense"
           )}
         >
@@ -106,7 +106,7 @@ function MonthDetailRow({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Rent breakdown */}
               <div>
-                <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                <p className="text-label font-semibold text-gray-500 uppercase mb-2">
                   Income
                 </p>
                 <div className="space-y-1">
@@ -117,7 +117,7 @@ function MonthDetailRow({
                     >
                       <span
                         className={clsx(
-                          "text-xs font-sans truncate",
+                          "text-caption truncate",
                           item.isLastMonth
                             ? "text-amber-600"
                             : item.isRenewalProjection
@@ -129,13 +129,13 @@ function MonthDetailRow({
                         {item.isLastMonth && " (last month)"}
                         {item.isRenewalProjection && " (renewal est.)"}
                       </span>
-                      <span className="text-xs font-mono text-income shrink-0">
+                      <span className="text-caption tabular-nums text-income shrink-0">
                         {formatCurrency(item.rent + item.serviceCharge, currency)}
                       </span>
                     </div>
                   ))}
                   {month.rentBreakdown.length === 0 && (
-                    <p className="text-xs text-gray-400 font-sans italic">
+                    <p className="text-caption text-gray-400 italic">
                       No active leases
                     </p>
                   )}
@@ -144,7 +144,7 @@ function MonthDetailRow({
 
               {/* Expense breakdown */}
               <div>
-                <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                <p className="text-label font-semibold text-gray-500 uppercase mb-2">
                   Expenses
                 </p>
                 <div className="space-y-1">
@@ -153,7 +153,7 @@ function MonthDetailRow({
                       key={`${item.sourceId}-${idx}`}
                       className="flex items-center justify-between gap-2"
                     >
-                      <span className="text-xs font-sans text-gray-700 truncate flex items-center gap-1.5 min-w-0">
+                      <span className="text-caption text-gray-700 truncate flex items-center gap-1.5 min-w-0">
                         <span className="truncate">
                           {item.description}
                           {item.propertyName && (
@@ -164,18 +164,18 @@ function MonthDetailRow({
                           )}
                         </span>
                         {item.type === "ASSET_MAINTENANCE" && (
-                          <span className="shrink-0 text-[10px] font-sans font-medium text-orange-600 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded-full">
+                          <span className="shrink-0 text-caption font-medium text-orange-600 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded-full">
                             asset
                           </span>
                         )}
                       </span>
-                      <span className="text-xs font-mono text-expense shrink-0">
+                      <span className="text-caption tabular-nums text-expense shrink-0">
                         {formatCurrency(item.amount, currency)}
                       </span>
                     </div>
                   ))}
                   {month.expenseBreakdown.length === 0 && (
-                    <p className="text-xs text-gray-400 font-sans italic">
+                    <p className="text-caption text-gray-400 italic">
                       No scheduled expenses
                     </p>
                   )}
@@ -203,7 +203,7 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
       <Card>
         <div className="flex items-center gap-2 text-income">
           <TrendingUp size={16} />
-          <p className="text-sm font-sans font-medium">
+          <p className="text-body font-medium">
             No risks identified in this forecast window
           </p>
         </div>
@@ -217,13 +217,13 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
         <Card padding="sm">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={15} className="text-amber-500 shrink-0" />
-            <p className="text-xs font-sans font-semibold text-gray-700 uppercase tracking-wide">
+            <p className="text-label font-semibold text-gray-700 uppercase ">
               Leases Expiring ({leaseExpiries.length})
             </p>
           </div>
           <div className="space-y-2">
             {leaseExpiries.map((r, i) => (
-              <p key={i} className="text-xs font-sans text-gray-600">
+              <p key={i} className="text-caption text-gray-600">
                 {r.message}
               </p>
             ))}
@@ -235,13 +235,13 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
         <Card padding="sm">
           <div className="flex items-center gap-2 mb-3">
             <TrendingDown size={15} className="text-red-500 shrink-0" />
-            <p className="text-xs font-sans font-semibold text-gray-700 uppercase tracking-wide">
+            <p className="text-label font-semibold text-gray-700 uppercase ">
               Potential Vacancies ({vacancies.length})
             </p>
           </div>
           <div className="space-y-2">
             {vacancies.map((r, i) => (
-              <p key={i} className="text-xs font-sans text-gray-600">
+              <p key={i} className="text-caption text-gray-600">
                 {r.message}
               </p>
             ))}
@@ -253,13 +253,13 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
         <Card padding="sm">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={15} className="text-blue-500 shrink-0" />
-            <p className="text-xs font-sans font-semibold text-gray-700 uppercase tracking-wide">
+            <p className="text-label font-semibold text-gray-700 uppercase ">
               Insurance Expiring ({insuranceExpiries.length})
             </p>
           </div>
           <div className="space-y-2">
             {insuranceExpiries.map((r, i) => (
-              <p key={i} className="text-xs font-sans text-gray-600">
+              <p key={i} className="text-caption text-gray-600">
                 {r.message}
               </p>
             ))}
@@ -271,13 +271,13 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
         <Card padding="sm">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={15} className="text-orange-500 shrink-0" />
-            <p className="text-xs font-sans font-semibold text-gray-700 uppercase tracking-wide">
+            <p className="text-label font-semibold text-gray-700 uppercase ">
               Asset Maintenance ({assetMaintenance.length})
             </p>
           </div>
           <div className="space-y-2">
             {assetMaintenance.map((r, i) => (
-              <p key={i} className="text-xs font-sans text-gray-600">
+              <p key={i} className="text-caption text-gray-600">
                 {r.message}
               </p>
             ))}
@@ -289,13 +289,13 @@ function RiskPanel({ risks }: { risks: ForecastRisk[] }) {
         <Card padding="sm">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={15} className="text-purple-500 shrink-0" />
-            <p className="text-xs font-sans font-semibold text-gray-700 uppercase tracking-wide">
+            <p className="text-label font-semibold text-gray-700 uppercase ">
               Cert Expiries ({certExpiries.length})
             </p>
           </div>
           <div className="space-y-2">
             {certExpiries.map((r, i) => (
-              <p key={i} className="text-xs font-sans text-gray-600">
+              <p key={i} className="text-caption text-gray-600">
                 {r.message}
               </p>
             ))}
@@ -342,7 +342,7 @@ export default function ForecastPage() {
         {/* Airbnb note */}
         <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
           <Info size={15} className="text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-xs font-sans text-blue-700">
+          <p className="text-caption text-blue-700">
             Airbnb short-let units are excluded from rent projections — booking
             revenue cannot be reliably forecast from lease data. Only long-term
             tenancies are modelled.
@@ -361,7 +361,7 @@ export default function ForecastPage() {
             <div className="flex justify-end">
               <button
                 onClick={() => exportForecast(data, currency)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors bg-white"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors bg-white"
               >
                 <FileDown size={13} /> Export to Excel
               </button>
@@ -370,7 +370,7 @@ export default function ForecastPage() {
             {/* KPI strip */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card>
-                <p className="text-xs font-sans text-gray-500 mb-1">
+                <p className="text-caption text-gray-500 mb-1">
                   Forecasted Income
                 </p>
                 <CurrencyDisplay
@@ -379,13 +379,13 @@ export default function ForecastPage() {
                   size="xl"
                   className="text-income"
                 />
-                <p className="text-xs text-gray-400 font-sans mt-1">
+                <p className="text-caption text-gray-400 mt-1">
                   Over {data.horizon} months
                 </p>
               </Card>
 
               <Card>
-                <p className="text-xs font-sans text-gray-500 mb-1">
+                <p className="text-caption text-gray-500 mb-1">
                   Projected Expenses
                 </p>
                 <CurrencyDisplay
@@ -394,13 +394,13 @@ export default function ForecastPage() {
                   size="xl"
                   className="text-expense"
                 />
-                <p className="text-xs text-gray-400 font-sans mt-1">
+                <p className="text-caption text-gray-400 mt-1">
                   Recurring + insurance + management fees
                 </p>
               </Card>
 
               <Card>
-                <p className="text-xs font-sans text-gray-500 mb-1">
+                <p className="text-caption text-gray-500 mb-1">
                   Net Cashflow
                 </p>
                 <CurrencyDisplay
@@ -409,7 +409,7 @@ export default function ForecastPage() {
                   size="xl"
                   colorize
                 />
-                <p className="text-xs text-gray-400 font-sans mt-1">
+                <p className="text-caption text-gray-400 mt-1">
                   {data.summary.expiringLeaseCount > 0
                     ? `${data.summary.expiringLeaseCount} lease${data.summary.expiringLeaseCount > 1 ? "s" : ""} expiring`
                     : "No leases expiring in window"}
@@ -419,7 +419,7 @@ export default function ForecastPage() {
 
             {/* Chart */}
             <Card>
-              <h2 className="text-sm font-sans font-semibold text-header mb-4">
+              <h2 className="text-body font-semibold text-header mb-4">
                 Monthly Cashflow Projection
               </h2>
               <ForecastChart months={data.months} currency={currency} />
@@ -431,16 +431,16 @@ export default function ForecastPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-100">
-                      <th className="px-4 py-3 text-left text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left text-label font-semibold text-gray-500 uppercase ">
                         Month
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="px-4 py-3 text-right text-label font-semibold text-gray-500 uppercase ">
                         Income
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="px-4 py-3 text-right text-label font-semibold text-gray-500 uppercase ">
                         Expenses
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide">
+                      <th className="px-4 py-3 text-right text-label font-semibold text-gray-500 uppercase ">
                         Net
                       </th>
                       <th className="px-4 py-3 w-10" />
@@ -458,18 +458,18 @@ export default function ForecastPage() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-gray-200 bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-sans font-semibold text-header">
+                      <td className="px-4 py-3 text-body font-semibold text-header">
                         Total
                       </td>
-                      <td className="px-4 py-3 text-right text-sm font-mono font-semibold text-income">
+                      <td className="px-4 py-3 text-right text-body tabular-nums font-semibold text-income">
                         {formatCurrency(data.summary.totalForecastedRent, currency)}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm font-mono font-semibold text-expense">
+                      <td className="px-4 py-3 text-right text-body tabular-nums font-semibold text-expense">
                         {formatCurrency(data.summary.totalProjectedExpenses, currency)}
                       </td>
                       <td
                         className={clsx(
-                          "px-4 py-3 text-right text-sm font-mono font-semibold",
+                          "px-4 py-3 text-right text-body tabular-nums font-semibold",
                           data.summary.totalNetCashflow >= 0
                             ? "text-income"
                             : "text-expense"
@@ -486,7 +486,7 @@ export default function ForecastPage() {
 
             {/* Risks */}
             <div>
-              <h2 className="text-sm font-sans font-semibold text-header mb-3">
+              <h2 className="text-body font-semibold text-header mb-3">
                 Risks in Forecast Window
               </h2>
               <RiskPanel risks={data.risks} />

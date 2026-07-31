@@ -82,7 +82,7 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.DRAFT;
   const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-caption font-medium ${cfg.bg} ${cfg.text}`}>
       <Icon size={10} />
       {cfg.label}
     </span>
@@ -128,28 +128,28 @@ function MarkPaidModal({
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-display text-header text-base">Mark as Paid</h3>
-            <p className="text-xs text-gray-400 font-sans mt-0.5">{invoice.invoiceNumber}</p>
+            <h3 className=" text-header text-h3">Mark as Paid</h3>
+            <p className="text-caption text-gray-400 mt-0.5">{invoice.invoiceNumber}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-gray-500 font-sans">Payment Date</label>
+            <label className="text-caption text-gray-500 ">Payment Date</label>
             <input
               type="date"
               value={paidAt}
               onChange={(e) => setPaidAt(e.target.value)}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-sans">Amount Paid</label>
+            <label className="text-caption text-gray-500 ">Amount Paid</label>
             <input
               type="number"
               value={paidAmount}
               onChange={(e) => setPaidAmount(e.target.value)}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
             />
           </div>
         </div>
@@ -157,12 +157,12 @@ function MarkPaidModal({
           <button
             onClick={submit}
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-income text-white text-sm font-sans rounded-lg hover:bg-green-700 disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-income text-white text-body rounded-lg hover:bg-green-700 disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
             Confirm Payment
           </button>
-          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50">
             Cancel
           </button>
         </div>
@@ -227,28 +227,28 @@ function BundleAirbnbModal({
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-display text-header text-base">Bundle Airbnb Letting Fees</h3>
-            <p className="text-xs text-gray-400 font-sans mt-0.5">Create a periodic owner invoice</p>
+            <h3 className=" text-header text-h3">Bundle Airbnb Letting Fees</h3>
+            <p className="text-caption text-gray-400 mt-0.5">Create a periodic owner invoice</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
 
         {result && result.bundled > 0 ? (
           <div className="bg-green-50 border border-green-100 rounded-xl p-4 space-y-1">
-            <p className="text-sm font-sans font-medium text-income">Invoice created successfully</p>
-            <p className="text-xs text-gray-600 font-sans">{result.bundled} booking{result.bundled !== 1 ? "s" : ""} bundled</p>
+            <p className="text-body font-medium text-income">Invoice created successfully</p>
+            <p className="text-caption text-gray-600 ">{result.bundled} booking{result.bundled !== 1 ? "s" : ""} bundled</p>
             {result.totalAmount != null && (
-              <p className="text-xs text-gray-600 font-sans">Total: <span className="font-mono font-semibold">{formatCurrency(result.totalAmount, currency)}</span></p>
+              <p className="text-caption text-gray-600 ">Total: <span className="tabular-nums font-semibold">{formatCurrency(result.totalAmount, currency)}</span></p>
             )}
           </div>
         ) : (
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-gray-500 font-sans">Airbnb Property</label>
+              <label className="text-caption text-gray-500 ">Airbnb Property</label>
               <select
                 value={propertyId}
                 onChange={(e) => setPropertyId(e.target.value)}
-                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               >
                 {airbnbProps.length === 0 && <option value="">No Airbnb properties</option>}
                 {airbnbProps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -256,32 +256,32 @@ function BundleAirbnbModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500 font-sans">Month</label>
+                <label className="text-caption text-gray-500 ">Month</label>
                 <select
                   value={month}
                   onChange={(e) => setMonth(Number(e.target.value))}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                 >
                   {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-sans">Year</label>
+                <label className="text-caption text-gray-500 ">Year</label>
                 <input
                   type="number"
                   value={year}
                   onChange={(e) => setYear(Number(e.target.value))}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
                 />
               </div>
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-sans">Due Date</label>
+              <label className="text-caption text-gray-500 ">Due Date</label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
           </div>
@@ -292,13 +292,13 @@ function BundleAirbnbModal({
             <button
               onClick={submit}
               disabled={loading || !propertyId}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-body rounded-lg hover:bg-gold-dark disabled:opacity-50"
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
               Create Bundle Invoice
             </button>
           ) : null}
-          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50">
             {result?.bundled ? "Done" : "Cancel"}
           </button>
         </div>
@@ -381,40 +381,40 @@ function GenerateModal({
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-display text-header text-base">Generate {cfg.label}</h3>
-            <p className="text-xs text-gray-400 font-sans mt-0.5">{cfg.description}</p>
+            <h3 className=" text-header text-h3">Generate {cfg.label}</h3>
+            <p className="text-caption text-gray-400 mt-0.5">{cfg.description}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-gray-500 font-sans">Property</label>
+            <label className="text-caption text-gray-500 ">Property</label>
             <select
               value={propertyId}
               onChange={(e) => setPropertyId(e.target.value)}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
             >
               {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 font-sans">Month</label>
+              <label className="text-caption text-gray-500 ">Month</label>
               <select
                 value={month}
                 onChange={(e) => setMonth(Number(e.target.value))}
-                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               >
                 {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-sans">Year</label>
+              <label className="text-caption text-gray-500 ">Year</label>
               <input
                 type="number"
                 value={year}
                 onChange={(e) => setYear(Number(e.target.value))}
-                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
           </div>
@@ -423,12 +423,12 @@ function GenerateModal({
           <button
             onClick={submit}
             disabled={loading || !propertyId}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-body rounded-lg hover:bg-gold-dark disabled:opacity-50"
           >
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
             Generate Draft
           </button>
-          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50">
             Cancel
           </button>
         </div>
@@ -509,15 +509,15 @@ function EditOwnerInvoiceModal({
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-display text-header text-lg">Edit Owner Invoice</h3>
-            <p className="text-xs text-gray-400 font-sans mt-0.5">Changes are saved as a new draft</p>
+            <h3 className=" text-header text-h3">Edit Owner Invoice</h3>
+            <p className="text-caption text-gray-400 mt-0.5">Changes are saved as a new draft</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
 
         {/* Read-only identity strip */}
-        <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-xs font-sans text-gray-500">
-          <span className="font-mono font-semibold text-header">{invoice.invoiceNumber}</span>
+        <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-caption text-gray-500">
+          <span className="tabular-nums font-semibold text-header">{invoice.invoiceNumber}</span>
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${typeCfg.badge}`}>
             {typeCfg.label}
           </span>
@@ -527,20 +527,20 @@ function EditOwnerInvoiceModal({
 
         {/* Editable fields */}
         <div>
-          <label className="text-xs text-gray-500 font-sans">Due Date</label>
+          <label className="text-caption text-gray-500 ">Due Date</label>
           <input
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
         </div>
 
         {/* Line items */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-gray-500 font-sans uppercase tracking-wide font-medium">Line Items</label>
-            <button onClick={addItem} className="text-xs text-gold font-sans hover:text-gold-dark flex items-center gap-1">
+            <label className="text-label text-gray-500 uppercase font-medium">Line Items</label>
+            <button onClick={addItem} className="text-caption text-gold hover:text-gold-dark flex items-center gap-1">
               <Plus size={12} /> Add row
             </button>
           </div>
@@ -552,14 +552,14 @@ function EditOwnerInvoiceModal({
                   placeholder="Description"
                   value={item.description}
                   onChange={(e) => updateItem(i, "description", e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                 />
                 <input
                   type="number"
                   placeholder="Amount"
                   value={item.amount}
                   onChange={(e) => updateItem(i, "amount", e.target.value)}
-                  className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
                 />
                 {items.length > 1 && (
                   <button onClick={() => removeItem(i)} className="text-gray-400 hover:text-expense"><X size={14} /></button>
@@ -568,17 +568,17 @@ function EditOwnerInvoiceModal({
             ))}
           </div>
           <div className="flex justify-end mt-2">
-            <span className="text-xs text-gray-500 font-sans">Total: <span className="font-mono font-semibold text-header">{formatCurrency(total, currency)}</span></span>
+            <span className="text-caption text-gray-500 ">Total: <span className="tabular-nums font-semibold text-header">{formatCurrency(total, currency)}</span></span>
           </div>
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 font-sans">Notes (optional)</label>
+          <label className="text-caption text-gray-500 ">Notes (optional)</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-gold/40"
+            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body resize-none focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
         </div>
 
@@ -586,12 +586,12 @@ function EditOwnerInvoiceModal({
           <button
             onClick={submit}
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-body rounded-lg hover:bg-gold-dark disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
             Save Changes
           </button>
-          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50">
             Cancel
           </button>
         </div>
@@ -673,51 +673,51 @@ function NewOwnerInvoiceModal({
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 my-8">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-display text-header text-lg">New Owner Invoice</h3>
-            <p className="text-xs text-gray-400 font-sans mt-0.5">Invoice from PKH to property owner</p>
+            <h3 className=" text-header text-h3">New Owner Invoice</h3>
+            <p className="text-caption text-gray-400 mt-0.5">Invoice from PKH to property owner</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="text-xs text-gray-500 font-sans">Property</label>
+            <label className="text-caption text-gray-500 ">Property</label>
             <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40">
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40">
               {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div className="col-span-2">
-            <label className="text-xs text-gray-500 font-sans">Invoice Type</label>
+            <label className="text-caption text-gray-500 ">Invoice Type</label>
             <select value={type} onChange={(e) => setType(e.target.value as OwnerInvoiceType)}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40">
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40">
               {OWNER_INVOICE_TYPES.map((t) => <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-sans">Month</label>
+            <label className="text-caption text-gray-500 ">Month</label>
             <select value={periodMonth} onChange={(e) => setPeriodMonth(Number(e.target.value))}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40">
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40">
               {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-sans">Year</label>
+            <label className="text-caption text-gray-500 ">Year</label>
             <input type="number" value={periodYear} onChange={(e) => setPeriodYear(Number(e.target.value))}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40" />
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40" />
           </div>
           <div className="col-span-2">
-            <label className="text-xs text-gray-500 font-sans">Due Date</label>
+            <label className="text-caption text-gray-500 ">Due Date</label>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40" />
+              className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40" />
           </div>
         </div>
 
         {/* Line items */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-gray-500 font-sans uppercase tracking-wide font-medium">Line Items</label>
-            <button onClick={addItem} className="text-xs text-gold font-sans hover:text-gold-dark flex items-center gap-1">
+            <label className="text-label text-gray-500 uppercase font-medium">Line Items</label>
+            <button onClick={addItem} className="text-caption text-gold hover:text-gold-dark flex items-center gap-1">
               <Plus size={12} /> Add row
             </button>
           </div>
@@ -729,14 +729,14 @@ function NewOwnerInvoiceModal({
                   placeholder="Description"
                   value={item.description}
                   onChange={(e) => updateItem(i, "description", e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                 />
                 <input
                   type="number"
                   placeholder="Amount"
                   value={item.amount}
                   onChange={(e) => updateItem(i, "amount", e.target.value)}
-                  className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                  className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
                 />
                 {items.length > 1 && (
                   <button onClick={() => removeItem(i)} className="text-gray-400 hover:text-expense"><X size={14} /></button>
@@ -745,23 +745,23 @@ function NewOwnerInvoiceModal({
             ))}
           </div>
           <div className="flex justify-end mt-2">
-            <span className="text-xs text-gray-500 font-sans">Total: <span className="font-mono font-semibold text-header">{formatCurrency(total, currency)}</span></span>
+            <span className="text-caption text-gray-500 ">Total: <span className="tabular-nums font-semibold text-header">{formatCurrency(total, currency)}</span></span>
           </div>
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 font-sans">Notes (optional)</label>
+          <label className="text-caption text-gray-500 ">Notes (optional)</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-gold/40" />
+            className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body resize-none focus:outline-none focus:ring-2 focus:ring-gold/40" />
         </div>
 
         <div className="flex gap-3 pt-1">
           <button onClick={submit} disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50">
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-body rounded-lg hover:bg-gold-dark disabled:opacity-50">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             Create Invoice
           </button>
-          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50">
             Cancel
           </button>
         </div>
@@ -867,7 +867,7 @@ export default function OwnerInvoicesTab() {
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen((v) => !v)}
-            className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-sans text-gray-600 hover:bg-gray-50"
+            className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50"
           >
             <Zap size={14} className="text-gold" />
             Generate Draft
@@ -877,53 +877,53 @@ export default function OwnerInvoicesTab() {
             <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl border border-gray-100 shadow-lg z-20 py-1 overflow-hidden">
               <button
                 onClick={() => { setGenerateType("MANAGEMENT_FEE"); setDropdownOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-body text-gray-700 hover:bg-gray-50 text-left"
               >
                 <Zap size={14} className="text-gold shrink-0" />
                 <div>
                   <div className="font-medium">Management Fee</div>
-                  <div className="text-xs text-gray-400">Per unit fee config</div>
+                  <div className="text-caption text-gray-400">Per unit fee config</div>
                 </div>
               </button>
               <button
                 onClick={() => { setGenerateType("LETTING_FEE"); setDropdownOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-body text-gray-700 hover:bg-gray-50 text-left"
               >
                 <Home size={14} className="text-amber-500 shrink-0" />
                 <div>
                   <div className="font-medium">Letting Fee</div>
-                  <div className="text-xs text-gray-400">New tenants this period</div>
+                  <div className="text-caption text-gray-400">New tenants this period</div>
                 </div>
               </button>
               <button
                 onClick={() => { setGenerateType("RENEWAL_FEE"); setDropdownOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-body text-gray-700 hover:bg-gray-50 text-left"
               >
                 <RefreshCw size={14} className="text-blue-500 shrink-0" />
                 <div>
                   <div className="font-medium">Renewal Fee</div>
-                  <div className="text-xs text-gray-400">Renewed leases this period</div>
+                  <div className="text-caption text-gray-400">Renewed leases this period</div>
                 </div>
               </button>
               <button
                 onClick={() => { setGenerateType("VACANCY_FEE"); setDropdownOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-body text-gray-700 hover:bg-gray-50 text-left"
               >
                 <Building2 size={14} className="text-gray-400 shrink-0" />
                 <div>
                   <div className="font-medium">Vacancy Fee</div>
-                  <div className="text-xs text-gray-400">Long-vacant units</div>
+                  <div className="text-caption text-gray-400">Long-vacant units</div>
                 </div>
               </button>
               <div className="border-t border-gray-100 my-1" />
               <button
                 onClick={() => { setShowBundle(true); setDropdownOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-sans text-gray-700 hover:bg-gray-50 text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-body text-gray-700 hover:bg-gray-50 text-left"
               >
                 <Package size={14} className="text-blue-400 shrink-0" />
                 <div>
                   <div className="font-medium">Airbnb Periodic</div>
-                  <div className="text-xs text-gray-400">Bundle short-let letting fees</div>
+                  <div className="text-caption text-gray-400">Bundle short-let letting fees</div>
                 </div>
               </button>
             </div>
@@ -932,7 +932,7 @@ export default function OwnerInvoicesTab() {
 
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-gold hover:bg-gold-dark text-white px-3 py-1.5 rounded-lg text-sm font-sans font-medium"
+          className="flex items-center gap-2 bg-gold hover:bg-gold-dark text-white px-3 py-1.5 rounded-lg text-body font-medium"
         >
           <Plus size={15} /> New Owner Invoice
         </button>
@@ -941,23 +941,23 @@ export default function OwnerInvoicesTab() {
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total Invoices</p>
-          <p className="text-2xl font-display text-header mt-1">{invoices.length}</p>
+          <p className="text-label text-gray-500 font-medium uppercase ">Total Invoices</p>
+          <p className="text-h1 text-header mt-1">{invoices.length}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Outstanding</p>
-          <p className="text-xl font-display text-expense mt-1">{formatCurrency(totalDue, currency)}</p>
+          <p className="text-label text-gray-500 font-medium uppercase ">Outstanding</p>
+          <p className="text-h2 text-expense mt-1">{formatCurrency(totalDue, currency)}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Collected</p>
-          <p className="text-xl font-display text-income mt-1">{formatCurrency(totalPaid, currency)}</p>
+          <p className="text-label text-gray-500 font-medium uppercase ">Collected</p>
+          <p className="text-h2 text-income mt-1">{formatCurrency(totalPaid, currency)}</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap mb-4">
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40">
+          className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40">
           <option value="ALL">All Statuses</option>
           <option value="DRAFT">Draft</option>
           <option value="SENT">Sent</option>
@@ -966,7 +966,7 @@ export default function OwnerInvoicesTab() {
           <option value="CANCELLED">Cancelled</option>
         </select>
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40">
+          className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40">
           <option value="ALL">All Types</option>
           {OWNER_INVOICE_TYPES.map((t) => (
             <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>
@@ -980,23 +980,23 @@ export default function OwnerInvoicesTab() {
           <Loader2 size={24} className="animate-spin text-gray-300" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-gray-400 font-sans text-sm">
+        <div className="text-center py-16 text-gray-400 text-body">
           No owner invoices found.
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Invoice #</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Property</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Period</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Due</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
+                  <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Invoice #</th>
+                  <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Type</th>
+                  <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Property</th>
+                  <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Period</th>
+                  <th className="text-right px-4 py-3 text-label font-medium text-gray-500 uppercase ">Amount</th>
+                  <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Due</th>
+                  <th className="text-left px-4 py-3 text-label font-medium text-gray-500 uppercase ">Status</th>
+                  <th className="text-right px-4 py-3 text-label font-medium text-gray-500 uppercase ">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -1007,21 +1007,21 @@ export default function OwnerInvoicesTab() {
                   return (
                     <tr key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3">
-                        <span className="font-mono text-xs text-header">{invoice.invoiceNumber}</span>
+                        <span className="tabular-nums text-caption text-header">{invoice.invoiceNumber}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeCfg.badge}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-caption font-medium ${typeCfg.badge}`}>
                           {typeCfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-700 font-sans">{invoice.property.name}</td>
-                      <td className="px-4 py-3 text-gray-500 font-sans text-xs">
+                      <td className="px-4 py-3 text-gray-700 ">{invoice.property.name}</td>
+                      <td className="px-4 py-3 text-gray-500 text-caption">
                         {MONTH_NAMES[invoice.periodMonth - 1]} {invoice.periodYear}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono font-semibold text-header">
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-header">
                         {formatCurrency(invoice.totalAmount, currency)}
                       </td>
-                      <td className={`px-4 py-3 font-sans text-xs ${isOverdue ? "text-expense font-medium" : "text-gray-500"}`}>
+                      <td className={`px-4 py-3 text-caption ${isOverdue ? "text-expense font-medium" : "text-gray-500"}`}>
                         {format(dueDate, "d MMM yyyy")}
                         {isOverdue && <span className="ml-1">⚠</span>}
                       </td>

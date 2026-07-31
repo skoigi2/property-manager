@@ -423,7 +423,7 @@ export default function AirbnbPage() {
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-sans font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-body font-medium transition-all ${
                 tab === key ? "bg-gold text-white shadow-sm" : "text-gray-500 hover:text-header"
               }`}
             >
@@ -444,12 +444,12 @@ export default function AirbnbPage() {
                 <div className="flex items-center justify-between">
                   <MonthPicker value={month} onChange={setMonth} />
                   <div className="flex items-center gap-2">
-                    <button onClick={fetchEntries} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-header font-sans transition-colors">
+                    <button onClick={fetchEntries} className="flex items-center gap-1.5 text-caption text-gray-400 hover:text-header transition-colors">
                       <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
                     </button>
                     <button
                       onClick={() => { setShowForm(true); setForm({ ...EMPTY_FORM, unitId: allUnits[0]?.id ?? "" }); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-caption font-medium rounded-lg hover:bg-gold-dark transition-colors"
                     >
                       <Plus size={13} /> New Booking
                     </button>
@@ -471,23 +471,23 @@ export default function AirbnbPage() {
                           )}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-mono font-semibold text-header">{unit.unitNumber}</span>
+                            <span className="text-body tabular-nums font-semibold text-header">{unit.unitNumber}</span>
                             <span className={clsx(
-                              "text-xs font-sans font-medium px-2 py-0.5 rounded-full",
+                              "text-caption font-medium px-2 py-0.5 rounded-full",
                               booking ? "bg-gold/10 text-gold-dark" : "bg-green-50 text-income",
                             )}>
                               {booking ? "Booked" : "Available"}
                             </span>
                           </div>
                           {booking ? (
-                            <div className="text-xs text-gray-500 font-sans">
+                            <div className="text-caption text-gray-500 ">
                               <p className="font-medium text-gray-700">{primaryGuest?.name ?? "Guest"}</p>
                               <p>Checkout: {formatDate(booking.checkOut)}</p>
                             </div>
                           ) : (
                             <button
                               onClick={(e) => { e.stopPropagation(); setShowForm(true); setForm({ ...EMPTY_FORM, unitId: unit.id }); }}
-                              className="text-xs text-gold hover:text-gold-dark font-sans transition-colors flex items-center gap-1"
+                              className="text-caption text-gold hover:text-gold-dark transition-colors flex items-center gap-1"
                             >
                               <Plus size={11} /> Add booking
                             </button>
@@ -502,17 +502,17 @@ export default function AirbnbPage() {
                 {showForm && (
                   <Card>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-display text-base text-header">New Booking</h3>
+                      <h3 className=" text-h3 text-header">New Booking</h3>
                       <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-header transition-colors"><X size={18} /></button>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       {/* Unit */}
                       <div className="col-span-2">
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Unit *</label>
+                        <label className="block text-caption text-gray-500 mb-1">Unit *</label>
                         <select
                           value={form.unitId}
                           onChange={(e) => setForm((p) => ({ ...p, unitId: e.target.value }))}
-                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50"
+                          className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50"
                         >
                           <option value="">Select unit…</option>
                           {allUnits.map((u: any) => (
@@ -522,33 +522,33 @@ export default function AirbnbPage() {
                       </div>
                       {/* Check-in / Check-out */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Check-in *</label>
-                        <input type="date" value={form.checkIn} onChange={(e) => setFormField("checkIn", e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                        <label className="block text-caption text-gray-500 mb-1">Check-in *</label>
+                        <input type="date" value={form.checkIn} onChange={(e) => setFormField("checkIn", e.target.value)} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Check-out *</label>
-                        <input type="date" value={form.checkOut} onChange={(e) => setFormField("checkOut", e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                        <label className="block text-caption text-gray-500 mb-1">Check-out *</label>
+                        <input type="date" value={form.checkOut} onChange={(e) => setFormField("checkOut", e.target.value)} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       {/* Nights (computed) */}
                       {formNights > 0 && (
                         <div className="col-span-2">
-                          <p className="text-xs text-gold font-sans font-medium">{formNights} night{formNights !== 1 ? "s" : ""}</p>
+                          <p className="text-caption text-gold font-medium">{formNights} night{formNights !== 1 ? "s" : ""}</p>
                         </div>
                       )}
                       {/* Nightly rate */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Nightly Rate</label>
-                        <input type="number" step="1" value={form.nightlyRate} onChange={(e) => setFormField("nightlyRate", e.target.value)} placeholder="Auto-computed" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                        <label className="block text-caption text-gray-500 mb-1">Nightly Rate</label>
+                        <input type="number" step="1" value={form.nightlyRate} onChange={(e) => setFormField("nightlyRate", e.target.value)} placeholder="Auto-computed" className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       {/* Gross amount */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Gross Amount *</label>
-                        <input type="number" step="0.01" value={form.grossAmount} onChange={(e) => setFormField("grossAmount", e.target.value)} placeholder="Total received" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                        <label className="block text-caption text-gray-500 mb-1">Gross Amount *</label>
+                        <input type="number" step="0.01" value={form.grossAmount} onChange={(e) => setFormField("grossAmount", e.target.value)} placeholder="Total received" className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       {/* Platform */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Platform</label>
-                        <select value={form.platform} onChange={(e) => setForm((p) => ({ ...p, platform: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50">
+                        <label className="block text-caption text-gray-500 mb-1">Platform</label>
+                        <select value={form.platform} onChange={(e) => setForm((p) => ({ ...p, platform: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50">
                           <option value="AIRBNB">Airbnb</option>
                           <option value="BOOKING_COM">Booking.com</option>
                           <option value="DIRECT">Direct</option>
@@ -558,8 +558,8 @@ export default function AirbnbPage() {
                       {/* Agent */}
                       {form.platform === "AGENT" && (
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Agent</label>
-                          <select value={form.agentName} onChange={(e) => setForm((p) => ({ ...p, agentName: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50">
+                          <label className="block text-caption text-gray-500 mb-1">Agent</label>
+                          <select value={form.agentName} onChange={(e) => setForm((p) => ({ ...p, agentName: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50">
                             <option value="">Select…</option>
                             {AGENTS.map((a) => <option key={a} value={a}>{a}</option>)}
                           </select>
@@ -567,25 +567,25 @@ export default function AirbnbPage() {
                       )}
                       {/* Commission */}
                       <div>
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Commission</label>
-                        <input type="number" step="0.01" value={form.agentCommission} onChange={(e) => setForm((p) => ({ ...p, agentCommission: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                        <label className="block text-caption text-gray-500 mb-1">Commission</label>
+                        <input type="number" step="0.01" value={form.agentCommission} onChange={(e) => setForm((p) => ({ ...p, agentCommission: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                       {/* Note */}
                       <div className="col-span-2">
-                        <label className="block text-xs text-gray-500 font-sans mb-1">Note</label>
-                        <input type="text" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} placeholder="Optional note…" className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                        <label className="block text-caption text-gray-500 mb-1">Note</label>
+                        <input type="text" value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} placeholder="Optional note…" className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                       </div>
                     </div>
                     <div className="flex gap-3 mt-4">
                       <button
                         onClick={handleSubmitBooking}
                         disabled={submitting}
-                        className="flex items-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-gold text-white text-body font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
                       >
                         {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                         Save Booking
                       </button>
-                      <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-200 text-sm font-sans text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                      <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-200 text-body text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
                     </div>
                   </Card>
                 )}
@@ -596,10 +596,10 @@ export default function AirbnbPage() {
                 ) : (
                   <Card padding="none">
                     <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                      <p className="text-sm font-display text-header">{format(month, "MMMM yyyy")} — Occupancy</p>
+                      <p className="text-body font-medium text-header">{format(month, "MMMM yyyy")} — Occupancy</p>
                       <div className="flex items-center gap-4">
                         {Object.entries(PLATFORM_LABELS).map(([k, v]) => (
-                          <span key={k} className="flex items-center gap-1.5 text-xs font-sans text-gray-500">
+                          <span key={k} className="flex items-center gap-1.5 text-caption text-gray-500">
                             <span className={`w-2.5 h-2.5 rounded-sm ${PLATFORM_COLOURS[k] ?? "bg-gray-300"}`} />
                             {v}
                           </span>
@@ -614,7 +614,7 @@ export default function AirbnbPage() {
                           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
                             const isToday = new Date(month.getFullYear(), month.getMonth(), d).toDateString() === today.toDateString();
                             return (
-                              <div key={d} className={clsx("text-center text-xs font-sans font-medium py-1", isToday ? "text-gold bg-amber-50 rounded" : "text-gray-400")}>{d}</div>
+                              <div key={d} className={clsx("text-center text-caption font-medium py-1", isToday ? "text-gold bg-amber-50 rounded" : "text-gray-400")}>{d}</div>
                             );
                           })}
                         </div>
@@ -623,7 +623,7 @@ export default function AirbnbPage() {
                           const unitEntries = entries.filter((e: any) => e.unitId === unit.id && e.checkIn && e.checkOut);
                           return (
                             <div key={unit.id} className="grid items-center mb-1.5 relative" style={{ gridTemplateColumns: `120px repeat(${daysInMonth}, 1fr)`, minHeight: "36px" }}>
-                              <div className="text-xs font-mono font-medium text-gray-600 pr-2 truncate">{unit.unitNumber}</div>
+                              <div className="text-caption tabular-nums font-medium text-gray-600 pr-2 truncate">{unit.unitNumber}</div>
                               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
                                 const isToday = new Date(month.getFullYear(), month.getMonth(), d).toDateString() === today.toDateString();
                                 return <div key={d} className={clsx("h-8 border-l border-gray-100", isToday ? "bg-amber-50/50" : "bg-gray-50/50")} />;
@@ -642,7 +642,7 @@ export default function AirbnbPage() {
                                     title={`${primaryGuest?.name ?? "Guest"} · ${span.nights}n · ${formatCurrency(entry.grossAmount, currency)}`}
                                     onClick={() => openDetail(entry)}
                                     className={clsx(
-                                      "absolute top-1 h-6 rounded-md flex items-center px-2 cursor-pointer text-white text-xs font-sans font-medium truncate shadow-sm transition-opacity hover:opacity-80",
+                                      "absolute top-1 h-6 rounded-md flex items-center px-2 cursor-pointer text-white text-caption font-medium truncate shadow-sm transition-opacity hover:opacity-80",
                                       colour,
                                       selectedEntry?.id === entry.id && "ring-2 ring-white ring-offset-1",
                                     )}
@@ -656,7 +656,7 @@ export default function AirbnbPage() {
                           );
                         })}
                         {allUnits.length === 0 && (
-                          <p className="text-sm text-gray-400 font-sans text-center py-8">No units found for this Airbnb property.</p>
+                          <p className="text-body text-gray-400 text-center py-8">No units found for this Airbnb property.</p>
                         )}
                       </div>
                     </div>
@@ -668,8 +668,8 @@ export default function AirbnbPage() {
                   <Card>
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="font-display text-base text-header">Booking Details</h3>
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">
+                        <h3 className=" text-h3 text-header">Booking Details</h3>
+                        <p className="text-caption text-gray-400 mt-0.5">
                           {selectedEntry.unit?.unitNumber} · {selectedEntry.checkIn ? formatDate(selectedEntry.checkIn) : "—"} → {selectedEntry.checkOut ? formatDate(selectedEntry.checkOut) : "—"}
                           {selectedEntry.checkIn && selectedEntry.checkOut && (
                             <span className="ml-2 text-gold font-medium">{nightsBetween(selectedEntry.checkIn, selectedEntry.checkOut)} nights</span>
@@ -690,16 +690,16 @@ export default function AirbnbPage() {
                     {editingEntry ? (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Gross Amount</label>
-                          <input type="number" step="0.01" value={editForm.grossAmount ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, grossAmount: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                          <label className="block text-caption text-gray-500 mb-1">Gross Amount</label>
+                          <input type="number" step="0.01" value={editForm.grossAmount ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, grossAmount: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Nightly Rate</label>
-                          <input type="number" step="1" value={editForm.nightlyRate ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, nightlyRate: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                          <label className="block text-caption text-gray-500 mb-1">Nightly Rate</label>
+                          <input type="number" step="1" value={editForm.nightlyRate ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, nightlyRate: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Platform</label>
-                          <select value={editForm.platform ?? "AIRBNB"} onChange={(e) => setEditForm((p) => ({ ...p, platform: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50">
+                          <label className="block text-caption text-gray-500 mb-1">Platform</label>
+                          <select value={editForm.platform ?? "AIRBNB"} onChange={(e) => setEditForm((p) => ({ ...p, platform: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50">
                             <option value="AIRBNB">Airbnb</option>
                             <option value="BOOKING_COM">Booking.com</option>
                             <option value="DIRECT">Direct</option>
@@ -707,49 +707,49 @@ export default function AirbnbPage() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Commission</label>
-                          <input type="number" step="0.01" value={editForm.agentCommission ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, agentCommission: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                          <label className="block text-caption text-gray-500 mb-1">Commission</label>
+                          <input type="number" step="0.01" value={editForm.agentCommission ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, agentCommission: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-xs text-gray-500 font-sans mb-1">Note</label>
-                          <input type="text" value={editForm.note ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, note: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 font-sans focus:outline-none focus:ring-1 focus:ring-gold/50" />
+                          <label className="block text-caption text-gray-500 mb-1">Note</label>
+                          <input type="text" value={editForm.note ?? ""} onChange={(e) => setEditForm((p) => ({ ...p, note: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gold/50" />
                         </div>
                         <div className="col-span-2 flex gap-3">
-                          <button onClick={handleSaveEdit} disabled={savingEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50">
+                          <button onClick={handleSaveEdit} disabled={savingEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-caption font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50">
                             {savingEdit ? <Loader2 size={12} className="animate-spin" /> : null} Save
                           </button>
-                          <button onClick={() => setEditingEntry(false)} className="px-3 py-1.5 border border-gray-200 text-xs font-sans text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                          <button onClick={() => setEditingEntry(false)} className="px-3 py-1.5 border border-gray-200 text-caption text-gray-500 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-3 gap-4 text-sm font-sans">
+                      <div className="grid grid-cols-3 gap-4 text-body ">
                         <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Gross</p>
+                          <p className="text-label text-gray-400 uppercase mb-0.5">Gross</p>
                           <CurrencyDisplay amount={selectedEntry.grossAmount} size="md" className="text-income" />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Nightly Rate</p>
+                          <p className="text-label text-gray-400 uppercase mb-0.5">Nightly Rate</p>
                           {selectedEntry.nightlyRate
                             ? <CurrencyDisplay amount={selectedEntry.nightlyRate} size="md" className="text-header" />
-                            : <span className="text-gray-400 text-xs">—</span>}
+                            : <span className="text-gray-400 text-caption">—</span>}
                         </div>
                         <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Commission</p>
+                          <p className="text-label text-gray-400 uppercase mb-0.5">Commission</p>
                           <CurrencyDisplay amount={selectedEntry.agentCommission} size="md" className={selectedEntry.agentCommission > 0 ? "text-expense" : "text-gray-400"} />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Platform</p>
+                          <p className="text-label text-gray-400 uppercase mb-0.5">Platform</p>
                           <p className="text-header">{PLATFORM_LABELS[selectedEntry.platform ?? ""] ?? selectedEntry.platform ?? "—"}</p>
                         </div>
                         {selectedEntry.agentName && (
                           <div>
-                            <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Agent</p>
+                            <p className="text-label text-gray-400 uppercase mb-0.5">Agent</p>
                             <p className="text-header">{selectedEntry.agentName}</p>
                           </div>
                         )}
                         {selectedEntry.note && (
                           <div className="col-span-3">
-                            <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Note</p>
+                            <p className="text-label text-gray-400 uppercase mb-0.5">Note</p>
                             <p className="text-gray-600 italic">{selectedEntry.note}</p>
                           </div>
                         )}
@@ -761,7 +761,7 @@ export default function AirbnbPage() {
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <button
                           onClick={() => setShowGuests((v) => !v)}
-                          className="flex items-center gap-2 text-sm font-sans font-medium text-gray-500 hover:text-header transition-colors"
+                          className="flex items-center gap-2 text-body font-medium text-gray-500 hover:text-header transition-colors"
                         >
                           <Users size={14} className="text-gold" />
                           Guests
@@ -784,7 +784,7 @@ export default function AirbnbPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <MonthPicker value={month} onChange={setMonth} />
-                  <button onClick={fetchEntries} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-header font-sans transition-colors">
+                  <button onClick={fetchEntries} className="flex items-center gap-1.5 text-caption text-gray-400 hover:text-header transition-colors">
                     <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
                   </button>
                 </div>
@@ -794,28 +794,28 @@ export default function AirbnbPage() {
                   <>
                     <div className="grid grid-cols-5 gap-3">
                       <Card padding="sm">
-                        <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Occupancy</p>
-                        <p className={`text-2xl font-display mt-1 ${kpi.avgOcc >= 0.8 ? "text-income" : kpi.avgOcc >= 0.5 ? "text-amber-600" : "text-expense"}`}>{Math.round(kpi.avgOcc * 100)}%</p>
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">{kpi.totalNights} nights booked</p>
+                        <p className="text-label text-gray-400 uppercase ">Occupancy</p>
+                        <p className={`text-h1 mt-1 ${kpi.avgOcc >= 0.8 ? "text-income" : kpi.avgOcc >= 0.5 ? "text-amber-600" : "text-expense"}`}>{Math.round(kpi.avgOcc * 100)}%</p>
+                        <p className="text-caption text-gray-400 mt-0.5">{kpi.totalNights} nights booked</p>
                       </Card>
                       <Card padding="sm">
-                        <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Avg Nightly Rate</p>
+                        <p className="text-label text-gray-400 uppercase ">Avg Nightly Rate</p>
                         <CurrencyDisplay amount={kpi.avgRate} size="lg" className="block mt-1 text-header" />
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">per night</p>
+                        <p className="text-caption text-gray-400 mt-0.5">per night</p>
                       </Card>
                       <Card padding="sm">
-                        <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">RevPAR</p>
+                        <p className="text-label text-gray-400 uppercase ">RevPAR</p>
                         <CurrencyDisplay amount={kpi.revPAR} size="lg" className="block mt-1 text-header" />
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">rev / avail room / night</p>
+                        <p className="text-caption text-gray-400 mt-0.5">rev / avail room / night</p>
                       </Card>
                       <Card padding="sm">
-                        <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Avg Stay</p>
-                        <p className="text-2xl font-display text-header mt-1">{kpi.avgStay > 0 ? kpi.avgStay.toFixed(1) : "—"}</p>
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">nights avg</p>
+                        <p className="text-label text-gray-400 uppercase ">Avg Stay</p>
+                        <p className="text-h1 text-header mt-1">{kpi.avgStay > 0 ? kpi.avgStay.toFixed(1) : "—"}</p>
+                        <p className="text-caption text-gray-400 mt-0.5">nights avg</p>
                       </Card>
                       <Card padding="sm">
-                        <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Total Bookings</p>
-                        <p className="text-2xl font-display text-header mt-1">{kpi.totalBookings}</p>
+                        <p className="text-label text-gray-400 uppercase ">Total Bookings</p>
+                        <p className="text-h1 text-header mt-1">{kpi.totalBookings}</p>
                         <CurrencyDisplay amount={kpi.totalGross} size="sm" className="block text-income mt-0.5" />
                       </Card>
                     </div>
@@ -830,30 +830,30 @@ export default function AirbnbPage() {
                           {unitStats.map(({ unit, count, nights, gross, net, occ, avgRate }) => (
                             <div key={unit.id} className="px-4 py-3">
                               <div className="flex items-center justify-between gap-2 mb-2">
-                                <p className="text-sm font-mono font-medium text-header">{unit.unitNumber}</p>
+                                <p className="text-body tabular-nums font-medium text-header">{unit.unitNumber}</p>
                                 <div className="flex items-center gap-2">
                                   <div className="w-16 bg-gray-100 rounded-full h-1.5">
                                     <div className={`h-1.5 rounded-full ${occ >= 0.8 ? "bg-income" : occ >= 0.5 ? "bg-amber-400" : "bg-expense"}`} style={{ width: `${Math.round(occ * 100)}%` }} />
                                   </div>
-                                  <span className="text-xs font-sans text-gray-600">{Math.round(occ * 100)}%</span>
+                                  <span className="text-caption text-gray-600">{Math.round(occ * 100)}%</span>
                                 </div>
                               </div>
                               <div className="grid grid-cols-4 gap-2">
                                 <div>
-                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Bookings</p>
-                                  <p className="text-sm font-sans text-gray-600">{count} · {nights}n</p>
+                                  <p className="text-label text-gray-400 uppercase mb-0.5">Bookings</p>
+                                  <p className="text-body text-gray-600">{count} · {nights}n</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Gross</p>
+                                  <p className="text-label text-gray-400 uppercase mb-0.5">Gross</p>
                                   <CurrencyDisplay amount={gross} size="sm" className="text-income" />
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Net</p>
+                                  <p className="text-label text-gray-400 uppercase mb-0.5">Net</p>
                                   <CurrencyDisplay amount={net} size="sm" className={net >= 0 ? "text-header" : "text-expense"} />
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Avg Rate</p>
-                                  {avgRate > 0 ? <CurrencyDisplay amount={avgRate} size="sm" className="text-gray-600" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+                                  <p className="text-label text-gray-400 uppercase mb-0.5">Avg Rate</p>
+                                  {avgRate > 0 ? <CurrencyDisplay amount={avgRate} size="sm" className="text-gray-600" /> : <span className="text-caption text-gray-400 ">—</span>}
                                 </div>
                               </div>
                             </div>
@@ -865,28 +865,28 @@ export default function AirbnbPage() {
                             <thead className="bg-cream-dark">
                               <tr>
                                 {["Unit", "Bookings", "Booked Nights", "Occupancy", "Gross Revenue", "Net (after comm.)", "Avg Nightly Rate"].map((h) => (
-                                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                                  <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase ">{h}</th>
                                 ))}
                               </tr>
                             </thead>
                             <tbody>
                               {unitStats.map(({ unit, count, nights, gross, net, occ, avgRate }) => (
                                 <tr key={unit.id} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
-                                  <td className="px-4 py-3 text-sm font-mono font-medium text-header">{unit.unitNumber}</td>
-                                  <td className="px-4 py-3 text-sm font-sans text-gray-500 text-center">{count}</td>
-                                  <td className="px-4 py-3 text-sm font-sans text-gray-600 text-center">{nights}</td>
+                                  <td className="px-4 py-3 text-body tabular-nums font-medium text-header">{unit.unitNumber}</td>
+                                  <td className="px-4 py-3 text-body text-gray-500 text-center">{count}</td>
+                                  <td className="px-4 py-3 text-body text-gray-600 text-center">{nights}</td>
                                   <td className="px-4 py-3">
                                     <div className="flex items-center gap-2">
                                       <div className="w-16 bg-gray-100 rounded-full h-1.5">
                                         <div className={`h-1.5 rounded-full ${occ >= 0.8 ? "bg-income" : occ >= 0.5 ? "bg-amber-400" : "bg-expense"}`} style={{ width: `${Math.round(occ * 100)}%` }} />
                                       </div>
-                                      <span className="text-xs font-sans text-gray-600">{Math.round(occ * 100)}%</span>
+                                      <span className="text-caption text-gray-600">{Math.round(occ * 100)}%</span>
                                     </div>
                                   </td>
                                   <td className="px-4 py-3 text-right"><CurrencyDisplay amount={gross} size="sm" className="text-income" /></td>
                                   <td className="px-4 py-3 text-right"><CurrencyDisplay amount={net} size="sm" className={net >= 0 ? "text-header" : "text-expense"} /></td>
                                   <td className="px-4 py-3 text-right">
-                                    {avgRate > 0 ? <CurrencyDisplay amount={avgRate} size="sm" className="text-gray-600" /> : <span className="text-xs text-gray-400 font-sans">—</span>}
+                                    {avgRate > 0 ? <CurrencyDisplay amount={avgRate} size="sm" className="text-gray-600" /> : <span className="text-caption text-gray-400 ">—</span>}
                                   </td>
                                 </tr>
                               ))}
@@ -910,7 +910,7 @@ export default function AirbnbPage() {
                 <Card>
                   <h3 className="section-header mb-4">Upcoming Check-outs (next 14 days)</h3>
                   {upcomingTurnovers.length === 0 ? (
-                    <p className="text-sm text-gray-400 font-sans text-center py-6">No check-outs in the next 14 days.</p>
+                    <p className="text-body text-gray-400 text-center py-6">No check-outs in the next 14 days.</p>
                   ) : (
                     <div className="space-y-3">
                       {upcomingTurnovers.map((entry: any) => {
@@ -924,19 +924,19 @@ export default function AirbnbPage() {
                             <div className="flex items-center gap-3">
                               <div className={clsx("w-1 self-stretch rounded-full shrink-0", daysUntil === 0 ? "bg-expense" : daysUntil <= 2 ? "bg-amber-400" : "bg-gray-200")} />
                               <div>
-                                <p className="text-sm font-medium font-sans text-header">
+                                <p className="text-body font-medium text-header">
                                   {entry.unit?.unitNumber}
-                                  <span className="ml-2 text-xs font-normal text-gray-400">{entry.unit?.property?.name}</span>
+                                  <span className="ml-2 text-caption text-gray-400">{entry.unit?.property?.name}</span>
                                 </p>
-                                <p className="text-xs text-gray-500 font-sans">
+                                <p className="text-caption text-gray-500 ">
                                   Check-out: <span className="font-medium text-gray-700">{formatDate(entry.checkOut)}</span>
                                   {nights && <span className="ml-2">· {nights} nights</span>}
                                   {primaryGuest && <span className="ml-2">· {primaryGuest.name}</span>}
                                 </p>
-                                <p className="text-xs font-sans mt-0.5">
+                                <p className="text-caption mt-0.5">
                                   {daysUntil === 0 ? <span className="text-expense font-medium">Today</span> : daysUntil === 1 ? <span className="text-amber-600 font-medium">Tomorrow</span> : <span className="text-gray-400">In {daysUntil} days</span>}
                                   {entry.platform && (
-                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-white text-xs ${PLATFORM_COLOURS[entry.platform] ?? "bg-gray-400"}`}>
+                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-white text-caption ${PLATFORM_COLOURS[entry.platform] ?? "bg-gray-400"}`}>
                                       {PLATFORM_LABELS[entry.platform]}
                                     </span>
                                   )}
@@ -945,9 +945,9 @@ export default function AirbnbPage() {
                             </div>
                             <div className="shrink-0">
                               {jobExists ? (
-                                <span className="flex items-center gap-1.5 text-xs text-income font-sans font-medium"><CheckCircle2 size={14} /> Task Created</span>
+                                <span className="flex items-center gap-1.5 text-caption text-income font-medium"><CheckCircle2 size={14} /> Task Created</span>
                               ) : (
-                                <button disabled={isCreating} onClick={() => createTurnoverJob(entry)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gold text-white rounded-lg font-sans font-medium hover:bg-gold-dark transition-colors disabled:opacity-50">
+                                <button disabled={isCreating} onClick={() => createTurnoverJob(entry)} className="flex items-center gap-1.5 text-caption px-3 py-1.5 bg-gold text-white rounded-lg font-medium hover:bg-gold-dark transition-colors disabled:opacity-50">
                                   {isCreating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                                   Create Turnover Task
                                 </button>
@@ -967,7 +967,7 @@ export default function AirbnbPage() {
                   {cleaningJobs.length === 0 ? (
                     <div className="flex flex-col items-center py-10 gap-2 text-gray-400">
                       <Wrench size={28} className="opacity-30" />
-                      <p className="text-sm font-sans">No cleaning tasks logged yet</p>
+                      <p className="text-body ">No cleaning tasks logged yet</p>
                     </div>
                   ) : (
                     <>
@@ -979,8 +979,8 @@ export default function AirbnbPage() {
                           <div key={job.id} className="px-4 py-3">
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <div>
-                                <p className="text-sm font-sans text-header">{job.title}</p>
-                                <p className="text-xs text-gray-400 font-sans mt-0.5">
+                                <p className="text-body text-header">{job.title}</p>
+                                <p className="text-caption text-gray-400 mt-0.5">
                                   {job.unit?.unitNumber ? `Unit ${job.unit.unitNumber} · ` : ""}
                                   {job.scheduledDate ? formatDate(job.scheduledDate) : "Unscheduled"}
                                   {job.assignedTo ? ` · ${job.assignedTo}` : ""}
@@ -999,7 +999,7 @@ export default function AirbnbPage() {
                         <thead className="bg-cream-dark">
                           <tr>
                             {["Unit", "Title", "Scheduled", "Assigned To", "Status"].map((h) => (
-                              <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">{h}</th>
+                              <th key={h} className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase ">{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -1008,10 +1008,10 @@ export default function AirbnbPage() {
                             .sort((a, b) => (a.scheduledDate && b.scheduledDate) ? new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime() : 0)
                             .map((job: any) => (
                               <tr key={job.id} className="border-t border-gray-50 hover:bg-cream/40 transition-colors">
-                                <td className="px-4 py-3 text-xs font-mono text-gray-500">{job.unit?.unitNumber ?? "—"}</td>
-                                <td className="px-4 py-3 text-sm font-sans text-header">{job.title}</td>
-                                <td className="px-4 py-3 text-sm font-sans text-gray-500">{job.scheduledDate ? formatDate(job.scheduledDate) : "—"}</td>
-                                <td className="px-4 py-3 text-sm font-sans text-gray-500">{job.assignedTo ?? "—"}</td>
+                                <td className="px-4 py-3 text-caption tabular-nums text-gray-500">{job.unit?.unitNumber ?? "—"}</td>
+                                <td className="px-4 py-3 text-body text-header">{job.title}</td>
+                                <td className="px-4 py-3 text-body text-gray-500">{job.scheduledDate ? formatDate(job.scheduledDate) : "—"}</td>
+                                <td className="px-4 py-3 text-body text-gray-500">{job.assignedTo ?? "—"}</td>
                                 <td className="px-4 py-3">
                                   <Badge variant={job.status === "DONE" ? "green" : job.status === "IN_PROGRESS" ? "blue" : job.status === "OPEN" ? "amber" : "gray"}>
                                     {job.status}

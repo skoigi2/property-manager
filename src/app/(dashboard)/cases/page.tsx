@@ -81,7 +81,7 @@ export default function CasesPage() {
                 key={v.id}
                 onClick={() => changeView(v.id)}
                 className={clsx(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium font-sans transition-all whitespace-nowrap",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body font-medium transition-all whitespace-nowrap",
                   view === v.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
                 )}
               >
@@ -135,7 +135,7 @@ export default function CasesPage() {
               { value: "GENERAL", label: "General" },
             ]}
           />
-          <label className="flex items-center gap-2 text-sm font-sans h-10 px-3 rounded-lg bg-gray-50 border border-gray-200">
+          <label className="flex items-center gap-2 text-body h-10 px-3 rounded-lg bg-gray-50 border border-gray-200">
             <input
               type="checkbox"
               checked={assignedToMe}

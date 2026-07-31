@@ -383,11 +383,11 @@ export default function UsersPage() {
       <div className="page-container space-y-4">
         {isSuperAdmin && (
           <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-100 rounded-xl">
-            <p className="text-xs font-sans text-amber-700 flex items-center gap-1.5">
+            <p className="text-caption text-amber-700 flex items-center gap-1.5">
               <Building2 size={13} />
               You are viewing users across all organisations.
             </p>
-            <Link href="/admin/organizations" className="flex items-center gap-1 text-xs font-sans text-amber-700 hover:text-amber-900 font-medium underline underline-offset-2 transition-colors">
+            <Link href="/admin/organizations" className="flex items-center gap-1 text-caption text-amber-700 hover:text-amber-900 font-medium underline underline-offset-2 transition-colors">
               Manage Organisations <ExternalLink size={11} />
             </Link>
           </div>
@@ -396,7 +396,7 @@ export default function UsersPage() {
         {/* Pending invitations */}
         {isAdmin && !isSuperAdmin && pendingInvites.length > 0 && (
           <Card>
-            <p className="text-xs font-sans font-medium text-gray-400 uppercase tracking-wide mb-3">
+            <p className="text-label font-medium text-gray-400 uppercase mb-3">
               Pending Invitations ({pendingInvites.length})
             </p>
             <div className="space-y-2">
@@ -409,8 +409,8 @@ export default function UsersPage() {
                       <Mail size={13} className="text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-sans text-header truncate">{inv.email}</p>
-                      <p className="text-xs text-gray-400 font-sans flex items-center gap-1">
+                      <p className="text-body text-header truncate">{inv.email}</p>
+                      <p className="text-caption text-gray-400 flex items-center gap-1">
                         <Clock size={10} /> Expires in {hoursLeft}h · invited as {inv.role}
                       </p>
                     </div>
@@ -454,16 +454,16 @@ export default function UsersPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-header font-sans text-sm">{user.name ?? "—"}</p>
+                        <p className="font-medium text-header text-body">{user.name ?? "—"}</p>
                         <Badge variant={roleBadge[user.orgRole] ?? "gray"}>{user.orgRole}</Badge>
                         {!user.isActive && <Badge variant="red">Inactive</Badge>}
                       </div>
-                      <p className="text-xs text-gray-400 font-sans">{user.email}</p>
-                      {user.phone && <p className="text-xs text-gray-400 font-sans">{user.phone}</p>}
+                      <p className="text-caption text-gray-400 ">{user.email}</p>
+                      {user.phone && <p className="text-caption text-gray-400 ">{user.phone}</p>}
                       {isAdmin && (
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {isSuperAdmin && (
-                            <p className="text-xs text-gray-400 font-sans flex items-center gap-1">
+                            <p className="text-caption text-gray-400 flex items-center gap-1">
                               <Building2 size={10} />
                               {user.organization?.name ?? <span className="italic">Super-admin</span>}
                             </p>
@@ -485,7 +485,7 @@ export default function UsersPage() {
                           setEditTarget(user);
                           resetEditForm({ name: user.name ?? "", phone: user.phone ?? "", role: user.orgRole as EditForm["role"] });
                         }}
-                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-gold transition-colors"
+                        className="flex items-center gap-1 text-caption text-gray-400 hover:text-gold transition-colors"
                         title="Edit user"
                       >
                         <Pencil size={13} />
@@ -497,7 +497,7 @@ export default function UsersPage() {
                     {isAdmin && canModify && canEdit && (
                       <button
                         onClick={() => { setResetTarget(user); resetResetForm(); }}
-                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-gold transition-colors"
+                        className="flex items-center gap-1 text-caption text-gray-400 hover:text-gold transition-colors"
                         title="Reset password"
                       >
                         <KeyRound size={13} />
@@ -509,7 +509,7 @@ export default function UsersPage() {
                     {canModify && canEdit && (
                       <button
                         onClick={() => toggleActive(user.id, user.isActive)}
-                        className="text-xs font-sans text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
+                        className="text-caption text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
                       >
                         {user.isActive ? "Deactivate" : "Activate"}
                       </button>
@@ -520,7 +520,7 @@ export default function UsersPage() {
                       <button
                         onClick={() => makeUserOrgLevel(user)}
                         disabled={makingOrgLevel === user.id}
-                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 text-caption text-gray-400 hover:text-blue-500 transition-colors disabled:opacity-50"
                         title="Remove all property access (make org-level)"
                       >
                         {makingOrgLevel === user.id ? (
@@ -537,7 +537,7 @@ export default function UsersPage() {
                       <button
                         onClick={() => removeFromOrg(user)}
                         disabled={removingUser === user.id}
-                        className="flex items-center gap-1 text-xs font-sans text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 text-caption text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
                         title="Remove from organisation"
                       >
                         {removingUser === user.id ? (
@@ -554,7 +554,7 @@ export default function UsersPage() {
                 {/* Property access (not for OWNER — they're linked via ownerId) */}
                 {user.orgRole !== "OWNER" && user.orgRole !== "ADMIN" && allProps.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-gray-50">
-                    <p className="text-xs text-gray-400 font-sans font-medium uppercase tracking-wide mb-2">Property Access</p>
+                    <p className="text-label text-gray-400 font-medium uppercase mb-2">Property Access</p>
                     <div className="space-y-1.5">
                       {allProps.map((prop) => {
                         const hasAccess = grantedIds.has(prop.id);
@@ -562,11 +562,11 @@ export default function UsersPage() {
                         const busy = togglingAccess === key;
                         return (
                           <div key={prop.id} className="flex items-center justify-between">
-                            <span className="text-sm font-sans text-gray-600">{prop.name}</span>
+                            <span className="text-body text-gray-600">{prop.name}</span>
                             <button
                               onClick={() => toggleAccess(user.id, prop.id, hasAccess)}
                               disabled={busy || !canEdit}
-                              className={`flex items-center gap-1.5 text-xs font-sans px-2.5 py-1 rounded-lg transition-colors ${
+                              className={`flex items-center gap-1.5 text-caption px-2.5 py-1 rounded-lg transition-colors ${
                                 hasAccess
                                   ? "bg-green-50 text-income hover:bg-red-50 hover:text-expense"
                                   : "bg-gray-50 text-gray-400 hover:bg-green-50 hover:text-income"
@@ -591,14 +591,14 @@ export default function UsersPage() {
                 {/* ADMIN note */}
                 {user.orgRole === "ADMIN" && (
                   <div className="mt-3 pt-3 border-t border-gray-50">
-                    <p className="text-xs text-gray-400 font-sans italic">Full access to all properties and settings</p>
+                    <p className="text-caption text-gray-400 italic">Full access to all properties and settings</p>
                   </div>
                 )}
 
                 {/* For OWNERs show their owned properties */}
                 {user.orgRole === "OWNER" && user.ownedProperties.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-50">
-                    <p className="text-xs text-gray-400 font-sans font-medium uppercase tracking-wide mb-1.5">Owns</p>
+                    <p className="text-label text-gray-400 font-medium uppercase mb-1.5">Owns</p>
                     <div className="flex flex-wrap gap-1.5">
                       {user.ownedProperties.map((p) => (
                         <Badge key={p.id} variant="blue">{p.name}</Badge>
@@ -631,7 +631,7 @@ export default function UsersPage() {
                 options={allOrgs.map((org) => ({ value: org.id, label: org.name }))}
               />
               {allOrgs.length === 0 && (
-                <p className="text-xs text-gray-400 font-sans mt-1">
+                <p className="text-caption text-gray-400 mt-1">
                   No organisations yet.{" "}
                   <Link href="/admin/organizations" className="text-gold underline underline-offset-2">Create one first →</Link>
                 </p>
@@ -656,10 +656,10 @@ export default function UsersPage() {
           {/* Property access for non-owners and non-admins */}
           {selectedRole !== "OWNER" && selectedRole !== "ADMIN" && allProps.length > 0 && (
             <div>
-              <p className="text-sm font-medium text-gray-600 font-sans mb-1.5">Property Access</p>
+              <p className="text-body font-medium text-gray-600 mb-1.5">Property Access</p>
               <div className="space-y-2">
                 {allProps.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 text-sm font-sans text-header cursor-pointer">
+                  <label key={p.id} className="flex items-center gap-2 text-body text-header cursor-pointer">
                     <input type="checkbox" value={p.id} className="rounded accent-gold" {...register("propertyIds")} />
                     {p.name}
                   </label>
@@ -683,7 +683,7 @@ export default function UsersPage() {
       >
         {editTarget && (
           <form onSubmit={handleSubmitEdit(onEditSubmit)} className="space-y-4">
-            <p className="text-sm font-sans text-gray-500">
+            <p className="text-body text-gray-500">
               Editing <span className="font-medium text-header">{editTarget.email}</span>
             </p>
 
@@ -714,7 +714,7 @@ export default function UsersPage() {
       {/* Invite user modal */}
       <Modal open={inviteOpen} onClose={() => { setInviteOpen(false); setInviteEmail(""); setInviteRole("MANAGER"); }} title="Invite Team Member">
         <div className="space-y-4">
-          <p className="text-sm font-sans text-gray-500">
+          <p className="text-body text-gray-500">
             An invitation link valid for 48 hours will be emailed to them.
           </p>
           <Input
@@ -725,11 +725,11 @@ export default function UsersPage() {
             placeholder="colleague@example.com"
           />
           <div>
-            <label className="block text-xs font-sans text-gray-500 mb-1">Role *</label>
+            <label className="block text-caption text-gray-500 mb-1">Role *</label>
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-body text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
             >
               <option value="ADMIN">Admin</option>
               <option value="MANAGER">Manager</option>
@@ -756,7 +756,7 @@ export default function UsersPage() {
       >
         {resetTarget && (
           <form onSubmit={handleSubmitReset(onResetPassword)} className="space-y-4">
-            <p className="text-sm font-sans text-gray-500">
+            <p className="text-body text-gray-500">
               Set a new password for <span className="font-medium text-header">{resetTarget.name ?? resetTarget.email}</span>.
             </p>
 

@@ -106,14 +106,14 @@ export function InboxClient({ userName, role }: Props) {
       {selectedItems.length >= 2 && (
         <div className="fixed inset-x-0 bottom-16 lg:bottom-4 z-40 flex justify-center pointer-events-none px-4">
           <div className="pointer-events-auto flex items-center gap-3 bg-header text-white rounded-2xl shadow-2xl px-4 py-3 max-w-2xl w-full">
-            <span className="text-sm font-sans font-medium">
+            <span className="text-body font-medium">
               {selectedItems.length} selected
             </span>
             <div className="flex-1" />
             <button
               onClick={() => setBulkModal("send-reminders")}
               disabled={selectedInvoices.length === 0}
-              className="flex items-center gap-1.5 text-xs font-sans font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1.5 text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title={selectedInvoices.length === 0 ? "Select at least one overdue invoice" : ""}
             >
               <Mail size={13} />
@@ -122,7 +122,7 @@ export function InboxClient({ userName, role }: Props) {
             <button
               onClick={() => setBulkModal("assign-vendor")}
               disabled={selectedJobs.length === 0}
-              className="flex items-center gap-1.5 text-xs font-sans font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1.5 text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               title={selectedJobs.length === 0 ? "Select at least one maintenance job" : ""}
             >
               <Wrench size={13} />
@@ -182,10 +182,10 @@ function KPI({
   return (
     <div className={`rounded-xl border-2 p-4 bg-white shadow-card ${tones[tone]}`}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium text-gray-500 font-sans uppercase tracking-wide">{label}</p>
+        <p className="text-label font-medium text-gray-500 uppercase ">{label}</p>
         <span className="text-gray-300 shrink-0">{icon}</span>
       </div>
-      <p className="font-display text-3xl mt-2">{value}</p>
+      <p className=" text-h1 mt-2">{value}</p>
     </div>
   );
 }
@@ -202,7 +202,7 @@ function Section({
   if (items.length === 0) return null;
   return (
     <section>
-      <h2 className="font-display text-sm uppercase tracking-wider text-gray-500 mb-3">
+      <h2 className=" text-label uppercase text-gray-500 mb-3">
         {title} <span className="text-gray-400">({items.length})</span>
       </h2>
       {/* Mobile: stacked cards */}
@@ -224,9 +224,9 @@ function Section({
             <tr className="border-b border-gray-100 text-left">
               <th className="px-4 py-2 w-8"></th>
               <th className="px-4 py-2 w-10"></th>
-              <th className="px-4 py-2 text-xs font-medium font-sans uppercase tracking-wide text-gray-500">Item</th>
-              <th className="px-4 py-2 text-xs font-medium font-sans uppercase tracking-wide text-gray-500">Property</th>
-              <th className="px-4 py-2 text-xs font-medium font-sans uppercase tracking-wide text-gray-500">Due</th>
+              <th className="px-4 py-2 text-label font-medium uppercase text-gray-500">Item</th>
+              <th className="px-4 py-2 text-label font-medium uppercase text-gray-500">Property</th>
+              <th className="px-4 py-2 text-label font-medium uppercase text-gray-500">Due</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
@@ -253,8 +253,8 @@ function EmptyState() {
       <div className="mx-auto w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center text-gold mb-3">
         <Inbox size={22} />
       </div>
-      <p className="font-display text-lg text-header">All caught up</p>
-      <p className="text-sm text-gray-500 font-sans mt-1">Nothing needs your attention right now.</p>
+      <p className=" text-h3 text-header">All caught up</p>
+      <p className="text-body text-gray-500 mt-1">Nothing needs your attention right now.</p>
     </div>
   );
 }
@@ -303,13 +303,13 @@ function BulkSendRemindersModal({
   return (
     <Modal open onClose={onClose} title="Send rent reminders" size="md">
       <div className="p-5 space-y-4">
-        <p className="text-sm font-sans text-gray-600">
+        <p className="text-body text-gray-600">
           Email a rent-payment reminder to {items.length} tenant{items.length === 1 ? "" : "s"} with an
           overdue invoice. Each email shows the invoice number, amount outstanding and days overdue,
           and is logged in the tenant&apos;s communication trail. Tenants without an email address will be
           reported back so you can follow up by phone or SMS.
         </p>
-        <ul className="text-xs font-sans text-gray-500 list-disc list-inside max-h-40 overflow-y-auto">
+        <ul className="text-caption text-gray-500 list-disc list-inside max-h-40 overflow-y-auto">
           {items.map((it) => <li key={it.id}>{it.title}</li>)}
         </ul>
         <div className="flex justify-end gap-2">
@@ -357,7 +357,7 @@ function BulkAssignVendorModal({
   return (
     <Modal open onClose={onClose} title="Assign vendor to selected jobs" size="md">
       <div className="p-5 space-y-4">
-        <p className="text-sm font-sans text-gray-600">
+        <p className="text-body text-gray-600">
           Assign one vendor to {items.length} maintenance job{items.length === 1 ? "" : "s"}.
         </p>
         <VendorSelect value={vendorId} onChange={setVendorId} label="Vendor" />

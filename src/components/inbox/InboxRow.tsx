@@ -99,7 +99,7 @@ function HintControls({ hintId, onDone }: { hintId: string; onDone: () => void }
 
   return (
     <div className="relative inline-flex items-center gap-1">
-      <span className="inline-flex items-center gap-1 text-[10px] font-medium font-sans px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700">
+      <span className="inline-flex items-center gap-1 text-caption font-medium px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700">
         <Sparkles size={10} /> Suggested
       </span>
       <button
@@ -119,7 +119,7 @@ function HintControls({ hintId, onDone }: { hintId: string; onDone: () => void }
         <X size={14} />
       </button>
       {snoozeOpen && (
-        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-100 z-50 flex flex-col text-xs font-sans">
+        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-100 z-50 flex flex-col text-caption ">
           <button onClick={() => snooze("1h")} className="px-3 py-2 text-left hover:bg-gray-50">1 hour</button>
           <button onClick={() => snooze("1d")} className="px-3 py-2 text-left hover:bg-gray-50 border-t border-gray-100">1 day</button>
           <button onClick={() => snooze("1w")} className="px-3 py-2 text-left hover:bg-gray-50 border-t border-gray-100">1 week</button>
@@ -152,14 +152,14 @@ export function InboxRowCard({ item, selected, onToggleSelected, onActionComplet
         <Icon size={18} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-sans font-semibold text-sm text-header">{item.title}</p>
-        <p className="text-xs text-gray-500 font-sans mt-0.5 leading-snug">{item.subtitle}</p>
+        <p className=" font-semibold text-body text-header">{item.title}</p>
+        <p className="text-caption text-gray-500 mt-0.5 ">{item.subtitle}</p>
         <div className="flex flex-wrap items-center gap-1.5 mt-2">
-          <span className="inline-flex items-center text-[10px] font-medium font-sans px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+          <span className="inline-flex items-center text-caption font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
             {item.propertyName}
           </span>
           {pill && (
-            <span className={clsx("inline-flex items-center text-[10px] font-medium font-sans px-2 py-0.5 rounded-full", s.pill)}>
+            <span className={clsx("inline-flex items-center text-caption font-medium px-2 py-0.5 rounded-full", s.pill)}>
               {pill}
             </span>
           )}
@@ -194,17 +194,17 @@ export function InboxTableRow({ item, selected, onToggleSelected, onActionComple
         </div>
       </td>
       <td className="px-4 py-3">
-        <p className="font-sans font-medium text-sm text-header">{item.title}</p>
-        <p className="text-xs text-gray-500 font-sans mt-0.5">{item.subtitle}</p>
+        <p className=" font-medium text-body text-header">{item.title}</p>
+        <p className="text-caption text-gray-500 mt-0.5">{item.subtitle}</p>
       </td>
       <td className="px-4 py-3">
-        <span className="inline-flex items-center text-xs font-medium font-sans px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+        <span className="inline-flex items-center text-caption font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
           {item.propertyName}
         </span>
       </td>
       <td className="px-4 py-3">
         {pill && (
-          <span className={clsx("inline-flex items-center text-xs font-medium font-sans px-2 py-0.5 rounded-full", s.pill)}>
+          <span className={clsx("inline-flex items-center text-caption font-medium px-2 py-0.5 rounded-full", s.pill)}>
             {pill}
           </span>
         )}

@@ -79,8 +79,8 @@ export function SetupChecklist({ propertyId }: Props) {
             <Sparkles size={20} className="text-gold" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-display text-header text-lg leading-tight truncate">{headline}</h2>
-            <p className="text-xs text-gray-500 font-sans mt-0.5">
+            <h2 className=" text-header text-h3 truncate">{headline}</h2>
+            <p className="text-caption text-gray-500 mt-0.5">
               {completedCount} of {totalCount} steps done · {cheer}
             </p>
           </div>
@@ -131,7 +131,7 @@ export function SetupChecklist({ propertyId }: Props) {
                     <AlertTriangle size={16} className="text-amber-500 shrink-0" />
                   )}
                   <span
-                    className={`text-sm font-sans truncate ${
+                    className={`text-body truncate ${
                       item.done ? "text-gray-400 line-through" : "text-header"
                     }`}
                   >
@@ -144,7 +144,7 @@ export function SetupChecklist({ propertyId }: Props) {
                 {!item.done && (
                   <Link
                     href={item.ctaHref}
-                    className="text-xs font-sans font-medium text-gold hover:text-gold-dark whitespace-nowrap shrink-0"
+                    className="text-caption font-medium text-gold hover:text-gold-dark whitespace-nowrap shrink-0"
                   >
                     {item.ctaLabel} →
                   </Link>

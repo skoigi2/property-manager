@@ -270,7 +270,7 @@ export default function VendorsPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by name, phone, email, Tax ID…"
-                  className="w-full pl-8 pr-8 py-2 text-sm font-sans border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
+                  className="w-full pl-8 pr-8 py-2 text-body border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
                 />
                 {search && (
                   <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -281,7 +281,7 @@ export default function VendorsPage() {
               <select
                 value={catFilter}
                 onChange={(e) => setCatFilter(e.target.value)}
-                className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
+                className="text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
               >
                 <option value="">All categories</option>
                 {CATEGORY_OPTIONS.map((o) => (
@@ -291,7 +291,7 @@ export default function VendorsPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
+                className="text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
               >
                 <option value="">All statuses</option>
                 <option value="active">Active</option>
@@ -305,13 +305,13 @@ export default function VendorsPage() {
             {activeFilters.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {activeFilters.map((f) => (
-                  <span key={f} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold/10 text-gold border border-gold/20">
+                  <span key={f} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption font-medium bg-gold/10 text-gold border border-gold/20">
                     {f}
                   </span>
                 ))}
                 <button
                   onClick={() => { setCatFilter(""); setStatusFilter(""); }}
-                  className="text-xs text-gray-400 hover:text-gray-600"
+                  className="text-caption text-gray-400 hover:text-gray-600"
                 >
                   Clear filters
                 </button>
@@ -333,8 +333,8 @@ export default function VendorsPage() {
                 <div className="flex items-center gap-2">
                   <Icon size={14} className="text-gold shrink-0" />
                   <div>
-                    <div className="text-lg font-display text-header">{value}</div>
-                    <div className="text-xs text-gray-500 font-sans">{label}</div>
+                    <div className="text-h3 text-header">{value}</div>
+                    <div className="text-caption text-gray-500 ">{label}</div>
                   </div>
                 </div>
               </Card>
@@ -355,15 +355,15 @@ export default function VendorsPage() {
         ) : (
           <Card padding="none">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm font-sans">
+              <table className="w-full text-body ">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Vendor</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden sm:table-cell">Category</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden md:table-cell">Contact</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden lg:table-cell">Tax ID</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Usage</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-label uppercase ">Vendor</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-label uppercase hidden sm:table-cell">Category</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-label uppercase hidden md:table-cell">Contact</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 text-label uppercase hidden lg:table-cell">Tax ID</th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-500 text-label uppercase ">Usage</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-500 text-label uppercase ">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -383,7 +383,7 @@ export default function VendorsPage() {
                               {v.name}
                             </div>
                             {v.notes && (
-                              <div className="text-xs text-gray-400 truncate max-w-48">{v.notes}</div>
+                              <div className="text-caption text-gray-400 truncate max-w-48">{v.notes}</div>
                             )}
                           </button>
                         </td>
@@ -395,24 +395,24 @@ export default function VendorsPage() {
                         <td className="px-4 py-3 hidden md:table-cell">
                           <div className="space-y-0.5">
                             {v.phone && (
-                              <div className="flex items-center gap-1 text-xs text-gray-600">
+                              <div className="flex items-center gap-1 text-caption text-gray-600">
                                 <Phone size={11} className="text-gray-400" />{v.phone}
                               </div>
                             )}
                             {v.email && (
-                              <div className="flex items-center gap-1 text-xs text-gray-600">
+                              <div className="flex items-center gap-1 text-caption text-gray-600">
                                 <Mail size={11} className="text-gray-400" />
                                 <span className="truncate max-w-40">{v.email}</span>
                               </div>
                             )}
-                            {!v.phone && !v.email && <span className="text-gray-300 text-xs">—</span>}
+                            {!v.phone && !v.email && <span className="text-gray-300 text-caption">—</span>}
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden lg:table-cell text-xs text-gray-600">
+                        <td className="px-4 py-3 hidden lg:table-cell text-caption text-gray-600">
                           {v.taxId ?? <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2 text-xs text-gray-500">
+                          <div className="flex items-center justify-end gap-2 text-caption text-gray-500">
                             {v._count.expenses > 0 && (
                               <span title="Expenses" className="flex items-center gap-0.5">
                                 <TrendingUp size={10} className="text-expense" />{v._count.expenses}
@@ -495,11 +495,11 @@ export default function VendorsPage() {
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-sans font-medium text-gray-600 mb-1">Category *</label>
+              <label className="block text-caption font-medium text-gray-600 mb-1">Category *</label>
               <select
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                className="w-full text-sm font-sans border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
               >
                 {CATEGORY_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -528,23 +528,23 @@ export default function VendorsPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-600 mb-1">Bank Details</label>
+            <label className="block text-caption font-medium text-gray-600 mb-1">Bank Details</label>
             <textarea
               value={form.bankDetails}
               onChange={(e) => setForm((f) => ({ ...f, bankDetails: e.target.value }))}
               rows={2}
               placeholder="Bank name, account number, paybill…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none bg-cream"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none bg-cream"
             />
           </div>
           <div>
-            <label className="block text-xs font-sans font-medium text-gray-600 mb-1">Notes</label>
+            <label className="block text-caption font-medium text-gray-600 mb-1">Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               rows={2}
               placeholder="Any additional notes…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none bg-cream"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none bg-cream"
             />
           </div>
           <div className="flex gap-3 pt-2">
@@ -578,25 +578,25 @@ export default function VendorsPage() {
                 { label: `${new Date().getFullYear()} spend`, value: formatCurrency(detailVendor.currentYearSpend) },
               ].map(({ label, value }) => value ? (
                 <div key={label} className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-xs text-gray-500">{label}</div>
-                  <div className="text-sm font-medium text-gray-900 truncate">{value}</div>
+                  <div className="text-caption text-gray-500">{label}</div>
+                  <div className="text-body font-medium text-gray-900 truncate">{value}</div>
                 </div>
               ) : null)}
             </div>
 
             {detailVendor.bankDetails && (
               <div>
-                <div className="text-xs font-medium text-gray-500 mb-1">Bank Details</div>
-                <div className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap">{detailVendor.bankDetails}</div>
+                <div className="text-caption font-medium text-gray-500 mb-1">Bank Details</div>
+                <div className="text-body text-gray-700 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap">{detailVendor.bankDetails}</div>
               </div>
             )}
 
             {/* Recent expenses */}
             {detailVendor.expenses.length > 0 && (
               <div>
-                <div className="text-xs font-medium text-gray-500 mb-2">Recent Expenses</div>
+                <div className="text-caption font-medium text-gray-500 mb-2">Recent Expenses</div>
                 <div className="border border-gray-100 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs font-sans">
+                  <table className="w-full text-caption ">
                     <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>
                         <th className="text-left px-3 py-2 text-gray-500 font-medium">Date</th>
@@ -627,10 +627,10 @@ export default function VendorsPage() {
             {/* Recent maintenance jobs */}
             {detailVendor.maintenanceJobs.length > 0 && (
               <div>
-                <div className="text-xs font-medium text-gray-500 mb-2">Recent Maintenance Jobs</div>
+                <div className="text-caption font-medium text-gray-500 mb-2">Recent Maintenance Jobs</div>
                 <div className="space-y-1.5">
                   {detailVendor.maintenanceJobs.map((j) => (
-                    <div key={j.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs font-sans">
+                    <div key={j.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-caption ">
                       <div className="text-gray-700">{j.title}</div>
                       <div className="flex items-center gap-2 text-gray-500">
                         <span>{j.property.name}</span>

@@ -154,8 +154,8 @@ export function VendorEmailModal({ vendor, caseContext, caseThreadId, initialTem
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h2 className="font-display text-lg">Email vendor — {vendor.name}</h2>
-            <p className="text-xs text-gray-500 font-sans">{vendor.email ?? "No email on file"}</p>
+            <h2 className=" text-h3">Email vendor — {vendor.name}</h2>
+            <p className="text-caption text-gray-500 ">{vendor.email ?? "No email on file"}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
             <X size={20} />
@@ -164,36 +164,36 @@ export function VendorEmailModal({ vendor, caseContext, caseThreadId, initialTem
 
         <div className="px-5 py-4 space-y-3 overflow-y-auto">
           <div>
-            <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">Template</label>
+            <label className="block text-label uppercase text-gray-400 mb-1">Template</label>
             <select
               value={template}
               onChange={(e) => setTemplate(e.target.value as Template)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body "
             >
               {TEMPLATES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">Subject</label>
+            <label className="block text-label uppercase text-gray-400 mb-1">Subject</label>
             <input
               readOnly
               value={draft.subject}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans bg-gray-50"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body bg-gray-50"
             />
           </div>
           <div>
-            <label className="block text-xs uppercase tracking-wide text-gray-400 mb-1">Body</label>
+            <label className="block text-label uppercase text-gray-400 mb-1">Body</label>
             <textarea
               readOnly
               rows={14}
               value={draft.body}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans bg-gray-50 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body bg-gray-50 resize-none"
             />
           </div>
         </div>
 
         <div className="px-5 py-4 border-t border-gray-100 flex items-center gap-2 justify-end">
-          <button onClick={copyBody} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm font-sans hover:bg-gray-50">
+          <button onClick={copyBody} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-body hover:bg-gray-50">
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "Copied" : "Copy body"}
           </button>
@@ -203,7 +203,7 @@ export function VendorEmailModal({ vendor, caseContext, caseThreadId, initialTem
               target="_blank"
               rel="noopener noreferrer"
               onClick={autoLog}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gold text-white text-sm font-sans hover:bg-gold-dark"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gold text-white text-body hover:bg-gold-dark"
             >
               <ExternalLink size={14} />
               Open in mail app

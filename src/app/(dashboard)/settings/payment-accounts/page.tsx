@@ -85,8 +85,8 @@ function OrgNumberingCard({ orgId }: { orgId: string }) {
 
   return (
     <Card padding="sm">
-      <p className="text-sm font-sans font-semibold text-header">Invoice numbering — organisation default</p>
-      <p className="text-[11px] text-gray-400 font-sans mt-0.5 mb-3">
+      <p className="text-body font-semibold text-header">Invoice numbering — organisation default</p>
+      <p className="text-caption text-gray-400 mt-0.5 mb-3">
         Applies to every invoice that doesn&apos;t use a payment account with its own series.
         Tokens: <code>{"{YYYY}"}</code> <code>{"{YY}"}</code> <code>{"{MM}"}</code> <code>{"{SEQ}"}</code>.
         Blank = <code>INV-{"{YYYYMM}"}-{"{SEQ}"}</code>. Set Next Number to continue from a previous system.
@@ -266,7 +266,7 @@ export default function PaymentAccountsPage() {
       </Header>
 
       <div className="page-container space-y-4">
-        <p className="text-sm text-gray-500 font-sans">
+        <p className="text-body text-gray-500 ">
           Named bank / M-Pesa destinations shown on tenant invoices. Pick a property&apos;s default on its
           Management Agreement page; override individual units on the unit itself.
         </p>
@@ -295,10 +295,10 @@ export default function PaymentAccountsPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={a.logoUrl} alt="" className="h-6 max-w-[60px] object-contain" />
                         )}
-                        <p className="text-sm font-sans font-semibold text-header truncate">{a.name}</p>
+                        <p className="text-body font-semibold text-header truncate">{a.name}</p>
                         {!a.isActive && <Badge variant="gray">Inactive</Badge>}
                       </div>
-                      <div className="text-xs text-gray-500 font-sans mt-1.5 space-y-0.5">
+                      <div className="text-caption text-gray-500 mt-1.5 space-y-0.5">
                         {a.companyName && (
                           <p className="text-gray-600">
                             Invoiced as <span className="font-medium">{a.companyName}</span>
@@ -317,7 +317,7 @@ export default function PaymentAccountsPage() {
                         {a.mpesaTill && <p>M-Pesa Till {a.mpesaTill}</p>}
                         {!a.bankName && !a.mpesaPaybill && !a.mpesaTill && <p className="text-gray-400">No details captured yet</p>}
                       </div>
-                      <p className="text-[11px] text-gray-400 font-sans mt-1.5">
+                      <p className="text-caption text-gray-400 mt-1.5">
                         {linked === 0 ? "Not assigned yet" : `Used by ${a._count.agreements} propert${a._count.agreements === 1 ? "y" : "ies"} · ${a._count.units} unit${a._count.units === 1 ? "" : "s"}`}
                       </p>
                     </div>
@@ -351,8 +351,8 @@ export default function PaymentAccountsPage() {
           <Input label="Account Name" placeholder="e.g. KCB — Main Collections" value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
           <div>
-            <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-1">Invoicing Identity</p>
-            <p className="text-[11px] text-gray-400 font-sans mb-2">
+            <p className="text-label font-semibold text-gray-500 uppercase mb-1">Invoicing Identity</p>
+            <p className="text-caption text-gray-400 mb-2">
               Optional — fill these when invoices paid to this account are issued by a different company.
               They override the invoice header (name, logo, tax numbers).
             </p>
@@ -371,8 +371,8 @@ export default function PaymentAccountsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
             <div className="mt-3">
-              <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-1">Invoice Numbering</p>
-              <p className="text-[11px] text-gray-400 font-sans mb-2">
+              <p className="text-label font-semibold text-gray-500 uppercase mb-1">Invoice Numbering</p>
+              <p className="text-caption text-gray-400 mb-2">
                 Leave blank to use the organisation&apos;s numbering. Set a format to run this company&apos;s own
                 series — tokens: <code>{"{YYYY}"}</code> <code>{"{YY}"}</code> <code>{"{MM}"}</code> <code>{"{SEQ}"}</code>,
                 e.g. <code>SHAH-{"{YYYY}"}-{"{SEQ}"}</code> → SHAH-2026-0014.
@@ -390,26 +390,26 @@ export default function PaymentAccountsPage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={logoUrl} alt="Account logo" className="h-10 max-w-[120px] object-contain rounded border border-gray-100 bg-white p-1" />
                 ) : (
-                  <span className="text-xs text-gray-400 font-sans">No logo</span>
+                  <span className="text-caption text-gray-400 ">No logo</span>
                 )}
-                <label className="text-xs font-sans font-medium text-gold hover:text-gold-dark cursor-pointer">
+                <label className="text-caption font-medium text-gold hover:text-gold-dark cursor-pointer">
                   {logoUploading ? "Uploading…" : "Upload logo"}
                   <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" className="hidden"
                     disabled={logoUploading} onChange={(e) => handleLogoUpload(e.target.files?.[0])} />
                 </label>
                 {logoUrl && (
                   <button type="button" onClick={handleLogoRemove} disabled={logoUploading}
-                    className="text-xs font-sans text-gray-400 hover:text-expense transition-colors">
+                    className="text-caption text-gray-400 hover:text-expense transition-colors">
                     Remove
                   </button>
                 )}
               </div>
             ) : (
-              <p className="text-[11px] text-gray-400 font-sans mt-2">Create the account first, then upload its logo.</p>
+              <p className="text-caption text-gray-400 mt-2">Create the account first, then upload its logo.</p>
             )}
           </div>
           <div>
-            <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-2">Bank Transfer</p>
+            <p className="text-label font-semibold text-gray-500 uppercase mb-2">Bank Transfer</p>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Bank Name" placeholder="e.g. Equity Bank" value={form.bankName} onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))} />
               <Input label="Account Name" placeholder="e.g. Farasi Gardens Ltd" value={form.bankAccountName} onChange={(e) => setForm((f) => ({ ...f, bankAccountName: e.target.value }))} />
@@ -418,7 +418,7 @@ export default function PaymentAccountsPage() {
             </div>
           </div>
           <div>
-            <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-2">M-Pesa</p>
+            <p className="text-label font-semibold text-gray-500 uppercase mb-2">M-Pesa</p>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Paybill Number" placeholder="e.g. 522522" value={form.mpesaPaybill} onChange={(e) => setForm((f) => ({ ...f, mpesaPaybill: e.target.value }))} />
               <Input label="Account No (for Paybill)" placeholder="e.g. unit number" value={form.mpesaAccountNumber} onChange={(e) => setForm((f) => ({ ...f, mpesaAccountNumber: e.target.value }))} />
@@ -426,9 +426,9 @@ export default function PaymentAccountsPage() {
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600 font-sans">Payment Instructions <span className="text-gray-400 font-normal">(optional)</span></label>
+            <label className="text-body font-medium text-gray-600 ">Payment Instructions <span className="text-gray-400 ">(optional)</span></label>
             <textarea rows={2} placeholder="e.g. Use your unit number as the payment reference."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
               value={form.paymentInstructions} onChange={(e) => setForm((f) => ({ ...f, paymentInstructions: e.target.value }))} />
           </div>
           <div className="flex gap-3 pt-2">

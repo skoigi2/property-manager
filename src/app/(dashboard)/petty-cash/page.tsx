@@ -430,7 +430,7 @@ export default function PettyCashPage() {
         }}
         onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node)) setDragOverCol(null); }}
         className={clsx(
-          "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans select-none",
+          "px-4 py-3 text-left text-label font-medium text-gray-400 uppercase select-none",
           dragOverCol === key && "border-l-2 border-gold bg-gold/5"
         )}
       >
@@ -473,16 +473,16 @@ export default function PettyCashPage() {
   function renderColCell(key: string, e: any, runningBalance: number) {
     switch (key) {
       case "date":
-        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>;
+        return <td key={key} className="px-4 py-3 text-body text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>;
       case "description":
         return (
-          <td key={key} className="px-4 py-3 text-sm font-sans text-header">
+          <td key={key} className="px-4 py-3 text-body text-header">
             <div className="flex items-center gap-2 flex-wrap">
               <span>{e.description}</span>
               {e.type === "OUT" && e.expenseEntryId && (
                 <span
                   title={e.expenseEntry ? `Linked expense: ${e.expenseEntry.description ?? e.expenseEntry.category}` : "Linked to an expense"}
-                  className="text-[10px] font-sans font-medium text-gold-dark bg-gold/10 border border-gold/30 px-1.5 py-0.5 rounded-full cursor-help"
+                  className="text-caption font-medium text-gold-dark bg-gold/10 border border-gold/30 px-1.5 py-0.5 rounded-full cursor-help"
                 >
                   From expense
                 </span>
@@ -491,18 +491,18 @@ export default function PettyCashPage() {
                 <button
                   onClick={() => openConvert(e)}
                   title="This cash out has no expense record — it doesn't appear in your P&L. Click to convert it into an expense."
-                  className="text-[10px] font-sans font-medium text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
+                  className="text-caption font-medium text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
                 >
                   Not in P&L — convert
                 </button>
               )}
             </div>
-            {e.receiptRef && <div className="text-xs text-gray-400 mt-0.5">Ref: {e.receiptRef}</div>}
+            {e.receiptRef && <div className="text-caption text-gray-400 mt-0.5">Ref: {e.receiptRef}</div>}
             {e.status === "REJECTED" && e.rejectionReason && (
-              <div className="text-xs text-expense mt-0.5">Rejected: {e.rejectionReason}</div>
+              <div className="text-caption text-expense mt-0.5">Rejected: {e.rejectionReason}</div>
             )}
             {e.status === "APPROVED" && e.approvalNotes && (
-              <div className="text-xs text-gray-400 mt-0.5">Note: {e.approvalNotes}</div>
+              <div className="text-caption text-gray-400 mt-0.5">Note: {e.approvalNotes}</div>
             )}
           </td>
         );
@@ -511,13 +511,13 @@ export default function PettyCashPage() {
       case "status":
         return <td key={key} className="px-4 py-3">{getStatusBadge(e.status ?? "APPROVED")}</td>;
       case "in":
-        return <td key={key} className={clsx("px-4 py-3 text-right font-mono text-sm", e.status !== "APPROVED" ? "text-gray-300" : "text-income")}>{e.type === "IN" ? formatCurrency(e.amount, currency) : "—"}</td>;
+        return <td key={key} className={clsx("px-4 py-3 text-right tabular-nums text-body", e.status !== "APPROVED" ? "text-gray-300" : "text-income")}>{e.type === "IN" ? formatCurrency(e.amount, currency) : "—"}</td>;
       case "out":
-        return <td key={key} className={clsx("px-4 py-3 text-right font-mono text-sm", e.status !== "APPROVED" ? "text-gray-300" : "text-expense")}>{e.type === "OUT" ? formatCurrency(e.amount, currency) : "—"}</td>;
+        return <td key={key} className={clsx("px-4 py-3 text-right tabular-nums text-body", e.status !== "APPROVED" ? "text-gray-300" : "text-expense")}>{e.type === "OUT" ? formatCurrency(e.amount, currency) : "—"}</td>;
       case "balance":
         return e.status !== "APPROVED"
-          ? <td key={key} className="px-4 py-3 text-right font-mono text-sm text-gray-300">—</td>
-          : <td key={key} className={clsx("px-4 py-3 text-right font-mono text-sm font-medium", runningBalance >= 0 ? "text-income" : "text-expense")}>{formatCurrency(runningBalance, currency)}</td>;
+          ? <td key={key} className="px-4 py-3 text-right tabular-nums text-body text-gray-300">—</td>
+          : <td key={key} className={clsx("px-4 py-3 text-right tabular-nums text-body font-medium", runningBalance >= 0 ? "text-income" : "text-expense")}>{formatCurrency(runningBalance, currency)}</td>;
       default:
         return <td key={key} />;
     }
@@ -534,7 +534,7 @@ export default function PettyCashPage() {
           {!isCurrentMonth && (
             <button
               onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}
-              className="text-xs text-gold hover:text-gold-dark font-sans font-medium underline underline-offset-2 transition-colors"
+              className="text-caption text-gold hover:text-gold-dark font-medium underline underline-offset-2 transition-colors"
             >
               Back to current month
             </button>
@@ -551,13 +551,13 @@ export default function PettyCashPage() {
                 placeholder="Search description..."
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm font-sans border border-gray-200 rounded-lg bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                className="w-full pl-8 pr-3 py-1.5 text-body border border-gray-200 rounded-lg bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
               />
             </div>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All types</option>
               <option value="IN">Cash In</option>
@@ -566,7 +566,7 @@ export default function PettyCashPage() {
             <select
               value={filterProperty}
               onChange={(e) => setFilterProperty(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All properties</option>
               {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -575,7 +575,7 @@ export default function PettyCashPage() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All statuses</option>
               <option value="PENDING">Pending{pendingCount > 0 ? ` (${pendingCount})` : ""}</option>
@@ -585,13 +585,13 @@ export default function PettyCashPage() {
             {hasFilters && (
               <button
                 onClick={() => { setFilterSearch(""); setFilterType(""); setFilterProperty(""); }}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-sans transition-colors"
+                className="flex items-center gap-1 text-caption text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X size={12} /> Clear filters
               </button>
             )}
             {hasFilters && (
-              <span className="text-xs text-gray-400 font-sans ml-auto">
+              <span className="text-caption text-gray-400 ml-auto">
                 {displayEntries.length} of {filtered.length} entries
               </span>
             )}
@@ -603,14 +603,14 @@ export default function PettyCashPage() {
           <Card padding="sm" className="border-l-4 border-income">
             <div className="flex items-center gap-2 mb-1">
               <ArrowUpCircle size={16} className="text-income" />
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">In This Month</p>
+              <p className="text-label text-gray-400 uppercase ">In This Month</p>
             </div>
             <CurrencyDisplay currency={currency} amount={periodIn} className="text-income" size="lg" />
           </Card>
           <Card padding="sm" className="border-l-4 border-expense">
             <div className="flex items-center gap-2 mb-1">
               <ArrowDownCircle size={16} className="text-expense" />
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Out This Month</p>
+              <p className="text-label text-gray-400 uppercase ">Out This Month</p>
             </div>
             <CurrencyDisplay currency={currency} amount={periodOut} className="text-expense" size="lg" />
           </Card>
@@ -619,20 +619,20 @@ export default function PettyCashPage() {
               {periodNet >= 0
                 ? <TrendingUp size={16} className="text-income" />
                 : <TrendingDown size={16} className="text-expense" />}
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Net This Month</p>
+              <p className="text-label text-gray-400 uppercase ">Net This Month</p>
             </div>
             <CurrencyDisplay currency={currency} amount={periodNet} className={periodNet >= 0 ? "text-income" : "text-expense"} size="lg" />
           </Card>
           <Card padding="sm" className={clsx("border-l-4", balance >= 0 ? "border-gold" : "border-expense")}>
             <div className="flex items-center gap-2 mb-1">
               <Wallet size={16} className={balance >= 0 ? "text-gold" : "text-expense"} />
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{balance >= 0 ? "Running Balance" : "DEFICIT"}</p>
+              <p className="text-label text-gray-400 uppercase ">{balance >= 0 ? "Running Balance" : "DEFICIT"}</p>
               {pendingCount > 0 && (
-                <span className="ml-auto bg-amber-100 text-amber-700 text-xs font-sans font-medium px-1.5 py-0.5 rounded-full">{pendingCount} pending</span>
+                <span className="ml-auto bg-amber-100 text-amber-700 text-caption font-medium px-1.5 py-0.5 rounded-full">{pendingCount} pending</span>
               )}
             </div>
             <CurrencyDisplay currency={currency} amount={balance} className={balance >= 0 ? "text-gold-dark" : "text-expense"} size="lg" />
-            <p className="text-xs text-gray-400 font-sans mt-0.5">all time · approved only</p>
+            <p className="text-caption text-gray-400 mt-0.5">all time · approved only</p>
           </Card>
         </div>
 
@@ -641,7 +641,7 @@ export default function PettyCashPage() {
           <div className="flex items-start sm:items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex-col sm:flex-row">
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <TrendingDown size={16} className="text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-sm font-sans text-amber-800">
+              <p className="text-body text-amber-800">
                 <strong>{formatCurrency(unaccountedTotal, currency)}</strong> of cash out ({unlinkedOuts.length} entr{unlinkedOuts.length === 1 ? "y" : "ies"}) is
                 not recorded as an expense — it doesn&apos;t appear in your P&amp;L or reports. Convert each entry to an
                 expense to keep the books accurate.
@@ -649,7 +649,7 @@ export default function PettyCashPage() {
             </div>
             <button
               onClick={() => setShowUnlinkedOnly(!showUnlinkedOnly)}
-              className="shrink-0 text-xs font-sans font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+              className="shrink-0 text-caption font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
             >
               {showUnlinkedOnly ? "Show all entries" : "Show these entries"}
             </button>
@@ -661,7 +661,7 @@ export default function PettyCashPage() {
           <div className="flex items-start sm:items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex-col sm:flex-row">
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <Wallet size={16} className="text-expense shrink-0 mt-0.5" />
-              <p className="text-sm font-sans text-red-800">
+              <p className="text-body text-red-800">
                 The fund is in deficit by <strong>{formatCurrency(Math.abs(balance), currency)}</strong> — more cash has
                 been paid out than put in. Record the top-up that covered it.
               </p>
@@ -676,7 +676,7 @@ export default function PettyCashPage() {
                 } as any);
                 setShowForm(true);
               }}
-              className="shrink-0 text-xs font-sans font-medium text-red-700 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
+              className="shrink-0 text-caption font-medium text-red-700 border border-red-300 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
             >
               Record top-up
             </button>
@@ -697,7 +697,7 @@ export default function PettyCashPage() {
 
         {showForm && (
           <Card>
-            <h3 className="font-display text-base text-header mb-4">New Entry</h3>
+            <h3 className=" text-h3 text-header mb-4">New Entry</h3>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <Select label="Type" tooltip="Cash In = topping up the petty cash fund. Cash Out = a payment made from the fund. Both update the running balance." {...register("type")} options={[{ value: "IN", label: "Cash In" }, { value: "OUT", label: "Cash Out" }]} />
@@ -708,7 +708,7 @@ export default function PettyCashPage() {
               <Select label="Property" {...register("propertyId")} options={propertyOptions} />
               {watchedType === "OUT" && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-                  <p className="text-sm font-sans text-amber-800">
+                  <p className="text-body text-amber-800">
                     <strong>Recording spending?</strong> Log it on the Expenses page with &quot;Paid from petty cash&quot;
                     instead — it will appear in your P&amp;L and reports, and this ledger updates automatically.
                     Use this form only for cash movements that aren&apos;t expenses (returns, corrections, transfers).
@@ -716,7 +716,7 @@ export default function PettyCashPage() {
                   <button
                     type="button"
                     onClick={recordAsExpenseInstead}
-                    className="text-xs font-sans font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                    className="text-caption font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
                   >
                     Record as expense instead →
                   </button>
@@ -747,7 +747,7 @@ export default function PettyCashPage() {
         {selectedIds.size > 0 && (
           <Card padding="sm" className="border border-gold/40 bg-cream-dark">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-sans font-medium text-header">{selectedIds.size} selected</span>
+              <span className="text-body font-medium text-header">{selectedIds.size} selected</span>
               <button onClick={() => setSelectedIds(new Set())} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={14} /></button>
 
               <div className="w-px h-5 bg-gray-200" />
@@ -756,7 +756,7 @@ export default function PettyCashPage() {
                 <select
                   value={bulkPropertyId}
                   onChange={(e) => setBulkPropertyId(e.target.value)}
-                  className="text-sm font-sans border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="text-body border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                 >
                   <option value="">No property</option>
                   {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -770,7 +770,7 @@ export default function PettyCashPage() {
                 <select
                   value={bulkType}
                   onChange={(e) => setBulkType(e.target.value)}
-                  className="text-sm font-sans border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="text-body border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                 >
                   <option value="IN">Cash In</option>
                   <option value="OUT">Cash Out</option>
@@ -808,7 +808,7 @@ export default function PettyCashPage() {
                     <div key={e.id} className={clsx("px-4 py-3", isPending && "bg-amber-50/40")}>
                       {/* Top row: date + badges */}
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-400 font-sans">{formatDate(e.date)}</span>
+                        <span className="text-caption text-gray-400 ">{formatDate(e.date)}</span>
                         <div className="flex items-center gap-1.5">
                           {isPending && <Badge variant="amber"><Clock size={10} className="inline mr-0.5" />Pending</Badge>}
                           {isRejected && <Badge variant="red"><XCircle size={10} className="inline mr-0.5" />Rejected</Badge>}
@@ -821,37 +821,37 @@ export default function PettyCashPage() {
                       </div>
 
                       {/* Description + property */}
-                      <p className="text-sm font-sans text-header">{e.description}</p>
+                      <p className="text-body text-header">{e.description}</p>
                       {e.type === "OUT" && e.expenseEntryId && (
-                        <span className="inline-block mt-1 text-[10px] font-sans font-medium text-gold-dark bg-gold/10 border border-gold/30 px-1.5 py-0.5 rounded-full">
+                        <span className="inline-block mt-1 text-caption font-medium text-gold-dark bg-gold/10 border border-gold/30 px-1.5 py-0.5 rounded-full">
                           From expense
                         </span>
                       )}
                       {isUnlinkedOut(e) && (
                         <button
                           onClick={() => openConvert(e)}
-                          className="inline-block mt-1 text-[10px] font-sans font-medium text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
+                          className="inline-block mt-1 text-caption font-medium text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors"
                         >
                           Not in P&L — convert
                         </button>
                       )}
-                      {e.receiptRef && <p className="text-xs text-gray-400 font-sans mt-0.5">Ref: {e.receiptRef}</p>}
+                      {e.receiptRef && <p className="text-caption text-gray-400 mt-0.5">Ref: {e.receiptRef}</p>}
                       {e.property?.name && (
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">{e.property.name}</p>
+                        <p className="text-caption text-gray-400 mt-0.5">{e.property.name}</p>
                       )}
                       {isRejected && e.rejectionReason && (
-                        <p className="text-xs text-expense font-sans mt-0.5">Rejected: {e.rejectionReason}</p>
+                        <p className="text-caption text-expense mt-0.5">Rejected: {e.rejectionReason}</p>
                       )}
 
                       {/* Amount + balance */}
                       <div className="flex items-center justify-between mt-2">
-                        <span className={clsx("text-sm font-mono font-medium", e.type === "IN" ? (isPending || isRejected ? "text-gray-300" : "text-income") : (isPending || isRejected ? "text-gray-300" : "text-expense"))}>
+                        <span className={clsx("text-body tabular-nums font-medium", e.type === "IN" ? (isPending || isRejected ? "text-gray-300" : "text-income") : (isPending || isRejected ? "text-gray-300" : "text-expense"))}>
                           {e.type === "IN" ? "+" : "−"}{formatCurrency(e.amount, currency)}
                         </span>
                         {!isPending && !isRejected && (
                           <div className="text-right">
-                            <span className="text-xs text-gray-400 font-sans mr-1">Balance</span>
-                            <span className="text-xs font-mono text-gray-600">{formatCurrency(e.balance, currency)}</span>
+                            <span className="text-caption text-gray-400 mr-1">Balance</span>
+                            <span className="text-caption tabular-nums text-gray-600">{formatCurrency(e.balance, currency)}</span>
                           </div>
                         )}
                       </div>
@@ -861,13 +861,13 @@ export default function PettyCashPage() {
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={() => handleApprove(e.id, "approve")}
-                            className="flex-1 flex items-center justify-center gap-1 text-xs font-sans font-medium text-income border border-income/30 rounded-md py-1.5 hover:bg-income/5 transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1 text-caption font-medium text-income border border-income/30 rounded-md py-1.5 hover:bg-income/5 transition-colors"
                           >
                             <CheckCircle size={12} /> Approve
                           </button>
                           <button
                             onClick={() => { setApproveId(e.id); setApproveAction("reject"); setRejectReason(""); }}
-                            className="flex-1 flex items-center justify-center gap-1 text-xs font-sans font-medium text-expense border border-expense/30 rounded-md py-1.5 hover:bg-expense/5 transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1 text-caption font-medium text-expense border border-expense/30 rounded-md py-1.5 hover:bg-expense/5 transition-colors"
                           >
                             <XCircle size={12} /> Reject
                           </button>
@@ -881,7 +881,7 @@ export default function PettyCashPage() {
                             value={rejectReason}
                             onChange={(ev) => setRejectReason(ev.target.value)}
                             placeholder="Rejection reason (required)"
-                            className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold"
+                            className="w-full text-body border border-gray-200 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-gold"
                           />
                           <div className="flex gap-2">
                             <Button size="sm" loading={approving} onClick={() => handleApprove(e.id, "reject")}>Confirm Reject</Button>
@@ -965,29 +965,29 @@ export default function PettyCashPage() {
                         <tr key={`approve-${e.id}`} className="border-t border-gold/20 bg-cream-dark">
                           <td colSpan={colOrder.length + 2} className="px-4 py-4">
                             <div className="space-y-3 max-w-lg">
-                              <p className="text-sm font-sans font-medium text-header">
+                              <p className="text-body font-medium text-header">
                                 {approveAction === "approve" ? "Approve this entry?" : "Reject this entry?"}
                               </p>
                               {approveAction === "approve" ? (
                                 <div>
-                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Notes (optional)</label>
+                                  <label className="block text-caption font-medium text-gray-500 mb-1">Notes (optional)</label>
                                   <input
                                     type="text"
                                     value={approveNote}
                                     onChange={(ev) => setApproveNote(ev.target.value)}
                                     placeholder="e.g. Verified against receipt"
-                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                    className="w-full text-body border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                                   />
                                 </div>
                               ) : (
                                 <div>
-                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Rejection reason <span className="text-expense">*</span></label>
+                                  <label className="block text-caption font-medium text-gray-500 mb-1">Rejection reason <span className="text-expense">*</span></label>
                                   <input
                                     type="text"
                                     value={rejectReason}
                                     onChange={(ev) => setRejectReason(ev.target.value)}
                                     placeholder="e.g. No receipt provided, over budget"
-                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                    className="w-full text-body border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                                   />
                                 </div>
                               )}
@@ -1008,51 +1008,51 @@ export default function PettyCashPage() {
                             <div className="space-y-3">
                               <div className="grid grid-cols-3 gap-3">
                                 <div>
-                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Type</label>
+                                  <label className="block text-caption font-medium text-gray-500 mb-1">Type</label>
                                   <select
                                     value={editValues.type}
                                     onChange={(e) => setEditValues((v) => ({ ...v, type: e.target.value }))}
-                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                    className="w-full text-body border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                                   >
                                     <option value="IN">Cash In</option>
                                     <option value="OUT">Cash Out</option>
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Date</label>
+                                  <label className="block text-caption font-medium text-gray-500 mb-1">Date</label>
                                   <input
                                     type="date"
                                     value={editValues.date}
                                     onChange={(ev) => setEditValues((v) => ({ ...v, date: ev.target.value }))}
-                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                    className="w-full text-body border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Amount</label>
+                                  <label className="block text-caption font-medium text-gray-500 mb-1">Amount</label>
                                   <input
                                     type="number"
                                     step="0.01"
                                     value={editValues.amount}
                                     onChange={(ev) => setEditValues((v) => ({ ...v, amount: ev.target.value }))}
-                                    className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                    className="w-full text-body border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                                   />
                                 </div>
                               </div>
                               <div>
-                                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Description</label>
+                                <label className="block text-caption font-medium text-gray-500 mb-1">Description</label>
                                 <input
                                   type="text"
                                   value={editValues.description}
                                   onChange={(ev) => setEditValues((v) => ({ ...v, description: ev.target.value }))}
-                                  className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                  className="w-full text-body border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-sans font-medium text-gray-500 mb-1">Property</label>
+                                <label className="block text-caption font-medium text-gray-500 mb-1">Property</label>
                                 <select
                                   value={editValues.propertyId}
                                   onChange={(ev) => setEditValues((v) => ({ ...v, propertyId: ev.target.value }))}
-                                  className="w-full text-sm font-sans border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                                  className="w-full text-body border border-gray-200 rounded-md px-3 py-2 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                                 >
                                   <option value="">No property (portfolio)</option>
                                   {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -1090,7 +1090,7 @@ export default function PettyCashPage() {
       <Modal open={!!convertTarget} onClose={() => setConvertTarget(null)} title="Convert to expense" size="md">
         {convertTarget && (
           <div className="space-y-4">
-            <p className="text-sm font-sans text-gray-600">
+            <p className="text-body text-gray-600">
               Creates an expense for <strong>{formatCurrency(convertTarget.amount, currency)}</strong> on{" "}
               {formatDate(convertTarget.date)} (paid from petty cash, settled in cash) and links it to this ledger
               entry — the spend will then appear in your P&amp;L and reports. The petty-cash balance doesn&apos;t change.

@@ -293,7 +293,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
     );
   }
   if (!data) {
-    return <p className="text-sm text-gray-400 font-sans text-center py-10">Tenant not found.</p>;
+    return <p className="text-body text-gray-400 text-center py-10">Tenant not found.</p>;
   }
 
   return (
@@ -303,7 +303,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
           <Card className="!p-4 border border-amber-200 bg-amber-50/50">
             <div className="flex items-center gap-2 text-amber-800">
               <Lock size={16} />
-              <p className="text-sm font-medium font-sans">
+              <p className="text-body font-medium ">
                 This checkout was finalized on {data.checkout?.checkOutDate ? format(new Date(data.checkout.checkOutDate), "d MMM yyyy") : ""}. Form is read-only.
               </p>
             </div>
@@ -313,7 +313,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                   href={`/api/checkouts/${data.checkout.id}/pdf`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+                  className="inline-flex items-center gap-1.5 text-body text-blue-600 hover:underline"
                 >
                   <Download size={14} /> Download PDF
                 </a>
@@ -324,8 +324,8 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
 
         {/* Header summary */}
         <Card>
-          <h2 className="font-display text-lg text-header mb-3">{data.tenant.name}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm font-sans">
+          <h2 className=" text-h3 text-header mb-3">{data.tenant.name}</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-body ">
             <Field label="Unit" value={data.unit.unitNumber} />
             <Field label="Property" value={data.property.name} />
             <Field label="Lease Start" value={format(new Date(data.tenant.leaseStart), "d MMM yyyy")} />
@@ -339,7 +339,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
             <Field label="Email" value={data.tenant.email ?? "—"} />
           </div>
           {depositShortfall > 0 && (
-            <div className="mt-3 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 text-sm font-sans text-amber-800">
+            <div className="mt-3 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 text-body text-amber-800">
               Deposit received {formatCurrency(depositPosition!.received ?? 0, currency)} of the
               contractual {formatCurrency(depositPosition!.contractual, currency)} — the settlement
               below refunds only what was actually received
@@ -347,7 +347,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
             </div>
           )}
           {depositUnverified && data.tenant.depositAmount > 0 && (
-            <div className="mt-3 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 text-sm font-sans text-amber-800">
+            <div className="mt-3 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 text-body text-amber-800">
               No deposit receipts are recorded for this tenant — the settlement uses the
               contractual amount. Verify the deposit was actually received in full before refunding,
               or record the deposit on the Income page first.
@@ -373,7 +373,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
         {/* 1. Condition Report */}
         <Card>
           <Section title="1. Inventory & Property Condition">
-            <p className="text-sm font-sans text-gray-600 mb-2">Was there any damage / breakage to the inventory?</p>
+            <p className="text-body text-gray-600 mb-2">Was there any damage / breakage to the inventory?</p>
             <div className="flex items-center gap-4">
               <ToggleRadio
                 checked={damageFound}
@@ -401,7 +401,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                   disabled={isCompleted}
                 />
                 <div>
-                  <label className="text-sm font-medium text-gray-600 font-sans block mb-1">
+                  <label className="text-body font-medium text-gray-600 block mb-1">
                     Description of damages
                   </label>
                   <textarea
@@ -409,10 +409,10 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                     value={inventoryDamageNotes}
                     onChange={(e) => setInventoryDamageNotes(e.target.value)}
                     disabled={isCompleted}
-                    className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold"
+                    className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold"
                   />
                 </div>
-                <label className="flex items-center gap-2 text-sm font-sans text-gray-600">
+                <label className="flex items-center gap-2 text-body text-gray-600">
                   <input
                     type="checkbox"
                     checked={damageKeptByLandlord}
@@ -479,7 +479,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                     key={q.label}
                     type="button"
                     onClick={() => addDeduction(q.label, q.category)}
-                    className="text-xs font-sans px-2.5 py-1 border border-gray-200 hover:border-gold hover:text-gold rounded-lg transition-colors"
+                    className="text-caption px-2.5 py-1 border border-gray-200 hover:border-gold hover:text-gold rounded-lg transition-colors"
                   >
                     + {q.label}
                   </button>
@@ -488,7 +488,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
             )}
             <div className="space-y-2">
               {deductions.length === 0 ? (
-                <p className="text-sm text-gray-400 font-sans italic">No deductions added.</p>
+                <p className="text-body text-gray-400 italic">No deductions added.</p>
               ) : (
                 deductions.map((d, i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -498,7 +498,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                       value={d.description}
                       onChange={(e) => updateDeduction(i, "description", e.target.value)}
                       disabled={isCompleted}
-                      className="flex-1 border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+                      className="flex-1 border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
                     />
                     <input
                       type="number"
@@ -508,7 +508,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                       value={d.amount}
                       onChange={(e) => updateDeduction(i, "amount", e.target.value)}
                       disabled={isCompleted}
-                      className="w-32 border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+                      className="w-32 border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
                     />
                     {!isCompleted && (
                       <button
@@ -528,12 +528,12 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
               <button
                 type="button"
                 onClick={() => addDeduction()}
-                className="mt-3 text-xs font-sans text-gold hover:text-gold-dark inline-flex items-center gap-1"
+                className="mt-3 text-caption text-gold hover:text-gold-dark inline-flex items-center gap-1"
               >
                 <Plus size={14} /> Add custom deduction
               </button>
             )}
-            <p className="mt-3 text-sm font-sans text-gray-600">
+            <p className="mt-3 text-body text-gray-600">
               Total deductions: <strong>{formatCurrency(totalDeductions, currency)}</strong>
             </p>
           </Section>
@@ -572,7 +572,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                 const u = utilities[k] ?? { done: false, date: "" };
                 return (
                   <div key={k} className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm font-sans w-56">
+                    <label className="flex items-center gap-2 text-body w-56">
                       <input
                         type="checkbox"
                         checked={!!u.done}
@@ -586,7 +586,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                       value={u.date ?? ""}
                       onChange={(e) => setUtilities({ ...utilities, [k]: { ...u, date: e.target.value } })}
                       disabled={isCompleted || !u.done}
-                      className="border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:opacity-50"
+                      className="border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:opacity-50"
                     />
                   </div>
                 );
@@ -667,7 +667,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={isCompleted}
-              className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
             />
           </Section>
         </Card>
@@ -676,7 +676,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
       {/* Sticky settlement box */}
       <aside className="lg:sticky lg:top-4 lg:self-start space-y-3">
         <Card className="!p-5">
-          <h3 className="font-display text-base text-header mb-4">Final Settlement</h3>
+          <h3 className=" text-h3 text-header mb-4">Final Settlement</h3>
           <SettleRow
             label={depositUnverified ? "Deposit (contractual)" : "Deposit Received"}
             value={formatCurrency(deposit, currency)}
@@ -690,11 +690,11 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
               isOwed ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"
             }`}
           >
-            <p className={`text-xs uppercase tracking-wide font-sans ${isOwed ? "text-red-700" : "text-green-700"}`}>
+            <p className={`text-label uppercase ${isOwed ? "text-red-700" : "text-green-700"}`}>
               {isOwed ? "Balance Owed by Tenant" : "Balance to Refund"}
             </p>
             <p
-              className={`font-display text-2xl mt-1 ${
+              className={` text-h1 mt-1 ${
                 isOwed ? "text-red-700" : "text-green-700"
               }`}
             >
@@ -721,8 +721,8 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{label}</p>
-      <p className="text-sm text-header font-medium mt-0.5">{value}</p>
+      <p className="text-label text-gray-400 uppercase ">{label}</p>
+      <p className="text-body text-header font-medium mt-0.5">{value}</p>
     </div>
   );
 }
@@ -730,7 +730,7 @@ function Field({ label, value }: { label: string; value: string }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="font-display text-base text-header mb-3">{title}</h3>
+      <h3 className=" text-h3 text-header mb-3">{title}</h3>
       {children}
     </div>
   );
@@ -752,7 +752,7 @@ function ToggleRadio({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`px-4 py-2 border rounded-lg text-sm font-sans transition-colors ${
+      className={`px-4 py-2 border rounded-lg text-body transition-colors ${
         checked
           ? "border-gold bg-gold/10 text-gold-dark"
           : "border-gray-200 text-gray-500 hover:border-gold/50"
@@ -765,9 +765,9 @@ function ToggleRadio({
 
 function SettleRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between text-sm font-sans py-1">
+    <div className="flex items-center justify-between text-body py-1">
       <span className="text-gray-600">{label}</span>
-      <span className="font-mono text-header">{value}</span>
+      <span className="tabular-nums text-header">{value}</span>
     </div>
   );
 }

@@ -182,18 +182,18 @@ export default function SettingsPage() {
         <div className="flex gap-2 border-b border-gray-200 overflow-x-auto -mx-1 px-1">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key as any)}
-              className={`px-4 py-2.5 text-sm font-sans font-medium border-b-2 -mb-px whitespace-nowrap shrink-0 transition-colors ${tab === t.key ? "border-gold text-header" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+              className={`px-4 py-2.5 text-body font-medium border-b-2 -mb-px whitespace-nowrap shrink-0 transition-colors ${tab === t.key ? "border-gold text-header" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {loading ? <div className="flex justify-center py-12"><Spinner /></div> : !data ? <p className="text-gray-400 text-center py-8 font-sans">Failed to load settings</p> : (
+        {loading ? <div className="flex justify-center py-12"><Spinner /></div> : !data ? <p className="text-gray-400 text-center py-8 ">Failed to load settings</p> : (
           <>
             {/* ── Management Fees ── */}
             {tab === "fees" && (
               <div className="space-y-4">
-                <p className="text-sm text-gray-500 font-sans">Update management fee rates per unit. Changes take effect immediately for future calculations.</p>
+                <p className="text-body text-gray-500 ">Update management fee rates per unit. Changes take effect immediately for future calculations.</p>
                 {data.units?.map((unit: any) => {
                   const form = feeForm[unit.id] ?? { ratePercent: "0", flatAmount: "" };
                   const isAlba = unit.property?.type === "AIRBNB";
@@ -201,10 +201,10 @@ export default function SettingsPage() {
                     <Card key={unit.id}>
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <p className="font-sans font-semibold text-header">{unit.unitNumber}</p>
-                          <p className="text-xs text-gray-400 font-sans">{unit.property?.name} · {unit.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</p>
+                          <p className=" font-semibold text-header">{unit.unitNumber}</p>
+                          <p className="text-caption text-gray-400 ">{unit.property?.name} · {unit.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</p>
                         </div>
-                        {isAlba ? <span className="text-xs font-sans bg-gold/10 text-gold-dark px-2 py-1 rounded-full">% Rate</span> : <span className="text-xs font-sans bg-blue-50 text-blue-600 px-2 py-1 rounded-full">Flat Fee</span>}
+                        {isAlba ? <span className="text-caption bg-gold/10 text-gold-dark px-2 py-1 rounded-full">% Rate</span> : <span className="text-caption bg-blue-50 text-blue-600 px-2 py-1 rounded-full">Flat Fee</span>}
                       </div>
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         {isAlba ? (
@@ -223,17 +223,17 @@ export default function SettingsPage() {
             {/* ── Branding ── */}
             {tab === "branding" && (
               <div className="space-y-6">
-                <p className="text-sm text-gray-500 font-sans">
+                <p className="text-body text-gray-500 ">
                   Your company branding appears on all invoices and reports. Upload a logo and fill in your contact details.
                 </p>
 
                 {!org ? (
-                  <p className="text-sm text-gray-400 font-sans text-center py-8">No organisation found.</p>
+                  <p className="text-body text-gray-400 text-center py-8">No organisation found.</p>
                 ) : (
                   <>
                     {/* Company logo */}
                     <Card>
-                      <h3 className="font-sans font-semibold text-header mb-4 flex items-center gap-2">
+                      <h3 className=" font-semibold text-header mb-4 flex items-center gap-2">
                         <Building2 size={16} className="text-gold" /> Company Logo
                       </h3>
                       <div className="flex items-start gap-6">
@@ -242,22 +242,22 @@ export default function SettingsPage() {
                           {org.logoUrl ? (
                             <img src={org.logoUrl} alt="Company logo" className="w-full h-full object-contain p-2" />
                           ) : (
-                            <p className="text-xs text-gray-400 font-sans text-center px-2">No logo yet</p>
+                            <p className="text-caption text-gray-400 text-center px-2">No logo yet</p>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <p className="text-xs text-gray-500 font-sans">Recommended: PNG or SVG, max 2 MB. Logo appears in PDF invoice headers. If no property logo is set, this is used as the fallback.</p>
+                          <p className="text-caption text-gray-500 ">Recommended: PNG or SVG, max 2 MB. Logo appears in PDF invoice headers. If no property logo is set, this is used as the fallback.</p>
                           <div className="flex gap-2 flex-wrap">
                             <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
                               className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadOrgLogo(f); e.target.value = ""; }} />
                             <button onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors">
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-caption rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors">
                               {logoUploading ? <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" /> : <Upload size={12} />}
                               {org.logoUrl ? "Replace" : "Upload"} logo
                             </button>
                             {org.logoUrl && (
                               <button onClick={removeOrgLogo} disabled={logoUploading}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-expense hover:border-expense text-xs font-sans rounded-lg disabled:opacity-50 transition-colors">
+                                className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-expense hover:border-expense text-caption rounded-lg disabled:opacity-50 transition-colors">
                                 <Trash2 size={12} /> Remove
                               </button>
                             )}
@@ -268,7 +268,7 @@ export default function SettingsPage() {
 
                     {/* Company details */}
                     <Card>
-                      <h3 className="font-sans font-semibold text-header mb-4 flex items-center gap-2">
+                      <h3 className=" font-semibold text-header mb-4 flex items-center gap-2">
                         <Settings size={16} className="text-gold" /> Company Details
                       </h3>
                       <div className="space-y-4">
@@ -284,30 +284,30 @@ export default function SettingsPage() {
                           onChange={(e) => setOrgForm((p) => ({ ...p, address: e.target.value }))} />
                         <Input label="Website" value={orgForm.website}
                           onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
-                        <p className="text-xs text-gray-400 font-sans">KRA PIN and payment details are configured per-property under Properties → Agreement.</p>
+                        <p className="text-caption text-gray-400 ">KRA PIN and payment details are configured per-property under Properties → Agreement.</p>
                         {canEditSettings && <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>}
                       </div>
                     </Card>
 
                     {/* Per-property currency */}
                     <Card>
-                      <h3 className="font-sans font-semibold text-header mb-1 flex items-center gap-2">
+                      <h3 className=" font-semibold text-header mb-1 flex items-center gap-2">
                         <Building2 size={16} className="text-gold" /> Property Currency
                       </h3>
-                      <p className="text-xs text-gray-500 font-sans mb-4">
+                      <p className="text-caption text-gray-500 mb-4">
                         Set the display currency for each property. Used on all financial displays, reports, and invoices.
                       </p>
                       <div className="space-y-3">
                         {data.properties?.map((property: any) => (
                           <div key={property.id} className="flex items-center gap-4 p-3 bg-cream rounded-xl">
                             <div className="flex-1">
-                              <p className="font-sans font-medium text-sm text-header">{property.name}</p>
-                              <p className="text-xs text-gray-400 font-sans">{property.type === "AIRBNB" ? "Short-let" : "Long-term"}</p>
+                              <p className=" font-medium text-body text-header">{property.name}</p>
+                              <p className="text-caption text-gray-400 ">{property.type === "AIRBNB" ? "Short-let" : "Long-term"}</p>
                             </div>
                             <select
                               value={currencyForm[property.id] ?? "USD"}
                               onChange={(e) => setCurrencyForm((prev) => ({ ...prev, [property.id]: e.target.value }))}
-                              className="text-sm font-sans border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-header focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30"
+                              className="text-body border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-header focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30"
                             >
                               {SUPPORTED_CURRENCIES.map((c) => (
                                 <option key={c.code} value={c.code}>{c.code} — {c.symbol}</option>
@@ -316,7 +316,7 @@ export default function SettingsPage() {
                             <button
                               onClick={() => savePropertyCurrency(property.id)}
                               disabled={currencySaving === property.id}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-gold text-white text-xs font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors"
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-gold text-white text-caption rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors"
                             >
                               {currencySaving === property.id ? <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" /> : <Save size={11} />}
                               Save
@@ -328,10 +328,10 @@ export default function SettingsPage() {
 
                     {/* Per-property logos */}
                     <Card>
-                      <h3 className="font-sans font-semibold text-header mb-1 flex items-center gap-2">
+                      <h3 className=" font-semibold text-header mb-1 flex items-center gap-2">
                         <Building2 size={16} className="text-gold" /> Property Logos
                       </h3>
-                      <p className="text-xs text-gray-500 font-sans mb-4">
+                      <p className="text-caption text-gray-500 mb-4">
                         Optional — overrides the company logo on invoices for that specific property.
                       </p>
                       <input ref={propLogoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
@@ -347,18 +347,18 @@ export default function SettingsPage() {
                               {property.logoUrl ? (
                                 <img src={property.logoUrl} alt={property.name} className="w-full h-full object-contain p-1.5" />
                               ) : (
-                                <p className="text-xs text-gray-300 font-sans">None</p>
+                                <p className="text-caption text-gray-300 ">None</p>
                               )}
                             </div>
                             <div className="flex-1">
-                              <p className="font-sans font-medium text-sm text-header">{property.name}</p>
-                              <p className="text-xs text-gray-400 font-sans">{property.type === "AIRBNB" ? "Short-let" : "Long-term"}</p>
+                              <p className=" font-medium text-body text-header">{property.name}</p>
+                              <p className="text-caption text-gray-400 ">{property.type === "AIRBNB" ? "Short-let" : "Long-term"}</p>
                             </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => { setPropLogoTarget(property.id); propLogoInputRef.current?.click(); }}
                                 disabled={propLogoUploading === property.id}
-                                className="flex items-center gap-1 px-2.5 py-1.5 bg-gold text-white text-xs font-sans rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors">
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-gold text-white text-caption rounded-lg hover:bg-gold-dark disabled:opacity-50 transition-colors">
                                 {propLogoUploading === property.id ? <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" /> : <Upload size={11} />}
                                 {property.logoUrl ? "Replace" : "Upload"}
                               </button>
@@ -385,7 +385,7 @@ export default function SettingsPage() {
                 {/* Org-level defaults */}
                 {session?.user?.organizationId && (
                   <div>
-                    <h3 className="font-display text-sm text-header mb-1">Organisation Defaults</h3>
+                    <h3 className=" text-body font-medium text-header mb-1">Organisation Defaults</h3>
                     <TaxConfigPanel
                       orgId={session.user.organizationId}
                       propertyId={null}
@@ -395,7 +395,7 @@ export default function SettingsPage() {
                 {/* Per-property overrides */}
                 {data.properties?.map((property: any) => (
                   <div key={property.id}>
-                    <h3 className="font-display text-sm text-header mb-1">{property.name}</h3>
+                    <h3 className=" text-body font-medium text-header mb-1">{property.name}</h3>
                     <TaxConfigPanel
                       orgId={property.organizationId ?? session?.user?.organizationId ?? ""}
                       propertyId={property.id}
@@ -409,22 +409,22 @@ export default function SettingsPage() {
             {/* ── Property Info ── */}
             {tab === "info" && (
               <div className="space-y-4">
-                <p className="text-sm text-gray-500 font-sans">Property and unit overview</p>
+                <p className="text-body text-gray-500 ">Property and unit overview</p>
                 {data.properties?.map((property: any) => {
                   const units = data.units?.filter((u: any) => u.propertyId === property.id) ?? [];
                   return (
                     <Card key={property.id}>
-                      <h3 className="font-display text-base text-header mb-1">{property.name}</h3>
-                      <p className="text-xs text-gray-400 font-sans mb-3">{property.type === "AIRBNB" ? "Short-let / Airbnb" : "Long-term Tenanted"} · {units.length} units</p>
+                      <h3 className=" text-h3 text-header mb-1">{property.name}</h3>
+                      <p className="text-caption text-gray-400 mb-3">{property.type === "AIRBNB" ? "Short-let / Airbnb" : "Long-term Tenanted"} · {units.length} units</p>
                       <div className="space-y-1">
                         {units.map((u: any) => (
                           <div key={u.id} className="flex items-center justify-between py-2 border-t border-gray-50">
                             <div>
-                              <span className="font-mono text-sm text-header">{u.unitNumber}</span>
-                              <span className="text-xs text-gray-400 font-sans ml-2">{u.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</span>
+                              <span className="font-mono text-body text-header">{u.unitNumber}</span>
+                              <span className="text-caption text-gray-400 ml-2">{u.type === "ONE_BED" ? "1 Bed" : "2 Bed"}</span>
                             </div>
                             {u.monthlyRent && <CurrencyDisplay amount={u.monthlyRent} size="sm" />}
-                            <span className={`text-xs font-sans px-2 py-0.5 rounded-full ${u.status === "ACTIVE" ? "bg-green-100 text-green-700" : u.status === "VACANT" ? "bg-gray-100 text-gray-500" : "bg-yellow-100 text-yellow-700"}`}>{u.status}</span>
+                            <span className={`text-caption px-2 py-0.5 rounded-full ${u.status === "ACTIVE" ? "bg-green-100 text-green-700" : u.status === "VACANT" ? "bg-gray-100 text-gray-500" : "bg-yellow-100 text-yellow-700"}`}>{u.status}</span>
                           </div>
                         ))}
                       </div>

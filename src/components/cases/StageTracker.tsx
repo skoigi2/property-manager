@@ -68,7 +68,7 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs uppercase tracking-wide text-gray-400 font-sans">Progress</p>
+        <p className="text-label uppercase text-gray-400 ">Progress</p>
         {!readOnly && (
           <div className="relative">
             <button
@@ -79,7 +79,7 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
               <MoreHorizontal size={16} />
             </button>
             {overflowOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-lg shadow-lg z-50 text-xs font-sans">
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-lg shadow-lg z-50 text-caption ">
                 <button
                   onClick={() => { setOverflowOpen(false); setRegressOpen(true); }}
                   className="px-3 py-2 text-left hover:bg-gray-50 whitespace-nowrap"
@@ -94,7 +94,7 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
       </div>
 
       {(isBypassed || isCancelled) && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-sans text-amber-800">
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-caption text-amber-800">
           <AlertTriangle size={14} className="shrink-0" />
           <span>
             <strong>{isCancelled ? "Cancelled" : "Bypassed"}</strong>
@@ -127,7 +127,7 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
               >
                 <span
                   className={clsx(
-                    "w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium font-sans",
+                    "w-7 h-7 rounded-full flex items-center justify-center text-caption font-medium ",
                     isDone && "bg-green-500 text-white",
                     isCurrent && !isBypassed && !isCancelled && "bg-gold text-white ring-4 ring-gold/20",
                     isCurrent && (isBypassed || isCancelled) && "bg-amber-500 text-white ring-4 ring-amber-200",
@@ -139,7 +139,7 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
                 </span>
                 <span
                   className={clsx(
-                    "text-[11px] text-center leading-tight font-sans px-1",
+                    "text-caption text-center px-1",
                     isCurrent && !isBypassed && !isCancelled && "text-gold font-medium",
                     isCurrent && (isBypassed || isCancelled) && "text-amber-700 font-medium",
                     isDone && "text-gray-600",
@@ -179,7 +179,7 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
             >
               <span
                 className={clsx(
-                  "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium font-sans shrink-0",
+                  "w-6 h-6 rounded-full flex items-center justify-center text-caption font-medium shrink-0",
                   isDone && "bg-green-500 text-white",
                   isCurrent && !isBypassed && !isCancelled && "bg-gold text-white",
                   isCurrent && (isBypassed || isCancelled) && "bg-amber-500 text-white",
@@ -191,7 +191,7 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
               </span>
               <span
                 className={clsx(
-                  "text-sm font-sans",
+                  "text-body ",
                   isCurrent && !isBypassed && !isCancelled && "text-gold font-medium",
                   isCurrent && (isBypassed || isCancelled) && "text-amber-700 font-medium",
                   isDone && "text-gray-600",
@@ -210,13 +210,13 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
       {confirmIndex !== null && targetStage && (
         <Modal open onClose={() => setConfirmIndex(null)} title={`Advance to "${targetStage.label}"?`} size="sm">
           <div className="p-5 space-y-3">
-            <label className="block text-xs uppercase tracking-wide text-gray-400 font-sans">Note (optional)</label>
+            <label className="block text-label uppercase text-gray-400 ">Note (optional)</label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
               placeholder="Add context for the audit log"
-              className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50"
+              className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50"
             />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setConfirmIndex(null)}>Cancel</Button>
@@ -230,13 +230,13 @@ export function StageTracker({ workflow, currentStageIndex, terminalReason, bypa
       {regressOpen && (
         <Modal open onClose={() => setRegressOpen(false)} title="Regress one stage" size="sm">
           <div className="p-5 space-y-3">
-            <label className="block text-xs uppercase tracking-wide text-gray-400 font-sans">Reason (required)</label>
+            <label className="block text-label uppercase text-gray-400 ">Reason (required)</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               placeholder="Why is this case going back a stage?"
-              className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2 bg-cream/50"
+              className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50"
             />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setRegressOpen(false)}>Cancel</Button>

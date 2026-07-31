@@ -11,14 +11,14 @@ export function CaseKanbanView({ rows }: { rows: CaseRow[] }) {
       {byStatus.map(({ status, cases }) => (
         <div key={status} className="shrink-0 w-72">
           <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans">
+            <span className="text-label font-semibold uppercase text-gray-500 ">
               {STATUS_LABEL[status as CaseStatus]}
             </span>
-            <span className="text-xs font-mono text-gray-400">{cases.length}</span>
+            <span className="text-caption font-mono text-gray-400">{cases.length}</span>
           </div>
           <div className="bg-gray-50 rounded-xl p-2 space-y-2 min-h-[5rem]">
             {cases.length === 0 ? (
-              <p className="text-xs text-gray-300 font-sans text-center py-6">No cases</p>
+              <p className="text-caption text-gray-300 text-center py-6">No cases</p>
             ) : (
               cases.map((c) => <CaseCard key={c.id} c={c} />)
             )}

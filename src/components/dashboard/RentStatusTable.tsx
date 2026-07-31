@@ -59,8 +59,8 @@ export function RentStatusTable({ rows, currency = "USD", showProperty = false }
             {/* Tenant name + lease badge */}
             <div className="flex items-start justify-between gap-2 mb-2.5">
               <div>
-                <p className="font-sans font-medium text-sm text-header leading-tight">{row.tenantName}</p>
-                <p className="text-xs text-gray-400 font-sans mt-0.5">
+                <p className=" font-medium text-body text-header ">{row.tenantName}</p>
+                <p className="text-caption text-gray-400 mt-0.5">
                   Unit {row.unitNumber} · {unitTypeLabel(row.type)}
                   {showProperty && row.propertyName ? ` · ${row.propertyName}` : ""}
                 </p>
@@ -70,17 +70,17 @@ export function RentStatusTable({ rows, currency = "USD", showProperty = false }
             {/* Financials grid */}
             <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-50">
               <div>
-                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+                <p className="text-label text-gray-400 uppercase mb-0.5">Expected</p>
                 <CurrencyDisplay currency={currency} amount={row.expected} size="sm" />
               </div>
               <div>
-                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+                <p className="text-label text-gray-400 uppercase mb-0.5">Received</p>
                 <CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize />
               </div>
               <div>
-                <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Variance</p>
+                <p className="text-label text-gray-400 uppercase mb-0.5">Variance</p>
                 <span className={clsx(
-                  "font-mono text-xs font-medium",
+                  "tabular-nums text-caption font-medium",
                   row.variance < 0 ? "text-expense" : row.variance > 0 ? "text-income" : "text-gray-400",
                 )}>
                   {row.variance >= 0 ? "+" : ""}
@@ -93,18 +93,18 @@ export function RentStatusTable({ rows, currency = "USD", showProperty = false }
 
         {/* Totals card */}
         <div className="rounded-xl border border-gold/25 bg-cream p-3">
-          <p className="text-xs font-medium text-header font-sans mb-2">Totals</p>
+          <p className="text-caption font-medium text-header mb-2">Totals</p>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Expected</p>
+              <p className="text-label text-gray-400 uppercase mb-0.5">Expected</p>
               <CurrencyDisplay currency={currency} amount={totalExpected} size="sm" />
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Received</p>
+              <p className="text-label text-gray-400 uppercase mb-0.5">Received</p>
               <CurrencyDisplay currency={currency} amount={totalReceived} size="sm" colorize />
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Variance</p>
+              <p className="text-label text-gray-400 uppercase mb-0.5">Variance</p>
               <CurrencyDisplay currency={currency} amount={totalVariance} size="sm" colorize />
             </div>
           </div>
@@ -117,26 +117,26 @@ export function RentStatusTable({ rows, currency = "USD", showProperty = false }
           <table className="w-full min-w-[600px]">
             <thead className="sticky top-0 bg-white z-10">
               <tr className="text-left">
-                <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Tenant</th>
-                {showProperty && <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Property</th>}
-                <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Unit</th>
-                <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Type</th>
-                <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans text-right">Expected</th>
-                <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans text-right">Received</th>
-                <th className="pb-2 pr-3 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans text-right">Variance</th>
-                <th className="pb-2 text-xs font-medium text-gray-400 uppercase tracking-wide font-sans">Lease</th>
+                <th className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase ">Tenant</th>
+                {showProperty && <th className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase ">Property</th>}
+                <th className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase ">Unit</th>
+                <th className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase ">Type</th>
+                <th className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase text-right">Expected</th>
+                <th className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase text-right">Received</th>
+                <th className="pb-2 pr-3 text-label font-medium text-gray-400 uppercase text-right">Variance</th>
+                <th className="pb-2 text-label font-medium text-gray-400 uppercase ">Lease</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-gray-100">
-                  <td className="py-3 pr-3 text-sm font-sans text-header font-medium">{row.tenantName}</td>
-                  {showProperty && <td className="py-3 pr-3 text-sm font-sans text-gray-500">{row.propertyName ?? "—"}</td>}
-                  <td className="py-3 pr-3 text-sm font-mono text-gray-500">{row.unitNumber}</td>
-                  <td className="py-3 pr-3 text-sm font-sans text-gray-500">{unitTypeLabel(row.type)}</td>
+                  <td className="py-3 pr-3 text-body text-header font-medium">{row.tenantName}</td>
+                  {showProperty && <td className="py-3 pr-3 text-body text-gray-500">{row.propertyName ?? "—"}</td>}
+                  <td className="py-3 pr-3 text-body tabular-nums text-gray-500">{row.unitNumber}</td>
+                  <td className="py-3 pr-3 text-body text-gray-500">{unitTypeLabel(row.type)}</td>
                   <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.expected} size="sm" /></td>
                   <td className="py-3 pr-3 text-right"><CurrencyDisplay currency={currency} amount={row.received} size="sm" colorize /></td>
-                  <td className={clsx("py-3 pr-3 text-right font-mono text-sm", row.variance < 0 ? "text-expense" : row.variance > 0 ? "text-income" : "text-gray-400")}>
+                  <td className={clsx("py-3 pr-3 text-right tabular-nums text-body", row.variance < 0 ? "text-expense" : row.variance > 0 ? "text-income" : "text-gray-400")}>
                     {row.variance >= 0 ? "+" : ""}<CurrencyDisplay currency={currency} amount={row.variance} size="sm" colorize />
                   </td>
                   <td className="py-3">{statusBadge(row.leaseStatus)}</td>
@@ -145,10 +145,10 @@ export function RentStatusTable({ rows, currency = "USD", showProperty = false }
             </tbody>
             <tfoot className="sticky bottom-0 bg-white">
               <tr className="border-t-2 border-gold/30">
-                <td colSpan={showProperty ? 4 : 3} className="pt-3 text-sm font-medium font-sans text-header">Total</td>
+                <td colSpan={showProperty ? 4 : 3} className="pt-3 text-body font-medium text-header">Total</td>
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalExpected} size="sm" /></td>
                 <td className="pt-3 text-right"><CurrencyDisplay currency={currency} amount={totalReceived} size="sm" colorize /></td>
-                <td className={clsx("pt-3 text-right font-mono text-sm", totalVariance < 0 ? "text-expense" : "text-income")}>
+                <td className={clsx("pt-3 text-right tabular-nums text-body", totalVariance < 0 ? "text-expense" : "text-income")}>
                   <CurrencyDisplay currency={currency} amount={totalVariance} size="sm" colorize />
                 </td>
                 <td />

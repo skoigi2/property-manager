@@ -105,7 +105,7 @@ function OverrideControl({
           disabled={saving}
           onClick={() => onChange(o.value)}
           className={clsx(
-            "px-2.5 py-1 text-xs font-sans transition-colors",
+            "px-2.5 py-1 text-caption transition-colors",
             state === o.value
               ? o.value === "on"
                 ? "bg-income/10 text-income"
@@ -156,7 +156,8 @@ export default function AutomationsPage() {
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -253,14 +254,14 @@ export default function AutomationsPage() {
     const { count, names, fallbackOnly } = orgRecipients;
     if (count === 0) {
       return (
-        <p className="mt-3 flex items-start gap-1.5 text-xs font-sans text-expense">
+        <p className="mt-3 flex items-start gap-1.5 text-caption text-expense">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           No recipients — add a manager or set an organisation contact email so alerts aren&apos;t lost.
         </p>
       );
     }
     return (
-      <p className="mt-3 flex items-start gap-1.5 text-xs font-sans text-gray-500" title={names.join(", ")}>
+      <p className="mt-3 flex items-start gap-1.5 text-caption text-gray-500" title={names.join(", ")}>
         <Mail className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
         <span>
           Notifies {count} {count === 1 ? "recipient" : "recipients"}
@@ -279,12 +280,12 @@ export default function AutomationsPage() {
         <button
           type="button"
           onClick={() => toggleExpanded(a.id)}
-          className="flex items-center gap-1.5 text-xs font-sans text-gray-500 hover:text-gray-800 transition-colors"
+          className="flex items-center gap-1.5 text-caption text-gray-500 hover:text-gray-800 transition-colors"
         >
           <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expanded.has(a.id) && "rotate-180")} />
           Customise per property
           {overrideCount(a) > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark text-[10px] font-medium">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark text-caption font-medium">
               {overrideCount(a)} override{overrideCount(a) === 1 ? "" : "s"}
             </span>
           )}
@@ -292,7 +293,7 @@ export default function AutomationsPage() {
 
         {expanded.has(a.id) && (
           <div className="mt-3 space-y-1.5">
-            <p className="text-[11px] text-gray-400 font-sans">
+            <p className="text-caption text-gray-400 ">
               Each property inherits the organisation setting ({a.enabled ? "On" : "Off"}) unless overridden.
             </p>
             {properties.map((p) => {
@@ -301,12 +302,12 @@ export default function AutomationsPage() {
               return (
                 <div key={p.id} className="flex items-center justify-between gap-3 py-1">
                   <span className="flex flex-col min-w-0">
-                    <span className="flex items-center gap-1.5 text-sm text-gray-700 font-sans min-w-0">
+                    <span className="flex items-center gap-1.5 text-body text-gray-700 min-w-0">
                       <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                       <span className="truncate">{p.name}</span>
                     </span>
                     {sendsEmail(a) && (
-                      <span className="text-[11px] text-gray-400 font-sans pl-5 truncate" title={recips.map((r) => r.name).join(", ")}>
+                      <span className="text-caption text-gray-400 pl-5 truncate" title={recips.map((r) => r.name).join(", ")}>
                         {recips.length === 0
                           ? "⚠ no recipients"
                           : fallback
@@ -334,7 +335,7 @@ export default function AutomationsPage() {
       <Header title="Automations" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
         <Card padding="sm" className="bg-blue-50/50 border border-blue-100">
-          <p className="text-xs text-blue-700 font-sans flex items-start gap-2">
+          <p className="text-caption text-blue-700 flex items-start gap-2">
             <Zap className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
               Control everything GroundWorkPM does for you automatically — workflow automations that
@@ -357,7 +358,7 @@ export default function AutomationsPage() {
                   onClick={() => setViewMode("grid")}
                   aria-pressed={view === "grid"}
                   className={clsx(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-sans transition-colors",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-body transition-colors",
                     view === "grid" ? "bg-gold text-white" : "text-gray-500 hover:text-gray-800"
                   )}
                 >
@@ -368,7 +369,7 @@ export default function AutomationsPage() {
                   onClick={() => setViewMode("table")}
                   aria-pressed={view === "table"}
                   className={clsx(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-sans transition-colors",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-body transition-colors",
                     view === "table" ? "bg-gold text-white" : "text-gray-500 hover:text-gray-800"
                   )}
                 >
@@ -383,8 +384,8 @@ export default function AutomationsPage() {
               return (
                 <div key={section.category} className="space-y-3">
                   <div>
-                    <h2 className="font-display text-xl text-gray-900">{section.heading}</h2>
-                    <p className="text-sm text-gray-500 font-sans mt-0.5">{section.blurb}</p>
+                    <h2 className=" text-h2 text-gray-900">{section.heading}</h2>
+                    <p className="text-body text-gray-500 mt-0.5">{section.blurb}</p>
                   </div>
 
                   {view === "grid" ? (
@@ -393,8 +394,8 @@ export default function AutomationsPage() {
                         <Card key={a.id} className="flex flex-col">
                           <div className="flex items-start justify-between gap-4">
                             <div>
-                              <h3 className="font-display text-lg text-gray-900">{a.name}</h3>
-                              <p className="text-sm text-gray-500 mt-1 font-sans">{a.description}</p>
+                              <h3 className=" text-h3 text-gray-900">{a.name}</h3>
+                              <p className="text-body text-gray-500 mt-1 ">{a.description}</p>
                             </div>
                             <Toggle
                               enabled={a.enabled}
@@ -405,15 +406,15 @@ export default function AutomationsPage() {
                           </div>
 
                           <div className="mt-4 pt-4 border-t border-gray-100">
-                            <p className="text-xs uppercase tracking-wide text-gray-400 font-sans">Trigger</p>
-                            <p className="text-sm text-gray-700 font-sans mt-0.5">{a.trigger}</p>
+                            <p className="text-label uppercase text-gray-400 ">Trigger</p>
+                            <p className="text-body text-gray-700 mt-0.5">{a.trigger}</p>
                           </div>
 
                           <div className="mt-3">
-                            <p className="text-xs uppercase tracking-wide text-gray-400 font-sans">Actions</p>
+                            <p className="text-label uppercase text-gray-400 ">Actions</p>
                             <ul className="mt-1 space-y-1">
                               {a.actions.map((act) => (
-                                <li key={act} className="flex items-center gap-1.5 text-sm text-gray-700 font-sans">
+                                <li key={act} className="flex items-center gap-1.5 text-body text-gray-700 ">
                                   <Check className="w-4 h-4 text-income shrink-0" />
                                   {act}
                                 </li>
@@ -434,8 +435,8 @@ export default function AutomationsPage() {
                           <li key={a.id} className="p-4">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="font-sans font-medium text-gray-900">{a.name}</p>
-                                <p className="text-xs text-gray-500 font-sans mt-0.5">{a.trigger}</p>
+                                <p className=" font-medium text-gray-900">{a.name}</p>
+                                <p className="text-caption text-gray-500 mt-0.5">{a.trigger}</p>
                               </div>
                               <Toggle
                                 enabled={a.enabled}
@@ -451,9 +452,9 @@ export default function AutomationsPage() {
                       </ul>
 
                       {/* Desktop: table */}
-                      <table className="hidden md:table w-full text-sm font-sans">
+                      <table className="hidden md:table w-full text-body ">
                         <thead>
-                          <tr className="text-left text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                          <tr className="text-left text-label uppercase text-gray-400 border-b border-gray-100">
                             <th className="px-4 py-2.5 font-medium">Automation</th>
                             <th className="px-4 py-2.5 font-medium">Trigger</th>
                             <th className="px-4 py-2.5 font-medium">Actions</th>
@@ -466,16 +467,16 @@ export default function AutomationsPage() {
                               <tr className="hover:bg-gray-50/60">
                                 <td className="px-4 py-3 align-top">
                                   <p className="font-medium text-gray-900">{a.name}</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>
+                                  <p className="text-caption text-gray-500 mt-0.5">{a.description}</p>
                                   <button
                                     type="button"
                                     onClick={() => toggleExpanded(a.id)}
-                                    className="mt-1.5 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors"
+                                    className="mt-1.5 flex items-center gap-1 text-caption text-gray-500 hover:text-gray-800 transition-colors"
                                   >
                                     <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expanded.has(a.id) && "rotate-180")} />
                                     Per property
                                     {overrideCount(a) > 0 && (
-                                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark text-[10px] font-medium">
+                                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark text-caption font-medium">
                                         {overrideCount(a)}
                                       </span>
                                     )}
@@ -487,7 +488,7 @@ export default function AutomationsPage() {
                                   {sendsEmail(a) && (
                                     <span
                                       className={clsx(
-                                        "mt-1 flex items-center gap-1 text-xs",
+                                        "mt-1 flex items-center gap-1 text-caption",
                                         orgRecipients.count === 0 ? "text-expense" : "text-gray-400"
                                       )}
                                       title={orgRecipients.names.join(", ")}
@@ -512,13 +513,13 @@ export default function AutomationsPage() {
                               {expanded.has(a.id) && properties.length > 0 && (
                                 <tr className="bg-gray-50/40">
                                   <td colSpan={4} className="px-4 py-3">
-                                    <p className="text-[11px] text-gray-400 font-sans mb-2">
+                                    <p className="text-caption text-gray-400 mb-2">
                                       Each property inherits the organisation setting ({a.enabled ? "On" : "Off"}) unless overridden.
                                     </p>
                                     <div className="grid gap-1.5 sm:grid-cols-2">
                                       {properties.map((p) => (
                                         <div key={p.id} className="flex items-center justify-between gap-3 py-0.5">
-                                          <span className="flex items-center gap-1.5 text-sm text-gray-700 min-w-0">
+                                          <span className="flex items-center gap-1.5 text-body text-gray-700 min-w-0">
                                             <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                             <span className="truncate">{p.name}</span>
                                           </span>

@@ -159,14 +159,14 @@ function LineItemsEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-sans font-semibold text-header">Line Items</h4>
-        <button type="button" onClick={add} className="flex items-center gap-1 text-xs text-gold hover:text-gold-dark font-sans font-medium transition-colors">
+        <h4 className="text-body font-semibold text-header">Line Items</h4>
+        <button type="button" onClick={add} className="flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium transition-colors">
           <Plus size={13} /> Add line
         </button>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-xs text-gray-400 font-sans italic">No line items — the amount above will be used as a single total.</p>
+        <p className="text-caption text-gray-400 italic">No line items — the amount above will be used as a single total.</p>
       ) : (
         <div className="space-y-3">
           {items.map((item, idx) => (
@@ -174,27 +174,27 @@ function LineItemsEditor({
               {/* Row 1: category + description + amount + VAT */}
               <div className="grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-3">
-                  <label className="block text-xs text-gray-400 font-sans mb-1">Type</label>
+                  <label className="block text-caption text-gray-400 mb-1">Type</label>
                   <select
                     value={item.category}
                     onChange={(e) => update(idx, { category: e.target.value as LineCat })}
-                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-sans bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   >
                     {LINE_CATEGORIES.map((c) => <option key={c} value={c}>{c[0] + c.slice(1).toLowerCase()}</option>)}
                   </select>
                 </div>
                 <div className="col-span-4">
-                  <label className="block text-xs text-gray-400 font-sans mb-1">Description</label>
+                  <label className="block text-caption text-gray-400 mb-1">Description</label>
                   <input
                     type="text"
                     value={item.description}
                     onChange={(e) => update(idx, { description: e.target.value })}
                     placeholder="e.g. Paint & materials"
-                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-sans bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
                 <div className="col-span-3">
-                  <label className="block text-xs text-gray-400 font-sans mb-1">Amount</label>
+                  <label className="block text-caption text-gray-400 mb-1">Amount</label>
                   <input
                     type="number"
                     step="0.01"
@@ -202,11 +202,11 @@ function LineItemsEditor({
                     value={item.amount}
                     onChange={(e) => update(idx, { amount: e.target.value })}
                     placeholder="0"
-                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-sans bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
                 <div className="col-span-1 flex flex-col items-center gap-1">
-                  <label className="block text-xs text-gray-400 font-sans">Tax</label>
+                  <label className="block text-caption text-gray-400 ">Tax</label>
                   <input
                     type="checkbox"
                     checked={item.isVatable}
@@ -224,7 +224,7 @@ function LineItemsEditor({
               {/* Tax badge */}
               {itemTax[idx] && (
                 <div className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-sans border ${
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-caption border ${
                     itemTax[idx]!.config.type === "ADDITIVE"
                       ? "bg-blue-50 text-blue-700 border-blue-100"
                       : "bg-amber-50 text-amber-700 border-amber-100"
@@ -236,17 +236,17 @@ function LineItemsEditor({
                 </div>
               )}
               {item.isVatable && taxConfigs !== null && !itemTax[idx] && (
-                <p className="text-xs text-gray-400 font-sans italic">No matching tax rule for this category.</p>
+                <p className="text-caption text-gray-400 italic">No matching tax rule for this category.</p>
               )}
 
               {/* Row 2: payment status */}
               <div className="grid grid-cols-3 gap-2 items-end">
                 <div>
-                  <label className="block text-xs text-gray-400 font-sans mb-1">Payment</label>
+                  <label className="block text-caption text-gray-400 mb-1">Payment</label>
                   <select
                     value={item.paymentStatus}
                     onChange={(e) => update(idx, { paymentStatus: e.target.value as PayStatus, amountPaid: e.target.value === "PAID" ? item.amount : item.amountPaid })}
-                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-sans bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   >
                     <option value="UNPAID">Unpaid</option>
                     <option value="PARTIAL">Partial</option>
@@ -255,7 +255,7 @@ function LineItemsEditor({
                 </div>
                 {(item.paymentStatus === "PARTIAL" || item.paymentStatus === "PAID") && (
                   <div>
-                    <label className="block text-xs text-gray-400 font-sans mb-1">Amount Paid</label>
+                    <label className="block text-caption text-gray-400 mb-1">Amount Paid</label>
                     <input
                       type="number"
                       step="0.01"
@@ -263,19 +263,19 @@ function LineItemsEditor({
                       value={item.amountPaid}
                       onChange={(e) => update(idx, { amountPaid: e.target.value })}
                       placeholder="0"
-                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-sans bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                     />
                   </div>
                 )}
                 {(item.paymentStatus === "PARTIAL" || item.paymentStatus === "PAID") && (
                   <div>
-                    <label className="block text-xs text-gray-400 font-sans mb-1">Payment Reference</label>
+                    <label className="block text-caption text-gray-400 mb-1">Payment Reference</label>
                     <input
                       type="text"
                       value={item.paymentReference}
                       onChange={(e) => update(idx, { paymentReference: e.target.value })}
                       placeholder="e.g. M-PESA ref, bank transfer"
-                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-sans bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                     />
                   </div>
                 )}
@@ -284,7 +284,7 @@ function LineItemsEditor({
           ))}
 
           {/* Totals row */}
-          <div className="flex items-center justify-between px-1 text-xs font-sans">
+          <div className="flex items-center justify-between px-1 text-caption ">
             <span className="text-gray-400">
               {totalVatable > 0 && (
                 <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-100">
@@ -300,15 +300,15 @@ function LineItemsEditor({
           {/* Tax Summary box */}
           {hasTax && (
             <div className="border border-amber-100 rounded-xl bg-amber-50/60 px-4 py-3 space-y-1.5">
-              <p className="text-xs font-sans font-semibold text-amber-800 uppercase tracking-wide">Tax Summary</p>
+              <p className="text-label font-semibold text-amber-800 uppercase ">Tax Summary</p>
               {inputVatAdditive > 0 && (
-                <div className="flex items-center justify-between text-xs font-sans">
+                <div className="flex items-center justify-between text-caption ">
                   <span className="text-gray-600">Input VAT / GST (reclaimable)</span>
                   <span className="font-medium text-blue-700">{formatCurrency(inputVatAdditive, currency)}</span>
                 </div>
               )}
               {whtWithheld > 0 && (
-                <div className="flex items-center justify-between text-xs font-sans">
+                <div className="flex items-center justify-between text-caption ">
                   <span className="text-gray-600">WHT / TDS to withhold</span>
                   <span className="font-medium text-amber-700">{formatCurrency(whtWithheld, currency)}</span>
                 </div>
@@ -928,7 +928,7 @@ export default function ExpensesPage() {
           if (!ev.currentTarget.contains(ev.relatedTarget as Node)) setDragOverCol(null);
         }}
         className={clsx(
-          "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans select-none",
+          "px-4 py-3 text-left text-label font-medium text-gray-400 uppercase select-none",
           dragOverCol === key && "border-l-2 border-gold bg-gold/5"
         )}
       >
@@ -986,9 +986,9 @@ export default function ExpensesPage() {
     const isOverdue = e.dueDate && pay.status !== "PAID" && new Date(e.dueDate).getTime() < Date.now();
     switch (key) {
       case "date":
-        return <td key={key} className="px-4 py-3 text-sm font-sans text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>;
+        return <td key={key} className="px-4 py-3 text-body text-gray-600 whitespace-nowrap">{formatDate(e.date)}</td>;
       case "unit":
-        return <td key={key} className="px-4 py-3 text-sm font-mono text-gray-500">{unitLabel(e)}</td>;
+        return <td key={key} className="px-4 py-3 text-body tabular-nums text-gray-500">{unitLabel(e)}</td>;
       case "property":
         return <td key={key} className="px-4 py-3"><Badge variant={propName === "All Properties" ? "gray" : "blue"}>{propName}</Badge></td>;
       case "category":
@@ -1003,9 +1003,9 @@ export default function ExpensesPage() {
         );
       case "description":
         return (
-          <td key={key} className="px-4 py-3 text-sm font-sans text-gray-500 max-w-[160px]">
+          <td key={key} className="px-4 py-3 text-body text-gray-500 max-w-[160px]">
             <span title={e.description ?? ""}>{e.description ? (e.description.length > 30 ? e.description.slice(0, 30) + "…" : e.description) : "—"}</span>
-            {e.vendor && <p className="text-xs text-gray-400 mt-0.5 truncate">{e.vendor.name}</p>}
+            {e.vendor && <p className="text-caption text-gray-400 mt-0.5 truncate">{e.vendor.name}</p>}
           </td>
         );
       case "amount":
@@ -1013,10 +1013,10 @@ export default function ExpensesPage() {
           <td key={key} className="px-4 py-3 text-right">
             <CurrencyDisplay currency={currency} amount={e.amount} size="sm" className={e.isSunkCost ? "text-gray-400 line-through" : "text-expense"} />
             {e.vatAmount > 0 && (
-              <p className="text-xs text-gray-400 font-sans mt-0.5">+ VAT {formatCurrency(e.vatAmount, currency)}</p>
+              <p className="text-caption text-gray-400 mt-0.5">+ VAT {formatCurrency(e.vatAmount, currency)}</p>
             )}
             {e.unitAllocations?.length > 1 && (
-              <p className="text-xs text-gray-400 font-sans mt-0.5">
+              <p className="text-caption text-gray-400 mt-0.5">
                 {formatCurrency(e.amount / e.unitAllocations.length, currency)} / unit
               </p>
             )}
@@ -1028,16 +1028,16 @@ export default function ExpensesPage() {
         return (
           <td key={key} className="px-4 py-3 text-right">
             {pay.outstanding > 0
-              ? <span className="text-sm font-mono text-expense">{formatCurrency(pay.outstanding, currency)}</span>
-              : <span className="text-xs text-gray-300">—</span>}
+              ? <span className="text-body tabular-nums text-expense">{formatCurrency(pay.outstanding, currency)}</span>
+              : <span className="text-caption text-gray-300">—</span>}
           </td>
         );
       case "due":
         return (
-          <td key={key} className="px-4 py-3 text-sm font-sans whitespace-nowrap">
+          <td key={key} className="px-4 py-3 text-body whitespace-nowrap">
             {e.dueDate
               ? <span className={isOverdue ? "text-expense font-medium" : "text-gray-500"}>{formatDate(e.dueDate)}{isOverdue && " ⚠"}</span>
-              : <span className="text-xs text-gray-300">—</span>}
+              : <span className="text-caption text-gray-300">—</span>}
           </td>
         );
       default:
@@ -1056,7 +1056,7 @@ export default function ExpensesPage() {
           {!isCurrentMonth && (
             <button
               onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))}
-              className="text-xs text-gold hover:text-gold-dark font-sans font-medium underline underline-offset-2 transition-colors"
+              className="text-caption text-gold hover:text-gold-dark font-medium underline underline-offset-2 transition-colors"
             >
               Back to current month
             </button>
@@ -1073,13 +1073,13 @@ export default function ExpensesPage() {
                 placeholder="Search description..."
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm font-sans border border-gray-200 rounded-lg bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                className="w-full pl-8 pr-3 py-1.5 text-body border border-gray-200 rounded-lg bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
               />
             </div>
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All categories</option>
               {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
@@ -1087,7 +1087,7 @@ export default function ExpensesPage() {
             <select
               value={filterScope}
               onChange={(e) => setFilterScope(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All scopes</option>
               <option value="UNIT">Unit</option>
@@ -1097,7 +1097,7 @@ export default function ExpensesPage() {
             <select
               value={filterPayment}
               onChange={(e) => setFilterPayment(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All payments</option>
               <option value="PAID">Paid</option>
@@ -1107,7 +1107,7 @@ export default function ExpensesPage() {
             <select
               value={filterSunk}
               onChange={(e) => setFilterSunk(e.target.value)}
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All types</option>
               <option value="op">Operating only</option>
@@ -1117,7 +1117,7 @@ export default function ExpensesPage() {
               value={filterReceipts}
               onChange={(e) => setFilterReceipts(e.target.value)}
               title="Filter by attached receipts/documents"
-              className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+              className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
               <option value="">All receipts</option>
               <option value="missing">Missing receipt</option>
@@ -1126,13 +1126,13 @@ export default function ExpensesPage() {
             {hasFilters && (
               <button
                 onClick={() => { setFilterSearch(""); setFilterCategory(""); setFilterScope(""); setFilterPayment(""); setFilterSunk(""); setFilterReceipts(""); }}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 font-sans transition-colors"
+                className="flex items-center gap-1 text-caption text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X size={12} /> Clear filters
               </button>
             )}
             {hasFilters && (
-              <span className="text-xs text-gray-400 font-sans ml-auto">
+              <span className="text-caption text-gray-400 ml-auto">
                 {displayEntries.length} of {entries.length} entries
               </span>
             )}
@@ -1147,7 +1147,7 @@ export default function ExpensesPage() {
             { label: "Total", value: -(totalOp + totalSunk), color: "text-expense" },
           ].map((s) => (
             <Card key={s.label} padding="sm">
-              <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">{s.label}</p>
+              <p className="text-label text-gray-400 uppercase ">{s.label}</p>
               <CurrencyDisplay currency={currency} amount={s.value} className={`block mt-1 ${s.color}`} size="lg" />
             </Card>
           ))}
@@ -1165,7 +1165,7 @@ export default function ExpensesPage() {
             )}
           >
             <AlertTriangle size={15} className={clsx("flex-shrink-0", overdueEntries.length > 0 ? "text-expense" : "text-amber-600")} />
-            <span className={clsx("text-sm font-sans", overdueEntries.length > 0 ? "text-expense" : "text-amber-800")}>
+            <span className={clsx("text-body ", overdueEntries.length > 0 ? "text-expense" : "text-amber-800")}>
               <span className="font-semibold">{unpaidEntries.length} {unpaidEntries.length === 1 ? "expense has" : "expenses have"} outstanding payments</span>
               {" "}totalling {formatCurrency(unpaidTotal, currency)}
               {overdueEntries.length > 0 && <> — including <span className="font-semibold">{formatCurrency(overdueTotal, currency)} overdue</span></>}
@@ -1178,7 +1178,7 @@ export default function ExpensesPage() {
         {selectedIds.size > 0 && (
           <Card padding="sm" className="border border-gold/40 bg-cream-dark">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-sans font-medium text-header">{selectedIds.size} selected</span>
+              <span className="text-body font-medium text-header">{selectedIds.size} selected</span>
               <button onClick={() => setSelectedIds(new Set())} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={14} /></button>
 
               <div className="w-px h-5 bg-gray-200" />
@@ -1188,7 +1188,7 @@ export default function ExpensesPage() {
                 <select
                   value={bulkCategory}
                   onChange={(e) => setBulkCategory(e.target.value)}
-                  className="text-sm font-sans border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="text-body border border-gray-200 rounded-md px-2 py-1 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
                 >
                   <option value="">Select category</option>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
@@ -1232,7 +1232,7 @@ export default function ExpensesPage() {
             <button
               onClick={() => setShowExport(true)}
               title="Export to Excel — pick a period or all history"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
             >
               <FileDown size={13} /> Export
             </button>
@@ -1240,7 +1240,7 @@ export default function ExpensesPage() {
             <button
               onClick={openDeleteAll}
               title={`Delete every expense for ${selected?.name ?? "all properties"} across all months`}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-expense border border-expense/30 rounded-lg hover:bg-expense/5 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-expense border border-expense/30 rounded-lg hover:bg-expense/5 transition-colors"
             >
               <Trash2 size={13} /> Delete all
             </button>
@@ -1260,7 +1260,7 @@ export default function ExpensesPage() {
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
             <div className="relative w-full max-w-xl bg-white h-full shadow-2xl flex flex-col">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-                <h3 className="font-display text-base text-header">
+                <h3 className=" text-h3 text-header">
                   {editEntry ? "Edit Expense" : "New Expense"}
                 </h3>
                 <button
@@ -1287,8 +1287,8 @@ export default function ExpensesPage() {
               {/* Unit multi-select */}
               {scope === "UNIT" && (
                 <div>
-                  <label className="block text-sm font-sans font-medium text-gray-700 mb-1.5">
-                    Units <span className="text-gray-400 font-normal">(select one or more — cost split equally)</span>
+                  <label className="block text-body font-medium text-gray-700 mb-1.5">
+                    Units <span className="text-gray-400 ">(select one or more — cost split equally)</span>
                   </label>
                   {allUnits.length > 6 && (
                     <div className="relative mb-2">
@@ -1298,13 +1298,13 @@ export default function ExpensesPage() {
                         value={unitSearch}
                         onChange={(e) => setUnitSearch(e.target.value)}
                         placeholder="Search units..."
-                        className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                        className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
                       />
                     </div>
                   )}
                   <div className="border border-gray-200 rounded-xl p-3 max-h-44 overflow-y-auto space-y-1.5 bg-white">
                     {visibleUnits.length === 0 && (
-                      <p className="text-xs text-gray-400 font-sans">
+                      <p className="text-caption text-gray-400 ">
                         {allUnits.length === 0 ? "No units available" : "No units match your search"}
                       </p>
                     )}
@@ -1316,15 +1316,15 @@ export default function ExpensesPage() {
                           onChange={() => toggleUnit(u.id)}
                           className="w-4 h-4 rounded accent-gold flex-shrink-0"
                         />
-                        <span className="text-sm font-sans text-gray-700 group-hover:text-header transition-colors">
-                          <span className="font-mono">{u.unitNumber}</span>
+                        <span className="text-body text-gray-700 group-hover:text-header transition-colors">
+                          <span className="tabular-nums">{u.unitNumber}</span>
                           <span className="text-gray-400 ml-1">({u.propertyName})</span>
                         </span>
                       </label>
                     ))}
                   </div>
                   {selectedUnitIds.length > 1 && (
-                    <p className="text-xs text-gold font-sans mt-1.5 font-medium">
+                    <p className="text-caption text-gold mt-1.5 font-medium">
                       {selectedUnitIds.length} units selected — total split equally (each gets {Math.round(100 / selectedUnitIds.length)}%)
                     </p>
                   )}
@@ -1356,10 +1356,10 @@ export default function ExpensesPage() {
                 {/* Amount — readonly when line items exist */}
                 {hasLineItems ? (
                   <div>
-                    <label className="block text-sm font-sans font-medium text-gray-700 mb-1.5">
-                      Total Amount <span className="text-gray-400 font-normal">(computed)</span>
+                    <label className="block text-body font-medium text-gray-700 mb-1.5">
+                      Total Amount <span className="text-gray-400 ">(computed)</span>
                     </label>
-                    <div className="border border-gray-200 rounded-xl px-3 py-2 bg-cream font-mono text-sm text-header">
+                    <div className="border border-gray-200 rounded-xl px-3 py-2 bg-cream tabular-nums text-body text-header">
                       {formatCurrency(computedTotal ?? 0, currency)}
                     </div>
                     <input type="hidden" {...register("amount")} />
@@ -1376,7 +1376,7 @@ export default function ExpensesPage() {
               {/* With line items, the per-item payment/tax fields take over —
                   the API clears expense-level vatAmount/amountPaid on save */}
               {hasLineItems && (
-                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-sans text-amber-800">
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-caption text-amber-800">
                   <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                   <span>
                     Line items now drive the amounts paid and tax for this expense.
@@ -1442,7 +1442,7 @@ export default function ExpensesPage() {
               {/* Sunk cost */}
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input type="checkbox" {...register("isSunkCost")} className="w-4 h-4 rounded border-gray-300 accent-gold" />
-                <span className="text-sm font-sans text-gray-600 flex items-center gap-1.5">
+                <span className="text-body text-gray-600 flex items-center gap-1.5">
                   Sunk cost / capital item <span className="text-gray-400">(excluded from monthly P&L)</span>
                   <HelpTip text="One-off capital costs like renovations or new appliances. Tick this so they don't distort your monthly profit figures — they appear separately as capital items." />
                 </span>
@@ -1454,11 +1454,11 @@ export default function ExpensesPage() {
                   <input type="checkbox" {...register("paidFromPettyCash")} className="w-4 h-4 rounded border-gray-300 accent-gold" />
                   <div className="flex items-center gap-2">
                     <Wallet size={14} className="text-amber-600" />
-                    <span className="text-sm font-sans text-gray-700 font-medium">Paid from petty cash</span>
+                    <span className="text-body text-gray-700 font-medium">Paid from petty cash</span>
                   </div>
                 </label>
                 {paidFromPettyCash && (
-                  <div className="pl-7 text-xs font-sans">
+                  <div className="pl-7 text-caption ">
                     {pettyCashBalance === null ? (
                       <span className="text-gray-400">Loading balance…</span>
                     ) : (
@@ -1486,7 +1486,7 @@ export default function ExpensesPage() {
               {duplicateCandidate && (
                 <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                   <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs font-sans text-amber-800">
+                  <p className="text-caption text-amber-800">
                     Possible duplicate: <strong>{duplicateCandidate.description || CAT_LABELS[duplicateCandidate.category]}</strong> on{" "}
                     {formatDate(duplicateCandidate.date)} for {formatCurrency(duplicateCandidate.amount, currency)} already
                     exists. You can still save if this is a separate cost.
@@ -1496,7 +1496,7 @@ export default function ExpensesPage() {
 
               {/* Receipts & documents */}
               <div className="border-t border-gray-100 pt-4 space-y-3">
-                <p className="text-xs font-sans font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                <p className="text-label font-semibold text-gray-400 uppercase flex items-center gap-1.5">
                   <Paperclip size={11} /> Receipts &amp; Documents
                 </p>
                 {editEntry ? (
@@ -1553,7 +1553,7 @@ export default function ExpensesPage() {
                   <div key={e.id} className="px-4 py-3">
                     {/* Top row: date + category badge */}
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-gray-400 font-sans">{formatDate(e.date)}</span>
+                      <span className="text-caption text-gray-400 ">{formatDate(e.date)}</span>
                       <span className="flex items-center gap-1.5">
                         {e.recurringExpenseId && <span title="Created by a recurring expense template"><RepeatIcon size={12} className="text-gold" /></span>}
                         <Badge variant={e.isSunkCost ? "gray" : "blue"}>{CAT_LABELS[e.category]}</Badge>
@@ -1561,14 +1561,14 @@ export default function ExpensesPage() {
                     </div>
 
                     {/* Description + vendor */}
-                    <p className="text-sm font-sans text-header truncate">{e.description ?? "—"}</p>
+                    <p className="text-body text-header truncate">{e.description ?? "—"}</p>
                     {e.vendor?.name && (
-                      <p className="text-xs text-gray-400 font-sans mt-0.5">{e.vendor.name}</p>
+                      <p className="text-caption text-gray-400 mt-0.5">{e.vendor.name}</p>
                     )}
 
                     {/* Amount + pay status */}
                     <div className="flex items-center justify-between mt-2">
-                      <span className={clsx("text-sm font-mono font-medium", e.isSunkCost ? "text-gray-400 line-through" : "text-expense")}>
+                      <span className={clsx("text-body tabular-nums font-medium", e.isSunkCost ? "text-gray-400 line-through" : "text-expense")}>
                         {formatCurrency(e.amount, currency)}
                       </span>
                       <PayBadge status={payStatus} />
@@ -1576,7 +1576,7 @@ export default function ExpensesPage() {
 
                     {/* Outstanding balance + due date */}
                     {(pay.outstanding > 0 || e.dueDate) && (
-                      <div className="flex items-center justify-between mt-1 text-xs font-sans">
+                      <div className="flex items-center justify-between mt-1 text-caption ">
                         {pay.outstanding > 0
                           ? <span className="text-expense">Balance {formatCurrency(pay.outstanding, currency)}</span>
                           : <span />}
@@ -1600,7 +1600,7 @@ export default function ExpensesPage() {
                       >
                         <Paperclip size={14} />
                         {(expenseDocs[e.id]?.length ?? e._count?.documents ?? 0) > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-[9px] font-sans font-bold leading-none">
+                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-label font-semibold ">
                             {(expenseDocs[e.id]?.length ?? e._count?.documents) > 9 ? "9+" : (expenseDocs[e.id]?.length ?? e._count?.documents)}
                           </span>
                         )}
@@ -1653,7 +1653,7 @@ export default function ExpensesPage() {
                     </th>
                     <th className="px-2 py-3 w-6" />
                     {colOrder.map((key) => renderColHeader(key))}
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wide font-sans" />
+                    <th className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase " />
                   </tr>
                 </thead>
                 <tbody>
@@ -1693,7 +1693,7 @@ export default function ExpensesPage() {
                               >
                                 <Paperclip size={14} />
                                 {(expenseDocs[e.id]?.length ?? e._count?.documents ?? 0) > 0 && (
-                                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-[9px] font-sans font-bold leading-none">
+                                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 flex items-center justify-center rounded-full bg-gold text-white text-label font-semibold ">
                                     {(expenseDocs[e.id]?.length ?? e._count?.documents) > 9 ? "9+" : (expenseDocs[e.id]?.length ?? e._count?.documents)}
                                   </span>
                                 )}
@@ -1715,7 +1715,7 @@ export default function ExpensesPage() {
                           <tr key={`${e.id}-docs`} className="border-t border-gray-50 bg-cream/20">
                             <td colSpan={colOrder.length + 3} className="px-6 py-4">
                               <div className="space-y-4">
-                                <h5 className="text-xs font-sans font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                                <h5 className="text-label font-semibold text-gray-400 uppercase flex items-center gap-1.5">
                                   <Paperclip size={11} /> Attached Documents
                                 </h5>
                                 {docLoading.has(e.id) ? (
@@ -1743,9 +1743,9 @@ export default function ExpensesPage() {
                         {isExpanded && hasItems && (
                           <tr key={`${e.id}-expanded`} className="border-t border-gray-50 bg-cream/40">
                             <td colSpan={colOrder.length + 3} className="px-6 pb-4 pt-2">
-                              <table className="w-full text-xs font-sans">
+                              <table className="w-full text-caption ">
                                 <thead>
-                                  <tr className="text-gray-400 uppercase tracking-wide">
+                                  <tr className="text-gray-400 uppercase ">
                                     <th className="text-left py-1 pr-4">Type</th>
                                     <th className="text-left py-1 pr-4">Description</th>
                                     <th className="text-right py-1 pr-4">Amount</th>
@@ -1762,18 +1762,18 @@ export default function ExpensesPage() {
                                         {item.category[0] + item.category.slice(1).toLowerCase()}
                                       </td>
                                       <td className="py-1.5 pr-4 text-gray-500">{item.description || "—"}</td>
-                                      <td className="py-1.5 pr-4 text-right font-mono text-gray-700">
+                                      <td className="py-1.5 pr-4 text-right tabular-nums text-gray-700">
                                         {formatCurrency(item.amount, currency)}
                                       </td>
                                       <td className="py-1.5 pr-4 text-center">
                                         {item.isVatable ? (
-                                          <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium">Tax</span>
+                                          <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-caption font-medium">Tax</span>
                                         ) : "—"}
                                       </td>
                                       <td className="py-1.5 pr-4">
                                         <PayBadge status={item.paymentStatus as PayStatus} />
                                       </td>
-                                      <td className="py-1.5 pr-4 text-right font-mono text-gray-600">
+                                      <td className="py-1.5 pr-4 text-right tabular-nums text-gray-600">
                                         {item.amountPaid > 0
                                           ? formatCurrency(item.amountPaid, currency)
                                           : "—"}
@@ -1788,7 +1788,7 @@ export default function ExpensesPage() {
 
                               {/* Taxable summary */}
                               {e.lineItems.some((i: any) => i.isVatable) && (
-                                <p className="text-xs text-amber-700 font-sans mt-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 inline-block">
+                                <p className="text-caption text-amber-700 mt-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 inline-block">
                                   Taxable total: {formatCurrency(e.lineItems.filter((i: any) => i.isVatable).reduce((s: number, i: any) => s + i.amount, 0), currency)}
                                 </p>
                               )}

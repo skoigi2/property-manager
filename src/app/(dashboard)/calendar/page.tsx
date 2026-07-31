@@ -140,8 +140,8 @@ function KpiCard({
     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${bg}`}>
       <div className={`shrink-0 ${colour}`}>{icon}</div>
       <div className="min-w-0">
-        <p className={`text-2xl font-display font-bold leading-none ${colour}`}>{value}</p>
-        <p className="text-xs font-sans text-gray-500 mt-0.5 truncate">{label}</p>
+        <p className={`text-h1 ${colour}`}>{value}</p>
+        <p className="text-caption text-gray-500 mt-0.5 truncate">{label}</p>
       </div>
     </div>
   );
@@ -174,11 +174,11 @@ function EventRow({
         <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
         <div className="flex-1 min-w-0">
           <Link href={event.link} className="block group">
-            <p className="text-sm font-sans text-gray-800 group-hover:text-gold transition-colors">
+            <p className="text-body text-gray-800 group-hover:text-gold transition-colors">
               {event.title}
             </p>
           </Link>
-          <p className="text-xs text-gray-400 font-sans mt-0.5 truncate">
+          <p className="text-caption text-gray-400 mt-0.5 truncate">
             {event.propertyName}
             {event.unitName ? ` · Unit ${event.unitName}` : ""}
             {event.amount !== undefined && event.currency
@@ -200,7 +200,7 @@ function EventRow({
       </div>
 
       <div className="flex items-center gap-2 mt-1.5 ml-[18px] flex-wrap">
-        <span className="text-xs text-gray-300 font-sans">
+        <span className="text-caption text-gray-300 ">
           {format(new Date(event.date + "T00:00:00"), "d MMM")} · {cfg.label}
         </span>
         {postActions.map((a) => (
@@ -208,7 +208,7 @@ function EventRow({
             key={a.label}
             onClick={() => onAction(event, a)}
             disabled={busy}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-gray-200 text-[11px] font-sans text-gray-600 hover:text-gold hover:border-gold transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-gray-200 text-caption text-gray-600 hover:text-gold hover:border-gold transition-colors disabled:opacity-50"
           >
             {busy && <Loader2 size={10} className="animate-spin" />}
             {a.label}
@@ -221,7 +221,7 @@ function EventRow({
           onClick={() => setSnoozeOpen((v) => !v)}
           aria-expanded={snoozeOpen}
           title="Snooze this event"
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-sans text-gray-400 hover:text-gold transition-colors"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-caption text-gray-400 hover:text-gold transition-colors"
         >
           <Clock size={11} />
         </button>
@@ -233,7 +233,7 @@ function EventRow({
             <button
               key={p.key}
               onClick={() => { setSnoozeOpen(false); onSnooze(event, p.key); }}
-              className="px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[11px] font-sans text-gray-600 hover:text-gold hover:border-gold transition-colors"
+              className="px-2 py-0.5 rounded-md border border-gray-200 bg-white text-caption text-gray-600 hover:text-gold hover:border-gold transition-colors"
             >
               {p.label}
             </button>
@@ -310,13 +310,13 @@ function ClusterRow({
         <div className="flex items-start gap-2.5">
           <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-sans text-gray-800">
+            <p className="text-body text-gray-800">
               {events.length} {cfg.plural}
               {total !== null && (
                 <span className="text-gray-500"> · {formatCurrency(total, currencies[0]!)}</span>
               )}
             </p>
-            <p className="text-xs text-gray-400 font-sans mt-0.5 truncate">
+            <p className="text-caption text-gray-400 mt-0.5 truncate">
               {properties.length === 1 ? properties[0] : `${properties.length} properties`}
               {overdueCount > 0 && (
                 <span className="text-red-500"> · {overdueCount} overdue</span>
@@ -330,7 +330,7 @@ function ClusterRow({
               : <ChevronDown size={14} className="text-gray-400" />}
           </div>
         </div>
-        <p className="text-xs text-gray-300 font-sans mt-1 ml-[18px]">
+        <p className="text-caption text-gray-300 mt-1 ml-[18px]">
           {format(new Date(cluster.date + "T00:00:00"), "d MMM")} · tap to {open ? "collapse" : "see each one"}
         </p>
       </button>
@@ -644,7 +644,7 @@ export default function CalendarPage() {
       >
         <Link
           href="/settings/calendar"
-          className="hidden sm:inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-sm font-sans transition-colors"
+          className="hidden sm:inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-body transition-colors"
           title="Subscribe in Google, Outlook or Apple Calendar"
         >
           <CalendarRange size={13} className="text-gold" />
@@ -693,12 +693,12 @@ export default function CalendarPage() {
         {/* ── Fetch failure ─────────────────────────────────────────────── */}
         {failed && (
           <div className="flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-            <p className="text-sm font-sans text-red-700">
+            <p className="text-body text-red-700">
               Couldn&apos;t load the calendar — this month may have events that aren&apos;t showing.
             </p>
             <button
               onClick={load}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-xs font-sans text-red-700 hover:bg-red-100 transition-colors"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-caption text-red-700 hover:bg-red-100 transition-colors"
             >
               <RefreshCw size={12} /> Retry
             </button>
@@ -716,17 +716,17 @@ export default function CalendarPage() {
               <div className="flex items-start gap-2 min-w-0">
                 <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <p className="text-sm font-sans font-semibold text-red-700">
+                  <p className="text-body font-semibold text-red-700">
                     {overdueTotal} overdue item{overdueTotal !== 1 ? "s" : ""} in the last 90 days
                   </p>
-                  <p className="text-xs text-red-600/80 font-sans mt-0.5">
+                  <p className="text-caption text-red-600/80 mt-0.5">
                     Work these from your Inbox — each one carries its own actions there.
                   </p>
                 </div>
               </div>
               <Link
                 href="/inbox"
-                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-300 text-xs font-sans font-medium text-red-700 hover:bg-red-100 transition-colors"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-red-300 text-caption font-medium text-red-700 hover:bg-red-100 transition-colors"
               >
                 <Inbox size={13} /> Open Inbox
               </Link>
@@ -738,7 +738,7 @@ export default function CalendarPage() {
                   key={e.id}
                   href={e.link}
                   title={`${e.title} — ${e.propertyName}`}
-                  className="inline-flex items-center gap-1.5 max-w-full bg-white/70 border border-red-200 rounded-full px-2.5 py-1 text-[11px] font-sans text-gray-700 hover:border-red-400 transition-colors"
+                  className="inline-flex items-center gap-1.5 max-w-full bg-white/70 border border-red-200 rounded-full px-2.5 py-1 text-caption text-gray-700 hover:border-red-400 transition-colors"
                 >
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${TYPE_CONFIG[e.type].dot}`} />
                   <span className="truncate max-w-[220px]">{e.title}</span>
@@ -748,7 +748,7 @@ export default function CalendarPage() {
                 </Link>
               ))}
               {overdueTotal > 3 && (
-                <span className="text-[11px] font-sans text-red-600/70">
+                <span className="text-caption text-red-600/70">
                   +{overdueTotal - 3} more in the Inbox
                 </span>
               )}
@@ -774,7 +774,7 @@ export default function CalendarPage() {
                       ? `${g.label} — showing ${on.length} of ${g.types.length} types`
                       : g.label
                   }
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-sans font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-caption font-medium transition-colors ${
                     state === "none"
                       ? BADGE_INACTIVE
                       : "bg-header text-white border-header"
@@ -793,7 +793,7 @@ export default function CalendarPage() {
             <button
               onClick={() => setRefineOpen((v) => !v)}
               aria-expanded={refineOpen}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 text-xs font-sans text-gray-500 hover:text-gold hover:border-gold transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 text-caption text-gray-500 hover:text-gold hover:border-gold transition-colors"
             >
               <SlidersHorizontal size={12} />
               Refine
@@ -806,7 +806,7 @@ export default function CalendarPage() {
                 onClick={() => setMineOnly((v) => !v)}
                 aria-pressed={mineOnly}
                 title="Cases, maintenance visits and approvals assigned to you"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-sans font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-caption font-medium transition-colors ${
                   mineOnly
                     ? "bg-gold/15 text-gold-dark border-gold"
                     : "bg-white text-gray-500 border-gray-200 hover:border-gold hover:text-gold"
@@ -820,7 +820,7 @@ export default function CalendarPage() {
             {activeTypes.size !== ALL_TYPES.length && (
               <button
                 onClick={() => setActiveTypes(new Set(ALL_TYPES))}
-                className="text-xs font-sans text-gold hover:underline px-1"
+                className="text-caption text-gold hover:underline px-1"
               >
                 Show everything
               </button>
@@ -829,7 +829,7 @@ export default function CalendarPage() {
             {snoozedCount > 0 && (
               <button
                 onClick={() => setIncludeSnoozed((v) => !v)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 text-xs font-sans text-gray-400 hover:text-gold hover:border-gold transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 text-caption text-gray-400 hover:text-gold hover:border-gold transition-colors"
               >
                 <BellOff size={12} />
                 {includeSnoozed
@@ -841,7 +841,7 @@ export default function CalendarPage() {
             {includeSnoozed && snoozedCount > 0 && (
               <button
                 onClick={restoreAllSnoozed}
-                className="text-xs font-sans text-gold hover:underline px-1"
+                className="text-caption text-gold hover:underline px-1"
               >
                 Restore all
               </button>
@@ -859,7 +859,7 @@ export default function CalendarPage() {
                     <button
                       onClick={() => toggleType(t)}
                       aria-pressed={active}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-l-full border text-xs font-sans font-medium transition-colors ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-l-full border text-caption font-medium transition-colors ${
                         active ? cfg.badge : BADGE_INACTIVE
                       }`}
                     >
@@ -872,7 +872,7 @@ export default function CalendarPage() {
                     <button
                       onClick={() => soloType(t)}
                       title={`Show only ${cfg.label}`}
-                      className={`px-1.5 py-1 rounded-r-full border border-l-0 text-[10px] font-sans transition-colors ${
+                      className={`px-1.5 py-1 rounded-r-full border border-l-0 text-caption transition-colors ${
                         active ? cfg.badge : BADGE_INACTIVE
                       } hover:text-gold`}
                     >
@@ -895,7 +895,7 @@ export default function CalendarPage() {
                   key={v.key}
                   onClick={() => changeView(v.key)}
                   aria-pressed={view === v.key}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-sans transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-caption transition-colors ${
                     view === v.key ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
@@ -915,13 +915,13 @@ export default function CalendarPage() {
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="font-sans text-sm text-gray-700 px-1">
+              <span className=" text-body text-gray-700 px-1">
                 {format(weekStart, "d MMM")} – {format(weekEnd, "d MMM yyyy")}
               </span>
               {!isSameWeek(weekAnchor, today, { weekStartsOn: 1 }) && (
                 <button
                   onClick={() => goToWeek(new Date())}
-                  className="px-2 py-0.5 rounded-md border border-gray-200 text-[11px] font-sans text-gray-500 hover:text-gold hover:border-gold transition-colors"
+                  className="px-2 py-0.5 rounded-md border border-gray-200 text-caption text-gray-500 hover:text-gold hover:border-gold transition-colors"
                 >
                   This week
                 </button>
@@ -963,11 +963,11 @@ export default function CalendarPage() {
                   <ChevronLeft size={18} />
                 </button>
                 <div className="flex items-center gap-2">
-                  <h2 className="font-display text-base text-gray-900">{format(month, "MMMM yyyy")}</h2>
+                  <h2 className=" text-h3 text-gray-900">{format(month, "MMMM yyyy")}</h2>
                   {!isViewingCurrentMonth && (
                     <button
                       onClick={() => goToMonth(startOfMonth(new Date()))}
-                      className="px-2 py-0.5 rounded-md border border-gray-200 text-[11px] font-sans text-gray-500 hover:text-gold hover:border-gold transition-colors"
+                      className="px-2 py-0.5 rounded-md border border-gray-200 text-caption text-gray-500 hover:text-gold hover:border-gold transition-colors"
                     >
                       Today
                     </button>
@@ -984,7 +984,7 @@ export default function CalendarPage() {
 
               <div className="grid grid-cols-7 border-b border-gray-100">
                 {WEEKDAYS.map((w) => (
-                  <div key={w} className="py-2 text-center text-xs font-sans font-medium text-gray-400">
+                  <div key={w} className="py-2 text-center text-caption font-medium text-gray-400">
                     {w}
                   </div>
                 ))}
@@ -1039,13 +1039,13 @@ export default function CalendarPage() {
                       className={`min-h-[72px] p-1.5 border-b border-r border-gray-50 flex flex-col items-start gap-1 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 focus-visible:ring-inset ${cellTone}`}
                     >
                       <span
-                        className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-sans ${
+                        className={`w-6 h-6 flex items-center justify-center rounded-full text-caption ${
                           isToday
                             ? "bg-header text-white font-medium"
                             : isSelected
                             ? "bg-gold text-white font-medium"
                             : critical
-                            ? "text-red-700 font-bold ring-1 ring-red-300"
+                            ? "text-red-700 font-semibold ring-1 ring-red-300"
                             : warning
                             ? "text-amber-800 font-semibold"
                             : inMonth
@@ -1065,7 +1065,7 @@ export default function CalendarPage() {
                             />
                           ))}
                           {hiddenCount > 0 && (
-                            <span className="text-[9px] text-gray-400 leading-none">
+                            <span className="text-label text-gray-400 ">
                               +{hiddenCount}
                             </span>
                           )}
@@ -1077,7 +1077,7 @@ export default function CalendarPage() {
               </div>
 
               {/* Shading is only useful if you know what it means. */}
-              <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-[11px] font-sans text-gray-400">
+              <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-caption text-gray-400">
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-sm bg-red-50 border border-red-300" />
                   Overdue or critical
@@ -1121,19 +1121,19 @@ export default function CalendarPage() {
                           }`}
                         >
                           <div className="flex items-baseline justify-between gap-2">
-                            <span className="text-[11px] font-sans uppercase tracking-wide text-gray-400">
+                            <span className="text-label uppercase text-gray-400">
                               {format(day, "EEE")}
                             </span>
                             <span
-                              className={`text-sm font-sans ${
-                                isToday ? "font-bold text-header" : "text-gray-700"
+                              className={`text-body ${
+                                isToday ? "font-semibold text-header" : "text-gray-700"
                               }`}
                             >
                               {format(day, "d")}
                             </span>
                           </div>
                           {dayEvents.length > 0 && (
-                            <p className="text-[10px] font-sans text-gray-400 mt-0.5">
+                            <p className="text-caption text-gray-400 mt-0.5">
                               {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
                             </p>
                           )}
@@ -1141,7 +1141,7 @@ export default function CalendarPage() {
 
                         <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
                           {dayEvents.length === 0 ? (
-                            <p className="text-[11px] font-sans text-gray-300 px-1 py-2">—</p>
+                            <p className="text-caption text-gray-300 px-1 py-2">—</p>
                           ) : (
                             dayEvents.map((e) => {
                               const cfg = TYPE_CONFIG[e.type];
@@ -1160,11 +1160,11 @@ export default function CalendarPage() {
                                 >
                                   <div className="flex items-start gap-1.5">
                                     <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-                                    <span className="text-[11px] font-sans text-gray-800 leading-snug line-clamp-3">
+                                    <span className="text-caption text-gray-800 line-clamp-3">
                                       {e.title}
                                     </span>
                                   </div>
-                                  <p className="text-[10px] font-sans text-gray-400 mt-0.5 truncate">
+                                  <p className="text-caption text-gray-400 mt-0.5 truncate">
                                     {e.unitName ? `Unit ${e.unitName}` : e.propertyName}
                                   </p>
                                 </Link>
@@ -1186,7 +1186,7 @@ export default function CalendarPage() {
               }`}
             >
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
-                <h3 className="font-sans font-medium text-sm text-gray-800 truncate">
+                <h3 className=" font-medium text-body text-gray-800 truncate">
                   {selectedDay
                     ? format(selectedDay, "d MMMM yyyy")
                     : `All events — ${format(month, "MMMM yyyy")}`}
@@ -1195,12 +1195,12 @@ export default function CalendarPage() {
                   {selectedDay && (
                     <button
                       onClick={() => setSelectedDay(null)}
-                      className="text-xs text-gold hover:underline font-sans"
+                      className="text-caption text-gold hover:underline "
                     >
                       Whole month
                     </button>
                   )}
-                  <span className="text-xs text-gray-400 font-sans">
+                  <span className="text-caption text-gray-400 ">
                     {listEvents.length}
                   </span>
                 </div>
@@ -1212,41 +1212,41 @@ export default function CalendarPage() {
                       three different causes and they need different answers. */}
                   {mineOnly ? (
                     <>
-                      <p className="text-sm font-sans text-gray-500">
+                      <p className="text-body text-gray-500">
                         Nothing here is assigned to you.
                       </p>
-                      <p className="text-xs font-sans text-gray-400 mt-1.5 max-w-xs">
+                      <p className="text-caption text-gray-400 mt-1.5 max-w-xs">
                         Only cases, maintenance visits and approvals carry an assignee.
                         Leases, rent and compliance are property-wide, so they never
                         show under this filter.
                       </p>
                       <button
                         onClick={() => setMineOnly(false)}
-                        className="mt-2 text-xs text-gold hover:underline font-sans"
+                        className="mt-2 text-caption text-gold hover:underline "
                       >
                         Show everyone&apos;s
                       </button>
                     </>
                   ) : activeTypes.size !== ALL_TYPES.length ? (
                     <>
-                      <p className="text-sm font-sans text-gray-500">
+                      <p className="text-body text-gray-500">
                         Nothing matches the filters you&apos;ve got on.
                       </p>
                       <button
                         onClick={() => setActiveTypes(new Set(ALL_TYPES))}
-                        className="mt-2 text-xs text-gold hover:underline font-sans"
+                        className="mt-2 text-caption text-gold hover:underline "
                       >
                         Show everything
                       </button>
                     </>
                   ) : selectedDay ? (
-                    <p className="text-sm font-sans text-gray-400">Nothing on this day.</p>
+                    <p className="text-body text-gray-400">Nothing on this day.</p>
                   ) : unconfiguredSources.length > 0 ? (
                     <div className="w-full text-left">
-                      <p className="text-sm font-sans text-gray-700">
+                      <p className="text-body text-gray-700">
                         Nothing scheduled in {format(month, "MMMM yyyy")}.
                       </p>
-                      <p className="text-xs font-sans text-gray-500 mt-2 flex items-start gap-1.5">
+                      <p className="text-caption text-gray-500 mt-2 flex items-start gap-1.5">
                         <Settings2 size={13} className="text-gold shrink-0 mt-0.5" />
                         <span>
                           Some of what fills this calendar isn&apos;t set up yet, so those
@@ -1262,10 +1262,10 @@ export default function CalendarPage() {
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0 mt-1.5 group-hover:bg-gold" />
                               <span className="min-w-0">
-                                <span className="block text-xs font-sans text-gray-700">
+                                <span className="block text-caption text-gray-700">
                                   No {s.label.toLowerCase()}
                                 </span>
-                                <span className="block text-[11px] font-sans text-gray-400">
+                                <span className="block text-caption text-gray-400">
                                   Powers {s.powers}
                                 </span>
                               </span>
@@ -1277,10 +1277,10 @@ export default function CalendarPage() {
                   ) : (
                     <>
                       <CheckCircle2 size={22} className="text-green-500 mb-2" />
-                      <p className="text-sm font-sans text-gray-600">
+                      <p className="text-body text-gray-600">
                         Nothing due in {format(month, "MMMM yyyy")}.
                       </p>
-                      <p className="text-xs font-sans text-gray-400 mt-1">
+                      <p className="text-caption text-gray-400 mt-1">
                         Your calendar is set up and this month is clear.
                       </p>
                     </>

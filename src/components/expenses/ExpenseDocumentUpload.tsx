@@ -261,14 +261,14 @@ export const ExpenseDocumentUpload = forwardRef<ExpenseDocumentUploadHandle, Pro
           )}
         >
           <Upload size={18} className="text-gray-400" />
-          <p className="text-sm text-gray-500 font-sans text-center">
+          <p className="text-body text-gray-500 text-center">
             Drop receipts here, or <span className="text-gold font-medium">browse</span>
           </p>
-          <p className="text-xs text-gray-400 font-sans">JPG, PNG, HEIC, WebP or PDF · max {MAX_MB} MB each</p>
+          <p className="text-caption text-gray-400 ">JPG, PNG, HEIC, WebP or PDF · max {MAX_MB} MB each</p>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }}
-            className="mt-1 flex items-center gap-1.5 text-xs font-sans font-medium text-gold border border-gold/40 px-3 py-1.5 rounded-lg hover:bg-gold/10 transition-colors"
+            className="mt-1 flex items-center gap-1.5 text-caption font-medium text-gold border border-gold/40 px-3 py-1.5 rounded-lg hover:bg-gold/10 transition-colors"
           >
             <Camera size={13} /> Take photo
           </button>
@@ -314,8 +314,8 @@ export const ExpenseDocumentUpload = forwardRef<ExpenseDocumentUploadHandle, Pro
                 <div className="flex-1 min-w-0">
                   {item.status === "error" ? (
                     <>
-                      <p className="text-sm font-sans font-medium text-header truncate">{item.file.name}</p>
-                      <p className="text-xs text-expense font-sans mt-0.5">{item.error}</p>
+                      <p className="text-body font-medium text-header truncate">{item.file.name}</p>
+                      <p className="text-caption text-expense mt-0.5">{item.error}</p>
                     </>
                   ) : (
                     <>
@@ -326,20 +326,20 @@ export const ExpenseDocumentUpload = forwardRef<ExpenseDocumentUploadHandle, Pro
                           disabled={item.status !== "queued"}
                           onChange={(e) => patchItem(item.id, { label: e.target.value })}
                           placeholder="Caption (optional)"
-                          className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1 text-xs font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:bg-gray-50 disabled:text-gray-400"
+                          className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1 text-caption text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:bg-gray-50 disabled:text-gray-400"
                         />
                         <select
                           value={item.category}
                           disabled={item.status !== "queued"}
                           onChange={(e) => patchItem(item.id, { category: e.target.value })}
-                          className="border border-gray-200 rounded-lg px-1.5 py-1 text-xs font-sans text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:bg-gray-50"
+                          className="border border-gray-200 rounded-lg px-1.5 py-1 text-caption text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:bg-gray-50"
                         >
                           {EXPENSE_DOCUMENT_CATEGORIES.map((c) => (
                             <option key={c.value} value={c.value}>{c.label}</option>
                           ))}
                         </select>
                       </div>
-                      <p className="text-[11px] text-gray-400 font-sans mt-1 truncate">
+                      <p className="text-caption text-gray-400 mt-1 truncate">
                         {item.file.name} · {formatBytes(item.file.size)}
                         {item.file.size < item.originalSize && (
                           <span className="text-income"> (compressed from {formatBytes(item.originalSize)})</span>
@@ -383,13 +383,13 @@ export const ExpenseDocumentUpload = forwardRef<ExpenseDocumentUploadHandle, Pro
             ))}
 
             {!expenseId && queue.some((it) => it.status === "queued") && (
-              <p className="text-xs text-gray-400 font-sans">
+              <p className="text-caption text-gray-400 ">
                 {queue.filter((it) => it.status === "queued").length} file
                 {queue.filter((it) => it.status === "queued").length !== 1 ? "s" : ""} will upload when the expense is saved.
               </p>
             )}
             {uploadingCount > 0 && (
-              <p className="text-xs text-gray-400 font-sans">Uploading {uploadingCount} file{uploadingCount !== 1 ? "s" : ""}…</p>
+              <p className="text-caption text-gray-400 ">Uploading {uploadingCount} file{uploadingCount !== 1 ? "s" : ""}…</p>
             )}
           </div>
         )}

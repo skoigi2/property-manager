@@ -39,7 +39,7 @@ function CopyButton({ value }: { value: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="inline-flex items-center gap-1 text-xs font-sans text-gold hover:text-gold-dark"
+      className="inline-flex items-center gap-1 text-caption text-gold hover:text-gold-dark"
     >
       {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy"}
     </button>
@@ -133,7 +133,7 @@ export default function ApiSettingsPage() {
     <div>
       <Header title="API & Webhooks" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-6">
-        <p className="text-sm text-gray-500 font-sans max-w-2xl">
+        <p className="text-body text-gray-500 max-w-2xl">
           Read-only programmatic access to your organisation&apos;s data, plus webhook
           notifications for key events. API keys carry full read access to your org —
           treat them like passwords.
@@ -145,10 +145,10 @@ export default function ApiSettingsPage() {
           <>
             {/* ── API keys ── */}
             <Card>
-              <h2 className="font-sans font-semibold text-header flex items-center gap-2 mb-1">
+              <h2 className=" font-semibold text-header flex items-center gap-2 mb-1">
                 <KeyRound size={16} className="text-gold" /> API keys
               </h2>
-              <p className="text-xs text-gray-400 font-sans mb-4">
+              <p className="text-caption text-gray-400 mb-4">
                 Authenticate with <code className="bg-cream px-1.5 py-0.5 rounded">Authorization: Bearer gwpm_…</code> against{" "}
                 <code className="bg-cream px-1.5 py-0.5 rounded">/api/v1/properties</code>,{" "}
                 <code className="bg-cream px-1.5 py-0.5 rounded">/api/v1/tenants</code>, and{" "}
@@ -157,11 +157,11 @@ export default function ApiSettingsPage() {
 
               {freshKey && (
                 <div className="mb-4 border border-amber-200 bg-amber-50 rounded-xl p-4">
-                  <p className="text-xs font-sans font-semibold text-amber-800 mb-1">
+                  <p className="text-caption font-semibold text-amber-800 mb-1">
                     Copy this key now — it won&apos;t be shown again.
                   </p>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <code className="text-xs font-mono text-header break-all">{freshKey}</code>
+                    <code className="text-caption font-mono text-header break-all">{freshKey}</code>
                     <CopyButton value={freshKey} />
                   </div>
                 </div>
@@ -172,7 +172,7 @@ export default function ApiSettingsPage() {
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
                   placeholder="Key name (e.g. Zapier integration)"
-                  className="flex-1 max-w-sm border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans"
+                  className="flex-1 max-w-sm border border-gray-200 rounded-lg px-3 py-2 text-body "
                 />
                 <Button size="sm" variant="gold" onClick={createKey} loading={creatingKey} disabled={!newKeyName.trim()}>
                   <Plus size={14} /> Create key
@@ -180,17 +180,17 @@ export default function ApiSettingsPage() {
               </div>
 
               {keys!.length === 0 ? (
-                <p className="text-sm text-gray-400 font-sans">No API keys yet.</p>
+                <p className="text-body text-gray-400 ">No API keys yet.</p>
               ) : (
                 <div className="space-y-2">
                   {keys!.map((k) => (
                     <div key={k.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded-xl px-4 py-3 flex-wrap">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-sans font-medium text-header">{k.name}</p>
+                          <p className="text-body font-medium text-header">{k.name}</p>
                           {k.revokedAt ? <Badge variant="red">Revoked</Badge> : <Badge variant="green">Active</Badge>}
                         </div>
-                        <p className="text-xs text-gray-400 font-sans font-mono mt-0.5">
+                        <p className="text-caption text-gray-400 font-mono mt-0.5">
                           {k.keyPrefix}…{" · "}
                           {k.lastUsedAt ? `last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : "never used"}
                         </p>
@@ -208,21 +208,21 @@ export default function ApiSettingsPage() {
 
             {/* ── Webhooks ── */}
             <Card>
-              <h2 className="font-sans font-semibold text-header flex items-center gap-2 mb-1">
+              <h2 className=" font-semibold text-header flex items-center gap-2 mb-1">
                 <Webhook size={16} className="text-gold" /> Webhook endpoints
               </h2>
-              <p className="text-xs text-gray-400 font-sans mb-4">
+              <p className="text-caption text-gray-400 mb-4">
                 We POST a JSON payload to your https URL when subscribed events occur, signed with{" "}
                 <code className="bg-cream px-1.5 py-0.5 rounded">X-GWPM-Signature: sha256=HMAC(secret, body)</code>.
               </p>
 
               {freshSecret && (
                 <div className="mb-4 border border-amber-200 bg-amber-50 rounded-xl p-4">
-                  <p className="text-xs font-sans font-semibold text-amber-800 mb-1">
+                  <p className="text-caption font-semibold text-amber-800 mb-1">
                     Signing secret — copy it now, it won&apos;t be shown again.
                   </p>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <code className="text-xs font-mono text-header break-all">{freshSecret}</code>
+                    <code className="text-caption font-mono text-header break-all">{freshSecret}</code>
                     <CopyButton value={freshSecret} />
                   </div>
                 </div>
@@ -233,7 +233,7 @@ export default function ApiSettingsPage() {
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
                   placeholder="https://example.com/webhooks/groundworkpm"
-                  className="w-full max-w-lg border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans"
+                  className="w-full max-w-lg border border-gray-200 rounded-lg px-3 py-2 text-body "
                 />
                 <div className="flex items-center gap-2 flex-wrap">
                   {availableEvents.map((ev) => (
@@ -242,7 +242,7 @@ export default function ApiSettingsPage() {
                       onClick={() =>
                         setNewEvents((prev) => (prev.includes(ev) ? prev.filter((x) => x !== ev) : [...prev, ev]))
                       }
-                      className={`text-xs font-sans px-2.5 py-1 rounded-lg border transition-colors ${
+                      className={`text-caption px-2.5 py-1 rounded-lg border transition-colors ${
                         newEvents.includes(ev)
                           ? "border-gold bg-gold/10 text-gold-dark font-medium"
                           : "border-gray-200 text-gray-500 hover:border-gold/40"
@@ -258,18 +258,18 @@ export default function ApiSettingsPage() {
               </div>
 
               {endpoints!.length === 0 ? (
-                <p className="text-sm text-gray-400 font-sans">No webhook endpoints yet.</p>
+                <p className="text-body text-gray-400 ">No webhook endpoints yet.</p>
               ) : (
                 <div className="space-y-2">
                   {endpoints!.map((ep) => (
                     <div key={ep.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded-xl px-4 py-3 flex-wrap">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-sans font-medium text-header truncate max-w-md">{ep.url}</p>
+                          <p className="text-body font-medium text-header truncate max-w-md">{ep.url}</p>
                           {ep.isActive ? <Badge variant="green">Active</Badge> : <Badge variant="gray">Disabled</Badge>}
                           {ep.failureCount > 0 && <Badge variant="amber">{ep.failureCount} failures</Badge>}
                         </div>
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">{ep.events.join(", ")}</p>
+                        <p className="text-caption text-gray-400 mt-0.5">{ep.events.join(", ")}</p>
                       </div>
                       <button onClick={() => deleteEndpoint(ep.id)} className="text-gray-300 hover:text-expense p-1" title="Delete">
                         <Trash2 size={14} />

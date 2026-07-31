@@ -79,14 +79,14 @@ export function DocumentUpload({ tenantId, onUploaded }: Props) {
         )}
       >
         <Upload size={22} className="text-gray-400" />
-        <p className="text-sm text-gray-500 font-sans">
+        <p className="text-body text-gray-500 ">
           {file ? (
             <span className="text-header font-medium">{file.name}</span>
           ) : (
             <>Drop a file here or <span className="text-gold font-medium">browse</span></>
           )}
         </p>
-        <p className="text-xs text-gray-400 font-sans">PDF, JPEG, PNG, DOCX · max 10 MB</p>
+        <p className="text-caption text-gray-400 ">PDF, JPEG, PNG, DOCX · max 10 MB</p>
         <input
           ref={inputRef}
           type="file"
@@ -102,7 +102,7 @@ export function DocumentUpload({ tenantId, onUploaded }: Props) {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="flex-1 min-w-[150px] border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-gold/40"
+            className="flex-1 min-w-[150px] border border-gray-200 rounded-lg px-3 py-2 text-body text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-gold/40"
           >
             {DOCUMENT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>{c.label}</option>
@@ -115,7 +115,7 @@ export function DocumentUpload({ tenantId, onUploaded }: Props) {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label (optional)"
-            className="flex-1 min-w-[150px] border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/40"
+            className="flex-1 min-w-[150px] border border-gray-200 rounded-lg px-3 py-2 text-body text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
 
           {/* Remove file */}
@@ -130,14 +130,14 @@ export function DocumentUpload({ tenantId, onUploaded }: Props) {
       )}
 
       {error && (
-        <p className="text-xs text-expense font-sans">{error}</p>
+        <p className="text-caption text-expense ">{error}</p>
       )}
 
       {file && (
         <button
           onClick={submit}
           disabled={uploading}
-          className="flex items-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-gold text-white text-body font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
         >
           {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
           {uploading ? "Uploading…" : "Upload document"}

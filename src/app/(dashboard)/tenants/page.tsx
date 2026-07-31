@@ -347,13 +347,13 @@ export default function TenantsPage() {
           <Card className="border border-amber-200 bg-amber-50">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle size={16} className="text-amber-500" />
-              <h3 className="font-sans font-medium text-amber-700 text-sm">
+              <h3 className=" font-medium text-amber-700 text-body">
                 Lease Attention Required
               </h3>
             </div>
             <div className="space-y-1">
               {urgentTenants.map((t) => (
-                <p key={t.id} className="text-sm text-amber-600 font-sans">
+                <p key={t.id} className="text-body text-amber-600 ">
                   {t.name} ({t.unit?.unitNumber}):{" "}
                   {getLeaseStatus(toDate(t.leaseEnd)) === "TBC"
                     ? "Lease date TBC"
@@ -369,12 +369,12 @@ export default function TenantsPage() {
           <Card padding="sm">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide flex items-center gap-1.5">
+                <p className="text-label text-gray-400 uppercase flex items-center gap-1.5">
                   <Banknote size={13} className="text-gold" /> Deposits held
                 </p>
                 <CurrencyDisplay currency={currency} amount={depositLiability.held} size="lg" className="text-header font-medium mt-1 block" />
               </div>
-              <div className="text-right text-xs text-gray-400 font-sans">
+              <div className="text-right text-caption text-gray-400 ">
                 <p>{depositLiability.count} active tenant{depositLiability.count !== 1 ? "s" : ""}</p>
                 {depositLiability.unverified > 0 && (
                   <p className="text-amber-600 mt-0.5">
@@ -398,7 +398,7 @@ export default function TenantsPage() {
                 placeholder="Search by name or unit…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
               />
               {search && (
                 <button
@@ -443,7 +443,7 @@ export default function TenantsPage() {
               <button
                 onClick={() => exportTenants(filtered)}
                 title="Export to Excel"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors shrink-0"
               >
                 <FileDown size={13} />
                 <span className="hidden sm:inline">Export</span>
@@ -462,7 +462,7 @@ export default function TenantsPage() {
             <select
               value={propFilter}
               onChange={(e) => setPropFilter(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white text-gray-600"
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white text-gray-600"
             >
               <option value="ALL">All properties</option>
               {propertyNames.map((n) => (
@@ -473,7 +473,7 @@ export default function TenantsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white text-gray-600"
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white text-gray-600"
             >
               <option value="ALL">All statuses</option>
               <option value="ACTIVE">Active</option>
@@ -483,7 +483,7 @@ export default function TenantsPage() {
             <select
               value={leaseFilter}
               onChange={(e) => setLeaseFilter(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white text-gray-600"
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white text-gray-600"
             >
               <option value="ALL">All leases</option>
               <option value="OK">Active lease</option>
@@ -495,7 +495,7 @@ export default function TenantsPage() {
             {activeFilters.length > 0 && (
               <button
                 onClick={clearFilters}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-body text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
               >
                 <X size={13} /> Clear filters
               </button>
@@ -508,12 +508,12 @@ export default function TenantsPage() {
               {activeFilters.map((f) => (
                 <span
                   key={String(f)}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold/10 text-gold border border-gold/20"
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption font-medium bg-gold/10 text-gold border border-gold/20"
                 >
                   {f}
                 </span>
               ))}
-              <span className="text-xs text-gray-400 font-sans self-center ml-1">
+              <span className="text-caption text-gray-400 self-center ml-1">
                 {filtered.length} of {tenants.length} tenant{tenants.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -526,8 +526,8 @@ export default function TenantsPage() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-gray-400 gap-2">
             <Search size={36} className="opacity-20" />
-            <p className="text-sm font-medium font-sans">No tenants match your filters</p>
-            <button onClick={clearFilters} className="text-xs text-gold hover:underline font-sans mt-1">
+            <p className="text-body font-medium ">No tenants match your filters</p>
+            <button onClick={clearFilters} className="text-caption text-gold hover:underline mt-1">
               Clear all filters
             </button>
           </div>
@@ -551,10 +551,10 @@ export default function TenantsPage() {
                   {/* Card header */}
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <p className="font-sans font-semibold text-header text-sm leading-tight">
+                      <p className=" font-semibold text-header text-body ">
                         {tenant.name}
                       </p>
-                      <p className="text-xs text-gray-400 font-mono mt-0.5">
+                      <p className="text-caption text-gray-400 tabular-nums mt-0.5">
                         {tenant.unit?.unitNumber} · {tenant.unit?.property?.name}
                       </p>
                     </div>
@@ -562,23 +562,23 @@ export default function TenantsPage() {
                   </div>
 
                   {/* Stats grid */}
-                  <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                  <div className="grid grid-cols-2 gap-2 text-body mb-3">
                     <div>
-                      <p className="text-xs text-gray-400 font-sans">Rent</p>
+                      <p className="text-caption text-gray-400 ">Rent</p>
                       <CurrencyDisplay currency={currency} amount={tenant.monthlyRent} size="sm" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400 font-sans">Svc Charge</p>
+                      <p className="text-caption text-gray-400 ">Svc Charge</p>
                       <CurrencyDisplay currency={currency} amount={tenant.serviceCharge} size="sm" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400 font-sans">Monthly Total</p>
+                      <p className="text-caption text-gray-400 ">Monthly Total</p>
                       <CurrencyDisplay currency={currency} amount={monthlyTotal} size="sm" className="text-header font-medium" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400 font-sans">Lease End</p>
+                      <p className="text-caption text-gray-400 ">Lease End</p>
                       <p className={clsx(
-                        "font-sans text-sm",
+                        " text-body",
                         status === "TBC"      && "text-amber-600 font-medium",
                         status === "CRITICAL" && "text-expense font-medium",
                         status === "WARNING"  && "text-amber-500 font-medium",
@@ -591,18 +591,18 @@ export default function TenantsPage() {
                   {/* Footer actions */}
                   <div className="flex gap-2 pt-2 border-t border-gray-50 items-center">
                     {!tenant.isActive && (
-                      <span className="text-xs text-gray-400 font-sans italic self-center">Vacated</span>
+                      <span className="text-caption text-gray-400 italic self-center">Vacated</span>
                     )}
                     <button
                       onClick={() => openEdit(tenant)}
-                      className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-header transition-colors"
+                      className="flex items-center gap-1.5 text-caption text-gray-400 hover:text-header transition-colors"
                     >
                       <Pencil size={13} /> Edit
                     </button>
                     {tenant.isActive && (
                       <button
                         onClick={() => router.push(`/tenants/${tenant.id}/checkout`)}
-                        className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-amber-600 transition-colors"
+                        className="flex items-center gap-1.5 text-caption text-gray-400 hover:text-amber-600 transition-colors"
                         title="Begin move-out checkout"
                       >
                         <LogOut size={13} /> Checkout
@@ -610,7 +610,7 @@ export default function TenantsPage() {
                     )}
                     <Link
                       href={`/tenants/${tenant.id}`}
-                      className="flex items-center gap-1 text-xs font-sans text-gold hover:text-gold-dark transition-colors ml-auto"
+                      className="flex items-center gap-1 text-caption text-gold hover:text-gold-dark transition-colors ml-auto"
                     >
                       View Detail <ChevronRight size={13} />
                     </Link>
@@ -636,8 +636,8 @@ export default function TenantsPage() {
                     {/* Top row: name + badge */}
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="min-w-0">
-                        <p className="font-medium text-header text-sm leading-tight truncate">{tenant.name}</p>
-                        <p className="text-xs text-gray-400 font-mono mt-0.5">
+                        <p className="font-medium text-header text-body truncate">{tenant.name}</p>
+                        <p className="text-caption text-gray-400 tabular-nums mt-0.5">
                           {tenant.unit?.unitNumber ?? "—"} · {tenant.unit?.property?.name ?? "—"}
                         </p>
                       </div>
@@ -649,8 +649,8 @@ export default function TenantsPage() {
                     {/* Finance + lease row */}
                     <div className="grid grid-cols-2 gap-2 mt-2 mb-2.5">
                       <div>
-                        <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Monthly</p>
-                        <p className="font-mono text-sm font-medium text-header flex items-center gap-1">
+                        <p className="text-label text-gray-400 uppercase mb-0.5">Monthly</p>
+                        <p className="tabular-nums text-body font-medium text-header flex items-center gap-1">
                           {isRentHistoryOutOfSync(tenant.rentHistory, tenant.monthlyRent ?? 0) && (
                             <span title="Rent history out of sync — ledgers use a different rate for this month. Open the tenant's Rent History tab to fix.">
                               <AlertTriangle size={12} className="text-amber-500" />
@@ -658,14 +658,14 @@ export default function TenantsPage() {
                           )}
                           {formatCurrency(monthlyTotal, currency)}
                         </p>
-                        <p className="text-[10px] text-gray-400 font-sans mt-0.5">
+                        <p className="text-caption text-gray-400 mt-0.5">
                           {tenant.monthlyRent?.toLocaleString("en-US")} + {tenant.serviceCharge?.toLocaleString("en-US")}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-gray-400 font-sans uppercase tracking-wide mb-0.5">Lease End</p>
+                        <p className="text-label text-gray-400 uppercase mb-0.5">Lease End</p>
                         <p className={clsx(
-                          "text-sm font-sans",
+                          "text-body ",
                           status === "TBC"      && "text-amber-600 font-medium",
                           status === "CRITICAL" && "text-expense font-medium",
                           status === "WARNING"  && "text-amber-500 font-medium",
@@ -674,7 +674,7 @@ export default function TenantsPage() {
                           {tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
                         </p>
                         {status === "WARNING" && (
-                          <p className="text-[10px] text-amber-400 font-sans mt-0.5">
+                          <p className="text-caption text-amber-400 mt-0.5">
                             {daysUntilExpiry(toDate(tenant.leaseEnd))}d left
                           </p>
                         )}
@@ -684,14 +684,14 @@ export default function TenantsPage() {
                     <div className="flex items-center gap-3 pt-2 border-t border-gray-50">
                       <button
                         onClick={() => openEdit(tenant)}
-                        className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-header transition-colors"
+                        className="flex items-center gap-1.5 text-caption text-gray-400 hover:text-header transition-colors"
                       >
                         <Pencil size={13} /> Edit
                       </button>
                       {tenant.isActive && (
                         <button
                           onClick={() => router.push(`/tenants/${tenant.id}/checkout`)}
-                          className="flex items-center gap-1.5 text-xs font-sans text-gray-400 hover:text-amber-600 transition-colors"
+                          className="flex items-center gap-1.5 text-caption text-gray-400 hover:text-amber-600 transition-colors"
                           title="Begin move-out checkout"
                         >
                           <LogOut size={13} /> Checkout
@@ -699,7 +699,7 @@ export default function TenantsPage() {
                       )}
                       <Link
                         href={`/tenants/${tenant.id}`}
-                        className="flex items-center gap-1 text-xs font-sans text-gold hover:text-gold-dark transition-colors ml-auto"
+                        className="flex items-center gap-1 text-caption text-gold hover:text-gold-dark transition-colors ml-auto"
                       >
                         View Detail <ChevronRight size={13} />
                       </Link>
@@ -712,44 +712,44 @@ export default function TenantsPage() {
             {/* Desktop: scrollable table with sticky header */}
             <div className="hidden md:block">
             <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-              <table className="w-full text-sm min-w-[640px]">
+              <table className="w-full text-body min-w-[640px]">
                 <thead className="sticky top-0 z-10 bg-gray-50/95">
                   <tr className="border-b border-gray-100 bg-gray-50/60">
                     {/* Sortable: Name */}
                     <th
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide cursor-pointer hover:text-header select-none"
+                      className="px-4 py-3 text-left text-label font-medium text-gray-500 uppercase cursor-pointer hover:text-header select-none"
                       onClick={() => toggleSort("name")}
                     >
                       Tenant <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} />
                     </th>
                     {/* Sortable: Unit */}
                     <th
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide cursor-pointer hover:text-header select-none"
+                      className="px-4 py-3 text-left text-label font-medium text-gray-500 uppercase cursor-pointer hover:text-header select-none"
                       onClick={() => toggleSort("unit")}
                     >
                       Unit <SortIcon col="unit" sortKey={sortKey} sortDir={sortDir} />
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="px-4 py-3 text-left text-label font-medium text-gray-500 uppercase ">
                       Property
                     </th>
                     {/* Sortable: Rent */}
                     <th
-                      className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide cursor-pointer hover:text-header select-none"
+                      className="px-4 py-3 text-right text-label font-medium text-gray-500 uppercase cursor-pointer hover:text-header select-none"
                       onClick={() => toggleSort("rent")}
                     >
                       Monthly <SortIcon col="rent" sortKey={sortKey} sortDir={sortDir} />
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="px-4 py-3 text-center text-label font-medium text-gray-500 uppercase ">
                       Deposit
                     </th>
                     {/* Sortable: Lease End */}
                     <th
-                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide cursor-pointer hover:text-header select-none"
+                      className="px-4 py-3 text-center text-label font-medium text-gray-500 uppercase cursor-pointer hover:text-header select-none"
                       onClick={() => toggleSort("leaseEnd")}
                     >
                       Lease End <SortIcon col="leaseEnd" sortKey={sortKey} sortDir={sortDir} />
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <th className="px-4 py-3 text-center text-label font-medium text-gray-500 uppercase ">
                       Status
                     </th>
                     <th className="px-4 py-3" />
@@ -772,23 +772,23 @@ export default function TenantsPage() {
                         <td className="px-4 py-3">
                           <p className="font-medium text-header">{tenant.name}</p>
                           {tenant.email && (
-                            <p className="text-xs text-gray-400 font-sans mt-0.5">{tenant.email}</p>
+                            <p className="text-caption text-gray-400 mt-0.5">{tenant.email}</p>
                           )}
                           {tenant.phone && !tenant.email && (
-                            <p className="text-xs text-gray-400 font-sans mt-0.5">{tenant.phone}</p>
+                            <p className="text-caption text-gray-400 mt-0.5">{tenant.phone}</p>
                           )}
                         </td>
                         {/* Unit */}
-                        <td className="px-4 py-3 font-mono text-sm text-gray-600">
+                        <td className="px-4 py-3 tabular-nums text-body text-gray-600">
                           {tenant.unit?.unitNumber ?? "—"}
                         </td>
                         {/* Property */}
-                        <td className="px-4 py-3 text-sm text-gray-500">
+                        <td className="px-4 py-3 text-body text-gray-500">
                           {tenant.unit?.property?.name ?? "—"}
                         </td>
                         {/* Monthly total */}
                         <td className="px-4 py-3 text-right">
-                          <p className="font-mono text-sm font-medium text-header flex items-center justify-end gap-1">
+                          <p className="tabular-nums text-body font-medium text-header flex items-center justify-end gap-1">
                             {isRentHistoryOutOfSync(tenant.rentHistory, tenant.monthlyRent ?? 0) && (
                               <span title="Rent history out of sync — ledgers use a different rate for this month. Open the tenant's Rent History tab to fix.">
                                 <AlertTriangle size={12} className="text-amber-500" />
@@ -796,12 +796,12 @@ export default function TenantsPage() {
                             )}
                             {formatCurrency(monthlyTotal, currency)}
                           </p>
-                          <p className="text-xs text-gray-400 font-sans mt-0.5">
+                          <p className="text-caption text-gray-400 mt-0.5">
                             {tenant.monthlyRent?.toLocaleString("en-US")} + {tenant.serviceCharge?.toLocaleString("en-US")}
                           </p>
                         </td>
                         {/* Deposit */}
-                        <td className="px-4 py-3 text-center font-mono text-sm text-gray-500">
+                        <td className="px-4 py-3 text-center tabular-nums text-body text-gray-500">
                           {tenant.depositAmount
                             ? formatCurrency(tenant.depositAmount, currency)
                             : "—"}
@@ -809,7 +809,7 @@ export default function TenantsPage() {
                         {/* Lease end */}
                         <td className="px-4 py-3 text-center">
                           <p className={clsx(
-                            "text-sm font-sans",
+                            "text-body ",
                             status === "TBC"      && "text-amber-600 font-medium",
                             status === "CRITICAL" && "text-expense font-medium",
                             status === "WARNING"  && "text-amber-500 font-medium",
@@ -818,7 +818,7 @@ export default function TenantsPage() {
                             {tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
                           </p>
                           {status === "WARNING" && (
-                            <p className="text-xs text-amber-400 font-sans mt-0.5">
+                            <p className="text-caption text-amber-400 mt-0.5">
                               {daysUntilExpiry(toDate(tenant.leaseEnd))}d left
                             </p>
                           )}
@@ -867,14 +867,14 @@ export default function TenantsPage() {
             </div>{/* end hidden md:block */}
 
             {/* Footer: count + monthly total — shown in both views */}
-            <div className="border-t border-gray-50 px-4 py-2.5 flex flex-wrap gap-4 text-xs text-gray-400 font-sans">
+            <div className="border-t border-gray-50 px-4 py-2.5 flex flex-wrap gap-4 text-caption text-gray-400 ">
               <span>
                 {filtered.length} tenant{filtered.length !== 1 ? "s" : ""}
                 {activeFilters.length > 0 && ` (filtered from ${tenants.length})`}
               </span>
               <span className="ml-auto">
                 Total monthly:{" "}
-                <strong className="text-gray-600 font-mono">
+                <strong className="text-gray-600 tabular-nums">
                   {formatCurrency(
                     filtered
                       .filter((t) => t.isActive)
@@ -904,7 +904,7 @@ export default function TenantsPage() {
         {onboardingTenantId ? (
           /* ── Step 2: document uploads ── */
           <div className="space-y-4">
-            <p className="text-sm text-gray-500 font-sans">
+            <p className="text-body text-gray-500 ">
               Optionally attach signed documents for <strong>{onboardingTenantName}</strong>.
               You can always add more from the tenant&apos;s profile.
             </p>
@@ -913,7 +913,7 @@ export default function TenantsPage() {
               onUploaded={() => setOnboardingDocCount((n) => n + 1)}
             />
             {onboardingDocCount > 0 && (
-              <p className="text-xs text-income font-sans">
+              <p className="text-caption text-income ">
                 {onboardingDocCount} document{onboardingDocCount !== 1 ? "s" : ""} uploaded
               </p>
             )}
@@ -960,11 +960,11 @@ export default function TenantsPage() {
                 <Banknote size={18} className="text-gold" />
               </div>
               <div>
-                <h3 className="font-display text-header text-base">Generate Letting Fee Invoice?</h3>
-                <p className="text-xs text-gray-400 font-sans mt-0.5">New tenancy created for {lettingFeePrompt.tenantName}</p>
+                <h3 className=" text-header text-h3">Generate Letting Fee Invoice?</h3>
+                <p className="text-caption text-gray-400 mt-0.5">New tenancy created for {lettingFeePrompt.tenantName}</p>
               </div>
             </div>
-            <p className="text-sm font-sans text-gray-600">
+            <p className="text-body text-gray-600">
               A letting fee of <span className="font-semibold text-header">{formatCurrency(lettingFeePrompt.amount, currency)}</span> (50% of first month&apos;s rent) will be invoiced to the owner. Mark it paid once settled.
             </p>
             <div className="flex gap-3 pt-1">

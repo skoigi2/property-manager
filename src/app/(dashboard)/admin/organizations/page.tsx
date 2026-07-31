@@ -454,7 +454,7 @@ export default function OrganizationsPage() {
 
         {/* Header row */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500 font-sans">All companies using this platform. Each organisation has isolated data.</p>
+          <p className="text-body text-gray-500 ">All companies using this platform. Each organisation has isolated data.</p>
           <Button onClick={() => setShowCreate(true)}>
             <Plus size={15} /> New Organisation
           </Button>
@@ -467,7 +467,7 @@ export default function OrganizationsPage() {
           <Card>
             <div className="text-center py-10">
               <Building2 size={32} className="text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-400 font-sans text-sm">No organisations yet.</p>
+              <p className="text-gray-400 text-body">No organisations yet.</p>
             </div>
           </Card>
         ) : (
@@ -501,29 +501,29 @@ export default function OrganizationsPage() {
                     {/* Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-display text-base text-header">{org.name}</h3>
+                        <h3 className=" text-h3 text-header">{org.name}</h3>
                         <Badge variant={org.isActive ? "green" : "gray"}>{org.isActive ? "Active" : "Inactive"}</Badge>
                         {(() => { const s = subscriptionLabel(org); return <Badge variant={s.variant}>{s.label}</Badge>; })()}
                       </div>
                       <div className="flex items-center gap-4 mt-1 flex-wrap">
-                        <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
+                        <span className="flex items-center gap-1 text-caption text-gray-400 ">
                           <Users size={11} /> {org._count.memberships} user{org._count.memberships !== 1 ? "s" : ""}
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
+                        <span className="flex items-center gap-1 text-caption text-gray-400 ">
                           <Home size={11} /> {org._count.properties} propert{org._count.properties !== 1 ? "ies" : "y"}
                         </span>
                         {org.email && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
+                          <span className="flex items-center gap-1 text-caption text-gray-400 ">
                             <Mail size={11} /> {org.email}
                           </span>
                         )}
                         {org.phone && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
+                          <span className="flex items-center gap-1 text-caption text-gray-400 ">
                             <Phone size={11} /> {org.phone}
                           </span>
                         )}
                         {org.address && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400 font-sans">
+                          <span className="flex items-center gap-1 text-caption text-gray-400 ">
                             <MapPin size={11} /> {org.address}
                           </span>
                         )}
@@ -534,21 +534,21 @@ export default function OrganizationsPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => toggleFreeAccess(org)}
-                        className={`text-xs font-sans transition-colors ${org.freeAccess ? "text-gold hover:text-gold-dark" : "text-gray-300 hover:text-gold"}`}
+                        className={`text-caption transition-colors ${org.freeAccess ? "text-gold hover:text-gold-dark" : "text-gray-300 hover:text-gold"}`}
                         title={org.freeAccess ? "Revoke free access" : "Grant free access (Complimentary PRO)"}
                       >
                         <Sparkles size={15} />
                       </button>
                       <button
                         onClick={() => openEdit(org)}
-                        className="text-xs font-sans text-gray-400 hover:text-gold transition-colors"
+                        className="text-caption text-gray-400 hover:text-gold transition-colors"
                         title="Edit organisation"
                       >
                         <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => toggleActive(org)}
-                        className="text-xs font-sans text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-caption text-gray-400 hover:text-gray-600 transition-colors"
                         title={org.isActive ? "Deactivate" : "Activate"}
                       >
                         {org.isActive ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -569,7 +569,7 @@ export default function OrganizationsPage() {
                       {/* Properties */}
                       {org.properties.length > 0 ? (
                         <div>
-                          <p className="text-xs font-sans font-medium text-gray-400 uppercase tracking-wide mb-2">Properties</p>
+                          <p className="text-label font-medium text-gray-400 uppercase mb-2">Properties</p>
                           <div className="space-y-3">
                             {org.properties.map((prop) => (
                               <div key={prop.id} className="rounded-xl border border-gray-100 bg-gray-50/50 p-3">
@@ -580,14 +580,14 @@ export default function OrganizationsPage() {
                                   ) : (
                                     <Home size={14} className="text-gold shrink-0" />
                                   )}
-                                  <span className="font-sans text-sm font-medium text-header">{prop.name}</span>
+                                  <span className=" text-body font-medium text-header">{prop.name}</span>
                                   <Badge variant={prop.type === "AIRBNB" ? "gold" : "blue"}>
                                     {prop.type === "AIRBNB" ? "Airbnb" : "Long-term"}
                                   </Badge>
                                   <div className="ml-auto flex items-center gap-1.5">
                                     <MoveRight size={12} className="text-gray-300" />
                                     <select
-                                      className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
+                                      className="text-caption border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
                                       value=""
                                       onChange={(e) => {
                                         if (e.target.value) {
@@ -613,13 +613,13 @@ export default function OrganizationsPage() {
                                         <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
                                           <UserCog size={10} className="text-blue-400" />
                                         </div>
-                                        <span className="text-xs font-sans text-gray-700">{prop.owner.name ?? prop.owner.email}</span>
+                                        <span className="text-caption text-gray-700">{prop.owner.name ?? prop.owner.email}</span>
                                         <Badge variant="blue">OWNER</Badge>
                                         {!prop.owner.isActive && <Badge variant="red">Inactive</Badge>}
                                         <div className="ml-auto flex items-center gap-1.5">
                                           <MoveRight size={11} className="text-gray-300" />
                                           <select
-                                            className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
+                                            className="text-caption border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
                                             defaultValue=""
                                             disabled={reassigning === `user-${prop.owner.id}`}
                                             onChange={(e) => { if (e.target.value) reassignUser(prop.owner!.id, e.target.value); }}
@@ -638,7 +638,7 @@ export default function OrganizationsPage() {
                                         <div className="w-5 h-5 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
                                           <UserCog size={10} className="text-gold" />
                                         </div>
-                                        <span className="text-xs font-sans text-gray-700">{user.name ?? user.email}</span>
+                                        <span className="text-caption text-gray-700">{user.name ?? user.email}</span>
                                         {(() => { const r = membershipRoleMap.get(user.id) ?? user.role; return <Badge variant={roleBadge[r] ?? "gray"}>{r}</Badge>; })()}
                                         {billingOwnerSet.has(user.id) && <span title="Billing owner"><Crown size={10} className="text-amber-500 shrink-0" /></span>}
                                         {!user.isActive && <Badge variant="red">Inactive</Badge>}
@@ -658,7 +658,7 @@ export default function OrganizationsPage() {
                                           {movingToOrg === user.id ? (
                                             <select
                                               autoFocus
-                                              className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                                              className="text-caption border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                                               defaultValue=""
                                               onBlur={() => setMovingToOrg(null)}
                                               onChange={(e) => { if (e.target.value) { reassignUser(user.id, e.target.value); setMovingToOrg(null); } }}
@@ -682,28 +682,28 @@ export default function OrganizationsPage() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-xs text-gray-400 font-sans ml-5 italic">No users assigned</p>
+                                  <p className="text-caption text-gray-400 ml-5 italic">No users assigned</p>
                                 )}
                               </div>
                             ))}
                           </div>
                         </div>
                       ) : (
-                        <p className="text-xs text-gray-400 font-sans italic">No properties yet</p>
+                        <p className="text-caption text-gray-400 italic">No properties yet</p>
                       )}
 
                       {/* Direct / org-level users (not tied to a specific property) */}
                       {directUsers.length > 0 && (
                         <div>
-                          <p className="text-xs font-sans font-medium text-gray-400 uppercase tracking-wide mb-2">Org-level Users</p>
+                          <p className="text-label font-medium text-gray-400 uppercase mb-2">Org-level Users</p>
                           <div className="space-y-1.5">
                             {directUsers.map((user) => (
                               <div key={user.id} className="flex items-center gap-2 flex-wrap">
                                 <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
                                   <UserCog size={10} className="text-gray-400" />
                                 </div>
-                                <span className="text-xs font-sans text-gray-700">{user.name ?? user.email}</span>
-                                <span className="text-xs text-gray-400 font-sans">{user.email}</span>
+                                <span className="text-caption text-gray-700">{user.name ?? user.email}</span>
+                                <span className="text-caption text-gray-400 ">{user.email}</span>
                                 {(() => { const r = membershipRoleMap.get(user.id) ?? user.role; return <Badge variant={roleBadge[r] ?? "gray"}>{r}</Badge>; })()}
                                 {billingOwnerSet.has(user.id) && <span title="Billing owner"><Crown size={10} className="text-amber-500 shrink-0" /></span>}
                                 {!user.isActive && <Badge variant="red">Inactive</Badge>}
@@ -724,13 +724,13 @@ export default function OrganizationsPage() {
                                               }
                                               className="rounded border-gray-300 accent-gold"
                                             />
-                                            <span className="text-xs font-sans text-gray-600 whitespace-nowrap">{p.name}</span>
+                                            <span className="text-caption text-gray-600 whitespace-nowrap">{p.name}</span>
                                           </label>
                                         ))}
                                         <button
                                           onClick={() => grantPropertyAccess(org.id, user.id, assignPropertyIds)}
                                           disabled={!assignPropertyIds.length || grantingAccess === user.id}
-                                          className="text-xs font-sans text-gold font-medium hover:text-gold-dark disabled:opacity-40 ml-1 whitespace-nowrap"
+                                          className="text-caption text-gold font-medium hover:text-gold-dark disabled:opacity-40 ml-1 whitespace-nowrap"
                                         >
                                           {grantingAccess === user.id ? "…" : "Apply"}
                                         </button>
@@ -752,7 +752,7 @@ export default function OrganizationsPage() {
                                   {movingToOrg === user.id ? (
                                     <select
                                       autoFocus
-                                      className="text-xs font-sans border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                                      className="text-caption border border-gray-200 rounded-lg px-2 py-1 text-gray-500 bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                                       defaultValue=""
                                       onBlur={() => setMovingToOrg(null)}
                                       onChange={(e) => {
@@ -797,7 +797,7 @@ export default function OrganizationsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
-                <h2 className="font-display text-lg text-header">Confirm Property Move</h2>
+                <h2 className=" text-h3 text-header">Confirm Property Move</h2>
                 {!confirming && (
                   <button onClick={() => setPendingMove(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
                     <X size={20} />
@@ -805,14 +805,14 @@ export default function OrganizationsPage() {
                 )}
               </div>
               <div className="px-6 py-5 space-y-4">
-                <p className="text-sm font-sans text-gray-600">
+                <p className="text-body text-gray-600">
                   Move <span className="font-medium text-header">{pendingMove.propertyName}</span> from{" "}
                   <span className="font-medium text-header">{pendingMove.sourceOrgName}</span> to{" "}
                   <span className="font-medium text-header">{pendingMove.targetOrgName}</span>?
                 </p>
 
                 {pendingMove.loadingPreview ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-400 font-sans">
+                  <div className="flex items-center gap-2 text-body text-gray-400 ">
                     <span className="w-3.5 h-3.5 rounded-full border-2 border-gold border-t-transparent animate-spin" />
                     Checking affected users…
                   </div>
@@ -820,14 +820,14 @@ export default function OrganizationsPage() {
                   <>
                     {pendingMove.willLeaveSource.length > 0 && (
                       <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
-                        <p className="text-xs font-sans font-medium text-blue-700 mb-2">
+                        <p className="text-caption font-medium text-blue-700 mb-2">
                           Moving to {pendingMove.targetOrgName}
                         </p>
                         <div className="space-y-1">
                           {pendingMove.willLeaveSource.map((u) => (
                             <div key={u.id} className="flex items-center gap-2">
                               <UserCog size={11} className="text-blue-400 shrink-0" />
-                              <span className="text-xs font-sans text-blue-700">{u.name ?? u.email}</span>
+                              <span className="text-caption text-blue-700">{u.name ?? u.email}</span>
                               <Badge variant={roleBadge[u.role] ?? "gray"}>{u.role}</Badge>
                             </div>
                           ))}
@@ -837,17 +837,17 @@ export default function OrganizationsPage() {
 
                     {pendingMove.willRemainInSource.length > 0 && (
                       <div className="rounded-xl bg-amber-50 border border-amber-100 p-3">
-                        <p className="text-xs font-sans font-medium text-amber-700 mb-1">
+                        <p className="text-caption font-medium text-amber-700 mb-1">
                           Staying in {pendingMove.sourceOrgName}
                         </p>
-                        <p className="text-xs font-sans text-amber-600 mb-2">
+                        <p className="text-caption text-amber-600 mb-2">
                           These users have other properties in {pendingMove.sourceOrgName} and will also gain access to {pendingMove.targetOrgName}.
                         </p>
                         <div className="space-y-1">
                           {pendingMove.willRemainInSource.map((u) => (
                             <div key={u.id} className="flex items-center gap-2">
                               <UserCog size={11} className="text-amber-400 shrink-0" />
-                              <span className="text-xs font-sans text-amber-700">{u.name ?? u.email}</span>
+                              <span className="text-caption text-amber-700">{u.name ?? u.email}</span>
                               <Badge variant={roleBadge[u.role] ?? "gray"}>{u.role}</Badge>
                             </div>
                           ))}
@@ -856,7 +856,7 @@ export default function OrganizationsPage() {
                     )}
 
                     {pendingMove.willLeaveSource.length === 0 && pendingMove.willRemainInSource.length === 0 && (
-                      <p className="text-xs text-gray-400 font-sans italic">No users will be affected.</p>
+                      <p className="text-caption text-gray-400 italic">No users will be affected.</p>
                     )}
                   </>
                 )}
@@ -884,7 +884,7 @@ export default function OrganizationsPage() {
 
               {/* Modal header */}
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
-                <h2 className="font-display text-lg text-header">Edit Organisation</h2>
+                <h2 className=" text-h3 text-header">Edit Organisation</h2>
                 <button
                   onClick={() => setEditOrg(null)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -897,7 +897,7 @@ export default function OrganizationsPage() {
               <div className="flex border-b border-gray-100 shrink-0">
                 <button
                   onClick={() => setEditTab("details")}
-                  className={`flex-1 py-2.5 text-sm font-sans font-medium transition-colors ${
+                  className={`flex-1 py-2.5 text-body font-medium transition-colors ${
                     editTab === "details"
                       ? "text-gold border-b-2 border-gold"
                       : "text-gray-400 hover:text-gray-600"
@@ -907,7 +907,7 @@ export default function OrganizationsPage() {
                 </button>
                 <button
                   onClick={() => setEditTab("users")}
-                  className={`flex-1 py-2.5 text-sm font-sans font-medium transition-colors ${
+                  className={`flex-1 py-2.5 text-body font-medium transition-colors ${
                     editTab === "users"
                       ? "text-gold border-b-2 border-gold"
                       : "text-gray-400 hover:text-gray-600"
@@ -962,7 +962,7 @@ export default function OrganizationsPage() {
                     {!showAddUser ? (
                       <button
                         onClick={() => setShowAddUser(true)}
-                        className="flex items-center gap-2 text-sm font-sans text-gold hover:text-gold-dark transition-colors"
+                        className="flex items-center gap-2 text-body text-gold hover:text-gold-dark transition-colors"
                       >
                         <UserPlus size={15} /> Add User
                       </button>
@@ -972,13 +972,13 @@ export default function OrganizationsPage() {
                         <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
                           <button
                             onClick={() => setAddUserMode("new")}
-                            className={`px-3 py-1 rounded-md text-xs font-sans font-medium transition-colors ${addUserMode === "new" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                            className={`px-3 py-1 rounded-md text-caption font-medium transition-colors ${addUserMode === "new" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                           >
                             New User
                           </button>
                           <button
                             onClick={() => setAddUserMode("existing")}
-                            className={`px-3 py-1 rounded-md text-xs font-sans font-medium transition-colors ${addUserMode === "existing" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                            className={`px-3 py-1 rounded-md text-caption font-medium transition-colors ${addUserMode === "existing" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                           >
                             Existing User
                           </button>
@@ -1006,11 +1006,11 @@ export default function OrganizationsPage() {
                             />
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <label className="block text-xs font-sans text-gray-500 mb-1">Role *</label>
+                                <label className="block text-caption text-gray-500 mb-1">Role *</label>
                                 <select
                                   value={addUserForm.role}
                                   onChange={(e) => setAddUserForm((p) => ({ ...p, role: e.target.value }))}
-                                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-sans text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-body text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
                                 >
                                   <option value="MANAGER">Manager</option>
                                   <option value="ACCOUNTANT">Accountant</option>
@@ -1036,8 +1036,8 @@ export default function OrganizationsPage() {
                             {/* Property access */}
                             {addUserForm.role !== "OWNER" && editOrg.properties.length > 0 && (
                               <div>
-                                <p className="text-xs font-sans text-gray-500 mb-1">Property Access</p>
-                                <p className="text-xs font-sans text-gray-400 mb-2">Leave unchecked to add as org-level user (no property-specific access)</p>
+                                <p className="text-caption text-gray-500 mb-1">Property Access</p>
+                                <p className="text-caption text-gray-400 mb-2">Leave unchecked to add as org-level user (no property-specific access)</p>
                                 <div className="space-y-1.5">
                                   {editOrg.properties.map((prop) => (
                                     <label key={prop.id} className="flex items-center gap-2 cursor-pointer select-none">
@@ -1054,7 +1054,7 @@ export default function OrganizationsPage() {
                                         }
                                         className="rounded border-gray-300 text-gold focus:ring-gold/30"
                                       />
-                                      <span className="text-sm font-sans text-gray-700">{prop.name}</span>
+                                      <span className="text-body text-gray-700">{prop.name}</span>
                                     </label>
                                   ))}
                                 </div>
@@ -1098,21 +1098,21 @@ export default function OrganizationsPage() {
                                       className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 transition-colors ${selectedExistingUserId === u.id ? "bg-gold/5" : ""}`}
                                     >
                                       <div>
-                                        <p className="text-sm font-sans font-medium text-gray-800">{u.name ?? "—"}</p>
-                                        <p className="text-xs font-sans text-gray-500">{u.email}</p>
+                                        <p className="text-body font-medium text-gray-800">{u.name ?? "—"}</p>
+                                        <p className="text-caption text-gray-500">{u.email}</p>
                                       </div>
-                                      <span className="text-xs font-sans text-gray-400">{u.role}</span>
+                                      <span className="text-caption text-gray-400">{u.role}</span>
                                     </button>
                                   ))}
                                 </div>
                               ) : existingUserSearch.length >= 1 ? (
-                                <p className="text-xs font-sans text-gray-400 italic">No matching users outside this organisation.</p>
+                                <p className="text-caption text-gray-400 italic">No matching users outside this organisation.</p>
                               ) : null;
                             })()}
                             {/* Property access for existing user */}
                             {selectedExistingUserId && editOrg.properties.length > 0 && (
                               <div>
-                                <p className="text-xs font-sans text-gray-500 mb-2">Grant Property Access</p>
+                                <p className="text-caption text-gray-500 mb-2">Grant Property Access</p>
                                 <div className="space-y-1.5">
                                   {editOrg.properties.map((prop) => (
                                     <label key={prop.id} className="flex items-center gap-2 cursor-pointer select-none">
@@ -1126,7 +1126,7 @@ export default function OrganizationsPage() {
                                         }
                                         className="rounded border-gray-300 text-gold focus:ring-gold/30"
                                       />
-                                      <span className="text-sm font-sans text-gray-700">{prop.name}</span>
+                                      <span className="text-body text-gray-700">{prop.name}</span>
                                     </label>
                                   ))}
                                 </div>
@@ -1151,7 +1151,7 @@ export default function OrganizationsPage() {
 
                     {/* Members list */}
                     {editOrg.memberships.length === 0 ? (
-                      <p className="text-sm text-gray-400 font-sans italic">No users in this organisation yet.</p>
+                      <p className="text-body text-gray-400 italic">No users in this organisation yet.</p>
                     ) : (
                       <div className="space-y-1">
                         {(() => {
@@ -1169,20 +1169,20 @@ export default function OrganizationsPage() {
                           >
                             {/* Avatar */}
                             <div className="w-7 h-7 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
-                              <span className="text-xs font-sans font-medium text-gold">
+                              <span className="text-caption font-medium text-gold">
                                 {(user.name ?? user.email ?? "?")[0].toUpperCase()}
                               </span>
                             </div>
                             {/* Name + email */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-sans text-header truncate">{user.name ?? "—"}</p>
-                              <p className="text-xs text-gray-400 font-sans truncate">{user.email}</p>
+                              <p className="text-body text-header truncate">{user.name ?? "—"}</p>
+                              <p className="text-caption text-gray-400 truncate">{user.email}</p>
                             </div>
                             {/* Badges */}
                             <Badge variant={roleBadge[memberRole] ?? "gray"}>{memberRole}</Badge>
                             {isBillingOwner && (
                               <span
-                                className="flex items-center gap-1 text-xs font-sans text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 shrink-0"
+                                className="flex items-center gap-1 text-caption text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 shrink-0"
                                 title="Billing owner"
                               >
                                 <Crown size={10} /> Billing
@@ -1268,7 +1268,7 @@ export default function OrganizationsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 sticky top-0 bg-white">
-                <h2 className="font-display text-lg text-header">New Organisation</h2>
+                <h2 className=" text-h3 text-header">New Organisation</h2>
                 <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                   <X size={20} />
                 </button>
@@ -1276,7 +1276,7 @@ export default function OrganizationsPage() {
 
               <div className="px-6 py-5 space-y-5">
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-400 font-sans uppercase tracking-wide font-medium">Organisation Details</p>
+                  <p className="text-label text-gray-400 uppercase font-medium">Organisation Details</p>
                   <Input label="Company Name *" value={createForm.name} onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))} />
                   <div className="grid grid-cols-2 gap-3">
                     <Input label="Phone" value={createForm.phone} onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))} />
@@ -1287,8 +1287,8 @@ export default function OrganizationsPage() {
                 </div>
 
                 <div className="space-y-3 pt-2 border-t border-gray-100">
-                  <p className="text-xs text-gray-400 font-sans uppercase tracking-wide font-medium">First Admin User (optional)</p>
-                  <p className="text-xs text-gray-500 font-sans">Creates an ADMIN user for this organisation so they can log in immediately.</p>
+                  <p className="text-label text-gray-400 uppercase font-medium">First Admin User (optional)</p>
+                  <p className="text-caption text-gray-500 ">Creates an ADMIN user for this organisation so they can log in immediately.</p>
                   <Input label="Full Name" value={createForm.adminName} onChange={(e) => setCreateForm((p) => ({ ...p, adminName: e.target.value }))} />
                   <Input label="Email" type="email" value={createForm.adminEmail} onChange={(e) => setCreateForm((p) => ({ ...p, adminEmail: e.target.value }))} />
                   <div className="relative">

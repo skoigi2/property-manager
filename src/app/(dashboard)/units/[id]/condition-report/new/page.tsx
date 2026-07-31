@@ -30,7 +30,7 @@ export default async function NewConditionReportPage({ params }: { params: { id:
       <>
         <Header title="Condition Report" />
         <div className="page-container">
-          <p className="text-sm text-gray-400 font-sans text-center py-10">Unit not found.</p>
+          <p className="text-body text-gray-400 text-center py-10">Unit not found.</p>
         </div>
       </>
     );
@@ -42,8 +42,8 @@ export default async function NewConditionReportPage({ params }: { params: { id:
     <>
       <Header title="Condition Report" />
       <div className="page-container">
-        <h1 className="font-display text-2xl text-header mb-1">New Condition Report</h1>
-        <p className="text-sm text-gray-500 font-sans mb-5">
+        <h1 className=" text-h1 text-header mb-1">New Condition Report</h1>
+        <p className="text-body text-gray-500 mb-5">
           Walk through each room, rate each feature, and capture photos. The report is saved as you go and a signed PDF is filed in the tenant&apos;s document vault when you submit.
         </p>
         <MoveInWalkthrough

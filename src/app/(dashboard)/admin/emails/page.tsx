@@ -183,7 +183,7 @@ export default function AdminEmailsPage() {
           <div className="flex-1 min-w-0 lg:max-w-[480px]">
             <Card>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-display text-base text-header flex items-center gap-2">
+                <h2 className=" text-h3 text-header flex items-center gap-2">
                   <Mail size={16} /> Outbound emails
                 </h2>
                 <Button size="sm" onClick={openCompose}>New email</Button>
@@ -198,7 +198,7 @@ export default function AdminEmailsPage() {
                 <select
                   value={kindFilter}
                   onChange={(e) => setKindFilter((e.target.value || "") as Kind | "")}
-                  className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50"
+                  className="border border-gray-200 rounded-lg px-3 py-2.5 text-body bg-cream/50"
                 >
                   <option value="">All kinds</option>
                   {KINDS.map((k) => <option key={k} value={k}>{k.replace(/_/g, " ")}</option>)}
@@ -206,7 +206,7 @@ export default function AdminEmailsPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50"
+                  className="border border-gray-200 rounded-lg px-3 py-2.5 text-body bg-cream/50"
                 >
                   <option value="">All status</option>
                   <option value="sent">Sent</option>
@@ -219,7 +219,7 @@ export default function AdminEmailsPage() {
               {loading ? (
                 <div className="py-12 flex justify-center"><Spinner /></div>
               ) : items.length === 0 ? (
-                <p className="text-sm text-gray-500 py-8 text-center">No emails yet.</p>
+                <p className="text-body text-gray-500 py-8 text-center">No emails yet.</p>
               ) : (
                 <ul className="divide-y divide-gray-100">
                   {items.map((it) => {
@@ -232,14 +232,14 @@ export default function AdminEmailsPage() {
                         >
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <Badge variant={kindBadge[it.kind]}>{it.kind.replace(/_/g, " ")}</Badge>
-                            <span className="text-xs text-gray-400 shrink-0">
+                            <span className="text-caption text-gray-400 shrink-0">
                               {new Date(it.sentAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
-                          <div className="text-sm font-medium text-header truncate">{it.subject}</div>
-                          <div className="text-xs text-gray-500 truncate">→ {it.toEmail}</div>
+                          <div className="text-body font-medium text-header truncate">{it.subject}</div>
+                          <div className="text-caption text-gray-500 truncate">→ {it.toEmail}</div>
                           {it.status === "failed" && (
-                            <div className="text-xs text-expense mt-1">⚠ Failed</div>
+                            <div className="text-caption text-expense mt-1">⚠ Failed</div>
                           )}
                         </button>
                       </li>
@@ -256,21 +256,21 @@ export default function AdminEmailsPage() {
               {detailLoading ? (
                 <div className="py-12 flex justify-center"><Spinner /></div>
               ) : !detail ? (
-                <p className="text-sm text-gray-500 py-12 text-center">Select an email to view.</p>
+                <p className="text-body text-gray-500 py-12 text-center">Select an email to view.</p>
               ) : (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="font-display text-lg text-header break-words">{detail.subject}</h3>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <h3 className=" text-h3 text-header break-words">{detail.subject}</h3>
+                      <p className="text-caption text-gray-500 mt-1">
                         From <span className="text-header">{detail.fromEmail}</span>
                         {" → "}
                         <span className="text-header">{detail.toEmail}</span>
                       </p>
                       {detail.replyTo && (
-                        <p className="text-xs text-gray-500">Reply-To: {detail.replyTo}</p>
+                        <p className="text-caption text-gray-500">Reply-To: {detail.replyTo}</p>
                       )}
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-caption text-gray-400 mt-1">
                         {new Date(detail.sentAt).toLocaleString()} · {detail.status}
                         {detail.resendId && ` · resend ${detail.resendId.slice(0, 8)}`}
                       </p>
@@ -286,13 +286,13 @@ export default function AdminEmailsPage() {
                   </div>
 
                   {detail.errorMessage && (
-                    <div className="text-sm text-expense bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    <div className="text-body text-expense bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                       <strong>Send failed:</strong> {detail.errorMessage}
                     </div>
                   )}
 
                   {detail.inReplyTo && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-caption text-gray-500">
                       In reply to: <span className="text-header">{detail.inReplyTo.subject}</span>
                     </p>
                   )}
@@ -306,7 +306,7 @@ export default function AdminEmailsPage() {
 
                   {detail.replies.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-header mb-2">Replies ({detail.replies.length})</h4>
+                      <h4 className="text-body font-medium text-header mb-2">Replies ({detail.replies.length})</h4>
                       <ul className="divide-y divide-gray-100">
                         {detail.replies.map((r) => (
                           <li key={r.id}>
@@ -314,11 +314,11 @@ export default function AdminEmailsPage() {
                               onClick={() => loadDetail(r.id)}
                               className="w-full text-left px-3 py-2 hover:bg-cream-dark/50 rounded-lg"
                             >
-                              <div className="flex items-center justify-between text-xs text-gray-500">
+                              <div className="flex items-center justify-between text-caption text-gray-500">
                                 <span>→ {r.toEmail}</span>
                                 <span>{new Date(r.sentAt).toLocaleString()}</span>
                               </div>
-                              <div className="text-sm text-header truncate">{r.subject}</div>
+                              <div className="text-body text-header truncate">{r.subject}</div>
                             </button>
                           </li>
                         ))}

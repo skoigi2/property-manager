@@ -61,7 +61,7 @@ export function NotificationPrefsPanel() {
   return (
     <div className="space-y-4">
       <Card padding="sm" className="bg-blue-50/50 border border-blue-100">
-        <p className="text-xs text-blue-700 font-sans flex items-start gap-2">
+        <p className="text-caption text-blue-700 flex items-start gap-2">
           <Bell className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
             Choose which automation emails <strong>you</strong> receive. This only affects emails sent to
@@ -75,8 +75,8 @@ export function NotificationPrefsPanel() {
         <Card key={p.category}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="font-sans font-semibold text-header">{META[p.category].title}</h3>
-              <p className="text-sm text-gray-500 mt-1 font-sans">{META[p.category].blurb}</p>
+              <h3 className=" font-semibold text-header">{META[p.category].title}</h3>
+              <p className="text-body text-gray-500 mt-1 ">{META[p.category].blurb}</p>
             </div>
             <button
               type="button"

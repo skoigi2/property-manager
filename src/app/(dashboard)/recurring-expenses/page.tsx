@@ -206,19 +206,19 @@ export default function RecurringExpensesPage() {
           <Card padding="md" className="border border-amber-100 bg-amber-50/50">
             <div className="flex flex-wrap items-end gap-4">
               <div>
-                <p className="text-sm font-medium text-header mb-1">Apply Due Expenses</p>
-                <p className="text-xs text-gray-500 mb-3">
+                <p className="text-body font-medium text-header mb-1">Apply Due Expenses</p>
+                <p className="text-caption text-gray-500 mb-3">
                   Creates expense entries for all active recurring items whose due date falls on or before the selected month.
                   {due.length > 0 && <span className="ml-1 font-medium text-amber-700">{due.length} item{due.length!==1?"s":""} currently due.</span>}
                 </p>
                 <div className="flex items-end gap-3">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Month</label>
+                    <label className="text-caption text-gray-500 block mb-1">Month</label>
                     <input
                       type="month"
                       value={applyMonth}
                       onChange={e => setApplyMonth(e.target.value)}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                     />
                   </div>
                   <Button variant="gold" onClick={applyNow} loading={applying} className="flex items-center gap-2">
@@ -234,7 +234,7 @@ export default function RecurringExpensesPage() {
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500 font-sans">{items.length} template{items.length!==1?"s":""} · {due.length} due</p>
+            <p className="text-body text-gray-500 ">{items.length} template{items.length!==1?"s":""} · {due.length} due</p>
           </div>
           {canManage && (
             <Button variant="gold" onClick={() => setShowForm(true)} className="flex items-center gap-2">
@@ -260,12 +260,12 @@ export default function RecurringExpensesPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium text-sm text-header">{item.description}</p>
+                      <p className="font-medium text-body text-header">{item.description}</p>
                       <Badge variant={FREQ_BADGE[item.frequency]}>{FREQ_LABELS[item.frequency]}</Badge>
                       {!item.isActive && <Badge variant="gray">Paused</Badge>}
                       {isDue && <Badge variant="red">Due</Badge>}
                     </div>
-                    <p className="text-xs text-gray-400 font-sans mt-0.5">
+                    <p className="text-caption text-gray-400 mt-0.5">
                       {CAT_LABELS[item.category]} ·{" "}
                       {item.scope === "UNIT" && item.unit ? `Unit ${item.unit.unitNumber}` : item.scope === "PROPERTY" && item.property ? item.property.name : "Portfolio"} ·{" "}
                       Next due: <span className={isDue ? "text-red-500 font-medium" : ""}>{formatDate(new Date(item.nextDueDate))}</span>
@@ -273,7 +273,7 @@ export default function RecurringExpensesPage() {
                     {item.schedule && (
                       <Link
                         href="/maintenance?tab=schedules"
-                        className="text-xs text-gray-400 font-sans flex items-center gap-1 mt-0.5 hover:text-gold transition-colors w-fit"
+                        className="text-caption text-gray-400 flex items-center gap-1 mt-0.5 hover:text-gold transition-colors w-fit"
                         title="View maintenance schedule"
                       >
                         <Wrench size={10} />
@@ -309,7 +309,7 @@ export default function RecurringExpensesPage() {
       {/* Add modal */}
       <Modal open={showForm} onClose={() => { setShowForm(false); reset(); setRecurVendorId(null); }} title="Add Recurring Expense" size="md">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 font-sans">
+          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-caption text-blue-700 ">
             Use this for <strong>financial commitments</strong> that recur on a fixed schedule — internet, security contracts, cleaning retainers, utility standing charges. For tasks that need on-site logging (pest control, generator service, inspections), use <strong>Maintenance → Schedules</strong> instead.
           </div>
           <Input label="Description" {...register("description")} error={errors.description?.message} placeholder="e.g. Monthly internet bill" />
@@ -356,24 +356,24 @@ export default function RecurringExpensesPage() {
         {editItem && (
           <div className="space-y-4">
             {editItem.schedule && (
-              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-lg text-caption text-amber-700">
                 <Wrench size={13} className="mt-0.5 shrink-0" />
                 <span>Amount and frequency are linked to a maintenance schedule. Changes here won&apos;t sync back to the schedule.</span>
               </div>
             )}
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Description</label>
+              <label className="text-caption font-medium text-gray-500 block mb-1">Description</label>
               <input
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                 value={editForm.description}
                 onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1">Category</label>
+                <label className="text-caption font-medium text-gray-500 block mb-1">Category</label>
                 <select
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
                   value={editForm.category}
                   onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
                 >
@@ -381,10 +381,10 @@ export default function RecurringExpensesPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1">Amount</label>
+                <label className="text-caption font-medium text-gray-500 block mb-1">Amount</label>
                 <input
                   type="number"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                   value={editForm.amount}
                   onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
                 />
@@ -392,9 +392,9 @@ export default function RecurringExpensesPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1">Frequency</label>
+                <label className="text-caption font-medium text-gray-500 block mb-1">Frequency</label>
                 <select
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
                   value={editForm.frequency}
                   onChange={e => setEditForm(f => ({ ...f, frequency: e.target.value }))}
                 >
@@ -405,10 +405,10 @@ export default function RecurringExpensesPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1">Next Due Date</label>
+                <label className="text-caption font-medium text-gray-500 block mb-1">Next Due Date</label>
                 <input
                   type="date"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
                   value={editForm.nextDueDate}
                   onChange={e => setEditForm(f => ({ ...f, nextDueDate: e.target.value }))}
                 />

@@ -120,7 +120,7 @@ function CertModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="font-display text-lg text-header">
+          <h2 className=" text-h3 text-header">
             {cert ? "Edit Certificate" : "Add Certificate"}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
@@ -130,11 +130,11 @@ function CertModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Property</label>
+            <label className="block text-label font-medium text-gray-500 uppercase mb-1">Property</label>
             <select
               value={form.propertyId}
               onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               required
             >
               {properties.map((p) => (
@@ -144,7 +144,7 @@ function CertModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+            <label className="block text-label font-medium text-gray-500 uppercase mb-1">
               Certificate Type <span className="text-red-500">*</span>
             </label>
             <input
@@ -154,7 +154,7 @@ function CertModal({
               value={form.certificateType}
               onChange={(e) => setForm((f) => ({ ...f, certificateType: e.target.value }))}
               placeholder="e.g. Gas Safety Certificate"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
             />
             <datalist id="cert-type-suggestions">
               {TYPE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}
@@ -163,30 +163,30 @@ function CertModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Certificate Number</label>
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1">Certificate Number</label>
               <input
                 type="text"
                 value={form.certificateNumber}
                 onChange={(e) => setForm((f) => ({ ...f, certificateNumber: e.target.value }))}
                 placeholder="Optional"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Issued By</label>
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1">Issued By</label>
               <input
                 type="text"
                 value={form.issuedBy}
                 onChange={(e) => setForm((f) => ({ ...f, issuedBy: e.target.value }))}
                 placeholder="Inspector / body"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1">
                 Issue Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -194,17 +194,17 @@ function CertModal({
                 required
                 value={form.issueDate}
                 onChange={(e) => setForm((f) => ({ ...f, issueDate: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Expiry Date</label>
+              <label className="block text-label font-medium text-gray-500 uppercase mb-1">Expiry Date</label>
               <input
                 type="date"
                 value={form.noExpiry ? "" : form.expiryDate}
                 disabled={form.noExpiry}
                 onChange={(e) => setForm((f) => ({ ...f, expiryDate: e.target.value }))}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40 disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -216,28 +216,28 @@ function CertModal({
               onChange={(e) => setForm((f) => ({ ...f, noExpiry: e.target.checked, expiryDate: e.target.checked ? "" : f.expiryDate }))}
               className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gold/40"
             />
-            <span className="text-sm text-gray-600">No expiry (ongoing)</span>
+            <span className="text-body text-gray-600">No expiry (ongoing)</span>
           </label>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Notes</label>
+            <label className="block text-label font-medium text-gray-500 uppercase mb-1">Notes</label>
             <textarea
               rows={2}
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               placeholder="Optional notes..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
             />
           </div>
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-body text-gray-600 hover:bg-gray-50 transition-colors">
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-4 py-2.5 bg-gold text-white rounded-xl text-sm font-sans font-medium hover:bg-gold-dark transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 bg-gold text-white rounded-xl text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50"
             >
               {saving ? "Saving…" : (cert ? "Update" : "Add Certificate")}
             </button>
@@ -342,7 +342,7 @@ export default function CertificatesPage() {
             { label: "Valid",         count: counts.VALID,         variant: "green" as const },
             { label: "Ongoing",       count: counts.ONGOING,       variant: "blue"  as const },
           ].map((s) => (
-            <div key={s.label} className="flex items-center gap-1.5 text-sm font-sans text-gray-600">
+            <div key={s.label} className="flex items-center gap-1.5 text-body text-gray-600">
               <Badge variant={s.variant}>{s.count}</Badge>
               <span className="text-gray-400">{s.label}</span>
             </div>
@@ -354,7 +354,7 @@ export default function CertificatesPage() {
           <select
             value={filterProp}
             onChange={(e) => setFilterProp(e.target.value)}
-            className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-gold/30"
           >
             <option value="">All properties</option>
             {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -365,7 +365,7 @@ export default function CertificatesPage() {
               <button
                 key={f.value}
                 onClick={() => setFilterStatus(f.value as CertStatus | "ALL")}
-                className={`px-3 py-1.5 text-xs font-sans rounded-lg border transition-colors ${
+                className={`px-3 py-1.5 text-caption rounded-lg border transition-colors ${
                   filterStatus === f.value
                     ? "bg-gray-900 text-white border-gray-900"
                     : "border-gray-200 text-gray-500 hover:text-gray-700"
@@ -400,11 +400,11 @@ export default function CertificatesPage() {
                   <div key={cert.id} id={`item-${cert.id}`} className="px-5 py-4 flex items-start justify-between gap-4 transition-shadow">
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-header font-sans">{cert.certificateType}</p>
+                        <p className="text-body font-medium text-header ">{cert.certificateType}</p>
                         <Badge variant={s.variant}>{s.label}</Badge>
                       </div>
-                      <p className="text-xs text-gray-400 font-sans">{cert.property.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-gray-400 font-sans flex-wrap">
+                      <p className="text-caption text-gray-400 ">{cert.property.name}</p>
+                      <div className="flex items-center gap-3 text-caption text-gray-400 flex-wrap">
                         {cert.certificateNumber && <span>#{cert.certificateNumber}</span>}
                         {cert.issuedBy && <span>Issued by {cert.issuedBy}</span>}
                         <span>Issued {format(new Date(cert.issueDate), "d MMM yyyy")}</span>
@@ -416,7 +416,7 @@ export default function CertificatesPage() {
                           <span className="text-blue-500">No expiry</span>
                         )}
                       </div>
-                      {cert.notes && <p className="text-xs text-gray-400 italic">{cert.notes}</p>}
+                      {cert.notes && <p className="text-caption text-gray-400 italic">{cert.notes}</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
@@ -456,18 +456,18 @@ export default function CertificatesPage() {
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <h2 className="font-display text-lg text-header">Delete Certificate?</h2>
-            <p className="text-sm text-gray-500 font-sans">
+            <h2 className=" text-h3 text-header">Delete Certificate?</h2>
+            <p className="text-body text-gray-500 ">
               Delete <strong>{deleteTarget.certificateType}</strong> for {deleteTarget.property.name}? This cannot be undone.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
+              <button onClick={() => setDeleteTarget(null)} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-body text-gray-600 hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-sans font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-body font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
               >
                 {deleting ? "Deleting…" : "Delete"}
               </button>

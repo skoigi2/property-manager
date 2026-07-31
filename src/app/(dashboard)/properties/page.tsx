@@ -115,8 +115,8 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
       {emptyState && (
         <div className="text-center mb-8">
           <Building2 size={40} className="mx-auto mb-3 text-gray-200" />
-          <p className="text-gray-400 font-sans text-sm">No properties yet.</p>
-          <p className="text-gray-400 font-sans text-xs mt-1">
+          <p className="text-gray-400 text-body">No properties yet.</p>
+          <p className="text-gray-400 text-caption mt-1">
             Add your first property using the button above, or load a sample to explore the app.
           </p>
         </div>
@@ -124,7 +124,7 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
 
       {emptyState && <div className="border-t border-gray-100 pt-7 mb-4" />}
 
-      <p className="text-xs font-semibold text-gray-400 font-sans uppercase tracking-wide mb-3">
+      <p className="text-label font-semibold text-gray-400 uppercase mb-3">
         {emptyState ? "Explore with sample data" : "Choose a sample property"}
       </p>
 
@@ -140,10 +140,10 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
                 : "border-gray-100 hover:border-gray-200"
             }`}
           >
-            <span className="text-2xl leading-none">{demo.flag}</span>
+            <span className="text-h1 ">{demo.flag}</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium font-sans text-[#1a2332]">{demo.name}</p>
-              <p className="text-xs text-gray-400 font-sans mt-0.5">{demo.description}</p>
+              <p className="text-body font-medium text-[#1a2332]">{demo.name}</p>
+              <p className="text-caption text-gray-400 mt-0.5">{demo.description}</p>
             </div>
             {selectedDemo === demo.key && (
               <span className="w-4 h-4 rounded-full bg-gold flex-shrink-0 mt-0.5" />
@@ -152,7 +152,7 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         ))}
       </div>
 
-      <p className="text-xs text-gray-400 font-sans mb-3">
+      <p className="text-caption text-gray-400 mb-3">
         The sample property is fully editable — explore freely, then delete it when you&apos;re ready to add your own.
       </p>
 
@@ -161,14 +161,14 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
         <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
           <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-amber-800 font-sans">This sample is already loaded.</p>
-            <p className="text-xs text-amber-700 font-sans mt-0.5">
+            <p className="text-caption font-semibold text-amber-800 ">This sample is already loaded.</p>
+            <p className="text-caption text-amber-700 mt-0.5">
               To refresh it with the latest seed data, reseed from scratch. This will delete and recreate the property and all its data.
             </p>
             <button
               onClick={() => loadDemo(true)}
               disabled={loading}
-              className="mt-2 text-xs font-semibold font-sans text-amber-700 underline underline-offset-2 hover:text-amber-900 disabled:opacity-50"
+              className="mt-2 text-caption font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-900 disabled:opacity-50"
             >
               {loading ? "Reseeding…" : "Reseed from scratch →"}
             </button>
@@ -179,7 +179,7 @@ function DemoEmptyState({ onLoaded, emptyState = false }: { onLoaded: () => void
       <button
         onClick={() => loadDemo(false)}
         disabled={loading || !selectedDemo}
-        className="w-full border border-gold text-gold py-2.5 rounded-xl font-sans font-semibold text-sm hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full border border-gold text-gold py-2.5 rounded-xl font-semibold text-body hover:bg-gold/5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? "Loading sample data…" : "Load sample property →"}
       </button>
@@ -456,7 +456,7 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
 
       {/* Landlord & banking — per-property overrides for invoice + receipt details */}
       <div className="rounded-xl border border-gray-100 p-3 space-y-3 bg-cream/30">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans">Landlord & Banking</p>
+        <p className="text-label font-semibold uppercase text-gray-500 ">Landlord & Banking</p>
         <Input
           label="Landlord Entity"
           tooltip="The legal entity that owns or holds the property (e.g. Kentmere Flora Ltd). Appears on invoices and lease agreements."
@@ -476,10 +476,10 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-600 font-sans">Description</label>
+        <label className="text-body font-medium text-gray-600 ">Description</label>
         <textarea
           rows={2}
-          className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+          className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
           {...register("description")}
         />
       </div>
@@ -599,7 +599,7 @@ function UnitFormFields({ register, errors, propertyType, paymentAccountId, onPa
               { value: "OWNER_OCCUPIED", label: "Owner Occupied" },
             ]}
           />
-          <p className="text-xs text-gray-400 font-sans">&quot;Occupied&quot; is set automatically when a tenant is assigned.</p>
+          <p className="text-caption text-gray-400 ">&quot;Occupied&quot; is set automatically when a tenant is assigned.</p>
         </div>
       </div>
 
@@ -632,11 +632,11 @@ function UnitFormFields({ register, errors, propertyType, paymentAccountId, onPa
       )}
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-600 font-sans">Description / Notes</label>
+        <label className="text-body font-medium text-gray-600 ">Description / Notes</label>
         <textarea
           rows={2}
           placeholder="e.g. Corner unit, recently renovated"
-          className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+          className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
           {...register("description")}
         />
       </div>
@@ -661,7 +661,7 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
     <div className="mt-3 border-t border-gray-100">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full pt-3 text-sm font-sans text-gray-500 hover:text-header transition-colors"
+        className="flex items-center justify-between w-full pt-3 text-body text-gray-500 hover:text-header transition-colors"
       >
         <span className="flex items-center gap-1.5">
           <Home size={13} />
@@ -673,7 +673,7 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
       {open && (
         <div className="mt-3 space-y-2">
           {property.units.length === 0 ? (
-            <p className="text-xs text-gray-400 font-sans text-center py-3">No units yet.</p>
+            <p className="text-caption text-gray-400 text-center py-3">No units yet.</p>
           ) : (
             property.units.map((u) => (
               <div
@@ -682,19 +682,19 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <StatusDot status={u.status} />
-                  <span className="font-medium text-header text-sm font-sans">{u.unitNumber}</span>
-                  <span className="text-xs text-gray-400 hidden sm:block">
+                  <span className="font-medium text-header text-body ">{u.unitNumber}</span>
+                  <span className="text-caption text-gray-400 hidden sm:block">
                     {UNIT_TYPE_LABELS[u.type] ?? u.type}
                   </span>
                   {(() => { const ds = unitDisplayStatus(u, property.type); return (
-                    <Badge variant={(STATUS_BADGE as any)[ds] ?? "gray"} className="hidden sm:inline-flex text-xs">
+                    <Badge variant={(STATUS_BADGE as any)[ds] ?? "gray"} className="hidden sm:inline-flex text-caption">
                       {UNIT_STATUS_LABELS[ds] ?? ds}
                     </Badge>
                   ); })()}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   {u.monthlyRent != null && (
-                    <span className="font-mono text-xs text-gray-500 hidden md:block">
+                    <span className="tabular-nums text-caption text-gray-500 hidden md:block">
                       {formatCurrency(u.monthlyRent, property.currency ?? "USD")}
                     </span>
                   )}
@@ -724,7 +724,7 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
           {isManager && (
             <button
               onClick={() => onAddUnit(property)}
-              className="flex items-center gap-1.5 w-full justify-center text-xs font-sans text-gold hover:text-gold/80 border border-dashed border-gold/30 hover:border-gold/60 rounded-lg py-2 transition-colors mt-1"
+              className="flex items-center gap-1.5 w-full justify-center text-caption text-gold hover:text-gold/80 border border-dashed border-gold/30 hover:border-gold/60 rounded-lg py-2 transition-colors mt-1"
             >
               <Plus size={12} />
               Add unit
@@ -788,8 +788,8 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                   <Building2 size={16} className="text-gold" />
                 </div>
                 <div>
-                  <p className="font-display text-white text-sm leading-tight">{property.name}</p>
-                  <p className="text-white/50 text-xs font-sans mt-0.5">
+                  <p className=" text-white text-body font-medium ">{property.name}</p>
+                  <p className="text-white/50 text-caption mt-0.5">
                     {property.category
                       ? `${property.category === "OTHER" && property.categoryOther ? property.categoryOther : CATEGORY_LABELS[property.category]} · `
                       : ""}
@@ -812,11 +812,11 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
 
                   {/* ── 1. Occupancy ─────────────────────────────────────── */}
                   <div>
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                    <p className="text-label font-medium text-gray-400 uppercase mb-3 flex items-center gap-1.5">
                       <Building2 size={12} /> Unit Status
                     </p>
                     {property.units.length === 0 ? (
-                      <p className="text-xs text-gray-400 font-sans">No units added yet.</p>
+                      <p className="text-caption text-gray-400 ">No units added yet.</p>
                     ) : (
                       <div className="space-y-1.5">
                         {/* Status bar */}
@@ -830,12 +830,12 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                           <div key={u.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50 last:border-0">
                             <div className="flex items-center gap-2">
                               <StatusDot status={u.status} />
-                              <span className="text-sm font-mono font-medium text-header">{u.unitNumber}</span>
-                              <span className="text-xs text-gray-400 font-sans">{UNIT_TYPE_LABELS[u.type] ?? u.type}</span>
+                              <span className="text-body tabular-nums font-medium text-header">{u.unitNumber}</span>
+                              <span className="text-caption text-gray-400 ">{UNIT_TYPE_LABELS[u.type] ?? u.type}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {u.monthlyRent != null && (
-                                <span className="text-xs font-mono text-gray-500">{formatCurrency(u.monthlyRent, property!.currency ?? "USD")}</span>
+                                <span className="text-caption tabular-nums text-gray-500">{formatCurrency(u.monthlyRent, property!.currency ?? "USD")}</span>
                               )}
                               {(() => { const ds = unitDisplayStatus(u, property!.type); return (
                                 <Badge variant={(STATUS_BADGE as any)[ds] ?? "gray"}>
@@ -846,7 +846,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                           </div>
                         ))}
                         {/* Summary counts */}
-                        <div className="flex gap-3 pt-2 text-xs font-sans text-gray-500">
+                        <div className="flex gap-3 pt-2 text-caption text-gray-500">
                           {property.type === "AIRBNB" ? (
                             <>
                               <span className="text-gold font-medium">{activeUnits(property.units, "AIRBNB")} booked</span>
@@ -869,11 +869,11 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
 
                   {/* ── 2. Current Month Financials ──────────────────────── */}
                   <div>
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                    <p className="text-label font-medium text-gray-400 uppercase mb-3 flex items-center gap-1.5">
                       <TrendingUp size={12} /> {now.toLocaleString("en-US", { month: "long" })} {now.getFullYear()} Financials
                     </p>
                     {!stmt ? (
-                      <p className="text-xs text-gray-400 font-sans">No financial data for this month.</p>
+                      <p className="text-caption text-gray-400 ">No financial data for this month.</p>
                     ) : (
                       <div className="space-y-2">
                         {[
@@ -882,23 +882,23 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                           { label: "Expenses",        value: -stmt.totalExpenses, color: "text-expense", icon: <Receipt size={13} /> },
                         ].map((row) => (
                           <div key={row.label} className="flex items-center justify-between py-1.5 border-b border-gray-50">
-                            <div className="flex items-center gap-2 text-xs text-gray-500 font-sans">
+                            <div className="flex items-center gap-2 text-caption text-gray-500 ">
                               <span className={row.color}>{row.icon}</span>
                               {row.label}
                             </div>
-                            <span className={`font-mono text-sm font-medium ${row.color}`}>
+                            <span className={`tabular-nums text-body font-medium ${row.color}`}>
                               {row.value < 0 ? "-" : ""}{formatCurrency(Math.abs(row.value), property.currency ?? "USD")}
                             </span>
                           </div>
                         ))}
                         <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                          <span className="text-xs font-semibold font-sans text-header flex items-center gap-1.5">
+                          <span className="text-caption font-semibold text-header flex items-center gap-1.5">
                             <DollarSign size={13} className="text-gold" /> Net Payable to Owner
                           </span>
                           <CurrencyDisplay
                             amount={stmt.netPayable}
                             size="md"
-                            className={`font-bold ${stmt.netPayable >= 0 ? "text-income" : "text-expense"}`}
+                            className={`font-semibold ${stmt.netPayable >= 0 ? "text-income" : "text-expense"}`}
                           />
                         </div>
                       </div>
@@ -907,11 +907,11 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
 
                   {/* ── 3. Active Tenants ────────────────────────────────── */}
                   <div>
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                    <p className="text-label font-medium text-gray-400 uppercase mb-3 flex items-center gap-1.5">
                       <Users size={12} /> Active Tenants ({tenants.length})
                     </p>
                     {tenants.length === 0 ? (
-                      <p className="text-xs text-gray-400 font-sans">No active tenants.</p>
+                      <p className="text-caption text-gray-400 ">No active tenants.</p>
                     ) : (
                       <div className="space-y-0">
                         {tenants.map((t: any) => {
@@ -922,15 +922,15 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                           return (
                             <div key={t.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-gray-50 last:border-0">
                               <div className="min-w-0">
-                                <p className="text-sm font-sans font-medium text-header truncate">{t.name}</p>
-                                <p className="text-xs text-gray-400 font-sans">
+                                <p className="text-body font-medium text-header truncate">{t.name}</p>
+                                <p className="text-caption text-gray-400 ">
                                   Unit {t.unit?.unitNumber} · {formatCurrency(t.monthlyRent, property.currency ?? "USD")}
                                 </p>
                               </div>
                               <div className="text-right shrink-0">
-                                <p className={`text-xs font-medium ${ls.color}`}>{ls.label}</p>
+                                <p className={`text-caption font-medium ${ls.color}`}>{ls.label}</p>
                                 {leaseEnd && (
-                                  <p className="text-xs text-gray-400 font-sans">{formatDate(leaseEnd)}</p>
+                                  <p className="text-caption text-gray-400 ">{formatDate(leaseEnd)}</p>
                                 )}
                               </div>
                             </div>
@@ -994,7 +994,7 @@ function PropertiesTable({
             {["", "Property", "Category", "Type", "Units", "Setup", "Mgmt Fee", "Owner", "Manager", ""].map((h, i) => (
               <th
                 key={`${h}-${i}`}
-                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 font-sans whitespace-nowrap"
+                className="px-4 py-3 text-left text-label font-semibold uppercase text-gray-500 whitespace-nowrap"
               >
                 {h}
               </th>
@@ -1032,9 +1032,9 @@ function PropertiesTable({
                 </td>
                 {/* Property name + address */}
                 <td className="px-4 py-3 min-w-[160px]">
-                  <p className="font-sans font-semibold text-header text-sm">{p.name}</p>
+                  <p className=" font-semibold text-header text-body">{p.name}</p>
                   {(p.address || p.city) && (
-                    <p className="text-xs text-gray-400 font-sans mt-0.5 truncate max-w-[200px]">
+                    <p className="text-caption text-gray-400 mt-0.5 truncate max-w-[200px]">
                       {[p.address, p.city].filter(Boolean).join(", ")}
                     </p>
                   )}
@@ -1047,7 +1047,7 @@ function PropertiesTable({
                       {p.category === "OTHER" && p.categoryOther ? p.categoryOther : CATEGORY_LABELS[p.category]}
                     </Badge>
                   ) : (
-                    <span className="text-xs text-gray-300">—</span>
+                    <span className="text-caption text-gray-300">—</span>
                   )}
                 </td>
 
@@ -1059,7 +1059,7 @@ function PropertiesTable({
                 </td>
 
                 {/* Units: total / occupied / vacant */}
-                <td className="px-4 py-3 whitespace-nowrap font-mono text-sm">
+                <td className="px-4 py-3 whitespace-nowrap tabular-nums text-body">
                   <span className="text-header">{total}</span>
                   <span className="text-gray-300 mx-1">/</span>
                   <span className="text-income">{occupied}</span>
@@ -1074,22 +1074,22 @@ function PropertiesTable({
                       {setupByProp[p.id].percent}%
                     </Badge>
                   ) : (
-                    <span className="text-xs text-gray-300">—</span>
+                    <span className="text-caption text-gray-300">—</span>
                   )}
                 </td>
 
                 {/* Mgmt fee */}
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-500">
+                <td className="px-4 py-3 whitespace-nowrap text-body text-gray-500">
                   {feeText}
                 </td>
 
                 {/* Owner */}
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-600">
+                <td className="px-4 py-3 whitespace-nowrap text-body text-gray-600">
                   {p.owner ? (p.owner.name ?? p.owner.email) : <span className="text-gray-300">—</span>}
                 </td>
 
                 {/* Manager */}
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-sans text-gray-600">
+                <td className="px-4 py-3 whitespace-nowrap text-body text-gray-600">
                   {p.manager ? (p.manager.name ?? p.manager.email) : <span className="text-gray-300">—</span>}
                 </td>
 
@@ -1211,9 +1211,9 @@ function PropertiesMobileList({
                   <Building2 size={15} className="text-gold" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-sans font-semibold text-header text-sm leading-tight truncate">{p.name}</p>
+                  <p className=" font-semibold text-header text-body truncate">{p.name}</p>
                   {(p.address || p.city) && (
-                    <p className="text-xs text-gray-400 font-sans truncate">
+                    <p className="text-caption text-gray-400 truncate">
                       {[p.address, p.city].filter(Boolean).join(", ")}
                     </p>
                   )}
@@ -1269,18 +1269,18 @@ function PropertiesMobileList({
             </div>
 
             {/* Row 3: unit counts + fee */}
-            <div className="flex items-center gap-3 mt-2 text-xs font-sans text-gray-500">
+            <div className="flex items-center gap-3 mt-2 text-caption text-gray-500">
               <span className="flex items-center gap-1">
-                <span className="font-mono font-semibold text-header">{total}</span> units
+                <span className="tabular-nums font-semibold text-header">{total}</span> units
               </span>
               <span className="text-gray-200">·</span>
               <span className="flex items-center gap-1">
-                <span className={`font-mono font-semibold ${p.type === "AIRBNB" ? "text-gold" : "text-income"}`}>{occupied}</span>
+                <span className={`tabular-nums font-semibold ${p.type === "AIRBNB" ? "text-gold" : "text-income"}`}>{occupied}</span>
                 {p.type === "AIRBNB" ? "booked" : "occupied"}
               </span>
               <span className="text-gray-200">·</span>
               <span className="flex items-center gap-1">
-                <span className="font-mono font-semibold text-yellow-500">{vacant}</span> vacant
+                <span className="tabular-nums font-semibold text-yellow-500">{vacant}</span> vacant
               </span>
               {feeText && (
                 <>
@@ -1666,9 +1666,9 @@ export default function PropertiesPage() {
                       <Building2 size={20} className="text-gold" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-display text-header text-base leading-tight">{p.name}</h3>
+                      <h3 className=" text-header text-h3 ">{p.name}</h3>
                       {(p.address || p.city) && (
-                        <p className="text-xs text-gray-400 font-sans mt-0.5">
+                        <p className="text-caption text-gray-400 mt-0.5">
                           {[p.address, p.city].filter(Boolean).join(", ")}
                         </p>
                       )}
@@ -1738,22 +1738,22 @@ export default function PropertiesPage() {
                 {/* KPI row */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div className="bg-cream rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-mono font-semibold text-header">{p._count.units}</p>
-                    <p className="text-xs text-gray-400 font-sans">Total units</p>
+                    <p className="text-h3 tabular-nums text-header">{p._count.units}</p>
+                    <p className="text-caption text-gray-400 ">Total units</p>
                   </div>
                   <div className="bg-cream rounded-lg p-2.5 text-center">
-                    <p className={`text-lg font-mono font-semibold ${p.type === "AIRBNB" ? "text-gold" : "text-income"}`}>{activeUnits(p.units, p.type)}</p>
-                    <p className="text-xs text-gray-400 font-sans">{p.type === "AIRBNB" ? "Booked" : "Occupied"}</p>
+                    <p className={`text-h3 tabular-nums ${p.type === "AIRBNB" ? "text-gold" : "text-income"}`}>{activeUnits(p.units, p.type)}</p>
+                    <p className="text-caption text-gray-400 ">{p.type === "AIRBNB" ? "Booked" : "Occupied"}</p>
                   </div>
                   <div className="bg-cream rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-mono font-semibold text-yellow-500">{vacantUnits(p.units)}</p>
-                    <p className="text-xs text-gray-400 font-sans">{p.type === "AIRBNB" ? "Maintenance/Vacant" : "Vacant"}</p>
+                    <p className="text-h3 tabular-nums text-yellow-500">{vacantUnits(p.units)}</p>
+                    <p className="text-caption text-gray-400 ">{p.type === "AIRBNB" ? "Maintenance/Vacant" : "Vacant"}</p>
                   </div>
                 </div>
 
                 {/* Fee info */}
                 {(p.managementFeeRate || p.managementFeeFlat) && (
-                  <div className="flex gap-4 text-xs text-gray-400 font-sans mb-1">
+                  <div className="flex gap-4 text-caption text-gray-400 mb-1">
                     {p.managementFeeRate && <span>Mgmt fee: {p.managementFeeRate}%</span>}
                     {p.managementFeeFlat && <span>Flat fee: {formatCurrency(p.managementFeeFlat, p.currency ?? "USD")}</span>}
                     {p.serviceChargeDefault && <span>Service charge: {formatCurrency(p.serviceChargeDefault, p.currency ?? "USD")}</span>}
@@ -1762,14 +1762,14 @@ export default function PropertiesPage() {
 
                 {/* Owner */}
                 {p.owner && (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-400 font-sans mb-1">
+                  <div className="flex items-center gap-1.5 text-caption text-gray-400 mb-1">
                     <Users size={12} />
                     <span>Owner: {p.owner.name ?? p.owner.email}</span>
                   </div>
                 )}
                 {/* Lead Manager */}
                 {p.manager && (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-400 font-sans mb-1">
+                  <div className="flex items-center gap-1.5 text-caption text-gray-400 mb-1">
                     <Users size={12} />
                     <span>Manager: {p.manager.name ?? p.manager.email}</span>
                   </div>

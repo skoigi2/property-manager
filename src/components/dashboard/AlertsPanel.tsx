@@ -72,7 +72,7 @@ function DaysPill({ days, status }: { days: number | null; status: string }) {
       : { bg: "bg-amber-100",  text: "text-amber-700",  label: `${days}d left` };
 
   return (
-    <span className={clsx("inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-medium ml-1.5 shrink-0", bg, text)}>
+    <span className={clsx("inline-flex items-center px-1.5 py-0.5 rounded text-caption tabular-nums font-medium ml-1.5 shrink-0", bg, text)}>
       {label}
     </span>
   );
@@ -99,17 +99,17 @@ function AlertRow({ alert }: { alert: AlertItem }) {
       {/* Body */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
-          <p className={clsx("text-sm font-sans font-medium leading-snug", isCrit ? "text-red-800" : "text-amber-800")}>
+          <p className={clsx("text-body font-medium ", isCrit ? "text-red-800" : "text-amber-800")}>
             {alert.message}
           </p>
           {alert.pill && (
-            <span className={clsx("inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono font-medium shrink-0", alert.pill.color)}>
+            <span className={clsx("inline-flex items-center px-1.5 py-0.5 rounded text-caption tabular-nums font-medium shrink-0", alert.pill.color)}>
               {alert.pill.label}
             </span>
           )}
         </div>
         {alert.sub && (
-          <p className={clsx("text-xs font-sans mt-0.5", isCrit ? "text-red-600" : "text-amber-600")}>
+          <p className={clsx("text-caption mt-0.5", isCrit ? "text-red-600" : "text-amber-600")}>
             {alert.sub}
           </p>
         )}
@@ -120,7 +120,7 @@ function AlertRow({ alert }: { alert: AlertItem }) {
         <button
           onClick={() => router.push(alert.action!.href)}
           className={clsx(
-            "shrink-0 flex items-center gap-1 text-xs font-medium font-sans px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap",
+            "shrink-0 flex items-center gap-1 text-caption font-medium px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap",
             isCrit
               ? "bg-red-100 text-red-700 hover:bg-red-200"
               : "bg-amber-100 text-amber-700 hover:bg-amber-200",
@@ -143,14 +143,14 @@ function AlertSection({ severity, alerts }: { severity: Severity; alerts: AlertI
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <span className={clsx(
-          "flex items-center gap-1.5 text-xs font-medium font-sans uppercase tracking-wide",
+          "flex items-center gap-1.5 text-label font-medium uppercase ",
           isCrit ? "text-expense" : "text-amber-600",
         )}>
           {isCrit ? <XCircle size={13} /> : <AlertTriangle size={13} />}
           {isCrit ? "Critical" : "Warning"}
         </span>
         <span className={clsx(
-          "text-xs font-mono font-bold px-1.5 py-0.5 rounded-full",
+          "text-caption tabular-nums font-semibold px-1.5 py-0.5 rounded-full",
           isCrit ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700",
         )}>
           {alerts.length}
@@ -295,7 +295,7 @@ export function AlertsPanel({
         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
           <CheckCircle size={16} className="text-income" />
         </div>
-        <p className="text-sm text-green-700 font-sans font-medium">All clear — no alerts for this period</p>
+        <p className="text-body text-green-700 font-medium">All clear — no alerts for this period</p>
       </div>
     );
   }
@@ -304,17 +304,17 @@ export function AlertsPanel({
     <div className="space-y-4">
       {/* Summary header */}
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-sans text-gray-500">
+        <span className="text-body text-gray-500">
           {totalCount} alert{totalCount !== 1 ? "s" : ""}
         </span>
         {critical.length > 0 && (
-          <span className="flex items-center gap-1.5 text-xs font-medium font-sans bg-red-100 text-red-700 px-2.5 py-1 rounded-full">
+          <span className="flex items-center gap-1.5 text-caption font-medium bg-red-100 text-red-700 px-2.5 py-1 rounded-full">
             <XCircle size={12} />
             {critical.length} critical
           </span>
         )}
         {warnings.length > 0 && (
-          <span className="flex items-center gap-1.5 text-xs font-medium font-sans bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">
+          <span className="flex items-center gap-1.5 text-caption font-medium bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">
             <AlertTriangle size={12} />
             {warnings.length} warning{warnings.length !== 1 ? "s" : ""}
           </span>

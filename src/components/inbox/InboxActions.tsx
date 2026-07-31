@@ -285,7 +285,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
             <span key={a.key} className="inline-flex items-center">
               <button
                 onClick={a.onClick}
-                className="inline-flex items-center gap-1 text-xs font-sans font-medium text-gray-600 hover:text-gold hover:bg-gold/5 px-2 py-1 rounded-md transition-colors"
+                className="inline-flex items-center gap-1 text-caption font-medium text-gray-600 hover:text-gold hover:bg-gold/5 px-2 py-1 rounded-md transition-colors"
               >
                 <Icon size={12} />
                 {a.label}
@@ -296,7 +296,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
         })}
         <Link
           href={item.href}
-          className="inline-flex items-center gap-1 text-xs font-sans font-medium text-gold hover:text-gold-dark px-2 py-1 rounded-md"
+          className="inline-flex items-center gap-1 text-caption font-medium text-gold hover:text-gold-dark px-2 py-1 rounded-md"
         >
           <ExternalLink size={12} />
           Open
@@ -320,7 +320,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
                 <button
                   key={a.key}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMobileOpen(false); a.onClick(); }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left text-sm font-sans text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left text-body text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <Icon size={14} className="text-gray-400 shrink-0" />
                   <span className="truncate">{a.label}</span>
@@ -330,7 +330,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
             <Link
               href={item.href}
               onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left text-sm font-sans text-gold hover:bg-gold/5 transition-colors border-t border-gray-100"
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left text-body text-gold hover:bg-gold/5 transition-colors border-t border-gray-100"
             >
               <ExternalLink size={14} className="shrink-0" />
               Open
@@ -504,7 +504,7 @@ function SetPriorityModal({ item, onClose, onSaved }: { item: InboxItem; onClose
             <button
               key={p}
               onClick={() => setPriority(p)}
-              className={`px-3 py-2 rounded-lg text-sm font-sans font-medium border transition-colors ${
+              className={`px-3 py-2 rounded-lg text-body font-medium border transition-colors ${
                 priority === p ? "border-gold bg-gold/10 text-gold-dark" : "border-gray-200 text-gray-600 hover:border-gold/40"
               }`}
             >
@@ -559,12 +559,12 @@ function RenewExpiryModal({
     <Modal open onClose={onClose} title={item.title} size="sm">
       <div className="p-5 space-y-4">
         <div>
-          <label className="block text-xs font-medium font-sans text-gray-500 mb-1">{label}</label>
+          <label className="block text-caption font-medium text-gray-500 mb-1">{label}</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
           />
         </div>
         <div className="flex justify-end gap-2">
@@ -610,22 +610,22 @@ function AdvanceStageModal({ item, onClose, onSaved }: { item: InboxItem; onClos
     <Modal open onClose={onClose} title="Advance arrears stage" size="sm">
       <div className="p-5 space-y-4">
         <div>
-          <label className="block text-xs font-medium font-sans text-gray-500 mb-1">New stage</label>
+          <label className="block text-caption font-medium text-gray-500 mb-1">New stage</label>
           <select
             value={stage}
             onChange={(e) => setStage(e.target.value as typeof STAGE_ORDER[number])}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body "
           >
             {STAGE_ORDER.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium font-sans text-gray-500 mb-1">Notes (optional)</label>
+          <label className="block text-caption font-medium text-gray-500 mb-1">Notes (optional)</label>
           <textarea
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans resize-none"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body resize-none"
           />
         </div>
         <div className="flex justify-end gap-2">
@@ -671,11 +671,11 @@ function CaseReassignModal({ item, onClose, onSaved }: { item: InboxItem; onClos
     <Modal open onClose={onClose} title="Reassign case" size="sm">
       <div className="p-5 space-y-4">
         <div>
-          <label className="block text-xs font-medium font-sans text-gray-500 mb-1">Assign to</label>
+          <label className="block text-caption font-medium text-gray-500 mb-1">Assign to</label>
           <select
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body "
           >
             <option value="">— Unassign —</option>
             {users.map((u) => (
@@ -723,7 +723,7 @@ function CaseWaitingOnModal({ item, onClose, onSaved }: { item: InboxItem; onClo
             <button
               key={o}
               onClick={() => setWaitingOn(o)}
-              className={`px-3 py-2 rounded-lg text-sm font-sans font-medium border transition-colors ${
+              className={`px-3 py-2 rounded-lg text-body font-medium border transition-colors ${
                 waitingOn === o ? "border-gold bg-gold/10 text-gold-dark" : "border-gray-200 text-gray-600 hover:border-gold/40"
               }`}
             >
@@ -767,21 +767,21 @@ function LogContactModal({ tenantId, onClose, onSaved }: { tenantId: string; onC
     <Modal open onClose={onClose} title="Log contact attempt" size="sm">
       <div className="p-5 space-y-4">
         <div>
-          <label className="block text-xs font-medium font-sans text-gray-500 mb-1">Subject</label>
+          <label className="block text-caption font-medium text-gray-500 mb-1">Subject</label>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body "
           />
         </div>
         <div>
-          <label className="block text-xs font-medium font-sans text-gray-500 mb-1">Notes</label>
+          <label className="block text-caption font-medium text-gray-500 mb-1">Notes</label>
           <textarea
             rows={3}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="What was attempted? (call, SMS, doorstep…)"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans resize-none"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body resize-none"
           />
         </div>
         <div className="flex justify-end gap-2">

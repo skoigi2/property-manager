@@ -67,7 +67,7 @@ export default function AuditPage() {
       <Header title="Audit Log" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
       <div className="page-container space-y-5">
         <Card padding="sm" className="bg-blue-50/50 border border-blue-100">
-          <p className="text-xs text-blue-700 font-sans">
+          <p className="text-caption text-blue-700 ">
             <strong>Audit Trail</strong> — every financial create, update, and delete is recorded here with the acting user and a before/after snapshot.
           </p>
         </Card>
@@ -75,12 +75,12 @@ export default function AuditPage() {
         {/* Filters */}
         <div className="flex items-center gap-3 flex-wrap">
           <select value={resource} onChange={e => setResource(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/30">
+            className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30">
             {RESOURCES.map(r => (
               <option key={r} value={r}>{r ? (RESOURCE_LABELS[r] ?? r) : "All resources"}</option>
             ))}
           </select>
-          <span className="text-xs text-gray-400 font-sans">{total.toLocaleString()} record{total !== 1 ? "s" : ""}</span>
+          <span className="text-caption text-gray-400 ">{total.toLocaleString()} record{total !== 1 ? "s" : ""}</span>
         </div>
 
         {/* Table */}
@@ -95,10 +95,10 @@ export default function AuditPage() {
               <Card padding="sm" className="cursor-pointer hover:border-gray-200 transition-colors">
                 <div className="flex items-center gap-3">
                   <Badge variant={ACTION_BADGE[log.action]}>{log.action}</Badge>
-                  <span className="text-sm font-medium text-header">{RESOURCE_LABELS[log.resource] ?? log.resource}</span>
-                  <span className="text-xs text-gray-400 font-mono truncate">{log.resourceId}</span>
-                  <span className="ml-auto text-xs text-gray-400 font-sans shrink-0">{log.userEmail ?? log.userId}</span>
-                  <span className="text-xs text-gray-400 font-sans shrink-0">{formatDate(new Date(log.createdAt))}</span>
+                  <span className="text-body font-medium text-header">{RESOURCE_LABELS[log.resource] ?? log.resource}</span>
+                  <span className="text-caption text-gray-400 font-mono truncate">{log.resourceId}</span>
+                  <span className="ml-auto text-caption text-gray-400 shrink-0">{log.userEmail ?? log.userId}</span>
+                  <span className="text-caption text-gray-400 shrink-0">{formatDate(new Date(log.createdAt))}</span>
                 </div>
 
                 {/* Expanded diff */}
@@ -106,16 +106,16 @@ export default function AuditPage() {
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     {log.before && (
                       <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">Before</p>
-                        <pre className={clsx("text-xs font-mono bg-red-50 border border-red-100 rounded p-2 overflow-auto max-h-32")}>
+                        <p className="text-caption font-medium text-gray-500 mb-1">Before</p>
+                        <pre className={clsx("text-caption font-mono bg-red-50 border border-red-100 rounded p-2 overflow-auto max-h-32")}>
                           {JSON.stringify(log.before, null, 2)}
                         </pre>
                       </div>
                     )}
                     {log.after && (
                       <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">After</p>
-                        <pre className={clsx("text-xs font-mono bg-green-50 border border-green-100 rounded p-2 overflow-auto max-h-32")}>
+                        <p className="text-caption font-medium text-gray-500 mb-1">After</p>
+                        <pre className={clsx("text-caption font-mono bg-green-50 border border-green-100 rounded p-2 overflow-auto max-h-32")}>
                           {JSON.stringify(log.after, null, 2)}
                         </pre>
                       </div>
@@ -133,7 +133,7 @@ export default function AuditPage() {
                   className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors">
                   <ChevronLeft size={16} />
                 </button>
-                <span className="text-sm font-sans text-gray-500">Page {page + 1} of {totalPages}</span>
+                <span className="text-body text-gray-500">Page {page + 1} of {totalPages}</span>
                 <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                   className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors">
                   <ChevronRight size={16} />

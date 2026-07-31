@@ -143,7 +143,7 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
         <h2 className="section-header">Rent History</h2>
         <button
           onClick={() => { setShowForm((v) => !v); setFormRent(String(currentRent)); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-medium font-sans rounded-lg hover:bg-gold-dark transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-caption font-medium rounded-lg hover:bg-gold-dark transition-colors"
         >
           <Plus size={13} />
           Log Rent Change
@@ -156,10 +156,10 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
           onSubmit={handleAdd}
           className="mb-5 p-4 border border-gold/30 bg-gold/5 rounded-xl space-y-3"
         >
-          <p className="text-xs font-medium font-sans text-gold-dark uppercase tracking-wide">New Rent Entry</p>
+          <p className="text-label font-medium text-gold-dark uppercase ">New Rent Entry</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 font-sans mb-1">Monthly Rent</label>
+              <label className="block text-caption text-gray-500 mb-1">Monthly Rent</label>
               <input
                 type="number"
                 min="0"
@@ -167,43 +167,43 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
                 required
                 value={formRent}
                 onChange={(e) => setFormRent(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 font-sans mb-1">Effective Date</label>
+              <label className="block text-caption text-gray-500 mb-1">Effective Date</label>
               <input
                 type="date"
                 required
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 font-sans mb-1">Reason <span className="text-gray-400">(optional)</span></label>
+            <label className="block text-caption text-gray-500 mb-1">Reason <span className="text-gray-400">(optional)</span></label>
             <input
               type="text"
               placeholder="e.g. Annual escalation, lease renewal, market adjustment"
               value={formReason}
               onChange={(e) => setFormReason(e.target.value)}
               maxLength={200}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
             />
           </div>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-sans text-gray-500 hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-500 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium font-sans hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 bg-gold text-white rounded-lg text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {submitting ? <><Loader2 size={13} className="animate-spin" /> Saving…</> : "Save Entry"}
             </button>
@@ -217,17 +217,17 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
         <div className="flex items-start gap-3 px-4 py-3 mb-4 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-sans font-medium text-amber-800">Rent history out of sync</p>
-            <p className="text-xs font-sans text-amber-700 mt-0.5">
-              The history timeline resolves this month&apos;s rent as <span className="font-mono font-semibold">{fmt(resolvedNow)}</span>,
-              but the tenant&apos;s current rent is <span className="font-mono font-semibold">{fmt(currentRent)}</span>.
+            <p className="text-body font-medium text-amber-800">Rent history out of sync</p>
+            <p className="text-caption text-amber-700 mt-0.5">
+              The history timeline resolves this month&apos;s rent as <span className="tabular-nums font-semibold">{fmt(resolvedNow)}</span>,
+              but the tenant&apos;s current rent is <span className="tabular-nums font-semibold">{fmt(currentRent)}</span>.
               Ledgers, reports, and invoices use the timeline — either correct an entry below
               (e.g. set the right effective date), or record the current rent now.
             </p>
             <button
               onClick={handleSyncCurrentRent}
               disabled={syncing}
-              className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-medium font-sans rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+              className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-caption font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
             >
               {syncing ? <><Loader2 size={12} className="animate-spin" /> Recording…</> : <>Record {fmt(currentRent)} as of today</>}
             </button>
@@ -238,8 +238,8 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
       {/* Current rent banner */}
       <div className="flex items-center justify-between px-4 py-3 bg-cream-dark rounded-xl mb-4">
         <div>
-          <p className="text-xs text-gray-400 font-sans uppercase tracking-wide">Current Monthly Rent</p>
-          <p className="text-lg font-mono font-semibold text-header mt-0.5">{fmt(currentRent)}</p>
+          <p className="text-label text-gray-400 uppercase ">Current Monthly Rent</p>
+          <p className="text-h3 tabular-nums text-header mt-0.5">{fmt(currentRent)}</p>
         </div>
         {sorted.length > 0 && (() => {
           const prev = sorted[sorted.length - 1].monthlyRent;
@@ -247,7 +247,7 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
           if (delta === 0) return null;
           return (
             <div className={clsx(
-              "flex items-center gap-1 text-sm font-mono font-medium px-3 py-1.5 rounded-lg",
+              "flex items-center gap-1 text-body tabular-nums font-medium px-3 py-1.5 rounded-lg",
               delta > 0 ? "text-income bg-emerald-50" : "text-expense bg-red-50",
             )}>
               {delta > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
@@ -261,8 +261,8 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
       {displayEntries.length === 0 ? (
         <div className="text-center py-10 text-gray-400">
           <TrendingUp size={28} className="mx-auto mb-2 opacity-20" />
-          <p className="text-sm font-sans">No rent history recorded yet.</p>
-          <p className="text-xs font-sans mt-1">Use &quot;Log Rent Change&quot; to track escalations and adjustments.</p>
+          <p className="text-body ">No rent history recorded yet.</p>
+          <p className="text-caption mt-1">Use &quot;Log Rent Change&quot; to track escalations and adjustments.</p>
         </div>
       ) : (
         <div className="relative">
@@ -300,12 +300,12 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-base font-semibold text-header">
+                          <span className="tabular-nums text-h3 text-header">
                             {fmt(entry.monthlyRent)}
                           </span>
                           {delta !== null && delta !== 0 && (
                             <span className={clsx(
-                              "flex items-center gap-0.5 text-xs font-mono font-medium px-2 py-0.5 rounded-full",
+                              "flex items-center gap-0.5 text-caption tabular-nums font-medium px-2 py-0.5 rounded-full",
                               delta > 0 ? "text-income bg-emerald-50" : "text-expense bg-red-50",
                             )}>
                               {delta > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -315,20 +315,20 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
                             </span>
                           )}
                           {delta === null && (
-                            <span className="text-xs font-sans text-gray-400 italic">Initial rent</span>
+                            <span className="text-caption text-gray-400 italic">Initial rent</span>
                           )}
                         </div>
                         {entry.reason && (
-                          <p className="text-xs text-gray-500 font-sans mt-1">{entry.reason}</p>
+                          <p className="text-caption text-gray-500 mt-1">{entry.reason}</p>
                         )}
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
                         <div className="text-right">
-                          <p className="text-xs font-sans text-gray-500">
+                          <p className="text-caption text-gray-500">
                             {format(new Date(entry.effectiveDate), "d MMM yyyy")}
                           </p>
-                          <p className="text-xs text-gray-400 font-sans mt-0.5">
+                          <p className="text-caption text-gray-400 mt-0.5">
                             Logged {format(new Date(entry.createdAt), "d MMM yyyy")}
                           </p>
                         </div>
@@ -354,7 +354,7 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
 
           {/* "How to use" hint at bottom */}
           {displayEntries.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-4 text-xs text-gray-400 font-sans">
+            <div className="flex items-center gap-1.5 mt-4 text-caption text-gray-400 ">
               <ChevronRight size={12} />
               {displayEntries.length} rent change{displayEntries.length !== 1 ? "s" : ""} recorded since lease start
             </div>

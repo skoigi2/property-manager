@@ -28,8 +28,8 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: stri
         <Icon size={16} className="text-gold" />
       </div>
       <div>
-        <h3 className="font-display text-header text-sm">{title}</h3>
-        {subtitle && <p className="text-xs text-gray-400 font-sans">{subtitle}</p>}
+        <h3 className=" text-header text-body font-medium">{title}</h3>
+        {subtitle && <p className="text-caption text-gray-400 ">{subtitle}</p>}
       </div>
     </div>
   );
@@ -164,11 +164,11 @@ export default function AgreementPage() {
 
       <div className="page-container">
         {propertyName && (
-          <p className="text-sm text-gray-500 font-sans mb-3">
+          <p className="text-body text-gray-500 mb-3">
             Configuring agreement for <span className="font-semibold text-header">{propertyName}</span>
           </p>
         )}
-        <p className="text-xs text-gray-400 font-sans mb-6">
+        <p className="text-caption text-gray-400 mb-6">
           Fee, deadline, and KPI fields are <span className="font-medium text-gray-500">required</span> but
           pre-filled with standard defaults — adjust what differs in your agreement, and don&apos;t leave them
           blank. All payment-detail fields are <span className="font-medium text-gray-500">optional</span>.
@@ -255,7 +255,7 @@ export default function AgreementPage() {
                 <Input label="KRA PIN / VAT Registration Number" placeholder="e.g. P051234567X" {...register("mgmtKraPin")} />
               </div>
               <div className="border-b border-gray-100 pb-4">
-                <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">Bank Transfer</p>
+                <p className="text-label font-semibold text-gray-500 uppercase mb-3">Bank Transfer</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input label="Bank Name" placeholder="e.g. KCB Bank" {...register("mgmtBankName")} />
                   <Input label="Account Name" placeholder="e.g. Koka Advisory Group" {...register("mgmtBankAccountName")} />
@@ -264,7 +264,7 @@ export default function AgreementPage() {
                 </div>
               </div>
               <div className="border-b border-gray-100 pb-4">
-                <p className="text-xs font-sans font-semibold text-gray-500 uppercase tracking-wide mb-3">M-Pesa</p>
+                <p className="text-label font-semibold text-gray-500 uppercase mb-3">M-Pesa</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input label="Paybill Number" placeholder="e.g. 522522" {...register("mgmtMpesaPaybill")} />
                   <Input label="Account No (for Paybill)" placeholder="e.g. invoice number" {...register("mgmtMpesaAccountNumber")} />
@@ -272,8 +272,8 @@ export default function AgreementPage() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600 font-sans">Additional Instructions <span className="text-gray-400 font-normal">(optional)</span></label>
-                <textarea rows={2} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-sans bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
+                <label className="text-body font-medium text-gray-600 ">Additional Instructions <span className="text-gray-400 ">(optional)</span></label>
+                <textarea rows={2} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"
                   placeholder="e.g. Please quote invoice number on your bank transfer."
                   {...register("mgmtPaymentInstructions")} />
               </div>
@@ -291,14 +291,14 @@ export default function AgreementPage() {
         <div className="border border-red-200 rounded-2xl p-6 mt-2 mb-8 space-y-4">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle size={15} className="text-expense" />
-            <h3 className="font-display text-expense text-sm">Danger Zone</h3>
+            <h3 className=" text-expense text-body font-medium">Danger Zone</h3>
           </div>
 
           {/* Export */}
           <div className="flex items-start justify-between gap-4 py-3 border-b border-red-100">
             <div>
-              <p className="text-sm font-sans font-medium text-header">Download Handover Package</p>
-              <p className="text-xs text-gray-400 font-sans mt-0.5">
+              <p className="text-body font-medium text-header">Download Handover Package</p>
+              <p className="text-caption text-gray-400 mt-0.5">
                 ZIP containing full financial history (XLSX) and all tenant documents
               </p>
             </div>
@@ -306,7 +306,7 @@ export default function AgreementPage() {
               type="button"
               onClick={handleExport}
               disabled={exporting}
-              className="flex items-center gap-2 shrink-0 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-sans text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center gap-2 shrink-0 px-3 py-1.5 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
               {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
               {exporting ? "Exporting…" : "Download"}
@@ -316,15 +316,15 @@ export default function AgreementPage() {
           {/* Delete */}
           <div className="flex items-start justify-between gap-4 py-3">
             <div>
-              <p className="text-sm font-sans font-medium text-header">Delete this property</p>
-              <p className="text-xs text-gray-400 font-sans mt-0.5">
+              <p className="text-body font-medium text-header">Delete this property</p>
+              <p className="text-caption text-gray-400 mt-0.5">
                 Permanently removes all units, tenants, and financial records. Cannot be undone.
               </p>
             </div>
             <button
               type="button"
               onClick={() => { setDeleteInput(""); setShowDelete(true); }}
-              className="flex items-center gap-2 shrink-0 px-3 py-1.5 border border-red-200 rounded-lg text-sm font-sans text-expense hover:bg-red-50"
+              className="flex items-center gap-2 shrink-0 px-3 py-1.5 border border-red-200 rounded-lg text-body text-expense hover:bg-red-50"
             >
               <Trash2 size={13} />
               Delete Property
@@ -340,7 +340,7 @@ export default function AgreementPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={18} className="text-expense shrink-0" />
-                <h3 className="font-display text-header text-base">Delete {propertyName}?</h3>
+                <h3 className=" text-header text-h3">Delete {propertyName}?</h3>
               </div>
               <button onClick={() => setShowDelete(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={16} />
@@ -348,9 +348,9 @@ export default function AgreementPage() {
             </div>
 
             {/* Summary */}
-            <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-sm font-sans space-y-1">
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-body space-y-1">
               <p className="font-medium text-expense">This will permanently delete:</p>
-              <ul className="text-gray-600 text-xs space-y-0.5 mt-1 list-disc list-inside">
+              <ul className="text-gray-600 text-caption space-y-0.5 mt-1 list-disc list-inside">
                 <li>All units and all tenant records — including any currently active tenants</li>
                 <li>All income, expense, and petty cash entries</li>
                 <li>All owner invoices and management agreements</li>
@@ -360,7 +360,7 @@ export default function AgreementPage() {
             </div>
 
             {/* Export reminder */}
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-start gap-2 text-xs font-sans text-amber-800">
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-start gap-2 text-caption text-amber-800">
               <AlertTriangle size={13} className="shrink-0 mt-0.5" />
               <span>
                 Have you downloaded the handover package?{" "}
@@ -376,7 +376,7 @@ export default function AgreementPage() {
 
             {/* Name confirmation */}
             <div>
-              <label className="text-xs text-gray-500 font-sans">
+              <label className="text-caption text-gray-500 ">
                 Type <span className="font-semibold text-header">{propertyName}</span> to confirm
               </label>
               <input
@@ -384,7 +384,7 @@ export default function AgreementPage() {
                 value={deleteInput}
                 onChange={(e) => setDeleteInput(e.target.value)}
                 placeholder={propertyName}
-                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-red-300"
+                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-red-300"
               />
             </div>
 
@@ -393,7 +393,7 @@ export default function AgreementPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting || deleteInput !== propertyName}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-expense text-white text-sm font-sans rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-expense text-white text-body rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 Delete permanently
@@ -401,7 +401,7 @@ export default function AgreementPage() {
               <button
                 type="button"
                 onClick={() => setShowDelete(false)}
-                className="px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>

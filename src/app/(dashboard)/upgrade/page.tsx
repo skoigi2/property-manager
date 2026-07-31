@@ -80,8 +80,8 @@ export default function UpgradePage() {
   return (
     <div className="page-container max-w-4xl">
       <div className="text-center mb-10">
-        <h1 className="font-display text-3xl text-header mb-2">Choose your plan</h1>
-        <p className="text-sm text-gray-500 font-sans">
+        <h1 className=" text-h1 text-header mb-2">Choose your plan</h1>
+        <p className="text-body text-gray-500 ">
           Your free trial has ended. Select a plan to continue using Groundwork PM.
         </p>
 
@@ -89,16 +89,16 @@ export default function UpgradePage() {
         <div className="inline-flex items-center gap-3 bg-white border border-gray-200 rounded-xl p-1 mt-6">
           <button
             onClick={() => setAnnual(false)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${!annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
+            className={`px-5 py-2 rounded-lg text-body font-medium transition-colors ${!annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
           >
             Monthly
           </button>
           <button
             onClick={() => setAnnual(true)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
+            className={`px-5 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${annual ? "bg-header text-white" : "text-gray-500 hover:text-header"}`}
           >
             Annual
-            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${annual ? "bg-gold text-header" : "bg-gold/10 text-gold-dark"}`}>
+            <span className={`text-caption px-2 py-0.5 rounded-full font-semibold ${annual ? "bg-gold text-header" : "bg-gold/10 text-gold-dark"}`}>
               Save 2 months
             </span>
           </button>
@@ -120,24 +120,24 @@ export default function UpgradePage() {
               }`}
             >
               {plan.highlight && (
-                <span className="text-xs font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-3">
+                <span className="text-caption font-semibold bg-gold text-header px-3 py-1 rounded-full self-start mb-3">
                   Most popular
                 </span>
               )}
 
-              <h2 className={`font-display text-xl mb-4 ${plan.highlight ? "text-white" : "text-header"}`}>
+              <h2 className={` text-h2 mb-4 ${plan.highlight ? "text-white" : "text-header"}`}>
                 {plan.name}
               </h2>
 
               <div className="mb-6">
-                <span className={`text-4xl font-display ${plan.highlight ? "text-white" : "text-header"}`}>
+                <span className={`text-h1 ${plan.highlight ? "text-white" : "text-header"}`}>
                   ${price}
                 </span>
-                <span className={`text-xs ml-1 ${plan.highlight ? "text-white/50" : "text-gray-400"}`}>
+                <span className={`text-caption ml-1 ${plan.highlight ? "text-white/50" : "text-gray-400"}`}>
                   {annual ? "/mo, billed annually" : "/mo"}
                 </span>
                 {annual && (
-                  <p className={`text-xs mt-1 ${plan.highlight ? "text-white/40" : "text-gray-300"}`}>
+                  <p className={`text-caption mt-1 ${plan.highlight ? "text-white/40" : "text-gray-300"}`}>
                     ${plan.annual}/year
                   </p>
                 )}
@@ -145,7 +145,7 @@ export default function UpgradePage() {
 
               <ul className="space-y-2 mb-8 flex-1">
                 {plan.features.map((f) => (
-                  <li key={f} className={`text-sm flex items-start gap-2 ${plan.highlight ? "text-white/80" : "text-gray-500"}`}>
+                  <li key={f} className={`text-body flex items-start gap-2 ${plan.highlight ? "text-white/80" : "text-gray-500"}`}>
                     <svg className="w-4 h-4 mt-0.5 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -157,7 +157,7 @@ export default function UpgradePage() {
               <button
                 onClick={() => openCheckout(plan.key)}
                 disabled={!paddle || isLoading}
-                className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                className={`w-full py-2.5 rounded-lg text-body font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                   plan.highlight
                     ? "bg-gold text-header hover:bg-gold/90"
                     : "bg-header text-white hover:bg-header/90"
@@ -170,7 +170,7 @@ export default function UpgradePage() {
         })}
       </div>
 
-      <p className="text-center text-xs text-gray-400 mt-8 font-sans">
+      <p className="text-center text-caption text-gray-400 mt-8 ">
         Payments are processed securely by Paddle · Cancel anytime ·{" "}
         <a href="/refund" className="hover:text-header underline">Refund policy</a>
       </p>

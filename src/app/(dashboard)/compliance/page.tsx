@@ -128,19 +128,19 @@ function KpiCard({
   const inner = (
     <>
       <div className="flex items-start justify-between">
-        <p className="text-xs font-sans text-gray-500 leading-tight pr-2">{label}</p>
+        <p className="text-caption text-gray-500 pr-2">{label}</p>
         <div className="flex items-center gap-1 shrink-0">
           <RagIcon rag={rag} />
           {href && <ChevronRight size={12} className="text-gray-300" />}
         </div>
       </div>
-      <p className={`font-mono text-2xl font-semibold ${
+      <p className={`tabular-nums text-h1 ${
         rag === "green" ? "text-income" : rag === "amber" ? "text-yellow-500" : rag === "red" ? "text-red-500" : "text-gray-300"
       }`}>
         {display}{suffix}
       </p>
       <div className="flex items-center justify-between mt-auto">
-        <span className="text-xs text-gray-400 font-sans">Target: {targetDisplay}</span>
+        <span className="text-caption text-gray-400 ">Target: {targetDisplay}</span>
         <Badge variant={RAG_BADGE[rag]}>
           {rag === "green" ? "On Track" : rag === "amber" ? "At Risk" : rag === "red" ? "Breached" : "No Data"}
         </Badge>
@@ -248,7 +248,7 @@ export default function CompliancePage() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
             <select
-              className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 font-sans bg-white"
+              className="text-body border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
             >
@@ -257,7 +257,7 @@ export default function CompliancePage() {
               ))}
             </select>
             <select
-              className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 font-sans bg-white"
+              className="text-body border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
             >
@@ -269,7 +269,7 @@ export default function CompliancePage() {
           {propertyIdForAgreement && (
             <Link
               href={`/properties/${propertyIdForAgreement}/agreement`}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-header font-sans border border-gray-200 rounded-lg px-3 py-1.5 transition-colors bg-white"
+              className="flex items-center gap-1.5 text-caption text-gray-500 hover:text-header border border-gray-200 rounded-lg px-3 py-1.5 transition-colors bg-white"
             >
               <Settings size={13} />
               Configure Agreement
@@ -280,7 +280,7 @@ export default function CompliancePage() {
         {loading ? (
           <div className="flex items-center justify-center py-24"><Spinner size="lg" /></div>
         ) : !data ? (
-          <div className="text-center py-20 text-gray-400 text-sm font-sans">
+          <div className="text-center py-20 text-gray-400 text-body ">
             Failed to load compliance data
           </div>
         ) : (
@@ -292,28 +292,28 @@ export default function CompliancePage() {
                   <div className="w-7 h-7 rounded-lg bg-gold/10 flex items-center justify-center">
                     <Target size={14} className="text-gold" />
                   </div>
-                  <h2 className="font-display text-header text-sm">Agreement Terms</h2>
+                  <h2 className=" text-header text-body font-medium">Agreement Terms</h2>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm font-sans">
-                  <div><p className="text-gray-400 text-xs">Mgmt Fee</p><p className="font-semibold text-header">{data.agreement.managementFeeRate}%</p></div>
-                  <div><p className="text-gray-400 text-xs">Letting Fee</p><p className="font-semibold text-header">{data.agreement.newLettingFeeRate}% of first month</p></div>
-                  <div><p className="text-gray-400 text-xs">Renewal Fee</p><p className="font-semibold text-header">{formatCurrency(data.agreement.leaseRenewalFeeFlat, currency)}</p></div>
-                  <div><p className="text-gray-400 text-xs">Repair Limit</p><p className="font-semibold text-header">{formatCurrency(data.agreement.repairAuthorityLimit, currency)}</p></div>
-                  <div><p className="text-gray-400 text-xs">Vacancy Fee</p><p className="font-semibold text-header">{data.agreement.vacancyFeeRate}% after {data.agreement.vacancyFeeThresholdMonths} months</p></div>
-                  <div><p className="text-gray-400 text-xs">Rent Remittance</p><p className="font-semibold text-header">{data.agreement.rentRemittanceDay}th of month</p></div>
-                  <div><p className="text-gray-400 text-xs">Mgmt Invoice</p><p className="font-semibold text-header">{data.agreement.mgmtFeeInvoiceDay}th of month</p></div>
-                  <div><p className="text-gray-400 text-xs">KPI Start</p><p className="font-semibold text-header">{data.agreement.kpiStartDate ? formatDate(new Date(data.agreement.kpiStartDate)) : "Not set"}</p></div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-body ">
+                  <div><p className="text-gray-400 text-caption">Mgmt Fee</p><p className="font-semibold text-header">{data.agreement.managementFeeRate}%</p></div>
+                  <div><p className="text-gray-400 text-caption">Letting Fee</p><p className="font-semibold text-header">{data.agreement.newLettingFeeRate}% of first month</p></div>
+                  <div><p className="text-gray-400 text-caption">Renewal Fee</p><p className="font-semibold text-header">{formatCurrency(data.agreement.leaseRenewalFeeFlat, currency)}</p></div>
+                  <div><p className="text-gray-400 text-caption">Repair Limit</p><p className="font-semibold text-header">{formatCurrency(data.agreement.repairAuthorityLimit, currency)}</p></div>
+                  <div><p className="text-gray-400 text-caption">Vacancy Fee</p><p className="font-semibold text-header">{data.agreement.vacancyFeeRate}% after {data.agreement.vacancyFeeThresholdMonths} months</p></div>
+                  <div><p className="text-gray-400 text-caption">Rent Remittance</p><p className="font-semibold text-header">{data.agreement.rentRemittanceDay}th of month</p></div>
+                  <div><p className="text-gray-400 text-caption">Mgmt Invoice</p><p className="font-semibold text-header">{data.agreement.mgmtFeeInvoiceDay}th of month</p></div>
+                  <div><p className="text-gray-400 text-caption">KPI Start</p><p className="font-semibold text-header">{data.agreement.kpiStartDate ? formatDate(new Date(data.agreement.kpiStartDate)) : "Not set"}</p></div>
                 </div>
               </Card>
             ) : (
               <Card>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-sans text-gray-500">
+                  <div className="flex items-center gap-2 text-body text-gray-500">
                     <AlertTriangle size={16} className="text-yellow-500" />
                     No management agreement configured for this property.
                   </div>
                   {propertyIdForAgreement && (
-                    <Link href={`/properties/${propertyIdForAgreement}/agreement`} className="text-xs text-gold hover:underline font-sans">
+                    <Link href={`/properties/${propertyIdForAgreement}/agreement`} className="text-caption text-gold hover:underline ">
                       Set up agreement →
                     </Link>
                   )}
@@ -334,8 +334,8 @@ export default function CompliancePage() {
                     <>
                       <Calendar size={18} className={calendarClass} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold font-sans text-header">{d.label}</p>
-                        <p className="text-xs text-gray-500 font-sans">
+                        <p className="text-body font-semibold text-header">{d.label}</p>
+                        <p className="text-caption text-gray-500 ">
                           Due {d.dayOfMonth}{d.dayOfMonth === 1 ? "st" : d.dayOfMonth === 2 ? "nd" : d.dayOfMonth === 3 ? "rd" : "th"} of the month
                           {" — "}
                           {d.overdue
@@ -348,7 +348,7 @@ export default function CompliancePage() {
                         <button
                           onClick={(e) => { e.stopPropagation(); generateMgmtFeeInvoice(); }}
                           disabled={generatingInvoice}
-                          className="shrink-0 text-xs font-sans font-medium text-white bg-gold hover:bg-gold-dark disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors"
+                          className="shrink-0 text-caption font-medium text-white bg-gold hover:bg-gold-dark disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors"
                         >
                           {generatingInvoice ? "Generating…" : "Generate Draft"}
                         </button>
@@ -371,7 +371,7 @@ export default function CompliancePage() {
 
             {/* ── KPI Scorecard ── */}
             <div>
-              <h2 className="font-display text-header text-sm mb-3">KPI Scorecard — {MONTHS[month - 1]} {year}</h2>
+              <h2 className=" text-header text-body font-medium mb-3">KPI Scorecard — {MONTHS[month - 1]} {year}</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <KpiCard
                   label="Occupancy Rate"
@@ -428,7 +428,7 @@ export default function CompliancePage() {
                 />
               </div>
               {/* Counts context */}
-              <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-400 font-sans">
+              <div className="flex flex-wrap gap-4 mt-3 text-caption text-gray-400 ">
                 <span>{data.counts.activeUnits}/{data.counts.totalUnits} units occupied</span>
                 <span>{formatCurrency(data.counts.totalCollected, currency)} / {formatCurrency(data.counts.totalExpected, currency)} collected</span>
                 <span>{data.counts.doneJobsCount}/{data.counts.totalJobsCount} jobs done</span>
@@ -444,16 +444,16 @@ export default function CompliancePage() {
                     <Building2 size={14} className="text-yellow-500" />
                   </div>
                   <div>
-                    <h2 className="font-display text-header text-sm">Long-vacant Units</h2>
-                    <p className="text-xs text-gray-400 font-sans">Vacant over {data.targets.vacancyFeeThresholdMonths} months — vacancy fee may apply</p>
+                    <h2 className=" text-header text-body font-medium">Long-vacant Units</h2>
+                    <p className="text-caption text-gray-400 ">Vacant over {data.targets.vacancyFeeThresholdMonths} months — vacancy fee may apply</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   {data.longVacant.map((u) => (
                     <Link key={u.id} href="/properties" className="flex items-center justify-between p-3 rounded-lg bg-yellow-50/60 border border-yellow-100 hover:bg-yellow-50 hover:border-yellow-200 transition-colors">
                       <div>
-                        <p className="text-sm font-semibold font-sans text-header">Unit {u.unitNumber} — {u.propertyName}</p>
-                        <p className="text-xs text-gray-500 font-sans">Vacant since {formatDate(new Date(u.vacantSince))} · {u.daysVacant} days</p>
+                        <p className="text-body font-semibold text-header">Unit {u.unitNumber} — {u.propertyName}</p>
+                        <p className="text-caption text-gray-500 ">Vacant since {formatDate(new Date(u.vacantSince))} · {u.daysVacant} days</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="amber">{Math.floor(u.daysVacant / 30)} months</Badge>
@@ -474,11 +474,11 @@ export default function CompliancePage() {
                       <ShieldCheck size={14} className="text-blue-500" />
                     </div>
                     <div>
-                      <h2 className="font-display text-header text-sm">Compliance Certificates</h2>
-                      <p className="text-xs text-gray-400 font-sans">Certificate validity and upcoming renewals</p>
+                      <h2 className=" text-header text-body font-medium">Compliance Certificates</h2>
+                      <p className="text-caption text-gray-400 ">Certificate validity and upcoming renewals</p>
                     </div>
                   </div>
-                  <Link href="/compliance/certificates" className="text-xs text-gray-400 hover:text-header font-sans flex items-center gap-1 transition-colors">
+                  <Link href="/compliance/certificates" className="text-caption text-gray-400 hover:text-header flex items-center gap-1 transition-colors">
                     View all <ChevronRight size={12} />
                   </Link>
                 </div>
@@ -488,7 +488,7 @@ export default function CompliancePage() {
                     { label: "Expiring Soon", count: certs.filter((c) => c.status === "EXPIRING_SOON").length, variant: "amber" as const },
                     { label: "Valid",         count: certs.filter((c) => c.status === "VALID").length,         variant: "green" as const },
                   ].map((s) => s.count > 0 && (
-                    <div key={s.label} className="flex items-center gap-1.5 text-xs text-gray-500 font-sans">
+                    <div key={s.label} className="flex items-center gap-1.5 text-caption text-gray-500 ">
                       <Badge variant={s.variant}>{s.count}</Badge> {s.label}
                     </div>
                   ))}
@@ -500,8 +500,8 @@ export default function CompliancePage() {
                     .map((cert) => (
                       <div key={cert.id} className={`flex items-center justify-between p-3 rounded-lg border ${cert.status === "EXPIRED" ? "bg-red-50/40 border-red-100" : "bg-amber-50/40 border-amber-100"}`}>
                         <div>
-                          <p className="text-sm font-semibold font-sans text-header">{cert.certificateType}</p>
-                          <p className="text-xs text-gray-500 font-sans">{cert.property.name}</p>
+                          <p className="text-body font-semibold text-header">{cert.certificateType}</p>
+                          <p className="text-caption text-gray-500 ">{cert.property.name}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant={cert.status === "EXPIRED" ? "red" : "amber"}>
@@ -525,21 +525,21 @@ export default function CompliancePage() {
                     <Wrench size={14} className="text-red-500" />
                   </div>
                   <div>
-                    <h2 className="font-display text-header text-sm">Repair Approval Queue</h2>
-                    <p className="text-xs text-gray-400 font-sans">Jobs exceeding repair authority limit requiring landlord written approval</p>
+                    <h2 className=" text-header text-body font-medium">Repair Approval Queue</h2>
+                    <p className="text-caption text-gray-400 ">Jobs exceeding repair authority limit requiring landlord written approval</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   {data.approvalQueue.map((job) => (
                     <div key={job.id} className="flex items-center justify-between p-3 rounded-lg bg-red-50/40 border border-red-100">
                       <div>
-                        <p className="text-sm font-semibold font-sans text-header">{job.title}</p>
-                        <p className="text-xs text-gray-500 font-sans">
+                        <p className="text-body font-semibold text-header">{job.title}</p>
+                        <p className="text-caption text-gray-500 ">
                           {job.property.name}{job.unit ? ` · Unit ${job.unit.unitNumber}` : ""} · Reported {formatDate(new Date(job.reportedDate))}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {job.cost && <span className="text-sm font-mono font-semibold text-red-600">{formatCurrency(job.cost, currency)}</span>}
+                        {job.cost && <span className="text-body tabular-nums font-semibold text-red-600">{formatCurrency(job.cost, currency)}</span>}
                         <Link href="/maintenance" className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-100">
                           <ChevronRight size={14} />
                         </Link>

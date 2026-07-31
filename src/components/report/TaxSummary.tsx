@@ -35,8 +35,8 @@ function TaxKpiCard({
 }) {
   return (
     <div className={clsx("rounded-xl p-4 border-l-4", bgColor, borderColor)}>
-      <p className="text-xs font-sans font-medium text-gray-500 uppercase tracking-wide mb-0.5">{label}</p>
-      <p className="text-xs text-gray-400 font-sans mb-2">{sublabel}</p>
+      <p className="text-label font-medium text-gray-500 uppercase mb-0.5">{label}</p>
+      <p className="text-caption text-gray-400 mb-2">{sublabel}</p>
       <CurrencyDisplay currency={currency} amount={value} className={clsx("font-semibold", color)} size="lg" />
     </div>
   );
@@ -109,7 +109,7 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
 
   if (!data) {
     return (
-      <p className="text-center text-gray-400 text-sm py-16">
+      <p className="text-center text-gray-400 text-body py-16">
         Failed to load report data.
       </p>
     );
@@ -124,8 +124,8 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
           <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
             <Info size={22} className="text-gray-400" />
           </div>
-          <p className="font-display text-base text-header">No Tax Data for This Period</p>
-          <p className="text-sm text-gray-400 font-sans max-w-xs">
+          <p className=" text-h3 text-header">No Tax Data for This Period</p>
+          <p className="text-body text-gray-400 max-w-xs">
             No VAT or withholding tax was recorded on income or expenses in{" "}
             {data.period}. Configure tax rates in <strong>Settings → Tax</strong> to
             start tracking.
@@ -147,7 +147,7 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
       <div className="flex justify-end">
         <button
           onClick={() => exportTaxSummary(tax, currency, periodLabel)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gray-500 border border-gray-200 rounded-lg hover:border-green-300 hover:text-green-700 hover:bg-green-50 transition-colors"
         >
           <FileDown size={13} /> Export CSV
         </button>
@@ -156,7 +156,7 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
       {/* VAT Section */}
       {hasVat && (
         <Card>
-          <h3 className="font-display text-base text-header mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+          <h3 className=" text-h3 text-header mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
             <span className="w-2 h-5 rounded bg-gold inline-block" />
             VAT Summary — {periodLabel}
           </h3>
@@ -193,7 +193,7 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
 
           {/* VAT Statement */}
           <div className="bg-cream rounded-xl p-4 max-w-sm space-y-2">
-            <p className="text-xs font-medium font-sans text-header uppercase tracking-wide mb-3">
+            <p className="text-label font-medium text-header uppercase mb-3">
               VAT Statement
             </p>
             {[
@@ -201,9 +201,9 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
               { label: "Less: Input VAT (claimable)",    value: -tax.inputTaxAdditive, sign: "−" },
             ].map((row) => (
               <div key={row.label} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
-                <span className="text-sm font-sans text-gray-600">{row.label}</span>
+                <span className="text-body text-gray-600">{row.label}</span>
                 <span className={clsx(
-                  "font-mono text-sm",
+                  "tabular-nums text-body",
                   row.value < 0 ? "text-income" : "text-expense",
                 )}>
                   {row.value < 0 ? "(" : ""}{formatCurrency(Math.abs(row.value), currency)}{row.value < 0 ? ")" : ""}
@@ -211,11 +211,11 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
               </div>
             ))}
             <div className="flex items-center justify-between pt-2 border-t-2 border-gray-200">
-              <span className="text-sm font-semibold font-sans text-header">
+              <span className="text-body font-semibold text-header">
                 Net VAT {netIsLiability ? "Liability" : netIsCredit ? "Credit" : "Position"}
               </span>
               <span className={clsx(
-                "font-mono text-sm font-bold",
+                "tabular-nums text-body font-semibold",
                 netIsLiability ? "text-expense" : netIsCredit ? "text-income" : "text-gray-500",
               )}>
                 {formatCurrency(Math.abs(tax.netVatLiability), currency)}
@@ -226,7 +226,7 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
 
           {/* Advisory notice */}
           <div className={clsx(
-            "flex items-start gap-3 mt-4 p-3.5 rounded-xl border text-sm font-sans",
+            "flex items-start gap-3 mt-4 p-3.5 rounded-xl border text-body ",
             netIsLiability
               ? "bg-amber-50 border-amber-100 text-amber-700"
               : netIsCredit
@@ -260,7 +260,7 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
       {/* Withholding Tax Section */}
       {hasWht && (
         <Card>
-          <h3 className="font-display text-base text-header mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+          <h3 className=" text-h3 text-header mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
             <span className="w-2 h-5 rounded bg-gold inline-block" />
             Withholding Tax (WHT) — {periodLabel}
           </h3>
@@ -290,7 +290,7 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
             )}
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-xl text-sm font-sans text-amber-700">
+          <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-xl text-body text-amber-700">
             <Info size={15} className="shrink-0 mt-0.5" />
             <span>
               Withholding tax amounts are deducted at source before remittance. These must be
@@ -306,8 +306,8 @@ export function TaxSummaryTab({ year, month, selectedId }: TaxSummaryTabProps) {
           <div className="flex items-start gap-3">
             <Info size={15} className="text-gray-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium font-sans text-gray-600 mb-1">Vendor-Level VAT</p>
-              <p className="text-xs text-gray-400 font-sans">
+              <p className="text-body font-medium text-gray-600 mb-1">Vendor-Level VAT</p>
+              <p className="text-caption text-gray-400 ">
                 To see VAT broken down per vendor, go to the{" "}
                 <strong>P&L Preview</strong> tab and expand the Vendor Spend section. VAT is
                 recorded at the expense line item level when the expense is linked to a

@@ -187,7 +187,7 @@ async function runLeaseRenewal90d(organizationId: string): Promise<HandlerResult
       triggerLine: "lease expires within 90 days",
       body: `Lease for ${t.name} (Unit ${t.unit.unitNumber}) expires within 90 days. Renewal case opened automatically.`,
     });
-    ok ? created++ : skipped++;
+    if (ok) created++; else skipped++;
   }
   return { created, skipped };
 }
@@ -223,7 +223,7 @@ async function runArrears7d(organizationId: string): Promise<HandlerResult> {
       triggerLine: "rent is more than 7 days overdue",
       body: `${t.name} (Unit ${t.unit.unitNumber}) has rent more than 7 days overdue. Arrears case opened automatically.`,
     });
-    ok ? created++ : skipped++;
+    if (ok) created++; else skipped++;
   }
   return { created, skipped };
 }
@@ -253,7 +253,7 @@ async function runCompliance30d(organizationId: string): Promise<HandlerResult> 
       triggerLine: "compliance certificate expires within 30 days",
       body: `${c.certificateType} for ${c.property.name} expires within 30 days. Compliance case opened automatically.`,
     });
-    ok ? created++ : skipped++;
+    if (ok) created++; else skipped++;
   }
   return { created, skipped };
 }
@@ -283,7 +283,7 @@ async function runInsurance30d(organizationId: string): Promise<HandlerResult> {
       triggerLine: "insurance policy expires within 30 days",
       body: `${p.type} policy for ${p.property.name} expires within 30 days. Insurance renewal case opened automatically.`,
     });
-    ok ? created++ : skipped++;
+    if (ok) created++; else skipped++;
   }
   return { created, skipped };
 }

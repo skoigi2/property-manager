@@ -150,16 +150,16 @@ export function GlobalSearch() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
             placeholder="Search tenants, invoices, cases, vendors…"
-            className="flex-1 py-3.5 text-sm font-sans outline-none placeholder:text-gray-400"
+            className="flex-1 py-3.5 text-body outline-none placeholder:text-gray-400"
           />
-          <kbd className="hidden sm:block text-[10px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 font-sans">
+          <kbd className="hidden sm:block text-caption text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 ">
             esc
           </kbd>
         </div>
 
         <div className="max-h-[50vh] overflow-y-auto">
           {query.trim().length >= 2 && !loading && ordered.length === 0 && (
-            <p className="px-4 py-8 text-center text-sm text-gray-400 font-sans">
+            <p className="px-4 py-8 text-center text-body text-gray-400 ">
               No results for &ldquo;{query.trim()}&rdquo;
             </p>
           )}
@@ -170,7 +170,7 @@ export function GlobalSearch() {
             const Icon = TYPE_META[type].icon;
             return (
               <div key={type} className="py-1">
-                <p className="px-4 pt-2 pb-1 text-[10px] uppercase tracking-wider text-gray-400 font-sans font-medium">
+                <p className="px-4 pt-2 pb-1 text-label uppercase text-gray-400 font-medium">
                   {TYPE_META[type].label}
                 </p>
                 {group.map((r) => {
@@ -188,9 +188,9 @@ export function GlobalSearch() {
                     >
                       <Icon size={15} className={isActive ? "text-gold" : "text-gray-400"} />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-sm font-sans text-gray-800 truncate">{r.title}</span>
+                        <span className="block text-body text-gray-800 truncate">{r.title}</span>
                         {r.subtitle && (
-                          <span className="block text-xs font-sans text-gray-400 truncate">{r.subtitle}</span>
+                          <span className="block text-caption text-gray-400 truncate">{r.subtitle}</span>
                         )}
                       </span>
                     </button>
@@ -201,7 +201,7 @@ export function GlobalSearch() {
           })}
         </div>
 
-        <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-3 text-[10px] text-gray-400 font-sans">
+        <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-3 text-caption text-gray-400 ">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
         </div>

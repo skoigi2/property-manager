@@ -93,14 +93,14 @@ export function PaymentAccountSelect({
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-gray-600 font-sans flex items-center gap-1.5">
+        <label className="text-body font-medium text-gray-600 flex items-center gap-1.5">
           <span>{label}</span>
           {tooltip && <HelpTip text={tooltip} />}
         </label>
         <button
           type="button"
           onClick={() => setCreating((v) => !v)}
-          className="flex items-center gap-1 text-xs font-sans font-medium text-gold hover:text-gold-dark transition-colors"
+          className="flex items-center gap-1 text-caption font-medium text-gold hover:text-gold-dark transition-colors"
         >
           <Plus size={12} /> New account
         </button>
@@ -109,7 +109,7 @@ export function PaymentAccountSelect({
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        className="w-full border border-gray-200 rounded-lg text-sm font-sans px-3 py-2.5 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold"
+        className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold"
       >
         <option value="">{inheritLabel}</option>
         {accounts.map((a) => (
@@ -119,9 +119,9 @@ export function PaymentAccountSelect({
           </option>
         ))}
       </select>
-      {loading && <p className="text-xs text-gray-400 font-sans mt-1">Loading accounts…</p>}
+      {loading && <p className="text-caption text-gray-400 mt-1">Loading accounts…</p>}
       {selected && (
-        <p className="text-xs text-gray-400 font-sans mt-1">
+        <p className="text-caption text-gray-400 mt-1">
           {[
             selected.bankName && `${selected.bankName}${selected.bankAccountNumber ? ` · ${selected.bankAccountNumber}` : ""}`,
             selected.mpesaPaybill && `Paybill ${selected.mpesaPaybill}`,
@@ -135,31 +135,31 @@ export function PaymentAccountSelect({
           <input
             type="text" placeholder="Account name, e.g. KCB — Main Collections *"
             value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40"
           />
           <div className="grid grid-cols-2 gap-2">
             <input type="text" placeholder="Bank name" value={draft.bankName} onChange={(e) => setDraft((d) => ({ ...d, bankName: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40" />
             <input type="text" placeholder="Account name" value={draft.bankAccountName} onChange={(e) => setDraft((d) => ({ ...d, bankAccountName: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40" />
             <input type="text" placeholder="Account number" value={draft.bankAccountNumber} onChange={(e) => setDraft((d) => ({ ...d, bankAccountNumber: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40" />
             <input type="text" placeholder="M-Pesa Paybill" value={draft.mpesaPaybill} onChange={(e) => setDraft((d) => ({ ...d, mpesaPaybill: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40" />
             <input type="text" placeholder="M-Pesa Till" value={draft.mpesaTill} onChange={(e) => setDraft((d) => ({ ...d, mpesaTill: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-gold/40" />
+              className="border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/40" />
           </div>
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={handleCreate} disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-xs font-medium font-sans rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white text-caption font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50">
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : "Create account"}
             </button>
             <button type="button" onClick={() => setCreating(false)}
-              className="px-3 py-1.5 border border-gray-200 text-gray-500 text-xs font-sans rounded-lg hover:bg-gray-50 transition-colors">
+              className="px-3 py-1.5 border border-gray-200 text-gray-500 text-caption rounded-lg hover:bg-gray-50 transition-colors">
               Cancel
             </button>
           </div>
-          <p className="text-[11px] text-gray-400 font-sans">
+          <p className="text-caption text-gray-400 ">
             Full details (branch, instructions) can be edited later in Settings → Payment Accounts.
           </p>
         </div>

@@ -8,6 +8,21 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    // The ONLY type scale. Replaces (not extends) Tailwind's stock sizes so
+    // text-sm / text-2xl / text-[13px] etc. simply don't exist — every size,
+    // line height, letter-spacing and default weight comes from these 8 tokens.
+    // Rules: weights 400/500/600 only; serif is the logo wordmark only; money
+    // uses tabular-nums; no leading-*/tracking-* in normal use. See docs/typography.md.
+    fontSize: {
+      display: ["3rem", { lineHeight: "3.25rem", letterSpacing: "-0.025em", fontWeight: "600" }], // 48/52 — marketing hero (desktop)
+      h1: ["1.75rem", { lineHeight: "2.125rem", letterSpacing: "-0.02em", fontWeight: "600" }], // 28/34 — page titles, KPI values
+      h2: ["1.25rem", { lineHeight: "1.75rem", letterSpacing: "-0.015em", fontWeight: "600" }], // 20/28 — card/section headings
+      h3: ["1rem", { lineHeight: "1.5rem", letterSpacing: "-0.01em", fontWeight: "600" }], // 16/24 — sub-headings, modal titles
+      "body-lg": ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }], // 16/24 — marketing/lead paragraphs
+      body: ["0.875rem", { lineHeight: "1.25rem", fontWeight: "400" }], // 14/20 — default UI text
+      caption: ["0.75rem", { lineHeight: "1rem", letterSpacing: "0.01em", fontWeight: "400" }], // 12/16 — meta, badges, dense cells
+      label: ["0.6875rem", { lineHeight: "0.875rem", letterSpacing: "0.05em", fontWeight: "500" }], // 11/14 — uppercase micro-labels
+    },
     extend: {
       colors: {
         gold: {
@@ -28,8 +43,10 @@ const config: Config = {
         header: "#1A1A2E",
       },
       fontFamily: {
+        // display = DM Serif Display, logo wordmark ONLY.
         display: ["var(--font-display)", "serif"],
-        mono: ["var(--font-mono)", "monospace"],
+        // mono = system stack, scoped to API keys / tokens / reference codes. Never money.
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", "monospace"],
         sans: ["var(--font-sans)", "sans-serif"],
       },
       boxShadow: {

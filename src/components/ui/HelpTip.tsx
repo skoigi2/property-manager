@@ -25,7 +25,7 @@ export function HelpTip({ text, position = "above" }: HelpTipProps) {
       <span
         role="img"
         aria-label="Help"
-        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-200 text-gray-500 text-[9px] font-bold leading-none cursor-help select-none hover:bg-gold/20 hover:text-gold-dark transition-colors duration-150"
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-200 text-gray-500 text-label font-semibold cursor-help select-none hover:bg-gold/20 hover:text-gold-dark transition-colors duration-150"
       >
         i
       </span>
@@ -34,7 +34,7 @@ export function HelpTip({ text, position = "above" }: HelpTipProps) {
       <span
         className={[
           "pointer-events-none absolute left-1/2 -translate-x-1/2 w-56 rounded-xl bg-gray-800 px-3 py-2.5",
-          "text-[11px] text-white font-sans leading-relaxed font-normal normal-case tracking-normal",
+          "text-caption text-white normal-case ",
           "opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50 shadow-xl",
           isAbove ? "bottom-full mb-2" : "top-full mt-2",
         ].join(" ")}

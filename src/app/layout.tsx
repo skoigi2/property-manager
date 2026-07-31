@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Serif_Display, DM_Mono, DM_Sans } from "next/font/google";
+import { DM_Serif_Display, Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { Analytics } from "@vercel/analytics/react";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
+// DM Serif Display is the logo wordmark face ONLY — never for headings or numbers.
 const dmSerif = DM_Serif_Display({
   subsets: ["latin"],
   weight: "400",
@@ -12,14 +13,7 @@ const dmSerif = DM_Serif_Display({
   display: "swap",
 });
 
-const dmMono = DM_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
@@ -60,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${dmSerif.variable} ${dmMono.variable} ${dmSans.variable}`}>
+    <html lang="en" className={`${dmSerif.variable} ${inter.variable}`}>
       <head>
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
       </head>
@@ -70,7 +64,7 @@ export default function RootLayout({
         <Toaster
           position="top-right"
           toastOptions={{
-            className: "font-sans text-sm",
+            className: "text-body",
             success: { iconTheme: { primary: "#16A34A", secondary: "#fff" } },
             error: { iconTheme: { primary: "#DC2626", secondary: "#fff" } },
           }}

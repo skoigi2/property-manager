@@ -194,7 +194,7 @@ export function MobileNav({ role }: MobileNavProps) {
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
+                  "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-caption transition-colors",
                   pathname === item.href ? "text-gold" : "text-white/50 hover:text-white/80"
                 )}
               >
@@ -229,7 +229,7 @@ export function MobileNav({ role }: MobileNavProps) {
                 key={item.href}
                 href={item.href}
                 className={clsx(
-                  "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
+                  "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-caption transition-colors",
                   isActive ? "text-gold" : "text-white/50 hover:text-white/80"
                 )}
               >
@@ -241,7 +241,7 @@ export function MobileNav({ role }: MobileNavProps) {
           <button
             onClick={() => setDrawerOpen(true)}
             className={clsx(
-              "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-xs font-sans transition-colors",
+              "flex-1 min-w-0 flex flex-col items-center py-2.5 gap-0.5 text-caption transition-colors",
               drawerOpen || drawerIsActive ? "text-gold" : "text-white/50 hover:text-white/80"
             )}
           >
@@ -259,7 +259,7 @@ export function MobileNav({ role }: MobileNavProps) {
           />
           <div className="lg:hidden fixed bottom-16 left-0 right-0 bg-header rounded-t-2xl z-50 max-h-[75vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-header">
-              <p className="text-white font-sans font-medium text-sm">More</p>
+              <p className="text-white font-medium text-body">More</p>
               <button
                 onClick={() => setDrawerOpen(false)}
                 className="text-white/50 hover:text-white transition-colors"
@@ -272,7 +272,7 @@ export function MobileNav({ role }: MobileNavProps) {
               {/* Admin — super-admin only (Sidebar is hidden on mobile) */}
               {isSuperAdmin && (
                 <div>
-                  <p className="text-white/30 text-xs font-sans uppercase tracking-widest mb-2 px-1">
+                  <p className="text-white/30 text-label uppercase mb-2 px-1">
                     Admin
                   </p>
                   <div className="grid grid-cols-3 gap-px bg-white/5 rounded-xl overflow-hidden">
@@ -291,7 +291,7 @@ export function MobileNav({ role }: MobileNavProps) {
                           )}
                         >
                           <Icon size={20} />
-                          <span className="text-xs font-sans text-center leading-tight">
+                          <span className="text-caption text-center ">
                             {item.label}
                           </span>
                         </Link>
@@ -303,7 +303,7 @@ export function MobileNav({ role }: MobileNavProps) {
 
               {drawerSections.map((section) => (
                 <div key={section.heading}>
-                  <p className="text-white/30 text-xs font-sans uppercase tracking-widest mb-2 px-1">
+                  <p className="text-white/30 text-label uppercase mb-2 px-1">
                     {section.heading}
                   </p>
                   <div className="grid grid-cols-3 gap-px bg-white/5 rounded-xl overflow-hidden">
@@ -322,7 +322,7 @@ export function MobileNav({ role }: MobileNavProps) {
                           )}
                         >
                           <Icon size={20} />
-                          <span className="text-xs font-sans text-center leading-tight">
+                          <span className="text-caption text-center ">
                             {item.label}
                           </span>
                         </Link>
@@ -335,7 +335,7 @@ export function MobileNav({ role }: MobileNavProps) {
               {/* Organisation switcher — multi-org users (Sidebar is hidden on mobile) */}
               {showOrgSwitcher && (
                 <div>
-                  <p className="text-white/30 text-xs font-sans uppercase tracking-widest mb-2 px-1 flex items-center gap-1.5">
+                  <p className="text-white/30 text-label uppercase mb-2 px-1 flex items-center gap-1.5">
                     <ArrowLeftRight size={11} /> Organisation
                   </p>
                   <div className="bg-white/5 rounded-xl overflow-hidden">
@@ -348,7 +348,7 @@ export function MobileNav({ role }: MobileNavProps) {
                           onClick={() => switchOrg(org.id)}
                           disabled={busy || isActive}
                           className={clsx(
-                            "flex items-center gap-2.5 w-full px-4 py-3 text-left text-sm font-sans transition-colors disabled:cursor-default",
+                            "flex items-center gap-2.5 w-full px-4 py-3 text-left text-body transition-colors disabled:cursor-default",
                             isActive ? "text-gold" : "text-white/70 hover:text-white hover:bg-white/5",
                           )}
                         >
@@ -358,7 +358,7 @@ export function MobileNav({ role }: MobileNavProps) {
                             <Building2 size={16} className={isActive ? "text-gold shrink-0" : "text-white/40 shrink-0"} />
                           )}
                           <span className="truncate flex-1">{org.name}</span>
-                          {isActive && <span className="text-[10px] text-gold shrink-0">Active</span>}
+                          {isActive && <span className="text-caption text-gold shrink-0">Active</span>}
                         </button>
                       );
                     })}
@@ -373,7 +373,7 @@ export function MobileNav({ role }: MobileNavProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors text-sm font-sans w-full"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors text-body w-full"
                 >
                   <BookOpen size={18} />
                   Help &amp; Guide

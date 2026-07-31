@@ -99,8 +99,8 @@ export function ExportRangeDialog({ open, onClose, title = "Export", selectedMon
               {busy === p.key ? <Loader2 size={14} className="animate-spin text-gold" /> : <Download size={14} className="text-gold" />}
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-sans font-medium text-header">{p.name}</span>
-              <span className="block text-xs font-sans text-gray-400">{p.hint}</span>
+              <span className="block text-body font-medium text-header">{p.name}</span>
+              <span className="block text-caption text-gray-400">{p.hint}</span>
             </span>
           </button>
         ))}
@@ -115,8 +115,8 @@ export function ExportRangeDialog({ open, onClose, title = "Export", selectedMon
             <CalendarRange size={14} className="text-gold" />
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-sans font-medium text-header">Custom range…</span>
-            <span className="block text-xs font-sans text-gray-400">Pick a from/to month</span>
+            <span className="block text-body font-medium text-header">Custom range…</span>
+            <span className="block text-caption text-gray-400">Pick a from/to month</span>
           </span>
         </button>
 
@@ -124,16 +124,16 @@ export function ExportRangeDialog({ open, onClose, title = "Export", selectedMon
           <div className="border border-gray-100 rounded-xl p-3 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="flex-1">
-                <p className="text-[11px] text-gray-400 font-sans uppercase tracking-wide mb-1">From</p>
+                <p className="text-label text-gray-400 uppercase mb-1">From</p>
                 <MonthPicker value={customFrom} onChange={setCustomFrom} />
               </div>
               <div className="flex-1">
-                <p className="text-[11px] text-gray-400 font-sans uppercase tracking-wide mb-1">To</p>
+                <p className="text-label text-gray-400 uppercase mb-1">To</p>
                 <MonthPicker value={customTo} onChange={setCustomTo} />
               </div>
             </div>
             {customInvalid && (
-              <p className="text-xs text-expense font-sans">&quot;From&quot; must be on or before &quot;To&quot;.</p>
+              <p className="text-caption text-expense ">&quot;From&quot; must be on or before &quot;To&quot;.</p>
             )}
             <button
               onClick={() =>
@@ -144,7 +144,7 @@ export function ExportRangeDialog({ open, onClose, title = "Export", selectedMon
                 })
               }
               disabled={busy !== null || customInvalid}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-sm font-sans font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gold text-white text-body font-medium rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
             >
               {busy === "custom" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Export {format(customFrom, "MMM yyyy")} – {format(customTo, "MMM yyyy")}

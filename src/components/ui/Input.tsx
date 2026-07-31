@@ -17,14 +17,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-medium text-gray-600 font-sans flex items-center gap-1.5">
+          <label htmlFor={inputId} className="text-body font-medium text-gray-600 flex items-center gap-1.5">
             {label}
             {tooltip && <HelpTip text={tooltip} />}
           </label>
         )}
         <div className="relative">
           {prefix && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-mono pointer-events-none">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-body tabular-nums pointer-events-none">
               {prefix}
             </span>
           )}
@@ -32,7 +32,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={clsx(
-              "w-full border rounded-lg text-sm font-sans transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50",
+              "w-full border rounded-lg text-body transition-colors focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50",
               "px-3 py-2.5",
               prefix && "pl-10",
               error
@@ -43,8 +43,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
         </div>
-        {help && !error && <p className="text-xs text-gray-400 font-sans">{help}</p>}
-        {error && <p className="text-xs text-expense font-sans">{error}</p>}
+        {help && !error && <p className="text-caption text-gray-400 ">{help}</p>}
+        {error && <p className="text-caption text-expense ">{error}</p>}
       </div>
     );
   }

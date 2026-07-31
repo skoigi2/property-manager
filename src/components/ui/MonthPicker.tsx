@@ -68,7 +68,7 @@ export function MonthPicker({ value, onChange, max }: MonthPickerProps) {
 
       <button
         onClick={toggleOpen}
-        className="flex items-center justify-center gap-1 font-sans font-medium text-sm text-header min-w-[110px] px-1 py-1 rounded-lg hover:bg-cream-dark transition-colors"
+        className="flex items-center justify-center gap-1 font-medium text-body text-header min-w-[110px] px-1 py-1 rounded-lg hover:bg-cream-dark transition-colors"
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Jump to a month"
@@ -97,7 +97,7 @@ export function MonthPicker({ value, onChange, max }: MonthPickerProps) {
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="font-sans font-semibold text-sm text-header">{gridYear}</span>
+            <span className=" font-semibold text-body text-header">{gridYear}</span>
             <button
               onClick={() => setGridYear((y) => y + 1)}
               disabled={maxMonthStart ? gridYear >= maxMonthStart.getFullYear() : false}
@@ -121,7 +121,7 @@ export function MonthPicker({ value, onChange, max }: MonthPickerProps) {
                   onClick={() => pick(i)}
                   disabled={disabled}
                   className={clsx(
-                    "py-2 rounded-lg text-xs font-sans font-medium transition-colors",
+                    "py-2 rounded-lg text-caption font-medium transition-colors",
                     selected
                       ? "bg-gold text-white"
                       : disabled
@@ -140,7 +140,7 @@ export function MonthPicker({ value, onChange, max }: MonthPickerProps) {
           <button
             onClick={() => { onChange(currentMonthStart); setOpen(false); }}
             disabled={isCurrentSelected}
-            className="w-full mt-2 pt-2 border-t border-gray-100 text-xs font-sans font-medium text-gold hover:text-gold-dark transition-colors disabled:text-gray-300 disabled:cursor-default"
+            className="w-full mt-2 pt-2 border-t border-gray-100 text-caption font-medium text-gold hover:text-gold-dark transition-colors disabled:text-gray-300 disabled:cursor-default"
           >
             Current month
           </button>

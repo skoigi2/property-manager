@@ -66,14 +66,14 @@ export function Header({ title, userName, role, children }: HeaderProps) {
   return (
     <header className="bg-header sticky top-0 z-30 px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-3 min-w-0">
-        <h1 className="font-display text-white text-lg shrink-0">{title}</h1>
+        <h1 className=" text-white text-h3 shrink-0">{title}</h1>
 
         {/* Property selector */}
         {showSelector && (
           <div className="relative">
             <button
               onClick={() => { setPropOpen(!propOpen); setMenuOpen(false); }}
-              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-sm font-sans transition-colors"
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-body transition-colors"
             >
               <Building2 size={13} className="text-gold shrink-0" />
               <span className="truncate max-w-[90px] sm:max-w-[140px]">
@@ -86,7 +86,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
               <div className="absolute left-0 top-full mt-2 w-52 bg-white rounded-xl shadow-card-hover border border-gray-100 overflow-hidden z-50">
                 <button
                   onClick={() => { setSelectedId(null); setPropOpen(false); }}
-                  className={`flex items-center gap-2 w-full px-4 py-2.5 text-sm font-sans transition-colors ${selectedId === null ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                  className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${selectedId === null ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                 >
                   All properties
                 </button>
@@ -94,10 +94,10 @@ export function Header({ title, userName, role, children }: HeaderProps) {
                   <button
                     key={p.id}
                     onClick={() => { setSelectedId(p.id); setPropOpen(false); }}
-                    className={`flex items-center gap-2 w-full px-4 py-2.5 text-sm font-sans transition-colors ${selectedId === p.id ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                    className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${selectedId === p.id ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                   >
                     <span className="truncate">{p.name}</span>
-                    <span className="ml-auto text-xs text-gray-400 shrink-0">
+                    <span className="ml-auto text-caption text-gray-400 shrink-0">
                       {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
                     </span>
                   </button>
@@ -111,7 +111,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
         {mixedCurrencies && (
           <span
             title={`Your properties use different currencies. "All properties" totals add the raw amounts together and display them as ${currency} — select a single property for exact figures.`}
-            className="hidden sm:flex items-center gap-1 bg-amber-400/20 text-amber-200 px-2 py-1 rounded-lg text-xs font-sans shrink-0 cursor-help"
+            className="hidden sm:flex items-center gap-1 bg-amber-400/20 text-amber-200 px-2 py-1 rounded-lg text-caption shrink-0 cursor-help"
           >
             ⚠ Mixed currencies
           </span>
@@ -119,7 +119,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
 
         {/* Single property badge when only one */}
         {!loading && properties.length === 1 && (
-          <span className="flex items-center gap-1.5 bg-white/10 text-white/60 px-2.5 py-1 rounded-lg text-sm font-sans truncate max-w-[120px] sm:max-w-none">
+          <span className="flex items-center gap-1.5 bg-white/10 text-white/60 px-2.5 py-1 rounded-lg text-body truncate max-w-[120px] sm:max-w-none">
             <Building2 size={13} className="text-gold shrink-0" />
             {properties[0].name}
           </span>
@@ -141,7 +141,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
         <div className="relative">
           <button
             onClick={() => { setMenuOpen(!menuOpen); setPropOpen(false); }}
-            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-sans"
+            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-body "
           >
             <div className="w-7 h-7 rounded-full bg-gold/30 flex items-center justify-center">
               <User size={14} className="text-gold" />
@@ -152,10 +152,10 @@ export function Header({ title, userName, role, children }: HeaderProps) {
           {menuOpen && (
             <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-card-hover border border-gray-100 overflow-hidden z-50">
               <div className="px-4 py-3 border-b border-gray-50">
-                <p className="text-sm font-medium text-header font-sans">{effectiveName}</p>
-                {effectiveRole && <p className="text-xs text-gray-400 font-sans">{effectiveRole}</p>}
+                <p className="text-body font-medium text-header ">{effectiveName}</p>
+                {effectiveRole && <p className="text-caption text-gray-400 ">{effectiveRole}</p>}
                 {showOrgSwitcher && activeOrgName && (
-                  <p className="text-xs text-gray-500 font-sans mt-1 flex items-center gap-1">
+                  <p className="text-caption text-gray-500 mt-1 flex items-center gap-1">
                     <Building2 size={11} className="text-gold" /> {activeOrgName}
                   </p>
                 )}
@@ -164,7 +164,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
               {/* Organisation switcher — visible on mobile where the Sidebar is hidden */}
               {showOrgSwitcher && (
                 <div className="border-b border-gray-50">
-                  <p className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400 font-sans flex items-center gap-1">
+                  <p className="px-4 pt-3 pb-1 text-label uppercase text-gray-400 flex items-center gap-1">
                     <ArrowLeftRight size={10} /> Switch organisation
                   </p>
                   {orgOptions.map((org) => {
@@ -175,7 +175,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
                         key={org.id}
                         onClick={() => switchOrg(org.id)}
                         disabled={busy || isActive}
-                        className={`flex items-center gap-2 w-full px-4 py-2 text-sm font-sans transition-colors ${
+                        className={`flex items-center gap-2 w-full px-4 py-2 text-body transition-colors ${
                           isActive ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"
                         } disabled:opacity-60`}
                       >
@@ -185,7 +185,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
                           <Building2 size={13} className={isActive ? "text-gold" : "text-gray-400"} />
                         )}
                         <span className="truncate">{org.name}</span>
-                        {isActive && <span className="ml-auto text-[10px] text-gold">Active</span>}
+                        {isActive && <span className="ml-auto text-caption text-gold">Active</span>}
                       </button>
                     );
                   })}
@@ -194,7 +194,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
 
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-expense hover:bg-red-50 font-sans transition-colors"
+                className="flex items-center gap-2 w-full px-4 py-2.5 text-body text-expense hover:bg-red-50 transition-colors"
               >
                 <LogOut size={16} />
                 Sign out

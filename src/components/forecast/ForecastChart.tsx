@@ -10,6 +10,7 @@ import {
   Legend,
 } from "recharts";
 import { formatCurrency } from "@/lib/currency";
+import { CHART_FONT } from "@/lib/chart-style";
 import type { ForecastMonth } from "@/types/forecast";
 
 interface Props {
@@ -33,12 +34,12 @@ export function ForecastChart({ months, currency = "USD" }: Props) {
           />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fontFamily: "var(--font-sans)", fill: "#9CA3AF" }}
+            tick={CHART_FONT.axisTick}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fontSize: 10, fontFamily: "var(--font-mono)", fill: "#9CA3AF" }}
+            tick={CHART_FONT.numericAxisTick}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
@@ -46,8 +47,7 @@ export function ForecastChart({ months, currency = "USD" }: Props) {
           />
           <Tooltip
             contentStyle={{
-              fontFamily: "var(--font-sans)",
-              fontSize: 12,
+              ...CHART_FONT.tooltip,
               borderRadius: 8,
               border: "1px solid #E5E7EB",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
@@ -62,7 +62,7 @@ export function ForecastChart({ months, currency = "USD" }: Props) {
             ]}
           />
           <Legend
-            wrapperStyle={{ fontSize: 11, fontFamily: "var(--font-sans)" }}
+            wrapperStyle={CHART_FONT.legend}
             formatter={(v) =>
               v === "forecastedRent"
                 ? "Forecasted Income"

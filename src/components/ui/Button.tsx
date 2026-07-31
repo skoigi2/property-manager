@@ -19,7 +19,7 @@ export function Button({
   className,
   ...props
 }: ButtonProps) {
-  const base = "inline-flex items-center justify-center gap-2 font-sans font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 disabled:opacity-60 disabled:cursor-not-allowed";
+  const base = "inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 disabled:opacity-60 disabled:cursor-not-allowed";
 
   const variants: Record<Variant, string> = {
     primary: "bg-header text-white hover:bg-header/90 active:bg-header/80",
@@ -30,9 +30,9 @@ export function Button({
   };
 
   const sizes: Record<Size, string> = {
-    sm: "text-xs px-3 py-1.5",
-    md: "text-sm px-4 py-2",
-    lg: "text-base px-5 py-2.5",
+    sm: "text-caption px-3 py-1.5",
+    md: "text-body px-4 py-2",
+    lg: "text-body-lg px-5 py-2.5",
   };
 
   return (

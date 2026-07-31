@@ -35,7 +35,7 @@ export function TrialBanner() {
   // ── Locked (expired trial or canceled subscription) ────────────────────────
   if (info.isLocked) {
     return (
-      <div className="bg-red-600 text-white px-4 py-2.5 flex items-center justify-between gap-4 text-sm font-sans">
+      <div className="bg-red-600 text-white px-4 py-2.5 flex items-center justify-between gap-4 text-body ">
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -50,7 +50,7 @@ export function TrialBanner() {
         {isBillingOwner && (
           <Link
             href="/billing"
-            className="flex-shrink-0 bg-white text-red-600 font-semibold px-4 py-1.5 rounded-lg text-xs hover:bg-red-50 transition-colors"
+            className="flex-shrink-0 bg-white text-red-600 font-semibold px-4 py-1.5 rounded-lg text-caption hover:bg-red-50 transition-colors"
           >
             Upgrade now
           </Link>
@@ -63,7 +63,7 @@ export function TrialBanner() {
   if (info.pricingTier === "TRIAL") {
     const urgent = info.trialDaysLeft <= 7;
     return (
-      <div className={`${urgent ? "bg-amber-500" : "bg-header/95"} text-white px-4 py-2 flex items-center justify-between gap-4 text-sm font-sans`}>
+      <div className={`${urgent ? "bg-amber-500" : "bg-header/95"} text-white px-4 py-2 flex items-center justify-between gap-4 text-body `}>
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 flex-shrink-0 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -81,7 +81,7 @@ export function TrialBanner() {
         {isBillingOwner && (
           <Link
             href="/billing"
-            className="flex-shrink-0 bg-gold text-header font-semibold px-4 py-1.5 rounded-lg text-xs hover:bg-gold/90 transition-colors"
+            className="flex-shrink-0 bg-gold text-header font-semibold px-4 py-1.5 rounded-lg text-caption hover:bg-gold/90 transition-colors"
           >
             View plans
           </Link>

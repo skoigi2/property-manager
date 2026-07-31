@@ -75,7 +75,7 @@ export function HistoryDrawer({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-gold" />
-            <h2 className="font-display text-base text-header">{title ?? "Change history"}</h2>
+            <h2 className=" text-h3 text-header">{title ?? "Change history"}</h2>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
             <X size={16} />
@@ -86,7 +86,7 @@ export function HistoryDrawer({
           {entries === null ? (
             <div className="flex justify-center py-16"><Spinner size="lg" /></div>
           ) : entries.length === 0 ? (
-            <p className="text-sm text-gray-400 font-sans text-center py-16">
+            <p className="text-body text-gray-400 text-center py-16">
               No recorded changes for this record.
             </p>
           ) : (
@@ -97,18 +97,18 @@ export function HistoryDrawer({
               return (
                 <div key={e.id} className="border border-gray-100 rounded-xl p-3.5">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-sans font-medium px-2 py-0.5 rounded-full ${meta.cls}`}>
+                    <span className={`inline-flex items-center gap-1.5 text-caption font-medium px-2 py-0.5 rounded-full ${meta.cls}`}>
                       <Icon size={11} /> {meta.label}
                     </span>
-                    <span className="text-[11px] text-gray-400 font-sans">
+                    <span className="text-caption text-gray-400 ">
                       {new Date(e.createdAt).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 font-sans mt-1.5">{e.userEmail ?? "system"}</p>
+                  <p className="text-caption text-gray-500 mt-1.5">{e.userEmail ?? "system"}</p>
                   {changes.length > 0 && (
                     <div className="mt-2.5 space-y-1.5 border-t border-gray-50 pt-2.5">
                       {changes.map((c) => (
-                        <div key={c.key} className="text-xs font-sans">
+                        <div key={c.key} className="text-caption ">
                           <span className="text-gray-400">{c.key}: </span>
                           <span className="text-expense line-through break-all">{fmtValue(c.from)}</span>
                           <span className="text-gray-300 mx-1.5">→</span>

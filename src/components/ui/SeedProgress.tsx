@@ -28,10 +28,10 @@ export function SeedProgress() {
   return (
     <div className="mt-3" role="status" aria-live="polite">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-sans text-gray-500 flex items-center gap-1.5">
+        <span className="text-caption text-gray-500 flex items-center gap-1.5">
           <Loader2 size={12} className="animate-spin text-gold" /> {stage.label}
         </span>
-        <span className="text-xs font-mono text-gray-400">{pct}%</span>
+        <span className="text-caption tabular-nums text-gray-400">{pct}%</span>
       </div>
       <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
         <div
@@ -39,7 +39,7 @@ export function SeedProgress() {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-[11px] text-gray-400 font-sans mt-2 text-center">
+      <p className="text-caption text-gray-400 mt-2 text-center">
         This usually takes 20–30 seconds. Please keep this window open.
       </p>
     </div>

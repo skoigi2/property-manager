@@ -111,7 +111,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
   return (
     <div ref={containerRef} className="relative">
       {label && (
-        <label className="flex items-center gap-1.5 text-xs font-sans font-medium text-gray-600 mb-1">
+        <label className="flex items-center gap-1.5 text-caption font-medium text-gray-600 mb-1">
           {label}
           {tooltip && <HelpTip text={tooltip} />}
         </label>
@@ -123,7 +123,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
         onClick={open ? () => setOpen(false) : handleOpen}
         disabled={disabled}
         className={[
-          "w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-sans text-left transition-colors",
+          "w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-body text-left transition-colors",
           "bg-cream focus:outline-none",
           error
             ? "border-red-300 focus:ring-2 focus:ring-red-200"
@@ -148,7 +148,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
         {!selected && <ChevronDown size={13} className="text-gray-300 shrink-0" />}
       </button>
 
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-caption text-red-500">{error}</p>}
 
       {/* Dropdown */}
       {open && (
@@ -160,17 +160,17 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
               value={query}
               onChange={(e) => { setQuery(e.target.value); setCreating(false); }}
               placeholder="Search vendors…"
-              className="w-full text-sm font-sans px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
+              className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
             />
           </div>
 
           {/* List */}
           <div className="max-h-52 overflow-y-auto">
             {loading && (
-              <div className="px-3 py-4 text-center text-sm text-gray-400">Loading…</div>
+              <div className="px-3 py-4 text-center text-body text-gray-400">Loading…</div>
             )}
             {!loading && filtered.length === 0 && !creating && (
-              <div className="px-3 py-3 text-sm text-gray-400">No vendors found</div>
+              <div className="px-3 py-3 text-body text-gray-400">No vendors found</div>
             )}
             {!loading && filtered.map((v) => (
               <button
@@ -178,14 +178,14 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
                 type="button"
                 onClick={() => { onChange(v.id); setOpen(false); }}
                 className={[
-                  "w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm font-sans transition-colors",
+                  "w-full flex items-center gap-2 px-3 py-2.5 text-left text-body transition-colors",
                   value === v.id ? "bg-gold/10 text-gold" : "hover:bg-gray-50 text-gray-800",
                 ].join(" ")}
               >
                 <Building2 size={13} className={value === v.id ? "text-gold" : "text-gray-400"} />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{v.name}</div>
-                  <div className="text-xs text-gray-400 truncate">
+                  <div className="text-caption text-gray-400 truncate">
                     {CATEGORY_LABELS[v.category] ?? v.category}
                     {v.phone ? ` · ${v.phone}` : ""}
                   </div>
@@ -200,7 +200,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
             <button
               type="button"
               onClick={() => { setCreating(true); setNewName(query); }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-sans text-gold hover:bg-gold/5 border-t border-gray-100 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-body text-gold hover:bg-gold/5 border-t border-gray-100 transition-colors"
             >
               <Plus size={13} />
               Add vendor{query ? ` "${query}"` : ""}
@@ -213,12 +213,12 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 placeholder="Vendor name*"
-                className="w-full text-sm font-sans px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
+                className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
               />
               <select
                 value={newCat}
                 onChange={(e) => setNewCat(e.target.value)}
-                className="w-full text-sm font-sans px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
+                className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
               >
                 {Object.entries(CATEGORY_LABELS).map(([k, label]) => (
                   <option key={k} value={k}>{label}</option>
@@ -229,14 +229,14 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
                   type="button"
                   onClick={handleCreate}
                   disabled={saving || !newName.trim()}
-                  className="flex-1 py-1.5 text-xs font-sans font-medium bg-gold text-white rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
+                  className="flex-1 py-1.5 text-caption font-medium bg-gold text-white rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
                 >
                   {saving ? "Saving…" : "Create"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCreating(false)}
-                  className="flex-1 py-1.5 text-xs font-sans text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-1.5 text-caption text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>

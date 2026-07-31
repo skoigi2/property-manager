@@ -40,10 +40,10 @@ export function ConfirmDialog({
 
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
-      <p className="text-sm text-gray-600 font-sans mb-4">{message}</p>
+      <p className="text-body text-gray-600 mb-4">{message}</p>
       {typeToConfirm && (
         <div className="mb-5">
-          <label className="block text-xs text-gray-500 font-sans mb-1.5">
+          <label className="block text-caption text-gray-500 mb-1.5">
             Type <span className="font-mono font-semibold text-red-600">{typeToConfirm}</span> to confirm
           </label>
           <input
@@ -51,7 +51,7 @@ export function ConfirmDialog({
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             autoComplete="off"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-200"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body font-mono focus:outline-none focus:ring-2 focus:ring-red-200"
           />
         </div>
       )}

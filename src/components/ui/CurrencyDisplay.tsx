@@ -36,17 +36,18 @@ export function CurrencyDisplay({
   const contextCurrency = useProperty().currency;
   const resolved = currency ?? contextCurrency;
 
+  // Public size names are stable; they resolve to scale tokens internally.
   const sizes = {
-    sm: "text-sm",
-    md: "text-base",
-    lg: "text-lg",
-    xl: "text-2xl",
+    sm: "text-body font-medium",
+    md: "text-body-lg font-medium",
+    lg: "text-h2",
+    xl: "text-h1",
   };
 
   return (
     <span
       className={clsx(
-        "font-mono tabular-nums",
+        "tabular-nums",
         sizes[size],
         colorize && amount > 0 && "text-income",
         colorize && amount < 0 && "text-expense",

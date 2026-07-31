@@ -65,7 +65,7 @@ export function InviteBanner() {
         return (
           <div
             key={invite.id}
-            className="bg-blue-600 text-white px-4 py-2.5 flex items-center justify-between gap-4 text-sm font-sans"
+            className="bg-blue-600 text-white px-4 py-2.5 flex items-center justify-between gap-4 text-body "
           >
             <div className="flex items-center gap-2 min-w-0">
               <Mail size={15} className="shrink-0 opacity-80" />
@@ -78,7 +78,7 @@ export function InviteBanner() {
               <button
                 onClick={() => accept(invite)}
                 disabled={accepting === invite.id}
-                className="bg-white text-blue-600 font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-blue-50 transition-colors disabled:opacity-60"
+                className="bg-white text-blue-600 font-semibold px-3 py-1.5 rounded-lg text-caption hover:bg-blue-50 transition-colors disabled:opacity-60"
               >
                 {accepting === invite.id ? (
                   <span className="flex items-center gap-1.5">

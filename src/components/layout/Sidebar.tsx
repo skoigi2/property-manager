@@ -238,8 +238,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
         <div className="flex items-center gap-3">
           <BrandLogo size={32} dark />
           <div className="flex-1 min-w-0">
-            <p className="font-display text-white text-sm leading-none">Groundwork PM</p>
-            <p className="text-white/40 text-xs font-sans mt-0.5">Groundwork PM</p>
+            <p className="font-display text-white text-body leading-none">Groundwork PM</p>
+            <p className="text-white/40 text-caption mt-0.5">Groundwork PM</p>
           </div>
         </div>
 
@@ -251,7 +251,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
               className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
             >
               <Building2 size={13} className="text-white/40 shrink-0" />
-              <span className="text-xs font-sans text-white/60 flex-1 truncate">
+              <span className="text-caption text-white/60 flex-1 truncate">
                 {orgOptions.find((o) => o.id === organizationId)?.name ?? "Select org"}
               </span>
               <ArrowLeftRight size={11} className="text-white/30 shrink-0" />
@@ -267,7 +267,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
                       key={org.id}
                       onClick={() => switchOrg(org.id)}
                       disabled={busy || isActive}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm font-sans transition-colors ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-body transition-colors ${
                         isActive ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"
                       } disabled:opacity-60`}
                     >
@@ -277,7 +277,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
                         <Building2 size={13} className={isActive ? "text-gold" : "text-gray-400"} />
                       )}
                       <span className="truncate">{org.name}</span>
-                      {isActive && <span className="ml-auto text-xs text-gold">Active</span>}
+                      {isActive && <span className="ml-auto text-caption text-gold">Active</span>}
                     </button>
                   );
                 })}
@@ -293,8 +293,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
             className="mt-3 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
           >
             <SearchIcon size={13} className="text-white/40 shrink-0" />
-            <span className="text-xs font-sans text-white/60 flex-1 truncate">Search</span>
-            <kbd className="text-[9px] text-white/30 border border-white/15 rounded px-1 py-px font-sans">
+            <span className="text-caption text-white/60 flex-1 truncate">Search</span>
+            <kbd className="text-label text-white/30 border border-white/15 rounded px-1 py-px ">
               Ctrl K
             </kbd>
           </button>
@@ -310,7 +310,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
             <Link
               href="/admin/organizations"
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans transition-colors mb-1",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors mb-1",
                 isActive ? "bg-gold text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
               )}
             >
@@ -326,7 +326,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
             <Link
               href="/admin/emails"
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans transition-colors mb-1",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors mb-1",
                 isActive ? "bg-gold text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
               )}
             >
@@ -356,7 +356,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
                 <button
                   onClick={() => toggleGroup(entry.label)}
                   className={clsx(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans transition-colors w-full",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors w-full",
                     isGroupActive && !isOpen
                       ? "bg-gold/20 text-white"
                       : "text-white/60 hover:bg-white/10 hover:text-white"
@@ -390,7 +390,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
                           key={item.href}
                           href={item.href}
                           className={clsx(
-                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-sans transition-colors",
+                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-body transition-colors",
                             isActive
                               ? "bg-gold text-white"
                               : "text-white/50 hover:bg-white/10 hover:text-white"
@@ -418,7 +418,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
               key={entry.href}
               href={entry.href}
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-body transition-colors",
                 isActive
                   ? "bg-gold text-white"
                   : "text-white/60 hover:bg-white/10 hover:text-white"
@@ -427,7 +427,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
               <Icon size={18} />
               <span className="flex-1">{entry.label}</span>
               {showInboxBadge && (
-                <span className="bg-red-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full leading-none">
+                <span className="bg-red-500 text-white text-caption font-medium px-1.5 py-0.5 rounded-full leading-none">
                   {urgentCount}
                 </span>
               )}
@@ -442,14 +442,14 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
           href="/guide.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans text-white/60 hover:bg-white/10 hover:text-white w-full transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body text-white/60 hover:bg-white/10 hover:text-white w-full transition-colors"
         >
           <BookOpen size={18} />
           Help &amp; Guide
         </a>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-sans text-white/60 hover:bg-white/10 hover:text-white w-full transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body text-white/60 hover:bg-white/10 hover:text-white w-full transition-colors"
         >
           <LogOut size={18} />
           Sign out

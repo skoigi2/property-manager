@@ -512,6 +512,24 @@ export default function TenantDetailPage() {
   const depositReceipts = allIncomeEntries.filter((e) => e.type === "DEPOSIT" && e.tenantId === tenant?.id);
   const depositPosition = calcDepositPosition(tenant?.depositAmount ?? 0, depositReceipts);
   const unlinkedUnitDeposits: any[] = allIncomeEntries.filter((e) => e.type === "DEPOSIT" && !e.tenantId);
+
+  async function linkDepositToTenant(entryId: string) {
+    try {
+      const res = await fetch(`/api/income/${entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to link deposit");
+      }
+      toast.success("Deposit linked to tenant");
+      fetchTenant();
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to link deposit");
+    }
+  }
   const totalExpected  = ledger.reduce((s, r) => s + r.expected, 0);
   const totalReceived  = ledger.reduce((s, r) => s + r.received, 0);
   const totalArrears   = totalReceived - totalExpected;
@@ -1146,10 +1164,30 @@ export default function TenantDetailPage() {
                                 The contractual amount is shown, but no DEPOSIT income entry is linked to this tenant.
                                 Record the deposit on the Income page (type &ldquo;Deposit&rdquo;) so settlement can work from
                                 what was actually received.
-                                {unlinkedUnitDeposits.length > 0 &&
-                                  ` Note: ${unlinkedUnitDeposits.length} deposit ${unlinkedUnitDeposits.length === 1 ? "entry" : "entries"} on this unit ${unlinkedUnitDeposits.length === 1 ? "is" : "are"} not linked to any tenant.`}
                               </p>
                             </div>
+                          </div>
+                        )}
+
+                        {unlinkedUnitDeposits.length > 0 && (
+                          <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="px-4 py-2.5 bg-cream-dark text-xs text-gray-500 font-sans uppercase tracking-wide">
+                              Deposit entries on this unit not linked to any tenant
+                            </div>
+                            {unlinkedUnitDeposits.map((e) => (
+                              <div key={e.id} className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100">
+                                <span className="text-sm font-sans text-gray-600">
+                                  {formatDate(e.date)} · <span className="font-mono">{formatCurrency(e.grossAmount, currency)}</span>
+                                  {e.note ? <span className="text-xs text-gray-400"> — {e.note}</span> : null}
+                                </span>
+                                <button
+                                  onClick={() => linkDepositToTenant(e.id)}
+                                  className="text-xs font-medium text-gold hover:text-gold-dark underline underline-offset-2 whitespace-nowrap ml-3"
+                                >
+                                  Link to {tenant.name}
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         )}
 

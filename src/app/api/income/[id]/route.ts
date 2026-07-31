@@ -12,7 +12,9 @@ async function loadEntryPropertyId(id: string): Promise<string | null> {
   return e?.unit?.propertyId ?? null;
 }
 
-// PATCH — mark commission paid / unpaid
+// PATCH — mark commission paid / unpaid, OR link the entry to a tenant
+// (used by the Deposit tab to attach an untagged unit DEPOSIT receipt to the
+// tenant so it counts toward the deposit-held calculation).
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
@@ -23,17 +25,42 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!access.ok) return access.error!;
 
   const body = await req.json();
-  const parsed = z.object({ commissionPaidAt: z.string().nullable() }).safeParse(body);
+  const parsed = z
+    .object({
+      commissionPaidAt: z.string().nullable().optional(),
+      tenantId: z.string().min(1).optional(),
+    })
+    .safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (parsed.data.commissionPaidAt === undefined && parsed.data.tenantId === undefined) {
+    return Response.json({ error: "Nothing to update" }, { status: 400 });
+  }
 
   const before = await prisma.incomeEntry.findUnique({
     where: { id: params.id },
-    select: { commissionPaidAt: true, agentCommission: true, agentName: true },
+    select: { commissionPaidAt: true, agentCommission: true, agentName: true, tenantId: true, unitId: true },
   });
+
+  // Tenant link: only to a tenant on the SAME unit — an untagged deposit must
+  // never be attributed across units.
+  if (parsed.data.tenantId !== undefined) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: parsed.data.tenantId },
+      select: { unitId: true },
+    });
+    if (!tenant || tenant.unitId !== before?.unitId) {
+      return Response.json({ error: "Tenant not found on this entry's unit" }, { status: 400 });
+    }
+  }
 
   const entry = await prisma.incomeEntry.update({
     where: { id: params.id },
-    data: { commissionPaidAt: parsed.data.commissionPaidAt ? new Date(parsed.data.commissionPaidAt) : null },
+    data: {
+      ...(parsed.data.commissionPaidAt !== undefined
+        ? { commissionPaidAt: parsed.data.commissionPaidAt ? new Date(parsed.data.commissionPaidAt) : null }
+        : {}),
+      ...(parsed.data.tenantId !== undefined ? { tenantId: parsed.data.tenantId } : {}),
+    },
   });
 
   await logAudit({
@@ -43,8 +70,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     resource:  "IncomeEntry",
     resourceId: params.id,
     organizationId: session!.user.organizationId,
-    before: { commissionPaidAt: before?.commissionPaidAt ?? null },
-    after:  { commissionPaidAt: entry.commissionPaidAt },
+    before: { commissionPaidAt: before?.commissionPaidAt ?? null, tenantId: before?.tenantId ?? null },
+    after:  { commissionPaidAt: entry.commissionPaidAt, tenantId: entry.tenantId },
   });
 
   return Response.json(entry);

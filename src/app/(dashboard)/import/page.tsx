@@ -74,6 +74,8 @@ const TENANT_COLS = [
   "Payment Frequency",
   "Escalation Rate",
   "Parking Fee",
+  "Deposit Received",
+  "Deposit Received Date",
   "Notes",
 ];
 
@@ -469,6 +471,8 @@ function mapTenantRowToApi(row: Record<string, string>) {
     paymentFrequency: row["Payment Frequency"],
     escalationRate:   row["Escalation Rate"],
     parkingFee:       row["Parking Fee"],
+    depositReceived:  row["Deposit Received"],
+    depositReceivedDate: row["Deposit Received Date"],
     notes:            row["Notes"],
   };
 }

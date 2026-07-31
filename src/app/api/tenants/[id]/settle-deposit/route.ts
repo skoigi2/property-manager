@@ -1,6 +1,7 @@
 import { requireManager, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { calcDepositPosition } from "@/lib/deposit";
 import { z } from "zod";
 
 const settlementSchema = z.object({
@@ -56,11 +57,28 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const { settledDate, ...rest } = parsed.data;
 
+  // Server-side settlement base: never trust the client's depositHeld when a
+  // DEPOSIT receipt trail exists — the base is what was actually received
+  // (calcDepositPosition). Only receipt-less (UNVERIFIED) tenants fall back
+  // to the client-supplied figure. Deductions/net are recomputed too.
+  const receipts = await prisma.incomeEntry.findMany({
+    where: { tenantId: params.id, type: "DEPOSIT" },
+    select: { grossAmount: true },
+  });
+  const position = calcDepositPosition(tenant.depositAmount, receipts);
+  const depositHeld = position.verification === "VERIFIED" ? position.held : rest.depositHeld;
+  const totalDeductions = rest.deductions.reduce((s, d) => s + d.amount, 0);
+  const netRefunded = depositHeld - totalDeductions;
+
   const settlement = await prisma.depositSettlement.create({
     data: {
       tenantId:    params.id,
       settledDate: new Date(settledDate),
-      ...rest,
+      deductions:  rest.deductions,
+      notes:       rest.notes,
+      depositHeld,
+      totalDeductions,
+      netRefunded,
     },
   });
 
@@ -73,9 +91,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     organizationId: session!.user.organizationId,
     after: {
       tenantId:       params.id,
-      depositHeld:    rest.depositHeld,
-      totalDeductions: rest.totalDeductions,
-      netRefunded:    rest.netRefunded,
+      depositHeld,
+      depositVerification: position.verification,
+      totalDeductions,
+      netRefunded,
       settledDate,
     },
   });

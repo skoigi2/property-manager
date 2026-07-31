@@ -197,6 +197,25 @@ export default function TenantsPage() {
     return list;
   }, [tenants, search, propFilter, statusFilter, leaseFilter, sortKey, sortDir]);
 
+  // Org-wide deposit liability: what is actually held for active tenants.
+  // depositReceived (Σ DEPOSIT receipts, from the tenants API) wins; tenants
+  // with no receipt trail fall back to the contractual amount and are
+  // surfaced as unverified rather than silently trusted.
+  const depositLiability = useMemo(() => {
+    const active = tenants.filter((t: any) => t.isActive);
+    let held = 0;
+    let unverified = 0;
+    for (const t of active) {
+      if (t.depositReceived != null) {
+        held += t.depositReceived;
+      } else {
+        held += t.depositAmount ?? 0;
+        if ((t.depositAmount ?? 0) > 0) unverified++;
+      }
+    }
+    return { held, unverified, count: active.length };
+  }, [tenants]);
+
   const activeFilters = [
     search && `"${search}"`,
     propFilter !== "ALL" && propFilter,
@@ -341,6 +360,28 @@ export default function TenantsPage() {
                     : `expires ${t.leaseEnd ? formatDate(t.leaseEnd) : "unknown"}`}
                 </p>
               ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Deposit liability summary */}
+        {!tenantsLoading && depositLiability.held > 0 && (
+          <Card padding="sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-gray-400 font-sans uppercase tracking-wide flex items-center gap-1.5">
+                  <Banknote size={13} className="text-gold" /> Deposits held
+                </p>
+                <CurrencyDisplay currency={currency} amount={depositLiability.held} size="lg" className="text-header font-medium mt-1 block" />
+              </div>
+              <div className="text-right text-xs text-gray-400 font-sans">
+                <p>{depositLiability.count} active tenant{depositLiability.count !== 1 ? "s" : ""}</p>
+                {depositLiability.unverified > 0 && (
+                  <p className="text-amber-600 mt-0.5">
+                    {depositLiability.unverified} unverified — contractual amount, no receipts
+                  </p>
+                )}
+              </div>
             </div>
           </Card>
         )}

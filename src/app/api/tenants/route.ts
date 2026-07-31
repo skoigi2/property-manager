@@ -41,7 +41,22 @@ export async function GET(req: Request) {
     take: 2000, // safety cap for very large portfolios
   });
 
-  return Response.json(tenants);
+  // Deposit receipt trail per tenant (Σ DEPOSIT entries). null = no receipts
+  // recorded — consumers must treat the contractual depositAmount as
+  // UNVERIFIED in that case (see src/lib/deposit.ts), never as cash held.
+  const depositSums = await prisma.incomeEntry.groupBy({
+    by: ["tenantId"],
+    where: { tenantId: { in: tenants.map((t) => t.id) }, type: "DEPOSIT" },
+    _sum: { grossAmount: true },
+  });
+  const receivedByTenant = new Map(depositSums.map((g) => [g.tenantId, g._sum.grossAmount ?? 0]));
+
+  return Response.json(
+    tenants.map((t) => ({
+      ...t,
+      depositReceived: receivedByTenant.has(t.id) ? receivedByTenant.get(t.id) : null,
+    })),
+  );
 }
 
 export async function POST(req: Request) {

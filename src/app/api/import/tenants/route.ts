@@ -15,6 +15,8 @@ interface TenantRow {
   paymentFrequency?: string;
   escalationRate?: string | number;
   parkingFee?: string | number;
+  depositReceived?: string | number;
+  depositReceivedDate?: string;
   notes?: string;
 }
 
@@ -93,6 +95,12 @@ export async function POST(req: Request) {
         const escalationRate = !isNaN(escalationRateRaw) && escalationRateRaw >= 0 ? escalationRateRaw : null;
         const parkingFeeRaw = parseFloat(String(row.parkingFee ?? ""));
         const parkingFee = !isNaN(parkingFeeRaw) && parkingFeeRaw >= 0 ? parkingFeeRaw : null;
+        // Deposit RECEIVED (cash) — mints a DEPOSIT income receipt so the
+        // deposit-held calculation (src/lib/deposit.ts) has a trail. May be
+        // less than the contractual depositAmount (partial deposits).
+        const depositReceivedRaw = parseFloat(String(row.depositReceived ?? ""));
+        const depositReceived = !isNaN(depositReceivedRaw) && depositReceivedRaw > 0 ? depositReceivedRaw : null;
+        const depositReceivedDate = row.depositReceivedDate ? new Date(row.depositReceivedDate) : leaseStart;
 
         // Existing tenant lookup — matches active OR inactive tenants on the same unit.
         const existing = await prisma.tenant.findFirst({
@@ -126,12 +134,35 @@ export async function POST(req: Request) {
               // Don't flip isActive on an upsert — preserve whatever the manager set.
             },
           });
+          // Mint the deposit receipt only when the tenant has no DEPOSIT
+          // entry yet — a re-upload must not double-count the deposit.
+          if (depositReceived != null) {
+            const existingReceipt = await prisma.incomeEntry.findFirst({
+              where: { tenantId: existing.id, type: "DEPOSIT" },
+              select: { id: true },
+            });
+            if (!existingReceipt) {
+              await prisma.incomeEntry.create({
+                data: {
+                  date: depositReceivedDate,
+                  unitId: unit.id,
+                  tenantId: existing.id,
+                  type: "DEPOSIT",
+                  grossAmount: depositReceived,
+                  agentCommission: 0,
+                  note: "Deposit receipt (imported)",
+                },
+              });
+            } else {
+              errors.push({ row: rowNum, reason: `Tenant "${name}" already has a deposit receipt — Deposit Received ignored` });
+            }
+          }
           updated++;
           continue;
         }
 
         // No existing tenant → fresh create.
-        await prisma.$transaction([
+        const [createdTenant] = await prisma.$transaction([
           prisma.tenant.create({
             data: {
               name,
@@ -155,6 +186,20 @@ export async function POST(req: Request) {
             data: { status: "ACTIVE" },
           }),
         ]);
+
+        if (depositReceived != null) {
+          await prisma.incomeEntry.create({
+            data: {
+              date: depositReceivedDate,
+              unitId: unit.id,
+              tenantId: createdTenant.id,
+              type: "DEPOSIT",
+              grossAmount: depositReceived,
+              agentCommission: 0,
+              note: "Deposit receipt (imported)",
+            },
+          });
+        }
 
         imported++;
       } catch (err) {

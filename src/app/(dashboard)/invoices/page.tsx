@@ -20,7 +20,7 @@ import {
   Loader2,
   Receipt,
   User,
-  Zap,
+  Zap, Landmark,
   Mail,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -1260,6 +1260,14 @@ export default function InvoicesPage() {
     <>
       <Header title="Invoices" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role}>
         <div className="flex items-center gap-2">
+          <a
+            href="/invoices/reconcile"
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-3 py-1.5 rounded-lg text-body transition-colors"
+            title="Match a bank / M-Pesa statement against open invoices"
+          >
+            <Landmark size={14} className="text-gold" />
+            <span className="hidden sm:inline">Reconcile</span>
+          </a>
           <button
             onClick={() => setShowBulkGenerate(true)}
             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-3 py-1.5 rounded-lg text-body transition-colors"

@@ -18,7 +18,7 @@ import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
 import { VendorEmailModal } from "@/components/cases/VendorEmailModal";
 import { StageTracker } from "@/components/cases/StageTracker";
 import { Modal } from "@/components/ui/Modal";
-import { getWorkflow } from "@/lib/case-workflows";
+import { getWorkflow } from "@/lib/case-workflow-defs";
 
 type CaseStatus = "OPEN" | "IN_PROGRESS" | "AWAITING_APPROVAL" | "AWAITING_VENDOR" | "AWAITING_TENANT" | "RESOLVED" | "CLOSED";
 type CaseWaitingOn = "MANAGER" | "OWNER" | "TENANT" | "VENDOR" | "NONE";

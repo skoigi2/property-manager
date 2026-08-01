@@ -4,7 +4,7 @@ import { Check, MoreHorizontal, AlertTriangle, X } from "lucide-react";
 import { clsx } from "clsx";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import type { CaseWorkflow } from "@/lib/case-workflows";
+import type { CaseWorkflow } from "@/lib/case-workflow-defs";
 
 interface Props {
   workflow: CaseWorkflow;

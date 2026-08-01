@@ -1186,6 +1186,23 @@
     </div>
 
     <div class="sub-section">
+      <h3>Changing the payment details shown on an invoice</h3>
+      <p style="margin-bottom:12px">The "How to Pay" block (bank account, M-Pesa Paybill/Till, payment instructions) isn't typed on each invoice — it comes from a reusable <strong>Payment Account</strong>. To change what tenants see:</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Create or edit the account</h4><p>Go to <strong>Settings → Payment Accounts</strong>. Each account holds the bank name, account name &amp; number, branch, M-Pesa Paybill / Till, and free-text payment instructions. Editing an account updates every invoice that resolves to it from then on.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Point the property at it</h4><p>Open the property's <strong>Management Agreement</strong> page and pick the account as the <em>property default</em> — it now applies to every unit in that property.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Override a single unit (optional)</h4><p>If one unit is paid into a different account (even a different landlord company), open that unit's <strong>Edit</strong> form and choose its own payment account. Leave it blank to inherit the property default.</p></div></div>
+      </div>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>How the details are resolved</strong>
+          Each invoice resolves its payment block top-down: <em>unit override → property default account → legacy agreement details → organisation branding</em>. Details are applied when the PDF is generated, so the next invoice you download or send reflects your change — PDFs already emailed to tenants are unchanged. See <a href="#settings">Payment Accounts</a> for invoicing identities and per-account numbering series.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
       <h3>Late fees</h3>
       <p>If a property's management agreement sets a late-payment interest rate, you can apply a late fee to any overdue invoice from the row's status menu (<em>Apply late fee…</em>). The fee is computed from the outstanding amount, the agreement rate, and days overdue; it folds into the invoice total and prints as a "Late Payment Fee" line on the PDF. Remove it the same way if you waive it.</p>
     </div>

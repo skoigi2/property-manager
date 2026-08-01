@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/Spinner";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -9,11 +10,12 @@ import { Select } from "@/components/ui/Select";
 import {
   TrendingUp, TrendingDown, Building2, Receipt, Wallet,
   AlertTriangle, CheckCircle, Download, Loader2, ChevronDown, ChevronUp,
+  Banknote,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { clsx } from "clsx";
-import { format } from "date-fns";
 import toast from "react-hot-toast";
+import { RecordRemittanceModal, type StatementPayout } from "@/components/report/RecordRemittanceModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,6 +41,8 @@ interface OwnerStatement {
   expenses: { category: string; description: string; amount: number }[];
   totalExpenses: number;
   netPayable: number;
+  payouts: StatementPayout[];
+  totalPaidOut: number;
   currency: string;
 }
 
@@ -113,8 +117,16 @@ const CAT_LABELS: Record<string, string> = {
 
 // ── Property Card ─────────────────────────────────────────────────────────────
 
-function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: string; month: string }) {
+function PropertyCard({ stmt, year, month, canManage }: { stmt: OwnerStatement; year: string; month: string; canManage: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [payouts, setPayouts] = useState<StatementPayout[]>(stmt.payouts ?? []);
+  const totalPaidOut = payouts.reduce((s, p) => s + p.amount, 0);
+  const remitStatus =
+    stmt.netPayable <= 0 && totalPaidOut === 0 ? null
+    : totalPaidOut >= stmt.netPayable * 0.99 && totalPaidOut > 0 ? "remitted"
+    : totalPaidOut > 0 ? "partial"
+    : "unremitted";
   const fmt = (n: number) => formatCurrency(n, stmt.currency);
   const collectionRate = stmt.lines.reduce((s, l) => s + l.rentExpected, 0) > 0
     ? Math.round(
@@ -154,6 +166,11 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
             size="xl"
             className={stmt.netPayable >= 0 ? "text-income font-semibold" : "text-expense font-semibold"}
           />
+          <div className="flex items-center justify-end gap-2 mt-1.5">
+            {remitStatus === "remitted" && <Badge variant="green">Remitted ✓</Badge>}
+            {remitStatus === "partial" && <Badge variant="amber">Partly remitted</Badge>}
+            {remitStatus === "unremitted" && <Badge variant="amber">Not remitted</Badge>}
+          </div>
           <a
             href={`/api/report/owner-statement/pdf?propertyId=${stmt.propertyId}&year=${year}&month=${month}`}
             className="inline-flex items-center gap-1.5 mt-2 text-caption font-medium text-gold hover:text-gold-dark transition-colors"
@@ -275,6 +292,58 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
           ))}
         </div>
       )}
+
+      {/* Remittance to owner */}
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Banknote size={14} className={remitStatus === "remitted" ? "text-income" : "text-gray-400"} />
+            <p className="text-caption text-gray-500">
+              {remitStatus === null && "Nothing to remit this period"}
+              {remitStatus === "remitted" && <>Remitted to owner — <span className="tabular-nums font-medium text-income">{fmt(totalPaidOut)}</span></>}
+              {remitStatus === "partial" && <>Remitted <span className="tabular-nums font-medium">{fmt(totalPaidOut)}</span> of <span className="tabular-nums">{fmt(stmt.netPayable)}</span></>}
+              {remitStatus === "unremitted" && <>Owner payment not recorded — <span className="tabular-nums font-medium">{fmt(stmt.netPayable)}</span> outstanding</>}
+            </p>
+          </div>
+          {canManage && remitStatus !== null && remitStatus !== "remitted" && (
+            <button
+              onClick={() => setRecording(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption font-medium bg-gold/10 text-gold-dark hover:bg-gold/20 transition-colors"
+            >
+              <Banknote size={13} /> Record remittance
+            </button>
+          )}
+        </div>
+        {payouts.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {payouts.map((p) => (
+              <div key={p.id} className="flex items-center justify-between text-caption text-gray-500">
+                <span>
+                  Paid {p.paidAt}
+                  {p.method ? ` · ${p.method.replace(/_/g, " ").toLowerCase()}` : ""}
+                  {p.reference ? ` · ref ${p.reference}` : ""}
+                </span>
+                <span className="tabular-nums text-income font-medium">{fmt(p.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {recording && (
+        <RecordRemittanceModal
+          propertyId={stmt.propertyId}
+          propertyName={stmt.propertyName}
+          period={stmt.period}
+          currency={stmt.currency}
+          netPayable={stmt.netPayable}
+          totalPaidOut={totalPaidOut}
+          year={year}
+          month={month}
+          onClose={() => setRecording(false)}
+          onRecorded={(p) => setPayouts((prev) => [...prev, p])}
+        />
+      )}
     </Card>
   );
 }
@@ -282,6 +351,8 @@ function PropertyCard({ stmt, year, month }: { stmt: OwnerStatement; year: strin
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function OwnerDashboard() {
+  const { data: session } = useSession();
+  const canManage = (session?.user as { role?: string } | undefined)?.role !== "OWNER";
   const [year,  setYear]  = useState(String(currentYear));
   const [month, setMonth] = useState(String(currentMonth));
 
@@ -432,7 +503,7 @@ export function OwnerDashboard() {
                 Property Performance — {periodLabel}
               </h2>
               {statements.map((stmt) => (
-                <PropertyCard key={stmt.propertyId} stmt={stmt} year={year} month={month} />
+                <PropertyCard key={stmt.propertyId} stmt={stmt} year={year} month={month} canManage={canManage} />
               ))}
             </div>
           )}

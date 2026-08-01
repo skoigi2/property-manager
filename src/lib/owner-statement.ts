@@ -16,6 +16,14 @@ export interface OwnerStatementLine {
   grossTotal:    number;
 }
 
+export interface OwnerStatementPayout {
+  id:        string;
+  amount:    number;
+  paidAt:    string;
+  method:    string | null;
+  reference: string | null;
+}
+
 export interface OwnerStatement {
   propertyId:    string;
   propertyName:  string;
@@ -28,6 +36,9 @@ export interface OwnerStatement {
   expenses:      { category: string; description: string; amount: number }[];
   totalExpenses: number;
   netPayable:    number;
+  /** Remittances recorded against this statement period (OwnerPayout rows). */
+  payouts:       OwnerStatementPayout[];
+  totalPaidOut:  number;
   notes:         string;
   ownerName:     string | null;
   ownerEmail:    string | null;
@@ -52,7 +63,7 @@ export async function buildOwnerStatements(
     include: { units: true, owner: { select: { name: true, email: true } } },
   });
 
-  const [tenants, incomeEntries, expenseEntries, agreements, feeConfigs] = await Promise.all([
+  const [tenants, incomeEntries, expenseEntries, agreements, feeConfigs, payoutRows] = await Promise.all([
     prisma.tenant.findMany({
       where: { unit: { propertyId: { in: targetPropertyIds } }, isActive: true },
       include: {
@@ -86,6 +97,10 @@ export async function buildOwnerStatements(
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: from } }],
       },
       select: { unitId: true, flatAmount: true, ratePercent: true },
+    }),
+    prisma.ownerPayout.findMany({
+      where: { propertyId: { in: targetPropertyIds }, periodYear: year, periodMonth: month },
+      orderBy: { paidAt: "asc" },
     }),
   ]);
 
@@ -169,6 +184,17 @@ export async function buildOwnerStatements(
     const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
     const netPayable    = grossIncome - managementFee - totalExpenses;
 
+    const payouts = payoutRows
+      .filter(p => p.propertyId === property.id)
+      .map(p => ({
+        id:        p.id,
+        amount:    p.amount,
+        paidAt:    format(p.paidAt, "d MMM yyyy"),
+        method:    p.method,
+        reference: p.reference,
+      }));
+    const totalPaidOut = payouts.reduce((s, p) => s + p.amount, 0);
+
     return {
       propertyId:   property.id,
       propertyName: property.name,
@@ -181,6 +207,8 @@ export async function buildOwnerStatements(
       expenses,
       totalExpenses,
       netPayable,
+      payouts,
+      totalPaidOut,
       notes:      `Net payable to owner for ${periodLabel}. Management fee deducted per agreement.`,
       ownerName:  property.owner?.name  ?? null,
       ownerEmail: property.owner?.email ?? null,

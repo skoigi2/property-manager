@@ -1,10 +1,49 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { LogOut, User, ChevronDown, Building2, HelpCircle, ArrowLeftRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
+
+// Context-aware help: map the current route to the matching guide.html section
+// so the ? icon opens the guide at the page you're on, not at the top.
+// Longest-prefix match; anchors are the guide's stable section ids.
+const GUIDE_ANCHORS: [prefix: string, anchor: string][] = [
+  ["/inbox",              "inbox"],
+  ["/dashboard",          "dashboard"],
+  ["/calendar",           "calendar"],
+  ["/cases",              "cases"],
+  ["/approve",            "cases"],
+  ["/properties",         "properties"],
+  ["/tenants",            "tenants"],
+  ["/income",             "income"],
+  ["/invoices",           "income"],
+  ["/arrears",            "income"],
+  ["/expenses",           "expenses"],
+  ["/petty-cash",         "expenses"],
+  ["/recurring-expenses", "expenses"],
+  ["/maintenance",        "maintenance"],
+  ["/report",             "reports"],
+  ["/forecast",           "operations"],
+  ["/vendors",            "operations"],
+  ["/insurance",          "operations"],
+  ["/compliance",         "operations"],
+  ["/assets",             "operations"],
+  ["/airbnb",             "income"],
+  ["/import",             "import"],
+  ["/settings",           "settings"],
+  ["/billing",            "billing"],
+  ["/upgrade",            "billing"],
+  ["/automations",        "automations"],
+];
+
+function guideHrefFor(pathname: string | null): string {
+  if (!pathname) return "/guide.html";
+  const hit = GUIDE_ANCHORS.find(([prefix]) => pathname === prefix || pathname.startsWith(prefix + "/"));
+  return hit ? `/guide.html#${hit[1]}` : "/guide.html";
+}
 
 interface HeaderProps {
   title: string;
@@ -17,6 +56,7 @@ interface OrgOption { id: string; name: string }
 
 export function Header({ title, userName, role, children }: HeaderProps) {
   const { data: session, update } = useSession();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [propOpen, setPropOpen] = useState(false);
   const { properties, selectedId, setSelectedId, selected, loading, currency, mixedCurrencies } = useProperty();
@@ -129,7 +169,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
       <div className="flex items-center gap-3">
         {children}
         <a
-          href="/guide.html"
+          href={guideHrefFor(pathname)}
           target="_blank"
           rel="noopener noreferrer"
           title="Help & User Guide"

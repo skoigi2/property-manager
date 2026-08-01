@@ -56,6 +56,9 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
     approvalRequest: {
       amount: { needs: { amount: true }, compute: (r) => (r.amount === null ? null : Number(r.amount)) },
     },
+    ownerPayout: {
+      amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+    },
     invoice: {
       rentAmount: { needs: { rentAmount: true }, compute: (r) => Number(r.rentAmount) },
       serviceCharge: { needs: { serviceCharge: true }, compute: (r) => Number(r.serviceCharge) },

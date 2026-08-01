@@ -651,8 +651,32 @@ model Property {
   complianceCertificates ComplianceCertificate[]
   caseThreads            CaseThread[]
   actionableHints        ActionableHint[]
+  ownerPayouts           OwnerPayout[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
+}
+
+// Records that the net-payable for a statement period was actually remitted to
+// the property owner. Closes the income -> fee -> payout loop: the calendar's
+// RENT_REMITTANCE event becomes verifiable (overdue when past with no payout)
+// and owner statements show remitted vs outstanding.
+model OwnerPayout {
+  id             String         @id @default(cuid())
+  propertyId     String
+  property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  periodYear     Int
+  periodMonth    Int // 1-12 — the statement month this payout settles
+  amount         Decimal        @db.Decimal(14, 2)
+  paidAt         DateTime
+  method         PaymentMethod?
+  reference      String?
+  notes          String?
+  createdByEmail String
+  createdByName  String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([propertyId, periodYear, periodMonth])
 }
 
 model Unit {

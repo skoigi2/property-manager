@@ -11,9 +11,10 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Badge } from "@/components/ui/Badge";
 import {
   FileText, Download, TrendingUp, Receipt, DollarSign,
-  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2, Calendar, Mail, BarChart2,
+  Wallet, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, FileDown, Building2, Calendar, Mail, BarChart2, Banknote,
 } from "lucide-react";
 import { OwnerEmailDraftModal } from "@/components/report/OwnerEmailDraftModal";
+import { RecordRemittanceModal } from "@/components/report/RecordRemittanceModal";
 import { TaxSummaryTab } from "@/components/report/TaxSummary";
 import { OwnerDashboard } from "@/components/report/OwnerDashboard";
 import { exportOwnerStatement, exportAnnualSummary, exportRentRoll } from "@/lib/excel-export";
@@ -926,12 +927,15 @@ interface StatementData {
   totalExpenses: number; netPayable: number; notes: string;
   ownerName: string | null; ownerEmail: string | null;
   currency: string;
+  payouts: { id: string; amount: number; paidAt: string; method: string | null; reference: string | null }[];
+  totalPaidOut: number;
 }
 
 function OwnerStatementTab({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
   const [data, setData]           = useState<StatementData[]>([]);
   const [loading, setLoading]     = useState(true);
   const [emailStmt, setEmailStmt] = useState<StatementData | null>(null);
+  const [remitStmt, setRemitStmt] = useState<StatementData | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -976,13 +980,32 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
                   size="xl"
                   className={stmt.netPayable >= 0 ? "text-income font-medium" : "text-expense font-medium"}
                 />
+                {stmt.netPayable > 0 && (
+                  stmt.totalPaidOut >= stmt.netPayable * 0.99 ? (
+                    <Badge variant="green">Remitted ✓</Badge>
+                  ) : stmt.totalPaidOut > 0 ? (
+                    <Badge variant="amber">Partly remitted</Badge>
+                  ) : (
+                    <Badge variant="amber">Not remitted</Badge>
+                  )
+                )}
               </div>
-              <button
-                onClick={() => setEmailStmt(stmt)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/5 transition-colors"
-              >
-                <Mail size={13} /> Email Owner
-              </button>
+              <div className="flex items-center gap-2">
+                {stmt.netPayable > 0 && stmt.totalPaidOut < stmt.netPayable * 0.99 && (
+                  <button
+                    onClick={() => setRemitStmt(stmt)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/5 transition-colors"
+                  >
+                    <Banknote size={13} /> Record remittance
+                  </button>
+                )}
+                <button
+                  onClick={() => setEmailStmt(stmt)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/5 transition-colors"
+                >
+                  <Mail size={13} /> Email Owner
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1047,12 +1070,59 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
             </div>
           </div>
 
+          {/* Remittances recorded against this period */}
+          {stmt.payouts?.length > 0 && (
+            <div className="mb-4 max-w-md">
+              <SectionTitle><Banknote size={16} className="text-gold" /> Remitted to Owner</SectionTitle>
+              <div className="space-y-1.5">
+                {stmt.payouts.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 text-caption text-gray-500">
+                    <span>
+                      Paid {p.paidAt}
+                      {p.method ? ` · ${p.method.replace(/_/g, " ").toLowerCase()}` : ""}
+                      {p.reference ? ` · ref ${p.reference}` : ""}
+                    </span>
+                    <span className="tabular-nums text-income font-medium">{formatCurrency(p.amount, stmt.currency)}</span>
+                  </div>
+                ))}
+                {stmt.totalPaidOut < stmt.netPayable * 0.99 && stmt.netPayable > 0 && (
+                  <div className="flex items-center justify-between pt-1.5 text-caption">
+                    <span className="text-gray-500 font-medium">Still outstanding</span>
+                    <span className="tabular-nums text-expense font-medium">
+                      {formatCurrency(stmt.netPayable - stmt.totalPaidOut, stmt.currency)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Notes */}
           <p className="text-caption text-gray-400 italic">{stmt.notes}</p>
         </Card>
       ))}
       {emailStmt && (
         <OwnerEmailDraftModal statement={emailStmt} onClose={() => setEmailStmt(null)} />
+      )}
+      {remitStmt && (
+        <RecordRemittanceModal
+          propertyId={remitStmt.propertyId}
+          propertyName={remitStmt.propertyName}
+          period={remitStmt.period}
+          currency={remitStmt.currency}
+          netPayable={remitStmt.netPayable}
+          totalPaidOut={remitStmt.totalPaidOut}
+          year={year}
+          month={month}
+          onClose={() => setRemitStmt(null)}
+          onRecorded={(p) => {
+            setData((prev) => prev.map((s) =>
+              s.propertyId === remitStmt.propertyId
+                ? { ...s, payouts: [...(s.payouts ?? []), p], totalPaidOut: (s.totalPaidOut ?? 0) + p.amount }
+                : s
+            ));
+          }}
+        />
       )}
     </div>
   );

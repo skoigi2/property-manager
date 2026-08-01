@@ -193,6 +193,7 @@ export async function buildCalendarEvents(
     agreements,
     approvals,
     openCases,
+    payouts,
   ] = await Promise.all([
     prisma.tenant.findMany({
       where: {
@@ -329,6 +330,17 @@ export async function buildCalendarEvents(
         property: { select: { id: true, name: true, currency: true } },
         unit: { select: { unitNumber: true } },
       },
+    }),
+
+    // Recorded owner remittances — a RENT_REMITTANCE event whose period has a
+    // payout is settled (dropped); one past its day with no payout is overdue.
+    // Window is padded a year back so the trailing overdue sweep can verify.
+    prisma.ownerPayout.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        periodYear: { gte: from.getFullYear() - 1 },
+      },
+      select: { propertyId: true, periodYear: true, periodMonth: true },
     }),
   ]);
 
@@ -555,9 +567,13 @@ export async function buildCalendarEvents(
   }
 
   // ── Agreement dates (synthesised per month) ────────────────────────────────
-  // These are derived from a configured day-of-month, not from a record that
-  // tracks completion — so a past one is flagged but never counted as overdue,
-  // because we genuinely cannot tell whether it was actioned.
+  // MGMT_FEE_INVOICE is derived from a configured day-of-month with no record
+  // tracking completion — a past one is flagged but never counted overdue.
+  // RENT_REMITTANCE is now verifiable via OwnerPayout: a period with a payout
+  // drops off the calendar; a past day with no payout is genuinely overdue.
+  const paidPeriods = new Set(
+    payouts.map((p) => `${p.propertyId}:${p.periodYear}-${p.periodMonth}`)
+  );
   for (const a of agreements) {
     const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
     const last = new Date(to.getFullYear(), to.getMonth(), 1);
@@ -575,7 +591,14 @@ export async function buildCalendarEvents(
         if (day < 1 || day > daysInMonth) return;
         const when = new Date(y, m, day);
         if (when < from || when > to) return;
+
+        // Remittance: settled periods drop off; unpaid past days are overdue.
+        const isRemittance = type === "RENT_REMITTANCE";
+        const remitted = isRemittance && paidPeriods.has(`${a.property.id}:${y}-${m + 1}`);
+        if (remitted) return;
+
         const days = daysFromToday(when, today);
+        const overdue = isRemittance && days < 0;
         events.push({
           id: `${type}-${a.id}-${y}-${String(m + 1).padStart(2, "0")}`,
           refId: a.id,
@@ -585,11 +608,13 @@ export async function buildCalendarEvents(
           date: toDateStr(when),
           propertyId: a.property.id,
           propertyName: a.property.name,
-          link: `/properties/${a.property.id}/agreement`,
+          link: isRemittance ? "/report" : `/properties/${a.property.id}/agreement`,
           daysUntil: days,
-          urgency: days === 0 ? "critical" : days < 0 ? "warning" : "ok",
-          isOverdue: false,
-          actions: [{ label: "Open agreement", href: `/properties/${a.property.id}/agreement` }],
+          urgency: overdue ? "critical" : days === 0 ? "critical" : days < 0 ? "warning" : "ok",
+          isOverdue: overdue,
+          actions: isRemittance
+            ? [{ label: "Record remittance", href: "/report" }]
+            : [{ label: "Open agreement", href: `/properties/${a.property.id}/agreement` }],
         });
       };
 

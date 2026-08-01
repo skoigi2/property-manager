@@ -219,11 +219,46 @@
     font-size: 16px; line-height: 1; padding: 4px; display: none;
   }
   #toc-search-clear:hover { color: #fff; }
-  .toc-link.search-hidden { display: none; }
+  .search-kbd {
+    position: absolute; right: 26px; top: 50%; transform: translateY(-50%);
+    font-size: 10px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace;
+    border: 1px solid rgba(255,255,255,0.18); border-radius: 4px; padding: 1px 5px;
+    pointer-events: none;
+  }
   mark.toc-hit { background: var(--gold); color: var(--navy); border-radius: 2px; padding: 0 1px; }
-  #toc-no-results {
-    display: none; color: rgba(255,255,255,0.5); font-size: 12px;
-    padding: 10px 20px; font-style: italic;
+
+  /* ── Search results panel ── */
+  #search-results { display: none; padding: 6px 8px 12px; }
+  #search-results.show { display: block; }
+  .sr-count {
+    color: rgba(255,255,255,0.4); font-size: 11px; padding: 8px 12px 4px;
+    text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;
+  }
+  .sr-item {
+    display: block; text-decoration: none; padding: 8px 12px; border-radius: 8px;
+    cursor: pointer; border: 1px solid transparent;
+  }
+  .sr-item:hover, .sr-item.active { background: rgba(255,255,255,0.07); border-color: rgba(201,168,76,0.35); }
+  .sr-item .sr-section {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 2px; display: flex; align-items: center; gap: 6px;
+  }
+  .sr-item .sr-section .num {
+    display: inline-block; min-width: 18px; height: 15px; background: rgba(255,255,255,0.1);
+    border-radius: 3px; text-align: center; line-height: 15px; font-size: 9px;
+    font-family: 'DM Mono', monospace; color: rgba(255,255,255,0.7);
+  }
+  .sr-item .sr-title { color: #fff; font-size: 13px; font-weight: 600; line-height: 1.35; }
+  .sr-item .sr-snippet { color: rgba(255,255,255,0.55); font-size: 11.5px; line-height: 1.45; margin-top: 2px; }
+  .sr-item .sr-snippet mark, .sr-item .sr-title mark { background: var(--gold); color: var(--navy); border-radius: 2px; padding: 0 1px; }
+  #sr-empty { color: rgba(255,255,255,0.5); font-size: 12px; padding: 12px 14px; font-style: italic; display: none; }
+
+  /* ── In-content search highlight ── */
+  mark.content-hit { background: rgba(201,168,76,0.45); color: inherit; border-radius: 2px; padding: 0 1px; }
+  .flash-target { animation: flash-outline 2.2s ease-out; border-radius: 8px; }
+  @keyframes flash-outline {
+    0%   { box-shadow: 0 0 0 4px rgba(201,168,76,0.55); }
+    100% { box-shadow: 0 0 0 4px rgba(201,168,76,0); }
   }
 
   /* ── Mobile top bar (hidden on desktop) ── */
@@ -272,6 +307,7 @@
     .section { padding-top: 44px; }
     .screenshot-grid { grid-template-columns: 1fr; }
     .kanban-cols { grid-template-columns: 1fr 1fr; }
+    .search-kbd { display: none; }
   }
 
   /* ── Print ── */
@@ -306,28 +342,37 @@
   <div id="toc-search-wrap">
     <span class="toc-search-icon">🔍</span>
     <input id="toc-search" type="search" placeholder="Search the guide…" autocomplete="off" aria-label="Search the guide">
+    <span class="search-kbd" id="search-kbd">Ctrl K</span>
     <button id="toc-search-clear" aria-label="Clear search">×</button>
   </div>
-  <div class="toc-label">User Guide</div>
-  <a class="toc-link active" href="#intro"><span class="num">00</span>Introduction</a>
-  <a class="toc-link" href="#roles"><span class="num">01</span>User Roles</a>
-  <a class="toc-link" href="#getting-started"><span class="num">02</span>Getting Started</a>
-  <a class="toc-link" href="#dashboard"><span class="num">03</span>Dashboard</a>
-  <a class="toc-link" href="#inbox"><span class="num">04</span>Operational Inbox</a>
-  <a class="toc-link" href="#cases"><span class="num">05</span>Cases &amp; Approvals</a>
-  <a class="toc-link" href="#properties"><span class="num">06</span>Properties &amp; Units</a>
-  <a class="toc-link" href="#tenants"><span class="num">07</span>Tenant Management</a>
-  <a class="toc-link" href="#income"><span class="num">08</span>Income &amp; Invoices</a>
-  <a class="toc-link" href="#expenses"><span class="num">09</span>Expenses &amp; Petty Cash</a>
-  <a class="toc-link" href="#maintenance"><span class="num">10</span>Maintenance</a>
-  <a class="toc-link" href="#reports"><span class="num">11</span>Reports</a>
-  <a class="toc-link" href="#operations"><span class="num">12</span>Operations</a>
-  <a class="toc-link" href="#settings"><span class="num">13</span>Settings &amp; Team</a>
-  <a class="toc-link" href="#portal"><span class="num">14</span>Tenant Portal</a>
-  <a class="toc-link" href="#billing"><span class="num">15</span>Billing &amp; Plans</a>
-  <a class="toc-link" href="#automations"><span class="num">16</span>Automations</a>
-  <a class="toc-link" href="#appendix"><span class="num">17</span>Appendix</a>
-  <div id="toc-no-results">No sections match your search.</div>
+  <div id="search-results" role="listbox" aria-label="Search results">
+    <div class="sr-count" id="sr-count"></div>
+    <div id="sr-list"></div>
+    <div id="sr-empty">Nothing matches your search.</div>
+  </div>
+  <div id="toc-list">
+    <div class="toc-label">User Guide</div>
+    <a class="toc-link active" href="#intro"><span class="num">00</span>Introduction</a>
+    <a class="toc-link" href="#roles"><span class="num">01</span>User Roles</a>
+    <a class="toc-link" href="#getting-started"><span class="num">02</span>Getting Started</a>
+    <a class="toc-link" href="#dashboard"><span class="num">03</span>Dashboard</a>
+    <a class="toc-link" href="#inbox"><span class="num">04</span>Operational Inbox</a>
+    <a class="toc-link" href="#cases"><span class="num">05</span>Cases &amp; Approvals</a>
+    <a class="toc-link" href="#calendar"><span class="num">06</span>Calendar</a>
+    <a class="toc-link" href="#properties"><span class="num">07</span>Properties &amp; Units</a>
+    <a class="toc-link" href="#tenants"><span class="num">08</span>Tenant Management</a>
+    <a class="toc-link" href="#income"><span class="num">09</span>Income, Invoices &amp; Arrears</a>
+    <a class="toc-link" href="#expenses"><span class="num">10</span>Expenses &amp; Petty Cash</a>
+    <a class="toc-link" href="#maintenance"><span class="num">11</span>Maintenance</a>
+    <a class="toc-link" href="#reports"><span class="num">12</span>Reports</a>
+    <a class="toc-link" href="#operations"><span class="num">13</span>Operations</a>
+    <a class="toc-link" href="#import"><span class="num">14</span>Data Import</a>
+    <a class="toc-link" href="#settings"><span class="num">15</span>Settings &amp; Team</a>
+    <a class="toc-link" href="#portal"><span class="num">16</span>Tenant Portal</a>
+    <a class="toc-link" href="#billing"><span class="num">17</span>Billing &amp; Plans</a>
+    <a class="toc-link" href="#automations"><span class="num">18</span>Automations</a>
+    <a class="toc-link" href="#appendix"><span class="num">19</span>Appendix</a>
+  </div>
 </nav>
 
 <!-- ══════════════════════════════════════════════════════════
@@ -339,18 +384,18 @@
   <div id="hero">
     <div class="badge">Complete User Guide</div>
     <h1>Everything you need to master<br><em>GroundWorkPM</em></h1>
-    <p>An end-to-end walkthrough of every feature — from signing up to generating owner reports, managing maintenance, and sharing tenant portals.</p>
+    <p>An end-to-end walkthrough of every feature and workflow — from signing up to running your daily inbox, collecting rent, escalating arrears, and sending owner reports.</p>
     <div class="meta">
-      <div class="meta-item"><strong>Version</strong> &nbsp;Next.js 14 · Prisma · Supabase</div>
-      <div class="meta-item"><strong>Updated</strong> &nbsp;July 2026</div>
+      <div class="meta-item"><strong>Updated</strong> &nbsp;August 2026</div>
       <div class="meta-item"><strong>Audience</strong> &nbsp;Property managers &amp; admins</div>
+      <div class="meta-item"><strong>Tip</strong> &nbsp;Press Ctrl/Cmd + K to search this guide</div>
     </div>
   </div>
 
   <div id="content">
 
   <!-- ══════════════════════
-       0. INTRODUCTION
+       00. INTRODUCTION
   ══════════════════════ -->
   <div id="intro" class="section">
     <div class="section-header">
@@ -364,25 +409,26 @@
       <div class="screenshot-caption">The GroundWorkPM landing page — your starting point before signing up</div>
     </div>
 
-    <p style="margin-bottom:16px">The platform is built around four core workflows:</p>
+    <p style="margin-bottom:16px">The platform is built around five core workflows:</p>
     <ul class="feature-list">
-      <li><strong>Financial tracking</strong> — Log income and expenses per property and unit, with automatic P&amp;L calculations</li>
-      <li><strong>Tenant management</strong> — Full tenant lifecycle from onboarding through lease renewal and vacating</li>
-      <li><strong>Maintenance operations</strong> — Kanban-style job tracking with vendor assignment and cost logging</li>
-      <li><strong>Owner reporting</strong> — Professional PDF statements with itemised income, expenses, and net returns</li>
+      <li><strong>A daily action queue</strong> — the Operational Inbox tells you what needs doing today; the Calendar shows when everything lands</li>
+      <li><strong>Financial tracking</strong> — log income and expenses per property and unit, with automatic P&amp;L calculations, receipts, and payment tracking</li>
+      <li><strong>Tenant lifecycle</strong> — from onboarding and deposit verification through invoicing, renewal, arrears escalation, and checkout</li>
+      <li><strong>Maintenance &amp; cases</strong> — every operational issue gets a timeline-driven case with stages, SLAs, and one-click owner approvals</li>
+      <li><strong>Owner reporting</strong> — professional PDF statements with itemised income, expenses, arrears aging, and net returns</li>
     </ul>
 
     <div class="callout tip">
       <span class="callout-icon">💡</span>
       <div class="callout-body">
         <strong>Try a demo first</strong>
-        When you sign up, you can load a pre-seeded demo property (Al Seef Residences — 20 units in Bahrain, or Sandton Heights — 9 units in South Africa) so you can explore the platform with real data before entering your own.
+        When you sign up, you can load a pre-seeded demo property — Al Seef Residences (Bahrain), Sandton Heights (South Africa), Belsize Court (UK), or Kilimani Court (Kenya) — so you can explore the platform with three months of realistic data before entering your own.
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════
-       1. USER ROLES
+       01. USER ROLES
   ══════════════════════ -->
   <div id="roles" class="section">
     <div class="section-header">
@@ -403,22 +449,22 @@
         <tr>
           <td><span class="badge badge-blue">MANAGER</span> / <span class="badge badge-blue">ADMIN</span></td>
           <td>Property manager, agency administrator</td>
-          <td>Full access — dashboard, tenants, income, expenses, maintenance, reports, settings, billing</td>
+          <td>Full access — inbox, dashboard, tenants, income, expenses, maintenance, cases, calendar, reports, settings, billing</td>
         </tr>
         <tr>
           <td><span class="badge badge-amber">ACCOUNTANT</span></td>
           <td>Bookkeeper, accounts staff</td>
-          <td>Financial pages only — income, expenses, invoices, arrears, forecast, reports. No settings or user management.</td>
+          <td>Operational and financial pages — income, expenses, invoices, arrears, forecast, reports. Cannot delete financial records, run tenant lifecycle actions (vacate, checkout, deposit settlement), or change organisation settings.</td>
         </tr>
         <tr>
           <td><span class="badge badge-green">OWNER</span></td>
           <td>Property owner / landlord</td>
-          <td>The <strong>Report</strong> page only — owner statements with income breakdown, deductions, and net returns. Cannot see financial details.</td>
+          <td>The <strong>Report</strong> page only — owner statements with income breakdown, deductions, and net returns. Cannot see day-to-day financial details.</td>
         </tr>
         <tr>
           <td><span class="badge badge-gray">TENANT PORTAL</span></td>
           <td>Tenant (no account needed)</td>
-          <td>Public, token-based portal — view invoices, download PDFs, view documents, submit maintenance requests.</td>
+          <td>Public, token-based portal — view invoices and balance, download PDFs and receipts, message the manager, submit payment proof and maintenance requests.</td>
         </tr>
       </tbody>
     </table>
@@ -464,7 +510,7 @@
         <rect x="465" y="55" width="100" height="50" rx="6" fill="#f3f4f6"/>
         <text x="515" y="76" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Portal token link</text>
         <text x="515" y="89" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Invoices · Docs</text>
-        <text x="515" y="102" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Maintenance</text>
+        <text x="515" y="102" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Messages · Requests</text>
 
         <defs>
           <marker id="arr" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#132635"/></marker>
@@ -477,7 +523,7 @@
   </div>
 
   <!-- ══════════════════════
-       2. GETTING STARTED
+       02. GETTING STARTED
   ══════════════════════ -->
   <div id="getting-started" class="section">
     <div class="section-header">
@@ -490,23 +536,18 @@
     <div class="flow-diagram">
       <svg viewBox="0 0 680 80" xmlns="http://www.w3.org/2000/svg" width="680" height="80">
         <g font-family="DM Sans,sans-serif" font-size="11">
-          <!-- boxes -->
           <rect x="0" y="20" width="90" height="36" rx="6" fill="#132635"/>
           <text x="45" y="43" text-anchor="middle" fill="white" font-weight="600">Landing /</text>
-          <!-- arrow -->
           <line x1="90" y1="38" x2="115" y2="38" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#ga)"/>
           <rect x="115" y="20" width="80" height="36" rx="6" fill="#132635"/>
           <text x="155" y="43" text-anchor="middle" fill="white" font-weight="600">Sign Up</text>
-          <!-- arrow -->
           <line x1="195" y1="38" x2="220" y2="38" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#ga)"/>
           <rect x="220" y="20" width="110" height="36" rx="6" fill="#C9A84C"/>
           <text x="275" y="38" text-anchor="middle" fill="#132635" font-weight="700">Onboarding</text>
           <text x="275" y="50" text-anchor="middle" fill="#132635" font-size="10">3 steps</text>
-          <!-- arrow -->
           <line x1="330" y1="38" x2="355" y2="38" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#ga)"/>
           <rect x="355" y="20" width="90" height="36" rx="6" fill="#1e3a50"/>
           <text x="400" y="43" text-anchor="middle" fill="white" font-weight="600">Dashboard</text>
-          <!-- OR login -->
           <text x="490" y="15" text-anchor="middle" fill="#5a7a8a" font-size="10">returning user</text>
           <rect x="450" y="20" width="80" height="36" rx="6" fill="#132635"/>
           <text x="490" y="43" text-anchor="middle" fill="white" font-weight="600">Login</text>
@@ -562,23 +603,28 @@
       </div>
     </div>
 
+    <div class="sub-section">
+      <h3>Setup Progress checklist</h3>
+      <p>After onboarding, a per-property activation checklist appears on the dashboard showing a 0–100% setup score with row-by-row ✅ / ⚠ items (units, tenants, portal links, recurring expenses, insurance, vendors, agreement, branding, first entry). Each incomplete row has a one-click link to the right page. The Properties page shows the same score as a badge on each property card, so you always know what's left to configure.</p>
+    </div>
+
     <div class="callout tip">
       <span class="callout-icon">💡</span>
       <div class="callout-body">
         <strong>Forgot your password?</strong>
-        Use the <em>Forgot password?</em> link on the login page. A reset link valid for 1 hour is sent to your email via Resend. Enter your new password on the reset page and you'll be redirected back to login.
+        Use the <em>Forgot password?</em> link on the login page. A reset link valid for 1 hour is sent to your email. Enter your new password on the reset page and you'll be redirected back to login.
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════
-       3. DASHBOARD
+       03. DASHBOARD
   ══════════════════════ -->
   <div id="dashboard" class="section">
     <div class="section-header">
       <div class="section-num">03 — Dashboard</div>
       <h2>The Dashboard</h2>
-      <p class="intro">Your command centre. The dashboard aggregates live data from across the platform into five KPI cards, four alert panels, a revenue trend chart, and property-specific tables.</p>
+      <p class="intro">Your command centre. The dashboard aggregates live data from across the platform into KPI cards, actionable alert panels, an operations strip, a revenue trend chart, and property-specific tables.</p>
     </div>
 
     <div class="screenshot-wrap">
@@ -587,12 +633,24 @@
     </div>
 
     <div class="sub-section">
+      <h3>Portfolio view vs single property</h3>
+      <p style="margin-bottom:12px">If your organisation manages multiple properties, the dashboard opens in the <strong>"All properties" portfolio view</strong>: combined KPIs, plus an <em>All properties</em> tab with long-term rent and short-let tables across the portfolio (each row shows its Property). Use the property dropdown in the header to scope everything to one property — your choice persists as you navigate.</p>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Mixed currencies</strong>
+          If your properties use different currencies, portfolio totals are a raw sum and the header shows a <em>⚠ Mixed currencies</em> chip as a caveat. Scope to a single property for exact figures.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
       <h3>KPI Cards (top row)</h3>
       <table class="data-table">
         <thead><tr><th>Card</th><th>What it shows</th><th>Where the data comes from</th></tr></thead>
         <tbody>
           <tr><td><strong>Gross Income</strong></td><td>All income (excl. deposits) for the selected month</td><td>Income entries for accessible properties</td></tr>
-          <tr><td><strong>Net Profit</strong></td><td>Gross income minus expenses and agent commissions</td><td>Computed via <code>calcUnitSummary()</code></td></tr>
+          <tr><td><strong>Net Profit</strong></td><td>Gross income minus expenses and agent commissions</td><td>Computed live — never stored</td></tr>
           <tr><td><strong>Outstanding Invoices</strong></td><td>Total unpaid invoice amount for the month</td><td>Unpaid invoices in accessible properties</td></tr>
           <tr><td><strong>Arrears Owed</strong></td><td>Total overdue rent across all tenants</td><td>Sum of unpaid invoice balances past due date</td></tr>
           <tr><td><strong>Petty Cash Balance</strong></td><td>Current petty cash balance</td><td>Recomputed from all petty cash entries</td></tr>
@@ -601,50 +659,45 @@
     </div>
 
     <div class="sub-section">
-      <h3>Attention Required Alerts</h3>
-      <p style="margin-bottom:14px">Four alert cards show the health of your portfolio. Each card is colour-coded: <span class="badge badge-red">red = critical</span> &nbsp;<span class="badge badge-amber">amber = warning</span> &nbsp;<span class="badge badge-green">green = clear</span>.</p>
+      <h3>Attention Required — actionable alerts</h3>
+      <p style="margin-bottom:14px">Four alert cards show the health of your portfolio, colour-coded <span class="badge badge-red">red = critical</span> <span class="badge badge-amber">amber = warning</span> <span class="badge badge-green">green = clear</span>. These aren't just counters — each card lists the actual items with per-row actions, so you can resolve issues without leaving the dashboard:</p>
       <ul class="feature-list">
-        <li><strong>Lease Watch</strong> — tenants with leases expiring in ≤30 days or already expired</li>
-        <li><strong>Unpaid Rent</strong> — invoices that are overdue or unsent this month</li>
-        <li><strong>Maintenance</strong> — open maintenance jobs, overdue recurring schedules</li>
-        <li><strong>Arrears</strong> — tenants with outstanding balances older than 30 days</li>
+        <li><strong>Lease Watch</strong> — up to five expiring / expired leases, each deep-linking to that tenant's Renewal tab with a <em>Renew</em> shortcut. Tenants with no lease end date ("Lease date TBC") get an inline date input — set the date right there and the row resolves in place.</li>
+        <li><strong>Unpaid Rent</strong> — invoices overdue or unsent this month</li>
+        <li><strong>Maintenance</strong> — open maintenance jobs and overdue recurring schedules</li>
+        <li><strong>Arrears</strong> — open arrears cases plus ledger debtors with multi-period balances, deep-linking to the Income page's arrears view</li>
       </ul>
     </div>
 
     <div class="sub-section">
+      <h3>Operations strip</h3>
+      <p>Below the alerts, a strip of tiles summarises the month's operations. Every tile lands on the page where you'd act on it: the <strong>Management Fee</strong> tile (with an "Owing − Paid" tooltip) opens Expenses where the fee payment is logged; the <strong>Renewals</strong> tile opens the Tenants page pre-filtered to the renewal pipeline; the <strong>Vacant Units</strong> tile opens Add Tenant with the vacant units ready to pick. Tiles that don't apply (e.g. management fee on a fee-free property) hide themselves.</p>
+    </div>
+
+    <div class="sub-section">
       <h3>Month Picker</h3>
-      <p>The month picker (top right of the dashboard header) controls which month's data is shown. Click the left/right arrows to move months or click the month label to jump to a specific date. A <em>Back to current</em> link appears when you're viewing a past month.</p>
+      <p>The month picker controls which month's data is shown. Use the arrows to step a month at a time, or <strong>click the month label</strong> to open a jump-to-month popover — a year-paged 12-month grid with a "Current month" shortcut, so any month is a few clicks away. The month you pick is <strong>shared across pages</strong>: Dashboard, Income, Expenses, Airbnb, and Petty Cash all stay on the same working month as you navigate.</p>
     </div>
 
     <div class="sub-section">
       <h3>Setup Progress widget</h3>
-      <p>When a property is selected, an activation checklist appears above the KPI strip. It shows a 0–100% setup score plus a row-by-row ✅ / ⚠ checklist (units, tenants, portal links, recurring expenses, insurance, vendors, agreement, branding, first entry). Each incomplete row has a one-click CTA. Hidden for OWNER role. At 100% you can dismiss it — it reappears automatically if the score drops.</p>
-      <div class="callout tip">
-        <span class="callout-icon">💡</span>
-        <div class="callout-body">
-          <strong>AIRBNB properties</strong>
-          Tenant and tenant-portal rows don't apply, so they're excluded from the denominator — a fully-set-up Airbnb still reads 100%.
-        </div>
-      </div>
-    </div>
-
-    <div class="callout note">
-      <span class="callout-icon">ℹ️</span>
-      <div class="callout-body">
-        <strong>Property filter</strong>
-        If you manage multiple properties, a property dropdown appears in the top-left of the dashboard. Select a specific property to scope all KPI cards and tables to that property.
-      </div>
+      <p>When a property is selected, the activation checklist appears above the KPI strip (see <a href="#getting-started">Getting Started</a>). At 100% you can dismiss it — it reappears automatically if the score drops. Hidden for the OWNER role.</p>
     </div>
   </div>
 
   <!-- ══════════════════════
-       4. OPERATIONAL INBOX
+       04. OPERATIONAL INBOX
   ══════════════════════ -->
   <div id="inbox" class="section">
     <div class="section-header">
       <div class="section-num">04 — Operational Inbox</div>
       <h2>Operational Inbox</h2>
       <p class="intro">A single prioritised queue of everything that needs your attention today. Managers and accountants land here first. It's the daily landing surface and the only screen that promises "if it's not here, you don't need to act on it."</p>
+    </div>
+
+    <div class="screenshot-wrap">
+      <img src="guide-screenshots/25-inbox.png" alt="Operational Inbox" loading="lazy">
+      <div class="screenshot-caption">The Operational Inbox — one prioritised queue with inline actions per row</div>
     </div>
 
     <div class="sub-section">
@@ -657,7 +710,7 @@
         <li><strong>Tenant portal requests</strong> — maintenance jobs submitted by tenants, not yet acknowledged</li>
         <li><strong>Compliance certificates</strong> expiring in ≤30 days</li>
         <li><strong>Insurance policies</strong> ending in ≤30 days</li>
-        <li><strong>Arrears cases</strong> not <code>RESOLVED</code> and untouched for &gt;7 days</li>
+        <li><strong>Arrears cases</strong> not resolved and untouched for &gt;7 days</li>
         <li><strong>Approvals pending</strong> — magic-link approvals open more than 24 hours (escalates to URGENT after 3 days)</li>
         <li><strong>Smart Reminders</strong> — proactive suggestions written by the daily cron (see below)</li>
       </ul>
@@ -669,8 +722,13 @@
     </div>
 
     <div class="sub-section">
+      <h3>Send reminders — real emails, in bulk</h3>
+      <p>Select overdue-invoice rows and click <strong>Send reminders</strong>: each tenant receives a rent-payment reminder email quoting their invoice number, outstanding amount, and days overdue. Every send is logged to the tenant's communication trail, and tenants with no email address on file are reported back to you as failures — nothing is silently skipped.</p>
+    </div>
+
+    <div class="sub-section">
       <h3>Smart Reminders (proactive cron)</h3>
-      <p>Every morning at 07:00 UTC the cron checks for things you couldn't know about yet:</p>
+      <p>Every morning at 07:00 UTC the system checks for things you couldn't know about yet:</p>
       <ul class="feature-list">
         <li><strong>Vacant unit &gt; 30 days</strong> — suggests "Mark as listed"</li>
         <li><strong>Deposit not settled &gt; 14 days after move-out</strong> — opens the settlement flow</li>
@@ -696,7 +754,7 @@
   </div>
 
   <!-- ══════════════════════
-       5. CASES & APPROVALS
+       05. CASES & APPROVALS
   ══════════════════════ -->
   <div id="cases" class="section">
     <div class="section-header">
@@ -705,14 +763,23 @@
       <p class="intro">Every operational issue gets a workspace — a timeline of comments, emails, attachments, status changes, and approvals — anchored to a visible workflow with per-stage SLA budgets. Replaces the WhatsApp + email + screenshot loop.</p>
     </div>
 
+    <div class="screenshot-wrap">
+      <img src="guide-screenshots/26-cases.png" alt="Cases list" loading="lazy">
+      <div class="screenshot-caption">The Cases list — every open issue with its stage progress and who it's waiting on</div>
+    </div>
+
     <div class="sub-section">
       <h3>When a case is created</h3>
-      <p>Cases are created automatically the moment a backing record exists. Today the only backed type is <strong>MAINTENANCE</strong> — every maintenance job auto-creates a case with the job description as its first comment. The workflow types <em>LEASE_RENEWAL</em>, <em>ARREARS</em>, <em>COMPLIANCE</em>, and <em>GENERAL</em> are defined and ready in code but don't auto-create yet; that's a follow-up phase.</p>
+      <p>Cases are created automatically the moment a backing record exists. Two case types are fully live today: <strong>MAINTENANCE</strong> — every maintenance job auto-creates a case with the job description as its first comment — and <strong>ARREARS</strong> — the arrears escalation ladder runs entirely on cases (see <a href="#income">Income, Invoices &amp; Arrears</a>). The workflow types <em>LEASE_RENEWAL</em>, <em>COMPLIANCE</em>, and <em>GENERAL</em> are defined and can be opened by the corresponding <a href="#automations">Automations</a> or manually.</p>
     </div>
 
     <div class="sub-section">
       <h3>The stage tracker (visible workflow)</h3>
       <p>Each case carries an ordered set of stages. A <strong>MAINTENANCE</strong> case moves through: <em>Reported → Triaged → Quote requested → Quote received → Approval requested → Approved → Scheduled → In progress → Completed → Invoiced → Closed</em>. The tracker at the top of each case page shows your current position. Completed stages render green; the current stage is gold; future stages are gray. Click a future stage to advance with an optional note; the overflow menu offers regress-with-reason for fixing slips.</p>
+      <div class="screenshot-wrap">
+        <img src="guide-screenshots/27-case-detail.png" alt="Case detail" loading="lazy">
+        <div class="screenshot-caption">Case detail — stage tracker, unified timeline, and the action panel</div>
+      </div>
       <div class="callout note">
         <span class="callout-icon">ℹ️</span>
         <div class="callout-body">
@@ -724,7 +791,7 @@
 
     <div class="sub-section">
       <h3>Bypassed vs completed</h3>
-      <p>If you set <em>Status</em> to RESOLVED / CLOSED before walking the workflow, the stepper shows an amber "Bypassed at <em>[stage]</em>" banner — the timeline never lies. Stages past the abandon point render faded with a dashed border. Reaching the natural completion stage and then closing shows a clean green "Completed" instead.</p>
+      <p>If you set <em>Status</em> to RESOLVED / CLOSED before walking the workflow, the stepper shows an amber "Bypassed at <em>[stage]</em>" banner — the timeline never lies. Stages past the abandon point render faded with a dashed border. Reaching the natural completion stage and then closing shows a clean green "Completed" instead. (Arrears cases are the exception: settling early is the <em>best</em> outcome there, so it always reads as completed, never bypassed.)</p>
     </div>
 
     <div class="sub-section">
@@ -736,9 +803,9 @@
       <h3>Communication unified in the timeline</h3>
       <p>Three communication systems all dual-write into the case timeline:</p>
       <ul class="feature-list">
-        <li><strong>System-sent emails</strong> (cron notifications, password resets, contact-form replies) — write to <code>EmailLog</code> AND post an <em>EMAIL_SENT</em> event on the linked case</li>
-        <li><strong>Tenant comm log entries</strong> (the existing per-tenant log) — post an <em>EMAIL_SENT</em> event AND a "View case →" backlink appears on the tenant's Comms tab</li>
-        <li><strong>Vendor emails</strong> (drafted from the case detail page) — write to <code>EmailLog</code> + post an <em>EMAIL_SENT</em> event</li>
+        <li><strong>System-sent emails</strong> (cron notifications, reminders) — logged AND posted as an <em>EMAIL_SENT</em> event on the linked case</li>
+        <li><strong>Tenant comm log entries</strong> (the per-tenant log) — post an <em>EMAIL_SENT</em> event AND a "View case →" backlink appears on the tenant's Comms tab</li>
+        <li><strong>Vendor emails</strong> (drafted from the case detail page) — logged + posted as an <em>EMAIL_SENT</em> event</li>
       </ul>
       <p>Open any case and you see the full operational history in one chronological feed — no inbox-hopping.</p>
     </div>
@@ -747,16 +814,16 @@
       <h3>Magic-link approvals</h3>
       <p>Click <strong>Request approval</strong> on the case action panel. Fill in the approver's email, the question, an optional amount + currency, and an expiry window (default 72 hours, max 7 days). The system:</p>
       <ul class="feature-list">
-        <li>Generates a single-use token and emails the approver a magic link to <code>/approve/[token]</code></li>
+        <li>Generates a single-use token and emails the approver a magic link</li>
         <li>Sets the case's <em>waitingOn</em> to OWNER (the SLA clock pauses automatically)</li>
         <li>Logs an <em>APPROVAL_REQUESTED</em> event on the timeline</li>
       </ul>
-      <p>The approver clicks the link — no login required, no portal training. They type their name (captured for the audit trail as <em>respondedByName</em>), then click Approve or Reject. The case auto-advances; a confirmation email goes back to the approver with a "This wasn't me — flag for review" link that triggers a DISPUTE state and notifies you.</p>
+      <p>The approver clicks the link — no login required, no portal training. They type their name (captured for the audit trail), then click Approve or Reject. The case auto-advances; a confirmation email goes back to the approver with a "This wasn't me — flag for review" link that triggers a DISPUTE state and notifies you.</p>
       <div class="callout tip">
         <span class="callout-icon">🔒</span>
         <div class="callout-body">
           <strong>Security posture</strong>
-          Tokens are UUIDs (effectively unguessable). The GET on <code>/api/approvals/[token]</code> is idempotent — email scanners can't accidentally consume an approval. The POST handler is rate-limited at 20 requests / IP / hour. Tokens are redacted to their last 4 characters in audit logs.
+          Tokens are effectively unguessable UUIDs. Opening the approval page never consumes the token — email link scanners can't accidentally approve. Responses are rate-limited, and tokens are redacted in audit logs.
         </div>
       </div>
     </div>
@@ -773,18 +840,80 @@
   </div>
 
   <!-- ══════════════════════
-       6. PROPERTIES
+       06. CALENDAR
+  ══════════════════════ -->
+  <div id="calendar" class="section">
+    <div class="section-header">
+      <div class="section-num">06 — Calendar</div>
+      <h2>Calendar</h2>
+      <p class="intro">When everything lands. The calendar plots every dated obligation across your portfolio on one grid — leases, rent due dates, maintenance visits, insurance renewals, compliance expiries, and more. The Inbox is "what do I do now"; the Calendar is "when does it land."</p>
+    </div>
+
+    <div class="screenshot-wrap">
+      <img src="guide-screenshots/20-calendar.png" alt="Calendar" loading="lazy">
+      <div class="screenshot-caption">Calendar — month grid with severity dots, filters, and a side list of the selected day</div>
+    </div>
+
+    <div class="sub-section">
+      <h3>What appears on the calendar</h3>
+      <p style="margin-bottom:12px">Twelve event types, drawn live from your data — nothing to enter manually:</p>
+      <ul class="feature-list">
+        <li><strong>Leases</strong> — lease starts and lease expiries</li>
+        <li><strong>Money</strong> — rent due dates (from invoices), recurring expenses, rent remittance day, and management-fee invoice day (from the property's agreement)</li>
+        <li><strong>Maintenance</strong> — scheduled contractor visits and recurring maintenance schedules coming due</li>
+        <li><strong>Renewals &amp; compliance</strong> — insurance renewals and compliance certificate expiries</li>
+        <li><strong>Workflow deadlines</strong> — approval expiry deadlines and case SLA deadlines</li>
+      </ul>
+      <p>Events are grouped into four filter buckets so you can scan just money, just leases, just maintenance, or just deadlines. An <strong>Assigned to me</strong> filter shows only events with a genuine owner (case SLAs, booked visits, your approval requests).</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Views: Month, Week, Agenda</h3>
+      <p>Switch between a month grid (with a side list for the selected day), a 7-day week view, and a pure agenda list — your choice is remembered. Same-day clusters roll up, severity shows as coloured dots in the grid, and every event deep-links to the record it came from (the tenant, the invoice, the case). A <strong>Today</strong> button snaps you back. On mobile the calendar renders as an agenda automatically.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Overdue hand-off, snooze, and empty states</h3>
+      <ul class="feature-list">
+        <li><strong>Overdue</strong> — past-dated events that are still open obligations are counted and previewed at the top, with a link to the <a href="#inbox">Inbox</a>, which owns the per-item actions. The calendar deliberately doesn't duplicate the inbox queue.</li>
+        <li><strong>Snooze</strong> — any event can be snoozed ("not now") per-user. Snoozed events hide from your calendar until you restore them; a counter shows how many are hidden.</li>
+        <li><strong>Self-explaining empty state</strong> — if a month has no events, the calendar tells you <em>which sources aren't configured yet</em> (no tenants, no agreement, no maintenance schedules…) with links to set each up — so "nothing is due" and "you never set this up" stop looking identical.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>Subscribe from your own calendar app</h3>
+      <p style="margin-bottom:12px">From <strong>Settings → Calendar</strong> you can create a personal <strong>calendar feed</strong> — a private URL you paste into Google Calendar, Outlook, or Apple Calendar ("subscribe by URL" / "add from internet"). Your GroundWorkPM events then appear alongside your personal calendar and refresh automatically.</p>
+      <ul class="feature-list">
+        <li>Each feed can cover all your properties or a chosen subset</li>
+        <li>Feed events use privacy-minimal titles (no tenant names) since the URL lives outside the app</li>
+        <li>Feeds never expire silently — revoke or rotate them explicitly from the same page</li>
+        <li>If your property access changes, the feed narrows automatically on the next refresh</li>
+      </ul>
+      <p>Need a one-off file instead? The <strong>Export</strong> button downloads a snapshot <code>.ics</code> you can import anywhere.</p>
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <strong>Treat feed URLs like passwords</strong>
+          Anyone with the URL can read the feed. If a URL leaks, revoke it in Settings → Calendar and create a new one — revocation is immediate on the server (subscriber apps may cache for up to 30 minutes).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       07. PROPERTIES
   ══════════════════════ -->
   <div id="properties" class="section">
     <div class="section-header">
-      <div class="section-num">06 — Properties &amp; Units</div>
+      <div class="section-num">07 — Properties &amp; Units</div>
       <h2>Properties &amp; Units</h2>
       <p class="intro">Manage your property portfolio — add properties, configure currencies, add units, and view property-level settings.</p>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/05-properties.png" alt="Properties list" loading="lazy">
-      <div class="screenshot-caption">Properties — your portfolio overview with unit counts and quick actions</div>
+      <div class="screenshot-caption">Properties — your portfolio overview with unit counts, setup score, and quick actions</div>
     </div>
 
     <div class="sub-section">
@@ -817,23 +946,23 @@
   </div>
 
   <!-- ══════════════════════
-       5. TENANTS
+       08. TENANTS
   ══════════════════════ -->
   <div id="tenants" class="section">
     <div class="section-header">
-      <div class="section-num">07 — Tenant Management</div>
+      <div class="section-num">08 — Tenant Management</div>
       <h2>Tenant Management</h2>
-      <p class="intro">The full tenant lifecycle — from adding a new tenant and issuing their first invoice, to lease renewal, deposit settlement, and vacating.</p>
+      <p class="intro">The full tenant lifecycle — from adding a new tenant, verifying their deposit, and issuing their first invoice, to lease renewal, arrears, move-out checkout, and deposit settlement.</p>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/06-tenants.png" alt="Tenants list" loading="lazy">
-      <div class="screenshot-caption">Tenants directory — search, filter by property/status, toggle grid/table view</div>
+      <div class="screenshot-caption">Tenants directory — search, filter by property/status/renewal pipeline, toggle grid/table view</div>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/07-tenant-detail.png" alt="Tenant detail" loading="lazy">
-      <div class="screenshot-caption">Tenant detail page — 7-tab interface covering every aspect of the tenancy</div>
+      <div class="screenshot-caption">Tenant detail page — tabbed interface covering every aspect of the tenancy</div>
     </div>
 
     <div class="sub-section">
@@ -846,17 +975,19 @@
         <span class="tab-pill">Renewal</span>
         <span class="tab-pill">Deposit</span>
         <span class="tab-pill">Comms</span>
+        <span class="tab-pill">Portal Msgs</span>
       </div>
       <table class="data-table" style="margin-top:16px">
         <thead><tr><th>Tab</th><th>What you can do</th></tr></thead>
         <tbody>
           <tr><td><strong>Ledger</strong></td><td>Month-by-month rent payment ledger showing expected vs received amounts and a running balance. Receipts are allocated oldest-first (statement-style), so a tenant who pays a quarter or year up-front is not shown as unpaid for the covered months.</td></tr>
-          <tr><td><strong>Invoices</strong></td><td>View, generate, send, and mark invoices paid. Download individual invoice PDFs.</td></tr>
-          <tr><td><strong>Documents</strong></td><td>Upload and manage lease agreements, IDs, receipts, and other documents stored in Supabase Storage</td></tr>
+          <tr><td><strong>Invoices</strong></td><td>View, generate, send by email, and mark invoices paid. Download individual invoice PDFs.</td></tr>
+          <tr><td><strong>Documents</strong></td><td>Upload and manage lease agreements, IDs, receipts, and other documents in the secure vault</td></tr>
           <tr><td><strong>Rent History</strong></td><td>Log rent escalations and adjustments with effective dates. Warns when the timeline is out of sync with the tenant's current rent, with a one-click fix.</td></tr>
           <tr><td><strong>Renewal</strong></td><td>Progress the lease renewal pipeline (Notice Sent → Terms Agreed → Renewed), set proposed rent and end date</td></tr>
-          <tr><td><strong>Deposit</strong></td><td>Record deposit settlement with itemised deductions (cleaning, damage, unpaid rent, etc.)</td></tr>
+          <tr><td><strong>Deposit</strong></td><td>See the deposit position (contractual vs actually received), link deposit receipts, and record settlement with itemised deductions</td></tr>
           <tr><td><strong>Comms</strong></td><td>Log outbound emails sent to the tenant, with templates for rent reminders, receipts, and renewal offers</td></tr>
+          <tr><td><strong>Portal Msgs</strong></td><td>Read and reply to two-way message threads the tenant opens from their portal</td></tr>
         </tbody>
       </table>
     </div>
@@ -872,19 +1003,30 @@
 
     <div class="sub-section">
       <h3>Contacts, Postal Address &amp; Lease Terms</h3>
-      <p style="margin-bottom:12px">The tenant form captures more than a single email and phone. All of these can be set when adding a tenant, or later via the <strong>Edit</strong> button in the tenant detail header (no need to leave the open tenant card):</p>
+      <p style="margin-bottom:12px">The tenant form captures more than a single email and phone. All of these can be set when adding a tenant, or later via the <strong>Edit</strong> button in the tenant detail header:</p>
       <ul class="feature-list">
-        <li><strong>Additional contacts</strong> — click <em>Add contact</em> to record any number of extra people (spouse, accounts office, guarantor) with a label, email, and phone. They appear on the tenant's overview.</li>
-        <li><strong>P.O. Box / Postal Address</strong> — the tenant's postal address for formal letters (rent demands, notices). It also prints in the "Bill To" block of invoice PDFs.</li>
-        <li><strong>Payment Frequency</strong> — Monthly, Quarterly, Bi-annual, or Annual. Quarterly / bi-annual / annual tenants pay in advance for that whole period; this drives the collection view, invoices, and ledger (see <a href="#income">Income &amp; Invoices</a>).</li>
-        <li><strong>Escalation Rate &amp; interval</strong> — a percentage plus how often it applies (every 1 year for annual, 2 for every two years, or any custom interval). Used to project future rent in the forecast.</li>
+        <li><strong>Additional contacts</strong> — click <em>Add contact</em> to record any number of extra people (spouse, accounts office, guarantor) with a label, email, and phone.</li>
+        <li><strong>P.O. Box / Postal Address</strong> — the tenant's postal address for formal letters. It also prints in the "Bill To" block of invoice PDFs.</li>
+        <li><strong>Payment Frequency</strong> — Monthly, Quarterly, Bi-annual, or Annual. Period payers pay in advance for the whole period; this drives the collection view, invoices, ledger, and arrears (see <a href="#income">Income &amp; Invoices</a>).</li>
+        <li><strong>Escalation Rate &amp; interval</strong> — a percentage plus how often it applies. Used to project future rent in the forecast.</li>
         <li><strong>Parking Fee</strong> — a monthly parking line billed alongside rent.</li>
       </ul>
-      <div class="callout tip">
-        <span class="callout-icon">✏️</span>
+    </div>
+
+    <div class="sub-section">
+      <h3>Deposits — contractual vs actually received</h3>
+      <p style="margin-bottom:12px">GroundWorkPM distinguishes the deposit a tenant <em>should</em> have paid (the contractual amount on their lease) from what you can <em>prove</em> was received (DEPOSIT income receipts linked to the tenant):</p>
+      <ul class="feature-list">
+        <li>The Tenants page shows a <strong>Deposits held</strong> card summing receipt-verified deposits, with a count of tenants whose deposit is still unverified</li>
+        <li>Unverified tenants carry an amber <span class="badge badge-amber">Deposit</span> badge in the list</li>
+        <li><strong>Click the card</strong> to open the verification drawer — confirm the amount actually received (editable for partial deposits) and the received date for each tenant, and the linked deposit receipt is created on the spot. Each verification is a deliberate per-tenant act; there's no bulk "confirm all".</li>
+        <li>At settlement or checkout, the refund is computed from <strong>verified receipts</strong> when a trail exists — falling back to the contractual amount with an "unverified" warning when none is recorded</li>
+      </ul>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
         <div class="callout-body">
-          <strong>Edit in place</strong>
-          The tenant detail page has an <em>Edit</em> button in its header that opens the full tenant form — the same fields as when adding — so you can update details without going back to the Tenants list.
+          <strong>Deposits never inflate income</strong>
+          DEPOSIT receipts appear in the tenant's ledger and the deposit position, but are always excluded from gross income and the P&amp;L.
         </div>
       </div>
     </div>
@@ -892,7 +1034,6 @@
     <div class="sub-section">
       <h3>Lease Renewal Pipeline</h3>
       <p style="margin-bottom:14px">Track renewal progress through four stages:</p>
-      <!-- flow diagram: renewal pipeline -->
       <div class="flow-diagram">
         <svg viewBox="0 0 640 60" xmlns="http://www.w3.org/2000/svg" width="640" height="60">
           <g font-family="DM Sans,sans-serif" font-size="11">
@@ -911,46 +1052,74 @@
           <defs><marker id="pa" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#C9A84C"/></marker></defs>
         </svg>
       </div>
-      <p>When you set the stage to <strong>RENEWED</strong>, the system automatically copies the proposed rent to the tenant's monthly rent and updates the lease end date.</p>
+      <p>When you set the stage to <strong>RENEWED</strong>, the system automatically copies the proposed rent to the tenant's monthly rent and updates the lease end date. The Tenants page has a <em>Renewals</em> filter showing everyone currently in the pipeline — the dashboard's Renewals tile lands there too.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Move-in condition report</h3>
+      <p>Before a tenant moves in, open the unit and start a <strong>Condition Report</strong> — a mobile-optimised, room-by-room stepper (rate each feature Perfect / Good / Fair / Poor, add notes, and capture photos with your phone camera as you walk the unit). Finalising generates a professional PDF with a photo appendix and files it into the tenant's document vault automatically. The same structure is used for mid-term and move-out reports, so conditions can be compared like-for-like later.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Checkout / move-out</h3>
+      <p style="margin-bottom:12px">When a tenancy ends, click <strong>Checkout</strong> in the tenant detail header. The checkout page mirrors a full check-out form — condition findings, outstanding rent balance (computed from unpaid invoices), itemised deposit deductions, keys returned, utility transfers, and refund instructions — with a sticky live settlement box showing the running refund as you type. Finalising:</p>
+      <ul class="feature-list">
+        <li>Marks the tenant vacated and the unit VACANT in one atomic step</li>
+        <li>Records the deposit settlement (from verified receipts where available)</li>
+        <li>Optionally creates a reinstatement expense when damage costs are kept by the landlord</li>
+        <li>Generates a signature-ready PDF of the whole checkout</li>
+      </ul>
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <strong>Never delete a tenant to end a tenancy</strong>
+          Use Checkout (or the simpler <em>Vacate</em> action) — deleting the tenant record removes all financial history.
+        </div>
+      </div>
     </div>
 
     <div class="sub-section">
       <h3>Generating a Portal Link</h3>
-      <p>From the tenant detail page header, click <strong>Generate Portal Link</strong>. Share the unique URL with the tenant — they can view their invoices, download PDFs, upload documents, and submit maintenance requests without creating an account.</p>
-    </div>
-
-    <div class="callout warn">
-      <span class="callout-icon">⚠️</span>
-      <div class="callout-body">
-        <strong>Vacating a tenant</strong>
-        Use the <em>Vacate</em> action (tenant detail header) to formally end the tenancy. This marks the unit as Vacant and prompts you to complete a deposit settlement. Do not simply delete the tenant record, as this removes all financial history.
-      </div>
+      <p>From the tenant detail page header, click <strong>Generate Portal Link</strong>. Share the unique URL with the tenant — they can view invoices and balance, download PDFs and receipts, message you, submit payment proof, and raise maintenance requests without creating an account. See <a href="#portal">Tenant Portal</a>.</p>
     </div>
   </div>
 
   <!-- ══════════════════════
-       6. INCOME & INVOICES
+       09. INCOME & INVOICES
   ══════════════════════ -->
   <div id="income" class="section">
     <div class="section-header">
-      <div class="section-num">08 — Income &amp; Invoices</div>
-      <h2>Income &amp; Invoices</h2>
-      <p class="intro">Track all rental income per property per month. The invoice system bridges the gap between what's expected and what's been received — giving you a real-time rent collection rate.</p>
+      <div class="section-num">09 — Income, Invoices &amp; Arrears</div>
+      <h2>Income, Invoices &amp; Arrears</h2>
+      <p class="intro">Track all rental income per property per month. The invoice system bridges the gap between what's expected and what's been received — and when payment doesn't come, the arrears workflow escalates it properly.</p>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/08-income.png" alt="Income page" loading="lazy">
-      <div class="screenshot-caption">Income page — monthly income summary with ledger table per property</div>
+      <div class="screenshot-caption">Income page — monthly collection view with per-tenant status and bulk recording</div>
     </div>
 
-    <div class="screenshot-wrap">
-      <img src="guide-screenshots/10-invoices.png" alt="Invoices page" loading="lazy">
-      <div class="screenshot-caption">Invoices — generate, send, and track payment status across all tenants</div>
+    <div class="sub-section">
+      <h3>Recording payments — including partial payments</h3>
+      <p style="margin-bottom:12px">The monthly <strong>Collection</strong> view lists every tenant with their expected amount and status. Record a single payment from the row, or click <strong>Record all pending</strong> to preselect every unpaid tenant into an editable bulk-record bar — you can adjust each tenant's amount before posting, so <strong>partial payments are first-class</strong>. If any rows fail, they're named in the toast and stay selected for one-click retry.</p>
+      <ul class="feature-list">
+        <li>A payment automatically finds and settles the tenant's open invoice — even when a quarterly or annual payer pays after their billing month, the payment matches the invoice covering that period</li>
+        <li>Partial payments accumulate on the invoice; it only flips to PAID once effectively fully paid — short payments leave it SENT/OVERDUE with the balance visible</li>
+        <li>Recording a payment prefills the correct period amount for the tenant's payment frequency, not blindly one month's rent</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>Payment Frequency &amp; the Collection view</h3>
+      <p style="margin-bottom:12px">Each tenant's <strong>Payment Frequency</strong> (Monthly, Quarterly, Bi-annual, Annual) drives every expected-rent surface. Quarterly, bi-annual, and annual tenants pay for the whole period in advance, so:</p>
+      <ul class="feature-list">
+        <li>On a tenant's <strong>billing month</strong> (anchored to their lease start), the <em>Expected</em> column shows the full period amount — labelled e.g. "Quarter in advance"</li>
+        <li>In the <strong>covered months</strong> in between, the tenant shows <span class="badge badge-gray">Not due</span> rather than a red "Pending", and is excluded from the progress bar and bulk selection</li>
+      </ul>
     </div>
 
     <div class="sub-section">
       <h3>Invoice Workflow</h3>
-      <!-- flow diagram: invoice lifecycle -->
       <div class="flow-diagram">
         <svg viewBox="0 0 700 60" xmlns="http://www.w3.org/2000/svg" width="700" height="60">
           <g font-family="DM Sans,sans-serif" font-size="11">
@@ -962,14 +1131,12 @@
             <line x1="180" y1="30" x2="200" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#ia)"/>
             <rect x="200" y="12" width="80" height="36" rx="6" fill="#dcfce7" stroke="#86efac"/>
             <text x="240" y="35" text-anchor="middle" fill="#166534" font-weight="600">PAID ✓</text>
-            <!-- OR branch: overdue -->
             <text x="360" y="8" text-anchor="middle" fill="#5a7a8a" font-size="9">if past due date</text>
             <rect x="315" y="12" width="90" height="36" rx="6" fill="#fee2e2" stroke="#fca5a5"/>
             <text x="360" y="35" text-anchor="middle" fill="#991b1b" font-weight="600">OVERDUE</text>
             <line x1="405" y1="30" x2="425" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#ia)"/>
             <rect x="425" y="12" width="80" height="36" rx="6" fill="#dcfce7" stroke="#86efac"/>
             <text x="465" y="35" text-anchor="middle" fill="#166534" font-weight="600">PAID ✓</text>
-            <!-- cancelled -->
             <rect x="570" y="12" width="100" height="36" rx="6" fill="#f3f4f6" stroke="#d1d5db"/>
             <text x="620" y="35" text-anchor="middle" fill="#374151" font-weight="600">CANCELLED</text>
           </g>
@@ -978,73 +1145,120 @@
       </div>
     </div>
 
+    <div class="screenshot-wrap">
+      <img src="guide-screenshots/10-invoices.png" alt="Invoices page" loading="lazy">
+      <div class="screenshot-caption">Invoices — generate, email, bulk-select, and track payment status across all tenants</div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Generating &amp; emailing invoices</h3>
+      <p style="margin-bottom:12px">Generate invoices per tenant (Invoices tab) or in bulk for a whole property. Bulk generation is schedule-aware — a quarterly tenant gets <em>one</em> invoice covering the three-month period on their billing month, and nothing in the covered months. Delivery happens right from the app:</p>
+      <ul class="feature-list">
+        <li><strong>Send</strong> on any invoice emails the PDF straight to the tenant — no downloading and re-attaching</li>
+        <li><strong>Bulk actions</strong> — tick multiple invoices and use <em>Email to tenants</em> or <em>Mark paid</em>; per-invoice failures are reported without aborting the batch</li>
+        <li><strong>Automatic generation</strong> — turn on the <em>Auto invoice generation</em> automation and each month's rent invoices are drafted and emailed for you, with a per-property summary email to managers (see <a href="#automations">Automations</a>)</li>
+        <li>The page loads 200 invoices at a time with a <em>Load more</em> footer for long histories</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>What's on the invoice PDF</h3>
+      <ul class="feature-list">
+        <li><strong>Your numbering series</strong> — invoice numbers follow a configurable format (default <code>INV-{YYYYMM}-{SEQ}</code>) with tokens for year, month, and sequence. Each payment account can run its own independent series (e.g. <code>SHAH-2026-0042</code>), and you can set the next number to continue seamlessly from a previous system. Configured in <strong>Settings → Payment Accounts</strong>.</li>
+        <li><strong>Frequency-aware description</strong> — reads "Rent — July 2026 (payable quarterly in advance)" for non-monthly tenants, with a Payment Terms line</li>
+        <li><strong>Lease start &amp; end dates</strong> and the tenant's <strong>P.O. Box</strong> in the Bill To block</li>
+        <li><strong>How to Pay</strong> — bank / M-Pesa details resolved from the property's payment account (or a per-unit override — see <a href="#settings">Payment Accounts</a>)</li>
+        <li><strong>Outstanding balance</strong> — an amber note showing unpaid amounts from the tenant's other invoices, plus the combined total</li>
+        <li><strong>Invoicing identity</strong> — when a unit is paid to a different company's account, that company's name, logo, address, contact details, PIN No. and VAT No. replace the header</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>Late fees</h3>
+      <p>If a property's management agreement sets a late-payment interest rate, you can apply a late fee to any overdue invoice from the row's status menu (<em>Apply late fee…</em>). The fee is computed from the outstanding amount, the agreement rate, and days overdue; it folds into the invoice total and prints as a "Late Payment Fee" line on the PDF. Remove it the same way if you waive it.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Fixing an accidental "mark paid"</h3>
+      <p>Marking an invoice paid creates the matching income entry, so a PAID invoice's status menu deliberately offers only one path back: <strong>Revert to unpaid…</strong>. This properly reverses the payment — status returns to SENT/OVERDUE and the linked income entry is removed in the same step, so your books never double-count. (Deleting financial records requires the appropriate permission; accountants can't.)</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Arrears — the escalation workflow</h3>
+      <div class="screenshot-wrap">
+        <img src="guide-screenshots/11-arrears.png" alt="Arrears page" loading="lazy">
+        <div class="screenshot-caption">Arrears — aging buckets and per-tenant escalation cases</div>
+      </div>
+      <p style="margin-bottom:12px">The Arrears page shows every tenant with an overdue balance, bucketed by age (<strong>0–30 / 31–60 / 61–90 / 90+ days</strong>). Each debtor is managed through an <strong>arrears case</strong> — the same case machinery as maintenance, with a defined escalation ladder:</p>
+      <div class="flow-diagram">
+        <svg viewBox="0 0 780 60" xmlns="http://www.w3.org/2000/svg" width="780" height="60">
+          <g font-family="DM Sans,sans-serif" font-size="10.5">
+            <rect x="0" y="12" width="130" height="36" rx="6" fill="#dbeafe" stroke="#93c5fd"/>
+            <text x="65" y="34" text-anchor="middle" fill="#1e40af" font-weight="600">Informal reminder</text>
+            <line x1="130" y1="30" x2="150" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#aa)"/>
+            <rect x="150" y="12" width="110" height="36" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+            <text x="205" y="34" text-anchor="middle" fill="#92400e" font-weight="600">Formal notice</text>
+            <line x1="260" y1="30" x2="280" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#aa)"/>
+            <rect x="280" y="12" width="110" height="36" rx="6" fill="#fed7aa" stroke="#fdba74"/>
+            <text x="335" y="34" text-anchor="middle" fill="#9a3412" font-weight="600">Demand letter</text>
+            <line x1="390" y1="30" x2="410" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#aa)"/>
+            <rect x="410" y="12" width="100" height="36" rx="6" fill="#fee2e2" stroke="#fca5a5"/>
+            <text x="460" y="34" text-anchor="middle" fill="#991b1b" font-weight="600">Legal action</text>
+            <line x1="510" y1="30" x2="530" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#aa)"/>
+            <rect x="530" y="12" width="90" height="36" rx="6" fill="#fecaca" stroke="#f87171"/>
+            <text x="575" y="34" text-anchor="middle" fill="#7f1d1d" font-weight="600">Eviction</text>
+            <line x1="620" y1="30" x2="640" y2="30" stroke="#16a34a" stroke-width="1.5" marker-end="url(#ab)"/>
+            <rect x="640" y="12" width="90" height="36" rx="6" fill="#dcfce7" stroke="#86efac"/>
+            <text x="685" y="34" text-anchor="middle" fill="#166534" font-weight="600">Settled ✓</text>
+          </g>
+          <defs>
+            <marker id="aa" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#C9A84C"/></marker>
+            <marker id="ab" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#16a34a"/></marker>
+          </defs>
+        </svg>
+      </div>
+      <ul class="feature-list">
+        <li><strong>One-click escalation</strong> — each step advances the case with the SLA clock, timeline, and audit trail underneath; the tenant can settle at any stage (settling after the first reminder is the best outcome, and reads that way)</li>
+        <li><strong>Stage-appropriate letters</strong> — each stage offers the right document (payment reminder, formal notice, demand letter, notice to remedy breach) so you never send demand-letter teeth too early or a toothless demand too late</li>
+        <li><strong>Skipping stages needs a note</strong> — jumping more than one stage requires a written reason, recorded on the case. If the escalation is ever read back in a dispute, the record shows proper notice was given.</li>
+        <li><strong>Stale cases surface in the Inbox</strong> — an arrears case untouched for 7 days comes back to you automatically</li>
+      </ul>
+    </div>
+
     <div class="sub-section">
       <h3>Income Types</h3>
       <table class="data-table">
         <thead><tr><th>Type</th><th>Description</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td>LONGTERM_RENT</td><td>Monthly rent payment from long-term tenant</td><td>Auto-links to open invoice for that tenant/month and marks it PAID</td></tr>
+          <tr><td>LONGTERM_RENT</td><td>Rent payment from long-term tenant</td><td>Auto-settles the tenant's open invoice for the covered period</td></tr>
           <tr><td>AIRBNB</td><td>Short-let booking revenue</td><td>Includes nightly rate, check-in/out dates, platform source</td></tr>
           <tr><td>SERVICE_CHARGE</td><td>Service charge or maintenance levy</td><td>Included in gross income</td></tr>
           <tr><td>UTILITY_RECOVERY</td><td>Recovered utility costs from tenant</td><td>Included in gross income</td></tr>
-          <tr><td>DEPOSIT</td><td>Security deposit received</td><td><em>Excluded</em> from gross income — appears in ledger but not P&amp;L</td></tr>
+          <tr><td>DEPOSIT</td><td>Security deposit received</td><td><em>Excluded</em> from gross income — feeds the deposit position instead</td></tr>
           <tr><td>OTHER</td><td>Any other income</td><td>Included in gross income</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="sub-section">
-      <h3>Payment Frequency &amp; Rent Collection</h3>
-      <p style="margin-bottom:12px">The monthly <strong>Collection</strong> view (Income → Collection) follows each tenant's <strong>Payment Frequency</strong>. Monthly tenants owe every month; quarterly, bi-annual, and annual tenants pay for the whole period in advance, so:</p>
-      <ul class="feature-list">
-        <li>On a tenant's <strong>billing month</strong> (anchored to their lease start), the <em>Expected</em> column shows the full period amount — e.g. a quarterly tenant on KSh 350,000/month shows KSh 1,050,000 — labelled "Quarter in advance".</li>
-        <li>In the <strong>covered months</strong> in between, the tenant shows <span class="badge badge-gray">Not due</span> rather than a red "Pending", and is excluded from the progress bar, the "Record all pending" action, and bulk selection.</li>
-        <li>Recording a payment prefills the correct period amount, not one month's rent.</li>
-      </ul>
-      <div class="callout note">
-        <span class="callout-icon">ℹ️</span>
-        <div class="callout-body">
-          <strong>Set the frequency first</strong>
-          A tenant with no Payment Frequency set is treated as Monthly (the previous behaviour). Set it on the tenant (Add / Edit form) and every downstream view — collection, invoices, ledger, and arrears — falls into line automatically.
-        </div>
-      </div>
-    </div>
-
-    <div class="sub-section">
-      <h3>Generating Invoices &amp; What's on the PDF</h3>
-      <p style="margin-bottom:12px">Generate invoices per tenant (Invoices tab) or in bulk for a whole property (<strong>Generate invoices</strong>). Bulk generation is schedule-aware — a quarterly tenant gets <em>one</em> invoice covering the three-month period on their billing month, and nothing in the covered months. The invoice PDF includes:</p>
-      <ul class="feature-list">
-        <li><strong>Frequency-aware description</strong> — reads "Rent — July 2026 (payable quarterly in advance)" rather than "Monthly Rent" for non-monthly tenants, with a Payment Terms line.</li>
-        <li><strong>Lease start &amp; end dates</strong> and the tenant's <strong>P.O. Box</strong> in the Bill To block.</li>
-        <li><strong>How to Pay</strong> — the bank / M-Pesa details resolved from the property's payment account (or a per-unit override — see <a href="#settings">Payment Accounts</a>).</li>
-        <li><strong>Outstanding balance</strong> — an amber note showing any unpaid amount from the tenant's other invoices, plus the combined total.</li>
-        <li><strong>Invoicing identity</strong> — when a unit is paid to a different company's account, that company's name, logo, PIN No. and VAT No. replace the header.</li>
-      </ul>
-    </div>
-
-    <div class="sub-section">
-      <h3>Arrears</h3>
-      <div class="screenshot-wrap">
-        <img src="guide-screenshots/11-arrears.png" alt="Arrears page" loading="lazy">
-        <div class="screenshot-caption">Arrears — identify tenants with overdue balances and track collection progress</div>
-      </div>
-      <p>The Arrears page shows all tenants with outstanding balances. Filter by property or arrears age bracket. Use the email draft button to quickly generate a chase email for any tenant.</p>
+      <h3>Exporting income</h3>
+      <p>The <strong>Export</strong> button opens a range dialog with presets — selected month, previous month, year to date, last 12 months, all history — or a custom from–to month range. The export refetches the full chosen range, so it isn't limited to the month on screen.</p>
     </div>
   </div>
 
   <!-- ══════════════════════
-       7. EXPENSES
+       10. EXPENSES
   ══════════════════════ -->
   <div id="expenses" class="section">
     <div class="section-header">
-      <div class="section-num">09 — Expenses &amp; Petty Cash</div>
+      <div class="section-num">10 — Expenses &amp; Petty Cash</div>
       <h2>Expenses &amp; Petty Cash</h2>
-      <p class="intro">Log every property expense with category, scope, vendor, tax, and payment method. Expenses are separated between operating costs (P&amp;L) and capital/sunk costs (balance sheet).</p>
+      <p class="intro">Log every property expense with category, scope, vendor, tax, receipts, and payment tracking. Expenses are separated between operating costs (P&amp;L) and capital/sunk costs.</p>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/09-expenses.png" alt="Expenses page" loading="lazy">
-      <div class="screenshot-caption">Expenses — filtered monthly view with category breakdown and KPI strip</div>
+      <div class="screenshot-caption">Expenses — filtered monthly view with category breakdown, balance column, and receipt indicators</div>
     </div>
 
     <div class="sub-section">
@@ -1060,8 +1274,17 @@
     </div>
 
     <div class="sub-section">
-      <h3>Sunk Costs vs Operating Costs</h3>
-      <p>Mark an expense as a <strong>Sunk Cost / Capital Item</strong> using the checkbox when adding or editing. Sunk costs are shown in reports as "Capital Items" and are <em>excluded from the P&amp;L</em> — they don't reduce net profit but remain visible for reference.</p>
+      <h3>Receipts &amp; documents on every expense</h3>
+      <p style="margin-bottom:12px">Attach the paper trail directly to each expense — receipts, invoices, quotes, contracts, photos:</p>
+      <ul class="feature-list">
+        <li><strong>Upload any way you like</strong> — drag-and-drop multiple files, browse, or use your phone camera to snap the receipt on the spot</li>
+        <li><strong>Per-file caption and category</strong>, with upload progress bars and inline errors with retry</li>
+        <li><strong>Large photos compress automatically</strong> before upload, so field snaps don't eat your data</li>
+        <li><strong>Duplicate protection</strong> — re-attaching the identical file (even renamed) is caught and blocked</li>
+        <li><strong>Gallery + lightbox</strong> — thumbnails on the expense row expand into a full-screen viewer with arrow-key navigation; PDFs preview inline</li>
+        <li>Attach in the Add Expense form too — queued files upload as soon as the expense is saved</li>
+        <li>A <strong>Missing receipt / Has receipt</strong> filter helps you chase undocumented spending before month-end</li>
+      </ul>
     </div>
 
     <div class="sub-section">
@@ -1073,24 +1296,34 @@
         <span class="tab-pill"><span class="badge badge-amber">PARTIAL</span></span>
         <span class="tab-pill"><span class="badge badge-red">UNPAID</span></span>
       </p>
-      <p>The Expenses page surfaces a <strong>Balance + Due</strong> column, and any expense with a balance owing past its due date is flagged as <strong>overdue</strong> in a banner at the top of the page. Click the <strong>🕓 Clock</strong> icon on any expense row to open its full change history with field-level before/after diffs.</p>
+      <ul class="feature-list">
+        <li>The page surfaces a <strong>Balance + Due</strong> column, and an overdue banner lists any expense past its due date with a balance owing</li>
+        <li><strong>Bulk "Mark paid"</strong> — select several expenses and settle them in full with one payment date</li>
+        <li>The add form warns softly about <strong>possible duplicates</strong> (same category + amount within ±3 days of an existing entry)</li>
+        <li>Click the <strong>🕓 Clock</strong> icon on any row for its full change history with field-level before/after diffs</li>
+        <li>Catastrophic actions are guarded — "Delete all" requires typing <code>DELETE</code> to confirm</li>
+      </ul>
     </div>
 
     <div class="sub-section">
-      <h3>Petty Cash</h3>
-      <div class="screenshot-wrap">
-        <img src="guide-screenshots/14-petty-cash.png" alt="Petty cash page" loading="lazy">
-        <div class="screenshot-caption">Petty Cash — running balance with topup and withdrawal entries</div>
-      </div>
-      <p>The petty cash balance is always recalculated from all entries (never stored as a number). Add <strong>Topup</strong> entries when you add money to the float, and tick <strong>Paid from petty cash</strong> when logging an expense to deduct it automatically. If you later delete or un-tick that expense, the matching petty-cash entry is removed automatically so the balance stays in sync.</p>
+      <h3>Sunk Costs vs Operating Costs</h3>
+      <p>Mark an expense as a <strong>Sunk Cost / Capital Item</strong> using the checkbox when adding or editing. Sunk costs are shown in reports as "Capital Items" and are <em>excluded from the P&amp;L</em> — they don't reduce net profit but remain visible for reference.</p>
     </div>
 
-    <div class="callout tip">
-      <span class="callout-icon">💡</span>
-      <div class="callout-body">
-        <strong>Add-expense niceties</strong>
-        The New / Edit Expense form opens as a slide-in panel so the table stays visible. The Unit picker is scoped to the property selected in the header (with a search box for large buildings), and expenses created automatically from a recurring template are marked with a gold 🔁 icon.
+    <div class="sub-section">
+      <h3>Petty Cash — and how it stays reconciled</h3>
+      <div class="screenshot-wrap">
+        <img src="guide-screenshots/14-petty-cash.png" alt="Petty cash page" loading="lazy">
+        <div class="screenshot-caption">Petty Cash — running balance with top-ups, withdrawals, and reconciliation badges</div>
       </div>
+      <p style="margin-bottom:12px">The petty cash balance is always recalculated from all entries (never stored). The golden rule: <strong>spending belongs on the Expenses page; petty cash is only for cash movements.</strong> Tick <em>Paid from petty cash</em> when logging an expense and the matching cash-out entry is created (and removed) automatically. The page actively helps you keep this clean:</p>
+      <ul class="feature-list">
+        <li>Trying to record a manual cash-out shows a nudge with a <strong>Record as expense instead</strong> button that opens the Expenses form pre-filled — because a manual OUT never reaches the P&amp;L</li>
+        <li>An <strong>"Unaccounted cash out"</strong> banner totals any cash that left the float without a linked expense, with a one-click view of just those rows</li>
+        <li>Each row is badged — <span class="badge badge-green">From expense</span> for linked withdrawals, <span class="badge badge-amber">Not in P&amp;L — convert</span> for unlinked ones. <strong>Convert</strong> promotes a stray withdrawal into a real, fully-paid cash expense linked back to the ledger row.</li>
+        <li>A negative balance shows a deficit banner with a <strong>Record top-up</strong> shortcut</li>
+        <li><strong>Export</strong> produces a proper Excel ledger — opening balance carried in from before the range, running balance per row, and closing totals</li>
+      </ul>
     </div>
 
     <div class="callout warn">
@@ -1103,13 +1336,13 @@
   </div>
 
   <!-- ══════════════════════
-       8. MAINTENANCE
+       11. MAINTENANCE
   ══════════════════════ -->
   <div id="maintenance" class="section">
     <div class="section-header">
-      <div class="section-num">10 — Maintenance</div>
+      <div class="section-num">11 — Maintenance</div>
       <h2>Maintenance Management</h2>
-      <p class="intro">A Kanban-based job tracker that takes maintenance from reported to resolved — with vendor assignment, priority management, and automatic expense logging.</p>
+      <p class="intro">A Kanban-based job tracker that takes maintenance from reported to resolved — with vendor assignment, priority management, and automatic expense logging. Every job also gets a full case timeline (see <a href="#cases">Cases</a>).</p>
     </div>
 
     <div class="screenshot-wrap">
@@ -1159,7 +1392,7 @@
       <h3>Adding a Maintenance Job</h3>
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Click <em>Add Job</em></h4><p>Fill in the title, description, property, unit, category (Plumbing, Electrical, Structural, Appliance, Painting, Cleaning, Security, Pest Control, Other), priority, and estimated cost. Check <em>Emergency</em> for urgent issues.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Move through stages</h4><p>Click <em>Move to Next Stage</em> on the job card to advance it. Each stage transition is timestamped. Jobs submitted via the tenant portal show a <span class="badge badge-gold">Tenant Request</span> badge.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Move through stages</h4><p>Click <em>Move to Next Stage</em> on the job card to advance it. Each stage transition is timestamped and mirrored onto the linked case. Jobs submitted via the tenant portal show a <span class="badge badge-gold">Tenant Request</span> badge.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Log as expense when complete</h4><p>Once marked Done, click <em>Log as Expense</em> to create an expense entry linked to this job. The actual cost, vendor, and category are pre-filled.</p></div></div>
       </div>
     </div>
@@ -1168,24 +1401,24 @@
       <span class="callout-icon">💡</span>
       <div class="callout-body">
         <strong>Recurring maintenance schedules</strong>
-        Set up schedules for routine tasks (monthly fire alarm tests, quarterly HVAC servicing, annual boiler checks). The system flags overdue schedules on the dashboard and can auto-generate expense entries when due.
+        Set up schedules for routine tasks (monthly fire alarm tests, quarterly HVAC servicing, annual boiler checks). Overdue schedules surface on the dashboard and the calendar, and can auto-generate expense entries when due.
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════
-       9. REPORTS
+       12. REPORTS
   ══════════════════════ -->
   <div id="reports" class="section">
     <div class="section-header">
-      <div class="section-num">11 — Reports</div>
+      <div class="section-num">12 — Reports</div>
       <h2>Reports &amp; Owner Statements</h2>
       <p class="intro">Generate professional monthly P&amp;L reports and owner statements. The report page is accessible to Managers, Accountants, and Owners (with Owners seeing only the owner-facing statement).</p>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/13-report.png" alt="Report page" loading="lazy">
-      <div class="screenshot-caption">Report — P&amp;L preview with income breakdown, expense categories, and management fee reconciliation</div>
+      <div class="screenshot-caption">Report — P&amp;L preview with income breakdown, expense categories, arrears aging, and management fee reconciliation</div>
     </div>
 
     <div class="sub-section">
@@ -1201,14 +1434,19 @@
       <table class="data-table" style="margin-top:16px">
         <thead><tr><th>Tab</th><th>Contents</th></tr></thead>
         <tbody>
-          <tr><td><strong>P&amp;L Preview</strong></td><td>KPI cards, rent collection table per tenant, expense category breakdown, vendor spend, petty cash reconciliation, management fee reconciliation</td></tr>
+          <tr><td><strong>P&amp;L Preview</strong></td><td>KPI cards, rent collection table per tenant, expense category breakdown, vendor spend, petty cash reconciliation, management fee reconciliation, and an <strong>Arrears Aging</strong> section (top debtors bucketed 30/60/90+ days)</td></tr>
           <tr><td><strong>Annual Summary</strong></td><td>12-month table of income, expenses, and net profit with best-month highlighting</td></tr>
-          <tr><td><strong>Owner Statement</strong></td><td>Per-unit income breakdown, management fee deduction, net payable to landlord</td></tr>
+          <tr><td><strong>Owner Statement</strong></td><td>Per-unit income breakdown, management fee deduction, net payable to landlord — downloadable as a per-property PDF</td></tr>
           <tr><td><strong>Tax Summary</strong></td><td>VAT and withholding tax breakdown from expense line items</td></tr>
           <tr><td><strong>Download PDF</strong></td><td>Generate and download a professional PDF report — usable for landlord remittances</td></tr>
           <tr><td><strong>Quarterly Report</strong></td><td>3-month aggregated view ideal for quarterly landlord meetings</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="sub-section">
+      <h3>Rent Roll export</h3>
+      <p>The <strong>Rent Roll (Excel)</strong> button exports a lease snapshot — every unit including vacant ones, with the active tenant's terms (rent, deposit, lease dates, frequency) — the standard document lenders, buyers, and owners ask for.</p>
     </div>
 
     <div class="sub-section">
@@ -1219,27 +1457,28 @@
         − <strong>Operating Expenses</strong> (expenses where isSunkCost = false)<br>
         = <span style="color:var(--green);font-weight:700">Net Profit</span>
         <br><br>
-        <em style="color:var(--text-muted);font-size:11px">Capital/sunk cost expenses are shown separately as "Capital Items" and do not affect net profit.</em>
+        <em style="color:var(--text-muted);font-size:11px">Capital/sunk cost expenses are shown separately as "Capital Items" and do not affect net profit. Revenue is recognised on a cash basis — income counts on the date it was received.</em>
       </div>
     </div>
 
     <div class="sub-section">
-      <h3>Sending a Report to the Owner</h3>
+      <h3>Getting the report to the owner</h3>
       <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Download PDF</h4><p>Go to the <em>Download PDF</em> tab and click <em>Download Report</em>. A polished PDF is generated server-side and downloaded to your device.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Draft email</h4><p>Click the <em>Email Draft</em> button on the P&amp;L Preview tab. A pre-populated email template opens with the property name, month, and a summary of key figures. Click <em>Open in Mail App</em> to send via your default email client.</p></div></div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Download PDF</h4><p>Go to the <em>Download PDF</em> tab and click <em>Download Report</em>. A polished PDF is generated server-side. Per-property owner statement PDFs are also available from each property card.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Draft email</h4><p>Click the <em>Email Draft</em> button on the P&amp;L Preview tab. A pre-populated email template opens with the property name, month, and a summary of key figures.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Or automate it entirely</h4><p>Enable the <strong>Owner monthly report</strong> automation and the previous month's statement PDF is emailed to the property owner automatically on the agreement's remittance day (see <a href="#automations">Automations</a>).</p></div></div>
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════
-       10. OPERATIONS
+       13. OPERATIONS
   ══════════════════════ -->
   <div id="operations" class="section">
     <div class="section-header">
-      <div class="section-num">12 — Operations</div>
+      <div class="section-num">13 — Operations</div>
       <h2>Operations</h2>
-      <p class="intro">Supporting modules that keep your portfolio compliant, insured, and organised — forecast, vendors, insurance, compliance, assets, and calendar. The proactive layer that surfaces issues from these modules (vacant units, low petty cash, negative cashflow forecasts, expiring policies) lives in the <a href="#inbox">Operational Inbox</a> as Smart Reminders.</p>
+      <p class="intro">Supporting modules that keep your portfolio compliant, insured, and organised — forecast, vendors, insurance, compliance, and assets. The proactive layer that surfaces issues from these modules lives in the <a href="#inbox">Operational Inbox</a> as Smart Reminders, and their dates plot on the <a href="#calendar">Calendar</a>.</p>
     </div>
 
     <div class="screenshot-grid">
@@ -1267,28 +1506,16 @@
           <div class="screenshot-caption">Compliance — safety certificate status dashboard</div>
         </div>
       </div>
-      <div>
-        <div class="screenshot-wrap">
-          <img src="guide-screenshots/19-assets.png" alt="Assets" loading="lazy">
-          <div class="screenshot-caption">Asset Register — inventory with maintenance schedules</div>
-        </div>
-      </div>
-      <div>
-        <div class="screenshot-wrap">
-          <img src="guide-screenshots/20-calendar.png" alt="Calendar" loading="lazy">
-          <div class="screenshot-caption">Calendar — upcoming lease renewals, maintenance, and payments</div>
-        </div>
-      </div>
     </div>
 
     <div class="sub-section">
       <h3>Forecast</h3>
-      <p>Projects income and expenses for the next 3, 6, or 12 months using your recurring expenses, insurance premiums, lease renewal dates, and management agreements. Uses <code>buildForecast()</code> — no AI, pure deterministic projection from your existing data.</p>
+      <p>Projects income and expenses for the next 3, 6, or 12 months using your tenants' actual payment schedules (a quarterly payer's inflow lands on billing months, not spread evenly), recurring expenses, insurance premiums, lease end dates, and management agreements. Pure deterministic projection from your existing data — no guesswork.</p>
     </div>
 
     <div class="sub-section">
       <h3>Vendors</h3>
-      <p>Maintain a directory of contractors and suppliers. Each vendor has a category (Contractor, Supplier, Utility Provider, Consultant, Other), contact details, KRA PIN, and bank details. Vendors can be linked to expenses, maintenance jobs, assets, and recurring expenses — use the <strong>Vendor Select</strong> dropdown whenever you see a contractor/supplier field.</p>
+      <p>Maintain a directory of contractors and suppliers. Each vendor has a category (Contractor, Supplier, Utility Provider, Consultant, Other), contact details, KRA PIN, and bank details. Vendors can be linked to expenses, maintenance jobs, assets, and recurring expenses — use the <strong>Vendor Select</strong> dropdown wherever you see a contractor/supplier field.</p>
       <div class="callout note">
         <span class="callout-icon">ℹ️</span>
         <div class="callout-body">
@@ -1305,23 +1532,63 @@
 
     <div class="sub-section">
       <h3>Compliance &amp; Certificates</h3>
-      <p>Track compliance certificates (Fire Safety, Lift Inspection, Electrical, Gas Safe, etc.) with expiry dates. Status is computed automatically: <span class="badge badge-red">EXPIRED</span> &nbsp;<span class="badge badge-amber">EXPIRING SOON (≤30 days)</span> &nbsp;<span class="badge badge-green">VALID</span> &nbsp;<span class="badge badge-gray">ONGOING (no expiry)</span>. Daily cron notifications alert managers when certificates are due.</p>
+      <p>Track compliance certificates (Fire Safety, Lift Inspection, Electrical, Gas Safe, etc.) with expiry dates. Status is computed automatically: <span class="badge badge-red">EXPIRED</span> &nbsp;<span class="badge badge-amber">EXPIRING SOON (≤30 days)</span> &nbsp;<span class="badge badge-green">VALID</span> &nbsp;<span class="badge badge-gray">ONGOING (no expiry)</span>. Daily notifications alert managers when certificates are due.</p>
     </div>
 
     <div class="sub-section">
       <h3>Asset Register</h3>
+      <div class="screenshot-wrap">
+        <img src="guide-screenshots/19-assets.png" alt="Assets" loading="lazy">
+        <div class="screenshot-caption">Asset Register — inventory with maintenance schedules</div>
+      </div>
       <p>Maintain an inventory of property assets — appliances, fixtures, furniture, plant &amp; equipment. Each asset can have recurring maintenance schedules and a maintenance log (which can be linked to expense entries). The register tracks serial numbers, warranty dates, and replacement values.</p>
     </div>
   </div>
 
   <!-- ══════════════════════
-       11. SETTINGS
+       14. DATA IMPORT
+  ══════════════════════ -->
+  <div id="import" class="section">
+    <div class="section-header">
+      <div class="section-num">14 — Data Import</div>
+      <h2>Data Import</h2>
+      <p class="intro">Moving from spreadsheets or another system? Bulk-import your data from Excel — every importer follows the same three-step pattern: download the template, fill it in, upload.</p>
+    </div>
+
+    <div class="screenshot-wrap">
+      <img src="guide-screenshots/29-import.png" alt="Data import" loading="lazy">
+      <div class="screenshot-caption">Data Import — tabbed importers, each with a downloadable template and validation before upload</div>
+    </div>
+
+    <div class="sub-section">
+      <h3>What you can import</h3>
+      <p style="margin-bottom:12px">Tabs cover: <strong>tenants, rent history, income, expenses, recurring expenses, petty cash, units, maintenance, vendors</strong>, and a full-property <strong>handover ZIP</strong> (the counterpart of the property export — moving a whole property between organisations or systems in one file).</p>
+      <ul class="feature-list">
+        <li><strong>Rows validate client-side</strong> before anything is sent — errors point at the exact row and column</li>
+        <li><strong>Names resolve automatically</strong> — Property Name, Vendor Name, and Unit Number columns are matched to the right records; an unmatched name still imports, just unlinked, with a warning</li>
+        <li><strong>Update-existing mode</strong> — tenants, rent history, expenses, petty cash, and recurring expenses support an "Update existing records" toggle so re-importing edits rows in place instead of duplicating them</li>
+        <li><strong>Edit-and-resync (expenses)</strong> — click <em>Export existing</em> to download your current expenses pre-filled into the template with their IDs; edit any field and re-upload, and each row updates in place</li>
+        <li>The tenants importer can carry <strong>Deposit Received + date</strong> columns, minting the linked deposit receipt so your deposit position is verified from day one</li>
+      </ul>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div class="callout-body">
+        <strong>Property handover export</strong>
+        The reverse direction lives on each property: <em>Export</em> produces a ZIP with a full workbook (units, tenants, income, expenses, petty cash, owner invoices, documents) — your data is never locked in.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       15. SETTINGS
   ══════════════════════ -->
   <div id="settings" class="section">
     <div class="section-header">
-      <div class="section-num">13 — Settings &amp; Team</div>
+      <div class="section-num">15 — Settings &amp; Team</div>
       <h2>Settings &amp; Team Management</h2>
-      <p class="intro">Configure your organisation, properties, management fees, branding, and team members. Settings are accessible to Manager and Admin roles only.</p>
+      <p class="intro">Configure your organisation, properties, management fees, branding, payment accounts, and team members. Settings are accessible to Manager and Admin roles only.</p>
     </div>
 
     <div class="screenshot-grid">
@@ -1340,67 +1607,73 @@
     </div>
 
     <div class="sub-section">
-      <h3>Settings Tabs</h3>
+      <h3>Settings areas</h3>
       <table class="data-table">
-        <thead><tr><th>Tab</th><th>What you configure</th></tr></thead>
+        <thead><tr><th>Area</th><th>What you configure</th></tr></thead>
         <tbody>
-          <tr><td><strong>Management Fees</strong></td><td>Short-let (Airbnb) management fee as a % of revenue; long-term rental flat fee per unit type. These drive the management fee reconciliation in reports.</td></tr>
-          <tr><td><strong>Branding</strong></td><td>Company logo, name, and address printed on invoices and PDFs. Bank / M-Pesa details are now managed as reusable Payment Accounts (see below).</td></tr>
-          <tr><td><strong>Payment Accounts</strong></td><td>Named bank / M-Pesa destinations shown on tenant invoices, reusable across properties, with a per-unit override and optional invoicing identity (see below).</td></tr>
+          <tr><td><strong>Management Fees</strong></td><td>How your fee is charged per property — see the precedence chain below.</td></tr>
+          <tr><td><strong>Branding</strong></td><td>Company logo, name, and address printed on invoices and PDFs.</td></tr>
+          <tr><td><strong>Payment Accounts</strong></td><td>Named bank / M-Pesa destinations shown on tenant invoices, reusable across properties, with per-unit overrides, optional invoicing identity, and per-account invoice numbering series.</td></tr>
           <tr><td><strong>Property Info</strong></td><td>Per-property currency override and logo. Property logo overrides the company logo on that property's reports.</td></tr>
           <tr><td><strong>Tax</strong></td><td>Default tax type (ADDITIVE VAT or WITHHELD) and rate. Can be overridden per property.</td></tr>
+          <tr><td><strong>Calendar</strong></td><td>Personal calendar feed URLs for subscribing from Google / Outlook / Apple Calendar (see <a href="#calendar">Calendar</a>).</td></tr>
+          <tr><td><strong>Notifications</strong></td><td>Your personal email opt-outs per alert category (see below).</td></tr>
+          <tr><td><strong>Audit Log</strong></td><td>The organisation-wide change trail (see below).</td></tr>
+          <tr><td><strong>API</strong> <span class="badge badge-gold">Admin</span></td><td>Read-only API keys and webhook endpoints for integrations.</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="sub-section">
-      <h3>Payment Accounts</h3>
-      <p style="margin-bottom:12px">Some units are paid into different bank accounts — even different companies. <strong>Settings → Payment Accounts</strong> lets you define each account once (bank name, account number, branch, M-Pesa Paybill / Till, instructions) and reuse it everywhere. Payment details on a tenant's invoice are resolved in this order:</p>
-      <!-- resolution flow -->
+      <h3>Management fees — how the fee is decided</h3>
+      <p style="margin-bottom:12px">Every surface that shows a management fee (owner statements, report P&amp;L, fee invoicing) derives it through one precedence chain, checked top to bottom:</p>
       <div class="flow-diagram">
         <svg viewBox="0 0 760 60" xmlns="http://www.w3.org/2000/svg" width="760" height="60">
           <g font-family="DM Sans,sans-serif" font-size="10.5">
-            <rect x="0" y="12" width="150" height="36" rx="6" fill="#132635"/>
-            <text x="75" y="34" text-anchor="middle" fill="white" font-weight="600">Unit override</text>
-            <line x1="150" y1="30" x2="172" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#pfa)"/>
-            <rect x="172" y="12" width="180" height="36" rx="6" fill="#1e3a50"/>
-            <text x="262" y="34" text-anchor="middle" fill="white" font-weight="600">Property default account</text>
-            <line x1="352" y1="30" x2="374" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#pfa)"/>
-            <rect x="374" y="12" width="180" height="36" rx="6" fill="#f3f4f6" stroke="#d1d5db"/>
-            <text x="464" y="34" text-anchor="middle" fill="#374151" font-weight="600">Agreement (legacy) details</text>
-            <line x1="554" y1="30" x2="576" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#pfa)"/>
-            <rect x="576" y="12" width="180" height="36" rx="6" fill="#f3f4f6" stroke="#d1d5db"/>
-            <text x="666" y="34" text-anchor="middle" fill="#374151" font-weight="600">Organisation branding</text>
+            <rect x="0" y="12" width="160" height="36" rx="6" fill="#132635"/>
+            <text x="80" y="30" text-anchor="middle" fill="white" font-weight="600">Per-unit fee config</text>
+            <text x="80" y="43" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9">flat or % of that unit's rent</text>
+            <line x1="160" y1="30" x2="182" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#mfa)"/>
+            <rect x="182" y="12" width="170" height="36" rx="6" fill="#1e3a50"/>
+            <text x="267" y="30" text-anchor="middle" fill="white" font-weight="600">Property rate / flat fee</text>
+            <text x="267" y="43" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9">% of gross, or per month</text>
+            <line x1="352" y1="30" x2="374" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#mfa)"/>
+            <rect x="374" y="12" width="170" height="36" rx="6" fill="#f3f4f6" stroke="#d1d5db"/>
+            <text x="459" y="30" text-anchor="middle" fill="#374151" font-weight="600">Agreement rate</text>
+            <text x="459" y="43" text-anchor="middle" fill="#6b7280" font-size="9">% from the mgmt agreement</text>
+            <line x1="544" y1="30" x2="566" y2="30" stroke="#C9A84C" stroke-width="1.5" marker-end="url(#mfa)"/>
+            <rect x="566" y="12" width="150" height="36" rx="6" fill="#dcfce7" stroke="#86efac"/>
+            <text x="641" y="34" text-anchor="middle" fill="#166534" font-weight="600">No fee — fine too</text>
           </g>
-          <defs><marker id="pfa" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#C9A84C"/></marker></defs>
+          <defs><marker id="mfa" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#C9A84C"/></marker></defs>
         </svg>
       </div>
+      <p>"No management fee" is a first-class state — a self-managed property simply shows no fee anywhere, rather than a phantom default.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>Payment Accounts</h3>
+      <p style="margin-bottom:12px">Some units are paid into different bank accounts — even different companies. <strong>Settings → Payment Accounts</strong> lets you define each account once (bank name, account number, branch, M-Pesa Paybill / Till, instructions) and reuse it everywhere. Payment details on a tenant's invoice resolve in this order: <strong>unit override → property default account → agreement (legacy) details → organisation branding</strong>.</p>
       <ul class="feature-list">
         <li><strong>Property default</strong> — pick a payment account on the property's Management Agreement page. It applies to every unit unless overridden.</li>
-        <li><strong>Per-unit override</strong> — on the unit's Add / Edit form (long-term properties), choose a different account for just that unit. Leave blank to inherit the property default.</li>
-        <li><strong>Invoicing identity</strong> — an account can carry its own <em>company name, logo, PIN No. and VAT No.</em> When set, invoices paid to that account show that company in the header instead of your organisation — useful when different units belong to different landlord companies.</li>
+        <li><strong>Per-unit override</strong> — on the unit's Add / Edit form, choose a different account for just that unit.</li>
+        <li><strong>Invoicing identity</strong> — an account can carry its own <em>company name, logo, address, contact details, PIN No. and VAT No.</em> When set, invoices paid to that account show that company in the header — useful when different units belong to different landlord companies.</li>
+        <li><strong>Invoice numbering</strong> — set the org-wide default numbering format (e.g. <code>INV-{YYYYMM}-{SEQ}</code>), and optionally give an account its own independent series with its own next-number — so each landlord company's invoices number correctly.</li>
       </ul>
-      <div class="callout note">
-        <span class="callout-icon">ℹ️</span>
-        <div class="callout-body">
-          <strong>Existing details carried over</strong>
-          Bank / M-Pesa details that were previously entered on a property's agreement were automatically converted into a "<em>&lt;Property&gt; — default</em>" payment account, so nothing changed on existing invoices. Accounts in use can't be deleted — deactivate them instead.
-        </div>
-      </div>
     </div>
 
     <div class="sub-section">
       <h3>Adding Team Members</h3>
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Go to Settings → Users</h4><p>Click <em>Invite User</em> or <em>Add User</em>. Enter name, email, password, and assign a role.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Set property access</h4><p>For Manager and Accountant roles, you can restrict access to specific properties via Property Access records. Users without a PropertyAccess record for a property cannot see its data in API responses.</p></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Assign the billing owner</h4><p>Only one user per organisation can be the billing owner — the person who manages the subscription. This is set at account creation and can be transferred in billing settings.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Set property access</h4><p>For Manager and Accountant roles, you can restrict access to specific properties. Users without access to a property cannot see its data anywhere in the app.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Assign the billing owner</h4><p>Only one user per organisation manages the subscription. This is set at account creation and can be transferred in billing settings.</p></div></div>
       </div>
     </div>
 
     <div class="sub-section">
       <h3>Audit Log</h3>
-      <p>Every CREATE, UPDATE, and DELETE action in the platform is logged with the user's email, timestamp, affected record, and JSON before/after snapshots. Navigate to <strong>Settings → Audit Log</strong> to review the full trail. For a single record, click the <strong>🕓 Clock</strong> icon on its row (e.g. on the Expenses page) to open a <em>History Drawer</em> showing just that record's changes with field-level diffs.</p>
+      <p>Every CREATE, UPDATE, and DELETE action in the platform is logged with the user's email, timestamp, affected record, and before/after snapshots. Navigate to <strong>Settings → Audit Log</strong> to review the full trail. For a single record, click the <strong>🕓 Clock</strong> icon on its row (e.g. on the Expenses page) to open a <em>History Drawer</em> showing just that record's changes with field-level diffs.</p>
     </div>
 
     <div class="sub-section">
@@ -1412,70 +1685,89 @@
       <h3>API Keys &amp; Webhooks <span class="badge badge-gold">Admin only</span></h3>
       <p>For integrations, admins can issue read-only API keys and register webhook endpoints from <strong>Settings → API</strong>.</p>
       <ul class="feature-list">
-        <li><strong>Public API</strong> — org-scoped, read-only endpoints under <code>/api/v1/</code> (properties, tenants, invoices), authenticated with a <code>Bearer gwpm_…</code> key. The raw key is shown <em>once</em> at creation, then stored only as a hash — copy it immediately.</li>
-        <li><strong>Webhooks</strong> — register an endpoint to receive events such as <code>invoice.paid</code> and <code>maintenance.created</code>. Each delivery is signed with an HMAC <code>X-GWPM-Signature</code> header so you can verify it came from GroundWorkPM.</li>
+        <li><strong>Public API</strong> — org-scoped, read-only endpoints under <code>/api/v1/</code> (properties, tenants, invoices), authenticated with a <code>Bearer gwpm_…</code> key. The raw key is shown <em>once</em> at creation — copy it immediately.</li>
+        <li><strong>Webhooks</strong> — register an endpoint to receive events such as <code>invoice.paid</code> and <code>maintenance.created</code>. Each delivery is signed so you can verify it came from GroundWorkPM.</li>
       </ul>
     </div>
   </div>
 
   <!-- ══════════════════════
-       12. TENANT PORTAL
+       16. TENANT PORTAL
   ══════════════════════ -->
   <div id="portal" class="section">
     <div class="section-header">
-      <div class="section-num">14 — Tenant Portal</div>
+      <div class="section-num">16 — Tenant Portal</div>
       <h2>Tenant Self-Service Portal</h2>
-      <p class="intro">A public, token-based portal for tenants. No account creation required — tenants access their information via a unique shareable link generated by their manager.</p>
+      <p class="intro">A public, token-based portal for tenants. No account creation required — tenants access their information via a unique shareable link generated by their manager. Mobile-first, since that's where tenants open it.</p>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/24-tenant-portal.png" alt="Tenant portal" loading="lazy">
-      <div class="screenshot-caption">Tenant Portal — invoice history, outstanding balance, documents, and maintenance request form</div>
+      <div class="screenshot-caption">Tenant Portal — balance, invoices, documents, messages, and maintenance requests</div>
     </div>
 
     <div class="sub-section">
       <h3>How Managers Generate the Link</h3>
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Open tenant detail page</h4><p>Navigate to <strong>Tenants → [Tenant Name]</strong>.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Click <em>Generate Portal Link</em></h4><p>A unique UUID token is created and stored on the tenant record. The shareable URL is copied to your clipboard automatically.</p></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Share with tenant</h4><p>Send the URL via WhatsApp, email, or SMS. Tokens do not expire by default — use <em>Revoke Link</em> on the same button to invalidate the token if needed.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Click <em>Generate Portal Link</em></h4><p>A unique token link is created and copied to your clipboard automatically.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Share with tenant</h4><p>Send the URL via WhatsApp, email, or SMS. Use <em>Revoke Link</em> on the same button to invalidate it at any time.</p></div></div>
       </div>
     </div>
 
     <div class="sub-section">
-      <h3>What Tenants See</h3>
+      <h3>What Tenants See — five tabs</h3>
       <table class="data-table">
         <thead><tr><th>Tab</th><th>Content</th></tr></thead>
         <tbody>
-          <tr><td><strong>Overview</strong></td><td>Lease dates, monthly rent, outstanding balance, last 12 invoices with status and PDF download</td></tr>
-          <tr><td><strong>Documents</strong></td><td>Documents uploaded by the manager (lease agreement, receipts, notices) with secure download links</td></tr>
-          <tr><td><strong>Maintenance Requests</strong></td><td>Submit new requests (title, description, category, emergency flag) and view status of existing submissions</td></tr>
+          <tr><td><strong>Overview</strong></td><td>Lease dates, monthly rent, outstanding balance, and recent invoices with status and PDF download</td></tr>
+          <tr><td><strong>Balance</strong></td><td>A full statement-style ledger — every invoice issued and payment received, with a running total invoiced / paid / outstanding. Paid invoices offer a one-page <strong>receipt PDF</strong>.</td></tr>
+          <tr><td><strong>Files</strong></td><td>Documents shared by the manager (lease agreement, receipts, notices) with secure download links</td></tr>
+          <tr><td><strong>Messages</strong></td><td>Two-way message threads with the manager — lease queries, payment notifications, permission requests, general questions</td></tr>
+          <tr><td><strong>Request</strong></td><td>Submit maintenance requests (title, description, category, emergency flag) and track the status of previous submissions</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="sub-section">
+      <h3>Proof of payment — closing the loop on rent</h3>
+      <p style="margin-bottom:12px">When a tenant pays, they can submit <strong>proof of payment</strong> against an invoice from the portal — a photo/PDF of the transfer slip, a pasted M-Pesa confirmation text, or both. The invoice flips to <em>Pending verification</em> and you're notified:</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Tenant submits proof</h4><p>File and/or text, straight from their phone. The invoice shows an amber <strong>Check Proof</strong> badge on your Invoices page.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>You verify in the drawer</h4><p>Click the badge to open the verification drawer — inline preview of the file, copy-on-click text, and paid-amount + payment-method fields.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Approve or reject</h4><p>Approving marks the invoice paid, creates the income entry, and files the proof into the tenant's document vault as a payment receipt. Rejecting reverts the invoice so the tenant can resubmit.</p></div></div>
+      </div>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Tenants can never change financial records</strong>
+          The portal is submit-and-view only. Nothing a tenant does marks an invoice paid or touches your books — every financial change goes through your verification.
+        </div>
+      </div>
     </div>
 
     <div class="callout tip">
       <span class="callout-icon">💡</span>
       <div class="callout-body">
         <strong>Maintenance requests from the portal</strong>
-        Jobs submitted via the tenant portal appear in the Maintenance Kanban board with a <span class="badge badge-gold">Tenant Request</span> badge. You can filter the maintenance queue by <em>Portal Requests Only</em>.
+        Jobs submitted via the tenant portal appear in the Maintenance board with a <span class="badge badge-gold">Tenant Request</span> badge, land in your Inbox until acknowledged, and can be filtered with <em>Portal Requests Only</em>.
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════
-       13. BILLING
+       17. BILLING
   ══════════════════════ -->
   <div id="billing" class="section">
     <div class="section-header">
-      <div class="section-num">15 — Billing &amp; Plans</div>
+      <div class="section-num">17 — Billing &amp; Plans</div>
       <h2>Billing &amp; Subscription</h2>
-      <p class="intro">GroundWorkPM offers a 30-day free trial with no credit card required. After the trial, choose a plan that fits your portfolio size.</p>
+      <p class="intro">GroundWorkPM offers a 30-day free trial with no credit card required. After the trial, choose a plan that fits your portfolio size. Every feature is available on every plan — plans differ only in capacity.</p>
     </div>
 
     <div class="screenshot-wrap">
       <img src="guide-screenshots/23-billing.png" alt="Billing page" loading="lazy">
-      <div class="screenshot-caption">Billing — plan selection with monthly/annual toggle and Paddle checkout</div>
+      <div class="screenshot-caption">Billing — plan selection with monthly/annual toggle</div>
     </div>
 
     <div class="sub-section">
@@ -1496,7 +1788,7 @@
       <ul class="feature-list">
         <li><strong>Active trial (8+ days left)</strong> — navy banner with day count; billing owner sees <em>View plans</em> button</li>
         <li><strong>Expiring soon (≤7 days)</strong> — amber banner with urgent messaging</li>
-        <li><strong>Trial expired</strong> — red banner; data is safe but access is locked until a plan is chosen</li>
+        <li><strong>Trial expired</strong> — red banner; your data is safe but writes are locked until a plan is chosen (you can still read everything and download reports)</li>
       </ul>
       <p style="margin-top:12px">Non-billing-owner team members see the banner but cannot act on it — they should contact the billing owner.</p>
     </div>
@@ -1511,13 +1803,18 @@
   </div>
 
   <!-- ══════════════════════
-       16. AUTOMATIONS
+       18. AUTOMATIONS
   ══════════════════════ -->
   <div id="automations" class="section">
     <div class="section-header">
-      <div class="section-num">16 — Automations</div>
+      <div class="section-num">18 — Automations</div>
       <h2>Automations</h2>
-      <p class="intro">One control surface for everything the platform does automatically — the workflows that open Cases, the email alerts managers receive, and the proactive Inbox reminders. It's not a custom workflow builder; it's a fixed registry of proven templates your organisation switches on or off.</p>
+      <p class="intro">One control surface for everything the platform does automatically — the workflows that open Cases and generate invoices, the email alerts managers receive, and the proactive Inbox reminders. It's not a custom workflow builder; it's a fixed registry of proven templates your organisation switches on or off.</p>
+    </div>
+
+    <div class="screenshot-wrap">
+      <img src="guide-screenshots/28-automations.png" alt="Automations page" loading="lazy">
+      <div class="screenshot-caption">Automations — org-wide toggles with per-property overrides and recipient counts</div>
     </div>
 
     <div class="sub-section">
@@ -1528,12 +1825,12 @@
           <tr>
             <td><span class="badge badge-blue">Workflow</span></td>
             <td><span class="badge badge-gray">Off</span> (opt-in)</td>
-            <td>Auto-opens a <a href="#cases">Case</a> when a condition fires — lease renewal due in 90 days, arrears untouched 7 days, compliance / insurance expiring in 30 days, urgent maintenance.</td>
+            <td>Acts for you when a condition fires — auto-opens a <a href="#cases">Case</a> (lease renewal due in 90 days, arrears untouched 7 days, compliance / insurance expiring in 30 days, urgent maintenance), and <strong>Auto invoice generation</strong>: drafts each month's rent invoices, emails them to tenants, and sends managers a per-property summary.</td>
           </tr>
           <tr>
             <td><span class="badge badge-green">Email notification</span></td>
             <td><span class="badge badge-green">On</span></td>
-            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance) plus an opt-in monthly owner statement emailed to the property owner.</td>
+            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance) plus an opt-in <strong>Owner monthly report</strong> — the previous month's statement PDF emailed to the property owner on the agreement's remittance day.</td>
           </tr>
           <tr>
             <td><span class="badge badge-amber">Smart reminder</span></td>
@@ -1558,16 +1855,16 @@
 
     <div class="sub-section">
       <h3>When automations run</h3>
-      <p>All of these are evaluated by a single daily job at <strong>07:00 UTC</strong>. Turning an automation off makes that day's job skip it entirely — no Case opened, no email sent, no reminder raised. Turning it back on resumes from the next run. Workflow automations are de-duplicated, so a condition that stays true won't open the same Case twice.</p>
+      <p>All of these are evaluated by a single daily job at <strong>07:00 UTC</strong>. Turning an automation off makes that day's job skip it entirely — no Case opened, no invoice drafted, no email sent, no reminder raised. Turning it back on resumes from the next run. Everything is de-duplicated: a condition that stays true won't open the same Case twice, and a deleted auto-generated invoice is never silently re-created.</p>
     </div>
   </div>
 
   <!-- ══════════════════════
-       17. APPENDIX
+       19. APPENDIX
   ══════════════════════ -->
   <div id="appendix" class="section">
     <div class="section-header">
-      <div class="section-num">17 — Appendix</div>
+      <div class="section-num">19 — Appendix</div>
       <h2>Appendix</h2>
       <p class="intro">Role access matrix, global search, mobile navigation, automated notifications, and multi-organisation setup.</p>
     </div>
@@ -1584,23 +1881,21 @@
           </tr>
         </thead>
         <tbody>
+          <tr><td>Inbox</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
           <tr><td>Dashboard</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Calendar</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Cases</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
           <tr><td>Properties</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Tenants</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Income</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Expenses</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Petty Cash</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Invoices</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Tenants</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no lifecycle actions)</span></td><td style="text-align:center">❌</td></tr>
+          <tr><td>Income / Invoices</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no deletes)</span></td><td style="text-align:center">❌</td></tr>
+          <tr><td>Expenses / Petty Cash</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no deletes)</span></td><td style="text-align:center">❌</td></tr>
           <tr><td>Arrears</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
           <tr><td>Maintenance</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Forecast</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Vendors</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Insurance</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Compliance</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Assets</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Automations</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Forecast / Vendors / Insurance / Compliance / Assets</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Import</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Automations</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
           <tr><td>Report</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
-          <tr><td>Settings</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Settings (org)</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
           <tr><td>Billing</td><td style="text-align:center">Billing owner only</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
         </tbody>
       </table>
@@ -1615,24 +1910,24 @@
       <h3>Mobile Navigation</h3>
       <p>On mobile, the sidebar is replaced by a fixed bottom navigation bar:</p>
       <ul class="feature-list">
-        <li><strong>Primary tabs</strong>: Home (Dashboard), Tenants, Income, Airbnb — always visible</li>
-        <li><strong>More menu</strong>: Tap the ⋮ icon to open a full-page drawer with all remaining navigation sections (Finances, Operations, Settings)</li>
-        <li>Table views switch to stacked card layouts automatically on small screens</li>
+        <li><strong>Inbox first</strong> — the action queue is the first tab, followed by the other primary tabs</li>
+        <li><strong>More menu</strong>: tap the ⋮ icon to open a full-page drawer with all remaining sections (Finances, Operations, Settings)</li>
+        <li>Table views switch to stacked card layouts automatically on small screens — including the tenant ledger, invoices, and report tables</li>
       </ul>
     </div>
 
     <div class="sub-section">
       <h3>Automated Notifications</h3>
-      <p>A daily cron job (07:00 UTC) sends email alerts to all Managers and Admins with property access when:</p>
+      <p>A daily job (07:00 UTC) sends email alerts to all Managers and Admins with property access when:</p>
       <p style="margin-bottom:6px"><em>Each of these alerts can be switched off per organisation or per property from the <a href="#automations">Automations</a> page, and individual users can opt out from Settings → Notifications.</em></p>
       <table class="data-table">
-        <thead><tr><th>Trigger</th><th>Alert type</th><th>Window</th></tr></thead>
+        <thead><tr><th>Trigger</th><th>Alert</th><th>Window</th></tr></thead>
         <tbody>
-          <tr><td>Lease expiring</td><td>LEASE_EXPIRY_30D / LEASE_EXPIRY_7D</td><td>≤30 days or ≤7 days</td></tr>
-          <tr><td>Invoice overdue</td><td>INVOICE_OVERDUE</td><td>&gt;7 days past due date</td></tr>
-          <tr><td>Compliance cert expiring</td><td>CERT_EXPIRY</td><td>≤30 days or ≤7 days</td></tr>
-          <tr><td>Insurance policy ending</td><td>INSURANCE_EXPIRY</td><td>≤30 days or ≤7 days</td></tr>
-          <tr><td>Urgent maintenance open</td><td>MAINTENANCE_URGENT</td><td>Still OPEN after 4+ hours</td></tr>
+          <tr><td>Lease expiring</td><td>Lease expiry alert</td><td>≤30 days or ≤7 days</td></tr>
+          <tr><td>Invoice overdue</td><td>Overdue invoice alert</td><td>&gt;7 days past due date</td></tr>
+          <tr><td>Compliance cert expiring</td><td>Compliance alert</td><td>≤30 days or ≤7 days</td></tr>
+          <tr><td>Insurance policy ending</td><td>Insurance alert</td><td>≤30 days or ≤7 days</td></tr>
+          <tr><td>Urgent maintenance open</td><td>Urgent maintenance alert</td><td>Still OPEN after 4+ hours</td></tr>
         </tbody>
       </table>
       <p style="margin-top:10px">Notifications are deduplicated — you will not receive the same alert repeatedly within the dedup window.</p>
@@ -1640,13 +1935,7 @@
 
     <div class="sub-section">
       <h3>Multi-Organisation Support</h3>
-      <p>Users can belong to multiple organisations. After login, if you have multiple memberships and no active org is set, you are redirected to <strong>/select-org</strong> to pick your organisation. You can also switch organisations at any time from the org switcher in the sidebar header without logging out.</p>
-    </div>
-
-    <div class="sub-section">
-      <h3>Data Import</h3>
-      <p>Navigate to <strong>Import</strong> to bulk-import data from Excel. Each tab works the same way: download the template, fill it in, upload, and the rows are validated client-side before they're sent. Available importers: <strong>tenants, rent history, income, expenses, recurring expenses, petty cash, units, maintenance, vendors</strong>, and a full-property <strong>handover</strong> ZIP.</p>
-      <p>Several importers (tenants, rent history, expenses, petty cash, recurring) support an <em>"Update existing records"</em> mode so re-importing edits rows in place instead of duplicating them. The Expenses template can additionally carry an <code>ID</code> column — use <em>Export existing</em> to download your current expenses pre-filled, edit any field, and re-upload to resync without creating duplicates. Name columns (Property Name, Vendor Name, Unit Number) are resolved to the right records automatically; an unmatched name still imports, just unlinked, with a warning.</p>
+      <p>Users can belong to multiple organisations. After login, if you have multiple memberships and no active org is set, you are asked to pick your organisation. You can also switch organisations at any time from the org switcher in the sidebar header without logging out.</p>
     </div>
 
     <!-- Footer -->
@@ -1656,8 +1945,7 @@
         <div style="font-size:12px;color:var(--text-muted)">Professional Property Management Software</div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);text-align:right">
-        User Guide · July 2026<br>
-        Built with Next.js 14 · Prisma · Supabase
+        User Guide · August 2026
       </div>
     </div>
   </div>
@@ -1666,7 +1954,7 @@
 </div><!-- /main -->
 
 <script>
-// Active TOC link highlighting
+// ── Active TOC link highlighting ──
 const sections = document.querySelectorAll('.section[id]');
 const tocLinks = document.querySelectorAll('.toc-link');
 const observer = new IntersectionObserver((entries) => {
@@ -1700,55 +1988,244 @@ menuBtn.addEventListener('click', () => {
   sidebar.classList.contains('open') ? closeDrawer() : openDrawer();
 });
 backdrop.addEventListener('click', closeDrawer);
-// Close the drawer after tapping a section link on mobile
 tocLinks.forEach(l => l.addEventListener('click', () => {
   if (window.matchMedia('(max-width: 900px)').matches) closeDrawer();
 }));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
 
-// ── Live search: filter TOC by section title + content ──
+// ══════════════════════════════════════════════════════════
+//  DYNAMIC FULL-TEXT SEARCH
+//  Indexes every section and sub-section; shows ranked results
+//  with snippets; jumping highlights the matches in the content.
+// ══════════════════════════════════════════════════════════
 const searchInput = document.getElementById('toc-search');
 const clearBtn = document.getElementById('toc-search-clear');
-const noResults = document.getElementById('toc-no-results');
-// Build a search index once: each TOC link -> its label + the text of its target section
-const searchIndex = Array.from(tocLinks).map(link => {
-  const id = link.getAttribute('href').slice(1);
-  const section = document.getElementById(id);
-  const label = link.textContent.replace(/^\d+/, '').trim();
-  const body = section ? section.textContent : '';
-  return { link, label, haystack: (label + ' ' + body).toLowerCase() };
+const kbdHint = document.getElementById('search-kbd');
+const resultsPanel = document.getElementById('search-results');
+const srList = document.getElementById('sr-list');
+const srCount = document.getElementById('sr-count');
+const srEmpty = document.getElementById('sr-empty');
+const tocList = document.getElementById('toc-list');
+
+// Build the index: one entry per sub-section, plus one per section header.
+const searchIndex = [];
+sections.forEach(section => {
+  const sectionId = section.id;
+  const num = (section.querySelector('.section-num')?.textContent || '').split('—')[0].trim();
+  const sectionTitle = section.querySelector('h2')?.textContent.trim() || sectionId;
+
+  // Section header entry (intro paragraph)
+  const header = section.querySelector('.section-header');
+  if (header) {
+    searchIndex.push({
+      id: sectionId, num, sectionTitle,
+      title: sectionTitle,
+      el: header,
+      text: header.textContent.replace(/\s+/g, ' ').trim(),
+    });
+  }
+
+  // One entry per sub-section
+  section.querySelectorAll('.sub-section').forEach((sub, i) => {
+    const h3 = sub.querySelector('h3');
+    const title = h3 ? h3.textContent.replace(/\s+/g, ' ').trim() : sectionTitle;
+    if (!sub.id) sub.id = `${sectionId}--sub-${i}`;
+    searchIndex.push({
+      id: sub.id, num, sectionTitle, title,
+      el: sub,
+      text: sub.textContent.replace(/\s+/g, ' ').trim(),
+    });
+  });
 });
 
-function runSearch(q) {
-  const query = q.trim().toLowerCase();
-  clearBtn.style.display = query ? 'block' : 'none';
-  let visible = 0;
-  searchIndex.forEach(({ link, label, haystack }) => {
-    const match = !query || haystack.includes(query);
-    link.classList.toggle('search-hidden', !match);
-    if (match) visible++;
-    // Highlight the matched substring in the visible label
-    const numHtml = link.querySelector('.num').outerHTML;
-    if (query && label.toLowerCase().includes(query)) {
-      const i = label.toLowerCase().indexOf(query);
-      const safe = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-      link.innerHTML = numHtml + safe(label.slice(0, i)) +
-        '<mark class="toc-hit">' + safe(label.slice(i, i + query.length)) + '</mark>' +
-        safe(label.slice(i + query.length));
-    } else {
-      link.innerHTML = numHtml + label;
+const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function tokenize(q) {
+  return q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+// Score an entry: every token must appear in title or text.
+// Title hits score much higher; more occurrences nudge the score up.
+function scoreEntry(entry, tokens) {
+  const title = entry.title.toLowerCase();
+  const text = entry.text.toLowerCase();
+  let score = 0;
+  for (const t of tokens) {
+    const inTitle = title.includes(t);
+    const inText = text.includes(t);
+    if (!inTitle && !inText) return 0;
+    if (inTitle) score += title.startsWith(t) ? 40 : 25;
+    if (inText) {
+      let n = 0, i = text.indexOf(t);
+      while (i !== -1 && n < 10) { n++; i = text.indexOf(t, i + t.length); }
+      score += Math.min(n * 2, 12);
     }
+  }
+  return score;
+}
+
+function makeSnippet(entry, tokens) {
+  const text = entry.text;
+  const lower = text.toLowerCase();
+  let pos = -1;
+  for (const t of tokens) {
+    const i = lower.indexOf(t);
+    if (i !== -1 && (pos === -1 || i < pos)) pos = i;
+  }
+  if (pos === -1) pos = 0;
+  const start = Math.max(0, pos - 45);
+  const end = Math.min(text.length, pos + 105);
+  let snip = (start > 0 ? '…' : '') + text.slice(start, end).trim() + (end < text.length ? '…' : '');
+  snip = esc(snip);
+  for (const t of tokens) {
+    snip = snip.replace(new RegExp(`(${escRe(esc(t))})`, 'gi'), '<mark>$1</mark>');
+  }
+  return snip;
+}
+
+function highlightTitle(title, tokens) {
+  let out = esc(title);
+  for (const t of tokens) {
+    out = out.replace(new RegExp(`(${escRe(esc(t))})`, 'gi'), '<mark>$1</mark>');
+  }
+  return out;
+}
+
+// ── In-content highlighting on jump ──
+let contentMarks = [];
+function clearContentHighlights() {
+  contentMarks.forEach(m => {
+    const parent = m.parentNode;
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(m.textContent), m);
+    parent.normalize();
   });
-  noResults.style.display = visible === 0 ? 'block' : 'none';
+  contentMarks = [];
+}
+
+function highlightInElement(el, tokens) {
+  clearContentHighlights();
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => n.parentNode && !/^(SCRIPT|STYLE|MARK)$/.test(n.parentNode.tagName)
+      ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  const re = new RegExp(`(${tokens.map(escRe).join('|')})`, 'gi');
+  nodes.forEach(node => {
+    if (!re.test(node.textContent)) return;
+    re.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    while ((m = re.exec(node.textContent)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(node.textContent.slice(last, m.index)));
+      const mark = document.createElement('mark');
+      mark.className = 'content-hit';
+      mark.textContent = m[0];
+      frag.appendChild(mark);
+      contentMarks.push(mark);
+      last = m.index + m[0].length;
+    }
+    if (last < node.textContent.length) frag.appendChild(document.createTextNode(node.textContent.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  });
+}
+
+function jumpTo(entry, tokens) {
+  entry.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  highlightInElement(entry.el, tokens);
+  entry.el.classList.remove('flash-target');
+  void entry.el.offsetWidth; // restart animation
+  entry.el.classList.add('flash-target');
+  if (window.matchMedia('(max-width: 900px)').matches) closeDrawer();
+}
+
+// ── Render results ──
+let currentResults = [];
+let activeIdx = -1;
+
+function renderResults(results, tokens) {
+  srList.innerHTML = '';
+  results.forEach((entry, i) => {
+    const item = document.createElement('a');
+    item.className = 'sr-item';
+    item.href = '#' + entry.id;
+    item.setAttribute('role', 'option');
+    item.innerHTML =
+      `<div class="sr-section"><span class="num">${esc(entry.num)}</span>${esc(entry.sectionTitle)}</div>` +
+      `<div class="sr-title">${highlightTitle(entry.title, tokens)}</div>` +
+      `<div class="sr-snippet">${makeSnippet(entry, tokens)}</div>`;
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      history.replaceState(null, '', '#' + entry.id);
+      jumpTo(entry, tokens);
+    });
+    item.addEventListener('mousemove', () => setActive(i));
+    srList.appendChild(item);
+  });
+}
+
+function setActive(i) {
+  activeIdx = i;
+  srList.querySelectorAll('.sr-item').forEach((el, j) => el.classList.toggle('active', j === i));
+  const el = srList.children[i];
+  if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+function runSearch(q) {
+  const tokens = tokenize(q);
+  const hasQuery = tokens.length > 0;
+  clearBtn.style.display = hasQuery ? 'block' : 'none';
+  if (kbdHint) kbdHint.style.display = hasQuery ? 'none' : '';
+  resultsPanel.classList.toggle('show', hasQuery);
+  tocList.style.display = hasQuery ? 'none' : '';
+  activeIdx = -1;
+  if (!hasQuery) { currentResults = []; clearContentHighlights(); return; }
+
+  currentResults = searchIndex
+    .map(e => ({ entry: e, score: scoreEntry(e, tokens) }))
+    .filter(r => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 20)
+    .map(r => r.entry);
+
+  srEmpty.style.display = currentResults.length ? 'none' : 'block';
+  srCount.textContent = currentResults.length
+    ? `${currentResults.length} result${currentResults.length === 1 ? '' : 's'}`
+    : '';
+  renderResults(currentResults, tokens);
+  if (currentResults.length) setActive(0);
 }
 
 searchInput.addEventListener('input', e => runSearch(e.target.value));
 clearBtn.addEventListener('click', () => { searchInput.value = ''; runSearch(''); searchInput.focus(); });
-// "/" focuses search (unless already typing in a field)
-document.addEventListener('keydown', e => {
-  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-    e.preventDefault(); searchInput.focus();
+
+// Keyboard navigation inside search
+searchInput.addEventListener('keydown', e => {
+  if (!currentResults.length) {
+    if (e.key === 'Escape') { searchInput.value = ''; runSearch(''); searchInput.blur(); }
+    return;
   }
+  if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIdx + 1, currentResults.length - 1)); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(activeIdx - 1, 0)); }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    const entry = currentResults[Math.max(activeIdx, 0)];
+    if (entry) { history.replaceState(null, '', '#' + entry.id); jumpTo(entry, tokenize(searchInput.value)); }
+  }
+  else if (e.key === 'Escape') { searchInput.value = ''; runSearch(''); searchInput.blur(); }
+});
+
+// Global shortcuts: "/" or Ctrl/Cmd+K focus the search
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
+    e.preventDefault();
+    if (window.matchMedia('(max-width: 900px)').matches) openDrawer();
+    searchInput.focus();
+    searchInput.select();
+  }
+  if (e.key === 'Escape' && !typing) closeDrawer();
 });
 </script>
 </body>

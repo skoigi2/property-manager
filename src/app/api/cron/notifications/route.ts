@@ -14,6 +14,7 @@ import {
   checkNegativeCashflowForecast,
   checkCaseSlaBreaches,
   checkOwnerMonthlyReports,
+  checkTenantRentReminders,
 } from "@/lib/notifications/checkers";
 import { runAutomations } from "@/lib/automations";
 import { resetAutomationCache } from "@/lib/automation-registry";
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
   // serves a stale enabled/disabled value from a previous invocation.
   resetAutomationCache();
 
-  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports] = await Promise.allSettled([
+  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports, tenantReminders] = await Promise.allSettled([
     checkLeaseExpiries(),
     checkOverdueInvoices(),
     checkComplianceCertificates(),
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
     checkCaseSlaBreaches(),
     runAutomations(),
     checkOwnerMonthlyReports(),
+    checkTenantRentReminders(),
   ]);
 
   // Auto-expire DISMISSED hints older than 30 days
@@ -77,6 +79,7 @@ export async function GET(request: Request) {
     slaBreaches:             slaBreaches.status === "fulfilled" ? slaBreaches.value : { error: String(slaBreaches.reason) },
     automations:             automations.status === "fulfilled" ? automations.value : { error: String(automations.reason) },
     ownerReports:            ownerReports.status === "fulfilled" ? ownerReports.value : { error: String(ownerReports.reason) },
+    tenantRentReminders:     tenantReminders.status === "fulfilled" ? tenantReminders.value : { error: String(tenantReminders.reason) },
     durationMs: Date.now() - start,
   };
 

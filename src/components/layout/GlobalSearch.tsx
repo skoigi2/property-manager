@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Users, Building2, FileText, Store, FolderOpen, Wrench, Loader2 } from "lucide-react";
+import { Search, Users, Building2, FileText, Store, FolderOpen, Wrench, Loader2, Receipt, Paperclip } from "lucide-react";
 
 interface SearchResult {
   id: string;
-  type: "tenant" | "property" | "invoice" | "vendor" | "case" | "maintenance";
+  type: "tenant" | "property" | "invoice" | "vendor" | "case" | "maintenance" | "expense" | "document";
   title: string;
   subtitle?: string;
   href: string;
@@ -19,10 +19,12 @@ const TYPE_META: Record<SearchResult["type"], { label: string; icon: typeof User
   vendor:      { label: "Vendors",     icon: Store },
   case:        { label: "Cases",       icon: FolderOpen },
   maintenance: { label: "Maintenance", icon: Wrench },
+  expense:     { label: "Expenses",    icon: Receipt },
+  document:    { label: "Documents",   icon: Paperclip },
 };
 
 const GROUP_ORDER: SearchResult["type"][] = [
-  "tenant", "property", "invoice", "case", "maintenance", "vendor",
+  "tenant", "property", "invoice", "case", "maintenance", "expense", "document", "vendor",
 ];
 
 /** Event name the Sidebar trigger dispatches to open the palette. */

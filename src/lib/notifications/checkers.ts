@@ -7,6 +7,7 @@ import { upsertHint } from "@/lib/hints";
 import { formatCurrency } from "@/lib/currency";
 import { buildForecast } from "@/lib/forecast-engine";
 import { isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
+import { sendRentReminderToTenant } from "@/lib/rent-reminder";
 import {
   leaseExpiryTemplate,
   invoiceOverdueTemplate,
@@ -844,6 +845,83 @@ export async function checkOwnerMonthlyReports(): Promise<{ sent: number; skippe
       if (managers.length === 0) { skipped++; continue; }
       await sendToManagers(managers, subject, html, orgId, "OWNER_MONTHLY_REPORT", resourceId, "Property");
       sent += managers.length;
+    }
+  }
+
+  return { sent, skipped };
+}
+
+// ─── Tenant rent-reminder (dunning) checker ───────────────────────────────────
+
+/**
+ * TENANT_RENT_REMINDERS: emails tenants directly as rent falls due — a
+ * heads-up 3 days before the due date, a reminder on the due date, and a
+ * follow-up once 7 days overdue. Opt-in per org/property. One send per
+ * invoice per stage, deduped via NotificationLog with a composite
+ * resourceId of `<invoiceId>:<stage>`. Tenants without an email address are
+ * counted as skipped (the manual Inbox action is where those are surfaced).
+ */
+export async function checkTenantRentReminders(): Promise<{ sent: number; skipped: number }> {
+  const now = new Date();
+  let sent = 0, skipped = 0;
+
+  // Candidate window: due within the next 3 days, or overdue up to 60 days
+  // back (beyond that a reminder email reads as noise — arrears cases and the
+  // Inbox own the long tail).
+  const invoices = await prisma.invoice.findMany({
+    where: {
+      status: { in: ["SENT", "OVERDUE"] },
+      dueDate: {
+        gte: subDays(now, 60),
+        lte: new Date(now.getTime() + 3 * 86_400_000),
+      },
+    },
+    select: {
+      id: true, invoiceNumber: true, totalAmount: true, paidAmount: true,
+      dueDate: true, periodYear: true, periodMonth: true,
+      tenant: {
+        select: {
+          id: true, name: true, email: true,
+          unit: {
+            select: {
+              unitNumber: true, propertyId: true,
+              property: { select: { name: true, currency: true, organizationId: true, organization: { select: { name: true } } } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const inv of invoices) {
+    const orgId = inv.tenant?.unit?.property?.organizationId;
+    if (!orgId) continue;
+
+    // Stage by days relative to the due date (calendar-day granularity).
+    const daysPastDue = differenceInDays(now, inv.dueDate);
+    let stage: "UPCOMING" | "DUE" | "OVERDUE" | null = null;
+    if (daysPastDue >= 7) stage = "OVERDUE";
+    else if (daysPastDue === 0) stage = "DUE";
+    else if (daysPastDue < 0 && daysPastDue >= -3) stage = "UPCOMING";
+    if (!stage) { skipped++; continue; }
+
+    if (!(await isAutomationEnabled(orgId, "TENANT_RENT_REMINDERS", inv.tenant.unit.propertyId))) { skipped++; continue; }
+
+    const resourceId = `${inv.id}:${stage}`;
+    // 90-day window ≈ once per invoice per stage (an invoice period never
+    // legitimately needs the same stage twice inside that window).
+    if (await wasRecentlySent("TENANT_RENT_REMINDER", resourceId, 90)) { skipped++; continue; }
+
+    if (!inv.tenant.email?.trim()) { skipped++; continue; }
+
+    try {
+      const { subject, sentTo } = await sendRentReminderToTenant(
+        inv, stage, { email: "system", name: "Automated reminder" }, now,
+      );
+      await recordSent(orgId, "TENANT_RENT_REMINDER", resourceId, "Invoice", sentTo, subject);
+      sent++;
+    } catch {
+      console.error(`[notifications] Failed to send TENANT_RENT_REMINDER for invoice ${inv.id}`);
     }
   }
 

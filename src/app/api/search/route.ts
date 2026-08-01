@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export interface SearchResult {
   id: string;
-  type: "tenant" | "property" | "invoice" | "vendor" | "case" | "maintenance";
+  type: "tenant" | "property" | "invoice" | "vendor" | "case" | "maintenance" | "expense" | "document";
   title: string;
   subtitle?: string;
   href: string;
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   const orgId = session!.user.organizationId;
   const contains = { contains: q, mode: "insensitive" as const };
 
-  const [tenants, properties, invoices, vendors, cases, jobs] = await Promise.all([
+  const [tenants, properties, invoices, vendors, cases, jobs, expenses, documents] = await Promise.all([
     prisma.tenant.findMany({
       where: {
         unit: { propertyId: { in: propertyIds } },
@@ -92,6 +92,45 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       take: PER_GROUP,
     }),
+    // Expenses: description / payment reference, property-linked rows via
+    // access, property-less (PORTFOLIO) rows via the caller's org.
+    prisma.expenseEntry.findMany({
+      where: {
+        OR: [
+          { propertyId: { in: propertyIds } },
+          { unit: { propertyId: { in: propertyIds } } },
+          ...(orgId ? [{ propertyId: null, unitId: null, organizationId: orgId }] : []),
+        ],
+        AND: { OR: [{ description: contains }, { paymentReference: contains }] },
+      },
+      select: {
+        id: true,
+        description: true,
+        category: true,
+        amount: true,
+        date: true,
+        property: { select: { name: true, currency: true } },
+        unit: { select: { unitNumber: true, property: { select: { name: true, currency: true } } } },
+      },
+      orderBy: { date: "desc" },
+      take: PER_GROUP,
+    }),
+    // Tenant documents by file name — "find that plumber receipt from March".
+    prisma.tenantDocument.findMany({
+      where: {
+        tenant: { unit: { propertyId: { in: propertyIds } } },
+        fileName: contains,
+      },
+      select: {
+        id: true,
+        fileName: true,
+        category: true,
+        tenantId: true,
+        tenant: { select: { name: true } },
+      },
+      orderBy: { uploadedAt: "desc" },
+      take: PER_GROUP,
+    }),
   ]);
 
   const results: SearchResult[] = [
@@ -136,6 +175,25 @@ export async function GET(req: Request) {
       title: j.title,
       subtitle: `${j.property.name} · ${j.status}`,
       href: j.caseThreadId ? `/cases/${j.caseThreadId}` : "/maintenance",
+    })),
+    ...expenses.map((e) => {
+      const prop = e.property ?? e.unit?.property ?? null;
+      const where = e.unit ? `${prop?.name ?? ""} · ${e.unit.unitNumber}` : prop?.name ?? "Portfolio";
+      const dateLabel = new Date(e.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      return {
+        id: e.id,
+        type: "expense" as const,
+        title: e.description ?? e.category,
+        subtitle: `${where} · ${dateLabel}`,
+        href: "/expenses",
+      };
+    }),
+    ...documents.map((d) => ({
+      id: d.id,
+      type: "document" as const,
+      title: d.fileName,
+      subtitle: `${d.tenant.name} · ${d.category.replace(/_/g, " ").toLowerCase()}`,
+      href: `/tenants/${d.tenantId}?tab=documents`,
     })),
   ];
 

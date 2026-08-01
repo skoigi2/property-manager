@@ -3,6 +3,41 @@ import { prisma } from "@/lib/prisma";
 import { RenewalStage } from "@prisma/client";
 import { z } from "zod";
 import { clearHintsAny } from "@/lib/hints";
+import { advanceCase, getWorkflow, getStageByKey } from "@/lib/case-workflows";
+
+// Bridge: the tenant-level renewal pipeline and the LEASE_RENEWAL case workflow
+// were previously two disconnected systems — advancing one never moved the
+// other. Progress recorded here now mirrors forward onto any open
+// LEASE_RENEWAL case for the tenant (forward-only, best-effort, never throws).
+const CASE_STAGE_BRIDGE: Partial<Record<RenewalStage, string>> = {
+  NOTICE_SENT:  "notice_sent",
+  TERMS_AGREED: "terms_agreed",
+  RENEWED:      "renewed",
+};
+
+async function mirrorOntoRenewalCase(tenantId: string, renewalStage: RenewalStage): Promise<void> {
+  const targetKey = CASE_STAGE_BRIDGE[renewalStage];
+  if (!targetKey) return;
+  try {
+    const thread = await prisma.caseThread.findFirst({
+      where: {
+        caseType: "LEASE_RENEWAL",
+        subjectId: tenantId,
+        status: { notIn: ["RESOLVED", "CLOSED"] },
+      },
+      select: { id: true, currentStageIndex: true },
+    });
+    if (!thread) return;
+    const target = getStageByKey(getWorkflow("LEASE_RENEWAL"), targetKey);
+    if (!target || target.index <= thread.currentStageIndex) return; // forward-only
+    await advanceCase(thread.id, target.index, {
+      actorName: "system",
+      note: `Mirrored from the tenant renewal pipeline (${renewalStage.replace(/_/g, " ").toLowerCase()})`,
+    });
+  } catch (e) {
+    console.error("[renewal] case bridge failed:", e);
+  }
+}
 
 const renewalSchema = z.object({
   renewalStage:     z.enum(["NONE", "NOTICE_SENT", "TERMS_AGREED", "RENEWED"]),
@@ -93,6 +128,10 @@ export async function PATCH(
   if (renewalStage === "RENEWED") {
     await clearHintsAny(params.id, ["LEASE_EXPIRY_7D", "LEASE_EXPIRY_30D"]);
   }
+
+  // Mirror the pipeline stage onto any open LEASE_RENEWAL case (after the
+  // transaction commits — best-effort, never blocks the response).
+  await mirrorOntoRenewalCase(params.id, renewalStage as RenewalStage);
 
   return Response.json(updated);
 }

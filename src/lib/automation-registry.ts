@@ -141,6 +141,19 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
   },
 
   {
+    key: "TENANT_RENT_REMINDERS",
+    name: "Tenant rent reminders",
+    description:
+      "Email tenants automatically as rent falls due: a heads-up 3 days before the due date, a reminder on the due date, and a follow-up once 7 days overdue. Every send is logged to the tenant's communication trail. Tenants without an email address are skipped.",
+    trigger: "3 days before due · on due date · 7 days overdue",
+    actions: ["Email Tenant", "Log to Comms Trail"],
+    category: "NOTIFICATION",
+    // Opt-in: tenants shouldn't start receiving automated chasers without the
+    // manager deliberately switching this on per org/property.
+    defaultEnabled: false,
+  },
+
+  {
     key: "OWNER_MONTHLY_REPORT",
     name: "Monthly owner statement",
     description:

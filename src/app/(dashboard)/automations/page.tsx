@@ -251,6 +251,24 @@ export default function AutomationsPage() {
 
   function NotifiesLine({ a }: { a: Automation }) {
     if (!sendsEmail(a)) return null;
+    // These two email someone other than the property managers — the manager
+    // recipient count would mislead, so show who actually receives them.
+    if (a.key === "TENANT_RENT_REMINDERS") {
+      return (
+        <p className="mt-3 flex items-start gap-1.5 text-caption text-gray-500">
+          <Mail className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
+          Emails each tenant directly — every send is logged to their comms trail.
+        </p>
+      );
+    }
+    if (a.key === "OWNER_MONTHLY_REPORT") {
+      return (
+        <p className="mt-3 flex items-start gap-1.5 text-caption text-gray-500">
+          <Mail className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
+          Emails the property owner — falls back to managers when no owner account is linked.
+        </p>
+      );
+    }
     const { count, names, fallbackOnly } = orgRecipients;
     if (count === 0) {
       return (

@@ -962,6 +962,12 @@ model MaintenanceJob {
   requiresApproval   Boolean             @default(false)
   approvedAt       DateTime?
   approvalNotes    String?
+  // Vendor magic link (typed quote submission — mirrors /approve tokens).
+  vendorLinkToken     String?   @unique
+  vendorLinkExpiresAt DateTime?
+  vendorQuoteAmount   Decimal?  @db.Decimal(14, 2)
+  vendorQuoteNote     String?
+  vendorQuoteAt       DateTime?
   caseThreadId     String?
   caseThread       CaseThread?         @relation("CaseThreadMaintenanceJobs", fields: [caseThreadId], references: [id], onDelete: SetNull)
   property         Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)

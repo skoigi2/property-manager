@@ -11,7 +11,7 @@ export default auth((req) => {
   const isSelectOrgPage = pathname.startsWith("/select-org");
   const isPortalPage = pathname.startsWith("/portal/");
   const isApprovePage = pathname.startsWith("/approve/");
-  const isSignPage = pathname.startsWith("/sign/");    // tenant e-sign magic links
+  const isSignPage = pathname.startsWith("/sign/") || pathname.startsWith("/vendor/"); // tenant e-sign + vendor magic links
 
   // Public marketing + auth pages — no login required
   const isPublicPage =

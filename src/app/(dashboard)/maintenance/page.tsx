@@ -54,6 +54,10 @@ interface Job {
   expenseId?:          string | null;   // set once expense has been logged
   submittedViaPortal?: boolean;
   isEmergency?:        boolean;
+  vendorId?:           string | null;
+  vendor?:             { id: string; name: string } | null;
+  vendorQuoteAmount?:  number | null;
+  vendorQuoteAt?:      string | null;
   property:      { id: string; name: string };
   unit?:         { id: string; unitNumber: string } | null;
 }
@@ -454,6 +458,11 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
             <span>{formatCurrency(job.cost!, currency)}</span>
           </div>
         )}
+        {job.vendorQuoteAmount != null && (
+          <div className="flex items-center gap-1 text-gold-dark font-medium">
+            <span>Quoted {formatCurrency(job.vendorQuoteAmount, currency)}{job.vendor ? ` — ${job.vendor.name}` : ""}</span>
+          </div>
+        )}
         {job.completedDate && (
           <div className="flex items-center gap-1 text-income">
             <CheckCircle2 size={10} />
@@ -498,6 +507,33 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
       {/* Actions footer */}
       {isManager && (
         <div className="flex items-center gap-1.5 pt-1 border-t border-gray-50 flex-wrap">
+          {/* Vendor quote link — only useful while the job is open */}
+          {job.vendorId && !isDone && job.status !== "CANCELLED" && (
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/maintenance/${job.id}/vendor-link`, { method: "POST" });
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json.error ?? "Failed to create link");
+                  try { await navigator.clipboard.writeText(json.url); } catch {}
+                  toast.success(
+                    json.emailed
+                      ? "Quote link emailed to the vendor (and copied)"
+                      : "Quote link copied — share it with the vendor",
+                    { duration: 6000 },
+                  );
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed to create link");
+                }
+              }}
+              className="flex items-center gap-1 text-caption font-medium text-gray-500 hover:text-gold transition-colors"
+              title="Send the vendor a link to submit their quote — no account needed"
+            >
+              <ExternalLink size={11} />
+              {job.vendorQuoteAmount != null ? "Re-send quote link" : "Request quote"}
+            </button>
+          )}
+
           {/* Advance status */}
           {next && nextLabel && (
             <button

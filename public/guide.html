@@ -859,7 +859,7 @@
       <p style="margin-bottom:12px">Twelve event types, drawn live from your data — nothing to enter manually:</p>
       <ul class="feature-list">
         <li><strong>Leases</strong> — lease starts and lease expiries</li>
-        <li><strong>Money</strong> — rent due dates (from invoices), recurring expenses, rent remittance day, and management-fee invoice day (from the property's agreement)</li>
+        <li><strong>Money</strong> — rent due dates (from invoices), recurring expenses, rent remittance day (verified against recorded owner payouts — a remitted period drops off; an unpaid past one shows overdue), and management-fee invoice day (from the property's agreement)</li>
         <li><strong>Maintenance</strong> — scheduled contractor visits and recurring maintenance schedules coming due</li>
         <li><strong>Renewals &amp; compliance</strong> — insurance renewals and compliance certificate expiries</li>
         <li><strong>Workflow deadlines</strong> — approval expiry deadlines and case SLA deadlines</li>
@@ -1068,6 +1068,7 @@
         <li>Records the deposit settlement (from verified receipts where available)</li>
         <li>Optionally creates a reinstatement expense when damage costs are kept by the landlord</li>
         <li>Generates a signature-ready PDF of the whole checkout</li>
+        <li><strong>E-sign, no printing</strong> — click <em>Request tenant sign-off</em> to send the tenant a secure link (email, WhatsApp, or SMS). They review the settlement and acknowledge by typing their name; the typed signature and timestamp then appear on the checkout PDF, and you're notified.</li>
       </ul>
       <div class="callout warn">
         <span class="callout-icon">⚠️</span>
@@ -1157,7 +1158,18 @@
         <li><strong>Send</strong> on any invoice emails the PDF straight to the tenant — no downloading and re-attaching</li>
         <li><strong>Bulk actions</strong> — tick multiple invoices and use <em>Email to tenants</em> or <em>Mark paid</em>; per-invoice failures are reported without aborting the batch</li>
         <li><strong>Automatic generation</strong> — turn on the <em>Auto invoice generation</em> automation and each month's rent invoices are drafted and emailed for you, with a per-property summary email to managers (see <a href="#automations">Automations</a>)</li>
+        <li><strong>Automatic chasing</strong> — the opt-in <em>Tenant rent reminders</em> automation emails each tenant a heads-up 3 days before the due date, a reminder on the due date, and a follow-up once 7 days overdue — every send logged to the tenant's comms trail</li>
         <li>The page loads 200 invoices at a time with a <em>Load more</em> footer for long histories</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>Reconciling a bank / M-Pesa statement</h3>
+      <p style="margin-bottom:12px">When payments arrive in bulk, you don't have to match them row by row. Click <strong>Reconcile</strong> in the Invoices header, then paste your statement (or upload a CSV export) — M-Pesa confirmation texts, bank CSV exports, and Excel pastes are all understood:</p>
+      <ul class="feature-list">
+        <li>Each credit line is matched against your open invoices by <strong>amount and payer name</strong>; unambiguous matches are pre-selected, everything else offers a ranked shortlist</li>
+        <li>You confirm before anything is recorded — each confirmed line creates the income entry, settles the invoice (partial payments leave the balance visible), and triggers the same follow-through as marking paid manually</li>
+        <li>Ambiguous cases — like a tenant with two open invoices for the same amount — are deliberately left for you to decide</li>
       </ul>
     </div>
 
@@ -1397,6 +1409,16 @@
       </div>
     </div>
 
+    <div class="sub-section">
+      <h3>Vendor quote links — no vendor account needed</h3>
+      <p style="margin-bottom:12px">Once a job has a vendor assigned, click <strong>Request quote</strong> on the job card. The vendor receives a secure link (emailed automatically, or copied for WhatsApp/SMS) where they submit their quote without logging in:</p>
+      <ul class="feature-list">
+        <li>The vendor sees the job brief and enters their <strong>price, earliest available date, and notes</strong> — resubmitting updates the quote while the link is valid</li>
+        <li>The quote lands on the job card and the case timeline, the visit date becomes the job's scheduled date, and the case auto-advances to <em>Quote received</em></li>
+        <li>You're emailed the moment the quote arrives — no more chasing quotes over the phone</li>
+      </ul>
+    </div>
+
     <div class="callout tip">
       <span class="callout-icon">💡</span>
       <div class="callout-body">
@@ -1468,6 +1490,16 @@
         <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Draft email</h4><p>Click the <em>Email Draft</em> button on the P&amp;L Preview tab. A pre-populated email template opens with the property name, month, and a summary of key figures.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Or automate it entirely</h4><p>Enable the <strong>Owner monthly report</strong> automation and the previous month's statement PDF is emailed to the property owner automatically on the agreement's remittance day (see <a href="#automations">Automations</a>).</p></div></div>
       </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Recording the payment to the owner</h3>
+      <p style="margin-bottom:12px">A statement isn't finished until the landlord is actually paid. Each property's statement carries a remittance status — <span class="badge badge-green">Remitted ✓</span>, <span class="badge badge-amber">Partly remitted</span>, or <span class="badge badge-amber">Not remitted</span> — and a <strong>Record remittance</strong> button:</p>
+      <ul class="feature-list">
+        <li>Record the amount paid, date, method, and transfer reference — partial remittances accumulate until the period is settled</li>
+        <li>Owners see the same status and payment history on their statement view, read-only</li>
+        <li>The calendar's <strong>Rent remittance due</strong> event is verified against these records: a remitted period drops off the calendar, and a past remittance day with no payment recorded shows as genuinely <em>overdue</em></li>
+      </ul>
     </div>
   </div>
 
@@ -1830,7 +1862,7 @@
           <tr>
             <td><span class="badge badge-green">Email notification</span></td>
             <td><span class="badge badge-green">On</span></td>
-            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance) plus an opt-in <strong>Owner monthly report</strong> — the previous month's statement PDF emailed to the property owner on the agreement's remittance day.</td>
+            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance) plus two opt-ins: <strong>Tenant rent reminders</strong> (emails tenants 3 days before rent is due, on the due date, and once 7 days overdue — logged to each tenant's comms trail) and the <strong>Owner monthly report</strong> (the previous month's statement PDF emailed to the property owner on the agreement's remittance day).</td>
           </tr>
           <tr>
             <td><span class="badge badge-amber">Smart reminder</span></td>
@@ -1903,7 +1935,7 @@
 
     <div class="sub-section">
       <h3>Global Search</h3>
-      <p>Press <strong>Cmd / Ctrl + K</strong> anywhere in the dashboard (or use the Search entry in the sidebar) to open a command palette that searches tenants, properties, invoices, vendors, cases, and maintenance jobs at once. Results are scoped to the properties you can access. Available to managers, admins, and accountants — hidden for the Owner role.</p>
+      <p>Press <strong>Cmd / Ctrl + K</strong> anywhere in the dashboard (or use the Search entry in the sidebar) to open a command palette that searches tenants, properties, invoices, cases, maintenance jobs, <strong>expenses</strong> (by description or payment reference), <strong>documents</strong> (by file name — "find that plumber receipt"), and vendors at once. Results are scoped to the properties you can access. Available to managers, admins, and accountants — hidden for the Owner role.</p>
     </div>
 
     <div class="sub-section">

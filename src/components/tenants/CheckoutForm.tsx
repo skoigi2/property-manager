@@ -59,6 +59,9 @@ type ExistingCheckout = {
   refundDetails: RefundDetails | null;
   notes: string | null;
   deductions: { id: string; description: string; amount: number; category: DeductionCategory }[];
+  signatureRequestedAt: string | null;
+  tenantSignedName: string | null;
+  tenantSignedAt: string | null;
 };
 
 type DeductionCategory = "UTILITY" | "SERVICE_CHARGE" | "RENT_BALANCE" | "DAMAGE" | "OTHER";
@@ -131,6 +134,33 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
 
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [requestingSign, setRequestingSign] = useState(false);
+
+  async function requestSignature() {
+    if (!data?.checkout) return;
+    setRequestingSign(true);
+    try {
+      const res = await fetch(`/api/checkouts/${data.checkout.id}/signature-request`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to create sign-off link");
+      try { await navigator.clipboard.writeText(json.url); } catch {}
+      toast.success(
+        json.emailed
+          ? "Sign-off link emailed to the tenant (and copied to your clipboard)"
+          : "Sign-off link copied — share it with the tenant (no email on file)",
+        { duration: 6000 },
+      );
+      setData((prev) =>
+        prev?.checkout
+          ? { ...prev, checkout: { ...prev.checkout, signatureRequestedAt: new Date().toISOString() } }
+          : prev,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create sign-off link");
+    } finally {
+      setRequestingSign(false);
+    }
+  }
 
   const isCompleted = data?.checkout?.status === "COMPLETED";
   const currency = data?.property.currency ?? "USD";
@@ -308,7 +338,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
               </p>
             </div>
             {data.checkout && (
-              <div className="mt-3">
+              <div className="mt-3 flex items-center gap-4 flex-wrap">
                 <a
                   href={`/api/checkouts/${data.checkout.id}/pdf`}
                   target="_blank"
@@ -317,6 +347,24 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                 >
                   <Download size={14} /> Download PDF
                 </a>
+                {data.checkout.tenantSignedAt ? (
+                  <span className="inline-flex items-center gap-1.5 text-body text-income">
+                    ✓ Acknowledged by {data.checkout.tenantSignedName} on{" "}
+                    {format(new Date(data.checkout.tenantSignedAt), "d MMM yyyy")}
+                  </span>
+                ) : (
+                  <button
+                    onClick={requestSignature}
+                    disabled={requestingSign}
+                    className="inline-flex items-center gap-1.5 text-body text-gold hover:underline disabled:opacity-50"
+                  >
+                    {requestingSign
+                      ? "Sending…"
+                      : data.checkout.signatureRequestedAt
+                        ? "Re-send tenant sign-off link"
+                        : "Request tenant sign-off"}
+                  </button>
+                )}
               </div>
             )}
           </Card>

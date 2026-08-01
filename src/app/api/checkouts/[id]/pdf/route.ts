@@ -68,6 +68,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       refundMethod: process.refundMethod,
       refundDetails,
       notes: process.notes,
+      tenantSignedName: process.tenantSignedName,
+      tenantSignedAt: process.tenantSignedAt,
     },
   });
 

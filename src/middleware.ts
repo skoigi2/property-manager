@@ -11,6 +11,7 @@ export default auth((req) => {
   const isSelectOrgPage = pathname.startsWith("/select-org");
   const isPortalPage = pathname.startsWith("/portal/");
   const isApprovePage = pathname.startsWith("/approve/");
+  const isSignPage = pathname.startsWith("/sign/");    // tenant e-sign magic links
 
   // Public marketing + auth pages — no login required
   const isPublicPage =
@@ -33,7 +34,7 @@ export default auth((req) => {
     pathname.startsWith("/tools") ||
     pathname.startsWith("/contact");
 
-  if (!isLoggedIn && !isAuthPage && !isPortalPage && !isApprovePage && !isPublicPage) {
+  if (!isLoggedIn && !isAuthPage && !isPortalPage && !isApprovePage && !isSignPage && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

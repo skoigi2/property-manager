@@ -1980,6 +1980,12 @@ model CheckoutProcess {
   finalizedAt           DateTime?
   finalizedByUserId     String?
   pdfGeneratedAt        DateTime?
+  // Tenant e-sign acknowledgment (typed-name magic link, mirrors /approve).
+  signatureToken          String?   @unique
+  signatureTokenExpiresAt DateTime?
+  signatureRequestedAt    DateTime?
+  tenantSignedName        String?
+  tenantSignedAt          DateTime?
   expenseEntryId        String?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt

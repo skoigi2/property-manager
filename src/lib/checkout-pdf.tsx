@@ -101,6 +101,9 @@ export type CheckoutPdfData = {
       accountName?: string;
     } | null;
     notes?: string | null;
+    /** Present when the tenant acknowledged via the e-sign magic link. */
+    tenantSignedName?: string | null;
+    tenantSignedAt?: Date | string | null;
   };
 };
 
@@ -388,12 +391,29 @@ function CheckoutPDF({ data }: { data: CheckoutPdfData }) {
         <View style={styles.signatureBlock}>
           <View style={styles.signatureCol}>
             <Text style={styles.signatureLabel}>TENANT SIGNATURE:</Text>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureSub}>Signed</Text>
-            <View style={[styles.signatureLine, { marginTop: 14 }]} />
-            <Text style={styles.signatureSub}>Print Name</Text>
-            <View style={[styles.signatureLine, { marginTop: 14 }]} />
-            <Text style={styles.signatureSub}>Date</Text>
+            {checkout.tenantSignedName && checkout.tenantSignedAt ? (
+              <>
+                <Text style={{ fontSize: 13, fontFamily: "Helvetica-Oblique", color: "#1a1a2e", marginBottom: 2 }}>
+                  {checkout.tenantSignedName}
+                </Text>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureSub}>
+                  Electronically acknowledged by typed name
+                </Text>
+                <Text style={[styles.signatureSub, { marginTop: 10 }]}>
+                  {checkout.tenantSignedName} — {format(new Date(checkout.tenantSignedAt), "d MMM yyyy, HH:mm")}
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureSub}>Signed</Text>
+                <View style={[styles.signatureLine, { marginTop: 14 }]} />
+                <Text style={styles.signatureSub}>Print Name</Text>
+                <View style={[styles.signatureLine, { marginTop: 14 }]} />
+                <Text style={styles.signatureSub}>Date</Text>
+              </>
+            )}
           </View>
           <View style={styles.signatureCol}>
             <Text style={styles.signatureLabel}>LANDLORD/AGENT SIGNATURE:</Text>

@@ -13,9 +13,12 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatCurrency } from "@/lib/currency";
+import { RecordPaymentModal } from "@/components/vendors/RecordPaymentModal";
+import { VendorStatementModal } from "@/components/vendors/VendorStatementModal";
 import {
   Building2, Plus, Search, X, Phone, Mail, Edit2, Trash2,
   CheckCircle, XCircle, TrendingUp, Wrench, Package, RepeatIcon,
+  Banknote, FileSpreadsheet,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -98,6 +101,9 @@ export default function VendorsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
   const [deleting, setDeleting]         = useState(false);
+
+  const [paymentVendor, setPaymentVendor]     = useState<{ id: string; name: string } | null>(null);
+  const [statementVendor, setStatementVendor] = useState<{ id: string; name: string } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -567,6 +573,23 @@ export default function VendorsPage() {
           <div className="flex justify-center py-8"><Spinner /></div>
         ) : detailVendor ? (
           <div className="space-y-5">
+            {/* Payables actions */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => setPaymentVendor({ id: detailVendor.id, name: detailVendor.name })}
+              >
+                <Banknote size={14} className="mr-1.5" /> Record payment
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setStatementVendor({ id: detailVendor.id, name: detailVendor.name })}
+              >
+                <FileSpreadsheet size={14} className="mr-1.5" /> Statement
+              </Button>
+            </div>
+
             {/* Info row */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
@@ -646,6 +669,24 @@ export default function VendorsPage() {
           </div>
         ) : null}
       </Modal>
+
+      {/* Record vendor payment */}
+      <RecordPaymentModal
+        open={!!paymentVendor}
+        onClose={() => setPaymentVendor(null)}
+        vendor={paymentVendor}
+        onSaved={() => {
+          // Refresh the open detail so spend figures stay current.
+          if (detailVendor) openDetail(detailVendor as unknown as Vendor);
+        }}
+      />
+
+      {/* Vendor statement */}
+      <VendorStatementModal
+        open={!!statementVendor}
+        onClose={() => setStatementVendor(null)}
+        vendor={statementVendor}
+      />
 
       {/* Delete confirm */}
       <ConfirmDialog

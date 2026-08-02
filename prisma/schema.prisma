@@ -866,6 +866,7 @@ model ExpenseEntry {
   documents         ExpenseDocument[]
   maintenanceLogs   AssetMaintenanceLog[]
   pettyCashEntry    PettyCash?
+  vendorPaymentAllocations VendorPaymentAllocation[]
   createdAt         DateTime                 @default(now())
 
   @@index([date])
@@ -1740,11 +1741,54 @@ model Vendor {
   assetLogs       AssetMaintenanceLog[]
   recurringExpenses RecurringExpense[]
   assets          Asset[]
+  payments        VendorPayment[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   @@index([organizationId])
   @@index([name])
+}
+
+// One real-world remittance to a vendor (cheque / M-Pesa / transfer). A single
+// payment may settle many ExpenseEntry rows — possibly across properties — via
+// VendorPaymentAllocation. Org-scoped (nullable like Vendor.organizationId:
+// null = legacy/super-admin rows, grandfathered visible per the property-less
+// financial-row rules).
+model VendorPayment {
+  id             String        @id @default(cuid())
+  organizationId String?
+  vendorId       String
+  paymentDate    DateTime
+  amount         Decimal       @db.Decimal(14, 2)
+  paymentMethod  PaymentMethod
+  reference      String?       // cheque / M-Pesa number
+  notes          String?
+  vendor         Vendor        @relation(fields: [vendorId], references: [id])
+  allocations    VendorPaymentAllocation[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([vendorId, paymentDate])
+}
+
+// Applies part of a VendorPayment against one ExpenseEntry. Sum of a payment's
+// allocations must be <= payment.amount (remainder = unallocated credit on the
+// vendor account). Once an expense has allocations, SUM(allocations.amount) is
+// the source of truth for its amountPaid (routes recompute it on every
+// allocation create/update/delete). Expense delete cascades the allocation
+// away — the payment then simply carries more unallocated credit.
+model VendorPaymentAllocation {
+  id              String        @id @default(cuid())
+  vendorPaymentId String
+  expenseEntryId  String
+  amount          Decimal       @db.Decimal(14, 2)
+  vendorPayment   VendorPayment @relation(fields: [vendorPaymentId], references: [id], onDelete: Cascade)
+  expenseEntry    ExpenseEntry  @relation(fields: [expenseEntryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([vendorPaymentId, expenseEntryId])
+  @@index([expenseEntryId])
 }
 
 // ─── Tax Engine ───────────────────────────────────────────────────────────────

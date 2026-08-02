@@ -681,3 +681,53 @@ export function exportForecast(data: {
 
   writeFile(wb, `Forecast-${data.horizon}mo-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
+
+// ── Vendor Statement ──────────────────────────────────────────────────────────
+
+export function exportVendorStatement(
+  statement: {
+    vendor: { name: string };
+    openingBalance: number;
+    lines: {
+      date: string; type: string; description: string; propertyName: string | null;
+      reference: string | null; vatAmount: number | null;
+      invoiced: number; paid: number; balance: number;
+    }[];
+    totals: { invoiced: number; paid: number; outstanding: number };
+  },
+  rangeLabel: string,
+  currency?: string,
+) {
+  const c = currLabel(currency);
+
+  const headers = [
+    "Date", "Type", "Description", "Property", "Reference",
+    `VAT${c}`, `Invoiced${c}`, `Paid${c}`, `Balance${c}`,
+  ];
+
+  const rows: (string | number | null)[][] = [
+    ["", "", "Opening balance", "", "", null, null, null, statement.openingBalance],
+    ...statement.lines.map((l) => [
+      fmtDate(l.date),
+      l.type === "INVOICE" ? "Invoice" : "Payment",
+      l.description,
+      l.propertyName ?? "",
+      l.reference ?? "",
+      l.vatAmount ?? null,
+      l.type === "INVOICE" ? l.invoiced : null,
+      l.type === "PAYMENT" ? l.paid : null,
+      l.balance,
+    ]),
+    [],
+    ["", "", "Totals", "", "", null, statement.totals.invoiced, statement.totals.paid, statement.totals.outstanding],
+  ];
+
+  const ws = buildSheet(headers, rows);
+  setColWidths(ws, [14, 10, 34, 20, 16, 12, 16, 16, 16]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Vendor Statement");
+
+  const safeName = statement.vendor.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-");
+  writeFile(wb, `Vendor-Statement-${safeName}-${rangeLabel}.xlsx`);
+}

@@ -9,7 +9,7 @@ import {
   RecurringFrequency, InvoiceStatus, RenewalStage,
   MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
   VendorCategory, OwnerInvoiceType, TaxType,
-  LineItemCategory, LineItemPaymentStatus,
+  LineItemCategory, LineItemPaymentStatus, PaymentMethod,
   DocumentCategory, CommunicationType,
   CaseEventKind,
 } from "@prisma/client";
@@ -2625,12 +2625,16 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       address: "28 Haverstock Hill, Belsize Park",
       city: "London",
       description:
-        "Elegant 3-storey residential block in the heart of Belsize Park, NW3. 10 apartments across three floors with secure entry, communal garden, cycle store, and EV charging. Professionally managed under a Haverstock PM management brief.",
+        "Elegant 3-storey residential block in the heart of Belsize Park, NW3. 10 apartments across three floors with secure entry, communal garden, residents' indoor pool, cycle store, and EV charging. Professionally managed under a Haverstock PM management brief.",
       serviceChargeDefault: SC,
       organizationId,
       currency: "GBP",
     },
   });
+  // Namespace invoice numbers per seeded property — invoiceNumber is globally
+  // unique, so a second org seeding this demo must not collide (same fix as
+  // the other demos).
+  const propCode = property.id.slice(-6).toUpperCase();
 
   // ── Units ───────────────────────────────────────────────────────────────────
   const unitDefs = [
@@ -2759,6 +2763,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   const [
     vendorMgmt, vendorWater, vendorElec, vendorCleaning, vendorInternet,
     vendorMaint, vendorElectrical, vendorLift, vendorSecurity, vendorGarden,
+    vendorPool,
   ] = await Promise.all([
     prisma.vendor.create({ data: { name: "Haverstock Property Management Ltd", category: VendorCategory.SERVICE_PROVIDER, phone: "+44 20 7946 0101", email: "info@haverstockpm.co.uk",          organizationId, isActive: true, notes: "Managing agent for Belsize Court"                                    } }),
     prisma.vendor.create({ data: { name: "Thames Water",                       category: VendorCategory.UTILITY_PROVIDER,  phone: "+44 800 316 9800", email: "billing@thameswater.co.uk",           organizationId, isActive: true, notes: "Communal water & sewerage supply"                                   } }),
@@ -2770,6 +2775,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     prisma.vendor.create({ data: { name: "Otis Elevator Company UK",           category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 800 912 8000", email: "service@otis.co.uk",                  organizationId, isActive: true, notes: "Passenger lift maintenance & LOLER inspections"                     } }),
     prisma.vendor.create({ data: { name: "SecureGuard Systems Ltd",            category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0505", email: "info@secureguard.co.uk",              organizationId, isActive: true, notes: "CCTV, access control & security systems"                            } }),
     prisma.vendor.create({ data: { name: "GreenThumb Garden Services",         category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0606", email: "hello@greenthumb.co.uk",              organizationId, isActive: true, notes: "Communal garden & grounds maintenance"                              } }),
+    prisma.vendor.create({ data: { name: "AquaCare Pool Services Ltd",         category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0707", email: "service@aquacarepools.co.uk",         organizationId, isActive: true, notes: "Residents' indoor pool — weekly dosing visits, water testing & plant servicing. Paid by monthly account." } }),
   ]);
 
   // ── Agent ────────────────────────────────────────────────────────────────────
@@ -2816,7 +2822,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       const total = t.rent + SC;
       const inv = await prisma.invoice.create({
         data: {
-          invoiceNumber: `BC-${t.unit}-${WIN[month].y}-${mm}-001`,
+          invoiceNumber: `BC-${propCode}-${t.unit}-${WIN[month].y}-${mm}-001`,
           tenantId: tenants[t.unit].id,
           periodYear: WIN[month].y,
           periodMonth: WIN[month].m + 1,
@@ -2893,6 +2899,21 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     ],
   });
 
+  // ── Pool supplier expenses (vendor payables/statement showcase) ─────────────
+  // AquaCare invoices monthly on account. The first two service invoices are
+  // settled by ONE vendor payment below; the pump overhaul is part-paid by
+  // cheque; the current month's invoice is left unpaid — so the vendor
+  // statement shows a payment spanning two invoices, a partial payment, and a
+  // live outstanding balance (£442 + £378 = £820).
+  await prisma.expenseEntry.createMany({
+    data: [
+      { date: wDate(WIN, 1, 6),  propertyId: property.id, scope: ExpenseScope.PROPERTY, category: ExpenseCategory.POOL, amount: 378, description: "AquaCare — monthly pool service & water treatment", dueDate: wDate(WIN, 1, 20), isSunkCost: false, paidFromPettyCash: false, vendorId: vendorPool.id },
+      { date: wDate(WIN, 2, 6),  propertyId: property.id, scope: ExpenseScope.PROPERTY, category: ExpenseCategory.POOL, amount: 378, description: "AquaCare — monthly pool service & water treatment", dueDate: wDate(WIN, 2, 20), isSunkCost: false, paidFromPettyCash: false, vendorId: vendorPool.id },
+      { date: wDate(WIN, 2, 12), propertyId: property.id, scope: ExpenseScope.PROPERTY, category: ExpenseCategory.POOL, amount: 942, description: "Pool circulation pump overhaul — AquaCare",         dueDate: wDate(WIN, 2, 26), isSunkCost: false, paidFromPettyCash: false, vendorId: vendorPool.id },
+      { date: wDate(WIN, 3, 6),  propertyId: property.id, scope: ExpenseScope.PROPERTY, category: ExpenseCategory.POOL, amount: 378, description: "AquaCare — monthly pool service & water treatment", dueDate: wDate(WIN, 3, 20), isSunkCost: false, paidFromPettyCash: false, vendorId: vendorPool.id },
+    ],
+  });
+
   // ── Expense line items — step 2: fetch IDs, then createMany ─────────────────
   const [createdPropExpenses, createdUnitExpenses] = await Promise.all([
     prisma.expenseEntry.findMany({
@@ -2939,6 +2960,76 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     }
   }
   await prisma.expenseLineItem.createMany({ data: lineItemRows });
+
+  // ── Vendor payments — AquaCare payables showcase ─────────────────────────────
+  // Reconciliation rule: once an expense has allocations, SUM(allocations) is
+  // its amountPaid, and (because these expenses carry line items) the same
+  // total is waterfalled across the line items. The rows below are seeded
+  // already-consistent with that invariant.
+  const [poolSvc1, poolSvc2, poolPump, poolSvc3] = await prisma.expenseEntry.findMany({
+    where: { propertyId: property.id, category: ExpenseCategory.POOL },
+    select: { id: true },
+    orderBy: { date: "asc" },
+  });
+
+  await prisma.expenseLineItem.createMany({
+    data: [
+      // Month 1 service — fully settled by the BACS remittance below
+      { expenseId: poolSvc1.id, category: LineItemCategory.LABOUR,   description: "Weekly visits — dosing, testing & poolside clean (excl. VAT)", amount: 315, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID,    amountPaid: 315 },
+      { expenseId: poolSvc1.id, category: LineItemCategory.QUOTE,    description: "VAT @ 20%",                                                    amount: 63,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID,    amountPaid: 63  },
+      // Month 2 service — settled by the same BACS remittance
+      { expenseId: poolSvc2.id, category: LineItemCategory.LABOUR,   description: "Weekly visits — dosing, testing & poolside clean (excl. VAT)", amount: 315, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID,    amountPaid: 315 },
+      { expenseId: poolSvc2.id, category: LineItemCategory.QUOTE,    description: "VAT @ 20%",                                                    amount: 63,  isVatable: false, paymentStatus: LineItemPaymentStatus.PAID,    amountPaid: 63  },
+      // Pump overhaul — £500 cheque on account, waterfalled oldest-first
+      { expenseId: poolPump.id, category: LineItemCategory.LABOUR,   description: "Pump strip-down & overhaul labour (excl. VAT)",                amount: 450, isVatable: true,  paymentStatus: LineItemPaymentStatus.PAID,    amountPaid: 450 },
+      { expenseId: poolPump.id, category: LineItemCategory.MATERIAL, description: "Impeller, mechanical seals & bearings (excl. VAT)",            amount: 335, isVatable: true,  paymentStatus: LineItemPaymentStatus.PARTIAL, amountPaid: 50  },
+      { expenseId: poolPump.id, category: LineItemCategory.QUOTE,    description: "VAT @ 20%",                                                    amount: 157, isVatable: false, paymentStatus: LineItemPaymentStatus.UNPAID,  amountPaid: 0   },
+      // Current month service — unpaid (drives the outstanding balance)
+      { expenseId: poolSvc3.id, category: LineItemCategory.LABOUR,   description: "Weekly visits — dosing, testing & poolside clean (excl. VAT)", amount: 315, isVatable: true,  paymentStatus: LineItemPaymentStatus.UNPAID,  amountPaid: 0   },
+      { expenseId: poolSvc3.id, category: LineItemCategory.QUOTE,    description: "VAT @ 20%",                                                    amount: 63,  isVatable: false, paymentStatus: LineItemPaymentStatus.UNPAID,  amountPaid: 0   },
+    ],
+  });
+
+  // One BACS remittance settling TWO monthly invoices — the core "one payment,
+  // many invoices" statement story.
+  await prisma.vendorPayment.create({
+    data: {
+      organizationId,
+      vendorId: vendorPool.id,
+      paymentDate: wDate(WIN, 2, 24),
+      amount: 756,
+      paymentMethod: PaymentMethod.BANK_TRANSFER,
+      reference: "BACS-88231",
+      notes: "Monthly account run — settles the two outstanding pool service invoices in one remittance.",
+      allocations: {
+        create: [
+          { expenseEntryId: poolSvc1.id, amount: 378 },
+          { expenseEntryId: poolSvc2.id, amount: 378 },
+        ],
+      },
+    },
+  });
+
+  // Part payment on the pump overhaul — leaves £442 outstanding on that invoice.
+  await prisma.vendorPayment.create({
+    data: {
+      organizationId,
+      vendorId: vendorPool.id,
+      paymentDate: wDate(WIN, 3, 5),
+      amount: 500,
+      paymentMethod: PaymentMethod.CHEQUE,
+      reference: "CHQ-000412",
+      notes: "Part payment on account — balance held pending pump commissioning check.",
+      allocations: { create: [{ expenseEntryId: poolPump.id, amount: 500 }] },
+    },
+  });
+
+  // Stamp each allocated expense's amountPaid = its allocation sum.
+  await Promise.all([
+    prisma.expenseEntry.update({ where: { id: poolSvc1.id }, data: { amountPaid: 378 } }),
+    prisma.expenseEntry.update({ where: { id: poolSvc2.id }, data: { amountPaid: 378 } }),
+    prisma.expenseEntry.update({ where: { id: poolPump.id }, data: { amountPaid: 500 } }),
+  ]);
 
   // ── Petty Cash ───────────────────────────────────────────────────────────────
   await prisma.pettyCash.createMany({
@@ -3007,6 +3098,28 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     });
   }
 
+  // Pool plant — AssetCategory has no POOL value; OTHER + categoryOther is the
+  // supported way to file it. Linked to AquaCare via vendorId.
+  const poolPlant = await prisma.asset.create({
+    data: {
+      propertyId: property.id,
+      name: "Pool Plant — Circulation Pump & Filtration",
+      category: AssetCategory.OTHER,
+      categoryOther: "Pool equipment",
+      serialNumber: "AQ-CPF-BC-22",
+      purchaseDate: subY(now, 3),
+      purchaseCost: 6400,
+      warrantyExpiry: addM(now, 10),
+      serviceProvider: "AquaCare Pool Services Ltd",
+      serviceContact: "+44 20 7946 0707",
+      vendorId: vendorPool.id,
+      notes: "Residents' indoor pool plant room: circulation pump, sand filter and UV dosing unit. Serviced quarterly by AquaCare; chemicals topped up weekly.",
+    },
+  });
+  await prisma.assetMaintenanceSchedule.create({
+    data: { assetId: poolPlant.id, propertyId: property.id, taskName: "Quarterly Pool Plant Service", frequency: MaintenanceFrequency.QUARTERLY, nextDue: addM(now, 1), isActive: true, estimatedCost: 260 },
+  });
+
   // ── Recurring Expenses ───────────────────────────────────────────────────────
   await prisma.recurringExpense.createMany({
     data: [
@@ -3019,6 +3132,8 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       { description: "Quarterly Lift Maintenance — Otis UK",    category: ExpenseCategory.MAINTENANCE,    amount: 650,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: addM(now, 2), isActive: true, vendorId: vendorLift.id      },
       { description: "Quarterly Generator Service — BuildRight",category: ExpenseCategory.MAINTENANCE,    amount: 280,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.QUARTERLY, nextDueDate: addM(now, 2), isActive: true, vendorId: vendorMaint.id     },
       { description: "Annual fire extinguisher service",        category: ExpenseCategory.MAINTENANCE,    amount: 420,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.ANNUAL,    nextDueDate: addM(now, 6), isActive: true, vendorId: vendorSecurity.id  },
+      { description: "AquaCare — monthly pool service & water treatment", category: ExpenseCategory.POOL, amount: 378,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorPool.id      },
+      { description: "AquaCare — pool chemicals & consumables top-up",    category: ExpenseCategory.POOL, amount: 120,  scope: ExpenseScope.PROPERTY, propertyId: property.id, frequency: RecurringFrequency.MONTHLY,   nextDueDate: addM(now, 1), isActive: true, vendorId: vendorPool.id      },
     ],
   });
 
@@ -3048,6 +3163,8 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       // DB board fault cost £1,020 — exceeds repairAuthorityLimit (£500), so it
       // ran through the owner-approval workflow. Demos requiresApproval/approvedAt.
       { propertyId: property.id, unitId: units["301"].id, title: "DB board fault — fuse tripping (unit 301)",description: "RCD tripping repeatedly. Faulty RCBO identified and replaced. Board tested and certified.",                            category: MaintenanceCategory.ELECTRICAL, priority: MaintenancePriority.HIGH,    status: MaintenanceStatus.DONE,        reportedBy: "Daniel Walsh",            assignedTo: "SparkSafe Electrical Ltd",   reportedDate: wDate(WIN, 2, 7), scheduledDate: wDate(WIN, 2, 8), completedDate: wDate(WIN, 2, 8), cost: 1020, vendorId: vendorElectrical.id, isEmergency: false, submittedViaPortal: false, requiresApproval: true, acknowledgedAt: wDate(WIN, 2, 7), approvedAt: wDate(WIN, 2, 7), approvalNotes: "Approved by landlord (J. Smith) via email — quote of £1,020 exceeds standard £500 repair authority but works are urgent (DB safety).", notes: "EIC certificate issued post-works." },
+      // DONE — pool pump overhaul (matches the AquaCare expense + part payment)
+      { propertyId: property.id,                          title: "Pool circulation pump pressure loss — plant room", description: "Low flow pressure on the pool circulation loop. Pump stripped: worn impeller and failed mechanical seal found. Overhauled with new impeller, seals and bearings, then recommissioned.", category: MaintenanceCategory.OTHER, priority: MaintenancePriority.MEDIUM, status: MaintenanceStatus.DONE, reportedBy: "Building Manager", assignedTo: "AquaCare Pool Services Ltd", reportedDate: wDate(WIN, 2, 10), scheduledDate: wDate(WIN, 2, 12), completedDate: wDate(WIN, 2, 12), cost: 942, vendorId: vendorPool.id, isEmergency: false, submittedViaPortal: false, notes: "Invoice part-paid by cheque (£500); balance held pending commissioning check." },
       // IN_PROGRESS (current)
       { propertyId: property.id,                          title: "Quarterly lift inspection — Otis UK",     description: "Scheduled quarterly inspection and lubrication service. Engineer on-site, report pending.",                            category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.MEDIUM,  status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "Otis Elevator Company UK",   reportedDate: addD(now, -6), scheduledDate: addD(now, 2),                                                 vendorId: vendorLift.id,       isEmergency: false, submittedViaPortal: false, notes: "Otis engineer to return with replacement door sensor." },
       { propertyId: property.id, unitId: units["104"].id, title: "Void works — carpet & painting (unit 104)",description: "Full void refurb in progress: carpet fitted, emulsion painting of all rooms underway.",                               category: MaintenanceCategory.OTHER,      priority: MaintenancePriority.LOW,     status: MaintenanceStatus.IN_PROGRESS, reportedBy: "Building Manager",        assignedTo: "BuildRight Maintenance Ltd", reportedDate: addD(now, -8), scheduledDate: addD(now, 1),                                                 vendorId: vendorMaint.id,      isEmergency: false, submittedViaPortal: false, notes: "Void refurb nearing completion." },
@@ -3108,7 +3225,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     const totalAmount = 2772;
     await prisma.ownerInvoice.create({
       data: {
-        invoiceNumber: `OWN-BC-${WIN[i].y}-${mm}-MGMT`,
+        invoiceNumber: `OWN-BC-${propCode}-${WIN[i].y}-${mm}-MGMT`,
         propertyId: property.id,
         type: OwnerInvoiceType.MANAGEMENT_FEE,
         periodYear: WIN[i].y,
@@ -3140,6 +3257,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       { assetId: generatorId, date: wDate(WIN, 3, 15), description: "Monthly generator run test & inspection — all systems nominal",    cost: 280, technician: "Dave Kirk (BuildRight)",    vendorId: vendorMaint.id,    notes: "All checks passed."          },
       { assetId: liftId,      date: wDate(WIN, 2, 20), description: "Quarterly lift inspection and lubrication service",                cost: 650, technician: "Otis Field Engineer",       vendorId: vendorLift.id,     notes: "Door operation adjusted. Guide rails lubricated. No defects." },
       { assetId: cctvId,      date: wDate(WIN, 1, 20), description: "Annual CCTV health check and recording verification",              cost: 150, technician: "SecureGuard Systems Ltd",   vendorId: vendorSecurity.id, notes: "All 16 channels verified. 30-day retention confirmed. Camera 12 realigned." },
+      { assetId: poolPlant.id, date: wDate(WIN, 2, 12), description: "Circulation pump overhaul — impeller, mechanical seals & bearings replaced", cost: 942, technician: "AquaCare Field Engineer", vendorId: vendorPool.id, notes: "Pump recommissioned; flow pressure restored to spec. Invoice part-paid — see vendor statement." },
     ],
   });
 
@@ -3193,6 +3311,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     { titleFragment: "Burst pipe",          amount: 540  },
     { titleFragment: "DB board fault",      amount: 1020 },
     { titleFragment: "Cracked double-glazed", amount: 384 },
+    { titleFragment: "Pool circulation pump", amount: 942 },
   ]) {
     const job = await prisma.maintenanceJob.findFirst({ where: { propertyId: property.id, title: { contains: titleFragment } } });
     const exp = await prisma.expenseEntry.findFirst({ where: { amount, OR: [{ propertyId: property.id }, { unitId: { in: Object.values(units).map((u) => u.id) } }] } });

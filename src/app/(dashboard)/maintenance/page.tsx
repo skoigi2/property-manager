@@ -148,14 +148,14 @@ const FREQ_LABELS: Record<string, string> = {
 };
 
 const CAT_LABELS: Record<string, string> = {
-  GENERATOR: "Generator", LIFT: "Lift/Elevator", HVAC: "HVAC",
+  GENERATOR: "Generator", LIFT: "Lift/Elevator", HVAC: "HVAC", POOL: "Pool",
   ELECTRICAL: "Electrical", PLUMBING: "Plumbing", SECURITY: "Security",
   APPLIANCE: "Appliance", FURNITURE: "Furniture", IT_EQUIPMENT: "IT Equipment",
   VEHICLE: "Vehicle", OTHER: "Other",
 };
 
 const CAT_BADGE: Record<string, "amber" | "blue" | "gold" | "red" | "green" | "gray"> = {
-  GENERATOR: "amber", LIFT: "blue", HVAC: "gold", ELECTRICAL: "amber",
+  GENERATOR: "amber", LIFT: "blue", HVAC: "gold", POOL: "blue", ELECTRICAL: "amber",
   PLUMBING: "blue", SECURITY: "red", APPLIANCE: "green", FURNITURE: "gray",
   IT_EQUIPMENT: "blue", VEHICLE: "gray", OTHER: "gray",
 };

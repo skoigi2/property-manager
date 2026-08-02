@@ -279,6 +279,9 @@ enum AssetCategory {
   IT_EQUIPMENT
   VEHICLE
   OTHER
+  // Mirrors the POOL ExpenseCategory (asset/expense taxonomies rhyme where
+  // they overlap). Appended after OTHER to match Postgres ADD VALUE order.
+  POOL
 }
 
 enum UnitType {

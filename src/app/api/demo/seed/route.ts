@@ -3098,14 +3098,13 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     });
   }
 
-  // Pool plant — AssetCategory has no POOL value; OTHER + categoryOther is the
-  // supported way to file it. Linked to AquaCare via vendorId.
+  // Pool plant — first-class POOL asset category (mirrors the POOL expense
+  // category). Linked to AquaCare via vendorId.
   const poolPlant = await prisma.asset.create({
     data: {
       propertyId: property.id,
       name: "Pool Plant — Circulation Pump & Filtration",
-      category: AssetCategory.OTHER,
-      categoryOther: "Pool equipment",
+      category: AssetCategory.POOL,
       serialNumber: "AQ-CPF-BC-22",
       purchaseDate: subY(now, 3),
       purchaseCost: 6400,

@@ -133,6 +133,11 @@ const EXPENSE_CATEGORIES = [
   { value: "ELECTRICAL",     label: "Electrical"     },
   { value: "WATER",          label: "Water"          },
   { value: "WIFI",           label: "Wi-Fi"          },
+  { value: "POOL",           label: "Pool"           },
+  { value: "GENERATOR",      label: "Generator"      },
+  { value: "ELEVATOR",       label: "Elevator / Lift"},
+  { value: "HVAC",           label: "HVAC"           },
+  { value: "GAS",            label: "Gas"            },
   { value: "CAPITAL",        label: "Capital"        },
   { value: "OTHER",          label: "Other"          },
 ];

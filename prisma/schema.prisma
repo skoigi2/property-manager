@@ -351,6 +351,13 @@ enum ExpenseCategory {
   BANK_CHARGES
   STAFF_WAGES
   OTHER
+  // Facility/plant categories — appended after OTHER to match the Postgres
+  // ALTER TYPE ADD VALUE order (new enum values always append).
+  POOL
+  GENERATOR
+  ELEVATOR
+  HVAC
+  GAS
 }
 
 enum CheckoutStatus {

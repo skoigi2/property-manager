@@ -13,6 +13,23 @@ import { EXPENSE_CATEGORY_LABELS } from "@/lib/expense-categories";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * Most-frequent currency among a set of property currencies (null = no
+ * property-derived currency at all). Shared by the statement builder and the
+ * vendor detail route so both surfaces agree.
+ */
+export function deriveVendorCurrency(currencies: (string | null | undefined)[]): {
+  currency: string | null;
+  mixedCurrencies: boolean;
+} {
+  const counts = new Map<string, number>();
+  for (const c of currencies) {
+    if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  const currency = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  return { currency, mixedCurrencies: counts.size > 1 };
+}
+
 export interface VendorStatementLine {
   date: string;               // ISO
   type: "INVOICE" | "PAYMENT";
@@ -221,14 +238,9 @@ export async function buildVendorStatement(
 
   // Currency: most frequent among the expenses' properties. Property-less
   // statements fall back to the first accessible property, then KES.
-  const currencyCounts = new Map<string, number>();
-  for (const e of withNames) {
-    if (e.propertyCurrency) {
-      currencyCounts.set(e.propertyCurrency, (currencyCounts.get(e.propertyCurrency) ?? 0) + 1);
-    }
-  }
-  let currency = Array.from(currencyCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
-  const mixedCurrencies = currencyCounts.size > 1;
+  const derived = deriveVendorCurrency(withNames.map((e) => e.propertyCurrency));
+  let currency = derived.currency;
+  const mixedCurrencies = derived.mixedCurrencies;
   if (!currency) {
     const fallback = scope.propertyIds.length
       ? await prisma.property.findFirst({

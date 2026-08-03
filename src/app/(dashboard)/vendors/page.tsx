@@ -67,9 +67,12 @@ interface Vendor {
 interface VendorDetail extends Vendor {
   totalSpend:       number;
   currentYearSpend: number;
+  currency:         string;
+  mixedCurrencies:  boolean;
   expenses: {
     id: string; date: string; category: string; amount: number; description: string | null;
-    property: { name: string } | null; unit: { unitNumber: string } | null;
+    property: { name: string; currency: string } | null;
+    unit: { unitNumber: string; property: { name: string; currency: string } | null } | null;
   }[];
   maintenanceJobs: {
     id: string; title: string; status: string; createdAt: string;
@@ -597,8 +600,8 @@ export default function VendorsPage() {
                 { label: "Phone",       value: detailVendor.phone },
                 { label: "Email",       value: detailVendor.email },
                 { label: "Tax ID",      value: detailVendor.taxId },
-                { label: "Total spend", value: formatCurrency(detailVendor.totalSpend) },
-                { label: `${new Date().getFullYear()} spend`, value: formatCurrency(detailVendor.currentYearSpend) },
+                { label: "Total spend", value: formatCurrency(detailVendor.totalSpend, detailVendor.currency) },
+                { label: `${new Date().getFullYear()} spend`, value: formatCurrency(detailVendor.currentYearSpend, detailVendor.currency) },
               ].map(({ label, value }) => value ? (
                 <div key={label} className="bg-gray-50 rounded-lg p-3">
                   <div className="text-caption text-gray-500">{label}</div>
@@ -636,9 +639,11 @@ export default function VendorsPage() {
                           </td>
                           <td className="px-3 py-2 text-gray-700">{e.description ?? e.category}</td>
                           <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">
-                            {e.property?.name}{e.unit ? ` · ${e.unit.unitNumber}` : ""}
+                            {e.property?.name ?? e.unit?.property?.name}{e.unit ? ` · ${e.unit.unitNumber}` : ""}
                           </td>
-                          <td className="px-3 py-2 text-right text-expense font-medium">{formatCurrency(e.amount)}</td>
+                          <td className="px-3 py-2 text-right text-expense font-medium">
+                            {formatCurrency(e.amount, e.property?.currency ?? e.unit?.property?.currency ?? detailVendor.currency)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

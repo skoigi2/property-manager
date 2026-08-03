@@ -2,6 +2,7 @@ import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { VendorCategory } from "@prisma/client";
+import { deriveVendorCurrency } from "@/lib/vendor-statement";
 
 const patchSchema = z.object({
   name:        z.string().min(1).optional(),
@@ -40,8 +41,8 @@ export async function GET(
       expenses: {
         select: {
           id: true, date: true, category: true, amount: true, description: true,
-          property: { select: { name: true } },
-          unit: { select: { unitNumber: true } },
+          property: { select: { name: true, currency: true } },
+          unit: { select: { unitNumber: true, property: { select: { name: true, currency: true } } } },
         },
         orderBy: { date: "desc" },
         take: 10,
@@ -77,10 +78,37 @@ export async function GET(
     _sum: { amount: true },
   });
 
+  // Currency for the spend figures — same derivation as the vendor statement
+  // (most frequent among the vendor's expense-linked properties; recent 500
+  // rows is plenty of signal). Falls back to any property in the vendor's
+  // org, then KES.
+  const currencyRows = await prisma.expenseEntry.findMany({
+    where: { vendorId: params.id },
+    select: {
+      property: { select: { currency: true } },
+      unit: { select: { property: { select: { currency: true } } } },
+    },
+    orderBy: { date: "desc" },
+    take: 500,
+  });
+  const derived = deriveVendorCurrency(
+    currencyRows.map((r) => r.property?.currency ?? r.unit?.property?.currency)
+  );
+  let currency = derived.currency;
+  if (!currency) {
+    const fallback = await prisma.property.findFirst({
+      where: vendor.organizationId ? { organizationId: vendor.organizationId } : {},
+      select: { currency: true },
+    });
+    currency = fallback?.currency ?? "KES";
+  }
+
   return Response.json({
     ...vendor,
     totalSpend:       agg._sum.amount ?? 0,
     currentYearSpend: yearAgg._sum.amount ?? 0,
+    currency,
+    mixedCurrencies:  derived.mixedCurrencies,
   });
 }
 

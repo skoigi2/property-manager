@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatCurrency } from "@/lib/currency";
 import { exportVendorStatement } from "@/lib/excel-export";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface StatementLine {
@@ -25,6 +25,8 @@ interface StatementLine {
 
 interface Statement {
   vendor: { id: string; name: string };
+  currency: string;
+  mixedCurrencies: boolean;
   openingBalance: number;
   lines: StatementLine[];
   totals: { invoiced: number; paid: number; outstanding: number };
@@ -70,7 +72,15 @@ export function VendorStatementModal({ open, onClose, vendor }: Props) {
   function handleExport() {
     if (!statement) return;
     const rangeLabel = from || to ? `${from || "start"}_${to || "today"}` : "all-time";
-    exportVendorStatement(statement, rangeLabel);
+    exportVendorStatement(statement, rangeLabel, statement.currency);
+  }
+
+  function handleExportPdf() {
+    if (!vendor) return;
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    window.open(`/api/vendors/${vendor.id}/statement/pdf${qs.size ? `?${qs}` : ""}`, "_blank");
   }
 
   return (
@@ -93,10 +103,19 @@ export function VendorStatementModal({ open, onClose, vendor }: Props) {
             Apply
           </Button>
           <div className="flex-1" />
+          <Button variant="secondary" size="sm" onClick={handleExportPdf} disabled={!statement || loading}>
+            <FileText size={13} className="mr-1.5" /> Export PDF
+          </Button>
           <Button variant="secondary" size="sm" onClick={handleExport} disabled={!statement || loading}>
             <Download size={13} className="mr-1.5" /> Export Excel
           </Button>
         </div>
+
+        {statement?.mixedCurrencies && !loading && (
+          <div className="text-caption text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            ⚠ This vendor&apos;s invoices span properties with different currencies — totals are a raw sum shown in {statement.currency}.
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-10"><Spinner /></div>
@@ -111,7 +130,7 @@ export function VendorStatementModal({ open, onClose, vendor }: Props) {
               ].map(({ label, value, cls }) => (
                 <div key={label} className="bg-gray-50 rounded-lg p-3">
                   <div className="text-caption text-gray-500">{label}</div>
-                  <div className={`text-h3 font-semibold tabular-nums ${cls}`}>{formatCurrency(value)}</div>
+                  <div className={`text-h3 font-semibold tabular-nums ${cls}`}>{formatCurrency(value, statement.currency)}</div>
                 </div>
               ))}
             </div>
@@ -137,7 +156,7 @@ export function VendorStatementModal({ open, onClose, vendor }: Props) {
                       <tr className="bg-gray-50/50">
                         <td className="px-3 py-2 text-gray-500" colSpan={4}>Opening balance</td>
                         <td className="px-3 py-2 text-right font-medium tabular-nums">
-                          {formatCurrency(statement.openingBalance)}
+                          {formatCurrency(statement.openingBalance, statement.currency)}
                         </td>
                       </tr>
                       {statement.lines.map((l) => (
@@ -149,13 +168,13 @@ export function VendorStatementModal({ open, onClose, vendor }: Props) {
                             {l.reference && <span className="text-gray-400 font-mono"> · {l.reference}</span>}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">
-                            {l.type === "INVOICE" ? formatCurrency(l.invoiced) : ""}
+                            {l.type === "INVOICE" ? formatCurrency(l.invoiced, statement.currency) : ""}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums text-income">
-                            {l.type === "PAYMENT" ? formatCurrency(l.paid) : ""}
+                            {l.type === "PAYMENT" ? formatCurrency(l.paid, statement.currency) : ""}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums font-medium">
-                            {formatCurrency(l.balance)}
+                            {formatCurrency(l.balance, statement.currency)}
                           </td>
                         </tr>
                       ))}

@@ -1,4 +1,5 @@
 import "server-only";
+import "@/lib/pdf-setup";
 
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import React from "react";

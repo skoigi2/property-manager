@@ -43,6 +43,7 @@ export function RecordPaymentModal({ open, onClose, vendor, onSaved }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [openItems, setOpenItems] = useState<OpenItem[]>([]);
+  const [currency, setCurrency]   = useState<string>("KES");
 
   const [paymentDate, setPaymentDate]     = useState(() => new Date().toISOString().slice(0, 10));
   const [amount, setAmount]               = useState("");
@@ -59,7 +60,10 @@ export function RecordPaymentModal({ open, onClose, vendor, onSaved }: Props) {
     setLoading(true);
     fetch(`/api/vendors/${vendor.id}/statement`)
       .then((r) => r.json())
-      .then((data) => setOpenItems(data.openItems ?? []))
+      .then((data) => {
+        setOpenItems(data.openItems ?? []);
+        if (data.currency) setCurrency(data.currency);
+      })
       .catch(() => toast.error("Failed to load outstanding expenses"))
       .finally(() => setLoading(false));
   }, [open, vendor]);
@@ -163,7 +167,7 @@ export function RecordPaymentModal({ open, onClose, vendor, onSaved }: Props) {
               Allocate to outstanding expenses
             </span>
             <span className={`text-caption font-medium ${overAllocated ? "text-expense" : "text-gray-500"}`}>
-              Unallocated: {formatCurrency(remainder)}
+              Unallocated: {formatCurrency(remainder, currency)}
             </span>
           </div>
 
@@ -195,7 +199,7 @@ export function RecordPaymentModal({ open, onClose, vendor, onSaved }: Props) {
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right text-expense font-medium whitespace-nowrap">
-                        {formatCurrency(item.outstanding)}
+                        {formatCurrency(item.outstanding, currency)}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1 justify-end">

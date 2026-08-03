@@ -42,6 +42,12 @@ export interface VendorOpenItem {
 
 export interface VendorStatement {
   vendor: { id: string; name: string; category: string; isActive: boolean };
+  /** Derived from the properties behind the vendor's expenses (most frequent
+   *  wins); falls back to the first accessible property, then KES. */
+  currency: string;
+  /** True when the vendor's expenses span properties with differing
+   *  currencies — totals are then a raw cross-currency sum. */
+  mixedCurrencies: boolean;
   openingBalance: number;
   lines: VendorStatementLine[];
   totals: { invoiced: number; paid: number; outstanding: number };
@@ -191,8 +197,8 @@ export async function buildVendorStatement(
         id: true, date: true, dueDate: true, amount: true, vatAmount: true,
         amountPaid: true, description: true, category: true,
         paymentDate: true, paymentMethod: true, paymentReference: true,
-        property: { select: { name: true } },
-        unit: { select: { property: { select: { name: true } } } },
+        property: { select: { name: true, currency: true } },
+        unit: { select: { property: { select: { name: true, currency: true } } } },
         lineItems: { select: { amountPaid: true } },
         vendorPaymentAllocations: { select: { id: true }, take: 1 },
       },
@@ -210,7 +216,28 @@ export async function buildVendorStatement(
   const withNames = expenses.map((e) => ({
     ...e,
     propertyName: e.property?.name ?? e.unit?.property?.name ?? null,
+    propertyCurrency: e.property?.currency ?? e.unit?.property?.currency ?? null,
   }));
+
+  // Currency: most frequent among the expenses' properties. Property-less
+  // statements fall back to the first accessible property, then KES.
+  const currencyCounts = new Map<string, number>();
+  for (const e of withNames) {
+    if (e.propertyCurrency) {
+      currencyCounts.set(e.propertyCurrency, (currencyCounts.get(e.propertyCurrency) ?? 0) + 1);
+    }
+  }
+  let currency = Array.from(currencyCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const mixedCurrencies = currencyCounts.size > 1;
+  if (!currency) {
+    const fallback = scope.propertyIds.length
+      ? await prisma.property.findFirst({
+          where: { id: { in: scope.propertyIds } },
+          select: { currency: true },
+        })
+      : null;
+    currency = fallback?.currency ?? "KES";
+  }
 
   // Payments recorded directly on the expense (the pre-VendorPayment flow:
   // amountPaid / paymentDate on the row itself) still have to appear on the
@@ -255,6 +282,8 @@ export async function buildVendorStatement(
 
   return {
     vendor: { id: vendor.id, name: vendor.name, category: vendor.category, isActive: vendor.isActive },
+    currency,
+    mixedCurrencies,
     ...merged,
     openItems,
   };

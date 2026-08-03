@@ -1,4 +1,5 @@
 import "server-only";
+import "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { formatCurrency } from "@/lib/currency";

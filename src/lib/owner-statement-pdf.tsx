@@ -1,4 +1,5 @@
 import "server-only";
+import "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";

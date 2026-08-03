@@ -1,5 +1,5 @@
 import "server-only";
-import "@/lib/pdf-setup";
+import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
@@ -308,7 +308,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
 
           {lineItems.map((item, i) => (
             <View key={item.label} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
-              <Text style={[styles.bodyText, styles.colDesc]}>{item.label}</Text>
+              <Text style={[styles.bodyText, styles.colDesc]} hyphenationCallback={noHyphenation}>{item.label}</Text>
               <Text style={[styles.bodyText, styles.colAmt]}>{fmt(item.amount)}</Text>
             </View>
           ))}
@@ -352,25 +352,25 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
                   {org?.bankName && (
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Bank:</Text>
-                      <Text style={styles.payValue}>{org.bankName}</Text>
+                      <Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankName}</Text>
                     </View>
                   )}
                   {org?.bankAccountName && (
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Account Name:</Text>
-                      <Text style={styles.payValue}>{org.bankAccountName}</Text>
+                      <Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankAccountName}</Text>
                     </View>
                   )}
                   {org?.bankAccountNumber && (
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Account No:</Text>
-                      <Text style={styles.payValue}>{org.bankAccountNumber}</Text>
+                      <Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankAccountNumber}</Text>
                     </View>
                   )}
                   {org?.bankBranch && (
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Branch:</Text>
-                      <Text style={styles.payValue}>{org.bankBranch}</Text>
+                      <Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankBranch}</Text>
                     </View>
                   )}
                 </View>
@@ -381,26 +381,26 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
                   {org?.mpesaPaybill && (
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Paybill:</Text>
-                      <Text style={styles.payValue}>{org.mpesaPaybill}</Text>
+                      <Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.mpesaPaybill}</Text>
                     </View>
                   )}
                   {org?.mpesaPaybill && org?.mpesaAccountNumber && (
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Account No:</Text>
-                      <Text style={styles.payValue}>{org.mpesaAccountNumber}</Text>
+                      <Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.mpesaAccountNumber}</Text>
                     </View>
                   )}
                   {org?.mpesaTill && (
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Till No:</Text>
-                      <Text style={styles.payValue}>{org.mpesaTill}</Text>
+                      <Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.mpesaTill}</Text>
                     </View>
                   )}
                 </View>
               )}
             </View>
             {hasPayInstructions && (
-              <Text style={styles.payInstructions}>{org?.paymentInstructions}</Text>
+              <Text style={styles.payInstructions} hyphenationCallback={noHyphenation}>{org?.paymentInstructions}</Text>
             )}
             {(data.issuer?.phone || data.issuer?.email || org?.phone || org?.email) && (
               <Text style={styles.payContact}>
@@ -417,7 +417,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
         {data.notes && (
           <View style={{ marginTop: 16 }}>
             <Text style={styles.sectionLabel}>Notes</Text>
-            <Text style={styles.bodyText}>{data.notes}</Text>
+            <Text style={styles.bodyText} hyphenationCallback={noHyphenation}>{data.notes}</Text>
           </View>
         )}
 

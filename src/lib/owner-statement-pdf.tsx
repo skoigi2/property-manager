@@ -1,5 +1,5 @@
 import "server-only";
-import "@/lib/pdf-setup";
+import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
@@ -19,7 +19,10 @@ const styles = StyleSheet.create({
   tr: { flexDirection: "row", paddingVertical: 5, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   td: { fontSize: 8.5, color: "#374151" },
   tdRight: { fontSize: 8.5, color: "#374151", textAlign: "right" },
-  colTenant: { width: "30%" },
+  // Columns sum to 97% — the rows carry paddingHorizontal, and columns that
+  // overflow the padded width get yoga-shrunk, which triggers the react-pdf
+  // dropped-wrapped-text bug (see pdf-setup.ts).
+  colTenant: { width: "27%" },
   colUnit: { width: "12%" },
   colNum: { width: "14.5%", textAlign: "right" },
   summary: { marginTop: 16, borderTopWidth: 2, borderTopColor: "#132635", paddingTop: 8 },
@@ -64,7 +67,7 @@ function StatementDoc({ s }: { s: OwnerStatement }) {
         </View>
         {s.lines.map((l, i) => (
           <View key={i} style={styles.tr} wrap={false}>
-            <Text style={[styles.td, styles.colTenant]}>{l.tenantName}</Text>
+            <Text style={[styles.td, styles.colTenant]} hyphenationCallback={noHyphenation}>{l.tenantName}</Text>
             <Text style={[styles.td, styles.colUnit]}>{l.unit}</Text>
             <Text style={[styles.tdRight, styles.colNum]}>{l.rentExpected ? fmt(l.rentExpected) : "—"}</Text>
             <Text style={[styles.tdRight, styles.colNum]}>{fmt(l.rentReceived)}</Text>
@@ -78,8 +81,8 @@ function StatementDoc({ s }: { s: OwnerStatement }) {
             <Text style={styles.sectionLabel}>Expenses</Text>
             {s.expenses.map((e, i) => (
               <View key={i} style={styles.tr} wrap={false}>
-                <Text style={[styles.td, { width: "70%" }]}>{e.description}</Text>
-                <Text style={[styles.tdRight, { width: "30%" }]}>{fmt(e.amount)}</Text>
+                <Text style={[styles.td, { width: "68%" }]} hyphenationCallback={noHyphenation}>{e.description}</Text>
+                <Text style={[styles.tdRight, { width: "29%" }]}>{fmt(e.amount)}</Text>
               </View>
             ))}
           </>
@@ -104,7 +107,7 @@ function StatementDoc({ s }: { s: OwnerStatement }) {
           </View>
         </View>
 
-        <Text style={styles.notes}>{s.notes}</Text>
+        <Text style={styles.notes} hyphenationCallback={noHyphenation}>{s.notes}</Text>
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>

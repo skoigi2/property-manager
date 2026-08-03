@@ -1,5 +1,5 @@
 import "server-only";
-import "@/lib/pdf-setup";
+import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
@@ -127,8 +127,8 @@ function ReceiptPDF({ data }: { data: ReceiptData }) {
         <View style={styles.twoCol}>
           <View style={styles.col}>
             <Text style={styles.sectionLabel}>Received From</Text>
-            <Text style={styles.boldText}>{data.tenant.name}</Text>
-            <Text style={styles.bodyText}>{data.tenant.unit.property.name}</Text>
+            <Text style={styles.boldText} hyphenationCallback={noHyphenation}>{data.tenant.name}</Text>
+            <Text style={styles.bodyText} hyphenationCallback={noHyphenation}>{data.tenant.unit.property.name}</Text>
             <Text style={styles.bodyText}>Unit {data.tenant.unit.unitNumber}</Text>
             {data.tenant.email && <Text style={styles.bodyText}>{data.tenant.email}</Text>}
             {data.tenant.phone && <Text style={styles.bodyText}>{data.tenant.phone}</Text>}

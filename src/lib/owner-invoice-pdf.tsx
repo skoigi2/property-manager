@@ -1,5 +1,5 @@
 import "server-only";
-import "@/lib/pdf-setup";
+import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
@@ -152,7 +152,7 @@ function LineItemsTable({
       </View>
       {regularItems.map((item, i) => (
         <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
-          <Text style={[styles.bodyText, styles.colDesc]}>{item.description}</Text>
+          <Text style={[styles.bodyText, styles.colDesc]} hyphenationCallback={noHyphenation}>{item.description}</Text>
           <Text style={[styles.bodyText, styles.colAmt]}>{formatKsh(item.amount, currency)}</Text>
         </View>
       ))}
@@ -167,7 +167,7 @@ function LineItemsTable({
           {/* Each tax line */}
           {taxItems.map((taxItem, i) => (
             <View key={`tax-${i}`} style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 7 }}>
-              <Text style={[styles.bodyText, styles.colDesc, { color: "#374151", fontStyle: "italic" }]}>{taxItem.description}</Text>
+              <Text style={[styles.bodyText, styles.colDesc, { color: "#374151", fontStyle: "italic" }]} hyphenationCallback={noHyphenation}>{taxItem.description}</Text>
               <Text style={[styles.bodyText, styles.colAmt]}>{formatKsh(taxItem.amount, currency)}</Text>
             </View>
           ))}
@@ -327,22 +327,22 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
               {hasBankDetails && (
                 <View style={styles.payBlock}>
                   <Text style={styles.payBlockTitle}>Bank Transfer</Text>
-                  {org?.bankName && <View style={styles.payRow}><Text style={styles.payLabel}>Bank:</Text><Text style={styles.payValue}>{org.bankName}</Text></View>}
-                  {org?.bankAccountName && <View style={styles.payRow}><Text style={styles.payLabel}>Account Name:</Text><Text style={styles.payValue}>{org.bankAccountName}</Text></View>}
-                  {org?.bankAccountNumber && <View style={styles.payRow}><Text style={styles.payLabel}>Account No:</Text><Text style={styles.payValue}>{org.bankAccountNumber}</Text></View>}
-                  {org?.bankBranch && <View style={styles.payRow}><Text style={styles.payLabel}>Branch:</Text><Text style={styles.payValue}>{org.bankBranch}</Text></View>}
+                  {org?.bankName && <View style={styles.payRow}><Text style={styles.payLabel}>Bank:</Text><Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankName}</Text></View>}
+                  {org?.bankAccountName && <View style={styles.payRow}><Text style={styles.payLabel}>Account Name:</Text><Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankAccountName}</Text></View>}
+                  {org?.bankAccountNumber && <View style={styles.payRow}><Text style={styles.payLabel}>Account No:</Text><Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankAccountNumber}</Text></View>}
+                  {org?.bankBranch && <View style={styles.payRow}><Text style={styles.payLabel}>Branch:</Text><Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.bankBranch}</Text></View>}
                 </View>
               )}
               {hasMpesa && (
                 <View style={styles.payBlock}>
                   <Text style={styles.payBlockTitle}>M-Pesa</Text>
-                  {org?.mpesaPaybill && <View style={styles.payRow}><Text style={styles.payLabel}>Paybill:</Text><Text style={styles.payValue}>{org.mpesaPaybill}</Text></View>}
-                  {org?.mpesaPaybill && org?.mpesaAccountNumber && <View style={styles.payRow}><Text style={styles.payLabel}>Account No:</Text><Text style={styles.payValue}>{org.mpesaAccountNumber}</Text></View>}
-                  {org?.mpesaTill && <View style={styles.payRow}><Text style={styles.payLabel}>Till No:</Text><Text style={styles.payValue}>{org.mpesaTill}</Text></View>}
+                  {org?.mpesaPaybill && <View style={styles.payRow}><Text style={styles.payLabel}>Paybill:</Text><Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.mpesaPaybill}</Text></View>}
+                  {org?.mpesaPaybill && org?.mpesaAccountNumber && <View style={styles.payRow}><Text style={styles.payLabel}>Account No:</Text><Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.mpesaAccountNumber}</Text></View>}
+                  {org?.mpesaTill && <View style={styles.payRow}><Text style={styles.payLabel}>Till No:</Text><Text style={styles.payValue} hyphenationCallback={noHyphenation}>{org.mpesaTill}</Text></View>}
                 </View>
               )}
             </View>
-            {org?.paymentInstructions && <Text style={styles.payInstructions}>{org.paymentInstructions}</Text>}
+            {org?.paymentInstructions && <Text style={styles.payInstructions} hyphenationCallback={noHyphenation}>{org.paymentInstructions}</Text>}
             {(org?.phone || org?.email) && (
               <Text style={styles.payContact}>For queries contact: {[org?.phone, org?.email].filter(Boolean).join("  |  ")}</Text>
             )}
@@ -353,7 +353,7 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
         {data.notes && (
           <View style={{ marginTop: 16 }}>
             <Text style={styles.sectionLabel}>Notes</Text>
-            <Text style={styles.bodyText}>{data.notes}</Text>
+            <Text style={styles.bodyText} hyphenationCallback={noHyphenation}>{data.notes}</Text>
           </View>
         )}
 

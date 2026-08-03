@@ -1,5 +1,5 @@
 import "server-only";
-import "@/lib/pdf-setup";
+import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { formatCurrency } from "@/lib/currency";
@@ -179,15 +179,18 @@ export async function generateCalculatorReportPdf(
       <Page size="A4" style={styles.page}>
         <Text style={styles.sectionLabel}>Stress test scenarios</Text>
         <View style={styles.tableHeader}>
-          <Text style={[styles.th, { width: "46%" }]}>Scenario</Text>
-          <Text style={[styles.th, { width: "27%", textAlign: "right" }]}>Adjusted Airbnb NOI</Text>
-          <Text style={[styles.th, { width: "27%", textAlign: "right" }]}>vs long-term</Text>
+          {/* Columns sum to 97% — the row has paddingHorizontal; overflowing
+              columns get yoga-shrunk, triggering the react-pdf
+              dropped-wrapped-text bug (see pdf-setup.ts). */}
+          <Text style={[styles.th, { width: "44%" }]}>Scenario</Text>
+          <Text style={[styles.th, { width: "26.5%", textAlign: "right" }]}>Adjusted Airbnb NOI</Text>
+          <Text style={[styles.th, { width: "26.5%", textAlign: "right" }]}>vs long-term</Text>
         </View>
         {r.stressTests.map((s) => (
           <View key={s.key} style={s.diffVsLongTerm < 0 ? styles.trBad : styles.tr}>
-            <Text style={[styles.td, { width: "46%" }]}>{s.label}</Text>
-            <Text style={[styles.tdRight, { width: "27%" }]}>{fmt(s.airbnbAnnualNoi)}</Text>
-            <Text style={[s.diffVsLongTerm < 0 ? styles.tdRightRed : styles.tdRightGreen, { width: "27%" }]}>
+            <Text style={[styles.td, { width: "44%" }]} hyphenationCallback={noHyphenation}>{s.label}</Text>
+            <Text style={[styles.tdRight, { width: "26.5%" }]}>{fmt(s.airbnbAnnualNoi)}</Text>
+            <Text style={[s.diffVsLongTerm < 0 ? styles.tdRightRed : styles.tdRightGreen, { width: "26.5%" }]}>
               {s.diffVsLongTerm >= 0 ? "+" : "-"}{fmt(Math.abs(s.diffVsLongTerm))}
             </Text>
           </View>

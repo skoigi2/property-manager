@@ -2,6 +2,7 @@ import { Document, Page, View, Text, type Styles } from "@react-pdf/renderer";
 import { styles } from "./PdfStyles";
 import type { ReportData } from "@/types/report";
 import { formatCurrency } from "@/lib/currency";
+import { noHyphenation } from "@/lib/pdf-setup";
 
 const UNIT_LABEL: Record<string, string> = {
   BEDSITTER: "Bedsitter",
@@ -310,7 +311,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   const collectionPct = due > 0 ? Math.round((t.received / due) * 100) : null;
                   return (
                   <View key={t.unit} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
-                    <Text style={[styles.tableCell, { flex: 3 }]}>{t.tenantName}</Text>
+                    <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{t.tenantName}</Text>
                     <Text style={[styles.tableCell, { flex: 0.8 }]}>{t.unit}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{UNIT_LABEL[t.type] ?? t.type}</Text>
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(t.expectedRent + t.serviceCharge)}</Text>
@@ -385,9 +386,9 @@ export function ReportDocument({ data }: { data: ReportData }) {
                 </View>
                 {data.arrearsAging.rows.map((r, idx) => (
                   <View key={`${r.tenantName}-${r.unitNumber}`} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
-                    <Text style={[styles.tableCell, { flex: 3 }]}>{r.tenantName}</Text>
+                    <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{r.tenantName}</Text>
                     <Text style={[styles.tableCell, { flex: 1 }]}>{r.unitNumber}</Text>
-                    <Text style={[styles.tableCell, { flex: 2.4 }]}>{r.propertyName}</Text>
+                    <Text style={[styles.tableCell, { flex: 2.4 }]} hyphenationCallback={noHyphenation}>{r.propertyName}</Text>
                     <Text style={[styles.tableCellMono, { flex: 1.2, textAlign: "right" }]}>{r.invoiceCount}</Text>
                     <Text style={[styles.tableCellMono, { flex: 1.6, textAlign: "right" }, r.oldestAgeDays > 90 ? styles.negative : {}]}>
                       {r.oldestAgeDays > 0 ? r.oldestAgeDays : "—"}
@@ -589,7 +590,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                 </View>
                 {(data.vendorSpend ?? []).map((v, idx) => (
                   <View key={v.vendorId} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
-                    <Text style={[styles.tableCell, { flex: 3 }]}>{v.name}</Text>
+                    <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{v.name}</Text>
                     <Text style={[styles.tableCell, { flex: 1.5 }]}>{VENDOR_CATEGORY_LABEL[v.category] ?? v.category}</Text>
                     <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{v.expenseCount}</Text>
                     <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(v.totalSpend)}</Text>

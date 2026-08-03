@@ -1,5 +1,5 @@
 import "server-only";
-import "@/lib/pdf-setup";
+import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
@@ -208,7 +208,7 @@ function CheckoutPDF({ data }: { data: CheckoutPdfData }) {
         </View>
         <Text style={[styles.body, { marginTop: 6, fontStyle: "italic" }]}>Description of damages:</Text>
         <View style={styles.notesBox}>
-          <Text style={styles.body}>{checkout.inventoryDamageNotes || ""}</Text>
+          <Text style={styles.body} hyphenationCallback={noHyphenation}>{checkout.inventoryDamageNotes || ""}</Text>
         </View>
 
         {/* 2. Rent Balance Status */}
@@ -241,7 +241,7 @@ function CheckoutPDF({ data }: { data: CheckoutPdfData }) {
           ) : (
             checkout.deductions.map((d, i) => (
               <View key={i} style={styles.tableRow}>
-                <Text style={styles.colDesc}>{d.description}</Text>
+                <Text style={styles.colDesc} hyphenationCallback={noHyphenation}>{d.description}</Text>
                 <Text style={styles.colAmt}>{fmt(d.amount)}</Text>
               </View>
             ))
@@ -385,7 +385,7 @@ function CheckoutPDF({ data }: { data: CheckoutPdfData }) {
           <Text style={styles.sectionHeaderText}>9. Additional Notes / Comments</Text>
         </View>
         <View style={styles.notesBox}>
-          <Text style={styles.body}>{checkout.notes || ""}</Text>
+          <Text style={styles.body} hyphenationCallback={noHyphenation}>{checkout.notes || ""}</Text>
         </View>
 
         {/* Signatures */}

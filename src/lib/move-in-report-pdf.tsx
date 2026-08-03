@@ -1,5 +1,5 @@
 import "server-only";
-import "@/lib/pdf-setup";
+import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
 import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
@@ -233,11 +233,11 @@ function ReportPDF({ data }: { data: ConditionReportPdfData }) {
                 </View>
                 {g.items.map((item) => (
                   <View key={item.id} style={styles.tableRow}>
-                    <Text style={styles.colFeature}>{item.feature}</Text>
+                    <Text style={styles.colFeature} hyphenationCallback={noHyphenation}>{item.feature}</Text>
                     <View style={styles.colStatus}>
                       <StatusPill status={item.status} />
                     </View>
-                    <Text style={styles.colNotes}>{item.notes ?? ""}</Text>
+                    <Text style={styles.colNotes} hyphenationCallback={noHyphenation}>{item.notes ?? ""}</Text>
                   </View>
                 ))}
               </View>
@@ -252,7 +252,7 @@ function ReportPDF({ data }: { data: ConditionReportPdfData }) {
               <Text style={styles.sectionHeaderText}>Overall Comments</Text>
             </View>
             <View style={styles.notesBox}>
-              <Text style={styles.body}>{report.overallComments}</Text>
+              <Text style={styles.body} hyphenationCallback={noHyphenation}>{report.overallComments}</Text>
             </View>
           </>
         ) : null}

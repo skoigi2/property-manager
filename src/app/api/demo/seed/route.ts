@@ -12,6 +12,7 @@ import {
   LineItemCategory, LineItemPaymentStatus, PaymentMethod,
   DocumentCategory, CommunicationType,
   CaseEventKind,
+  type Prisma,
 } from "@prisma/client";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { getWorkflow, getStageByIndex, getStageByKey, computeDefaultStageSlaHours } from "@/lib/case-workflows";
@@ -31,6 +32,27 @@ async function runChunked<T>(items: T[], size: number, fn: (item: T) => Promise<
   for (let i = 0; i < items.length; i += size) {
     await Promise.all(items.slice(i, i + size).map(fn));
   }
+}
+
+// Vendors/agents are ORG-scoped while the seed's idempotency guard is
+// per-PROPERTY — so a delete-and-reseed cycle (or a failed partial seed) used
+// to leave the old set behind and mint duplicates. Reuse an existing row by
+// (org, name) instead. Signatures mirror prisma.*.create so call sites only
+// swap the function name; seeds only ever consume the returned id.
+async function findOrCreateVendor({ data }: { data: Prisma.VendorUncheckedCreateInput }): Promise<{ id: string }> {
+  const existing = await prisma.vendor.findFirst({
+    where: { organizationId: data.organizationId ?? null, name: data.name },
+    select: { id: true },
+  });
+  return existing ?? prisma.vendor.create({ data, select: { id: true } });
+}
+
+async function findOrCreateAgent({ data }: { data: Prisma.AgentUncheckedCreateInput }): Promise<{ id: string }> {
+  const existing = await prisma.agent.findFirst({
+    where: { organizationId: data.organizationId ?? null, name: data.name },
+    select: { id: true },
+  });
+  return existing ?? prisma.agent.create({ data, select: { id: true } });
 }
 
 // ── Rolling-window date helpers ───────────────────────────────────────────────
@@ -754,7 +776,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
 
   // ── Vendors ─────────────────────────────────────────────────────────────────
   const [vendorMaint, vendorElec] = await Promise.all([
-    prisma.vendor.create({
+    findOrCreateVendor({
       data: {
         name: "Gulf Maintenance Services",
         category: VendorCategory.CONTRACTOR,
@@ -765,7 +787,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         notes: "General plumbing & civil maintenance contractor for Al Seef.",
       },
     }),
-    prisma.vendor.create({
+    findOrCreateVendor({
       data: {
         name: "Al Baraka Electrical",
         category: VendorCategory.CONTRACTOR,
@@ -776,7 +798,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         notes: "Licensed electrical contractor — fault finding & installations.",
       },
     }),
-    prisma.vendor.create({
+    findOrCreateVendor({
       data: {
         name: "Bahrain Cleaning Services",
         category: VendorCategory.SERVICE_PROVIDER,
@@ -790,7 +812,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   ]);
 
   // ── Agent ────────────────────────────────────────────────────────────────────
-  await prisma.agent.create({
+  await findOrCreateAgent({
     data: {
       organizationId,
       name: "Bahrain Properties LLC",
@@ -1361,14 +1383,14 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
 
   // ── Vendors ──────────────────────────────────────────────────────────────────
   const [vPlumb, vElec, vSec, vGen] = await Promise.all([
-    prisma.vendor.create({ data: { name: "MajiFix Plumbers", category: VendorCategory.CONTRACTOR, phone: "+254 720 334 455", email: "jobs@majifix.co.ke", taxId: "P051234567A", bankDetails: "M-Pesa Paybill 400200", organizationId, isActive: true, notes: "Plumbing & drainage contractor." } }),
-    prisma.vendor.create({ data: { name: "Brightline Electrical", category: VendorCategory.CONTRACTOR, phone: "+254 721 556 677", email: "info@brightline.co.ke", taxId: "P052345678B", organizationId, isActive: true, notes: "Licensed electrical contractor." } }),
-    prisma.vendor.create({ data: { name: "Lavington Security Ltd", category: VendorCategory.SERVICE_PROVIDER, phone: "+254 733 778 899", email: "ops@lavsec.co.ke", taxId: "P053456789C", organizationId, isActive: true, notes: "Manned guarding — 24/7 cover." } }),
-    prisma.vendor.create({ data: { name: "PowerGen Kenya", category: VendorCategory.CONTRACTOR, phone: "+254 722 889 900", email: "service@powergen.co.ke", taxId: "P054567890D", organizationId, isActive: true, notes: "Standby generator service & repairs." } }),
+    findOrCreateVendor({ data: { name: "MajiFix Plumbers", category: VendorCategory.CONTRACTOR, phone: "+254 720 334 455", email: "jobs@majifix.co.ke", taxId: "P051234567A", bankDetails: "M-Pesa Paybill 400200", organizationId, isActive: true, notes: "Plumbing & drainage contractor." } }),
+    findOrCreateVendor({ data: { name: "Brightline Electrical", category: VendorCategory.CONTRACTOR, phone: "+254 721 556 677", email: "info@brightline.co.ke", taxId: "P052345678B", organizationId, isActive: true, notes: "Licensed electrical contractor." } }),
+    findOrCreateVendor({ data: { name: "Lavington Security Ltd", category: VendorCategory.SERVICE_PROVIDER, phone: "+254 733 778 899", email: "ops@lavsec.co.ke", taxId: "P053456789C", organizationId, isActive: true, notes: "Manned guarding — 24/7 cover." } }),
+    findOrCreateVendor({ data: { name: "PowerGen Kenya", category: VendorCategory.CONTRACTOR, phone: "+254 722 889 900", email: "service@powergen.co.ke", taxId: "P054567890D", organizationId, isActive: true, notes: "Standby generator service & repairs." } }),
   ]);
 
   // ── Agent ────────────────────────────────────────────────────────────────────
-  await prisma.agent.create({
+  await findOrCreateAgent({
     data: {
       organizationId,
       name: "Nairobi Lettings Co.",
@@ -1764,17 +1786,17 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     shVendorOtis,
     shVendorG4S,
   ] = await Promise.all([
-    prisma.vendor.create({ data: { name: "Sandton Property Management", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 784 0200", email: "accounts@sandtonpm.co.za", organizationId, isActive: true, notes: "Full-service property management company for Sandton Heights." } }),
-    prisma.vendor.create({ data: { name: "City of Johannesburg", category: VendorCategory.UTILITY_PROVIDER, phone: "+27 11 375 5555", email: "billing@joburg.org.za", organizationId, isActive: true, notes: "Municipal water & sewerage billing." } }),
-    prisma.vendor.create({ data: { name: "Eskom", category: VendorCategory.UTILITY_PROVIDER, phone: "+27 11 800 8111", email: "customercare@eskom.co.za", organizationId, isActive: true, notes: "Electricity supply — common areas & security systems." } }),
-    prisma.vendor.create({ data: { name: "Green Clean Services", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 402 5500", email: "admin@greenclean.co.za", organizationId, isActive: true, notes: "Daily common area cleaning & scheduled deep-clean services." } }),
-    prisma.vendor.create({ data: { name: "Vox Fibre", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 87 805 0000", email: "billing@vox.co.za", organizationId, isActive: true, notes: "Building fibre internet infrastructure — 100 Mbps shared." } }),
-    prisma.vendor.create({ data: { name: "BuildFix SA", category: VendorCategory.CONTRACTOR, phone: "+27 11 402 3300", email: "info@buildfixsa.co.za", organizationId, isActive: true, notes: "General building maintenance contractor — plumbing, tiling, carpentry." } }),
-    prisma.vendor.create({ data: { name: "Sparks Electrical", category: VendorCategory.CONTRACTOR, phone: "+27 11 402 4400", email: "ops@sparkselectrical.co.za", organizationId, isActive: true, notes: "Licensed electrical contractor — fault finding, COC testing & DB upgrades." } }),
-    prisma.vendor.create({ data: { name: "Agrico Equipment", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 966 0010", email: "service@agrico.co.za", organizationId, isActive: true, notes: "Generator service & maintenance specialist." } }),
-    prisma.vendor.create({ data: { name: "ADT Security", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 418 1111", email: "commercial@adt.co.za", organizationId, isActive: true, notes: "Security monitoring, CCTV, and access control maintenance." } }),
-    prisma.vendor.create({ data: { name: "Otis Elevator SA", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 490 6000", email: "service@otis.co.za", organizationId, isActive: true, notes: "Lift servicing & statutory inspections." } }),
-    prisma.vendor.create({ data: { name: "G4S South Africa", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 301 8500", email: "info@g4s.co.za", organizationId, isActive: true, notes: "Armed response & on-site security patrol services." } }),
+    findOrCreateVendor({ data: { name: "Sandton Property Management", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 784 0200", email: "accounts@sandtonpm.co.za", organizationId, isActive: true, notes: "Full-service property management company for Sandton Heights." } }),
+    findOrCreateVendor({ data: { name: "City of Johannesburg", category: VendorCategory.UTILITY_PROVIDER, phone: "+27 11 375 5555", email: "billing@joburg.org.za", organizationId, isActive: true, notes: "Municipal water & sewerage billing." } }),
+    findOrCreateVendor({ data: { name: "Eskom", category: VendorCategory.UTILITY_PROVIDER, phone: "+27 11 800 8111", email: "customercare@eskom.co.za", organizationId, isActive: true, notes: "Electricity supply — common areas & security systems." } }),
+    findOrCreateVendor({ data: { name: "Green Clean Services", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 402 5500", email: "admin@greenclean.co.za", organizationId, isActive: true, notes: "Daily common area cleaning & scheduled deep-clean services." } }),
+    findOrCreateVendor({ data: { name: "Vox Fibre", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 87 805 0000", email: "billing@vox.co.za", organizationId, isActive: true, notes: "Building fibre internet infrastructure — 100 Mbps shared." } }),
+    findOrCreateVendor({ data: { name: "BuildFix SA", category: VendorCategory.CONTRACTOR, phone: "+27 11 402 3300", email: "info@buildfixsa.co.za", organizationId, isActive: true, notes: "General building maintenance contractor — plumbing, tiling, carpentry." } }),
+    findOrCreateVendor({ data: { name: "Sparks Electrical", category: VendorCategory.CONTRACTOR, phone: "+27 11 402 4400", email: "ops@sparkselectrical.co.za", organizationId, isActive: true, notes: "Licensed electrical contractor — fault finding, COC testing & DB upgrades." } }),
+    findOrCreateVendor({ data: { name: "Agrico Equipment", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 966 0010", email: "service@agrico.co.za", organizationId, isActive: true, notes: "Generator service & maintenance specialist." } }),
+    findOrCreateVendor({ data: { name: "ADT Security", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 418 1111", email: "commercial@adt.co.za", organizationId, isActive: true, notes: "Security monitoring, CCTV, and access control maintenance." } }),
+    findOrCreateVendor({ data: { name: "Otis Elevator SA", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 490 6000", email: "service@otis.co.za", organizationId, isActive: true, notes: "Lift servicing & statutory inspections." } }),
+    findOrCreateVendor({ data: { name: "G4S South Africa", category: VendorCategory.SERVICE_PROVIDER, phone: "+27 11 301 8500", email: "info@g4s.co.za", organizationId, isActive: true, notes: "Armed response & on-site security patrol services." } }),
   ]);
 
   // ── Income & invoices (rolling 4-month window) ───────────────────────────────
@@ -2279,7 +2301,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   });
 
   // ── Agent ────────────────────────────────────────────────────────────────────
-  await prisma.agent.create({
+  await findOrCreateAgent({
     data: {
       organizationId,
       name: "Seeff Properties Sandton",
@@ -2765,21 +2787,21 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
     vendorMaint, vendorElectrical, vendorLift, vendorSecurity, vendorGarden,
     vendorPool,
   ] = await Promise.all([
-    prisma.vendor.create({ data: { name: "Haverstock Property Management Ltd", category: VendorCategory.SERVICE_PROVIDER, phone: "+44 20 7946 0101", email: "info@haverstockpm.co.uk",          organizationId, isActive: true, notes: "Managing agent for Belsize Court"                                    } }),
-    prisma.vendor.create({ data: { name: "Thames Water",                       category: VendorCategory.UTILITY_PROVIDER,  phone: "+44 800 316 9800", email: "billing@thameswater.co.uk",           organizationId, isActive: true, notes: "Communal water & sewerage supply"                                   } }),
-    prisma.vendor.create({ data: { name: "UK Power Networks",                  category: VendorCategory.UTILITY_PROVIDER,  phone: "+44 800 029 4285", email: "commercial@ukpn.co.uk",               organizationId, isActive: true, notes: "Common area electricity supply"                                     } }),
-    prisma.vendor.create({ data: { name: "BrightHouse Cleaning Services",      category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0202", email: "contracts@brighthouseclean.co.uk",    organizationId, isActive: true, notes: "Communal cleaning contract"                                         } }),
-    prisma.vendor.create({ data: { name: "Virgin Media Business",              category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 800 052 0800", email: "business@virginmedia.co.uk",          organizationId, isActive: true, notes: "Building WiFi & communications"                                     } }),
-    prisma.vendor.create({ data: { name: "BuildRight Maintenance Ltd",         category: VendorCategory.CONTRACTOR,        phone: "+44 20 7946 0303", email: "jobs@buildrightmaint.co.uk",          organizationId, isActive: true, notes: "General maintenance & void works"                                   } }),
-    prisma.vendor.create({ data: { name: "SparkSafe Electrical Ltd",           category: VendorCategory.CONTRACTOR,        phone: "+44 20 7946 0404", email: "info@sparksafe.co.uk",                organizationId, isActive: true, notes: "Electrical installation & remedial works (NICEIC Approved)"         } }),
-    prisma.vendor.create({ data: { name: "Otis Elevator Company UK",           category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 800 912 8000", email: "service@otis.co.uk",                  organizationId, isActive: true, notes: "Passenger lift maintenance & LOLER inspections"                     } }),
-    prisma.vendor.create({ data: { name: "SecureGuard Systems Ltd",            category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0505", email: "info@secureguard.co.uk",              organizationId, isActive: true, notes: "CCTV, access control & security systems"                            } }),
-    prisma.vendor.create({ data: { name: "GreenThumb Garden Services",         category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0606", email: "hello@greenthumb.co.uk",              organizationId, isActive: true, notes: "Communal garden & grounds maintenance"                              } }),
-    prisma.vendor.create({ data: { name: "AquaCare Pool Services Ltd",         category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0707", email: "service@aquacarepools.co.uk",         organizationId, isActive: true, notes: "Residents' indoor pool — weekly dosing visits, water testing & plant servicing. Paid by monthly account." } }),
+    findOrCreateVendor({ data: { name: "Haverstock Property Management Ltd", category: VendorCategory.SERVICE_PROVIDER, phone: "+44 20 7946 0101", email: "info@haverstockpm.co.uk",          organizationId, isActive: true, notes: "Managing agent for Belsize Court"                                    } }),
+    findOrCreateVendor({ data: { name: "Thames Water",                       category: VendorCategory.UTILITY_PROVIDER,  phone: "+44 800 316 9800", email: "billing@thameswater.co.uk",           organizationId, isActive: true, notes: "Communal water & sewerage supply"                                   } }),
+    findOrCreateVendor({ data: { name: "UK Power Networks",                  category: VendorCategory.UTILITY_PROVIDER,  phone: "+44 800 029 4285", email: "commercial@ukpn.co.uk",               organizationId, isActive: true, notes: "Common area electricity supply"                                     } }),
+    findOrCreateVendor({ data: { name: "BrightHouse Cleaning Services",      category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0202", email: "contracts@brighthouseclean.co.uk",    organizationId, isActive: true, notes: "Communal cleaning contract"                                         } }),
+    findOrCreateVendor({ data: { name: "Virgin Media Business",              category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 800 052 0800", email: "business@virginmedia.co.uk",          organizationId, isActive: true, notes: "Building WiFi & communications"                                     } }),
+    findOrCreateVendor({ data: { name: "BuildRight Maintenance Ltd",         category: VendorCategory.CONTRACTOR,        phone: "+44 20 7946 0303", email: "jobs@buildrightmaint.co.uk",          organizationId, isActive: true, notes: "General maintenance & void works"                                   } }),
+    findOrCreateVendor({ data: { name: "SparkSafe Electrical Ltd",           category: VendorCategory.CONTRACTOR,        phone: "+44 20 7946 0404", email: "info@sparksafe.co.uk",                organizationId, isActive: true, notes: "Electrical installation & remedial works (NICEIC Approved)"         } }),
+    findOrCreateVendor({ data: { name: "Otis Elevator Company UK",           category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 800 912 8000", email: "service@otis.co.uk",                  organizationId, isActive: true, notes: "Passenger lift maintenance & LOLER inspections"                     } }),
+    findOrCreateVendor({ data: { name: "SecureGuard Systems Ltd",            category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0505", email: "info@secureguard.co.uk",              organizationId, isActive: true, notes: "CCTV, access control & security systems"                            } }),
+    findOrCreateVendor({ data: { name: "GreenThumb Garden Services",         category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0606", email: "hello@greenthumb.co.uk",              organizationId, isActive: true, notes: "Communal garden & grounds maintenance"                              } }),
+    findOrCreateVendor({ data: { name: "AquaCare Pool Services Ltd",         category: VendorCategory.SERVICE_PROVIDER,  phone: "+44 20 7946 0707", email: "service@aquacarepools.co.uk",         organizationId, isActive: true, notes: "Residents' indoor pool — weekly dosing visits, water testing & plant servicing. Paid by monthly account." } }),
   ]);
 
   // ── Agent ────────────────────────────────────────────────────────────────────
-  await prisma.agent.create({
+  await findOrCreateAgent({
     data: {
       name: "Foxtons Belsize Park",
       agency: "Foxtons Ltd",
@@ -2989,6 +3011,12 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       { expenseId: poolSvc3.id, category: LineItemCategory.QUOTE,    description: "VAT @ 20%",                                                    amount: 63,  isVatable: false, paymentStatus: LineItemPaymentStatus.UNPAID,  amountPaid: 0   },
     ],
   });
+
+  // Re-seeding after a property delete leaves the previous showcase payments
+  // orphaned (VendorPayment is org-scoped like Vendor; the allocations cascade
+  // away with the deleted expenses) — clear them so the statement always lands
+  // on the designed £820 balance.
+  await prisma.vendorPayment.deleteMany({ where: { vendorId: vendorPool.id, organizationId } });
 
   // One BACS remittance settling TWO monthly invoices — the core "one payment,
   // many invoices" statement story.

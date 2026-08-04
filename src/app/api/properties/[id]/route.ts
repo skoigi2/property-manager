@@ -1,3 +1,7 @@
+// Property deletion runs many deleteMany passes over potentially years of
+// data — the platform default timeout can 500 a large property.
+export const maxDuration = 60;
+
 import { requirePropertyAccess, requireSuperAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -175,20 +179,47 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   });
 
   // Transaction: delete orphaned chains in FK-safe order, then the property itself.
-  // Note: TenantDocument/Invoice/DepositSettlement cascade when Tenant is deleted.
-  //       ExpenseLineItem/ExpenseUnitAllocation/ExpenseDocument cascade when ExpenseEntry is deleted.
+  // Note: TenantDocument/Invoice/DepositSettlement/CheckoutProcess/CommunicationLog/
+  //       PortalMessageThread cascade when Tenant is deleted.
+  //       ExpenseLineItem/ExpenseUnitAllocation/ExpenseDocument/PettyCash(linked) cascade
+  //       when ExpenseEntry is deleted; ConditionReportPhoto cascades with ConditionReport.
   //       MaintenanceJob/OwnerInvoice/ArrearsCase/InsurancePolicy/Asset/ManagementAgreement/
-  //       BuildingConditionReport/PropertyAccess all have onDelete:Cascade on the Property relation.
-  await prisma.$transaction([
-    prisma.incomeEntry.deleteMany({ where: { unit: { propertyId: params.id } } }),
-    prisma.managementFeeConfig.deleteMany({ where: { unit: { propertyId: params.id } } }),
-    prisma.tenant.deleteMany({ where: { unit: { propertyId: params.id } } }),
-    prisma.unit.deleteMany({ where: { propertyId: params.id } }),
-    prisma.expenseEntry.deleteMany({ where: { propertyId: params.id } }),
-    prisma.pettyCash.deleteMany({ where: { propertyId: params.id } }),
-    prisma.recurringExpense.deleteMany({ where: { propertyId: params.id } }),
-    prisma.property.delete({ where: { id: params.id } }),
-  ]);
+  //       BuildingConditionReport/PropertyAccess/CaseThread/TaxConfiguration/
+  //       ComplianceCertificate/OwnerPayout all have onDelete:Cascade on the Property relation.
+  // FK-Restrict blockers that MUST be cleared before units/property go:
+  //   - ConditionReport (required unit + property FKs, nothing cascades it)
+  //   - ExpenseUnitAllocation (required unit FK — cleared via deleting the
+  //     property-linked expenses BEFORE units, plus an explicit pass for
+  //     allocations that belong to portfolio/other-scope expenses)
+  try {
+    await prisma.$transaction([
+      prisma.conditionReport.deleteMany({ where: { propertyId: params.id } }),
+      prisma.expenseUnitAllocation.deleteMany({ where: { unit: { propertyId: params.id } } }),
+      prisma.incomeEntry.deleteMany({ where: { unit: { propertyId: params.id } } }),
+      prisma.managementFeeConfig.deleteMany({ where: { unit: { propertyId: params.id } } }),
+      prisma.tenant.deleteMany({ where: { unit: { propertyId: params.id } } }),
+      // Before units: also removes unit-scoped rows (propertyId null, unitId set),
+      // which previously survived as orphaned property-less expenses.
+      prisma.expenseEntry.deleteMany({
+        where: { OR: [{ propertyId: params.id }, { unit: { propertyId: params.id } }] },
+      }),
+      // Unit-linked rows must go BEFORE units — the optional unit FKs SetNull on
+      // unit deletion, so a later `unit: { propertyId }` filter matches nothing.
+      prisma.recurringExpense.deleteMany({
+        where: { OR: [{ propertyId: params.id }, { unit: { propertyId: params.id } }] },
+      }),
+      prisma.unit.deleteMany({ where: { propertyId: params.id } }),
+      prisma.pettyCash.deleteMany({ where: { propertyId: params.id } }),
+      prisma.property.delete({ where: { id: params.id } }),
+    ]);
+  } catch (err) {
+    // Surface the real blocker (usually an unhandled FK) instead of an opaque 500.
+    console.error("[DELETE /api/properties/[id]] failed:", err);
+    return Response.json(
+      { error: "Property deletion failed", detail: (err as Error).message },
+      { status: 500 },
+    );
+  }
 
   await logAudit({
     userId:     session.user.id,

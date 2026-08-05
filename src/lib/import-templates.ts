@@ -188,6 +188,9 @@ export function downloadExpensesTemplate() {
     { header: "Date",          required: true,  width: 14 },
     { header: "Category",      required: true,  width: 18 },
     { header: "Amount",        required: true,  width: 14 },
+    { header: "Quantity",      required: false, width: 10 },
+    { header: "Unit",          required: false, width: 10 },
+    { header: "Unit Rate",     required: false, width: 12 },
     { header: "Scope",         required: true,  width: 12 },
     { header: "Description",   required: false, width: 32 },
     { header: "Property Name", required: false, width: 20 },
@@ -198,6 +201,7 @@ export function downloadExpensesTemplate() {
     { header: "Amount Paid",       required: false, width: 14 },
     { header: "Due Date",          required: false, width: 14 },
     { header: "VAT Amount",        required: false, width: 14 },
+    { header: "Discount",          required: false, width: 12 },
     { header: "Payment Method",    required: false, width: 16 },
     { header: "Payment Reference", required: false, width: 20 },
     { header: "Payment Date",      required: false, width: 14 },
@@ -206,15 +210,19 @@ export function downloadExpensesTemplate() {
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["2026-01-08", "SECURITY",     4500,   "PROPERTY",  "Monthly guard service", "Riara One", "",   "No", "No",  "ABC Security", 4500, "",           720,   "MPESA",  "QGH7X2P1", "2026-01-08", "Paid in full", ""],
-    ["2026-01-15", "ELECTRICITY",  12000,  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05", 1920,  "",       "",         "",           "Awaiting funds", ""],
-    ["2026-01-20", "CAPITAL",      250000, "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01", 40000, "CHEQUE", "001234",   "2026-01-25", "Owner paid deposit only", ""],
+    ["2026-01-08", "SECURITY",     4500,   "", "",   "",  "PROPERTY",  "Monthly guard service", "Riara One", "",   "No", "No",  "ABC Security", 4500, "",           720,   "",  "MPESA",  "QGH7X2P1", "2026-01-08", "Paid in full", ""],
+    ["2026-01-15", "ELECTRICITY",  12000,  "", "",   "",  "PROPERTY",  "January electricity",   "Riara One", "",   "No", "No",  "Kenya Power",  0,    "2026-02-05", 1920,  "",  "",       "",         "",           "Awaiting funds", ""],
+    ["2026-01-20", "MAINTENANCE",  "",     3,  "kg", 800, "PROPERTY",  "Pool chlorine",         "Riara One", "",   "No", "No",  "Poolshop EA",  2400, "",           "",    100, "MPESA",  "REF9921",  "2026-01-20", "Amount = 3 kg × 800", ""],
+    ["2026-01-20", "CAPITAL",      250000, "", "",   "",  "PORTFOLIO", "Backup generator purchase", "",      "",   "Yes","No",  "",             100000, "2026-03-01", 40000, "",  "CHEQUE", "001234",   "2026-01-25", "Owner paid deposit only", ""],
   ];
 
   const instructions: (string | number)[][] = [
     ["Date",          "Yes", "YYYY-MM-DD",         "Date the expense was incurred"],
     ["Category",      "Yes", validCategories,       "Expense category — must match exactly"],
-    ["Amount",        "Yes", "Number",              "Expense amount in the property's currency"],
+    ["Amount",        "Yes", "Number",              "Net expense amount (pre-VAT) in the property's currency. May be left blank when Quantity + Unit Rate are given — it is then calculated as Quantity × Unit Rate"],
+    ["Quantity",      "No",  "Number",              "Optional qty × rate breakdown (fractional like 2.5 is fine). With Unit Rate, the Amount is calculated and the breakdown is saved as a line item on the expense"],
+    ["Unit",          "No",  "Text",                "Unit of measurement for Quantity — e.g. kg, g, tonne, litre, ml, m, mm, m2, hour, day, trip, no., item, set, pair. Anything else is kept as a custom unit. Ignored without Quantity + Unit Rate"],
+    ["Unit Rate",     "No",  "Number",              "Cost per unit, net of VAT. With Quantity, drives the calculated Amount"],
     ["Scope",         "Yes", "UNIT, PROPERTY, PORTFOLIO", "UNIT = specific unit; PROPERTY = whole building; PORTFOLIO = all properties"],
     ["Description",   "No",  "Text",                "Short description of the expense"],
     ["Property Name", "No",  "Text",                "Required for UNIT or PROPERTY scope to identify the property"],
@@ -225,6 +233,7 @@ export function downloadExpensesTemplate() {
     ["Amount Paid",       "No", "Number",            "How much has been paid so far (default 0). Leave blank/0 for an unpaid bill — the balance shows as outstanding"],
     ["Due Date",          "No", "YYYY-MM-DD",        "When payment is due. Past-due rows with a balance are flagged overdue"],
     ["VAT Amount",        "No", "Number",            "The VAT/tax portion. Amount stays net (pre-VAT); record VAT here separately"],
+    ["Discount",          "No", "Number",            "Value of any discount received — informational only, for vendor-savings reporting. Amount stays what you actually paid; the discount is never added to or subtracted from any total"],
     ["Payment Method",    "No", validPaymentMethods, "How it was paid. Free text like 'Mpesa' or 'Cheque' is matched automatically"],
     ["Payment Reference", "No", "Text",              "Cheque number, M-Pesa code, or bank reference"],
     ["Payment Date",      "No", "YYYY-MM-DD",        "The date payment was actually made (may differ from the invoice date)"],

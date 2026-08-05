@@ -1,5 +1,6 @@
 import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { calcQtyRateAmount } from "@/lib/calculations";
 
 // Large handover imports (hundreds of rows) need more than the default budget.
 export const maxDuration = 60;
@@ -13,12 +14,16 @@ interface ExpenseRow {
   propertyName?: string;
   unitNumber?: string;
   amount?: string | number;
+  quantity?: string | number;
+  unit?: string;
+  unitRate?: string | number;
   sunkCost?: string;
   pettyCash?: string;
   vendorName?: string;
   amountPaid?: string | number;
   dueDate?: string;
   vatAmount?: string | number;
+  discount?: string | number;
   paymentMethod?: string;
   paymentReference?: string;
   paymentDate?: string;
@@ -36,6 +41,34 @@ function normalizePaymentMethod(raw?: string): string | null {
   if (v.startsWith("BANK")) return "BANK_TRANSFER";
   if (v === "CARD" || v.includes("CREDIT") || v.includes("DEBIT")) return "CARD";
   return "OTHER";
+}
+
+// Mirrors the UnitOfMeasure enum. Free-text like "kg", "no.", "sq m" is
+// normalised; anything unmatched becomes OTHER + unitOther (non-fatal).
+const UOM_VALUES = ["UNIT", "ITEM", "SET", "PAIR", "KG", "G", "TONNE", "LITRE", "ML", "M", "MM", "M2", "HOUR", "DAY", "TRIP", "OTHER"];
+const UOM_ALIASES: Record<string, string> = {
+  NO: "UNIT", NOS: "UNIT", EACH: "UNIT", EA: "UNIT", PC: "UNIT", PCS: "UNIT", PIECE: "UNIT", PIECES: "UNIT", COUNT: "UNIT", UNITS: "UNIT",
+  ITEMS: "ITEM", SETS: "SET", PAIRS: "PAIR",
+  KGS: "KG", KILO: "KG", KILOS: "KG", KILOGRAM: "KG", KILOGRAMS: "KG",
+  GRAM: "G", GRAMS: "G", GM: "G", GMS: "G",
+  T: "TONNE", TON: "TONNE", TONS: "TONNE", TONNES: "TONNE",
+  L: "LITRE", LTR: "LITRE", LTRS: "LITRE", LITRES: "LITRE", LITER: "LITRE", LITERS: "LITRE",
+  MLS: "ML", MILLILITRE: "ML", MILLILITRES: "ML",
+  METRE: "M", METRES: "M", METER: "M", METERS: "M",
+  MILLIMETRE: "MM", MILLIMETRES: "MM",
+  SQM: "M2", SQUAREMETRE: "M2", SQUAREMETRES: "M2", SQUAREMETER: "M2", SQUAREMETERS: "M2",
+  HR: "HOUR", HRS: "HOUR", HOURS: "HOUR",
+  DAYS: "DAY", TRIPS: "TRIP",
+};
+
+/** Free-text unit → { unit, unitOther }. Unmatched text falls back to OTHER + unitOther. */
+function normalizeUom(raw?: string): { unit: string | null; unitOther: string | null } {
+  const t = raw?.trim();
+  if (!t) return { unit: null, unitOther: null };
+  const v = t.toUpperCase().replace(/²/g, "2").replace(/[.\s\-_/]/g, "");
+  if (UOM_VALUES.includes(v)) return { unit: v, unitOther: null };
+  if (UOM_ALIASES[v]) return { unit: UOM_ALIASES[v], unitOther: null };
+  return { unit: "OTHER", unitOther: t };
 }
 
 /** Content fingerprint shared by dedup (create) and matching (upsert):
@@ -83,7 +116,7 @@ export async function POST(req: Request) {
     // instead of one DB round-trip per row (which times out on large files).
     prisma.expenseEntry.findMany({
       where: { OR: [{ propertyId: { in: propertyIds } }, { propertyId: null }] },
-      select: { id: true, date: true, category: true, amount: true, propertyId: true, description: true },
+      select: { id: true, date: true, category: true, amount: true, propertyId: true, description: true, _count: { select: { lineItems: true } } },
     }),
   ]);
 
@@ -101,6 +134,7 @@ export async function POST(req: Request) {
   // (amount, date, category, description) without creating a duplicate, which
   // the content-fingerprint match below cannot do.
   const existingIds = new Set(existing.map((e) => e.id));
+  const lineCountById = new Map(existing.map((e) => [e.id, e._count.lineItems]));
 
   const existingByFp = new Map<string, string>();
   for (const e of existing) {
@@ -127,7 +161,8 @@ export async function POST(req: Request) {
   // convention as existingByFp) so they can be linked to the created row's id.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pettyData: { fpKey: string; data: any }[] = [];
-  const updateOps: { id: string; data: Record<string, unknown> }[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateOps: { id: string; data: Record<string, unknown>; lineItem?: any }[] = [];
   const queuedFps = new Set<string>(); // dedupe within this file
   const updatedIds = new Set<string>(); // dedupe ID-matched rows within this file
 
@@ -145,6 +180,13 @@ export async function POST(req: Request) {
     const isSunkCost = row.sunkCost?.trim().toLowerCase() === "yes";
     const paidFromPettyCash = row.pettyCash?.trim().toLowerCase() === "yes";
     const vendorName = row.vendorName?.trim();
+    const qtyRaw = parseFloat(String(row.quantity ?? ""));
+    const qty = isNaN(qtyRaw) || qtyRaw <= 0 ? null : qtyRaw;
+    const rateRaw = parseFloat(String(row.unitRate ?? ""));
+    const unitRate = isNaN(rateRaw) || rateRaw <= 0 ? null : rateRaw;
+    const uom = normalizeUom(row.unit);
+    const discRaw = parseFloat(String(row.discount ?? ""));
+    const discount = isNaN(discRaw) || discRaw <= 0 ? null : discRaw;
     const amountPaidRaw = parseFloat(String(row.amountPaid ?? "0"));
     const amountPaid = isNaN(amountPaidRaw) || amountPaidRaw < 0 ? 0 : amountPaidRaw;
     const dueStr = row.dueDate?.trim();
@@ -172,10 +214,23 @@ export async function POST(req: Request) {
       skipped++;
       continue;
     }
-    if (isNaN(amount) || amount <= 0) {
-      errors.push({ row: rowNum, reason: "Amount must be a positive number" });
+    // Qty × rate: when both are present the Amount is derived (round2), same
+    // as the add-expense form; a typed Amount that disagrees is overridden
+    // with a non-fatal warning. Without the pair, Amount is required as before.
+    const derived = qty !== null && unitRate !== null ? calcQtyRateAmount(qty, unitRate) : null;
+    if (derived !== null && !isNaN(amount) && amount > 0 && Math.abs(amount - derived) > 0.01) {
+      errors.push({ row: rowNum, reason: `Amount ${amount} differs from Quantity × Unit Rate = ${derived} — used the calculated amount` });
+    }
+    const effAmount = derived ?? amount;
+    if (isNaN(effAmount) || effAmount <= 0) {
+      errors.push({ row: rowNum, reason: "Amount must be a positive number (or provide Quantity + Unit Rate)" });
       skipped++;
       continue;
+    }
+    // A unit without the qty × rate pair has nowhere to live (units sit on the
+    // line item that carries the breakdown) — ignored, non-fatally.
+    if (uom.unit && derived === null) {
+      errors.push({ row: rowNum, reason: `Unit "${row.unit}" needs both Quantity and Unit Rate — ignored` });
     }
 
     const date = new Date(dateStr);
@@ -207,6 +262,26 @@ export async function POST(req: Request) {
       else errors.push({ row: rowNum, reason: `Vendor "${vendorName}" not found — imported without vendor link` });
     }
 
+    // Synthetic line item carrying the qty × rate breakdown (unit + discount
+    // included). amountPaid moves onto the line because line items, when
+    // present, are the app-wide source of truth for paid amounts.
+    const lineItem = derived !== null
+      ? {
+          category: "MATERIAL",
+          description: description || null,
+          amount: derived,
+          quantity: qty,
+          unitRate,
+          unit: uom.unit,
+          unitOther: uom.unitOther,
+          discountAmount: discount,
+          isVatable: false,
+          paymentStatus: amountPaid <= 0 ? "UNPAID" : amountPaid >= derived ? "PAID" : "PARTIAL",
+          amountPaid,
+          paymentReference,
+        }
+      : null;
+
     // Full-field payload shared by ID-match update and create.
     const fields = {
       date,
@@ -215,10 +290,13 @@ export async function POST(req: Request) {
       scope,
       propertyId: resolvedPropertyId || null,
       unitId: resolvedUnitId || null,
-      amount,
-      amountPaid,
+      amount: effAmount,
+      amountPaid: lineItem ? 0 : amountPaid,
       dueDate,
       vatAmount,
+      // Informational only — never enters totals. With a line item the
+      // discount lives on the line instead (same rule as the form).
+      discountAmount: lineItem ? null : discount,
       paymentMethod,
       paymentReference,
       paymentDate,
@@ -235,7 +313,15 @@ export async function POST(req: Request) {
       if (existingIds.has(idRaw)) {
         if (!updatedIds.has(idRaw)) {
           updatedIds.add(idRaw);
-          updateOps.push({ id: idRaw, data: fields });
+          // A qty × rate row replaces the expense's line items only when it has
+          // at most one (the importer's own shape). Multi-line expenses were
+          // built in the app — refuse to clobber them, non-fatally.
+          if (lineItem && (lineCountById.get(idRaw) ?? 0) > 1) {
+            errors.push({ row: rowNum, reason: "Expense has multiple line items — Quantity/Unit/Unit Rate columns ignored" });
+            updateOps.push({ id: idRaw, data: { ...fields, amount: undefined, amountPaid, discountAmount: discount } });
+          } else {
+            updateOps.push({ id: idRaw, data: fields, lineItem: lineItem ?? undefined });
+          }
         } else {
           skipped++; // same ID twice in one file
         }
@@ -249,7 +335,7 @@ export async function POST(req: Request) {
     const fp = fingerprint({
       dateOnly,
       category,
-      amount,
+      amount: effAmount,
       propertyId: resolvedPropertyId ?? null,
       description: description || null,
     });
@@ -257,9 +343,11 @@ export async function POST(req: Request) {
 
     if (existingId || queuedFps.has(fp)) {
       if (mode === "upsert" && existingId) {
+        // Fingerprint match refreshes secondary fields only — line items are
+        // touched exclusively via the authoritative ID match above.
         updateOps.push({
           id: existingId,
-          data: { amountPaid, dueDate, vatAmount, paymentMethod, paymentReference, paymentDate, notes, vendorId: resolvedVendorId, isSunkCost, paidFromPettyCash },
+          data: { amountPaid, dueDate, vatAmount, discountAmount: discount, paymentMethod, paymentReference, paymentDate, notes, vendorId: resolvedVendorId, isSunkCost, paidFromPettyCash },
         });
       } else {
         skipped++;
@@ -268,7 +356,7 @@ export async function POST(req: Request) {
     }
     queuedFps.add(fp);
 
-    createData.push(fields);
+    createData.push(lineItem ? { ...fields, __lineItem: lineItem } : fields);
 
     if (paidFromPettyCash) {
       let pettyCashPropertyId: string | null = resolvedPropertyId ?? null;
@@ -279,14 +367,14 @@ export async function POST(req: Request) {
         fpKey: fingerprint({
           dateOnly: date.toISOString().slice(0, 10),
           category,
-          amount,
+          amount: effAmount,
           propertyId: resolvedPropertyId ?? null,
           description: description || null,
         }),
         data: {
           date,
           type: "OUT",
-          amount,
+          amount: effAmount,
           description: description ?? `${category} expense`,
           propertyId: pettyCashPropertyId,
         },
@@ -300,11 +388,34 @@ export async function POST(req: Request) {
       // OUT row can be linked to its expense — the FK cascade then keeps the
       // ledger in sync when the expense is later deleted. Returned order isn't
       // guaranteed, so rows are matched by content fingerprint, not index.
-      const created = await prisma.expenseEntry.createManyAndReturn({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data: createData.map((d: any) => ({ ...d, organizationId: session!.user.organizationId ?? null })),
-        select: { id: true, date: true, category: true, amount: true, propertyId: true, description: true },
-      });
+      // Rows with a qty × rate breakdown need a nested line-item create, which
+      // createMany can't do — they're created individually in small chunks.
+      const CREATED_SELECT = { id: true, date: true, category: true, amount: true, propertyId: true, description: true };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const plainRows = createData.filter((d: any) => !d.__lineItem);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const lineRows = createData.filter((d: any) => d.__lineItem);
+
+      const created = plainRows.length > 0
+        ? await prisma.expenseEntry.createManyAndReturn({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data: plainRows.map((d: any) => ({ ...d, organizationId: session!.user.organizationId ?? null })),
+            select: CREATED_SELECT,
+          })
+        : [];
+      for (let j = 0; j < lineRows.length; j += 25) {
+        const chunk = lineRows.slice(j, j + 25);
+        const results = await Promise.all(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          chunk.map(({ __lineItem, ...d }: any) =>
+            prisma.expenseEntry.create({
+              data: { ...d, organizationId: session!.user.organizationId ?? null, lineItems: { create: [__lineItem] } },
+              select: CREATED_SELECT,
+            }),
+          ),
+        );
+        created.push(...results);
+      }
       imported = created.length;
 
       if (pettyData.length > 0) {
@@ -331,10 +442,20 @@ export async function POST(req: Request) {
       }
     }
     // Updates can't be batched into one statement; run in small concurrent chunks.
+    // A row carrying a qty × rate breakdown replaces the expense's line items
+    // (array-form $transaction — callback form is pgBouncer-incompatible).
     for (let j = 0; j < updateOps.length; j += 25) {
       const chunk = updateOps.slice(j, j + 25);
       await Promise.all(
-        chunk.map((u) => prisma.expenseEntry.update({ where: { id: u.id }, data: u.data })),
+        chunk.map((u) =>
+          u.lineItem
+            ? prisma.$transaction([
+                prisma.expenseEntry.update({ where: { id: u.id }, data: u.data }),
+                prisma.expenseLineItem.deleteMany({ where: { expenseId: u.id } }),
+                prisma.expenseLineItem.create({ data: { ...u.lineItem, expenseId: u.id } }),
+              ])
+            : prisma.expenseEntry.update({ where: { id: u.id }, data: u.data }),
+        ),
       );
       updated += chunk.length;
     }

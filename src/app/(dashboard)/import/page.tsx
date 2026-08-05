@@ -108,6 +108,9 @@ const EXPENSE_COLS = [
   "Date",
   "Category",
   "Amount",
+  "Quantity",
+  "Unit",
+  "Unit Rate",
   "Scope",
   "Description",
   "Property Name",
@@ -118,6 +121,7 @@ const EXPENSE_COLS = [
   "Amount Paid",
   "Due Date",
   "VAT Amount",
+  "Discount",
   "Payment Method",
   "Payment Reference",
   "Payment Date",
@@ -304,13 +308,26 @@ function validateExpenseRow(row: Record<string, string>): string[] {
   if (!scope) errors.push("Scope is required");
   else if (!VALID_EXPENSE_SCOPES.includes(scope))
     errors.push(`Invalid scope "${row["Scope"]}" — must be UNIT, PROPERTY or PORTFOLIO`);
+  // Qty × rate: when both are given, Amount may be blank (it is derived).
+  const qtyStr = String(row["Quantity"] ?? "").trim();
+  const rateStr = String(row["Unit Rate"] ?? "").trim();
+  const qty = parseFloat(qtyStr);
+  const rate = parseFloat(rateStr);
+  if (qtyStr && (isNaN(qty) || qty <= 0)) errors.push("Quantity must be a positive number");
+  if (rateStr && (isNaN(rate) || rate <= 0)) errors.push("Unit Rate must be a positive number");
+  const hasQtyRate = !!qtyStr && !!rateStr && qty > 0 && rate > 0;
   const amt = parseFloat(row["Amount"] ?? "");
-  if (!row["Amount"] || isNaN(amt) || amt <= 0)
-    errors.push("Amount must be a positive number");
+  if (!hasQtyRate && (!row["Amount"] || isNaN(amt) || amt <= 0))
+    errors.push("Amount must be a positive number (or provide Quantity + Unit Rate)");
+  const effAmt = hasQtyRate ? Math.round(qty * rate * 100) / 100 : amt;
   if (row["Amount Paid"]?.trim()) {
     const paid = parseFloat(row["Amount Paid"]);
     if (isNaN(paid) || paid < 0) errors.push("Amount Paid must be a non-negative number");
-    else if (!isNaN(amt) && paid > amt) errors.push("Amount Paid cannot exceed Amount");
+    else if (!isNaN(effAmt) && paid > effAmt) errors.push("Amount Paid cannot exceed Amount");
+  }
+  if (String(row["Discount"] ?? "").trim()) {
+    const disc = parseFloat(row["Discount"]);
+    if (isNaN(disc) || disc < 0) errors.push("Discount must be a non-negative number");
   }
   if (row["Due Date"]?.trim() && isNaN(Date.parse(row["Due Date"])))
     errors.push("Due Date is not a valid date");
@@ -520,12 +537,16 @@ function mapExpenseRowToApi(row: Record<string, string>) {
     propertyName: row["Property Name"],
     unitNumber:   row["Unit Number"],
     amount:       row["Amount"],
+    quantity:     row["Quantity"],
+    unit:         row["Unit"],
+    unitRate:     row["Unit Rate"],
     sunkCost:     row["Sunk Cost"],
     pettyCash:    row["Petty Cash"],
     vendorName:   row["Vendor Name"],
     amountPaid:   row["Amount Paid"],
     dueDate:      row["Due Date"],
     vatAmount:    row["VAT Amount"],
+    discount:     row["Discount"],
     paymentMethod:    row["Payment Method"],
     paymentReference: row["Payment Reference"],
     paymentDate:      row["Payment Date"],

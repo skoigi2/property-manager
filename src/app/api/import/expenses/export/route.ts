@@ -29,30 +29,44 @@ export async function GET() {
       property: { select: { name: true } },
       unit: { select: { unitNumber: true } },
       vendor: { select: { name: true } },
+      lineItems: { select: { quantity: true, unitRate: true, unit: true, unitOther: true, discountAmount: true, amountPaid: true } },
     },
     orderBy: { date: "desc" },
   });
 
-  const rows = expenses.map((e) => ({
-    Date: ymd(e.date),
-    Category: e.category as string,
-    Amount: e.amount,
-    Scope: e.scope as string,
-    Description: e.description ?? "",
-    "Property Name": e.property?.name ?? "",
-    "Unit Number": e.unit?.unitNumber ?? "",
-    "Sunk Cost": e.isSunkCost ? "Yes" : "No",
-    "Petty Cash": e.paidFromPettyCash ? "Yes" : "No",
-    "Vendor Name": e.vendor?.name ?? "",
-    "Amount Paid": e.amountPaid,
-    "Due Date": ymd(e.dueDate),
-    "VAT Amount": e.vatAmount ?? "",
-    "Payment Method": (e.paymentMethod as string | null) ?? "",
-    "Payment Reference": e.paymentReference ?? "",
-    "Payment Date": ymd(e.paymentDate),
-    Notes: e.notes ?? "",
-    ID: e.id,
-  }));
+  const rows = expenses.map((e) => {
+    // Single-line expenses round-trip their qty × rate breakdown (the shape
+    // the importer itself creates); multi-line expenses export amount-only —
+    // the import route refuses to clobber their lines anyway.
+    const line = e.lineItems.length === 1 ? e.lineItems[0] : null;
+    const paidEffective = e.lineItems.length > 0
+      ? e.lineItems.reduce((s, li) => s + li.amountPaid, 0)
+      : e.amountPaid;
+    return {
+      Date: ymd(e.date),
+      Category: e.category as string,
+      Amount: e.amount,
+      Quantity: line?.quantity ?? "",
+      Unit: line?.unit ? (line.unit === "OTHER" ? line.unitOther ?? "OTHER" : (line.unit as string)) : "",
+      "Unit Rate": line?.unitRate ?? "",
+      Scope: e.scope as string,
+      Description: e.description ?? "",
+      "Property Name": e.property?.name ?? "",
+      "Unit Number": e.unit?.unitNumber ?? "",
+      "Sunk Cost": e.isSunkCost ? "Yes" : "No",
+      "Petty Cash": e.paidFromPettyCash ? "Yes" : "No",
+      "Vendor Name": e.vendor?.name ?? "",
+      "Amount Paid": paidEffective,
+      "Due Date": ymd(e.dueDate),
+      "VAT Amount": e.vatAmount ?? "",
+      Discount: (line ? line.discountAmount : e.discountAmount) ?? "",
+      "Payment Method": (e.paymentMethod as string | null) ?? "",
+      "Payment Reference": e.paymentReference ?? "",
+      "Payment Date": ymd(e.paymentDate),
+      Notes: e.notes ?? "",
+      ID: e.id,
+    };
+  });
 
   return Response.json({ rows });
 }

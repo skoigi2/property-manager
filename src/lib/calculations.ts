@@ -34,6 +34,18 @@ export function calcPettyCashTotal(entries: PettyCashLike[]): number {
     .reduce((acc, e) => acc + (e.type === "IN" ? e.amount : -e.amount), 0);
 }
 
+/** Normalise a line item's unit-of-measure pair for persistence. Descriptive
+ *  only — never enters any calculation. Light enforcement of the OTHER escape
+ *  hatch (mirrors AssetCategory/categoryOther): unitOther is kept only when
+ *  unit = OTHER, and nulled otherwise; a missing unit clears both. */
+export function normalizeLineItemUnit<T extends string>(
+  unit: T | null | undefined,
+  unitOther: string | null | undefined
+): { unit: T | null; unitOther: string | null } {
+  if (!unit) return { unit: null, unitOther: null };
+  return { unit, unitOther: unit === "OTHER" ? (unitOther?.trim() || null) : null };
+}
+
 /** Derive a line item's net `amount` from an optional qty × rate breakdown.
  *  The Decimal(14,2) column requires the product rounded to 2dp before
  *  persisting. Quantity may be fractional (2.5 kg). The result IS the net

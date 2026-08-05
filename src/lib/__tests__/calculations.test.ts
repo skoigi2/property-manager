@@ -8,6 +8,7 @@ import {
   calcLateInterest,
   calcUnitSummary,
   calcQtyRateAmount,
+  normalizeLineItemUnit,
 } from "@/lib/calculations";
 
 import type { PettyCashLike } from "@/lib/calculations";
@@ -136,6 +137,48 @@ describe("discountAmount is informational only", () => {
     });
     expect(r.status).toBe("PAID");
     expect(r.outstanding).toBe(0);
+  });
+});
+
+// Unit of measurement is descriptive only — never enters any calculation.
+describe("line-item unit of measurement", () => {
+  it("a line with unit set produces identical totals/outstanding to one without", () => {
+    const base = {
+      amount: 2400,
+      amountPaid: 0,
+      lineItems: [{ amountPaid: 1000 }, { amountPaid: 400 }],
+    };
+    const withUnits = calcExpensePayment({
+      ...base,
+      lineItems: [
+        { amountPaid: 1000, quantity: 3, unitRate: 800, unit: "KG", unitOther: null },
+        { amountPaid: 400, quantity: 2, unitRate: 200, unit: "OTHER", unitOther: "bags" },
+      ] as never[],
+    });
+    expect(withUnits).toEqual(calcExpensePayment(base));
+    expect(withUnits.total).toBe(2400);
+    expect(withUnits.outstanding).toBe(1000);
+  });
+
+  describe("normalizeLineItemUnit (OTHER → unitOther round-trip)", () => {
+    it("keeps unitOther only when unit is OTHER", () => {
+      expect(normalizeLineItemUnit("OTHER", "bags of cement")).toEqual({ unit: "OTHER", unitOther: "bags of cement" });
+      expect(normalizeLineItemUnit("OTHER", "  bags  ")).toEqual({ unit: "OTHER", unitOther: "bags" });
+    });
+
+    it("nulls unitOther for any non-OTHER unit", () => {
+      expect(normalizeLineItemUnit("KG", "stray text")).toEqual({ unit: "KG", unitOther: null });
+    });
+
+    it("clears both when no unit is chosen (legacy rows unaffected)", () => {
+      expect(normalizeLineItemUnit(null, "text")).toEqual({ unit: null, unitOther: null });
+      expect(normalizeLineItemUnit(undefined, undefined)).toEqual({ unit: null, unitOther: null });
+    });
+
+    it("OTHER with blank free-text stores null, not an empty string", () => {
+      expect(normalizeLineItemUnit("OTHER", "   ")).toEqual({ unit: "OTHER", unitOther: null });
+      expect(normalizeLineItemUnit("OTHER", undefined)).toEqual({ unit: "OTHER", unitOther: null });
+    });
   });
 });
 

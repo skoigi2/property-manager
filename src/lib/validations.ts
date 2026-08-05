@@ -17,11 +17,28 @@ export const incomeEntrySchema = z.object({
   note: z.string().optional(),
 });
 
+// Mirrors the UnitOfMeasure enum in prisma/schema.prisma — descriptive only,
+// never used in any calculation. OTHER pairs with the unitOther free-text.
+export const UNIT_OF_MEASURE_VALUES = [
+  "UNIT", "ITEM", "SET", "PAIR",          // count
+  "KG", "G", "TONNE",                     // weight
+  "LITRE", "ML",                          // volume
+  "M", "MM",                              // length
+  "M2",                                   // area
+  "HOUR", "DAY", "TRIP",                  // labour / time
+  "OTHER",
+] as const;
+
 export const expenseLineItemSchema = z.object({
   id: z.string().optional(),
   category: z.enum(["LABOUR", "MATERIAL", "QUOTE"]),
   description: z.string().optional(),
   amount: z.coerce.number().min(0),
+  // Optional unit of measurement for quantity — context only. unitOther is
+  // used when unit = OTHER; the routes null it otherwise (light enforcement,
+  // legacy rows unaffected).
+  unit: z.enum(UNIT_OF_MEASURE_VALUES).optional().nullable(),
+  unitOther: z.string().max(60).optional().nullable(),
   // Optional qty × rate breakdown — when BOTH are present the server derives
   // amount = round2(quantity * unitRate) and stores it; otherwise amount is
   // entered directly. quantity may be fractional (e.g. 2.5 kg).

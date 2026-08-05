@@ -885,6 +885,35 @@ model ExpenseEntry {
   @@index([organizationId])
 }
 
+// Unit of measurement for expense line-item quantities — purely descriptive
+// context for the qty × rate breakdown (e.g. 3 KG × 800). Never enters any
+// calculation. OTHER pairs with ExpenseLineItem.unitOther free-text,
+// mirroring the AssetCategory + categoryOther pattern.
+enum UnitOfMeasure {
+  // Count
+  UNIT
+  ITEM
+  SET
+  PAIR
+  // Weight
+  KG
+  G
+  TONNE
+  // Volume
+  LITRE
+  ML
+  // Length
+  M
+  MM
+  // Area
+  M2
+  // Labour / time
+  HOUR
+  DAY
+  TRIP
+  OTHER
+}
+
 model ExpenseLineItem {
   id               String               @id @default(cuid())
   expenseId        String
@@ -899,6 +928,11 @@ model ExpenseLineItem {
   // e.g. 2.5 kg) like sizeSqm; unitRate is money.
   quantity         Float?
   unitRate         Decimal?             @db.Decimal(14, 2)
+  // Optional unit of measurement for quantity — descriptive only, never in
+  // any calculation. unitOther is the free-text used when unit = OTHER
+  // (null otherwise), mirroring AssetCategory/categoryOther.
+  unit             UnitOfMeasure?
+  unitOther        String?
   // INFORMATIONAL ONLY — see ExpenseEntry.discountAmount. Never subtracted
   // from `amount`, never enters totals; VAT was computed on the discounted
   // base (`amount`), so taxAmount needs no adjustment.

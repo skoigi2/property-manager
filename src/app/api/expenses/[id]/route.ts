@@ -4,7 +4,7 @@ import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot, lineItemCategoryToAppliesTo } from "@/lib/tax-engine";
-import { calcQtyRateAmount } from "@/lib/calculations";
+import { calcQtyRateAmount, normalizeLineItemUnit } from "@/lib/calculations";
 
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true } },
@@ -188,6 +188,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           amount,
           quantity: item.quantity ?? null,
           unitRate: item.unitRate ?? null,
+          // Descriptive only — unitOther kept only when unit = OTHER.
+          ...normalizeLineItemUnit(item.unit, item.unitOther),
           discountAmount: item.discountAmount ?? null,
           isVatable,
           paymentStatus: item.paymentStatus ?? "UNPAID",

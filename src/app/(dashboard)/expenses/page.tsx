@@ -107,6 +107,26 @@ const LINE_CATEGORIES = ["LABOUR", "MATERIAL", "QUOTE"] as const;
 type LineCat = typeof LINE_CATEGORIES[number];
 type PayStatus = "UNPAID" | "PARTIAL" | "PAID";
 
+// Unit-of-measure dropdown, grouped. Mirrors the UnitOfMeasure enum —
+// descriptive context for qty × rate only, never used in a calculation.
+const UOM_GROUPS: { label: string; options: [string, string][] }[] = [
+  { label: "Count",         options: [["UNIT", "no. / each"], ["ITEM", "item"], ["SET", "set"], ["PAIR", "pair"]] },
+  { label: "Weight",        options: [["KG", "kg"], ["G", "g"], ["TONNE", "tonne"]] },
+  { label: "Volume",        options: [["LITRE", "litre"], ["ML", "ml"]] },
+  { label: "Length",        options: [["M", "m"], ["MM", "mm"]] },
+  { label: "Area",          options: [["M2", "m²"]] },
+  { label: "Labour / Time", options: [["HOUR", "hour"], ["DAY", "day"], ["TRIP", "trip"]] },
+  { label: "Other",         options: [["OTHER", "Other…"]] },
+];
+const UOM_LABELS: Record<string, string> = Object.fromEntries(UOM_GROUPS.flatMap((g) => g.options));
+
+/** Display label for a line's unit — unitOther text replaces the enum label for OTHER. */
+function uomLabel(unit?: string | null, unitOther?: string | null): string {
+  if (!unit) return "";
+  if (unit === "OTHER") return (unitOther ?? "").trim() || "other";
+  return UOM_LABELS[unit] ?? unit;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface LineItemDraft {
@@ -118,6 +138,10 @@ interface LineItemDraft {
   // (round2(qty × rate)) and shown read-only; when blank, amount is typed.
   quantity: string;
   unitRate: string;
+  // Unit of measurement for quantity — descriptive only. OTHER reveals the
+  // unitOther free-text (AssetCategory/categoryOther pattern).
+  unit: string;
+  unitOther: string;
   // Informational only — value of a discount received. Amount is already
   // net-of-discount; this never enters any total.
   discountAmount: string;
@@ -128,7 +152,7 @@ interface LineItemDraft {
 }
 
 function blankLine(): LineItemDraft {
-  return { category: "LABOUR", description: "", amount: "", quantity: "", unitRate: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "" };
+  return { category: "LABOUR", description: "", amount: "", quantity: "", unitRate: "", unit: "", unitOther: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "" };
 }
 
 /** round2(qty × rate) when both fields hold numbers, else null (amount is typed directly). */
@@ -278,10 +302,10 @@ function LineItemsEditor({
                 </div>
               </div>
 
-              {/* Row 1b: optional qty × rate + discount received */}
+              {/* Row 1b: optional qty × unit × rate + discount received */}
               <div className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-3">
-                  <label className="block text-caption text-gray-400 mb-1">Qty <span className="text-gray-300">(optional)</span></label>
+                <div className="col-span-2">
+                  <label className="block text-caption text-gray-400 mb-1">Qty <span className="text-gray-300">(opt.)</span></label>
                   <input
                     type="number"
                     step="any"
@@ -292,7 +316,31 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-4">
+                <div className="col-span-3">
+                  <label className="block text-caption text-gray-400 mb-1">Unit</label>
+                  <select
+                    value={item.unit}
+                    onChange={(e) => update(idx, { unit: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                  >
+                    <option value="">—</option>
+                    {UOM_GROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {item.unit === "OTHER" && (
+                    <input
+                      type="text"
+                      value={item.unitOther}
+                      onChange={(e) => update(idx, { unitOther: e.target.value })}
+                      placeholder="Specify unit..."
+                      className="mt-2 w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                    />
+                  )}
+                </div>
+                <div className="col-span-3">
                   <label className="block text-caption text-gray-400 mb-1">Rate <span className="text-gray-300">(per unit)</span></label>
                   <input
                     type="number"
@@ -304,7 +352,7 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-5">
+                <div className="col-span-4">
                   <label className="flex items-center gap-1 text-caption text-gray-400 mb-1">
                     Discount received
                     <HelpTip text="The discount you got off the list price — for vendor-savings reporting only. Amount stays what you were actually charged; this is never subtracted from it." />
@@ -322,7 +370,7 @@ function LineItemsEditor({
               </div>
               {qtyRateDerived(item) !== null && (
                 <p className="text-caption text-gray-400">
-                  {parseFloat(item.quantity)} × {formatNumber(parseFloat(item.unitRate))} = {formatCurrency(qtyRateDerived(item)!, currency)}
+                  {parseFloat(item.quantity)}{uomLabel(item.unit, item.unitOther) && ` ${uomLabel(item.unit, item.unitOther)}`} × {formatNumber(parseFloat(item.unitRate))} = {formatCurrency(qtyRateDerived(item)!, currency)}
                 </p>
               )}
 
@@ -676,6 +724,8 @@ export default function ExpensesPage() {
         amount: String(item.amount),
         quantity: item.quantity != null ? String(item.quantity) : "",
         unitRate: item.unitRate != null ? String(item.unitRate) : "",
+        unit: item.unit ?? "",
+        unitOther: item.unitOther ?? "",
         discountAmount: item.discountAmount != null ? String(item.discountAmount) : "",
         isVatable: item.isVatable,
         paymentStatus: item.paymentStatus as PayStatus,
@@ -748,6 +798,8 @@ export default function ExpensesPage() {
           // derives amount = round2(qty × rate) and stores all three.
           quantity: isFinite(q) && q > 0 ? q : undefined,
           unitRate: isFinite(r) && r >= 0 && item.unitRate.trim() !== "" ? r : undefined,
+          unit: item.unit || undefined,
+          unitOther: item.unit === "OTHER" && item.unitOther.trim() ? item.unitOther.trim() : undefined,
           discountAmount: isFinite(d) && d > 0 ? d : undefined,
           isVatable: item.isVatable,
           paymentStatus: item.paymentStatus,
@@ -1902,7 +1954,7 @@ export default function ExpensesPage() {
                                         {formatCurrency(item.amount, currency)}
                                         {item.quantity != null && item.unitRate != null && (
                                           <div className="text-caption text-gray-400">
-                                            {item.quantity} × {formatNumber(item.unitRate)}
+                                            {item.quantity}{uomLabel(item.unit, item.unitOther) && ` ${uomLabel(item.unit, item.unitOther)}`} × {formatNumber(item.unitRate)}
                                           </div>
                                         )}
                                       </td>

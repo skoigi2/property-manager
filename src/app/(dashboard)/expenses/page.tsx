@@ -49,6 +49,32 @@ interface TaxConfigMeta {
   appliesTo: string[];
   isInclusive: boolean;
   isActive?: boolean;
+  propertyId?: string | null;
+  effectiveFrom?: string;
+}
+
+/** Mirrors resolveEffectiveTaxConfigs in tax-engine.ts (server is authoritative —
+ *  it re-snapshots on save; this only keeps the entry-time preview honest for
+ *  backdated expenses): drop rows effective after the expense date, prefer
+ *  property-specific over org default, then newest effectiveFrom, one per label:type. */
+function resolveEffectiveConfigsClient(configs: TaxConfigMeta[], asOf: Date): TaxConfigMeta[] {
+  const cutoff = isNaN(asOf.getTime()) ? Date.now() : asOf.getTime();
+  const sorted = configs
+    .filter((c) => !c.effectiveFrom || new Date(c.effectiveFrom).getTime() <= cutoff)
+    .slice()
+    .sort((a, b) => {
+      const aProp = a.propertyId ? 1 : 0;
+      const bProp = b.propertyId ? 1 : 0;
+      if (aProp !== bProp) return bProp - aProp;
+      return new Date(b.effectiveFrom ?? 0).getTime() - new Date(a.effectiveFrom ?? 0).getTime();
+    });
+  const seen = new Set<string>();
+  return sorted.filter((c) => {
+    const key = `${c.label}:${c.type}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function lineItemCatToAppliesTo(cat: string): string {
@@ -493,6 +519,14 @@ export default function ExpensesPage() {
   const wCategory = watch("category");
   const wAmount = watch("amount");
   const wDate = watch("date");
+
+  // Configs in force on the typed expense date — keeps the entry-time tax
+  // preview honest for backdated entries (the server re-resolves on save;
+  // stored taxAmount snapshots are never recomputed on read).
+  const effectiveTaxConfigs = useMemo(
+    () => (taxConfigs ? resolveEffectiveConfigsClient(taxConfigs, wDate ? new Date(wDate) : new Date()) : null),
+    [taxConfigs, wDate],
+  );
   const allUnits = useMemo(
     () =>
       properties.flatMap((p: any) =>
@@ -1579,7 +1613,7 @@ export default function ExpensesPage() {
                 <LineItemsEditor
                   items={lineItems}
                   onChange={setLineItems}
-                  taxConfigs={taxConfigs}
+                  taxConfigs={effectiveTaxConfigs}
                   currency={currency}
                 />
               </div>

@@ -23,13 +23,61 @@ export type { TaxConfiguration };
 // ─── Config loading ────────────────────────────────────────────────────────────
 
 /**
- * Returns active tax configurations for a property.
- * Merges org-level defaults (propertyId = null) with property-specific overrides.
- * Property-specific configs take precedence over org defaults for the same label.
+ * Pure rate-over-time resolver: from a set of config rows, pick the ones that
+ * apply on `asOf` (the transaction date).
+ *
+ * Rules, per (label, type) pair:
+ *   1. Rows with `effectiveFrom > asOf` are ignored — a future rate change
+ *      must not apply to records dated before it.
+ *   2. Property-specific rows beat org-level defaults (propertyId = null).
+ *   3. Within the same precedence, the NEWEST `effectiveFrom <= asOf` wins —
+ *      i.e. the rate in force on the transaction date.
+ *
+ * This selects the rate at ENTRY time only. The computed tax is stored as an
+ * absolute `taxAmount`/`vatAmount` on the record (see buildTaxSnapshot) and is
+ * never recomputed on read — adding a newer config row leaves every historical
+ * record's stored tax untouched.
+ *
+ * Explicit JS sort on purpose: the old DB `orderBy propertyId desc` relied on
+ * Postgres putting nulls last, but DESC puts nulls FIRST — an org default
+ * could shadow a property override.
+ */
+export function resolveEffectiveTaxConfigs(
+  configs: TaxConfiguration[],
+  asOf: Date
+): TaxConfiguration[] {
+  const cutoff = asOf.getTime();
+  const sorted = configs
+    .filter((c) => new Date(c.effectiveFrom).getTime() <= cutoff)
+    .sort((a, b) => {
+      const aProp = a.propertyId ? 1 : 0;
+      const bProp = b.propertyId ? 1 : 0;
+      if (aProp !== bProp) return bProp - aProp; // property-specific first
+      return new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime(); // newest first
+    });
+
+  const seen = new Set<string>();
+  const deduped: TaxConfiguration[] = [];
+  for (const c of sorted) {
+    const key = `${c.label}:${c.type}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(c);
+    }
+  }
+  return deduped;
+}
+
+/**
+ * Returns the tax configurations in force for a property on `asOf` (defaults
+ * to now — pass the transaction's date when snapshotting a dated record).
+ * Merges org-level defaults (propertyId = null) with property-specific
+ * overrides; see resolveEffectiveTaxConfigs for the precedence rules.
  */
 export async function getActiveTaxConfigs(
   propertyId: string,
-  orgId: string
+  orgId: string,
+  asOf: Date = new Date()
 ): Promise<TaxConfiguration[]> {
   const configs = await prisma.taxConfiguration.findMany({
     where: {
@@ -40,23 +88,8 @@ export async function getActiveTaxConfigs(
         { propertyId },                 // property-specific overrides
       ],
     },
-    orderBy: [
-      { propertyId: "desc" },          // property-specific first (nulls last)
-      { effectiveFrom: "desc" },        // latest effective date first
-    ],
   });
-
-  // Deduplicate: if a property-specific config exists for a label, it wins over the org default
-  const seen = new Set<string>();
-  const deduped: TaxConfiguration[] = [];
-  for (const c of configs) {
-    const key = `${c.label}:${c.type}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      deduped.push(c);
-    }
-  }
-  return deduped;
+  return resolveEffectiveTaxConfigs(configs, asOf);
 }
 
 // ─── Matching ─────────────────────────────────────────────────────────────────

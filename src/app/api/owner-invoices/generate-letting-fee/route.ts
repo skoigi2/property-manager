@@ -97,7 +97,9 @@ export async function POST(req: Request) {
   // Apply tax if an ADDITIVE config covers letting fee income
   const orgId = (await prisma.property.findUnique({ where: { id: propertyId }, select: { organizationId: true } }))?.organizationId;
   if (orgId) {
-    const taxConfigs = await getActiveTaxConfigs(propertyId, orgId);
+    // Rate as of the billed period's end, so regenerating an old period after
+    // a rate change still bills at the rate in force then.
+    const taxConfigs = await getActiveTaxConfigs(propertyId, orgId, new Date(periodYear, periodMonth, 0));
     const taxConfig = matchConfig(taxConfigs, "LETTING_FEE_INCOME");
     if (taxConfig && taxConfig.type === "ADDITIVE") {
       const { taxAmount } = calcTax(subtotal, taxConfig);

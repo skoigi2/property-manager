@@ -153,8 +153,10 @@ export async function POST(req: Request) {
     ? (await prisma.unit.findUnique({ where: { id: resolvedUnitId }, select: { propertyId: true } }))?.propertyId
     : undefined);
   const taxOrgId = session!.user.organizationId;
+  // Rate as of the expense date — a backdated entry gets the rate in force
+  // then, not today's (the snapshot is stored absolute, never recomputed).
   const taxConfigs = taxPropertyId && taxOrgId
-    ? await getActiveTaxConfigs(taxPropertyId, taxOrgId)
+    ? await getActiveTaxConfigs(taxPropertyId, taxOrgId, parsedDate)
     : [];
 
   // Resolve propertyId for petty-cash scoping

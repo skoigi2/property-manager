@@ -105,7 +105,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     : undefined);
   const taxOrgId = session!.user.organizationId;
   const taxConfigs = lineItems && lineItems.length > 0 && taxPropertyId && taxOrgId
-    ? await getActiveTaxConfigs(taxPropertyId, taxOrgId)
+    ? await getActiveTaxConfigs(taxPropertyId, taxOrgId, parsedDate)
     : [];
 
   const before = await prisma.expenseEntry.findUnique({

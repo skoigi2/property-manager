@@ -172,7 +172,7 @@ export async function POST(req: Request) {
       ? await prisma.tenant.findUnique({ where: { id: resolvedTenantId }, select: { isTaxExempt: true } })
       : null;
     if (!tenant?.isTaxExempt) {
-      const configs = await getActiveTaxConfigs(propertyId, orgId);
+      const configs = await getActiveTaxConfigs(propertyId, orgId, new Date(date));
       const matched = matchConfig(configs, rest.type as string);
       taxSnapshot = buildTaxSnapshot(rest.grossAmount, matched);
     }

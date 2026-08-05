@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let taxSnapshot: any = { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
       if (propertyId && orgId && !invoice.tenant.isTaxExempt) {
-        const configs = await getActiveTaxConfigs(propertyId, orgId);
+        const configs = await getActiveTaxConfigs(propertyId, orgId, new Date(m.date));
         taxSnapshot = buildTaxSnapshot(m.amount, matchConfig(configs, "LONGTERM_RENT"));
       }
 

@@ -7,6 +7,7 @@ import {
   buildTaxSummary,
   lineItemCategoryToAppliesTo,
   taxLabel,
+  resolveEffectiveTaxConfigs,
 } from "@/lib/tax-engine";
 
 const cfg = (over: Partial<TaxConfiguration>): TaxConfiguration =>
@@ -102,6 +103,61 @@ describe("buildTaxSummary", () => {
     const s = buildTaxSummary([], []);
     expect(s.hasAnyTax).toBe(false);
     expect(s.netVatLiability).toBe(0);
+  });
+});
+
+describe("resolveEffectiveTaxConfigs (rate over time)", () => {
+  // A VAT rate change: 16% until 2026-06-30, 18% from 2026-07-01.
+  const oldRate = cfg({ id: "vat-16", rate: 0.16, propertyId: null, effectiveFrom: new Date("2020-01-01") } as never);
+  const newRate = cfg({ id: "vat-18", rate: 0.18, propertyId: null, effectiveFrom: new Date("2026-07-01") } as never);
+
+  it("a transaction dated before the rate change gets the old rate", () => {
+    const r = resolveEffectiveTaxConfigs([oldRate, newRate], new Date("2026-06-15"));
+    expect(r).toHaveLength(1);
+    expect(r[0].id).toBe("vat-16");
+    expect(r[0].rate).toBe(0.16);
+  });
+
+  it("a transaction dated on/after the rate change gets the new rate", () => {
+    expect(resolveEffectiveTaxConfigs([oldRate, newRate], new Date("2026-07-01"))[0].id).toBe("vat-18");
+    expect(resolveEffectiveTaxConfigs([oldRate, newRate], new Date("2026-12-31"))[0].rate).toBe(0.18);
+  });
+
+  it("ignores future-dated configs entirely", () => {
+    const futureOnly = resolveEffectiveTaxConfigs([newRate], new Date("2026-01-01"));
+    expect(futureOnly).toHaveLength(0);
+  });
+
+  it("property-specific config beats the org default in force", () => {
+    const propOverride = cfg({ id: "vat-prop", rate: 0.2, propertyId: "prop1", effectiveFrom: new Date("2021-01-01") } as never);
+    const r = resolveEffectiveTaxConfigs([oldRate, propOverride], new Date("2026-06-15"));
+    expect(r[0].id).toBe("vat-prop");
+  });
+
+  it("adding a newer config row leaves a historical record's stored snapshot untouched", () => {
+    // The snapshot is computed once at entry time from the rate then in force,
+    // and stored as an absolute taxAmount — never recomputed on read.
+    const entryDate = new Date("2026-06-15");
+    const snapshotAtEntry = buildTaxSnapshot(
+      10000,
+      matchConfig(resolveEffectiveTaxConfigs([oldRate], entryDate), "LONGTERM_RENT"),
+    );
+    expect(snapshotAtEntry.taxAmount).toBe(1600);
+
+    // Later, the 18% row is added. Re-resolving FOR THE SAME ENTRY DATE still
+    // yields 16% — and the stored snapshot object itself was never derived
+    // from live config on read, so it cannot drift.
+    const reResolved = buildTaxSnapshot(
+      10000,
+      matchConfig(resolveEffectiveTaxConfigs([oldRate, newRate], entryDate), "LONGTERM_RENT"),
+    );
+    expect(reResolved).toEqual(snapshotAtEntry);
+  });
+
+  it("keeps one config per label:type pair (different taxes coexist)", () => {
+    const wht = cfg({ id: "wht", label: "WHT", type: "WITHHELD", rate: 0.05, propertyId: null, effectiveFrom: new Date("2020-01-01") } as never);
+    const r = resolveEffectiveTaxConfigs([oldRate, newRate, wht], new Date("2026-08-01"));
+    expect(r.map((c) => c.id).sort()).toEqual(["vat-18", "wht"]);
   });
 });
 

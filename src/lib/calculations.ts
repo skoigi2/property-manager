@@ -34,6 +34,15 @@ export function calcPettyCashTotal(entries: PettyCashLike[]): number {
     .reduce((acc, e) => acc + (e.type === "IN" ? e.amount : -e.amount), 0);
 }
 
+/** Derive a line item's net `amount` from an optional qty × rate breakdown.
+ *  The Decimal(14,2) column requires the product rounded to 2dp before
+ *  persisting. Quantity may be fractional (2.5 kg). The result IS the net
+ *  `amount` everything downstream reads — qty/rate are just the inputs that
+ *  produced it. Discount (informational) and VAT still operate on this net. */
+export function calcQtyRateAmount(quantity: number, unitRate: number): number {
+  return Math.round(quantity * unitRate * 100) / 100;
+}
+
 export type ExpensePaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
 
 export interface ExpensePayment {

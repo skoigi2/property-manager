@@ -88,6 +88,13 @@ interface LineItemDraft {
   category: LineCat;
   description: string;
   amount: string;
+  // Optional qty × rate mode — when both are filled, amount is derived
+  // (round2(qty × rate)) and shown read-only; when blank, amount is typed.
+  quantity: string;
+  unitRate: string;
+  // Informational only — value of a discount received. Amount is already
+  // net-of-discount; this never enters any total.
+  discountAmount: string;
   isVatable: boolean;
   paymentStatus: PayStatus;
   amountPaid: string;
@@ -95,7 +102,16 @@ interface LineItemDraft {
 }
 
 function blankLine(): LineItemDraft {
-  return { category: "LABOUR", description: "", amount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "" };
+  return { category: "LABOUR", description: "", amount: "", quantity: "", unitRate: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "" };
+}
+
+/** round2(qty × rate) when both fields hold numbers, else null (amount is typed directly). */
+function qtyRateDerived(item: Pick<LineItemDraft, "quantity" | "unitRate">): number | null {
+  if (item.quantity.trim() === "" || item.unitRate.trim() === "") return null;
+  const q = parseFloat(item.quantity);
+  const r = parseFloat(item.unitRate);
+  if (!isFinite(q) || !isFinite(r) || q <= 0 || r < 0) return null;
+  return Math.round(q * r * 100) / 100;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -128,7 +144,17 @@ function LineItemsEditor({
   currency: string;
 }) {
   function update(idx: number, patch: Partial<LineItemDraft>) {
-    const next = items.map((item, i) => (i === idx ? { ...item, ...patch } : item));
+    const next = items.map((item, i) => {
+      if (i !== idx) return item;
+      const merged = { ...item, ...patch };
+      // Qty × rate mode: keep the draft's amount in sync with the derived value
+      // so totals + tax preview (which read amount) work unchanged.
+      if ("quantity" in patch || "unitRate" in patch) {
+        const derived = qtyRateDerived(merged);
+        if (derived !== null) merged.amount = String(derived);
+      }
+      return merged;
+    });
     onChange(next);
   }
   function remove(idx: number) { onChange(items.filter((_, i) => i !== idx)); }
@@ -194,15 +220,20 @@ function LineItemsEditor({
                   />
                 </div>
                 <div className="col-span-3">
-                  <label className="block text-caption text-gray-400 mb-1">Amount</label>
+                  <label className="block text-caption text-gray-400 mb-1">
+                    Amount{qtyRateDerived(item) !== null && <span className="text-gray-300"> (derived)</span>}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={item.amount}
                     onChange={(e) => update(idx, { amount: e.target.value })}
+                    readOnly={qtyRateDerived(item) !== null}
                     placeholder="0"
-                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                    className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption focus:outline-none focus:ring-1 focus:ring-gold ${
+                      qtyRateDerived(item) !== null ? "bg-cream text-gray-500" : "bg-white"
+                    }`}
                   />
                 </div>
                 <div className="col-span-1 flex flex-col items-center gap-1">
@@ -220,6 +251,54 @@ function LineItemsEditor({
                   </button>
                 </div>
               </div>
+
+              {/* Row 1b: optional qty × rate + discount received */}
+              <div className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-3">
+                  <label className="block text-caption text-gray-400 mb-1">Qty <span className="text-gray-300">(optional)</span></label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={item.quantity}
+                    onChange={(e) => update(idx, { quantity: e.target.value })}
+                    placeholder="e.g. 2.5"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                  />
+                </div>
+                <div className="col-span-4">
+                  <label className="block text-caption text-gray-400 mb-1">Rate <span className="text-gray-300">(per unit)</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={item.unitRate}
+                    onChange={(e) => update(idx, { unitRate: e.target.value })}
+                    placeholder="0"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                  />
+                </div>
+                <div className="col-span-5">
+                  <label className="flex items-center gap-1 text-caption text-gray-400 mb-1">
+                    Discount received
+                    <HelpTip text="The discount you got off the list price — for vendor-savings reporting only. Amount stays what you were actually charged; this is never subtracted from it." />
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={item.discountAmount}
+                    onChange={(e) => update(idx, { discountAmount: e.target.value })}
+                    placeholder="0"
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                  />
+                </div>
+              </div>
+              {qtyRateDerived(item) !== null && (
+                <p className="text-caption text-gray-400">
+                  {parseFloat(item.quantity)} × {formatNumber(parseFloat(item.unitRate))} = {formatCurrency(qtyRateDerived(item)!, currency)}
+                </p>
+              )}
 
               {/* Tax badge */}
               {itemTax[idx] && (
@@ -540,6 +619,7 @@ export default function ExpensesPage() {
       amountPaid: e.amountPaid ?? 0,
       dueDate: e.dueDate ? new Date(e.dueDate).toISOString().split("T")[0] : "",
       vatAmount: e.vatAmount ?? undefined,
+      discountAmount: e.discountAmount ?? undefined,
       paymentMethod: e.paymentMethod ?? undefined,
       paymentReference: e.paymentReference ?? "",
       paymentDate: e.paymentDate ? new Date(e.paymentDate).toISOString().split("T")[0] : "",
@@ -560,6 +640,9 @@ export default function ExpensesPage() {
         category: item.category as LineCat,
         description: item.description ?? "",
         amount: String(item.amount),
+        quantity: item.quantity != null ? String(item.quantity) : "",
+        unitRate: item.unitRate != null ? String(item.unitRate) : "",
+        discountAmount: item.discountAmount != null ? String(item.discountAmount) : "",
         isVatable: item.isVatable,
         paymentStatus: item.paymentStatus as PayStatus,
         amountPaid: String(item.amountPaid),
@@ -618,16 +701,26 @@ export default function ExpensesPage() {
         unitId,
         unitIds,
         vendorId: vendorId || null,
-        lineItems: lineItems.map((item) => ({
+        lineItems: lineItems.map((item) => {
+          const q = parseFloat(item.quantity);
+          const r = parseFloat(item.unitRate);
+          const d = parseFloat(item.discountAmount);
+          return {
           id: item.id,
           category: item.category,
           description: item.description || undefined,
           amount: parseFloat(item.amount) || 0,
+          // Only send the qty×rate pair when both are valid — the server then
+          // derives amount = round2(qty × rate) and stores all three.
+          quantity: isFinite(q) && q > 0 ? q : undefined,
+          unitRate: isFinite(r) && r >= 0 && item.unitRate.trim() !== "" ? r : undefined,
+          discountAmount: isFinite(d) && d > 0 ? d : undefined,
           isVatable: item.isVatable,
           paymentStatus: item.paymentStatus,
           amountPaid: parseFloat(item.amountPaid) || 0,
           paymentReference: item.paymentReference || undefined,
-        })),
+          };
+        }),
       };
 
       const url = editEntry ? `/api/expenses/${editEntry.id}` : "/api/expenses";
@@ -1434,6 +1527,15 @@ export default function ExpensesPage() {
                       error={errors.vatAmount?.message}
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Discount Received"
+                      tooltip="The discount you got off the list price — recorded for vendor-savings reporting only. Amount stays what you were actually charged (already net of discount); this is never added to or subtracted from any total."
+                      type="number" step="0.01" min="0"
+                      {...register("discountAmount")}
+                      error={errors.discountAmount?.message}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1764,6 +1866,11 @@ export default function ExpensesPage() {
                                       <td className="py-1.5 pr-4 text-gray-500">{item.description || "—"}</td>
                                       <td className="py-1.5 pr-4 text-right tabular-nums text-gray-700">
                                         {formatCurrency(item.amount, currency)}
+                                        {item.quantity != null && item.unitRate != null && (
+                                          <div className="text-caption text-gray-400">
+                                            {item.quantity} × {formatNumber(item.unitRate)}
+                                          </div>
+                                        )}
                                       </td>
                                       <td className="py-1.5 pr-4 text-center">
                                         {item.isVatable ? (
@@ -1790,6 +1897,13 @@ export default function ExpensesPage() {
                               {e.lineItems.some((i: any) => i.isVatable) && (
                                 <p className="text-caption text-amber-700 mt-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 inline-block">
                                   Taxable total: {formatCurrency(e.lineItems.filter((i: any) => i.isVatable).reduce((s: number, i: any) => s + i.amount, 0), currency)}
+                                </p>
+                              )}
+
+                              {/* Discounts received — informational; never part of the total */}
+                              {e.lineItems.some((i: any) => (i.discountAmount ?? 0) > 0) && (
+                                <p className="text-caption text-income mt-2 ml-2 bg-green-50 border border-green-100 rounded-lg px-3 py-1.5 inline-block">
+                                  Discounts received: {formatCurrency(e.lineItems.reduce((s: number, i: any) => s + (i.discountAmount ?? 0), 0), currency)}
                                 </p>
                               )}
                             </td>

@@ -35,9 +35,12 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
       amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
       amountPaid: { needs: { amountPaid: true }, compute: (r) => Number(r.amountPaid) },
       vatAmount: { needs: { vatAmount: true }, compute: (r) => (r.vatAmount === null ? null : Number(r.vatAmount)) },
+      discountAmount: { needs: { discountAmount: true }, compute: (r) => (r.discountAmount === null ? null : Number(r.discountAmount)) },
     },
     expenseLineItem: {
       amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+      unitRate: { needs: { unitRate: true }, compute: (r) => (r.unitRate === null ? null : Number(r.unitRate)) },
+      discountAmount: { needs: { discountAmount: true }, compute: (r) => (r.discountAmount === null ? null : Number(r.discountAmount)) },
       taxAmount: { needs: { taxAmount: true }, compute: (r) => (r.taxAmount === null ? null : Number(r.taxAmount)) },
       amountPaid: { needs: { amountPaid: true }, compute: (r) => Number(r.amountPaid) },
     },

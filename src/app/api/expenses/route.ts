@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot, lineItemCategoryToAppliesTo } from "@/lib/tax-engine";
+import { calcQtyRateAmount } from "@/lib/calculations";
 
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true, property: { select: { name: true } } } },
@@ -117,10 +118,18 @@ export async function POST(req: Request) {
   const { date, paidFromPettyCash, unitIds, lineItems, ...rest } = parsed.data;
   const parsedDate = new Date(date);
 
+  // Derive each line's net amount: qty × rate (rounded to 2dp) when both are
+  // present, else the typed amount. The derived value IS the stored `amount`.
+  const lineItemAmounts = (lineItems ?? []).map((item) =>
+    item.quantity != null && item.unitRate != null
+      ? calcQtyRateAmount(item.quantity, item.unitRate)
+      : item.amount
+  );
+
   // Compute amount from line items when provided
   const computedAmount =
     lineItems && lineItems.length > 0
-      ? lineItems.reduce((sum, item) => sum + item.amount, 0)
+      ? lineItemAmounts.reduce((sum, a) => sum + a, 0)
       : rest.amount;
 
   // Determine unit / property resolution for multi-unit
@@ -168,15 +177,21 @@ export async function POST(req: Request) {
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
   // Nested writes (unitAllocations / lineItems via `create`) let us atomically
   // create the children without needing the parent id in the callback.
-  const lineItemRows = lineItems?.map(({ id: _id, ...item }) => {
+  const lineItemRows = lineItems?.map(({ id: _id, ...item }, i) => {
+    const amount = lineItemAmounts[i]; // qty×rate-derived when both present
     const isVatable = item.isVatable ?? false;
+    // VAT is computed on the net (already-discounted) `amount` — discountAmount
+    // is informational only and never enters the tax base or any total.
     const taxSnapshot = isVatable
-      ? buildTaxSnapshot(item.amount, matchConfig(taxConfigs, lineItemCategoryToAppliesTo(item.category)))
+      ? buildTaxSnapshot(amount, matchConfig(taxConfigs, lineItemCategoryToAppliesTo(item.category)))
       : { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
     return {
       category: item.category,
       description: item.description,
-      amount: item.amount,
+      amount,
+      quantity: item.quantity ?? null,
+      unitRate: item.unitRate ?? null,
+      discountAmount: item.discountAmount ?? null,
       isVatable,
       paymentStatus: item.paymentStatus ?? "UNPAID",
       amountPaid: item.amountPaid ?? 0,
@@ -200,6 +215,9 @@ export async function POST(req: Request) {
         amountPaid: lineItemRows.length > 0 ? 0 : rest.amountPaid ?? 0,
         dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
         vatAmount: lineItemRows.length > 0 ? null : rest.vatAmount ?? null,
+        // Informational only — never subtracted from `amount`, never in totals.
+        // With line items, discounts live on the items instead.
+        discountAmount: lineItemRows.length > 0 ? null : rest.discountAmount ?? null,
         paymentMethod: rest.paymentMethod ?? null,
         paymentReference: rest.paymentReference || null,
         paymentDate: rest.paymentDate ? new Date(rest.paymentDate) : null,

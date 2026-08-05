@@ -22,6 +22,14 @@ export const expenseLineItemSchema = z.object({
   category: z.enum(["LABOUR", "MATERIAL", "QUOTE"]),
   description: z.string().optional(),
   amount: z.coerce.number().min(0),
+  // Optional qty × rate breakdown — when BOTH are present the server derives
+  // amount = round2(quantity * unitRate) and stores it; otherwise amount is
+  // entered directly. quantity may be fractional (e.g. 2.5 kg).
+  quantity: z.coerce.number().positive().optional(),
+  unitRate: z.coerce.number().min(0).optional(),
+  // Informational only — value of a discount received. `amount` is already
+  // net-of-discount; this never enters any total.
+  discountAmount: z.coerce.number().min(0).optional(),
   isVatable: z.boolean().default(false),
   paymentStatus: z.enum(["UNPAID", "PARTIAL", "PAID"]).default("UNPAID"),
   amountPaid: z.coerce.number().min(0).default(0),
@@ -42,6 +50,8 @@ export const expenseEntrySchema = z.object({
   amountPaid: z.coerce.number().min(0).optional(),
   dueDate: z.string().optional(),
   vatAmount: z.coerce.number().min(0).optional(),
+  // Informational only — value of a discount received (see line-item field).
+  discountAmount: z.coerce.number().min(0).optional(),
   paymentMethod: z.preprocess(
     (v) => (v === "" || v == null ? undefined : v),
     z.enum(["BANK_TRANSFER", "MPESA", "CASH", "CARD", "CHEQUE", "OTHER"]).optional(),

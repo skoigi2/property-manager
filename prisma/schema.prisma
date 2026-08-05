@@ -850,6 +850,11 @@ model ExpenseEntry {
   paymentMethod     PaymentMethod?
   paymentReference  String?
   paymentDate       DateTime?
+  // INFORMATIONAL ONLY — the value of a discount received from the vendor.
+  // `amount` is ALREADY net-of-discount (what was actually charged, pre-VAT);
+  // this is never subtracted from `amount` and never enters any total.
+  // List price for reporting = amount + discountAmount (reconstructed, not stored).
+  discountAmount    Decimal?        @db.Decimal(14, 2)
   notes             String?
   vendorId          String?
   // Owning organisation — the ONLY scoping handle for PORTFOLIO rows (no
@@ -886,6 +891,18 @@ model ExpenseLineItem {
   category         LineItemCategory
   description      String?
   amount           Decimal @db.Decimal(14, 2)
+  // Optional qty × rate breakdown. When BOTH are present, `amount` is derived
+  // as round2(quantity * unitRate) at save time; otherwise `amount` is entered
+  // directly. Either way `amount` stays the net figure everything downstream
+  // reads — these are just the inputs that produced it, persisted so the row
+  // round-trips and stays editable. quantity is Float (fractional allowed,
+  // e.g. 2.5 kg) like sizeSqm; unitRate is money.
+  quantity         Float?
+  unitRate         Decimal?             @db.Decimal(14, 2)
+  // INFORMATIONAL ONLY — see ExpenseEntry.discountAmount. Never subtracted
+  // from `amount`, never enters totals; VAT was computed on the discounted
+  // base (`amount`), so taxAmount needs no adjustment.
+  discountAmount   Decimal?             @db.Decimal(14, 2)
   isVatable        Boolean              @default(false)
   taxConfigId      String?
   taxRate          Float?

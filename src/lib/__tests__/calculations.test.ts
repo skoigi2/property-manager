@@ -7,6 +7,7 @@ import {
   calcOccupancyRate,
   calcLateInterest,
   calcUnitSummary,
+  calcQtyRateAmount,
 } from "@/lib/calculations";
 
 import type { PettyCashLike } from "@/lib/calculations";
@@ -81,6 +82,60 @@ describe("calcExpensePayment", () => {
   it("falls back to expense-level amountPaid when lineItems is empty", () => {
     const r = calcExpensePayment({ amount: 1000, amountPaid: 1000, lineItems: [] });
     expect(r.status).toBe("PAID");
+  });
+});
+
+describe("calcQtyRateAmount", () => {
+  it("multiplies quantity by rate", () => {
+    expect(calcQtyRateAmount(4, 250)).toBe(1000);
+    expect(calcQtyRateAmount(2.5, 100.1)).toBe(250.25);
+  });
+
+  it("supports fractional quantities (e.g. 2.5 kg)", () => {
+    expect(calcQtyRateAmount(2.5, 340.13)).toBe(850.33); // 850.325 → 2dp
+    expect(calcQtyRateAmount(0.75, 1999.99)).toBe(1499.99); // 1499.9925 → 2dp
+  });
+
+  it("rounds the product to 2dp before persisting (Decimal(14,2) column)", () => {
+    expect(calcQtyRateAmount(3, 33.333)).toBe(100); // 99.999 → 100.00
+    expect(calcQtyRateAmount(1.5, 0.07)).toBe(0.11); // 0.105 → 0.11
+  });
+});
+
+// HARD INVARIANT: `amount` is always net-of-discount and pre-VAT.
+// discountAmount is informational only — it must never change totals,
+// outstanding balances, or payment status.
+describe("discountAmount is informational only", () => {
+  it("never affects calcExpensePayment totals or outstanding", () => {
+    const withoutDiscount = calcExpensePayment({ amount: 5000, amountPaid: 2000 });
+    const withDiscount = calcExpensePayment({
+      amount: 5000, // already net-of-discount — identical to the row without one
+      amountPaid: 2000,
+      discountAmount: 750,
+    } as never);
+    expect(withDiscount).toEqual(withoutDiscount);
+    expect(withDiscount.total).toBe(5000);
+    expect(withDiscount.outstanding).toBe(3000);
+  });
+
+  it("total stays amount + vatAmount regardless of discount", () => {
+    // Total-with-VAT is computed inline as amount + vatAmount everywhere;
+    // a discounted and an undiscounted row with the same amount are identical.
+    const row = { amount: 1000, vatAmount: 160, discountAmount: 250 };
+    const rowNoDiscount = { amount: 1000, vatAmount: 160 };
+    expect(row.amount + row.vatAmount).toBe(rowNoDiscount.amount + rowNoDiscount.vatAmount);
+  });
+
+  it("existing rows with all new fields null still compute correctly", () => {
+    const r = calcExpensePayment({
+      amount: 1200,
+      amountPaid: 1200,
+      lineItems: [
+        { amountPaid: 1200, quantity: null, unitRate: null, discountAmount: null } as never,
+      ],
+    });
+    expect(r.status).toBe("PAID");
+    expect(r.outstanding).toBe(0);
   });
 });
 

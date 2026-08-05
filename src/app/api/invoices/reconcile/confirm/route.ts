@@ -8,7 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { tryAutoAdvance } from "@/lib/case-workflows";
-import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot } from "@/lib/tax-engine";
+import { snapshotRentTax } from "@/lib/tax-engine";
 
 /**
  * POST /api/invoices/reconcile/confirm — apply confirmed statement matches.
@@ -71,15 +71,14 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Tax snapshot — parity with POST /api/income.
-      const propertyId = invoice.tenant.unit.propertyId;
-      const orgId = invoice.tenant.unit.property.organizationId ?? session!.user.organizationId ?? null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let taxSnapshot: any = { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
-      if (propertyId && orgId && !invoice.tenant.isTaxExempt) {
-        const configs = await getActiveTaxConfigs(propertyId, orgId, new Date(m.date));
-        taxSnapshot = buildTaxSnapshot(m.amount, matchConfig(configs, "LONGTERM_RENT"));
-      }
+      // Tax snapshot — parity with POST /api/income (shared helper).
+      const taxSnapshot = await snapshotRentTax({
+        propertyId: invoice.tenant.unit.propertyId,
+        orgId: invoice.tenant.unit.property.organizationId ?? session!.user.organizationId,
+        isTaxExempt: invoice.tenant.isTaxExempt,
+        amount: m.amount,
+        date: new Date(m.date),
+      });
 
       const prevPaid = invoice.paidAmount ?? 0;
       const newPaidTotal = prevPaid + m.amount;

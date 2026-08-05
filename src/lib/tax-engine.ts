@@ -180,6 +180,28 @@ export function buildTaxSnapshot(
   };
 }
 
+/**
+ * Tax snapshot for a rent receipt (LONGTERM_RENT income entry) — shared by
+ * every path that auto-creates an IncomeEntry from an invoice (single
+ * mark-paid, bulk mark-paid, proof verification, bank reconciliation) so they
+ * all record output VAT identically to a manually entered receipt.
+ * Returns all-null fields when there's no org context, the tenant is tax
+ * exempt, or no config covers LONGTERM_RENT — identical to no tax.
+ */
+export async function snapshotRentTax(opts: {
+  propertyId: string | null | undefined;
+  orgId: string | null | undefined;
+  isTaxExempt?: boolean | null;
+  amount: number;
+  date: Date;
+}): Promise<TaxSnapshot> {
+  if (!opts.propertyId || !opts.orgId || opts.isTaxExempt) {
+    return { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
+  }
+  const configs = await getActiveTaxConfigs(opts.propertyId, opts.orgId, opts.date);
+  return buildTaxSnapshot(opts.amount, matchConfig(configs, "LONGTERM_RENT"));
+}
+
 // ─── Report aggregation ──────────────────────────────────────────────────────
 
 export interface TaxSummary {

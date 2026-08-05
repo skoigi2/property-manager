@@ -1203,6 +1203,17 @@
     </div>
 
     <div class="sub-section">
+      <h3>Tax on invoices &amp; rent receipts</h3>
+      <p style="margin-bottom:12px">Tenant rent invoices are issued <strong>without a VAT line</strong> — residential rent is exempt in most jurisdictions, so the invoice total is simply rent + service charge + other charges (+ any late fee). Where tax does come in:</p>
+      <ul class="feature-list">
+        <li><strong>Rent receipts</strong> — if a tax rule in <strong>Settings → Tax</strong> applies to rent, the tax is captured on the <em>income entry</em> when the payment is recorded, using the rate in force on the payment date. This happens consistently however the payment lands — manual income entry, marking an invoice paid (singly or in bulk), verifying a tenant's proof of payment, or bank-statement reconciliation.</li>
+        <li><strong>Tax-exempt tenants</strong> — flag a tenant as tax exempt on their profile and no tax is ever snapshotted on their receipts.</li>
+        <li><strong>Owner invoices</strong> — management-fee and letting-fee invoices to the landlord automatically add a VAT line when a rule covers management/letting-fee income, since those are your taxable services. The rate used is the one in force for the billed period.</li>
+        <li>Recorded tax is stored on each record at entry time — later rate changes never alter historical invoices or receipts.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
       <h3>Late fees</h3>
       <p>If a property's management agreement sets a late-payment interest rate, you can apply a late fee to any overdue invoice from the row's status menu (<em>Apply late fee…</em>). The fee is computed from the outstanding amount, the agreement rate, and days overdue; it folds into the invoice total and prints as a "Late Payment Fee" line on the PDF. Remove it the same way if you waive it.</p>
     </div>
@@ -1303,6 +1314,23 @@
     </div>
 
     <div class="sub-section">
+      <h3>Line items — itemised bills, Qty × Rate, and discounts</h3>
+      <p style="margin-bottom:12px">A quick expense is just a date, category, and amount. But for an itemised bill (say a contractor invoice with labour and materials), click <strong>Add line</strong> to break the expense into line items. Each line carries its own type (<em>Labour / Material / Quote</em>), amount, tax flag, and payment status — and the expense total is computed from the lines automatically.</p>
+      <ul class="feature-list">
+        <li><strong>Qty × Rate (optional)</strong> — fill in a quantity and a per-unit rate (fractional quantities like <code>2.5</code> kg are fine) and the line's amount is calculated for you and shown read-only. Leave them blank to type the amount directly, exactly as before. The breakdown is saved with the line, so it's still there when you edit later.</li>
+        <li><strong>Discount received</strong> — if a vendor gave you money off, record the discount value here (on a line, or in the payment block for a single-amount expense). This is <em>for your vendor-savings reporting only</em>: the <strong>Amount</strong> field is always what you were actually charged <em>after</em> the discount, and the discount is never added to or subtracted from any total, balance, or report figure. Think of it as "we would have paid X more at list price".</li>
+        <li><strong>Per-line payments</strong> — mark individual lines Unpaid / Partial / Paid with their own references; the expense's overall balance is derived from the lines.</li>
+      </ul>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Amount is always the net figure</strong>
+          Whether typed directly or derived from Qty × Rate, an expense amount is always <em>net</em>: after any discount, and excluding VAT. VAT is recorded separately (see the tax section below), and the discount is informational — so your P&amp;L always reflects exactly what the property actually spent.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
       <h3>Receipts &amp; documents on every expense</h3>
       <p style="margin-bottom:12px">Attach the paper trail directly to each expense — receipts, invoices, quotes, contracts, photos:</p>
       <ul class="feature-list">
@@ -1318,7 +1346,7 @@
 
     <div class="sub-section">
       <h3>Payment Status &amp; Outstanding Balance</h3>
-      <p style="margin-bottom:14px">Expenses aren't just "logged" — you can track exactly how much has been paid and what's still owed. The add/edit form has a payment block capturing <strong>Amount Paid</strong>, <strong>Due Date</strong>, <strong>VAT Amount</strong> (kept separate — the <code>Amount</code> field is always net of VAT), <strong>Payment Method</strong>, <strong>Payment Reference</strong>, <strong>Payment Date</strong>, and notes.</p>
+      <p style="margin-bottom:14px">Expenses aren't just "logged" — you can track exactly how much has been paid and what's still owed. The add/edit form has a payment block capturing <strong>Amount Paid</strong>, <strong>Due Date</strong>, <strong>VAT Amount</strong> (kept separate — the <code>Amount</code> field is always net of VAT), <strong>Discount Received</strong> (informational — see the line-items section above), <strong>Payment Method</strong>, <strong>Payment Reference</strong>, <strong>Payment Date</strong>, and notes.</p>
       <p style="margin-bottom:14px">From these, the system derives a status for each expense — never stored, always recomputed:</p>
       <p class="tab-pills">
         <span class="tab-pill"><span class="badge badge-green">PAID</span></span>
@@ -1355,11 +1383,27 @@
       </ul>
     </div>
 
-    <div class="callout warn">
-      <span class="callout-icon">⚠️</span>
-      <div class="callout-body">
-        <strong>Tax on expenses</strong>
-        Line items within an expense can have tax applied. Tax type <em>ADDITIVE VAT</em> adds tax on top of the net amount. <em>WITHHELD</em> deducts tax from the gross (e.g. withholding tax on contractor payments). Both types are reported separately in the Tax Summary report.
+    <div class="sub-section">
+      <h3>Tax &amp; VAT — always enter amounts excluding VAT</h3>
+      <p style="margin-bottom:12px">The single most important rule: <strong>the Amount you type is always the net figure, excluding VAT</strong>. VAT lives in its own field, never inside the amount. This keeps your P&amp;L honest (VAT you can reclaim isn't a cost) and makes the Tax Summary report accurate.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Set your tax rules once</h4><p>In <strong>Settings → Tax</strong>, configure the taxes that apply to your organisation — e.g. VAT at your local rate, or withholding tax on contractor payments. Each rule has a type (<em>ADDITIVE</em> like VAT/GST, or <em>WITHHELD</em> like WHT/TDS), a rate, what it applies to (contractor labour, materials, vendor invoices, rent, management fees…), and an <em>effective from</em> date. Rules can also be overridden per property.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Enter the net amount</h4><p>From a supplier invoice, take the <em>pre-VAT</em> subtotal. For a single-amount expense, type it as the Amount and put the VAT figure in <strong>VAT Amount</strong>. For an itemised expense, enter net amounts per line and tick the <strong>Tax</strong> box on lines that carry VAT — the configured rate is applied automatically and the computed VAT shows as a badge before you save.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Saved once, fixed forever</h4><p>The VAT is computed using the rate in force <em>on the expense date</em> and stored on the record as an absolute figure. Reports read that stored figure — they never recalculate from today's rate — so historical records are never rewritten.</p></div></div>
+      </div>
+      <ul class="feature-list">
+        <li><strong>ADDITIVE (VAT / GST)</strong> — charged on top of the net amount by your supplier. Recorded VAT on expenses is your reclaimable <em>input VAT</em> in the Tax Summary.</li>
+        <li><strong>WITHHELD (WHT / TDS)</strong> — deducted from what you pay a contractor and remitted to the tax authority yourself. Reported separately from VAT.</li>
+        <li><strong>Rate changes are painless</strong> — when the government changes a rate, add a new rule in Settings → Tax with the new rate and its <em>effective from</em> date. Everything dated before that stays at the old rate; everything from that date on uses the new one — including backdated entries, which get the rate that applied on their date.</li>
+        <li><strong>Discounts don't change the VAT</strong> — VAT on a supplier invoice is charged on the discounted (net) amount, which is exactly what you enter as the Amount. So a recorded discount never requires a VAT adjustment.</li>
+        <li>The <strong>Tax Summary</strong> tab in Reports nets your output VAT (on income) against input VAT (on expenses) for the period.</li>
+      </ul>
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <strong>Don't fold VAT into the amount</strong>
+          If a bill says 10,000 + 1,600 VAT = 11,600, enter Amount <code>10,000</code> and VAT <code>1,600</code> — not 11,600. Entering the gross as the amount overstates your costs and loses the reclaimable VAT from the Tax Summary.
+        </div>
       </div>
     </div>
   </div>

@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
+import { snapshotRentTax } from "@/lib/tax-engine";
 
 const MAX_BATCH = 100;
 
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
     select: {
       id: true, invoiceNumber: true, status: true, totalAmount: true, paidAmount: true,
       caseThreadId: true, tenantId: true,
-      tenant: { select: { id: true, name: true, unit: { select: { id: true, propertyId: true } } } },
+      tenant: { select: { id: true, name: true, isTaxExempt: true, unit: { select: { id: true, propertyId: true, property: { select: { organizationId: true } } } } } },
     },
   });
 
@@ -72,6 +73,14 @@ export async function POST(req: Request) {
         }),
       ];
       if (!existingIncome) {
+        // Tax snapshot — parity with the single PATCH / POST /api/income.
+        const taxSnapshot = await snapshotRentTax({
+          propertyId: inv.tenant.unit.propertyId,
+          orgId: inv.tenant.unit.property.organizationId ?? session!.user.organizationId,
+          isTaxExempt: inv.tenant.isTaxExempt,
+          amount: inv.paidAmount ?? inv.totalAmount,
+          date: paidAt,
+        });
         ops.push(prisma.incomeEntry.create({
           data: {
             date: paidAt,
@@ -82,6 +91,7 @@ export async function POST(req: Request) {
             grossAmount: inv.paidAmount ?? inv.totalAmount,
             agentCommission: 0,
             note: `Auto-created from invoice ${inv.invoiceNumber}`,
+            ...taxSnapshot,
           },
         }));
       }

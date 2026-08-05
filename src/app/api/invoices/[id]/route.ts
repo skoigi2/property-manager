@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
+import { snapshotRentTax } from "@/lib/tax-engine";
 
 const updateSchema = z.object({
   status: z.enum(["DRAFT","SENT","PENDING_VERIFICATION","PAID","OVERDUE","CANCELLED"]).optional(),
@@ -26,11 +27,11 @@ async function getInvoiceWithAccess(id: string) {
     include: {
       tenant: {
         select: {
-          id: true, name: true, email: true, phone: true,
+          id: true, name: true, email: true, phone: true, isTaxExempt: true,
           unit: {
             select: {
               id: true, unitNumber: true, type: true,
-              property: { select: { id: true, name: true, address: true, city: true } },
+              property: { select: { id: true, name: true, address: true, city: true, organizationId: true } },
             },
           },
         },
@@ -115,6 +116,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const ops: any[] = [invoiceUpdate];
   if (willEnsureIncome && !existingIncome) {
     const payDate = resolvedPaidAt ?? invoice!.paidAt ?? new Date();
+    const gross = parsed.data.paidAmount ?? invoice!.paidAmount ?? newTotal;
+    // Tax snapshot — parity with POST /api/income (rate as of the receipt date;
+    // stored absolute, never recomputed on read).
+    const taxSnapshot = await snapshotRentTax({
+      propertyId: invoice!.tenant.unit.property.id,
+      orgId: invoice!.tenant.unit.property.organizationId ?? session!.user.organizationId,
+      isTaxExempt: invoice!.tenant.isTaxExempt,
+      amount: gross,
+      date: payDate,
+    });
     ops.push(prisma.incomeEntry.create({
       data: {
         date: payDate,
@@ -123,9 +134,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         tenantId: invoice!.tenant.id,
         invoiceId: params.id,
         type: "LONGTERM_RENT",
-        grossAmount: parsed.data.paidAmount ?? invoice!.paidAmount ?? newTotal,
+        grossAmount: gross,
         agentCommission: 0,
         note: `Auto-created from invoice ${invoice!.invoiceNumber}`,
+        ...taxSnapshot,
       },
     }));
   }

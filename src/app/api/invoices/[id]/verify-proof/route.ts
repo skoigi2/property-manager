@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { uploadToStorage, deleteFromStorage } from "@/lib/supabase-storage";
+import { snapshotRentTax } from "@/lib/tax-engine";
 import crypto from "crypto";
 
 const schema = z.object({
@@ -115,6 +116,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     where: { invoiceId: invoice.id },
   });
   if (!existing) {
+    // Tax snapshot — parity with the single PATCH / POST /api/income.
+    const taxSnapshot = await snapshotRentTax({
+      propertyId: invoice.tenant.unit.property.id,
+      orgId: invoice.tenant.unit.property.organizationId ?? session!.user.organizationId,
+      isTaxExempt: invoice.tenant.isTaxExempt,
+      amount: finalPaidAmount,
+      date: finalPaidAt,
+    });
     await prisma.incomeEntry.create({
       data: {
         date: finalPaidAt,
@@ -126,6 +135,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         agentCommission: 0,
         paymentMethod: paymentMethod ?? null,
         note: `Auto-created from invoice ${invoice.invoiceNumber} (proof verified)`,
+        ...taxSnapshot,
       },
     });
   } else if (paymentMethod && !existing.paymentMethod) {

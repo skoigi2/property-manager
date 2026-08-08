@@ -13,7 +13,8 @@ interface StatementPreview {
   currency?: string;
   summary?: {
     closingBalance: number;
-    position: "ARREARS" | "CREDIT" | "SETTLED";
+    totalPaid: number;
+    position: "ARREARS" | "CREDIT" | "SETTLED" | "NOT_STATED";
     awaitingConfirmation: { count: number; total: number };
   };
   coverage?: {
@@ -230,6 +231,11 @@ export function StatementModal({ tenantId, tenantName, tenantEmail, onClose }: P
                     ) : preview.summary.position === "CREDIT" ? (
                       <span className="text-income font-medium">
                         In credit: {formatCurrency(Math.abs(preview.summary.closingBalance), currency)}
+                      </span>
+                    ) : preview.summary.position === "NOT_STATED" ? (
+                      <span className="text-gray-600 font-medium">
+                        Payments-only — {formatCurrency(preview.summary.totalPaid, currency)} recorded;
+                        no invoices issued, balance not stated
                       </span>
                     ) : (
                       <span className="text-income font-medium">Settled — nothing owing</span>

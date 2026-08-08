@@ -49,7 +49,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ? `Balance owing: <strong>${esc(fmt(Math.abs(statement.summary.closingBalance)))}</strong>`
       : statement.summary.position === "CREDIT"
         ? `Balance in your favour: <strong>${esc(fmt(Math.abs(statement.summary.closingBalance)))}</strong>`
-        : "Your account is settled.";
+        : statement.summary.position === "NOT_STATED"
+          ? `Payments recorded this period: <strong>${esc(fmt(statement.summary.totalPaid))}</strong>. No invoices are issued for this tenancy, so this statement records payments only and does not state a balance.`
+          : "Your account is settled.";
 
   const subject = `Statement of account — ${statement.propertyName}, Unit ${statement.unitNumber} (${statement.period.label})`;
   const html = `
@@ -81,7 +83,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       tenantId: params.id,
       type: "EMAIL",
       subject,
-      body: `Statement of account emailed (${statement.period.label}). Closing balance: ${fmt(statement.summary.closingBalance)}.`,
+      body:
+        statement.summary.position === "NOT_STATED"
+          ? `Statement of account emailed (${statement.period.label}). Payments-only record: ${fmt(statement.summary.totalPaid)} received; no balance stated.`
+          : `Statement of account emailed (${statement.period.label}). Closing balance: ${fmt(statement.summary.closingBalance)}.`,
       templateUsed: "TENANT_STATEMENT",
       loggedByEmail: session!.user.email ?? "unknown",
       loggedByName: session!.user.name ?? null,

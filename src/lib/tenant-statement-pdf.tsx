@@ -49,6 +49,7 @@ const fmtDay = (iso: string) =>
 function StatementDoc({ s, branding }: { s: TenantStatement; branding: StatementBranding }) {
   const fmt = (n: number) => formatCurrency(n, s.currency);
   const inArrears = s.summary.position === "ARREARS";
+  const paymentsOnly = s.summary.position === "NOT_STATED";
   const hasPending = s.summary.awaitingConfirmation.count > 0;
   const paymentDetails = [
     branding.bankName ? `Bank: ${branding.bankName}` : null,
@@ -122,44 +123,64 @@ function StatementDoc({ s, branding }: { s: TenantStatement; branding: Statement
         ) : null}
 
         <View style={styles.summary}>
-          <View style={styles.sumRow}>
-            <Text style={styles.sumLabel}>Balance brought forward</Text>
-            <Text style={styles.sumValue}>{fmt(s.openingBalance)}</Text>
-          </View>
-          <View style={styles.sumRow}>
-            <Text style={styles.sumLabel}>Invoiced this period</Text>
-            <Text style={styles.sumValue}>{fmt(s.summary.totalInvoiced)}</Text>
-          </View>
-          {s.breakdown.lateFees > 0 ? (
-            <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>— of which late payment fees</Text>
-              <Text style={styles.sumValue}>{fmt(s.breakdown.lateFees)}</Text>
-            </View>
-          ) : null}
-          <View style={styles.sumRow}>
-            <Text style={styles.sumLabel}>Payments received this period</Text>
-            <Text style={styles.sumValue}>− {fmt(s.summary.totalPaid)}</Text>
-          </View>
-          {hasPending ? (
-            <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>
-                {s.summary.awaitingConfirmation.count} payment{s.summary.awaitingConfirmation.count === 1 ? "" : "s"} awaiting confirmation *
+          {paymentsOnly ? (
+            <>
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Payments recorded this period</Text>
+                <Text style={styles.sumValue}>{fmt(s.summary.totalPaid)}</Text>
+              </View>
+              <View style={[styles.netRow, { backgroundColor: "#f9fafb" }]}>
+                <Text style={styles.netLabel}>Payments-only statement</Text>
+                <Text style={[styles.netLabel, { color: "#374151" }]}>{fmt(s.summary.totalPaid)}</Text>
+              </View>
+              <Text style={[styles.legend, { color: "#6b7280" }]} hyphenationCallback={noHyphenation}>
+                No invoices are issued for this tenancy, so this statement records payments only —
+                it does not state a balance owing or in credit. Contact your property manager for
+                your current standing.
               </Text>
-              <Text style={styles.sumValue}>({fmt(s.summary.awaitingConfirmation.total)})</Text>
-            </View>
-          ) : null}
-          <View style={[styles.netRow, { backgroundColor: inArrears ? "#fef2f2" : "#f0fdf4" }]}>
-            <Text style={styles.netLabel}>
-              {s.summary.position === "ARREARS"
-                ? "Balance owing (in arrears)"
-                : s.summary.position === "CREDIT"
-                  ? "Balance in your favour (in credit)"
-                  : "Closing balance (settled)"}
-            </Text>
-            <Text style={[styles.netLabel, { color: inArrears ? "#b91c1c" : "#15803d" }]}>
-              {fmt(Math.abs(s.summary.closingBalance))}
-            </Text>
-          </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Balance brought forward</Text>
+                <Text style={styles.sumValue}>{fmt(s.openingBalance)}</Text>
+              </View>
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Invoiced this period</Text>
+                <Text style={styles.sumValue}>{fmt(s.summary.totalInvoiced)}</Text>
+              </View>
+              {s.breakdown.lateFees > 0 ? (
+                <View style={styles.sumRow}>
+                  <Text style={styles.sumLabel}>— of which late payment fees</Text>
+                  <Text style={styles.sumValue}>{fmt(s.breakdown.lateFees)}</Text>
+                </View>
+              ) : null}
+              <View style={styles.sumRow}>
+                <Text style={styles.sumLabel}>Payments received this period</Text>
+                <Text style={styles.sumValue}>− {fmt(s.summary.totalPaid)}</Text>
+              </View>
+              {hasPending ? (
+                <View style={styles.sumRow}>
+                  <Text style={styles.sumLabel}>
+                    {s.summary.awaitingConfirmation.count} payment{s.summary.awaitingConfirmation.count === 1 ? "" : "s"} awaiting confirmation *
+                  </Text>
+                  <Text style={styles.sumValue}>({fmt(s.summary.awaitingConfirmation.total)})</Text>
+                </View>
+              ) : null}
+              <View style={[styles.netRow, { backgroundColor: inArrears ? "#fef2f2" : "#f0fdf4" }]}>
+                <Text style={styles.netLabel}>
+                  {s.summary.position === "ARREARS"
+                    ? "Balance owing (in arrears)"
+                    : s.summary.position === "CREDIT"
+                      ? "Balance in your favour (in credit)"
+                      : "Closing balance (settled)"}
+                </Text>
+                <Text style={[styles.netLabel, { color: inArrears ? "#b91c1c" : "#15803d" }]}>
+                  {fmt(Math.abs(s.summary.closingBalance))}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         <Text style={styles.sectionLabel}>Deposit</Text>

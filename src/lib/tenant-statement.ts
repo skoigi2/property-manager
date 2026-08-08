@@ -199,8 +199,18 @@ export interface TenantStatement {
   summary: {
     totalInvoiced: number;
     totalPaid: number;
+    /**
+     * Raw arithmetic (opening + invoiced − paid). When position is
+     * NOT_STATED this number is meaningless (no charges were ever invoiced)
+     * and MUST NOT be presented as a balance.
+     */
     closingBalance: number;
-    position: "ARREARS" | "CREDIT" | "SETTLED";
+    /**
+     * NOT_STATED = the tenancy has no invoices anywhere in its history but
+     * payments exist: a payments-only record. Rendering it as CREDIT would
+     * tell the tenant the landlord owes them the sum of all rent ever paid.
+     */
+    position: "ARREARS" | "CREDIT" | "SETTLED" | "NOT_STATED";
     awaitingConfirmation: { count: number; total: number };
   };
   coverage: {
@@ -316,19 +326,23 @@ export function computeTenantStatement(
     }
   }
 
-  // Opening balance: the tenant's ENTIRE history before the window. For
-  // "tenancy" mode it is zero by definition — assert, don't compute.
+  // Opening balance: the tenant's ENTIRE history before the window — always
+  // computed, never assumed. In "tenancy" mode a non-zero opening is a real
+  // and legitimate state: tenants often pay before the lease starts to secure
+  // the property, which enters the tenancy as a brought-forward credit. That
+  // money must stay visible, not be zeroed away.
+  const preWindowPayments = tenancyPayments
+    .filter((p) => before(p.date))
+    .reduce((s, p) => s + p.grossAmount, 0);
   const computedOpening =
-    charges.filter((c) => before(c.date)).reduce((s, c) => s + c.amount, 0) -
-    tenancyPayments.filter((p) => before(p.date)).reduce((s, p) => s + p.grossAmount, 0);
-  let openingBalance = round2(computedOpening);
-  if (period.mode === "tenancy") {
-    if (Math.abs(computedOpening) > 0.005) {
-      warnings.push(
-        `Records dated before the lease start were found (net ${round2(computedOpening)}). The full-tenancy opening balance is fixed at zero; review those entries.`,
-      );
-    }
-    openingBalance = 0;
+    charges.filter((c) => before(c.date)).reduce((s, c) => s + c.amount, 0) - preWindowPayments;
+  const openingBalance = round2(computedOpening);
+  if (period.mode === "tenancy" && Math.abs(computedOpening) > 0.005) {
+    warnings.push(
+      computedOpening < 0
+        ? `Includes ${round2(-computedOpening)} received before the lease start date (common when a tenant pays early to secure the property) — carried in as a brought-forward credit.`
+        : `Charges dated before the lease start were found (net ${round2(computedOpening)}) and are carried in as a brought-forward balance. Review the lease start date if this looks wrong.`,
+    );
   }
 
   const windowCharges = charges
@@ -393,7 +407,9 @@ export function computeTenantStatement(
       kind: "OPENING_BALANCE",
       description:
         period.mode === "tenancy"
-          ? "Opening balance (start of tenancy)"
+          ? Math.abs(openingBalance) > 0.005
+            ? "Brought forward (paid/recorded before lease start)"
+            : "Opening balance (start of tenancy)"
           : `Balance brought forward as at ${fmtDay(period.start)}`,
       reference: null,
       charge: null,
@@ -466,6 +482,22 @@ export function computeTenantStatement(
       ? round2(src.depositReceipts.reduce((s, e) => s + e.grossAmount, 0))
       : null;
 
+  // The phantom-credit defence: a tenancy with NO invoices anywhere in its
+  // history but payments on record must not be told "you are in credit" —
+  // the charges were simply never entered as invoices, so no balance can be
+  // stated. The statement becomes a payments-only record: the verdict is
+  // NOT_STATED and every running-balance figure is withheld (a balance
+  // column marching into the negative reads as credit all the same).
+  const positionNotStated = src.invoices.length === 0 && paymentCount > 0;
+  const presentedLines = positionNotStated
+    ? lines.filter((l) => l.kind !== "OPENING_BALANCE").map((l) => ({ ...l, balance: null }))
+    : lines;
+  if (positionNotStated) {
+    warnings.push(
+      "No invoices are issued for this tenancy — this statement records payments only and does not state a balance owing or in credit.",
+    );
+  }
+
   return {
     tenantId: src.tenant.id,
     tenantName: src.tenant.name,
@@ -485,7 +517,7 @@ export function computeTenantStatement(
     generatedAt: asOf.toISOString(),
     recordsAsAt: new Date(endMs).toISOString(),
     openingBalance,
-    lines,
+    lines: presentedLines,
     breakdown: { invoicedRent: round2(totalInvoiced - lateFees), lateFees, paymentsByType },
     deposit: {
       contractual: src.tenant.depositAmount,
@@ -512,7 +544,9 @@ export function computeTenantStatement(
       totalInvoiced,
       totalPaid,
       closingBalance,
-      position: closingBalance > 0.005 ? "ARREARS" : closingBalance < -0.005 ? "CREDIT" : "SETTLED",
+      position: positionNotStated
+        ? "NOT_STATED"
+        : closingBalance > 0.005 ? "ARREARS" : closingBalance < -0.005 ? "CREDIT" : "SETTLED",
       awaitingConfirmation: {
         count: pendingProofs.length,
         total: round2(pendingProofs.reduce((s, i) => s + (i.totalAmount - (i.paidAmount ?? 0)), 0)),

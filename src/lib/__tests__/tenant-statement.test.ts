@@ -212,7 +212,7 @@ describe("computeTenantStatement", () => {
     expect(s.summary.position).toBe("ARREARS");
   });
 
-  it("tenancy mode asserts a zero opening balance and warns on pre-lease records", () => {
+  it("tenancy mode computes the opening balance and flags pre-lease records instead of zeroing them", () => {
     const clean = computeTenantStatement(
       src({ invoices: [inv({})] }),
       period("2026-01-01", "2026-03-31", "tenancy"),
@@ -224,8 +224,26 @@ describe("computeTenantStatement", () => {
       src({ invoices: [inv({}), inv({ periodYear: 2025, periodMonth: 6 })] }),
       period("2026-01-01", "2026-03-31", "tenancy"),
     );
-    expect(dirty.openingBalance).toBe(0);
-    expect(dirty.warnings.length).toBeGreaterThan(0);
+    // The pre-lease charge is carried in, not silently dropped.
+    expect(dirty.openingBalance).toBe(50000);
+    expect(dirty.summary.closingBalance).toBe(100000);
+    expect(dirty.warnings.some((w) => w.includes("before the lease start"))).toBe(true);
+  });
+
+  it("a payment made before the lease start (securing the property) carries in as brought-forward credit", () => {
+    const s = computeTenantStatement(
+      src({
+        invoices: [inv({ periodYear: 2026, periodMonth: 1, totalAmount: 50000 })],
+        payments: [pay({ date: d("2025-12-20"), grossAmount: 50000 })], // paid to secure, before leaseStart
+      }),
+      period("2026-01-01", "2026-03-31", "tenancy"),
+    );
+    expect(s.openingBalance).toBe(-50000);
+    expect(s.lines[0].kind).toBe("OPENING_BALANCE");
+    expect(s.lines[0].description).toContain("before lease start");
+    expect(s.summary.closingBalance).toBe(0);
+    expect(s.summary.position).toBe("SETTLED");
+    expect(s.warnings.some((w) => w.includes("secure the property"))).toBe(true);
   });
 
   it("excludes DEPOSIT and AIRBNB entries from the ledger (load-bearing type filter)", () => {
@@ -348,7 +366,40 @@ describe("computeTenantStatement", () => {
     const line = s.lines.find((l) => l.kind === "PAYMENT");
     expect(line!.unallocated).toBe(true);
     expect(s.summary.totalPaid).toBe(50000); // fully counted — the money IS recorded
-    expect(s.summary.position).toBe("CREDIT");
+  });
+
+  it("an invoiceless tenancy with payments is a payments-only statement: NOT_STATED, no balances", () => {
+    const s = computeTenantStatement(
+      src({
+        payments: [
+          pay({ date: d("2026-01-03"), grossAmount: 50000 }),
+          pay({ date: d("2026-02-03"), grossAmount: 50000 }),
+        ],
+      }),
+      period("2026-01-01", "2026-03-31"),
+    );
+    // The tenant is NOT told the landlord owes them 100k.
+    expect(s.summary.position).toBe("NOT_STATED");
+    expect(s.summary.totalPaid).toBe(100000);
+    // Every running-balance figure is withheld, including the opening row.
+    expect(s.lines.some((l) => l.kind === "OPENING_BALANCE")).toBe(false);
+    expect(s.lines.every((l) => l.balance === null)).toBe(true);
+    expect(s.warnings.some((w) => w.includes("payments only"))).toBe(true);
+    expect(s.coverage.isEmpty).toBe(false); // records exist — not a refusal case
+  });
+
+  it("a single invoice anywhere in history keeps the balance verdict stated", () => {
+    const s = computeTenantStatement(
+      src({
+        invoices: [inv({ periodYear: 2025, periodMonth: 12, totalAmount: 50000 })], // pre-window
+        payments: [pay({ date: d("2026-01-03"), grossAmount: 50000 })],
+      }),
+      period("2026-01-01", "2026-03-31"),
+    );
+    expect(s.summary.position).not.toBe("NOT_STATED");
+    expect(s.openingBalance).toBe(50000);
+    expect(s.summary.closingBalance).toBe(0);
+    expect(s.summary.position).toBe("SETTLED");
   });
 
   it("reports a credit position when payments exceed charges", () => {

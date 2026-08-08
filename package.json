@@ -21,7 +21,8 @@
     "cases:backfill-terminal-reasons": "ts-node -P tsconfig.seed.json scripts/backfill-case-terminal-reasons.ts",
     "arrears:consolidate": "ts-node -P tsconfig.scripts.json -r tsconfig-paths/register scripts/consolidate-arrears-cases.ts",
     "statements:diagnose": "ts-node -P tsconfig.seed.json scripts/diagnose-statement-data.ts",
-    "statements:backfill-links": "ts-node -P tsconfig.seed.json scripts/backfill-income-tenant-links.ts"
+    "statements:backfill-links": "ts-node -P tsconfig.seed.json scripts/backfill-income-tenant-links.ts",
+    "statements:heal-orphans": "ts-node -P tsconfig.seed.json scripts/heal-paid-invoice-income.ts"
   },
   "prisma": {
     "seed": "ts-node -P tsconfig.seed.json prisma/seed.ts"

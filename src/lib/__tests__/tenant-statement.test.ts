@@ -358,9 +358,11 @@ describe("computeTenantStatement", () => {
     expect(s.coverage.paymentCount).toBe(1);
   });
 
-  it("marks unlinked in-window payments as unallocated, rendered neutrally", () => {
+  it("marks unlinked in-window payments as unallocated where the tenancy HAS invoices", () => {
     const s = computeTenantStatement(
-      src({ payments: [pay({ invoiceId: null })] }),
+      // An invoice exists, so this is not a payments-only statement — the
+      // unallocated caption stays meaningful here.
+      src({ invoices: [inv({})], payments: [pay({ invoiceId: null })] }),
       period("2026-01-01", "2026-03-31"),
     );
     const line = s.lines.find((l) => l.kind === "PAYMENT");
@@ -384,6 +386,9 @@ describe("computeTenantStatement", () => {
     // Every running-balance figure is withheld, including the opening row.
     expect(s.lines.some((l) => l.kind === "OPENING_BALANCE")).toBe(false);
     expect(s.lines.every((l) => l.balance === null)).toBe(true);
+    // The "(unallocated)" caption is suppressed — with no invoices anywhere,
+    // it would sit on every line and read as an error.
+    expect(s.lines.every((l) => !l.unallocated)).toBe(true);
     expect(s.warnings.some((w) => w.includes("payments only"))).toBe(true);
     expect(s.coverage.isEmpty).toBe(false); // records exist — not a refusal case
   });

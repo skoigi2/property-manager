@@ -30,6 +30,7 @@ import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { computeArrears, type ArrearsSummary } from "@/lib/rent-ledger";
 import { GuestPanel } from "@/components/guests/GuestPanel";
+import { LinkInvoiceModal } from "@/components/income/LinkInvoiceModal";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
@@ -137,6 +138,8 @@ export default function IncomePage() {
   // Form
   const [submitting, setSubmitting]           = useState(false);
   const [deleteId, setDeleteId]               = useState<string | null>(null);
+  // Allocate an unlinked payment to one of the tenant's invoices.
+  const [linkEntry, setLinkEntry]             = useState<any | null>(null);
   const [deleting, setDeleting]               = useState(false);
   const [month, setMonth]                     = useSharedMonth();
   const [showForm, setShowForm]               = useState(false);
@@ -525,6 +528,14 @@ export default function IncomePage() {
               <span className="flex items-center gap-1 text-caption text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
                 <Receipt size={10} />{entry.invoice.invoiceNumber}
               </span>
+            ) : entry.tenant?.id && ["LONGTERM_RENT","SERVICE_CHARGE","UTILITY_RECOVERY","OTHER"].includes(entry.type) ? (
+              <button
+                onClick={() => setLinkEntry(entry)}
+                className="text-caption text-gray-400 hover:text-gold-dark underline decoration-dotted underline-offset-2 transition-colors"
+                title="Allocate this payment to one of the tenant's invoices"
+              >
+                Link…
+              </button>
             ) : "—"}
           </td>
         );
@@ -1845,9 +1856,16 @@ export default function IncomePage() {
                             {entry.tenant?.name && entry.unit?.unitNumber && (
                               <p className="text-caption text-gray-400 tabular-nums mt-0.5">{entry.unit.unitNumber}</p>
                             )}
-                            {entry.invoice?.invoiceNumber && (
+                            {entry.invoice?.invoiceNumber ? (
                               <p className="text-caption text-gray-400 mt-0.5">Inv {entry.invoice.invoiceNumber}</p>
-                            )}
+                            ) : entry.tenant?.id && ["LONGTERM_RENT","SERVICE_CHARGE","UTILITY_RECOVERY","OTHER"].includes(entry.type) ? (
+                              <button
+                                onClick={() => setLinkEntry(entry)}
+                                className="text-caption text-gray-400 hover:text-gold-dark underline decoration-dotted underline-offset-2 mt-0.5"
+                              >
+                                Link to invoice…
+                              </button>
+                            ) : null}
                           </div>
                           {/* Amount + delete */}
                           <div className="flex items-end justify-between">
@@ -2240,6 +2258,20 @@ export default function IncomePage() {
         title="Remove agent?"
         message="This agent will be removed from the directory. Commission entries that reference their name are not affected."
       />
+      {linkEntry && (
+        <LinkInvoiceModal
+          entry={{
+            id: linkEntry.id,
+            tenantId: linkEntry.tenant.id,
+            tenantName: linkEntry.tenant.name,
+            grossAmount: linkEntry.grossAmount,
+            date: linkEntry.date,
+          }}
+          currency={currency}
+          onLinked={fetchEntries}
+          onClose={() => setLinkEntry(null)}
+        />
+      )}
     </div>
   );
 }

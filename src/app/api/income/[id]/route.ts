@@ -2,6 +2,9 @@ import { requireManager, requirePropertyAccess, requireManagerWrite, requirePerm
 import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
+import { clearHints } from "@/lib/hints";
+import { dispatchWebhookEvent } from "@/lib/webhooks";
+import { tryAutoAdvance } from "@/lib/case-workflows";
 import { z } from "zod";
 
 async function loadEntryPropertyId(id: string): Promise<string | null> {
@@ -12,9 +15,10 @@ async function loadEntryPropertyId(id: string): Promise<string | null> {
   return e?.unit?.propertyId ?? null;
 }
 
-// PATCH — mark commission paid / unpaid, OR link the entry to a tenant
-// (used by the Deposit tab to attach an untagged unit DEPOSIT receipt to the
-// tenant so it counts toward the deposit-held calculation).
+// PATCH — mark commission paid / unpaid, link the entry to a tenant (used by
+// the Deposit tab to attach an untagged unit DEPOSIT receipt), OR link the
+// entry to one of the tenant's invoices ("allocate" — used by the Income page
+// for payments recorded without picking an invoice).
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
@@ -29,16 +33,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     .object({
       commissionPaidAt: z.string().nullable().optional(),
       tenantId: z.string().min(1).optional(),
+      invoiceId: z.string().min(1).optional(),
     })
     .safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  if (parsed.data.commissionPaidAt === undefined && parsed.data.tenantId === undefined) {
+  if (
+    parsed.data.commissionPaidAt === undefined &&
+    parsed.data.tenantId === undefined &&
+    parsed.data.invoiceId === undefined
+  ) {
     return Response.json({ error: "Nothing to update" }, { status: 400 });
   }
 
   const before = await prisma.incomeEntry.findUnique({
     where: { id: params.id },
-    select: { commissionPaidAt: true, agentCommission: true, agentName: true, tenantId: true, unitId: true },
+    select: {
+      commissionPaidAt: true, agentCommission: true, agentName: true,
+      tenantId: true, unitId: true, invoiceId: true, grossAmount: true, date: true,
+    },
   });
 
   // Tenant link: only to a tenant on the SAME unit — an untagged deposit must
@@ -53,15 +65,75 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
   }
 
-  const entry = await prisma.incomeEntry.update({
-    where: { id: params.id },
-    data: {
-      ...(parsed.data.commissionPaidAt !== undefined
-        ? { commissionPaidAt: parsed.data.commissionPaidAt ? new Date(parsed.data.commissionPaidAt) : null }
-        : {}),
-      ...(parsed.data.tenantId !== undefined ? { tenantId: parsed.data.tenantId } : {}),
-    },
-  });
+  // Invoice link: only to an invoice of the entry's OWN tenant, never a
+  // cancelled one, and only when the entry isn't already allocated.
+  let invoice:
+    | { id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null }
+    | null = null;
+  if (parsed.data.invoiceId !== undefined) {
+    if (before?.invoiceId) {
+      return Response.json({ error: "This payment is already allocated to an invoice" }, { status: 409 });
+    }
+    const effectiveTenantId = parsed.data.tenantId ?? before?.tenantId;
+    if (!effectiveTenantId) {
+      return Response.json({ error: "Attribute the payment to a tenant before allocating it to an invoice" }, { status: 400 });
+    }
+    invoice = await prisma.invoice.findUnique({
+      where: { id: parsed.data.invoiceId },
+      select: { id: true, invoiceNumber: true, totalAmount: true, paidAmount: true, status: true, caseThreadId: true, tenantId: true },
+    }).then((inv) => (inv && inv.tenantId === effectiveTenantId ? inv : null));
+    if (!invoice) {
+      return Response.json({ error: "Invoice not found for this tenant" }, { status: 400 });
+    }
+    if (invoice.status === "CANCELLED") {
+      return Response.json({ error: "Cannot allocate a payment to a cancelled invoice" }, { status: 400 });
+    }
+  }
+
+  // Settle parity with POST /api/income: allocating a payment that covers the
+  // invoice flips it to PAID and fires the same follow-through (hints, case
+  // auto-advance, webhook).
+  const newPaidTotal = invoice ? (invoice.paidAmount ?? 0) + (before?.grossAmount ?? 0) : 0;
+  const becomesPaid = !!invoice && invoice.status !== "PAID" && newPaidTotal >= invoice.totalAmount * 0.99;
+
+  const entryData = {
+    ...(parsed.data.commissionPaidAt !== undefined
+      ? { commissionPaidAt: parsed.data.commissionPaidAt ? new Date(parsed.data.commissionPaidAt) : null }
+      : {}),
+    ...(parsed.data.tenantId !== undefined ? { tenantId: parsed.data.tenantId } : {}),
+    ...(invoice ? { invoiceId: invoice.id } : {}),
+  };
+
+  let entry;
+  if (invoice && invoice.status !== "PAID") {
+    const [updatedEntry] = await prisma.$transaction([
+      prisma.incomeEntry.update({ where: { id: params.id }, data: entryData }),
+      prisma.invoice.update({
+        where: { id: invoice.id },
+        data: becomesPaid
+          ? { status: "PAID", paidAt: before?.date ?? new Date(), paidAmount: newPaidTotal }
+          : { paidAmount: newPaidTotal },
+      }),
+    ]);
+    entry = updatedEntry;
+  } else {
+    entry = await prisma.incomeEntry.update({ where: { id: params.id }, data: entryData });
+  }
+
+  if (becomesPaid && invoice) {
+    await clearHints(invoice.id, "INVOICE_OVERDUE");
+    if (invoice.caseThreadId) {
+      await tryAutoAdvance(invoice.caseThreadId, { kind: "INVOICE_PAID" });
+    }
+    void dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      totalAmount: invoice.totalAmount,
+      paidAmount: newPaidTotal,
+      paidAt: before?.date ?? new Date(),
+      tenantId: entry.tenantId,
+    });
+  }
 
   await logAudit({
     userId:    session!.user.id,
@@ -70,8 +142,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     resource:  "IncomeEntry",
     resourceId: params.id,
     organizationId: session!.user.organizationId,
-    before: { commissionPaidAt: before?.commissionPaidAt ?? null, tenantId: before?.tenantId ?? null },
-    after:  { commissionPaidAt: entry.commissionPaidAt, tenantId: entry.tenantId },
+    before: { commissionPaidAt: before?.commissionPaidAt ?? null, tenantId: before?.tenantId ?? null, invoiceId: before?.invoiceId ?? null },
+    after:  { commissionPaidAt: entry.commissionPaidAt, tenantId: entry.tenantId, invoiceId: entry.invoiceId },
   });
 
   return Response.json(entry);

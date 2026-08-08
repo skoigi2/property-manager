@@ -489,8 +489,14 @@ export function computeTenantStatement(
   // NOT_STATED and every running-balance figure is withheld (a balance
   // column marching into the negative reads as credit all the same).
   const positionNotStated = src.invoices.length === 0 && paymentCount > 0;
+  // On a payments-only statement the "unallocated" caption is also dropped:
+  // when NO invoices exist, every line would carry it, it conveys nothing,
+  // and it reads like an error. It stays meaningful only where the tenancy
+  // has invoices and one payment conspicuously isn't matched.
   const presentedLines = positionNotStated
-    ? lines.filter((l) => l.kind !== "OPENING_BALANCE").map((l) => ({ ...l, balance: null }))
+    ? lines
+        .filter((l) => l.kind !== "OPENING_BALANCE")
+        .map((l) => ({ ...l, balance: null, unallocated: false }))
     : lines;
   if (positionNotStated) {
     warnings.push(

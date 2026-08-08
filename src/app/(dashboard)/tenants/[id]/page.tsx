@@ -16,6 +16,7 @@ import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
+import { StatementModal } from "@/components/tenants/StatementModal";
 import { RentHistoryTab } from "@/components/tenants/RentHistoryTab";
 import { CommunicationLogTab } from "@/components/tenants/CommunicationLogTab";
 import { PortalMessagesTab } from "@/components/tenants/PortalMessagesTab";
@@ -307,6 +308,7 @@ export default function TenantDetailPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [proofInvoiceId, setProofInvoiceId] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
+  const [showStatement, setShowStatement] = useState(false);
   const [renewalFeePrompt, setRenewalFeePrompt] = useState<{ unitId: string; tenantId: string; propertyId: string; amount: number } | null>(null);
   const [renewalFeeLogging, setRenewalFeeLogging] = useState(false);
   const [settlement, setSettlement] = useState<DepositSettlement | null>(null);
@@ -601,6 +603,16 @@ export default function TenantDetailPage() {
                   >
                     <LogOut size={13} /> Checkout
                   </button>
+                  )}
+                  {/* Statement button — LONGTERM properties only (an Airbnb
+                      unit has no tenancy ledger to state) */}
+                  {tenant.unit?.property?.type === "LONGTERM" && (
+                    <button
+                      onClick={() => setShowStatement(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-caption rounded-lg transition-colors"
+                    >
+                      <FileText size={13} /> Statement
+                    </button>
                   )}
                   {/* Email button */}
                   <button
@@ -1387,6 +1399,16 @@ export default function TenantDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Statement of Account Modal */}
+      {showStatement && tenant && (
+        <StatementModal
+          tenantId={tenantId}
+          tenantName={tenant.name}
+          tenantEmail={tenant.email ?? null}
+          onClose={() => setShowStatement(false)}
+        />
+      )}
 
       {/* Email Draft Modal */}
       {showEmail && tenant && (

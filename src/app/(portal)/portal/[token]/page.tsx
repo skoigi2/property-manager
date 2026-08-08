@@ -199,7 +199,9 @@ function invoiceBadge(inv: { status: Invoice["status"]; totalAmount: number; pai
     (inv.status === "SENT" || inv.status === "OVERDUE") &&
     inv.paidAmount != null && inv.paidAmount > 0 && inv.paidAmount < inv.totalAmount;
   if (inv.status === "PAID")     return { bg: "bg-green-100", text: "text-green-700", label: "Paid" };
-  if (inv.status === "PENDING_VERIFICATION") return { bg: "bg-amber-100", text: "text-amber-700", label: "Awaiting verification" };
+  // The "*" marker mirrors the statement PDF's awaiting-confirmation glyph so
+  // screen and print agree (see tenant-statement-pdf.tsx legend).
+  if (inv.status === "PENDING_VERIFICATION") return { bg: "bg-amber-100", text: "text-amber-700", label: "* Awaiting confirmation" };
   if (isPartial)                  return { bg: "bg-amber-100", text: "text-amber-700", label: "Partially Paid" };
   if (inv.status === "OVERDUE")  return { bg: "bg-red-100", text: "text-red-700", label: "Overdue" };
   if (inv.status === "SENT")     return { bg: "bg-red-100", text: "text-red-700", label: "Due" };
@@ -621,6 +623,12 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                       );
                     })}
                   </div>
+                )}
+                {invoices.some((inv) => inv.status === "PENDING_VERIFICATION") && (
+                  <p className="text-caption text-amber-700 mt-2">
+                    * Awaiting confirmation — you have submitted proof of payment and your manager has
+                    not yet confirmed receipt. These amounts do not reduce your balance until confirmed.
+                  </p>
                 )}
 
                 <h2 className="text-body font-semibold text-gray-700 mt-6">Activity Timeline</h2>

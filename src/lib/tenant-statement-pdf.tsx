@@ -1,7 +1,7 @@
 import "server-only";
 import { noHyphenation } from "@/lib/pdf-setup";
 import React from "react";
-import { renderToBuffer, Document, Page, Text, View, StyleSheet, DocumentProps } from "@react-pdf/renderer";
+import { renderToBuffer, Document, Page, Text, View, Image, StyleSheet, DocumentProps } from "@react-pdf/renderer";
 import type { JSXElementConstructor, ReactElement } from "react";
 import { formatCurrency } from "@/lib/currency";
 import type { TenantStatement, StatementBranding } from "@/lib/tenant-statement";
@@ -66,11 +66,20 @@ function StatementDoc({ s, branding }: { s: TenantStatement; branding: Statement
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
+            {branding.logoUrl ? (
+              // eslint-disable-next-line jsx-a11y/alt-text
+              <Image
+                src={branding.logoUrl}
+                style={{ height: 40, marginBottom: 6, objectFit: "contain", objectPositionX: 0 }}
+              />
+            ) : null}
             <Text style={styles.title}>Statement of Account</Text>
             <Text style={styles.subtitle} hyphenationCallback={noHyphenation}>
               {s.tenantName} · Unit {s.unitNumber} · {s.propertyName}
             </Text>
-            {branding.orgName ? <Text style={styles.subtitle}>{branding.orgName}</Text> : null}
+            {branding.issuerName || branding.orgName ? (
+              <Text style={styles.subtitle}>{branding.issuerName ?? branding.orgName}</Text>
+            ) : null}
           </View>
           <View>
             <Text style={styles.periodLabel} hyphenationCallback={noHyphenation}>{s.period.label}</Text>
@@ -237,10 +246,15 @@ function StatementDoc({ s, branding }: { s: TenantStatement; branding: Statement
           ) : null}
         </View>
 
-        {inArrears && (paymentDetails.length > 0 || branding.paymentInstructions) ? (
+        {paymentDetails.length > 0 || branding.paymentInstructions ? (
           <>
-            <Text style={styles.sectionLabel}>How to pay</Text>
+            <Text style={styles.sectionLabel}>{inArrears ? "How to pay" : "Payment details"}</Text>
             <View style={styles.block}>
+              {branding.issuerName ? (
+                <Text style={[styles.blockValue, { paddingVertical: 1.5, fontFamily: "Helvetica-Bold" }]}>
+                  {branding.issuerName}
+                </Text>
+              ) : null}
               {paymentDetails.map((line, i) => (
                 <Text key={i} style={[styles.blockValue, { paddingVertical: 1.5 }]}>{line}</Text>
               ))}

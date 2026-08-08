@@ -662,6 +662,9 @@ export async function buildTenantStatement(tenantId: string, period: StatementPe
 
 export interface StatementBranding {
   orgName: string | null;
+  /** Payment-account company name, when a dedicated account is configured. */
+  issuerName: string | null;
+  /** Resolved logo: payment account → property → organisation (same precedence as invoice PDFs). */
   logoUrl: string | null;
   address: string | null;
   phone: string | null;
@@ -686,8 +689,13 @@ export async function getStatementBranding(tenantId: string): Promise<StatementB
           paymentAccount: true,
           property: {
             select: {
+              logoUrl: true,
               organization: {
-                select: { name: true, logoUrl: true, address: true, phone: true, email: true, vatRegistrationNumber: true },
+                select: {
+                  name: true, logoUrl: true, address: true, phone: true, email: true, vatRegistrationNumber: true,
+                  bankName: true, bankAccountName: true, bankAccountNumber: true, bankBranch: true,
+                  mpesaPaybill: true, mpesaAccountNumber: true, mpesaTill: true, paymentInstructions: true,
+                },
               },
               agreement: {
                 select: {
@@ -709,18 +717,21 @@ export async function getStatementBranding(tenantId: string): Promise<StatementB
 
   return {
     orgName: org?.name ?? null,
-    logoUrl: org?.logoUrl ?? null,
+    issuerName: account?.companyName ?? null,
+    logoUrl: account?.logoUrl ?? tenant?.unit.property.logoUrl ?? org?.logoUrl ?? null,
     address: org?.address ?? null,
     phone: org?.phone ?? null,
     email: org?.email ?? null,
     vatRegistrationNumber: org?.vatRegistrationNumber ?? null,
-    bankName: account ? account.bankName : agreement?.tenantBankName ?? null,
-    bankAccountName: account ? account.bankAccountName : agreement?.tenantBankAccountName ?? null,
-    bankAccountNumber: account ? account.bankAccountNumber : agreement?.tenantBankAccountNumber ?? null,
-    bankBranch: account ? account.bankBranch : agreement?.tenantBankBranch ?? null,
-    mpesaPaybill: account ? account.mpesaPaybill : agreement?.tenantMpesaPaybill ?? null,
-    mpesaAccountNumber: account ? account.mpesaAccountNumber : agreement?.tenantMpesaAccountNumber ?? null,
-    mpesaTill: account ? account.mpesaTill : agreement?.tenantMpesaTill ?? null,
-    paymentInstructions: account ? account.paymentInstructions : agreement?.tenantPaymentInstructions ?? null,
+    // Payment details resolve dedicated account → agreement overrides →
+    // organisation defaults (Settings → Branding → Payment Details).
+    bankName: account ? account.bankName : agreement?.tenantBankName ?? org?.bankName ?? null,
+    bankAccountName: account ? account.bankAccountName : agreement?.tenantBankAccountName ?? org?.bankAccountName ?? null,
+    bankAccountNumber: account ? account.bankAccountNumber : agreement?.tenantBankAccountNumber ?? org?.bankAccountNumber ?? null,
+    bankBranch: account ? account.bankBranch : agreement?.tenantBankBranch ?? org?.bankBranch ?? null,
+    mpesaPaybill: account ? account.mpesaPaybill : agreement?.tenantMpesaPaybill ?? org?.mpesaPaybill ?? null,
+    mpesaAccountNumber: account ? account.mpesaAccountNumber : agreement?.tenantMpesaAccountNumber ?? org?.mpesaAccountNumber ?? null,
+    mpesaTill: account ? account.mpesaTill : agreement?.tenantMpesaTill ?? org?.mpesaTill ?? null,
+    paymentInstructions: account ? account.paymentInstructions : agreement?.tenantPaymentInstructions ?? org?.paymentInstructions ?? null,
   };
 }

@@ -19,6 +19,7 @@ import {
   Building2,
   Wrench,
   Store,
+  ScrollText,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -36,6 +37,7 @@ import {
   downloadMaintenanceTemplate,
   downloadVendorsTemplate,
   downloadRentHistoryTemplate,
+  downloadInvoicesTemplate,
   downloadRowsAsWorkbook,
 } from "@/lib/import-templates";
 import { ImportHandoverModal } from "@/components/import/ImportHandoverModal";
@@ -43,7 +45,7 @@ import { PackageOpen } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "tenants" | "rent-history" | "income" | "expenses" | "recurring" | "petty-cash" | "units" | "maintenance" | "vendors" | "handover";
+type Tab = "tenants" | "rent-history" | "income" | "invoices" | "expenses" | "recurring" | "petty-cash" | "units" | "maintenance" | "vendors" | "handover";
 
 interface ParsedRow {
   rowIndex: number;
@@ -55,6 +57,8 @@ interface ImportResult {
   imported: number;
   updated?: number;
   skipped: number;
+  /** Invoices importer only — payments auto-allocated to created invoices. */
+  linked?: number;
   errors: { row: number; reason: string }[];
 }
 
@@ -86,6 +90,20 @@ const RENT_HISTORY_COLS = [
   "Effective Date",
   "Property Name",
   "Reason",
+];
+
+const INVOICE_COLS = [
+  "Tenant Name",
+  "Unit Number",
+  "Period Year",
+  "Period Month",
+  "Rent Amount",
+  "Service Charge",
+  "Other Charges",
+  "Due Date",
+  "Invoice Number",
+  "Property Name",
+  "Notes",
 ];
 
 const INCOME_COLS = [
@@ -280,6 +298,24 @@ function validateRentHistoryRow(row: Record<string, string>): string[] {
   if (!row["Effective Date"]?.trim()) errors.push("Effective Date is required");
   else if (isNaN(Date.parse(row["Effective Date"])))
     errors.push("Effective Date is not a valid date");
+  return errors;
+}
+
+function validateInvoiceRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Tenant Name"]?.trim()) errors.push("Tenant Name is required");
+  if (!row["Unit Number"]?.trim()) errors.push("Unit Number is required");
+  const year = parseInt(row["Period Year"] ?? "", 10);
+  if (!row["Period Year"] || isNaN(year) || year < 1990 || year > 2100)
+    errors.push("Period Year must be a plausible year (e.g. 2025)");
+  const month = parseInt(row["Period Month"] ?? "", 10);
+  if (!row["Period Month"] || isNaN(month) || month < 1 || month > 12)
+    errors.push("Period Month must be 1–12");
+  const rent = parseFloat(row["Rent Amount"] ?? "");
+  if (!row["Rent Amount"] || isNaN(rent) || rent <= 0)
+    errors.push("Rent Amount must be a positive number");
+  if (row["Due Date"]?.trim() && isNaN(Date.parse(row["Due Date"])))
+    errors.push("Due Date is not a valid date");
   return errors;
 }
 
@@ -507,6 +543,22 @@ function mapRentHistoryRowToApi(row: Record<string, string>) {
     monthlyRent:   row["Monthly Rent"],
     effectiveDate: row["Effective Date"],
     reason:        row["Reason"],
+  };
+}
+
+function mapInvoiceRowToApi(row: Record<string, string>) {
+  return {
+    tenantName:    row["Tenant Name"],
+    unitNumber:    row["Unit Number"],
+    periodYear:    row["Period Year"],
+    periodMonth:   row["Period Month"],
+    rentAmount:    row["Rent Amount"],
+    serviceCharge: row["Service Charge"],
+    otherCharges:  row["Other Charges"],
+    dueDate:       row["Due Date"],
+    invoiceNumber: row["Invoice Number"],
+    propertyName:  row["Property Name"],
+    notes:         row["Notes"],
   };
 }
 
@@ -1047,6 +1099,12 @@ function ImportSection({
             </p>
           </div>
 
+          {result.linked ? (
+            <p className="text-body text-green-700 ">
+              {result.linked} invoice{result.linked !== 1 ? "s" : ""} auto-allocated to existing payments (imported as PAID)
+            </p>
+          ) : null}
+
           {result.skipped > 0 && (
             <p className="text-body text-gray-500 ">
               {result.skipped} skipped (duplicates or errors)
@@ -1097,6 +1155,7 @@ export default function ImportPage() {
     ["income",       "Income",       TrendingUp],
     ["expenses",     "Expenses",     Receipt],
     ["recurring",    "Recurring",    RefreshCw],
+    ["invoices",     "Invoices",     ScrollText],
     ["petty-cash",   "Petty Cash",   Wallet],
     ["units",        "Units",        Building2],
     ["maintenance",  "Maintenance",  Wrench],
@@ -1184,6 +1243,19 @@ export default function ImportPage() {
             onDownloadTemplate={downloadIncomeTemplate}
             templateName="Income"
             mapRowToApi={mapIncomeRowToApi}
+          />
+        )}
+
+        {tab === "invoices" && (
+          <ImportSection
+            title="Import Historic Invoices"
+            description="Load rent invoices from before invoicing was managed in the system, so tenant statements show real balances instead of a payments-only record. Import any missing PAYMENTS on the Income tab FIRST — payment status here is derived, not supplied: an invoice matched by exactly one recorded payment (same amount, dated in the billing month or within 7 days of the due date) imports as PAID and is linked to it; anything else imports as SENT/OVERDUE and is listed for the manual Link… action on the Income page. One invoice per tenant per billing month; blank invoice numbers get a HIST- series."
+            cols={INVOICE_COLS}
+            validate={validateInvoiceRow}
+            apiPath="/api/import/invoices"
+            onDownloadTemplate={downloadInvoicesTemplate}
+            templateName="Invoices"
+            mapRowToApi={mapInvoiceRowToApi}
           />
         )}
 

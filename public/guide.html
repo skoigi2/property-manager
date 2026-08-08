@@ -1224,6 +1224,18 @@
     </div>
 
     <div class="sub-section">
+      <h3>Tenant Statement of Account</h3>
+      <p style="margin-bottom:12px">The <strong>Statement</strong> button on a tenant's page (long-term properties only) produces a formal statement of account as a PDF — download it or email it to the tenant directly. Pick the period: current lease year (anchored on the lease start, so numbering survives renewals), full tenancy, a calendar year, or a custom range. The statement shows the balance brought forward, every invoice and payment in the window with a running balance, late fees broken out, the deposit position, and a plain-English verdict: in arrears, in credit, or settled.</p>
+      <ul class="feature-list">
+        <li><strong>Payments made before the lease started</strong> (paid early to secure the property) appear as a brought-forward credit — the money is never hidden</li>
+        <li><strong>Proof-of-payment submissions awaiting your confirmation</strong> show as marked memo lines that don't reduce the balance until you verify them</li>
+        <li><strong>Payments-only statements</strong> — if a tenancy has no invoices at all (rent history from before you used invoicing), the statement lists payments without claiming a balance either way. To get real balances for past periods, import historic invoices (see Data Import below)</li>
+        <li><strong>Unallocated payments</strong> — a payment not tied to any invoice still counts fully; where the tenancy has invoices it's captioned "unallocated" and you can attach it via the <em>Link…</em> action on the Income page</li>
+      </ul>
+      <p style="margin-top:12px">If a period genuinely has no records, the statement refuses to generate rather than sending a tenant a blank document that reads as "no rent was ever recorded" — the screen tells you why and what to fix.</p>
+    </div>
+
+    <div class="sub-section">
       <h3>Arrears — the escalation workflow</h3>
       <div class="screenshot-wrap">
         <img src="guide-screenshots/11-arrears.png" alt="Arrears page" loading="lazy">
@@ -1655,7 +1667,7 @@
 
     <div class="sub-section">
       <h3>What you can import</h3>
-      <p style="margin-bottom:12px">Tabs cover: <strong>tenants, rent history, income, expenses, recurring expenses, petty cash, units, maintenance, vendors</strong>, and a full-property <strong>handover ZIP</strong> (the counterpart of the property export — moving a whole property between organisations or systems in one file).</p>
+      <p style="margin-bottom:12px">Tabs cover: <strong>tenants, rent history, income, invoices, expenses, recurring expenses, petty cash, units, maintenance, vendors</strong>, and a full-property <strong>handover ZIP</strong> (the counterpart of the property export — moving a whole property between organisations or systems in one file).</p>
       <ul class="feature-list">
         <li><strong>Rows validate client-side</strong> before anything is sent — errors point at the exact row and column</li>
         <li><strong>Names resolve automatically</strong> — Property Name, Vendor Name, and Unit Number columns are matched to the right records; an unmatched name still imports, just unlinked, with a warning</li>
@@ -1663,6 +1675,26 @@
         <li><strong>Edit-and-resync (expenses)</strong> — click <em>Export existing</em> to download your current expenses pre-filled into the template with their IDs; edit any field and re-upload, and each row updates in place</li>
         <li>The tenants importer can carry <strong>Deposit Received + date</strong> columns, minting the linked deposit receipt so your deposit position is verified from day one</li>
       </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>Historic invoices — giving statements real balances</h3>
+      <p style="margin-bottom:12px">If you managed rent outside the system before (paper invoices, spreadsheets, or no invoices at all), tenant statements for that era can only show a <em>payments-only record</em> — payments in, but no balance, because there are no charges to balance against. The <strong>Invoices</strong> tab fixes that for whatever period you care about. The order of operations matters:</p>
+      <ul class="feature-list">
+        <li><strong>Step 1 — import missing payments first</strong> (Income tab). The invoice importer decides paid/unpaid by looking at recorded payments, so the payments must be in the system before the invoices are.</li>
+        <li><strong>Step 2 — import the invoices</strong> (Invoices tab): tenant, billing year + month, rent, service charge, due date. One invoice per tenant per billing month. Leave Invoice Number blank to get an auto-generated <code>HIST-…</code> number, or supply your real historic numbers.</li>
+        <li><strong>Payment status is derived, never typed.</strong> There is deliberately no Status column: an invoice matched by exactly one recorded payment (same amount, dated in the billing month or within 7 days of the due date) imports as <strong>Paid</strong> and is linked to that payment. Anything else imports as Sent/Overdue and appears in the result summary.</li>
+        <li><strong>Step 3 — sweep up the stragglers.</strong> Payments the importer couldn't match confidently (odd amounts, several candidates) keep a dotted <em>Link…</em> action on the Income page — open it, pick the invoice, done. Allocating a payment that covers the invoice marks it paid automatically.</li>
+      </ul>
+      <p style="margin-top:12px"><strong>How far back should you go?</strong> Only as far as you want statements to show real balances — the current lease year is usually enough. Don't reconstruct years of deep history: a genuinely-unpaid historic invoice lands in your Inbox and arrears aging as overdue (correct, but noisy if it's ancient), and the payments-only statement is a perfectly honest document for the pre-system era.</p>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div class="callout-body">
+        <strong>Never import an invoice as "paid" for money that isn't recorded</strong>
+        If rent was collected in cash and never entered, import the payment (Income tab) before the invoice — otherwise the invoice imports as overdue and the tenant's statement shows arrears they don't owe. The importer refuses to fabricate paid invoices with no payment behind them for exactly this reason.
+      </div>
     </div>
 
     <div class="callout tip">

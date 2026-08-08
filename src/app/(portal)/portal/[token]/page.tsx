@@ -6,6 +6,7 @@ import { format, addMonths, setDate } from "date-fns";
 import toast from "react-hot-toast";
 import PaymentNotificationSheet from "@/components/portal/PaymentNotificationSheet";
 import BottomSheet from "@/components/portal/BottomSheet";
+import { StatementDownloadCard } from "@/components/portal/StatementDownloadCard";
 
 type Invoice = {
   id: string;
@@ -42,6 +43,7 @@ type PortalData = {
     city: string | null;
     logoUrl: string | null;
     currency: string;
+    type?: string;
   };
   organization: { name: string; logoUrl: string | null } | null;
   invoices: Invoice[];
@@ -629,6 +631,12 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                     * Awaiting confirmation — you have submitted proof of payment and your manager has
                     not yet confirmed receipt. These amounts do not reduce your balance until confirmed.
                   </p>
+                )}
+
+                {property.type === "LONGTERM" && (
+                  <div className="mt-4">
+                    <StatementDownloadCard token={params.token} />
+                  </div>
                 )}
 
                 <h2 className="text-body font-semibold text-gray-700 mt-6">Activity Timeline</h2>

@@ -61,6 +61,8 @@ export async function GET(
       city: property.city,
       logoUrl: property.logoUrl,
       currency: property.currency,
+      // Gates the statement download card — statements are LONGTERM-only.
+      type: property.type,
     },
     organization: org
       ? { name: org.name, logoUrl: org.logoUrl }

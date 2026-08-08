@@ -3,16 +3,12 @@ import { useState } from "react";
 import { FileText, Download, Loader2 } from "lucide-react";
 
 /**
- * Tenant-facing statement download for the portal Balance tab.
- *
- * NOT MOUNTED in Phase 1 — deliberately. The backing routes
- * (/api/portal/[token]/statement and .../statement/pdf) are live, but tenant
- * self-service waits until the Phase 0 unattributed-payment residue is
- * resolved, so legacy-property tenants never see a refused/blank statement.
- * To go live, render this inside the Balance tab of
- * src/app/(portal)/portal/[token]/page.tsx. Do NOT make mounting conditional
- * on the reconciliation count — conditional silent absence makes a working
- * feature look broken (same reasoning as the calendar empty-state sources).
+ * Tenant-facing statement download, mounted in the portal Balance tab for
+ * LONGTERM properties (went live once the Phase 0 unattributed-payment
+ * residue was resolved). Backed by /api/portal/[token]/statement/pdf.
+ * Mounting must stay unconditional on data state — hiding it when records
+ * are imperfect makes a working feature look broken (same reasoning as the
+ * calendar empty-state sources); the PDF route itself explains a refusal.
  */
 export function StatementDownloadCard({ token }: { token: string }) {
   const [mode, setMode] = useState<"lease-year" | "tenancy">("lease-year");

@@ -1,5 +1,6 @@
 import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { assertGuestAccess } from "@/lib/guest-access";
 import { z } from "zod";
 
 async function loadEntryPropertyId(entryId: string): Promise<string | null> {
@@ -48,13 +49,14 @@ const linkSchema = z.object({
 });
 
 export async function POST(req: Request, { params }: { params: { entryId: string } }) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyId = await loadEntryPropertyId(params.entryId);
   if (!propertyId) return Response.json({ error: "Not found" }, { status: 404 });
   const access = await requirePropertyAccess(propertyId);
   if (!access.ok) return access.error!;
+  const sessionOrgId = session!.user.organizationId ?? null;
 
   let body: unknown;
   try { body = await req.json(); } catch {
@@ -69,15 +71,17 @@ export async function POST(req: Request, { params }: { params: { entryId: string
   let resolvedGuestId: string;
 
   if (guestId) {
-    // Link existing guest
-    const exists = await prisma.airbnbGuest.findUnique({ where: { id: guestId }, select: { id: true } });
-    if (!exists) return Response.json({ error: "Guest not found" }, { status: 404 });
+    // Link existing guest — must belong to the caller's org (another org's
+    // guest looks nonexistent), otherwise a foreign guest record could be
+    // attached to this booking.
+    const guestAccess = await assertGuestAccess(guestId, sessionOrgId);
+    if (guestAccess.error) return Response.json({ error: "Guest not found" }, { status: 404 });
     resolvedGuestId = guestId;
   } else {
     // Create new guest
     if (!name) return Response.json({ error: "name is required when creating a new guest" }, { status: 400 });
     const newGuest = await prisma.airbnbGuest.create({
-      data: { name, email: email || null, ...rest },
+      data: { name, email: email || null, ...rest, organizationId: sessionOrgId },
     });
     resolvedGuestId = newGuest.id;
   }

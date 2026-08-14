@@ -53,7 +53,21 @@ export async function POST(req: Request) {
     prisma.property.findMany({ where: { id: { in: propertyIds } }, select: { id: true, name: true } }),
     orgId ? prisma.vendor.findMany({ where: { organizationId: orgId, isActive: true }, select: { id: true, name: true } }) : Promise.resolve([]),
     prisma.recurringExpense.findMany({
-      where: { OR: [{ propertyId: { in: propertyIds } }, { unit: { propertyId: { in: propertyIds } } }, { scope: "PORTFOLIO" }] },
+      where: {
+        OR: [
+          { propertyId: { in: propertyIds } },
+          { unit: { propertyId: { in: propertyIds } } },
+          // PORTFOLIO templates: only the caller's own (or legacy null-org),
+          // never another org's — otherwise an upsert could overwrite them.
+          {
+            AND: [
+              { propertyId: null },
+              { unitId: null },
+              ...(orgId ? [{ OR: [{ organizationId: orgId }, { organizationId: null }] }] : []),
+            ],
+          },
+        ],
+      },
       select: { id: true, description: true, category: true, amount: true, propertyId: true, frequency: true },
     }),
   ]);
@@ -125,6 +139,7 @@ export async function POST(req: Request) {
       description, category, amount, scope,
       propertyId: resolvedPropertyId, unitId: resolvedUnitId,
       frequency, nextDueDate: new Date(dueStr), vendorId: resolvedVendorId, isActive,
+      organizationId: orgId ?? null,
     });
   }
 

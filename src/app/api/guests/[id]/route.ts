@@ -1,5 +1,6 @@
 import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { assertGuestAccess } from "@/lib/guest-access";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -12,8 +13,11 @@ const patchSchema = z.object({
 });
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
+
+  const access = await assertGuestAccess(params.id, session!.user.organizationId);
+  if (access.error) return access.error;
 
   const guest = await prisma.airbnbGuest.findUnique({
     where: { id: params.id },
@@ -35,8 +39,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
+
+  const access = await assertGuestAccess(params.id, session!.user.organizationId);
+  if (access.error) return access.error;
 
   let body: unknown;
   try { body = await req.json(); } catch {
@@ -55,8 +62,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
+
+  const access = await assertGuestAccess(params.id, session!.user.organizationId);
+  if (access.error) return access.error;
 
   await prisma.airbnbGuest.delete({ where: { id: params.id } });
   return Response.json({ success: true });

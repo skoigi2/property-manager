@@ -17,8 +17,9 @@ const schema = z.object({
 });
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  const { session, error } = await requireAuth();
   if (error) return error;
+  const sessionOrgId = session!.user.organizationId ?? null;
 
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,7 +36,16 @@ export async function GET(req: Request) {
       OR: [
         { propertyId: { in: effectivePropertyIds } },
         { unit: { propertyId: { in: effectivePropertyIds } } },
-        { scope: "PORTFOLIO" },
+        // PORTFOLIO templates carry no property/unit — scope them by owning org
+        // instead of returning every org's templates. Legacy null-org rows stay
+        // visible; super-admin (session org null) sees all.
+        {
+          AND: [
+            { propertyId: null },
+            { unitId: null },
+            ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+          ],
+        },
       ],
     },
     include: {
@@ -69,7 +79,7 @@ export async function POST(req: Request) {
 
   const { nextDueDate, ...rest } = parsed.data;
   const item = await prisma.recurringExpense.create({
-    data: { ...rest, nextDueDate: new Date(nextDueDate) },
+    data: { ...rest, nextDueDate: new Date(nextDueDate), organizationId: session!.user.organizationId ?? null },
     include: {
       property: { select: { name: true } },
       unit: { select: { unitNumber: true } },

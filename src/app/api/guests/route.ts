@@ -1,5 +1,6 @@
 import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { guestOrgScope } from "@/lib/guest-access";
 import { z } from "zod";
 
 const guestSchema = z.object({
@@ -12,19 +13,25 @@ const guestSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
+  const orgScope = guestOrgScope(session!.user.organizationId);
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim() ?? "";
 
   const guests = await prisma.airbnbGuest.findMany({
-    where: q ? {
-      OR: [
-        { name:  { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
+    where: {
+      AND: [
+        orgScope,
+        ...(q ? [{
+          OR: [
+            { name:  { contains: q, mode: "insensitive" as const } },
+            { email: { contains: q, mode: "insensitive" as const } },
+          ],
+        }] : []),
       ],
-    } : undefined,
+    },
     include: {
       _count: { select: { bookings: true } },
       documents: { select: { id: true, label: true, fileName: true, fileSize: true, uploadedAt: true } },
@@ -37,7 +44,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   let body: unknown;
@@ -50,7 +57,7 @@ export async function POST(req: Request) {
 
   const { email, ...rest } = parsed.data;
   const guest = await prisma.airbnbGuest.create({
-    data: { ...rest, email: email || null },
+    data: { ...rest, email: email || null, organizationId: session!.user.organizationId ?? null },
   });
 
   return Response.json(guest, { status: 201 });

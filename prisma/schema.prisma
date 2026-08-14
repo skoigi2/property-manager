@@ -1320,6 +1320,10 @@ model RecurringExpense {
   nextDueDate DateTime
   isActive    Boolean            @default(true)
   vendorId    String?
+  // Owning organisation — the ONLY scoping handle for PORTFOLIO templates (no
+  // property/unit to resolve through). Stamped on create from the session;
+  // null on legacy rows created before 2026-08 (grandfathered as visible).
+  organizationId String?
   property    Property?          @relation(fields: [propertyId], references: [id])
   unit        Unit?              @relation(fields: [unitId], references: [id])
   vendor      Vendor?            @relation(fields: [vendorId], references: [id], onDelete: SetNull)
@@ -1329,6 +1333,7 @@ model RecurringExpense {
   updatedAt   DateTime           @updatedAt
 
   @@index([nextDueDate])
+  @@index([organizationId])
 }
 
 model AuditLog {
@@ -1723,6 +1728,11 @@ model AirbnbGuest {
   nationality    String?
   passportNumber String?
   preferences    String?
+  // Owning organisation — the scoping handle for guest records (the model has
+  // no property link of its own). Stamped on create from the session; legacy
+  // rows are backfilled through their bookings' property and any that remain
+  // null (guests with no booking yet) are grandfathered as visible.
+  organizationId String?
   bookings       BookingGuest[]
   documents      GuestDocument[]
   createdAt      DateTime        @default(now())
@@ -1730,6 +1740,7 @@ model AirbnbGuest {
 
   @@index([name])
   @@index([email])
+  @@index([organizationId])
 }
 
 model BookingGuest {

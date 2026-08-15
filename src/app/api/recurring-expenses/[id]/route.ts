@@ -16,7 +16,8 @@ const patchSchema = z.object({
 // Property-linked templates are gated by property access; PORTFOLIO templates
 // (no property/unit) are gated by owning org — another org's row must look like
 // it doesn't exist. Legacy null-org rows are grandfathered; super-admin (session
-// org null) passes. Returns a Response to short-circuit, or null when allowed.
+// org null) passes. Returns { error: Response } to short-circuit, or
+// { error: null, item } with the pre-fetched row when access is allowed.
 async function assertRecurringAccess(
   id: string,
   sessionOrgId: string | null | undefined,

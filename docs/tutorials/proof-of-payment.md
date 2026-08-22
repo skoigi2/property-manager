@@ -19,12 +19,14 @@ Seeded by `seed-state.ts`:
 | 0:12–0:30 | `/portal/[token]` | On the outstanding invoice, tap "I've paid this"; the bottom sheet opens | They've paid by bank or M-Pesa. Instead of WhatsApping you, they tap "I've paid this". |
 | 0:30–0:50 | `/portal/[token]` | Attach the screenshot file AND paste confirmation text; submit | A screenshot, the confirmation text, or both. Twenty seconds of their time. |
 | 0:50–1:05 | `/portal/[token]` | Confirmation state on the sheet | Submitted. Nothing has touched your books yet — that's the point. |
-| 1:05–1:25 | `/invoices` | Switch to the manager view; the invoice shows the amber "Check Proof" badge | On your side, the invoice now wears an amber badge: Check Proof. It's waiting on you. |
-| 1:25–1:45 | `/invoices` | Click the badge; ProofVerifyDrawer slides in with the image previewed inline | Click it and the proof is right there — previewed inline, nothing to download. |
-| 1:45–2:05 | `/invoices` (drawer) | Point at the pasted text panel; click the copy control | Text proof sits alongside, copy-ready if you want to check the reference in your bank app. |
-| 2:05–2:25 | `/invoices` (drawer) | Check the paid-amount field; pick the payment method; click Approve | Confirm the amount and method, then Approve. |
-| 2:25–2:45 | `/invoices` | Drawer closes; invoice now PAID | One click did three things: invoice paid, income entry created, and the proof filed in the tenant's documents. |
-| 2:45–3:00 | `/invoices` | Hold on the list | If the proof doesn't add up, Reject sends the invoice back to overdue — and nothing was booked. |
+| 1:05–1:25 | `/tenants/[id]` (Invoices tab) | Switch to the manager view; the invoice shows the amber "Check Proof" badge | On your side, the invoice now wears an amber badge: Check Proof. It's waiting on you. |
+| 1:25–1:45 | `/tenants/[id]` | Click the badge; ProofVerifyDrawer slides in with the image previewed inline | Click it and the proof is right there — previewed inline, nothing to download. |
+| 1:45–2:05 | `/tenants/[id]` (drawer) | Point at the pasted text panel; click the copy control | Text proof sits alongside, copy-ready if you want to check the reference in your bank app. |
+| 2:05–2:25 | `/tenants/[id]` (drawer) | Check the paid-amount field; pick the payment method; click "Mark as Paid" | Confirm the amount and method, then Approve. |
+| 2:25–2:45 | `/tenants/[id]` | Drawer closes; invoice now PAID | One click did three things: invoice paid, income entry created, and the proof filed in the tenant's documents. |
+| 2:45–3:00 | `/tenants/[id]` | Hold on the invoices list | If the proof doesn't add up, Reject sends the invoice back to overdue — and nothing was booked. |
+
+> Note: the "Check Proof" badge + verify drawer live on the **tenant detail page's Invoices tab**, not the global `/invoices` page.
 
 ## Wrong-way-first beat
 

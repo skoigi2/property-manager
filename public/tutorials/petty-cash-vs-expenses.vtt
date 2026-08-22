@@ -1,0 +1,85 @@
+WEBVTT
+
+NOTE
+Tutorial: petty-cash-vs-expenses
+Generated: 2026-08-22T16:52:08.183Z
+Source of truth: docs/tutorials/petty-cash-vs-expenses.md — edit there and re-record.
+
+1
+00:00:25.027 --> 00:00:31.027
+Petty cash is your cash float. In goes the
+top-up, out go the small payments.
+
+2
+00:00:32.237 --> 00:00:35.837
+Here's the mistake everyone makes. Watch
+what happens when I record spending as a
+
+3
+00:00:35.837 --> 00:00:37.337
+cash out…
+
+4
+00:00:39.314 --> 00:00:46.147
+The app stops me: a petty-cash OUT never
+reaches your P&L. Spending belongs on the
+
+5
+00:00:46.147 --> 00:00:47.647
+Expenses page.
+
+6
+00:00:47.647 --> 00:00:50.330
+So take the exit it offers: Record as
+expense instead.
+
+7
+00:00:52.858 --> 00:00:56.731
+Same purchase, right place — with "Paid
+from petty cash" ticked, the OUT row is
+
+8
+00:00:56.731 --> 00:00:58.231
+created for me, linked.
+
+9
+00:01:12.019 --> 00:01:17.180
+Back in the ledger: there's the cash out,
+badged "From expense". Books and float
+
+10
+00:01:17.180 --> 00:01:18.680
+both correct.
+
+11
+00:01:19.137 --> 00:01:23.677
+Old mistakes don't hide. This banner
+totals every cash out that never became an
+
+12
+00:01:23.677 --> 00:01:25.177
+expense.
+
+13
+00:01:27.506 --> 00:01:31.280
+Each one has a one-click repair: Convert
+to expense. It creates the paid expense
+
+14
+00:01:31.280 --> 00:01:32.780
+and links it — no doubles.
+
+15
+00:01:35.736 --> 00:01:40.736
+Banner's gone. Every shilling of cash out
+now shows up in your P&L.
+
+16
+00:01:40.740 --> 00:01:45.740
+Rule of thumb: money moving lives here;
+money spent lives on Expenses.
+
+17
+00:01:45.750 --> 00:01:49.750
+Next: cases and approvals — how
+maintenance stops living in WhatsApp.

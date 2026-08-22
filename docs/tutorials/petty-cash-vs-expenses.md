@@ -20,7 +20,7 @@
 | 1:10–1:35 | `/expenses?prefill=petty` | The expense form opens pre-filled; point at the "Paid from petty cash" toggle; save | Same purchase, right place — with "Paid from petty cash" ticked, the OUT row is created *for* me, linked. |
 | 1:35–1:50 | `/petty-cash` | Back on Petty Cash; the new OUT row wears a "From expense" badge | Back in the ledger: there's the cash out, badged "From expense". Books and float both correct. |
 | 1:50–2:10 | `/petty-cash` | Point at the amber "unaccounted cash out" banner; click "Show these entries" | Old mistakes don't hide. This banner totals every cash out that never became an expense. |
-| 2:10–2:35 | `/petty-cash` | On an unlinked OUT row, click "Convert to expense"; confirm | Each one has a one-click repair: Convert to expense. It creates the paid expense and links it — no doubles. |
+| 2:10–2:35 | `/petty-cash` | On an unlinked OUT row, click "Not in P&L — convert"; confirm with "Create expense" in the modal | Each one has a one-click repair: Convert to expense. It creates the paid expense and links it — no doubles. |
 | 2:35–2:50 | `/petty-cash` | Banner total shrinks / disappears | Banner's gone. Every shilling of cash out now shows up in your P&L. |
 | 2:50–3:00 | `/petty-cash` | Hold on the ledger | Rule of thumb: money *moving* lives here; money *spent* lives on Expenses. |
 

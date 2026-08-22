@@ -37,7 +37,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
   "first-15-minutes": {
     key: "first-15-minutes",
     title: "Your first 15 minutes",
-    durationSec: 240,
+    durationSec: 136,
     videoUrl: "/tutorials/first-15-minutes.mp4",
     posterUrl: "/tutorials/first-15-minutes.jpg",
     subtitleUrl: "/tutorials/first-15-minutes.vtt",
@@ -58,7 +58,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
   "petty-cash-vs-expenses": {
     key: "petty-cash-vs-expenses",
     title: "Petty cash vs expenses",
-    durationSec: 180,
+    durationSec: 112,
     videoUrl: "/tutorials/petty-cash-vs-expenses.mp4",
     posterUrl: "/tutorials/petty-cash-vs-expenses.jpg",
     subtitleUrl: "/tutorials/petty-cash-vs-expenses.vtt",
@@ -78,7 +78,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
   "invoice-income-link": {
     key: "invoice-income-link",
     title: "How invoices and income stay in sync",
-    durationSec: 180,
+    durationSec: 131,
     videoUrl: "/tutorials/invoice-income-link.mp4",
     posterUrl: "/tutorials/invoice-income-link.jpg",
     subtitleUrl: "/tutorials/invoice-income-link.vtt",
@@ -98,7 +98,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
   "proof-of-payment": {
     key: "proof-of-payment",
     title: "Verifying tenant proof of payment",
-    durationSec: 180,
+    durationSec: 111,
     videoUrl: "/tutorials/proof-of-payment.mp4",
     posterUrl: "/tutorials/proof-of-payment.jpg",
     subtitleUrl: "/tutorials/proof-of-payment.vtt",
@@ -106,7 +106,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
       "Tenants can submit proof of payment — a screenshot, a PDF, or just the M-Pesa confirmation text — from their portal link, with no login. The invoice then shows an amber \"Check Proof\" badge and waits in PENDING_VERIFICATION; nothing touches your books until you decide. Clicking the badge opens a drawer with the proof previewed inline, where you confirm the amount and payment method and approve (marking it paid, creating the income entry, and filing the proof in the tenant's document vault) or reject it, which returns the invoice to its previous state.",
     steps: [
       "The tenant opens their portal link → Balance tab → \"I've paid this\" and attaches a file or pastes the confirmation text.",
-      "The invoice now shows an amber \"Check Proof\" badge on the Invoices page.",
+      "The invoice now shows an amber \"Check Proof\" badge on the tenant's Invoices tab.",
       "Click the badge — the drawer previews the file or text without downloading anything.",
       "Check the amount and payment method fields, then Approve: invoice becomes PAID, an income entry is created, and the proof is vaulted as a payment receipt.",
       "Not right? Reject — the file is discarded and the invoice returns to SENT or OVERDUE for follow-up.",
@@ -118,7 +118,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
   "bulk-import": {
     key: "bulk-import",
     title: "Bulk import without duplicates",
-    durationSec: 240,
+    durationSec: 123,
     videoUrl: "/tutorials/bulk-import.mp4",
     posterUrl: "/tutorials/bulk-import.jpg",
     subtitleUrl: "/tutorials/bulk-import.vtt",
@@ -138,7 +138,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
   "cases-and-approvals": {
     key: "cases-and-approvals",
     title: "Cases, stages and owner approvals",
-    durationSec: 240,
+    durationSec: 209,
     videoUrl: "/tutorials/cases-and-approvals.mp4",
     posterUrl: "/tutorials/cases-and-approvals.jpg",
     subtitleUrl: "/tutorials/cases-and-approvals.vtt",
@@ -158,7 +158,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
   "tenant-checkout": {
     key: "tenant-checkout",
     title: "Tenant checkout and deposit settlement",
-    durationSec: 210,
+    durationSec: 159,
     videoUrl: "/tutorials/tenant-checkout.mp4",
     posterUrl: "/tutorials/tenant-checkout.jpg",
     subtitleUrl: "/tutorials/tenant-checkout.vtt",

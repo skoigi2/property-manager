@@ -9,7 +9,9 @@ import { computeDefaultStageSlaHours, getWorkflow, tryAutoAdvance } from "@/lib/
 
 const createSchema = z.object({
   propertyId:  z.string().min(1),
-  unitId:      z.string().optional(),
+  // "" comes from the form's "Whole property" placeholder option — it must
+  // not reach the FK column.
+  unitId:      z.string().optional().transform((v) => (v ? v : undefined)),
   title:       z.string().min(1, "Title required"),
   description: z.string().optional(),
   category:    z.enum(["PLUMBING","ELECTRICAL","STRUCTURAL","APPLIANCE","PAINTING","CLEANING","SECURITY","PEST_CONTROL","OTHER"]).default("OTHER"),

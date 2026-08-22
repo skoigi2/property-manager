@@ -28,6 +28,8 @@
 | 3:30–3:45 | `/import` | Import; result shows updated count | Every edit landed on the right row. No duplicates, no re-keying. |
 | 3:45–4:00 | `/import` | Hold on the tab bar | Same pattern for units, income, petty cash and the rest. Your spreadsheet era is over. |
 
+> Recorder note: the "(Cut to …)" beats are narrated over the live page rather than cutting to Excel — the recorder can't show a spreadsheet app. The download button is labelled "Download Tenants Template" (name varies per tab); the import button reads "Import N valid rows"; the second-run reset uses "Start fresh". The upsert/ID beats (2:45–3:45) are narrated over the Expenses tab's "Export existing" affordance without performing the round-trip on camera.
+
 ## Wrong-way-first beat
 
 The deliberately broken row (missing required field) at 1:15 is the mistake beat — it shows validation catching problems *before* import rather than corrupting data silently.

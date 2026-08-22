@@ -44,3 +44,11 @@ next-env.d.ts
 docs/typography-shots/
 docs/typography-comparison.md
 scripts/typography-shots.ts
+
+# tutorial recorder — raw captures and burned-caption variants stay local
+*.webm
+*.captioned.mp4
+scripts/record-tutorials/output/
+scripts/record-tutorials/fixtures/
+
+.vercel

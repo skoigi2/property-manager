@@ -1,0 +1,81 @@
+WEBVTT
+
+NOTE
+Tutorial: proof-of-payment
+Generated: 2026-08-22T16:47:03.894Z
+Source of truth: docs/tutorials/proof-of-payment.md — edit there and re-record.
+
+1
+00:00:08.034 --> 00:00:13.034
+This is what your tenant sees — their
+portal link, no login needed.
+
+2
+00:00:14.209 --> 00:00:20.715
+They've paid by bank or M-Pesa. Instead of
+WhatsApping you, they tap "I've paid
+
+3
+00:00:20.715 --> 00:00:22.215
+this".
+
+4
+00:00:27.257 --> 00:00:33.257
+A screenshot, the confirmation text, or
+both. Twenty seconds of their time.
+
+5
+00:00:34.409 --> 00:00:40.409
+Submitted. Nothing has touched your books
+yet — that's the point.
+
+6
+00:01:01.442 --> 00:01:07.156
+On your side, the invoice now wears an
+amber badge: Check Proof. It's waiting on
+
+7
+00:01:07.156 --> 00:01:08.656
+you.
+
+8
+00:01:08.656 --> 00:01:15.573
+Click it and the proof is right there —
+previewed inline, nothing to download.
+
+9
+00:01:15.582 --> 00:01:22.324
+Text proof sits alongside, copy-ready if
+you want to check the reference in your
+
+10
+00:01:22.324 --> 00:01:23.824
+bank app.
+
+11
+00:01:24.214 --> 00:01:28.214
+Confirm the amount and method, then
+Approve.
+
+12
+00:01:30.913 --> 00:01:37.005
+One click did three things: invoice paid,
+income entry created, and the proof filed
+
+13
+00:01:37.005 --> 00:01:38.913
+in the tenant's documents.
+
+14
+00:01:38.926 --> 00:01:44.665
+If the proof doesn't add up, Reject sends
+the invoice back to overdue — and nothing
+
+15
+00:01:44.665 --> 00:01:46.165
+was booked.
+
+16
+00:01:46.165 --> 00:01:49.444
+Next: where cash spending belongs — petty
+cash vs expenses.

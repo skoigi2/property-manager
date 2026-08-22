@@ -27,6 +27,8 @@ Seeded by `seed-state.ts`:
 | 3:05–3:20 | `/tenants/[id]/checkout` | The PDF opens in a new tab; show the dual signature blocks | Out comes the statement PDF, ready for both signatures. |
 | 3:20–3:30 | `/tenants/[id]/checkout` | Back on the page — now read-only with a Download PDF link | The record locks read-only. The goodbye is clean, documented, and defensible. |
 
+> Recorder note: the automated recording stops at **hovering** "Finalize Checkout" and narrates the finalize/PDF/read-only beats over that frame — actually finalising would vacate the demo tenant and break re-recording. The buttons are "Save Draft" and "Finalize Checkout"; deductions are added via "+ Add custom deduction".
+
 ## Wrong-way-first beat
 
 Not applicable — the risk this flow addresses (undocumented lump-sum deposit deductions) is named in narration at 1:50 rather than performed.

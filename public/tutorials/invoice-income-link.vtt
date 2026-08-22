@@ -1,0 +1,69 @@
+WEBVTT
+
+NOTE
+Tutorial: invoice-income-link
+Generated: 2026-08-22T16:38:29.637Z
+Source of truth: docs/tutorials/invoice-income-link.md — edit there and re-record.
+
+1
+00:00:20.506 --> 00:00:27.506
+Invoices are the bill. The money itself
+lives on the Income page. They're linked.
+
+2
+00:00:27.535 --> 00:00:30.035
+Rent arrived? Mark the invoice paid…
+
+3
+00:00:51.608 --> 00:00:58.608
+…and the income entry writes itself. Same
+amount, same tenant, same month.
+
+4
+00:01:01.138 --> 00:01:05.138
+It works the other way too. Record the
+payment as income first…
+
+5
+00:01:13.255 --> 00:01:19.255
+…and the open invoice for that month flips
+to paid on its own.
+
+6
+00:01:19.257 --> 00:01:25.257
+One action, both sides. Enter it twice and
+you'd be double-counting — so don't.
+
+7
+00:01:27.641 --> 00:01:34.141
+Month-end: select many invoices at once.
+Email every PDF, or mark them all paid.
+
+8
+00:01:38.068 --> 00:01:43.568
+Each one gets its income entry, exactly
+like the single click.
+
+9
+00:01:44.756 --> 00:01:49.756
+Mistakes happen. On a paid invoice there's
+exactly one way back: Revert to unpaid.
+
+10
+00:01:53.658 --> 00:01:59.214
+It reopens the invoice and deletes the
+linked income entry too — books stay
+
+11
+00:01:59.214 --> 00:02:00.714
+clean.
+
+12
+00:02:00.714 --> 00:02:05.187
+Bill with invoices, receive with income,
+and let the link do the bookkeeping.
+
+13
+00:02:05.191 --> 00:02:09.191
+Next: what happens when the tenant says
+'I've paid' — verifying proof of payment.

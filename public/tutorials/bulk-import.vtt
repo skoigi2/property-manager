@@ -1,0 +1,101 @@
+WEBVTT
+
+NOTE
+Tutorial: bulk-import
+Generated: 2026-08-22T16:32:28.674Z
+Source of truth: docs/tutorials/bulk-import.md — edit there and re-record.
+
+1
+00:00:07.830 --> 00:00:13.830
+Everything here follows the same four
+steps: download, fill, upload, confirm.
+
+2
+00:00:16.082 --> 00:00:22.082
+One tab per record type. We'll do tenants
+first — the flow is identical everywhere.
+
+3
+00:00:23.212 --> 00:00:30.212
+The template is pre-formatted. Never build
+your own spreadsheet from scratch.
+
+4
+00:00:30.226 --> 00:00:36.643
+Row two tells you which columns are
+required. The Instructions sheet explains
+
+5
+00:00:36.643 --> 00:00:38.143
+every column.
+
+6
+00:00:38.143 --> 00:00:46.024
+Upload it. Nothing is imported yet — the
+rows are checked in your browser first.
+
+7
+00:00:47.171 --> 00:00:54.600
+One row is missing its rent, and the app
+says so — per row, before anything is
+
+8
+00:00:54.600 --> 00:00:56.100
+saved.
+
+9
+00:00:56.341 --> 00:01:02.341
+Import the valid rows. The broken one just
+waits for a fix — no all-or-nothing.
+
+10
+00:01:02.363 --> 00:01:07.363
+Three imported. And here's the safety net:
+run the same file again…
+
+11
+00:01:11.498 --> 00:01:17.998
+…and everything is skipped. Duplicates are
+detected, not doubled.
+
+12
+00:01:20.257 --> 00:01:26.953
+Now the power move. Expenses can export
+your live data, pre-filled into the
+
+13
+00:01:26.953 --> 00:01:28.453
+template.
+
+14
+00:01:28.453 --> 00:01:34.892
+See the ID column? That's what lets you
+edit anything in Excel without creating a
+
+15
+00:01:34.892 --> 00:01:36.392
+duplicate.
+
+16
+00:01:36.392 --> 00:01:43.785
+Tick "Update existing records" — matched
+rows are refreshed instead of skipped.
+
+17
+00:01:43.800 --> 00:01:49.300
+Every edit landed on the right row. No
+duplicates, no re-keying.
+
+18
+00:01:50.448 --> 00:01:56.566
+Same pattern for units, income, petty cash
+and the rest. Your spreadsheet era is
+
+19
+00:01:56.566 --> 00:01:58.066
+over.
+
+20
+00:01:58.066 --> 00:02:00.963
+Next: how invoices and income stay in sync
+— so you never book rent twice.

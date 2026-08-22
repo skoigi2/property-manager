@@ -40,6 +40,7 @@ import {
   Sparkles,
   Zap,
   Bell,
+  PlayCircle,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -120,6 +121,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/settings",       label: "General",   icon: Settings,   roles: ["MANAGER"] },
       { href: "/automations",    label: "Automations", icon: Zap,      roles: ["MANAGER"] },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, roles: ["MANAGER"] },
+      { href: "/help/tutorials", label: "Tutorials", icon: PlayCircle, roles: ["MANAGER"] },
       { href: "/settings/calendar", label: "Calendar Feed", icon: CalendarRange, roles: ["MANAGER"] },
       { href: "/settings/payment-accounts", label: "Payment Accounts", icon: CreditCard, roles: ["MANAGER"] },
       { href: "/settings/users", label: "Users",     icon: UserCog,    roles: ["MANAGER"] },

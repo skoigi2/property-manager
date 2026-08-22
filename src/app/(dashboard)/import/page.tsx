@@ -41,6 +41,7 @@ import {
   downloadRowsAsWorkbook,
 } from "@/lib/import-templates";
 import { ImportHandoverModal } from "@/components/import/ImportHandoverModal";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { PackageOpen } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1069,15 +1070,18 @@ function ImportSection({
           )}
 
           {supportsUpsert && validRows.length > 0 && (
-            <label className="flex items-center gap-2 text-body text-gray-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={upsertMode}
-                onChange={(e) => setUpsertMode(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-gold focus:ring-gold/40"
-              />
-              Update existing records (re-upload to refresh fields)
-            </label>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="flex items-center gap-2 text-body text-gray-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={upsertMode}
+                  onChange={(e) => setUpsertMode(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-gold focus:ring-gold/40"
+                />
+                Update existing records (re-upload to refresh fields)
+              </label>
+              <TutorialVideo tutorialKey="bulk-import" variant="link" />
+            </div>
           )}
 
           <Button variant="ghost" size="sm" onClick={handleReset}>
@@ -1180,6 +1184,9 @@ export default function ImportPage() {
               <p className="text-body text-blue-600 ">
                 1. Download the template &middot; 2. Fill in the Data sheet (row 2 shows which fields are required) &middot; 3. Upload and preview &middot; 4. Confirm import. Duplicate records are automatically skipped.
               </p>
+              <div className="mt-1.5">
+                <TutorialVideo tutorialKey="bulk-import" variant="link" />
+              </div>
             </div>
           </div>
         </Card>

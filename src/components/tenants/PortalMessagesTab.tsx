@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 type ThreadSummary = {
   id: string;
@@ -104,8 +105,11 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="section-header">Portal Messages</h2>
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <h2 className="section-header">Portal Messages</h2>
+          <TutorialVideo tutorialKey="proof-of-payment" variant="link" />
+        </div>
         <span className="text-caption text-gray-400">Tenant ↔ Manager threads from the portal</span>
       </div>
 

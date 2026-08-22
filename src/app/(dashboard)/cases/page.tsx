@@ -12,6 +12,7 @@ import { CaseListView } from "@/components/cases/CaseListView";
 import { CaseKanbanView } from "@/components/cases/CaseKanbanView";
 import { CaseCalendarView } from "@/components/cases/CaseCalendarView";
 import { CaseGroupedView } from "@/components/cases/CaseGroupedView";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 type View = "list" | "kanban" | "calendar" | "property" | "owner" | "vendor";
 
@@ -152,6 +153,7 @@ export default function CasesPage() {
             icon={<Inbox size={36} />}
             title="No cases yet"
             description="Cases are created automatically when a maintenance job is logged."
+            action={<TutorialVideo tutorialKey="cases-and-approvals" variant="link" />}
           />
         ) : view === "list" ? (
           <CaseListView rows={rows} />

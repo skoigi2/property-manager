@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { SeedProgress } from "@/components/ui/SeedProgress";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 import toast from "react-hot-toast";
 
@@ -510,7 +511,11 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
       </button>
       {seedLoading && <SeedProgress />}
 
-      <p className="text-caption text-gray-400 mt-6">
+      <div className="mt-5">
+        <TutorialVideo tutorialKey="first-15-minutes" variant="link" />
+      </div>
+
+      <p className="text-caption text-gray-400 mt-4">
         Need help?{" "}
         <a href="mailto:support@groundworkpm.com" className="text-gold hover:underline">
           support@groundworkpm.com

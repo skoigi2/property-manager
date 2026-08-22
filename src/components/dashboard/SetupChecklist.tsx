@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, X, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { HelpTip } from "@/components/ui/HelpTip";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import type { SetupProgress } from "@/lib/setup-progress";
 
 interface Props {
@@ -85,7 +86,8 @@ export function SetupChecklist({ propertyId }: Props) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <TutorialVideo tutorialKey="first-15-minutes" variant="link" />
           <button
             onClick={() => setOpen((o) => !o)}
             className="p-1.5 rounded-lg text-gray-400 hover:text-header hover:bg-gray-50 transition-colors"

@@ -31,6 +31,7 @@ import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import { useFocusScroll } from "@/lib/use-focus-scroll";
 import OwnerInvoicesTab from "./OwnerInvoicesTab";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1368,6 +1369,9 @@ export default function InvoicesPage() {
               );
             })}
           </select>
+          <div className="flex items-center shrink-0">
+            <TutorialVideo tutorialKey="invoice-income-link" variant="link" />
+          </div>
         </div>
       </div>
 

@@ -19,6 +19,7 @@ import { VendorEmailModal } from "@/components/cases/VendorEmailModal";
 import { StageTracker } from "@/components/cases/StageTracker";
 import { Modal } from "@/components/ui/Modal";
 import { getWorkflow } from "@/lib/case-workflow-defs";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 type CaseStatus = "OPEN" | "IN_PROGRESS" | "AWAITING_APPROVAL" | "AWAITING_VENDOR" | "AWAITING_TENANT" | "RESOLVED" | "CLOSED";
 type CaseWaitingOn = "MANAGER" | "OWNER" | "TENANT" | "VENDOR" | "NONE";
@@ -340,6 +341,9 @@ export default function CaseDetailPage() {
               >
                 <ShieldQuestion size={14} /> Request approval
               </button>
+              <div className="flex justify-center pt-1">
+                <TutorialVideo tutorialKey="cases-and-approvals" variant="link" />
+              </div>
             </div>
           </div>
         </div>

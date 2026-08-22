@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
 import { Plus, Trash2, FileText, Save, Loader2, Pencil, Lock, Download } from "lucide-react";
 import toast from "react-hot-toast";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 type DepositPosition = {
   contractual: number;
@@ -329,6 +330,12 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
       <div className="space-y-5">
+        {/* Shown only while the checkout is still editable (no record yet, or IN_PROGRESS) */}
+        {(data.checkout === null || data.checkout.status === "IN_PROGRESS") && (
+          <div>
+            <TutorialVideo tutorialKey="tenant-checkout" variant="link" />
+          </div>
+        )}
         {isCompleted && (
           <Card className="!p-4 border border-amber-200 bg-amber-50/50">
             <div className="flex items-center gap-2 text-amber-800">

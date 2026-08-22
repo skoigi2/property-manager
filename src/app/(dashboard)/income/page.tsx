@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -916,7 +917,9 @@ export default function IncomePage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <Header title="Income" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role} />
+      <Header title="Income" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role}>
+        <TutorialVideo tutorialKey="invoice-income-link" variant="link" />
+      </Header>
 
       <div className="page-container space-y-5">
 

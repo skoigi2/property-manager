@@ -29,6 +29,7 @@ import { usePermissions } from "@/lib/use-permissions";
 import { useSharedMonth } from "@/lib/use-shared-month";
 import { formatCurrency } from "@/lib/currency";
 import { HelpTip } from "@/components/ui/HelpTip";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { ExportRangeDialog, type ExportRange } from "@/components/ui/ExportRangeDialog";
 import { exportPettyCash } from "@/lib/excel-export";
 import { useRouter } from "next/navigation";
@@ -641,11 +642,16 @@ export default function PettyCashPage() {
           <div className="flex items-start sm:items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex-col sm:flex-row">
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <TrendingDown size={16} className="text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-body text-amber-800">
-                <strong>{formatCurrency(unaccountedTotal, currency)}</strong> of cash out ({unlinkedOuts.length} entr{unlinkedOuts.length === 1 ? "y" : "ies"}) is
-                not recorded as an expense — it doesn&apos;t appear in your P&amp;L or reports. Convert each entry to an
-                expense to keep the books accurate.
-              </p>
+              <div>
+                <p className="text-body text-amber-800">
+                  <strong>{formatCurrency(unaccountedTotal, currency)}</strong> of cash out ({unlinkedOuts.length} entr{unlinkedOuts.length === 1 ? "y" : "ies"}) is
+                  not recorded as an expense — it doesn&apos;t appear in your P&amp;L or reports. Convert each entry to an
+                  expense to keep the books accurate.
+                </p>
+                <div className="mt-1">
+                  <TutorialVideo tutorialKey="petty-cash-vs-expenses" variant="link" />
+                </div>
+              </div>
             </div>
             <button
               onClick={() => setShowUnlinkedOnly(!showUnlinkedOnly)}
@@ -713,13 +719,16 @@ export default function PettyCashPage() {
                     instead — it will appear in your P&amp;L and reports, and this ledger updates automatically.
                     Use this form only for cash movements that aren&apos;t expenses (returns, corrections, transfers).
                   </p>
-                  <button
-                    type="button"
-                    onClick={recordAsExpenseInstead}
-                    className="text-caption font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
-                  >
-                    Record as expense instead →
-                  </button>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={recordAsExpenseInstead}
+                      className="text-caption font-medium text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                    >
+                      Record as expense instead →
+                    </button>
+                    <TutorialVideo tutorialKey="petty-cash-vs-expenses" variant="link" />
+                  </div>
                 </div>
               )}
               {watchedType === "OUT" && (() => {

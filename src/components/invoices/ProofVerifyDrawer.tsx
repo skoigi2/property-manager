@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 type Props = {
   open: boolean;
@@ -113,7 +114,10 @@ export default function ProofVerifyDrawer({ open, onClose, invoiceId, onVerified
       >
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-h3 text-gray-900">Verify Payment Proof</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-h3 text-gray-900">Verify Payment Proof</h3>
+              <TutorialVideo tutorialKey="proof-of-payment" variant="link" />
+            </div>
             {data && (
               <p className="text-caption text-gray-500">
                 {data.tenantName} · Invoice {data.invoiceNumber}

@@ -195,6 +195,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           paymentStatus: item.paymentStatus ?? "UNPAID",
           amountPaid: item.amountPaid ?? 0,
           paymentReference: item.paymentReference,
+          paymentDate: item.paymentDate ? new Date(item.paymentDate) : null,
           ...taxSnapshot,
         };
       }),

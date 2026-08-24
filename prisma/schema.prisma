@@ -594,6 +594,9 @@ enum LineItemCategory {
   LABOUR
   MATERIAL
   QUOTE
+  // Transaction/bank/M-Pesa charges incurred paying the vendor — kept as a
+  // line item so the fee sits on the same expense as the payment it belongs to.
+  TRANSACTION_CHARGE
 }
 
 enum LineItemPaymentStatus {
@@ -945,6 +948,9 @@ model ExpenseLineItem {
   paymentStatus    LineItemPaymentStatus @default(UNPAID)
   amountPaid       Decimal                @default(0) @db.Decimal(14, 2)
   paymentReference String?
+  // When this line was (last) paid — items on one invoice are often settled
+  // on different dates, so the date lives per line, not on the expense.
+  paymentDate      DateTime?
   expense          ExpenseEntry         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt

@@ -161,9 +161,12 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
           { label: "Gross Income",   tooltip: "Total rent and charges collected this period. Deposits are excluded.",                                           value: data.kpis.grossIncome,       icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
+          ...(data.kpis.incomeToDate != null ? [
+          { label: "Income To Date", tooltip: "Cumulative income received across ALL time up to the end of this period (cash basis, deposits excluded).",       value: data.kpis.incomeToDate,      icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
+          ] : []),
           { label: "Commissions",    tooltip: "Agent or letting fees deducted from your revenue. This reduces your net income.",                                value: data.kpis.agentCommissions,  icon: <DollarSign size={16} />,  color: "text-expense", border: "border-expense" },
           { label: "Total Expenses", tooltip: "All operating costs — maintenance, utilities, management fees. One-off capital items are excluded.",             value: data.kpis.totalExpenses,     icon: <Receipt size={16} />,     color: "text-expense", border: "border-expense" },
           { label: "Net Profit",     tooltip: "Your actual return after all deductions. Compare month-on-month to track performance trends.",                   value: data.kpis.netProfit,         icon: <Wallet size={16} />,      color: data.kpis.netProfit >= 0 ? "text-income" : "text-expense", border: data.kpis.netProfit >= 0 ? "border-income" : "border-expense" },
@@ -1128,7 +1131,7 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
   );
 }
 
-// ── Quarterly Download Tab ─────────────────────────────────────────────────────
+// ── Period Report Tab (quarter or custom month range) ──────────────────────────
 
 function QuarterlyDownload({ quarter, setQuarter, quarterYear, setQuarterYear, selectedId }: {
   quarter: number; setQuarter: (q: number) => void;
@@ -1136,31 +1139,57 @@ function QuarterlyDownload({ quarter, setQuarter, quarterYear, setQuarterYear, s
   selectedId?: string | null;
 }) {
   const [generating, setGenerating] = useState(false);
+  const [mode, setMode]             = useState<"quarter" | "custom">("quarter");
+  const now = new Date();
+  const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [fromMonth, setFromMonth]   = useState(`${now.getFullYear()}-01`);
+  const [toMonth, setToMonth]       = useState(thisMonthKey);
+  const [preview, setPreview]       = useState<ReportData | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+
+  const rangeValid = /^\d{4}-\d{2}$/.test(fromMonth) && /^\d{4}-\d{2}$/.test(toMonth) && fromMonth <= toMonth;
+
+  async function handlePreview() {
+    if (!rangeValid) { toast.error("Pick a valid month range (from ≤ to)."); return; }
+    setPreviewing(true);
+    try {
+      const qs = new URLSearchParams({ from: fromMonth, to: toMonth });
+      if (selectedId) qs.set("propertyId", selectedId);
+      const res = await fetch(`/api/report?${qs}`);
+      if (!res.ok) throw new Error();
+      setPreview(await res.json());
+    } catch {
+      toast.error("Failed to load the combined summary.");
+    } finally {
+      setPreviewing(false);
+    }
+  }
 
   async function handleDownload() {
     setGenerating(true);
     try {
+      const body =
+        mode === "quarter"
+          ? { type: "quarterly", quarter, year: quarterYear }
+          : { type: "range", from: fromMonth, to: toMonth };
       const res = await fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "quarterly",
-          quarter,
-          year: quarterYear,
-          ...(selectedId ? { propertyId: selectedId } : {}),
-        }),
+        body: JSON.stringify({ ...body, ...(selectedId ? { propertyId: selectedId } : {}) }),
       });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = url;
-      a.download = `property-report-Q${quarter}-${quarterYear}.pdf`;
+      a.download = mode === "quarter"
+        ? `property-report-Q${quarter}-${quarterYear}.pdf`
+        : `property-report-${fromMonth}-to-${toMonth}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Quarterly report downloaded!");
+      toast.success("Period report downloaded!");
     } catch {
-      toast.error("Failed to generate quarterly report. Please try again.");
+      toast.error("Failed to generate the report. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -1176,12 +1205,90 @@ function QuarterlyDownload({ quarter, setQuarter, quarterYear, setQuarterYear, s
             <Calendar size={20} className="text-gold" />
           </div>
           <div>
-            <h3 className=" text-h3 text-header">Download Quarterly Report</h3>
-            <p className="text-caption text-gray-400 mt-0.5">3-month aggregated P&L, rent & Airbnb performance</p>
+            <h3 className=" text-h3 text-header">Period Report</h3>
+            <p className="text-caption text-gray-400 mt-0.5">Aggregate any months together — quarter or a custom range</p>
           </div>
         </div>
 
         <div className="space-y-4">
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            {([["quarter", "Quarter"], ["custom", "Custom months"]] as const).map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={clsx(
+                  "flex-1 py-2 rounded-lg text-body font-medium transition-all border",
+                  mode === m
+                    ? "bg-gold text-white border-gold"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gold/50 hover:text-gold-dark",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {mode === "custom" && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-caption text-gray-500 mb-1">From month</label>
+                  <input
+                    type="month"
+                    value={fromMonth}
+                    onChange={(e) => { setFromMonth(e.target.value); setPreview(null); }}
+                    max={thisMonthKey}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-caption text-gray-500 mb-1">To month</label>
+                  <input
+                    type="month"
+                    value={toMonth}
+                    onChange={(e) => { setToMonth(e.target.value); setPreview(null); }}
+                    max={thisMonthKey}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handlePreview} loading={previewing} variant="secondary" className="w-full">
+                Review these months together
+              </Button>
+
+              {preview && (
+                <div className="bg-cream rounded-xl p-4 space-y-1.5">
+                  <p className="text-caption font-medium text-header mb-1">{preview.period}</p>
+                  {[
+                    ["Gross income", preview.kpis.grossIncome],
+                    ["Agent commissions", -preview.kpis.agentCommissions],
+                    ["Operating expenses", -preview.kpis.totalExpenses],
+                    ["Net profit", preview.kpis.netProfit],
+                  ].map(([label, value]) => (
+                    <div key={label as string} className="flex items-center justify-between text-caption">
+                      <span className="text-gray-500">{label}</span>
+                      <span className={clsx("font-medium tabular-nums", (value as number) < 0 ? "text-expense" : "text-header")}>
+                        {formatCurrency(value as number, preview.currency)}
+                      </span>
+                    </div>
+                  ))}
+                  {preview.kpis.incomeToDate != null && (
+                    <div className="flex items-center justify-between text-caption border-t border-gray-200 pt-1.5 mt-1.5">
+                      <span className="text-gray-500">Total income to date (all time)</span>
+                      <span className="font-medium tabular-nums text-income">
+                        {formatCurrency(preview.kpis.incomeToDate, preview.currency)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {mode === "quarter" && (
+          <div className="space-y-4">
           {/* Quarter selector */}
           <div>
             <p className="text-label font-medium text-gray-500 uppercase mb-2">Quarter</p>
@@ -1227,10 +1334,23 @@ function QuarterlyDownload({ quarter, setQuarter, quarterYear, setQuarterYear, s
               </div>
             ))}
           </div>
+          </div>
+          )}
 
-          <Button onClick={handleDownload} loading={generating} size="lg" className="w-full" variant="primary">
+          <Button
+            onClick={handleDownload}
+            loading={generating}
+            size="lg"
+            className="w-full"
+            variant="primary"
+            disabled={mode === "custom" && !rangeValid}
+          >
             <Download size={18} />
-            {generating ? "Generating PDF…" : `Download Q${quarter} ${quarterYear} PDF`}
+            {generating
+              ? "Generating PDF…"
+              : mode === "quarter"
+                ? `Download Q${quarter} ${quarterYear} PDF`
+                : `Download ${fromMonth} – ${toMonth} PDF`}
           </Button>
         </div>
       </Card>
@@ -1271,7 +1391,7 @@ export default function ReportPage() {
     { id: "owner",     label: "Owner Statement",    icon: <DollarSign size={15} /> },
     { id: "tax",       label: "Tax Summary",        icon: <BarChart2 size={15} /> },
     { id: "download",  label: "Download PDF",       icon: <Download size={15} /> },
-    { id: "quarterly", label: "Quarterly Report",   icon: <Calendar size={15} /> },
+    { id: "quarterly", label: "Period Report",      icon: <Calendar size={15} /> },
   ];
 
   return (
@@ -1343,7 +1463,7 @@ export default function ReportPage() {
                   {t.icon}
                   <span className="hidden sm:inline">{t.label}</span>
                   <span className="sm:hidden">
-                    {t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : t.id === "owner" ? "Owner" : t.id === "tax" ? "Tax" : t.id === "quarterly" ? "Qtrly" : "PDF"}
+                    {t.id === "preview" ? "P&L" : t.id === "annual" ? "Annual" : t.id === "owner" ? "Owner" : t.id === "tax" ? "Tax" : t.id === "quarterly" ? "Period" : "PDF"}
                   </span>
                 </button>
               ))}

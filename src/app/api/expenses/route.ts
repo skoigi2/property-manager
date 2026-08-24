@@ -200,6 +200,7 @@ export async function POST(req: Request) {
       paymentStatus: item.paymentStatus ?? "UNPAID",
       amountPaid: item.amountPaid ?? 0,
       paymentReference: item.paymentReference,
+      paymentDate: item.paymentDate ? new Date(item.paymentDate) : null,
       ...taxSnapshot,
     };
   }) ?? [];

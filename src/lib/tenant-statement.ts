@@ -168,6 +168,7 @@ export interface TenantStatement {
   tenantId: string;
   tenantName: string;
   tenantEmail: string | null;
+  tenantPhone: string | null;
   unitNumber: string;
   propertyId: string;
   propertyName: string;
@@ -256,6 +257,7 @@ export interface StatementSourceData {
     id: string;
     name: string;
     email: string | null;
+    phone: string | null;
     depositAmount: number;
   };
   unitNumber: string;
@@ -508,6 +510,7 @@ export function computeTenantStatement(
     tenantId: src.tenant.id,
     tenantName: src.tenant.name,
     tenantEmail: src.tenant.email,
+    tenantPhone: src.tenant.phone,
     unitNumber: src.unitNumber,
     propertyId: src.property.id,
     propertyName: src.property.name,
@@ -579,6 +582,7 @@ export async function buildTenantStatement(tenantId: string, period: StatementPe
       id: true,
       name: true,
       email: true,
+      phone: true,
       depositAmount: true,
       unit: {
         select: {
@@ -640,7 +644,7 @@ export async function buildTenantStatement(tenantId: string, period: StatementPe
 
   return computeTenantStatement(
     {
-      tenant: { id: tenant.id, name: tenant.name, email: tenant.email, depositAmount: tenant.depositAmount },
+      tenant: { id: tenant.id, name: tenant.name, email: tenant.email, phone: tenant.phone, depositAmount: tenant.depositAmount },
       unitNumber: tenant.unit.unitNumber,
       property: tenant.unit.property,
       invoices,

@@ -31,7 +31,7 @@ export const UNIT_OF_MEASURE_VALUES = [
 
 export const expenseLineItemSchema = z.object({
   id: z.string().optional(),
-  category: z.enum(["LABOUR", "MATERIAL", "QUOTE"]),
+  category: z.enum(["LABOUR", "MATERIAL", "QUOTE", "TRANSACTION_CHARGE"]),
   description: z.string().optional(),
   amount: z.coerce.number().min(0),
   // Optional unit of measurement for quantity — context only. unitOther is
@@ -51,6 +51,8 @@ export const expenseLineItemSchema = z.object({
   paymentStatus: z.enum(["UNPAID", "PARTIAL", "PAID"]).default("UNPAID"),
   amountPaid: z.coerce.number().min(0).default(0),
   paymentReference: z.string().optional(),
+  // Per-line payment date — items on one invoice often settle on different days.
+  paymentDate: z.string().optional().nullable(),
 });
 
 export const expenseEntrySchema = z.object({

@@ -175,7 +175,7 @@ function pay(over: Partial<StatementPaymentRow>): StatementPaymentRow {
 
 function src(over: Partial<StatementSourceData>): StatementSourceData {
   return {
-    tenant: { id: "t1", name: "Jane Tenant", email: "jane@example.com", depositAmount: 100000 },
+    tenant: { id: "t1", name: "Jane Tenant", email: "jane@example.com", phone: null, depositAmount: 100000 },
     unitNumber: "A1",
     property: { id: "p1", name: "Riara One", currency: "KES", organizationId: "org1" },
     invoices: [],

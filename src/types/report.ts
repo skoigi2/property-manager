@@ -17,6 +17,9 @@ export interface ReportData {
     totalExpenses: number;
     netProfit: number;
     occupancyRate: number;
+    /** ALL income received up to the end of the report period (cash basis,
+     *  deposits excluded) — cumulative, not just this period's. */
+    incomeToDate?: number;
   };
 
   rentCollection: {

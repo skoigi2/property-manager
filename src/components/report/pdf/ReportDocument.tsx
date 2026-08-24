@@ -527,6 +527,12 @@ export function ReportDocument({ data }: { data: ReportData }) {
                 <Text style={[styles.footerText, { color: "#B8902A", textAlign: "right" }]}>Margin: {margin}%</Text>
               </View>
             </View>
+            {data.kpis.incomeToDate != null ? (
+              <View style={styles.plRow}>
+                <Text style={styles.plLabel}>Total income received to date (all time, excl. deposits)</Text>
+                <Text style={styles.plValue}>{fmt(data.kpis.incomeToDate)}</Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Sections: Petty Cash + Management Fee — side by side */}

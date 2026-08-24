@@ -74,12 +74,20 @@ function StatementDoc({ s, branding }: { s: TenantStatement; branding: Statement
               />
             ) : null}
             <Text style={styles.title}>Statement of Account</Text>
-            <Text style={styles.subtitle} hyphenationCallback={noHyphenation}>
-              {s.tenantName} · Unit {s.unitNumber} · {s.propertyName}
-            </Text>
             {branding.issuerName || branding.orgName ? (
               <Text style={styles.subtitle}>{branding.issuerName ?? branding.orgName}</Text>
             ) : null}
+            {branding.address ? (
+              <Text style={styles.subtitle} hyphenationCallback={noHyphenation}>{branding.address}</Text>
+            ) : null}
+            <Text style={[styles.subtitle, { marginTop: 6 }]} hyphenationCallback={noHyphenation}>
+              {s.tenantName}
+              {s.tenantPhone ? ` · ${s.tenantPhone}` : ""}
+              {s.tenantEmail ? ` · ${s.tenantEmail}` : ""}
+            </Text>
+            <Text style={styles.subtitle} hyphenationCallback={noHyphenation}>
+              Unit {s.unitNumber} · {s.propertyName}
+            </Text>
           </View>
           <View>
             <Text style={styles.periodLabel} hyphenationCallback={noHyphenation}>{s.period.label}</Text>

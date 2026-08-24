@@ -93,6 +93,14 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const totalExpenses     = expenseEntries.filter((e) => !e.isSunkCost).reduce((s, e) => s + e.amount, 0);
   const netProfit         = grossIncome - agentCommissions - totalExpenses;
 
+  // Cumulative income to date: ALL income received up to the end of this
+  // period (cash basis, deposits excluded) — not just this period's.
+  const toDateAgg = await prisma.incomeEntry.aggregate({
+    where: { type: { not: "DEPOSIT" }, date: { lte: to }, unit: { propertyId: { in: propertyIds } } },
+    _sum: { grossAmount: true },
+  });
+  const incomeToDate = toDateAgg._sum.grossAmount ?? 0;
+
   const propertyNames    = properties.map((p) => p.name).join(" & ");
   const organizationName = properties[0]?.organization?.name ?? "Property Manager";
   const ownerName        = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
@@ -244,7 +252,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",
-    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate },
+    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate, incomeToDate },
     rentCollection,
     albaPerformance,
     expenses,
@@ -332,6 +340,14 @@ async function buildRangeReportData(
   const agentCommissions = incomeEntries.reduce((s, e) => s + e.agentCommission, 0);
   const totalExpenses    = expenseEntries.filter((e) => !e.isSunkCost).reduce((s, e) => s + e.amount, 0);
   const netProfit        = grossIncome - agentCommissions - totalExpenses;
+
+  // Cumulative income to date (cash basis, deposits excluded) — all-time up
+  // to the period end (`to` is exclusive here).
+  const toDateAggR = await prisma.incomeEntry.aggregate({
+    where: { type: { not: "DEPOSIT" }, date: { lt: to }, unit: { propertyId: { in: propertyIds } } },
+    _sum: { grossAmount: true },
+  });
+  const incomeToDate = toDateAggR._sum.grossAmount ?? 0;
 
   const propertyNames    = properties.map((p) => p.name).join(" & ");
   const organizationName = properties[0]?.organization?.name ?? "Property Manager";
@@ -471,7 +487,7 @@ async function buildRangeReportData(
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",
-    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate },
+    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate, incomeToDate },
     rentCollection, albaPerformance, expenses, vendorSpend,
     pettyCash: {
       totalIn: pcIn, totalOut: pcOut, balance: pcIn - pcOut,
@@ -482,6 +498,36 @@ async function buildRangeReportData(
     ...(taxSummaryQ.hasAnyTax ? { taxSummary: taxSummaryQ } : {}),
     ...(arrearsAgingQ ? { arrearsAging: arrearsAgingQ } : {}),
   };
+}
+
+// ── Custom month-range parsing (item: "review certain months together") ──────
+//
+// from/to are inclusive YYYY-MM month keys. Capped at 24 months so a typo'd
+// range can't fan a giant aggregation.
+
+function parseMonthRange(fromKey: string, toKey: string):
+  | { from: Date; toExcl: Date; label: string; months: number; days: number }
+  | null {
+  const m = /^(\d{4})-(\d{2})$/;
+  const f = fromKey.match(m);
+  const t = toKey.match(m);
+  if (!f || !t) return null;
+  const from = new Date(parseInt(f[1]), parseInt(f[2]) - 1, 1);
+  const toStart = new Date(parseInt(t[1]), parseInt(t[2]) - 1, 1);
+  if (isNaN(from.getTime()) || isNaN(toStart.getTime()) || toStart < from) return null;
+  const months =
+    (toStart.getFullYear() * 12 + toStart.getMonth()) -
+    (from.getFullYear() * 12 + from.getMonth()) + 1;
+  if (months > 24) return null;
+  const toExcl = new Date(toStart.getFullYear(), toStart.getMonth() + 1, 1);
+  const days = Array.from({ length: months }, (_, i) =>
+    getDaysInMonth(new Date(from.getFullYear(), from.getMonth() + i, 1)),
+  ).reduce((s, d) => s + d, 0);
+  const label =
+    months === 1
+      ? format(from, "MMMM yyyy")
+      : `${format(from, "MMM yyyy")} – ${format(toStart, "MMM yyyy")} Summary`;
+  return { from, toExcl, label, months, days };
 }
 
 // ── GET — JSON preview data (single month or full year) ───────────────────────
@@ -501,6 +547,20 @@ export async function GET(req: Request) {
   const scopedIds = filterPropertyId && propertyIds.includes(filterPropertyId)
     ? [filterPropertyId]
     : propertyIds;
+
+  // Custom month range (?from=YYYY-MM&to=YYYY-MM) — aggregated multi-month view.
+  const fromKey = searchParams.get("from");
+  const toKey   = searchParams.get("to");
+  if (fromKey && toKey) {
+    const range = parseMonthRange(fromKey, toKey);
+    if (!range) {
+      return Response.json({ error: "Invalid range — use from=YYYY-MM&to=YYYY-MM (max 24 months)" }, { status: 400 });
+    }
+    const data = await buildRangeReportData(
+      range.from, range.toExcl, range.label, range.months, range.days, session, scopedIds,
+    );
+    return Response.json(data);
+  }
 
   if (month) {
     const data = await buildReportData(year, parseInt(month), session, scopedIds);
@@ -552,6 +612,24 @@ export async function POST(req: Request) {
   const scopedIds        = filterPropertyId && propertyIds.includes(filterPropertyId)
     ? [filterPropertyId]
     : propertyIds;
+
+  // Custom month-range PDF (from/to inclusive YYYY-MM)
+  if (body.type === "range") {
+    const range = parseMonthRange(String(body.from ?? ""), String(body.to ?? ""));
+    if (!range) {
+      return Response.json({ error: "Invalid range — use from=YYYY-MM&to=YYYY-MM (max 24 months)" }, { status: 400 });
+    }
+    const data = await buildRangeReportData(
+      range.from, range.toExcl, range.label, range.months, range.days, session, scopedIds,
+    );
+    const buf = await generateReportPDF(data);
+    return new Response(new Uint8Array(buf), {
+      headers: {
+        "Content-Type":        "application/pdf",
+        "Content-Disposition": `attachment; filename="property-report-${body.from}-to-${body.to}.pdf"`,
+      },
+    });
+  }
 
   // Quarterly PDF
   if (body.type === "quarterly") {

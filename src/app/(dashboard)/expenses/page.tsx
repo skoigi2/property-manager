@@ -103,8 +103,14 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   BANK_TRANSFER: "Bank Transfer", MPESA: "M-Pesa", CASH: "Cash",
   CARD: "Card", CHEQUE: "Cheque", OTHER: "Other",
 };
-const LINE_CATEGORIES = ["LABOUR", "MATERIAL", "QUOTE"] as const;
+const LINE_CATEGORIES = ["LABOUR", "MATERIAL", "QUOTE", "TRANSACTION_CHARGE"] as const;
 type LineCat = typeof LINE_CATEGORIES[number];
+const LINE_CAT_LABELS: Record<string, string> = {
+  LABOUR: "Labour",
+  MATERIAL: "Material",
+  QUOTE: "Quote",
+  TRANSACTION_CHARGE: "Transaction charge (M-Pesa/bank)",
+};
 type PayStatus = "UNPAID" | "PARTIAL" | "PAID";
 
 // Unit-of-measure dropdown, grouped. Mirrors the UnitOfMeasure enum —
@@ -149,10 +155,12 @@ interface LineItemDraft {
   paymentStatus: PayStatus;
   amountPaid: string;
   paymentReference: string;
+  // Per-line payment date (YYYY-MM-DD) — items settle on different days.
+  paymentDate: string;
 }
 
 function blankLine(): LineItemDraft {
-  return { category: "LABOUR", description: "", amount: "", quantity: "", unitRate: "", unit: "", unitOther: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "" };
+  return { category: "LABOUR", description: "", amount: "", quantity: "", unitRate: "", unit: "", unitOther: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "", paymentDate: "" };
 }
 
 /** round2(qty × rate) when both fields hold numbers, else null (amount is typed directly). */
@@ -256,7 +264,7 @@ function LineItemsEditor({
                     onChange={(e) => update(idx, { category: e.target.value as LineCat })}
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   >
-                    {LINE_CATEGORIES.map((c) => <option key={c} value={c}>{c[0] + c.slice(1).toLowerCase()}</option>)}
+                    {LINE_CATEGORIES.map((c) => <option key={c} value={c}>{LINE_CAT_LABELS[c] ?? c}</option>)}
                   </select>
                 </div>
                 <div className="col-span-4">
@@ -393,7 +401,7 @@ function LineItemsEditor({
               )}
 
               {/* Row 2: payment status */}
-              <div className="grid grid-cols-3 gap-2 items-end">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
                 <div>
                   <label className="block text-caption text-gray-400 mb-1">Payment</label>
                   <select
@@ -416,6 +424,17 @@ function LineItemsEditor({
                       value={item.amountPaid}
                       onChange={(e) => update(idx, { amountPaid: e.target.value })}
                       placeholder="0"
+                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                    />
+                  </div>
+                )}
+                {(item.paymentStatus === "PARTIAL" || item.paymentStatus === "PAID") && (
+                  <div>
+                    <label className="block text-caption text-gray-400 mb-1">Paid On</label>
+                    <input
+                      type="date"
+                      value={item.paymentDate}
+                      onChange={(e) => update(idx, { paymentDate: e.target.value })}
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                     />
                   </div>
@@ -731,6 +750,7 @@ export default function ExpensesPage() {
         paymentStatus: item.paymentStatus as PayStatus,
         amountPaid: String(item.amountPaid),
         paymentReference: item.paymentReference ?? "",
+        paymentDate: item.paymentDate ? String(item.paymentDate).slice(0, 10) : "",
       }))
     );
     setVendorId(e.vendorId ?? null);
@@ -805,6 +825,7 @@ export default function ExpensesPage() {
           paymentStatus: item.paymentStatus,
           amountPaid: parseFloat(item.amountPaid) || 0,
           paymentReference: item.paymentReference || undefined,
+          paymentDate: item.paymentDate || undefined,
           };
         }),
       };
@@ -1947,7 +1968,7 @@ export default function ExpensesPage() {
                                   {e.lineItems.map((item: any) => (
                                     <tr key={item.id} className="border-t border-gray-100">
                                       <td className="py-1.5 pr-4 font-medium text-gray-700">
-                                        {item.category[0] + item.category.slice(1).toLowerCase()}
+                                        {LINE_CAT_LABELS[item.category] ?? item.category}
                                       </td>
                                       <td className="py-1.5 pr-4 text-gray-500">{item.description || "—"}</td>
                                       <td className="py-1.5 pr-4 text-right tabular-nums text-gray-700">
@@ -1970,6 +1991,11 @@ export default function ExpensesPage() {
                                         {item.amountPaid > 0
                                           ? formatCurrency(item.amountPaid, currency)
                                           : "—"}
+                                        {item.paymentDate && (
+                                          <div className="text-caption text-gray-400">
+                                            {new Date(item.paymentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                          </div>
+                                        )}
                                       </td>
                                       <td className="py-1.5 text-gray-500 max-w-[140px] truncate">
                                         {item.paymentReference || "—"}

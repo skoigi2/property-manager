@@ -33,6 +33,9 @@ export const expenseLineItemSchema = z.object({
   id: z.string().optional(),
   category: z.enum(["LABOUR", "MATERIAL", "QUOTE", "TRANSACTION_CHARGE"]),
   description: z.string().optional(),
+  // Optional per-line charge/service date (informational — the parent
+  // expense's date drives P&L bucketing).
+  date: z.string().optional().nullable(),
   amount: z.coerce.number().min(0),
   // Optional unit of measurement for quantity — context only. unitOther is
   // used when unit = OTHER; the routes null it otherwise (light enforcement,

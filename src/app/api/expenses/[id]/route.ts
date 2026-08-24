@@ -185,6 +185,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           expenseId: params.id,
           category: item.category,
           description: item.description,
+          date: item.date ? new Date(item.date) : null,
           amount,
           quantity: item.quantity ?? null,
           unitRate: item.unitRate ?? null,

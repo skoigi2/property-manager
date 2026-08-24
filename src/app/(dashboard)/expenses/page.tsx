@@ -139,6 +139,9 @@ interface LineItemDraft {
   id?: string;
   category: LineCat;
   description: string;
+  // Per-line charge/service date (YYYY-MM-DD) — informational; the parent
+  // expense's date still drives P&L bucketing.
+  date: string;
   amount: string;
   // Optional qty × rate mode — when both are filled, amount is derived
   // (round2(qty × rate)) and shown read-only; when blank, amount is typed.
@@ -160,7 +163,7 @@ interface LineItemDraft {
 }
 
 function blankLine(): LineItemDraft {
-  return { category: "LABOUR", description: "", amount: "", quantity: "", unitRate: "", unit: "", unitOther: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "", paymentDate: "" };
+  return { category: "LABOUR", description: "", date: "", amount: "", quantity: "", unitRate: "", unit: "", unitOther: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "", paymentDate: "" };
 }
 
 /** round2(qty × rate) when both fields hold numbers, else null (amount is typed directly). */
@@ -310,8 +313,20 @@ function LineItemsEditor({
                 </div>
               </div>
 
-              {/* Row 1b: optional qty × unit × rate + discount received */}
+              {/* Row 1b: optional per-line date + qty × unit × rate + discount received */}
               <div className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-3">
+                  <label className="flex items-center gap-1 text-caption text-gray-400 mb-1">
+                    Date <span className="text-gray-300">(opt.)</span>
+                    <HelpTip text="When this line's work/charge happened — items on one invoice can span different days. The expense's own date above still decides which month it reports in." />
+                  </label>
+                  <input
+                    type="date"
+                    value={item.date}
+                    onChange={(e) => update(idx, { date: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+                  />
+                </div>
                 <div className="col-span-2">
                   <label className="block text-caption text-gray-400 mb-1">Qty <span className="text-gray-300">(opt.)</span></label>
                   <input
@@ -324,7 +339,7 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <label className="block text-caption text-gray-400 mb-1">Unit</label>
                   <select
                     value={item.unit}
@@ -348,7 +363,7 @@ function LineItemsEditor({
                     />
                   )}
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <label className="block text-caption text-gray-400 mb-1">Rate <span className="text-gray-300">(per unit)</span></label>
                   <input
                     type="number"
@@ -360,7 +375,7 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-4">
+                <div className="col-span-3">
                   <label className="flex items-center gap-1 text-caption text-gray-400 mb-1">
                     Discount received
                     <HelpTip text="The discount you got off the list price — for vendor-savings reporting only. Amount stays what you were actually charged; this is never subtracted from it." />
@@ -740,6 +755,7 @@ export default function ExpensesPage() {
         id: item.id,
         category: item.category as LineCat,
         description: item.description ?? "",
+        date: item.date ? String(item.date).slice(0, 10) : "",
         amount: String(item.amount),
         quantity: item.quantity != null ? String(item.quantity) : "",
         unitRate: item.unitRate != null ? String(item.unitRate) : "",
@@ -813,6 +829,7 @@ export default function ExpensesPage() {
           id: item.id,
           category: item.category,
           description: item.description || undefined,
+          date: item.date || undefined,
           amount: parseFloat(item.amount) || 0,
           // Only send the qty×rate pair when both are valid — the server then
           // derives amount = round2(qty × rate) and stores all three.
@@ -1970,7 +1987,14 @@ export default function ExpensesPage() {
                                       <td className="py-1.5 pr-4 font-medium text-gray-700">
                                         {LINE_CAT_LABELS[item.category] ?? item.category}
                                       </td>
-                                      <td className="py-1.5 pr-4 text-gray-500">{item.description || "—"}</td>
+                                      <td className="py-1.5 pr-4 text-gray-500">
+                                        {item.description || "—"}
+                                        {item.date && (
+                                          <div className="text-caption text-gray-400">
+                                            {new Date(item.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                                          </div>
+                                        )}
+                                      </td>
                                       <td className="py-1.5 pr-4 text-right tabular-nums text-gray-700">
                                         {formatCurrency(item.amount, currency)}
                                         {item.quantity != null && item.unitRate != null && (

@@ -922,6 +922,10 @@ model ExpenseLineItem {
   expenseId        String
   category         LineItemCategory
   description      String?
+  // Optional per-line charge/service date — one invoice often covers work
+  // done on different days. Informational: the PARENT expense's date still
+  // decides which month the cost lands in for the P&L and reports.
+  date             DateTime?
   amount           Decimal @db.Decimal(14, 2)
   // Optional qty × rate breakdown. When BOTH are present, `amount` is derived
   // as round2(quantity * unitRate) at save time; otherwise `amount` is entered

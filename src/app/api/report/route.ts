@@ -14,6 +14,22 @@ import { formatCurrency } from "@/lib/currency";
 import { buildTaxSummary } from "@/lib/tax-engine";
 import { buildAgingSnapshot } from "@/lib/arrears-aging";
 
+/**
+ * One tenant per unit for the management-fee derivation — when a unit's old
+ * tenant vacated and a new one moved in inside the report period, the per-unit
+ * fee must not be charged twice. Active tenant wins over the vacated one.
+ */
+function uniqueByUnit<T extends { unitId: string; isActive: boolean }>(tenants: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const t of [...tenants].sort((a, b) => Number(b.isActive) - Number(a.isActive))) {
+    if (seen.has(t.unitId)) continue;
+    seen.add(t.unitId);
+    out.push(t);
+  }
+  return out;
+}
+
 /** Compact aging block for ReportData (top 15 debtors, oldest first). */
 async function buildReportAging(propertyIds: string[]): Promise<ReportData["arrearsAging"]> {
   const aging = await buildAgingSnapshot(propertyIds);
@@ -50,7 +66,20 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
       },
     }),
     prisma.tenant.findMany({
-      where: { isActive: true, unit: { propertyId: { in: propertyIds } } },
+      // Tenancy OVERLAPS the report period — not just currently-active
+      // tenants — so historical reports keep showing since-vacated tenants.
+      // (Their income always counted toward the totals; the rent-collection
+      // rows were silently missing.) Inactive rows with no vacatedDate fall
+      // back to leaseEnd for the overlap test.
+      where: {
+        unit: { propertyId: { in: propertyIds } },
+        leaseStart: { lte: to },
+        OR: [
+          { isActive: true },
+          { vacatedDate: { gte: from } },
+          { isActive: false, vacatedDate: null, leaseEnd: { gte: from } },
+        ],
+      },
       include: {
         unit: { include: { property: true } },
         rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
@@ -106,7 +135,10 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const ownerName        = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
   const managerName      = properties[0]?.manager?.name ?? properties[0]?.manager?.email ?? session?.user?.name ?? "Manager";
   const totalUnits       = properties.reduce((s, p) => s + p.units.length, 0);
-  const occupancyRate    = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
+  // Distinct units — a unit whose old tenant vacated and new tenant moved in
+  // within the period must not count twice.
+  const occupiedUnits    = new Set(tenants.map((t) => t.unitId)).size;
+  const occupancyRate    = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
   const longTermIds  = new Set(properties.filter((p) => p.type === "LONGTERM").map((p) => p.id));
   const riaraTenants = tenants.filter((t) => longTermIds.has(t.unit.propertyId));
@@ -130,7 +162,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     const expectedRent  = sched.amount;
     const serviceCharge = sched.due ? t.serviceCharge * frequencyMonths(t.paymentFrequency) : 0;
     return {
-      tenantName:    t.name,
+      tenantName:    t.isActive ? t.name : `${t.name} (vacated)`,
       unit:          t.unit.unitNumber,
       type:          t.unit.type,
       expectedRent,
@@ -188,7 +220,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     const unitIds = new Set(p.units.map((u) => u.id));
     const propIncome = incomeEntries.filter((e) => unitIds.has(e.unitId));
     return total + calcPropertyManagementFee({
-      tenants: tenants.filter((t) => unitIds.has(t.unitId)),
+      tenants: uniqueByUnit(tenants.filter((t) => unitIds.has(t.unitId))),
       feeConfigs: feeConfigs.filter((c) => unitIds.has(c.unitId)),
       propertyRatePercent: p.managementFeeRate,
       propertyFlatAmount: p.managementFeeFlat,
@@ -218,6 +250,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   // Alerts
   const alerts: string[] = [];
   const leaseAlerts = tenants.filter((t) => {
+    if (!t.isActive) return false; // vacated tenants can't have lease alerts
     const status = getLeaseStatus(t.leaseEnd);
     return status === "WARNING" || status === "CRITICAL" || status === "TBC";
   });
@@ -298,7 +331,20 @@ async function buildRangeReportData(
       },
     }),
     prisma.tenant.findMany({
-      where: { isActive: true, unit: { propertyId: { in: propertyIds } } },
+      // Tenancy OVERLAPS the report period — not just currently-active
+      // tenants — so historical reports keep showing since-vacated tenants.
+      // (Their income always counted toward the totals; the rent-collection
+      // rows were silently missing.) Inactive rows with no vacatedDate fall
+      // back to leaseEnd for the overlap test.
+      where: {
+        unit: { propertyId: { in: propertyIds } },
+        leaseStart: { lte: to },
+        OR: [
+          { isActive: true },
+          { vacatedDate: { gte: from } },
+          { isActive: false, vacatedDate: null, leaseEnd: { gte: from } },
+        ],
+      },
       include: {
         unit: { include: { property: true } },
         rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
@@ -354,7 +400,10 @@ async function buildRangeReportData(
   const ownerName        = properties[0]?.owner?.name   ?? properties[0]?.owner?.email   ?? "Owner";
   const managerName      = properties[0]?.manager?.name ?? properties[0]?.manager?.email ?? session?.user?.name ?? "Manager";
   const totalUnits       = properties.reduce((s, p) => s + p.units.length, 0);
-  const occupancyRate    = totalUnits > 0 ? Math.round((tenants.length / totalUnits) * 100) : 0;
+  // Distinct units — a unit whose old tenant vacated and new tenant moved in
+  // within the period must not count twice.
+  const occupiedUnits    = new Set(tenants.map((t) => t.unitId)).size;
+  const occupancyRate    = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
   const longTermIdsQ  = new Set(properties.filter((p) => p.type === "LONGTERM").map((p) => p.id));
   const riaraTenants  = tenants.filter((t) => longTermIdsQ.has(t.unit.propertyId));
@@ -371,18 +420,24 @@ async function buildRangeReportData(
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
     let expectedRent  = 0;
     let serviceCharge = 0;
+    // Vacated tenants only owe rent for the months they were in occupancy
+    // (up to vacatedDate; inactive rows without one fall back to leaseEnd).
+    const tenancyEndMs = (t.vacatedDate ?? (t.isActive ? null : t.leaseEnd))?.getTime() ?? Infinity;
     for (let i = 0; i < monthsMult; i++) {
+      const mStart = new Date(from.getFullYear(), from.getMonth() + i, 1);
+      if (mStart.getTime() > tenancyEndMs) break;
+      if (new Date(from.getFullYear(), from.getMonth() + i + 1, 0) < t.leaseStart) continue;
       const sched = scheduledExpectedForMonth({
         leaseStart: t.leaseStart,
         frequency: t.paymentFrequency,
-        month: new Date(from.getFullYear(), from.getMonth() + i, 1),
+        month: mStart,
         rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
       });
       expectedRent += sched.amount;
       if (sched.due) serviceCharge += t.serviceCharge * frequencyMonths(t.paymentFrequency);
     }
     return {
-      tenantName:    t.name,
+      tenantName:    t.isActive ? t.name : `${t.name} (vacated)`,
       unit:          t.unit.unitNumber,
       type:          t.unit.type,
       expectedRent,
@@ -432,7 +487,7 @@ async function buildRangeReportData(
     const unitIds = new Set(p.units.map((u) => u.id));
     const propIncome = incomeEntries.filter((e) => unitIds.has(e.unitId));
     return total + calcPropertyManagementFee({
-      tenants: tenants.filter((t) => unitIds.has(t.unitId)),
+      tenants: uniqueByUnit(tenants.filter((t) => unitIds.has(t.unitId))),
       feeConfigs: feeConfigs.filter((c) => unitIds.has(c.unitId)),
       propertyRatePercent: p.managementFeeRate,
       propertyFlatAmount: p.managementFeeFlat,
@@ -460,7 +515,8 @@ async function buildRangeReportData(
 
   // Alerts
   const alerts: string[] = [];
-  tenants.filter((t) => ["WARNING","CRITICAL","TBC"].includes(getLeaseStatus(t.leaseEnd))).forEach((t) => {
+  // Vacated tenants can't have lease alerts.
+  tenants.filter((t) => t.isActive && ["WARNING","CRITICAL","TBC"].includes(getLeaseStatus(t.leaseEnd))).forEach((t) => {
     const status = getLeaseStatus(t.leaseEnd);
     if (status === "TBC")           alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiry TBC`);
     else if (status === "CRITICAL") alerts.push(`${t.name} (${t.unit.unitNumber}): Lease EXPIRED`);

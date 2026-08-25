@@ -65,7 +65,17 @@ export async function buildOwnerStatements(
 
   const [tenants, incomeEntries, expenseEntries, agreements, feeConfigs, payoutRows] = await Promise.all([
     prisma.tenant.findMany({
-      where: { unit: { propertyId: { in: targetPropertyIds } }, isActive: true },
+      // Tenancy overlaps the statement month — vacated tenants stay visible
+      // on statements for months they lived through (same fix as the reports).
+      where: {
+        unit: { propertyId: { in: targetPropertyIds } },
+        leaseStart: { lte: to },
+        OR: [
+          { isActive: true },
+          { vacatedDate: { gte: from } },
+          { isActive: false, vacatedDate: null, leaseEnd: { gte: from } },
+        ],
+      },
       include: {
         unit: true,
         rentHistory: { select: { monthlyRent: true, effectiveDate: true } },
@@ -118,7 +128,7 @@ export async function buildOwnerStatements(
       const svcReceived  = tenantIncome.filter(e => e.type === "SERVICE_CHARGE").reduce((s,e) => s + e.grossAmount, 0);
       const otherIncome  = tenantIncome.filter(e => !["LONGTERM_RENT","SERVICE_CHARGE","DEPOSIT"].includes(e.type)).reduce((s,e) => s + e.grossAmount, 0);
       return {
-        tenantName:    tenant.name,
+        tenantName:    tenant.isActive ? tenant.name : `${tenant.name} (vacated)`,
         unit:          tenant.unit.unitNumber,
         unitType:      tenant.unit.type,
         // Rent that applied in the STATEMENT month (statements are often
@@ -164,8 +174,17 @@ export async function buildOwnerStatements(
     // ManagementFeeConfig, then property-level rate/flat, then the agreement
     // rate). A property with no fee arrangement shows NO fee.
     const propUnitIds = new Set(property.units.map(u => u.id));
+    // One tenant per unit — mid-month turnover must not charge the per-unit
+    // fee twice (active tenant wins over the vacated one).
+    const feeTenants = Array.from(
+      new Map(
+        [...propTenants]
+          .sort((a, b) => Number(a.isActive) - Number(b.isActive))
+          .map(t => [t.unitId, t] as const),
+      ).values(),
+    );
     const managementFee = calcPropertyManagementFee({
-      tenants: propTenants.map(t => ({ unitId: t.unitId, monthlyRent: t.monthlyRent })),
+      tenants: feeTenants.map(t => ({ unitId: t.unitId, monthlyRent: t.monthlyRent })),
       feeConfigs: feeConfigs.filter(c => propUnitIds.has(c.unitId)),
       propertyRatePercent: property.managementFeeRate,
       propertyFlatAmount: property.managementFeeFlat,

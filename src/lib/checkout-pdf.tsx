@@ -69,6 +69,7 @@ export type CheckoutPdfData = {
   tenant: {
     name: string;
     phone?: string | null;
+    email?: string | null;
     leaseStart: Date | string;
     leaseEnd?: Date | string | null;
     monthlyRent: number;
@@ -171,6 +172,10 @@ function CheckoutPDF({ data }: { data: CheckoutPdfData }) {
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Monthly Rent:</Text>
               <Text style={styles.fieldValue}>{fmt(tenant.monthlyRent)}</Text>
+            </View>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Email:</Text>
+              <Text style={styles.fieldValue} hyphenationCallback={noHyphenation}>{tenant.email ?? "—"}</Text>
             </View>
           </View>
           <View style={styles.col}>

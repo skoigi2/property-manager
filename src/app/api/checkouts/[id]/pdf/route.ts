@@ -47,6 +47,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     tenant: {
       name: process.tenant.name,
       phone: process.tenant.phone,
+      email: process.tenant.email,
       leaseStart: process.tenant.leaseStart,
       leaseEnd: process.tenant.leaseEnd,
       monthlyRent: process.tenant.monthlyRent,

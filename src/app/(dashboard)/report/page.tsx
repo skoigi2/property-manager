@@ -759,6 +759,50 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           </div>
         )}
       </Card>
+
+      {/* Deposit Liability */}
+      {data.depositSummary && (
+        <Card>
+          <SectionTitle><Wallet size={16} className="text-gold" /> Deposits Held</SectionTitle>
+          <p className="text-body text-gray-600">
+            Deposits held: <span className="font-medium text-header tabular-nums">{fmt(data.depositSummary.received)}</span> of{" "}
+            <span className="font-medium text-header tabular-nums">{fmt(data.depositSummary.contractual)}</span> contractual
+            {data.depositSummary.unverifiedCount > 0 && (
+              <> · <span className="text-amber-600">{data.depositSummary.unverifiedCount} tenanc{data.depositSummary.unverifiedCount === 1 ? "y" : "ies"} with no receipt trail</span></>
+            )}
+          </p>
+          {data.depositSummary.received < data.depositSummary.contractual ? (
+            <div className="flex items-center gap-2 mt-2 text-amber-600 text-body">
+              <AlertTriangle size={14} /> Shortfall vs contract: {fmt(data.depositSummary.contractual - data.depositSummary.received)}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-2 text-income text-body">
+              <CheckCircle size={14} /> All contractual deposits evidenced by receipts
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Net vs Remitted */}
+      {data.remittance && (
+        <Card>
+          <SectionTitle><Banknote size={16} className="text-gold" /> Remitted to Owner</SectionTitle>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Net Profit", value: data.remittance.netProfit,  color: data.remittance.netProfit >= 0 ? "text-income" : "text-expense" },
+              { label: "Remitted",   value: data.remittance.remitted,   color: "text-income" },
+              { label: data.remittance.difference > 0 ? "Retained / Owing" : data.remittance.difference < 0 ? "Over-remitted" : "Fully Remitted",
+                value: Math.abs(data.remittance.difference),
+                color: data.remittance.difference > 0 ? "text-amber-600" : "text-income" },
+            ].map((s) => (
+              <div key={s.label} className="bg-cream rounded-lg p-3 text-center">
+                <p className="text-label text-gray-400 uppercase mb-1">{s.label}</p>
+                <CurrencyDisplay currency={currency} amount={s.value} className={`font-medium ${s.color}`} size="md" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

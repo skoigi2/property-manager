@@ -13,6 +13,7 @@ import type { ReportData } from "@/types/report";
 import { formatCurrency } from "@/lib/currency";
 import { buildTaxSummary } from "@/lib/tax-engine";
 import { buildAgingSnapshot } from "@/lib/arrears-aging";
+import { calcDepositPosition } from "@/lib/deposit";
 
 /**
  * One tenant per unit for the management-fee derivation — when a unit's old
@@ -205,6 +206,75 @@ async function buildComparison(
     });
   }
   return rows.length > 0 ? rows : undefined;
+}
+
+// ── Deposit liability summary ─────────────────────────────────────────────────
+//
+// Contractual vs actually-received deposits (calcDepositPosition) across the
+// tenancies still in occupancy at the period end. Receipts are ALL-TIME
+// DEPOSIT income entries — a deposit taken before the period is still held.
+
+async function buildDepositSummary(
+  tenants: {
+    id: string; depositAmount: number; leaseStart: Date; leaseEnd: Date | null;
+    vacatedDate: Date | null; isActive: boolean;
+  }[],
+  periodEnd: Date,
+): Promise<ReportData["depositSummary"]> {
+  const holding = tenants.filter((t) => {
+    if (t.leaseStart > periodEnd) return false;
+    if (t.isActive) return true;
+    const end = t.vacatedDate ?? t.leaseEnd;
+    return end != null && end >= periodEnd;
+  });
+  if (holding.length === 0) return undefined;
+
+  const entries = await prisma.incomeEntry.findMany({
+    where: { type: "DEPOSIT", tenantId: { in: holding.map((t) => t.id) } },
+    select: { tenantId: true, grossAmount: true },
+  });
+  const byTenant = new Map<string, { grossAmount: number }[]>();
+  for (const e of entries) {
+    if (!e.tenantId) continue;
+    const arr = byTenant.get(e.tenantId);
+    if (arr) arr.push(e); else byTenant.set(e.tenantId, [e]);
+  }
+
+  let contractual = 0, received = 0, unverifiedCount = 0;
+  for (const t of holding) {
+    const pos = calcDepositPosition(t.depositAmount, byTenant.get(t.id) ?? []);
+    contractual += pos.contractual;
+    if (pos.verification === "VERIFIED") received += pos.received ?? 0;
+    else if (pos.contractual > 0) unverifiedCount++;
+  }
+  if (contractual === 0 && received === 0) return undefined;
+  return { contractual, received, unverifiedCount };
+}
+
+// ── Net-vs-remitted reconciliation ────────────────────────────────────────────
+//
+// OwnerPayout rows dated inside the report period vs the period's net profit.
+// Omitted when the org has never recorded a payout for these properties, so
+// reports don't show a scary "nothing remitted" by default.
+
+async function buildRemittance(
+  netProfit: number,
+  propertyIds: string[],
+  from: Date,
+  toExcl: Date,
+): Promise<ReportData["remittance"]> {
+  const inPeriod = await prisma.ownerPayout.aggregate({
+    where: { propertyId: { in: propertyIds }, paidAt: { gte: from, lt: toExcl } },
+    _sum: { amount: true },
+    _count: { _all: true },
+  });
+  const count = inPeriod._count._all ?? 0;
+  if (count === 0) {
+    const anyEver = await prisma.ownerPayout.count({ where: { propertyId: { in: propertyIds } } });
+    if (anyEver === 0) return undefined;
+  }
+  const remitted = inPeriod._sum.amount ?? 0;
+  return { netProfit, remitted, difference: netProfit - remitted };
 }
 
 // ── Shared data builder ────────────────────────────────────────────────────────
@@ -462,6 +532,10 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     propertyIds,
   );
 
+  // Deposit liability + owner remittance reconciliation
+  const depositSummary = await buildDepositSummary(tenants, to);
+  const remittance = await buildRemittance(netProfit, propertyIds, monthStart, monthEndExcl);
+
   // Tax summary
   const allLineItems = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummary = buildTaxSummary(incomeEntries, allLineItems);
@@ -490,6 +564,8 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     ...(vacancy ? { vacancy } : {}),
     ...(comparison ? { comparison } : {}),
     ...(capitalItems ? { capitalItems } : {}),
+    ...(depositSummary ? { depositSummary } : {}),
+    ...(remittance ? { remittance } : {}),
     pettyCash: {
       totalIn:  pcIn,
       totalOut: pcOut,
@@ -796,6 +872,11 @@ async function buildRangeReportData(
       })
     : undefined;
 
+  // Deposit liability + owner remittance reconciliation (`to` is exclusive)
+  const periodEndQ = new Date(to.getTime() - 1);
+  const depositSummaryQ = await buildDepositSummary(tenants, periodEndQ);
+  const remittanceQ = await buildRemittance(netProfit, propertyIds, from, to);
+
   const allLineItemsQ = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummaryQ   = buildTaxSummary(incomeEntries, allLineItemsQ);
   // `to` is exclusive in the range builder — the period's last instant is just before it.
@@ -819,6 +900,8 @@ async function buildRangeReportData(
     ...(vacancyQ ? { vacancy: vacancyQ } : {}),
     ...(comparisonQ ? { comparison: comparisonQ } : {}),
     ...(capitalItemsQ ? { capitalItems: capitalItemsQ } : {}),
+    ...(depositSummaryQ ? { depositSummary: depositSummaryQ } : {}),
+    ...(remittanceQ ? { remittance: remittanceQ } : {}),
     pettyCash: {
       totalIn: pcIn, totalOut: pcOut, balance: pcIn - pcOut,
       entries: pettyCash.map((e) => ({ date: formatDate(e.date), description: e.description, type: e.type, amount: e.amount })),

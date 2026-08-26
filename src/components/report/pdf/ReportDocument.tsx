@@ -147,6 +147,8 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const hasMonthly  = (data.monthlyBreakdown?.length ?? 0) > 0;
   const hasVacancy  = (data.vacancy?.rows.length ?? 0) > 0;
   const hasCompare  = (data.comparison?.length ?? 0) > 0;
+  const hasDeposits = !!data.depositSummary;
+  const hasRemit    = !!data.remittance;
 
   // Dynamic section numbering
   let n = 0;
@@ -162,6 +164,8 @@ export function ReportDocument({ data }: { data: ReportData }) {
     pl:        ++n,
     pettyCash: ++n,
     mgmtFee:   ++n,
+    deposits:  hasDeposits ? ++n : null,
+    remit:     hasRemit    ? ++n : null,
     vendors:   hasVendors ? ++n : null,
     tax:       hasTax     ? ++n : null,
     alerts:    hasAlerts  ? ++n : null,
@@ -750,6 +754,64 @@ export function ReportDocument({ data }: { data: ReportData }) {
               </View>
             </View>
           </View>
+
+          {/* Sections: Deposit Liability + Owner Remittance — side by side */}
+          {(hasDeposits || hasRemit) && (
+            <View style={styles.reconRow}>
+              {hasDeposits && data.depositSummary && (
+                <View style={styles.reconCol}>
+                  <SectionHeading num={SEC.deposits} title="Deposits Held" />
+                  <View style={styles.pettyCashPanel}>
+                    <View style={styles.plRow}>
+                      <Text style={styles.plLabel}>Contractual deposits (per leases)</Text>
+                      <Text style={styles.plValue}>{fmt(data.depositSummary.contractual)}</Text>
+                    </View>
+                    <View style={styles.plRow}>
+                      <Text style={styles.plLabel}>Received on record (DEPOSIT receipts)</Text>
+                      <Text style={styles.plValue}>{fmt(data.depositSummary.received)}</Text>
+                    </View>
+                    <View style={data.depositSummary.received >= data.depositSummary.contractual ? styles.plRowTotalGreen : styles.plRowTotalAmber}>
+                      <Text style={styles.plLabelTotalDark}>
+                        {data.depositSummary.received >= data.depositSummary.contractual ? "Fully evidenced" : "Shortfall vs contract"}
+                      </Text>
+                      <Text style={data.depositSummary.received >= data.depositSummary.contractual ? styles.plValueTotalGreen : styles.plValueTotalAmber}>
+                        {fmt(Math.abs(data.depositSummary.contractual - data.depositSummary.received))}
+                      </Text>
+                    </View>
+                  </View>
+                  {data.depositSummary.unverifiedCount > 0 && (
+                    <Text style={[styles.tableCell, styles.muted, { fontSize: 7, fontFamily: "Helvetica-Oblique", marginBottom: 8 }]} hyphenationCallback={noHyphenation}>
+                      {data.depositSummary.unverifiedCount} tenanc{data.depositSummary.unverifiedCount === 1 ? "y" : "ies"} with no deposit receipt trail — contractual amount not evidenced.
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {hasRemit && data.remittance && (
+                <View style={styles.reconCol}>
+                  <SectionHeading num={SEC.remit} title="Remitted to Owner" />
+                  <View style={styles.mgmtFeePanel}>
+                    <View style={styles.plRow}>
+                      <Text style={styles.plLabel}>Net profit this period</Text>
+                      <Text style={styles.plValue}>{fmt(data.remittance.netProfit)}</Text>
+                    </View>
+                    <View style={styles.plRow}>
+                      <Text style={styles.plLabel}>Remitted (payouts in period)</Text>
+                      <Text style={styles.plValue}>{fmt(data.remittance.remitted)}</Text>
+                    </View>
+                    <View style={data.remittance.difference <= 0 ? styles.plRowTotalGreen : styles.plRowTotalAmber}>
+                      <Text style={styles.plLabelTotalDark}>
+                        {data.remittance.difference > 0 ? "Retained / owing to owner" : data.remittance.difference < 0 ? "Remitted above net profit" : "Fully remitted"}
+                      </Text>
+                      <Text style={data.remittance.difference <= 0 ? styles.plValueTotalGreen : styles.plValueTotalAmber}>
+                        {fmt(Math.abs(data.remittance.difference))}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Section: Vendor Spend */}
           {hasVendors && (

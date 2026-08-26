@@ -130,6 +130,24 @@ export interface ReportData {
     rows: { date: string; description: string; category: string; amount: number }[];
   };
 
+  /** Deposit liability across tenancies still in occupancy at the period end:
+   *  contractual total vs DEPOSIT receipts actually on record. Tenancies with
+   *  a contractual deposit but no receipt trail are counted, not guessed. */
+  depositSummary?: {
+    contractual: number;
+    received: number;
+    unverifiedCount: number;
+  };
+
+  /** Net-vs-remitted reconciliation from OwnerPayout rows dated in the
+   *  period. Omitted entirely when the org has never recorded a payout. */
+  remittance?: {
+    netProfit: number;
+    remitted: number;
+    /** netProfit − remitted: positive = retained / still owing to owner. */
+    difference: number;
+  };
+
   /** Point-in-time arrears aging snapshot (as of report generation). */
   arrearsAging?: {
     /** ISO timestamp of when the snapshot was taken (report generation time). */

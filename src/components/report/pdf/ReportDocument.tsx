@@ -145,6 +145,8 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const hasAlerts   = data.alerts.length > 0;
   const hasCapital  = (data.capitalItems?.rows.length ?? 0) > 0;
   const hasMonthly  = (data.monthlyBreakdown?.length ?? 0) > 0;
+  const hasVacancy  = (data.vacancy?.rows.length ?? 0) > 0;
+  const hasCompare  = (data.comparison?.length ?? 0) > 0;
 
   // Dynamic section numbering
   let n = 0;
@@ -155,6 +157,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
     shortLet:  hasShortLet ? ++n : null,
     expenses:  ++n,
     capital:   hasCapital ? ++n : null,
+    vacancy:   hasVacancy ? ++n : null,
     monthly:   hasMonthly ? ++n : null,
     pl:        ++n,
     pettyCash: ++n,
@@ -552,6 +555,41 @@ export function ReportDocument({ data }: { data: ReportData }) {
             </>
           )}
 
+          {/* Section: Vacancy Analysis (estimated void loss) */}
+          {hasVacancy && data.vacancy && (
+            <>
+              <SectionHeading num={SEC.vacancy} title="Vacancy Analysis (estimated)" />
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  {[
+                    { h: "Unit",             f: 1.2 },
+                    { h: "Property",         f: 3 },
+                    { h: "Vacant Days",      f: 1.6 },
+                    { h: "Est. Lost Rent",   f: 2 },
+                  ].map(({ h, f }) => (
+                    <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
+                  ))}
+                </View>
+                {data.vacancy.rows.map((r, idx) => (
+                  <View key={`${r.propertyName}-${r.unitNumber}`} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                    <Text style={[styles.tableCell, { flex: 1.2 }]}>{r.unitNumber}</Text>
+                    <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{r.propertyName}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 1.6, textAlign: "right" }]}>{r.vacantDays}</Text>
+                    <Text style={[styles.tableCellMono, styles.negative, { flex: 2, textAlign: "right" }]}>{fmt(r.estimatedLostRent)}</Text>
+                  </View>
+                ))}
+                <View style={styles.tableRowTotal}>
+                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 4.2 }]}>TOTAL ESTIMATED VOID LOSS</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.6, textAlign: "right" }]}>{data.vacancy.totalVacantDays}</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, styles.negative, { flex: 2, textAlign: "right" }]}>{fmt(data.vacancy.totalEstimatedLostRent)}</Text>
+                </View>
+              </View>
+              <Text style={[styles.tableCell, styles.muted, { marginTop: -6, marginBottom: 8, fontFamily: "Helvetica-Oblique", fontSize: 7 }]} hyphenationCallback={noHyphenation}>
+                Estimated from tenancy gaps — pro-rata of each unit&apos;s listed monthly rent, not billed amounts.
+              </Text>
+            </>
+          )}
+
         </View>
         <PageFooter {...footerProps} />
       </Page>
@@ -649,6 +687,19 @@ export function ReportDocument({ data }: { data: ReportData }) {
                 <Text style={styles.plValue}>{fmt(data.kpis.incomeToDate)}</Text>
               </View>
             ) : null}
+            {hasCompare && (data.comparison ?? []).map((c) => {
+              const d = (v: number | null) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v}%`;
+              return (
+                <View key={c.label} style={styles.plRow}>
+                  <Text style={[styles.plLabel, styles.muted]} hyphenationCallback={noHyphenation}>
+                    vs {c.label} (net {fmt(c.netProfit)})
+                  </Text>
+                  <Text style={[styles.plValue, styles.muted]}>
+                    Income {d(c.deltaPct.grossIncome)}  ·  Expenses {d(c.deltaPct.totalExpenses)}  ·  Net {d(c.deltaPct.netProfit)}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
 
           {/* Sections: Petty Cash + Management Fee — side by side */}

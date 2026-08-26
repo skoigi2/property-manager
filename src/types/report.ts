@@ -99,6 +99,30 @@ export interface ReportData {
     netProfit: number;
   }[];
 
+  /** Void-loss analysis — tenancy-derived vacancy per long-term unit during
+   *  the period, with an ESTIMATED lost-rent figure (pro-rata of the unit's
+   *  monthly rent). Only units with vacantDays > 0 are listed. */
+  vacancy?: {
+    rows: { propertyName: string; unitNumber: string; vacantDays: number; estimatedLostRent: number }[];
+    totalVacantDays: number;
+    totalEstimatedLostRent: number;
+  };
+
+  /** Period-over-period comparison(s): the same-length immediately-preceding
+   *  period, plus the same period last year where that makes sense (single
+   *  month, or a whole-calendar-year range). All-zero comparison periods are
+   *  omitted rather than rendered as −100%/+∞. */
+  comparison?: {
+    /** e.g. "Jul 2026" or "Mar 2025 – Aug 2025" */
+    label: string;
+    grossIncome: number;
+    totalExpenses: number;
+    netProfit: number;
+    /** Percent change of the CURRENT period vs this one; null when the
+     *  comparison value is 0 (undefined % change). */
+    deltaPct: { grossIncome: number | null; totalExpenses: number | null; netProfit: number | null };
+  }[];
+
   /** Sunk-cost (capital) expenses in the period — excluded from the P&L but
    *  itemised here so they stay visible to the owner. */
   capitalItems?: {

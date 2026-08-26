@@ -162,15 +162,21 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Gross Income",   tooltip: "Total rent and charges collected this period. Deposits are excluded.",                                           value: data.kpis.grossIncome,       icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
+        {(() => {
+          const cmp = data.comparison?.[0];
+          const cards: {
+            label: string; tooltip: string; value: number; icon: React.ReactNode;
+            color: string; border: string; delta?: number | null; deltaGoodUp?: boolean;
+          }[] = [
+          { label: "Gross Income",   tooltip: "Total rent and charges collected this period. Deposits are excluded.",                                           value: data.kpis.grossIncome,       icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income", delta: cmp?.deltaPct.grossIncome, deltaGoodUp: true },
           ...(data.kpis.incomeToDate != null ? [
           { label: "Income To Date", tooltip: "Cumulative income received across ALL time up to the end of this period (cash basis, deposits excluded).",       value: data.kpis.incomeToDate,      icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
           ] : []),
           { label: "Commissions",    tooltip: "Agent or letting fees deducted from your revenue. This reduces your net income.",                                value: data.kpis.agentCommissions,  icon: <DollarSign size={16} />,  color: "text-expense", border: "border-expense" },
-          { label: "Total Expenses", tooltip: "All operating costs — maintenance, utilities, management fees. One-off capital items are excluded.",             value: data.kpis.totalExpenses,     icon: <Receipt size={16} />,     color: "text-expense", border: "border-expense" },
-          { label: "Net Profit",     tooltip: "Your actual return after all deductions. Compare month-on-month to track performance trends.",                   value: data.kpis.netProfit,         icon: <Wallet size={16} />,      color: data.kpis.netProfit >= 0 ? "text-income" : "text-expense", border: data.kpis.netProfit >= 0 ? "border-income" : "border-expense" },
-        ].map((k) => (
+          { label: "Total Expenses", tooltip: "All operating costs — maintenance, utilities, management fees. One-off capital items are excluded.",             value: data.kpis.totalExpenses,     icon: <Receipt size={16} />,     color: "text-expense", border: "border-expense", delta: cmp?.deltaPct.totalExpenses, deltaGoodUp: false },
+          { label: "Net Profit",     tooltip: "Your actual return after all deductions. Compare month-on-month to track performance trends.",                   value: data.kpis.netProfit,         icon: <Wallet size={16} />,      color: data.kpis.netProfit >= 0 ? "text-income" : "text-expense", border: data.kpis.netProfit >= 0 ? "border-income" : "border-expense", delta: cmp?.deltaPct.netProfit, deltaGoodUp: true },
+          ];
+          return cards.map((k) => (
           <Card key={k.label} padding="sm" className={`border-l-4 ${k.border}`}>
             <div className="flex items-center gap-2 mb-1">
               <span className={k.color}>{k.icon}</span>
@@ -180,8 +186,17 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
               </p>
             </div>
             <CurrencyDisplay currency={currency} amount={k.value} className={`${k.color} font-medium`} size="lg" />
+            {cmp && k.delta != null && (
+              <p className={clsx(
+                "text-caption tabular-nums mt-0.5",
+                k.delta === 0 ? "text-gray-400" : (k.delta > 0) === !!k.deltaGoodUp ? "text-income" : "text-expense",
+              )}>
+                {k.delta === 0 ? "—" : k.delta > 0 ? "▲" : "▼"} {k.delta > 0 ? "+" : ""}{k.delta}% vs {cmp.label}
+              </p>
+            )}
           </Card>
-        ))}
+          ));
+        })()}
         <Card padding="sm" className={`border-l-4 ${data.kpis.occupancyRate >= 80 ? "border-income" : "border-amber-400"}`}>
           <div className="flex items-center gap-2 mb-1">
             <span className={data.kpis.occupancyRate >= 80 ? "text-income" : "text-amber-500"}><Building2 size={16} /></span>
@@ -583,6 +598,47 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {/* Vacancy Analysis */}
+      {data.vacancy && data.vacancy.rows.length > 0 && (
+        <Card>
+          <SectionTitle>
+            <Building2 size={16} className="text-gold" /> Vacancy Analysis
+            <span className="text-caption text-gray-400 font-normal">estimated</span>
+          </SectionTitle>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] text-body">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {["Unit", "Property", "Vacant Days", "Est. Lost Rent"].map((h) => (
+                    <th key={h} className="pb-2 text-left text-label font-medium text-gray-400 uppercase pr-4 last:pr-0">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.vacancy.rows.map((r) => (
+                  <tr key={`${r.propertyName}-${r.unitNumber}`} className="border-b border-gray-50 last:border-0">
+                    <td className="py-2.5 pr-4 tabular-nums font-medium text-header">{r.unitNumber}</td>
+                    <td className="py-2.5 pr-4 text-gray-500">{r.propertyName}</td>
+                    <td className="py-2.5 pr-4 tabular-nums text-gray-600">{r.vacantDays}</td>
+                    <td className="py-2.5 tabular-nums font-medium text-expense">{fmt(r.estimatedLostRent)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200 bg-cream">
+                  <td colSpan={2} className="py-2 pr-4 text-label font-medium text-gray-500 uppercase">Total estimated void loss</td>
+                  <td className="py-2 pr-4 tabular-nums text-body font-medium text-header">{data.vacancy.totalVacantDays}d</td>
+                  <td className="py-2 tabular-nums text-body font-medium text-expense">{fmt(data.vacancy.totalEstimatedLostRent)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p className="text-caption text-gray-400 italic mt-2">
+            Estimated from tenancy gaps — pro-rata of each unit&apos;s listed monthly rent, not billed amounts.
+          </p>
         </Card>
       )}
 

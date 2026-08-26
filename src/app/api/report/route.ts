@@ -56,6 +56,157 @@ async function buildReportAging(propertyIds: string[], periodEnd: Date): Promise
   };
 }
 
+// ── Vacancy / void-loss analysis ──────────────────────────────────────────────
+//
+// Per long-term unit: the days of each period month not covered by any tenancy
+// (leaseStart → vacatedDate ?? leaseEnd ?? open-ended when active). Lost rent
+// is ESTIMATED as (vacantDays / daysInMonth) × unit.monthlyRent per month.
+// Units with no tenancy records at all fall back to Unit.vacantSince; with
+// neither signal the unit is skipped (unknown ≠ vacant). Airbnb properties are
+// excluded — their occupancy is bookings-based, not tenancy-based.
+
+const DAY_MS = 86400000;
+
+async function buildVacancy(
+  properties: {
+    id: string; type: string; name: string;
+    units: { id: string; unitNumber: string; monthlyRent: number | null; vacantSince: Date | null }[];
+  }[],
+  from: Date,
+  toExcl: Date,
+): Promise<ReportData["vacancy"]> {
+  const units = properties
+    .filter((p) => p.type === "LONGTERM")
+    .flatMap((p) => p.units.map((u) => ({ ...u, propertyName: p.name })));
+  if (units.length === 0) return undefined;
+
+  const tenancies = await prisma.tenant.findMany({
+    where: { unitId: { in: units.map((u) => u.id) } },
+    select: { unitId: true, leaseStart: true, leaseEnd: true, vacatedDate: true, isActive: true },
+  });
+  const byUnit = new Map<string, typeof tenancies>();
+  for (const t of tenancies) {
+    const arr = byUnit.get(t.unitId);
+    if (arr) arr.push(t); else byUnit.set(t.unitId, [t]);
+  }
+
+  const rows: NonNullable<ReportData["vacancy"]>["rows"] = [];
+  for (const unit of units) {
+    const uTenancies = byUnit.get(unit.id) ?? [];
+    let vacantDays = 0;
+    let lostRent = 0;
+    for (let mi = 0; ; mi++) {
+      const mStart = new Date(from.getFullYear(), from.getMonth() + mi, 1);
+      if (mStart >= toExcl) break;
+      const mEnd = new Date(from.getFullYear(), from.getMonth() + mi + 1, 1);
+      const dim = Math.round((mEnd.getTime() - mStart.getTime()) / DAY_MS);
+      let coveredDays: number;
+      if (uTenancies.length === 0) {
+        if (!unit.vacantSince) { coveredDays = dim; } // no signal — don't guess
+        else {
+          const vacStart = unit.vacantSince > mStart ? unit.vacantSince : mStart;
+          coveredDays = vacStart >= mEnd ? dim
+            : Math.max(0, Math.round((vacStart.getTime() - mStart.getTime()) / DAY_MS));
+        }
+      } else {
+        // Union of tenancy intervals clipped to [mStart, mEnd)
+        const clipped = uTenancies
+          .map((t) => {
+            const endRaw = t.vacatedDate ?? t.leaseEnd ?? (t.isActive ? toExcl : t.leaseStart);
+            const s = t.leaseStart > mStart ? t.leaseStart : mStart;
+            const e = endRaw < mEnd ? endRaw : mEnd;
+            return { s: s.getTime(), e: e.getTime() };
+          })
+          .filter((iv) => iv.e > iv.s)
+          .sort((a, b) => a.s - b.s);
+        let coveredMs = 0;
+        let cursor = -Infinity;
+        for (const iv of clipped) {
+          const s = Math.max(iv.s, cursor);
+          if (iv.e > s) { coveredMs += iv.e - s; cursor = iv.e; }
+          else cursor = Math.max(cursor, iv.e);
+        }
+        coveredDays = Math.min(dim, Math.round(coveredMs / DAY_MS));
+      }
+      const vd = Math.max(0, dim - coveredDays);
+      vacantDays += vd;
+      lostRent += (vd / dim) * (unit.monthlyRent ?? 0);
+    }
+    if (vacantDays > 0) {
+      rows.push({
+        propertyName: unit.propertyName,
+        unitNumber: unit.unitNumber,
+        vacantDays,
+        estimatedLostRent: Math.round(lostRent * 100) / 100,
+      });
+    }
+  }
+  if (rows.length === 0) return undefined;
+  rows.sort((a, b) => b.vacantDays - a.vacantDays);
+  return {
+    rows,
+    totalVacantDays: rows.reduce((s, r) => s + r.vacantDays, 0),
+    totalEstimatedLostRent: Math.round(rows.reduce((s, r) => s + r.estimatedLostRent, 0) * 100) / 100,
+  };
+}
+
+// ── Period-over-period comparison ─────────────────────────────────────────────
+//
+// Lightweight P&L totals for a from/to window (one income + one expense
+// query) — used only for the comparison periods, never for the main figures.
+
+async function computePeriodTotals(from: Date, toExcl: Date, propertyIds: string[]) {
+  const [income, expenses] = await Promise.all([
+    prisma.incomeEntry.findMany({
+      where: { date: { gte: from, lt: toExcl }, unit: { propertyId: { in: propertyIds } } },
+      select: { type: true, grossAmount: true, agentCommission: true },
+    }),
+    prisma.expenseEntry.findMany({
+      where: {
+        date: { gte: from, lt: toExcl },
+        OR: [
+          { unit: { propertyId: { in: propertyIds } } },
+          { propertyId: { in: propertyIds } },
+        ],
+      },
+      select: { amount: true, isSunkCost: true },
+    }),
+  ]);
+  const grossIncome   = income.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0);
+  const commissions   = income.reduce((s, e) => s + e.agentCommission, 0);
+  const totalExpenses = expenses.filter((e) => !e.isSunkCost).reduce((s, e) => s + e.amount, 0);
+  return { grossIncome, totalExpenses, netProfit: grossIncome - commissions - totalExpenses };
+}
+
+function deltaPct(current: number, prev: number): number | null {
+  if (prev === 0) return null;
+  return Math.round(((current - prev) / Math.abs(prev)) * 1000) / 10;
+}
+
+async function buildComparison(
+  current: { grossIncome: number; totalExpenses: number; netProfit: number },
+  candidates: { label: string; from: Date; toExcl: Date }[],
+  propertyIds: string[],
+): Promise<ReportData["comparison"]> {
+  const rows: NonNullable<ReportData["comparison"]> = [];
+  for (const c of candidates) {
+    const totals = await computePeriodTotals(c.from, c.toExcl, propertyIds);
+    // Skip comparisons that predate all data — an all-zero period renders as
+    // meaningless −100% / +∞ deltas.
+    if (totals.grossIncome === 0 && totals.totalExpenses === 0 && totals.netProfit === 0) continue;
+    rows.push({
+      label: c.label,
+      ...totals,
+      deltaPct: {
+        grossIncome:   deltaPct(current.grossIncome, totals.grossIncome),
+        totalExpenses: deltaPct(current.totalExpenses, totals.totalExpenses),
+        netProfit:     deltaPct(current.netProfit, totals.netProfit),
+      },
+    });
+  }
+  return rows.length > 0 ? rows : undefined;
+}
+
 // ── Shared data builder ────────────────────────────────────────────────────────
 
 async function buildReportData(y: number, m: number, session: any, propertyIds: string[]): Promise<ReportData> {
@@ -296,6 +447,21 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
       }
     : undefined;
 
+  // Vacancy / void-loss analysis (tenancy-derived, estimated)
+  const monthStart = new Date(y, m - 1, 1);
+  const monthEndExcl = new Date(y, m, 1);
+  const vacancy = await buildVacancy(properties, monthStart, monthEndExcl);
+
+  // Period-over-period comparison: previous month + same month last year
+  const comparison = await buildComparison(
+    { grossIncome, totalExpenses, netProfit },
+    [
+      { label: format(new Date(y, m - 2, 1), "MMM yyyy"), from: new Date(y, m - 2, 1), toExcl: monthStart },
+      { label: format(new Date(y - 1, m - 1, 1), "MMM yyyy"), from: new Date(y - 1, m - 1, 1), toExcl: new Date(y - 1, m, 1) },
+    ],
+    propertyIds,
+  );
+
   // Tax summary
   const allLineItems = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummary = buildTaxSummary(incomeEntries, allLineItems);
@@ -321,6 +487,8 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     albaPerformance,
     expenses,
     vendorSpend,
+    ...(vacancy ? { vacancy } : {}),
+    ...(comparison ? { comparison } : {}),
     ...(capitalItems ? { capitalItems } : {}),
     pettyCash: {
       totalIn:  pcIn,
@@ -583,6 +751,31 @@ async function buildRangeReportData(
       }
     : undefined;
 
+  // Vacancy / void-loss analysis (tenancy-derived, estimated)
+  const vacancyQ = await buildVacancy(properties, from, to);
+
+  // Period-over-period comparison: the same-length immediately-preceding
+  // period, plus the prior calendar year when this range IS a calendar year.
+  const prevFrom = new Date(from.getFullYear(), from.getMonth() - monthsMult, 1);
+  const prevLabel = monthsMult === 1
+    ? format(prevFrom, "MMM yyyy")
+    : `${format(prevFrom, "MMM yyyy")} – ${format(new Date(from.getFullYear(), from.getMonth() - 1, 1), "MMM yyyy")}`;
+  const isCalendarYear = monthsMult === 12 && from.getMonth() === 0 && from.getDate() === 1;
+  const comparisonQ = await buildComparison(
+    { grossIncome, totalExpenses, netProfit },
+    [
+      { label: prevLabel, from: prevFrom, toExcl: from },
+      ...(isCalendarYear
+        ? [{
+            label: String(from.getFullYear() - 1),
+            from: new Date(from.getFullYear() - 1, 0, 1),
+            toExcl: new Date(from.getFullYear(), 0, 1),
+          }]
+        : []),
+    ],
+    propertyIds,
+  );
+
   // Month-by-month P&L buckets — computed in memory from the entries already
   // fetched for the range, never re-queried per month.
   const monthlyBreakdown = monthsMult > 1
@@ -623,6 +816,8 @@ async function buildRangeReportData(
                    ...(collectionRateQ != null ? { collectionRate: collectionRateQ } : {}) },
     rentCollection, albaPerformance, expenses, vendorSpend,
     ...(monthlyBreakdown ? { monthlyBreakdown } : {}),
+    ...(vacancyQ ? { vacancy: vacancyQ } : {}),
+    ...(comparisonQ ? { comparison: comparisonQ } : {}),
     ...(capitalItemsQ ? { capitalItems: capitalItemsQ } : {}),
     pettyCash: {
       totalIn: pcIn, totalOut: pcOut, balance: pcIn - pcOut,

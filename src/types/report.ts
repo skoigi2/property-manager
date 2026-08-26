@@ -88,6 +88,17 @@ export interface ReportData {
     hasAnyTax: boolean;
   };
 
+  /** Multi-month reports only: one P&L bucket per month in the range,
+   *  bucketed in memory from the already-fetched entries. */
+  monthlyBreakdown?: {
+    /** e.g. "Jan 2025" */
+    label: string;
+    grossIncome: number;
+    totalExpenses: number;
+    /** grossIncome − agent commissions − totalExpenses (same basis as kpis). */
+    netProfit: number;
+  }[];
+
   /** Sunk-cost (capital) expenses in the period — excluded from the P&L but
    *  itemised here so they stay visible to the owner. */
   capitalItems?: {

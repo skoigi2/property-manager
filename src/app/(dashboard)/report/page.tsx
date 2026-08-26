@@ -1346,6 +1346,33 @@ function QuarterlyDownload({ quarter, setQuarter, quarterYear, setQuarterYear, s
                       </span>
                     </div>
                   )}
+                  {preview.monthlyBreakdown && preview.monthlyBreakdown.length > 0 && (
+                    <div className="border-t border-gray-200 pt-2 mt-2">
+                      <p className="text-label text-gray-400 uppercase mb-1.5">Month by month</p>
+                      <table className="w-full text-caption">
+                        <thead>
+                          <tr className="text-left text-label text-gray-400 uppercase">
+                            <th className="pb-1 font-medium">Month</th>
+                            <th className="pb-1 font-medium text-right">Income</th>
+                            <th className="pb-1 font-medium text-right">Expenses</th>
+                            <th className="pb-1 font-medium text-right">Net</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {preview.monthlyBreakdown.map((m) => (
+                            <tr key={m.label} className="border-t border-gray-100">
+                              <td className="py-1 text-gray-600">{m.label}</td>
+                              <td className="py-1 text-right tabular-nums text-gray-600">{formatCurrency(m.grossIncome, preview.currency)}</td>
+                              <td className="py-1 text-right tabular-nums text-gray-600">{formatCurrency(m.totalExpenses, preview.currency)}</td>
+                              <td className={clsx("py-1 text-right tabular-nums font-medium", m.netProfit >= 0 ? "text-income" : "text-expense")}>
+                                {formatCurrency(m.netProfit, preview.currency)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </>

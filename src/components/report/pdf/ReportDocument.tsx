@@ -144,6 +144,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const hasAging    = (data.arrearsAging?.totalCount ?? 0) > 0;
   const hasAlerts   = data.alerts.length > 0;
   const hasCapital  = (data.capitalItems?.rows.length ?? 0) > 0;
+  const hasMonthly  = (data.monthlyBreakdown?.length ?? 0) > 0;
 
   // Dynamic section numbering
   let n = 0;
@@ -154,6 +155,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
     shortLet:  hasShortLet ? ++n : null,
     expenses:  ++n,
     capital:   hasCapital ? ++n : null,
+    monthly:   hasMonthly ? ++n : null,
     pl:        ++n,
     pettyCash: ++n,
     mgmtFee:   ++n,
@@ -553,6 +555,67 @@ export function ReportDocument({ data }: { data: ReportData }) {
         </View>
         <PageFooter {...footerProps} />
       </Page>
+
+      {/* ── MONTHLY BREAKDOWN PAGE (multi-month reports only) ── */}
+      {hasMonthly && data.monthlyBreakdown && (() => {
+        const rows = data.monthlyBreakdown;
+        const maxAbsNet = Math.max(...rows.map((r) => Math.abs(r.netProfit)), 0);
+        return (
+          <Page size="A4" orientation="landscape" style={styles.page}>
+            <PageHeader {...footerProps} />
+            <View style={styles.pageContent}>
+              <SectionHeading num={SEC.monthly} title="Month-by-Month Breakdown" />
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  {[
+                    { h: "Month",    f: 2 },
+                    { h: "Income",   f: 2 },
+                    { h: "Expenses", f: 2 },
+                    { h: "Net",      f: 2 },
+                  ].map(({ h, f }) => (
+                    <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
+                  ))}
+                </View>
+                {rows.map((r, idx) => (
+                  <View key={r.label} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                    <Text style={[styles.tableCell, { flex: 2 }]}>{r.label}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(r.grossIncome)}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(r.totalExpenses)}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }, r.netProfit >= 0 ? styles.positive : styles.negative]}>{fmt(r.netProfit)}</Text>
+                  </View>
+                ))}
+                <View style={styles.tableRowTotal}>
+                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 2 }]}>TOTAL</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(rows.reduce((s, r) => s + r.grossIncome, 0))}</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(rows.reduce((s, r) => s + r.totalExpenses, 0))}</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }, rows.reduce((s, r) => s + r.netProfit, 0) >= 0 ? styles.positive : styles.negative]}>{fmt(rows.reduce((s, r) => s + r.netProfit, 0))}</Text>
+                </View>
+              </View>
+
+              {/* Net-per-month bar chart — plain View rectangles */}
+              {maxAbsNet > 0 && (
+                <>
+                  <Text style={[styles.tableCell, styles.muted, { marginBottom: 6, marginTop: 4 }]}>Net profit per month</Text>
+                  {rows.map((r) => {
+                    const pct = maxAbsNet > 0 ? (Math.abs(r.netProfit) / maxAbsNet) * 100 : 0;
+                    const pos = r.netProfit >= 0;
+                    return (
+                      <View key={r.label} style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
+                        <Text style={[styles.tableCell, styles.muted, { width: 60 }]}>{r.label}</Text>
+                        <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
+                          <View style={{ width: `${Math.max(pct, 0.5)}%`, height: 10, borderRadius: 2, backgroundColor: pos ? "#1A7A5E" : "#C0392B" }} />
+                          <Text style={[styles.tableCellMono, { fontSize: 8, marginLeft: 4 }, pos ? styles.positive : styles.negative]}>{fmt(r.netProfit)}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+            </View>
+            <PageFooter {...footerProps} />
+          </Page>
+        );
+      })()}
 
       {/* ── PAGE 3: P&L + Reconciliations + Vendors + Tax + Alerts ── */}
       <Page size="A4" orientation="landscape" style={styles.page}>

@@ -583,6 +583,26 @@ async function buildRangeReportData(
       }
     : undefined;
 
+  // Month-by-month P&L buckets — computed in memory from the entries already
+  // fetched for the range, never re-queried per month.
+  const monthlyBreakdown = monthsMult > 1
+    ? Array.from({ length: monthsMult }, (_, i) => {
+        const mStart = new Date(from.getFullYear(), from.getMonth() + i, 1);
+        const mEnd   = new Date(from.getFullYear(), from.getMonth() + i + 1, 1);
+        const inc = incomeEntries.filter((e) => e.date >= mStart && e.date < mEnd);
+        const exp = expenseEntries.filter((e) => e.date >= mStart && e.date < mEnd);
+        const gross = inc.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0);
+        const comm  = inc.reduce((s, e) => s + e.agentCommission, 0);
+        const opex  = exp.filter((e) => !e.isSunkCost).reduce((s, e) => s + e.amount, 0);
+        return {
+          label: format(mStart, "MMM yyyy"),
+          grossIncome: gross,
+          totalExpenses: opex,
+          netProfit: gross - comm - opex,
+        };
+      })
+    : undefined;
+
   const allLineItemsQ = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummaryQ   = buildTaxSummary(incomeEntries, allLineItemsQ);
   // `to` is exclusive in the range builder — the period's last instant is just before it.
@@ -602,6 +622,7 @@ async function buildRangeReportData(
     kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate, incomeToDate,
                    ...(collectionRateQ != null ? { collectionRate: collectionRateQ } : {}) },
     rentCollection, albaPerformance, expenses, vendorSpend,
+    ...(monthlyBreakdown ? { monthlyBreakdown } : {}),
     ...(capitalItemsQ ? { capitalItems: capitalItemsQ } : {}),
     pettyCash: {
       totalIn: pcIn, totalOut: pcOut, balance: pcIn - pcOut,

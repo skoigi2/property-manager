@@ -52,7 +52,9 @@ function PageFooter({ period, property, organizationName }: { period: string; pr
 
 function SectionHeading({ num, title }: { num: number | null; title: string }) {
   return (
-    <View style={styles.sectionHeadingRow}>
+    // minPresenceAhead: never strand a heading at the bottom of a page with
+    // its content on the next one.
+    <View style={styles.sectionHeadingRow} minPresenceAhead={60}>
       <View style={styles.sectionAccentBar} />
       <Text style={styles.sectionTitle}>
         {num !== null && <Text style={styles.sectionNumber}>{num}.  </Text>}
@@ -335,7 +337,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   const due = t.expectedRent + t.serviceCharge;
                   const collectionPct = due > 0 ? Math.round((t.received / due) * 100) : null;
                   return (
-                  <View key={t.unit} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                  <View key={t.unit} wrap={false} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                     <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{t.tenantName}</Text>
                     <Text style={[styles.tableCell, { flex: 0.8 }]}>{t.unit}</Text>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{UNIT_LABEL[t.type] ?? t.type}</Text>
@@ -418,7 +420,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   ))}
                 </View>
                 {data.arrearsAging.rows.map((r, idx) => (
-                  <View key={`${r.tenantName}-${r.unitNumber}`} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                  <View key={`${r.tenantName}-${r.unitNumber}`} wrap={false} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                     <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{r.tenantName}</Text>
                     <Text style={[styles.tableCell, { flex: 1 }]}>{r.unitNumber}</Text>
                     <Text style={[styles.tableCell, { flex: 2.4 }]} hyphenationCallback={noHyphenation}>{r.propertyName}</Text>
@@ -463,7 +465,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   const net = u.netRevenue - u.fixedCosts - u.variableCosts;
                   const occ = u.daysInMonth > 0 ? Math.round((u.bookedNights / u.daysInMonth) * 100) : 0;
                   return (
-                    <View key={u.unitNumber} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                    <View key={u.unitNumber} wrap={false} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                       <Text style={[styles.tableCell, { flex: 1 }]}>{u.unitNumber}</Text>
                       <Text style={[styles.tableCell, { flex: 1.5 }]}>{UNIT_LABEL[u.type] ?? u.type}</Text>
                       <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{fmt(u.grossRevenue)}</Text>
@@ -527,7 +529,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   ))}
                 </View>
                 {data.capitalItems.rows.map((r, idx) => (
-                  <View key={idx} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                  <View key={idx} wrap={false} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                     <Text style={[styles.tableCell, { flex: 1.4 }]}>{r.date}</Text>
                     <Text style={[styles.tableCell, { flex: 4 }]} hyphenationCallback={noHyphenation}>{r.description}</Text>
                     <Text style={[styles.tableCell, { flex: 2 }]} hyphenationCallback={noHyphenation}>{r.category.replace(/_/g, " ")}</Text>
@@ -575,7 +577,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   ))}
                 </View>
                 {data.vacancy.rows.map((r, idx) => (
-                  <View key={`${r.propertyName}-${r.unitNumber}`} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                  <View key={`${r.propertyName}-${r.unitNumber}`} wrap={false} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                     <Text style={[styles.tableCell, { flex: 1.2 }]}>{r.unitNumber}</Text>
                     <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{r.propertyName}</Text>
                     <Text style={[styles.tableCellMono, { flex: 1.6, textAlign: "right" }]}>{r.vacantDays}</Text>
@@ -598,65 +600,104 @@ export function ReportDocument({ data }: { data: ReportData }) {
         <PageFooter {...footerProps} />
       </Page>
 
-      {/* ── MONTHLY BREAKDOWN PAGE (multi-month reports only) ── */}
+      {/* ── MONTHLY BREAKDOWN PAGES (multi-month reports only) ──
+          Paginated deterministically: the table is chunked so each page fits
+          inside the header/footer bands, the column header repeats on every
+          continuation page, and the bar chart moves to its own page whenever
+          it can't fit under the last table chunk. */}
       {hasMonthly && data.monthlyBreakdown && (() => {
         const rows = data.monthlyBreakdown;
         const maxAbsNet = Math.max(...rows.map((r) => Math.abs(r.netProfit)), 0);
-        return (
-          <Page size="A4" orientation="landscape" style={styles.page}>
-            <PageHeader {...footerProps} />
-            <View style={styles.pageContent}>
-              <SectionHeading num={SEC.monthly} title="Month-by-Month Breakdown" />
-              <View style={styles.table}>
-                <View style={styles.tableHeader}>
-                  {[
-                    { h: "Month",    f: 2 },
-                    { h: "Income",   f: 2 },
-                    { h: "Expenses", f: 2 },
-                    { h: "Net",      f: 2 },
-                  ].map(({ h, f }) => (
-                    <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
-                  ))}
-                </View>
-                {rows.map((r, idx) => (
-                  <View key={r.label} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
-                    <Text style={[styles.tableCell, { flex: 2 }]}>{r.label}</Text>
-                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(r.grossIncome)}</Text>
-                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(r.totalExpenses)}</Text>
-                    <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }, r.netProfit >= 0 ? styles.positive : styles.negative]}>{fmt(r.netProfit)}</Text>
-                  </View>
-                ))}
-                <View style={styles.tableRowTotal}>
-                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 2 }]}>TOTAL</Text>
-                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(rows.reduce((s, r) => s + r.grossIncome, 0))}</Text>
-                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(rows.reduce((s, r) => s + r.totalExpenses, 0))}</Text>
-                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }, rows.reduce((s, r) => s + r.netProfit, 0) >= 0 ? styles.positive : styles.negative]}>{fmt(rows.reduce((s, r) => s + r.netProfit, 0))}</Text>
-                </View>
-              </View>
+        const ROWS_PER_PAGE = 18;
+        const chunks: (typeof rows)[] = [];
+        for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) chunks.push(rows.slice(i, i + ROWS_PER_PAGE));
+        // Rough point-height estimates vs the ~487pt content area — decides
+        // whether the chart shares the last table page or gets its own.
+        const lastChunkH = 48 + 21 + chunks[chunks.length - 1].length * 21 + 25;
+        const chartH = 20 + rows.length * 14;
+        const chartOnLastPage = maxAbsNet > 0 && lastChunkH + chartH <= 470;
 
-              {/* Net-per-month bar chart — plain View rectangles */}
-              {maxAbsNet > 0 && (
-                <>
-                  <Text style={[styles.tableCell, styles.muted, { marginBottom: 6, marginTop: 4 }]}>Net profit per month</Text>
-                  {rows.map((r) => {
-                    const pct = maxAbsNet > 0 ? (Math.abs(r.netProfit) / maxAbsNet) * 100 : 0;
-                    const pos = r.netProfit >= 0;
-                    return (
-                      <View key={r.label} style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
-                        <Text style={[styles.tableCell, styles.muted, { width: 60 }]}>{r.label}</Text>
-                        <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
-                          <View style={{ width: `${Math.max(pct, 0.5)}%`, height: 10, borderRadius: 2, backgroundColor: pos ? "#1A7A5E" : "#C0392B" }} />
-                          <Text style={[styles.tableCellMono, { fontSize: 8, marginLeft: 4 }, pos ? styles.positive : styles.negative]}>{fmt(r.netProfit)}</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </>
-              )}
-            </View>
-            <PageFooter {...footerProps} />
-          </Page>
+        const columnHeader = () => (
+          <View style={styles.tableHeader}>
+            {[
+              { h: "Month",    f: 2 },
+              { h: "Income",   f: 2 },
+              { h: "Expenses", f: 2 },
+              { h: "Net",      f: 2 },
+            ].map(({ h, f }) => (
+              <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
+            ))}
+          </View>
         );
+
+        const chart = () => (
+          <>
+            <Text style={[styles.tableCell, styles.muted, { marginBottom: 6, marginTop: 4 }]}>Net profit per month</Text>
+            {rows.map((r) => {
+              const pct = maxAbsNet > 0 ? (Math.abs(r.netProfit) / maxAbsNet) * 100 : 0;
+              const pos = r.netProfit >= 0;
+              return (
+                <View key={r.label} wrap={false} style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
+                  <Text style={[styles.tableCell, styles.muted, { width: 60 }]}>{r.label}</Text>
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
+                    <View style={{ width: `${Math.max(pct, 0.5)}%`, height: 10, borderRadius: 2, backgroundColor: pos ? "#1A7A5E" : "#C0392B" }} />
+                    <Text style={[styles.tableCellMono, { fontSize: 8, marginLeft: 4 }, pos ? styles.positive : styles.negative]}>{fmt(r.netProfit)}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        );
+
+        return [
+          ...chunks.map((chunk, ci) => {
+            const isLast = ci === chunks.length - 1;
+            return (
+              <Page key={`monthly-${ci}`} size="A4" orientation="landscape" style={styles.page}>
+                <PageHeader {...footerProps} />
+                <View style={styles.pageContent}>
+                  <SectionHeading
+                    num={ci === 0 ? SEC.monthly : null}
+                    title={ci === 0 ? "Month-by-Month Breakdown" : "Month-by-Month Breakdown (continued)"}
+                  />
+                  <View style={styles.table}>
+                    {columnHeader()}
+                    {chunk.map((r, idx) => (
+                      <View key={r.label} wrap={false} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                        <Text style={[styles.tableCell, { flex: 2 }]}>{r.label}</Text>
+                        <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(r.grossIncome)}</Text>
+                        <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }]}>{fmt(r.totalExpenses)}</Text>
+                        <Text style={[styles.tableCellMono, { flex: 2, textAlign: "right" }, r.netProfit >= 0 ? styles.positive : styles.negative]}>{fmt(r.netProfit)}</Text>
+                      </View>
+                    ))}
+                    {isLast && (
+                      <View style={styles.tableRowTotal} wrap={false}>
+                        <Text style={[styles.tableCell, styles.tableCellBold, { flex: 2 }]}>TOTAL</Text>
+                        <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(rows.reduce((s, r) => s + r.grossIncome, 0))}</Text>
+                        <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }]}>{fmt(rows.reduce((s, r) => s + r.totalExpenses, 0))}</Text>
+                        <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 2, textAlign: "right" }, rows.reduce((s, r) => s + r.netProfit, 0) >= 0 ? styles.positive : styles.negative]}>{fmt(rows.reduce((s, r) => s + r.netProfit, 0))}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {isLast && chartOnLastPage && chart()}
+                </View>
+                <PageFooter {...footerProps} />
+              </Page>
+            );
+          }),
+          ...(maxAbsNet > 0 && !chartOnLastPage
+            ? [(
+                <Page key="monthly-chart" size="A4" orientation="landscape" style={styles.page}>
+                  <PageHeader {...footerProps} />
+                  <View style={styles.pageContent}>
+                    <SectionHeading num={null} title="Month-by-Month Breakdown (continued)" />
+                    {chart()}
+                  </View>
+                  <PageFooter {...footerProps} />
+                </Page>
+              )]
+            : []),
+        ];
       })()}
 
       {/* ── PAGE 3: P&L + Reconciliations + Vendors + Tax + Alerts ── */}
@@ -824,7 +865,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
                   ))}
                 </View>
                 {(data.vendorSpend ?? []).map((v, idx) => (
-                  <View key={v.vendorId} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                  <View key={v.vendorId} wrap={false} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                     <Text style={[styles.tableCell, { flex: 3 }]} hyphenationCallback={noHyphenation}>{v.name}</Text>
                     <Text style={[styles.tableCell, { flex: 1.5 }]}>{VENDOR_CATEGORY_LABEL[v.category] ?? v.category}</Text>
                     <Text style={[styles.tableCellMono, { flex: 1.5, textAlign: "right" }]}>{v.expenseCount}</Text>

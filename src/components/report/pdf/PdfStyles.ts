@@ -23,8 +23,14 @@ const C = {
 
 export const styles = StyleSheet.create({
   // ── Page ──────────────────────────────────────────────────────────────────
+  // The header strip (40) and footer live in the page padding bands, so
+  // wrapped content on continuation pages can never overlap them — react-pdf
+  // breaks flowing content at the padding box, while `fixed` + absolute
+  // elements paint into the reserved bands on every page.
   page: {
     padding: 0,
+    paddingTop: 52,    // 40 header strip + 12 gap
+    paddingBottom: 56, // footer sits at bottom: 20 with ~14 of text above it
     fontFamily: "Helvetica",
     backgroundColor: C.WHITE,
     fontSize: 10,
@@ -32,8 +38,6 @@ export const styles = StyleSheet.create({
   },
   pageContent: {
     paddingHorizontal: 40,
-    paddingBottom: 50,
-    paddingTop: 12,
   },
 
   // ── Cover page ────────────────────────────────────────────────────────────
@@ -134,7 +138,14 @@ export const styles = StyleSheet.create({
   },
 
   // ── Page header strip (content pages) ────────────────────────────────────
+  // Absolutely positioned into the page's top padding band (see `page`), and
+  // marked `fixed` at the call site so it repeats on wrapped pages without
+  // content flowing underneath it.
   pageHeaderStrip: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     backgroundColor: C.INK,
     height: 40,
     flexDirection: "row",

@@ -1,4 +1,5 @@
 import { Document, Page, View, Text, type Styles } from "@react-pdf/renderer";
+import { format } from "date-fns";
 import { styles } from "./PdfStyles";
 import type { ReportData } from "@/types/report";
 import { formatCurrency } from "@/lib/currency";
@@ -142,6 +143,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const hasTax      = !!data.taxSummary?.hasAnyTax;
   const hasAging    = (data.arrearsAging?.totalCount ?? 0) > 0;
   const hasAlerts   = data.alerts.length > 0;
+  const hasCapital  = (data.capitalItems?.rows.length ?? 0) > 0;
 
   // Dynamic section numbering
   let n = 0;
@@ -151,6 +153,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
     aging:     hasAging    ? ++n : null,
     shortLet:  hasShortLet ? ++n : null,
     expenses:  ++n,
+    capital:   hasCapital ? ++n : null,
     pl:        ++n,
     pettyCash: ++n,
     mgmtFee:   ++n,
@@ -284,6 +287,19 @@ export function ReportDocument({ data }: { data: ReportData }) {
               <Text style={styles.kpiOccupancyLabel}>Occupancy Rate</Text>
               <Text style={styles.kpiOccupancyPct}>{data.kpis.occupancyRate}%</Text>
             </View>
+
+            {/* Collection Rate — centred, traffic-light colours */}
+            {data.kpis.collectionRate != null && (() => {
+              const cr = data.kpis.collectionRate;
+              const bg = cr >= 90 ? "#E6F4EF" : cr >= 70 ? "#FEF3C7" : "#FDECEA";
+              const fg = cr >= 90 ? "#1A7A5E" : cr >= 70 ? "#B45309" : "#C0392B";
+              return (
+                <View style={[styles.kpiBoxOccupancy, { backgroundColor: bg }]}>
+                  <Text style={styles.kpiOccupancyLabel}>Collection Rate</Text>
+                  <Text style={[styles.kpiOccupancyPct, { color: fg }]}>{cr}%</Text>
+                </View>
+              );
+            })()}
           </View>
 
           {/* Section 2: Rent Collection (long-term only) */}
@@ -343,7 +359,15 @@ export function ReportDocument({ data }: { data: ReportData }) {
           {/* Section: Arrears Aging (point-in-time) */}
           {hasAging && data.arrearsAging && (
             <>
-              <SectionHeading num={SEC.aging} title="Arrears Aging" />
+              <SectionHeading
+                num={SEC.aging}
+                title={`Arrears Aging (as at ${format(new Date(data.arrearsAging.asAt), "d MMM yyyy")})`}
+              />
+              {data.arrearsAging.periodEndsBeforeAsAt && (
+                <Text style={[styles.tableCell, styles.muted, { marginBottom: 6, marginTop: -6, fontFamily: "Helvetica-Oblique" }]} hyphenationCallback={noHyphenation}>
+                  Snapshot taken at report generation — reflects current arrears, not the period&apos;s.
+                </Text>
+              )}
               {/* Bucket summary strip */}
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
@@ -478,7 +502,36 @@ export function ReportDocument({ data }: { data: ReportData }) {
             </View>
           </View>
 
-          {sunkCosts.length > 0 && (
+          {/* Section: Capital Items — itemised sunk-cost expenses */}
+          {hasCapital && data.capitalItems ? (
+            <>
+              <SectionHeading num={SEC.capital} title="Capital Items (excluded from P&L)" />
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  {[
+                    { h: "Date",        f: 1.4 },
+                    { h: "Description", f: 4 },
+                    { h: "Category",    f: 2 },
+                    { h: "Amount",      f: 1.8 },
+                  ].map(({ h, f }) => (
+                    <Text key={h} style={[styles.tableHeaderCell, { flex: f }]}>{h}</Text>
+                  ))}
+                </View>
+                {data.capitalItems.rows.map((r, idx) => (
+                  <View key={idx} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
+                    <Text style={[styles.tableCell, { flex: 1.4 }]}>{r.date}</Text>
+                    <Text style={[styles.tableCell, { flex: 4 }]} hyphenationCallback={noHyphenation}>{r.description}</Text>
+                    <Text style={[styles.tableCell, { flex: 2 }]} hyphenationCallback={noHyphenation}>{r.category.replace(/_/g, " ")}</Text>
+                    <Text style={[styles.tableCellMono, { flex: 1.8, textAlign: "right" }]}>{fmt(r.amount)}</Text>
+                  </View>
+                ))}
+                <View style={styles.tableRowTotal}>
+                  <Text style={[styles.tableCell, styles.tableCellBold, { flex: 7.4 }]}>TOTAL CAPITAL ITEMS (not deducted from P&L)</Text>
+                  <Text style={[styles.tableCellMono, styles.tableCellBold, { flex: 1.8, textAlign: "right" }]}>{fmt(data.capitalItems.total)}</Text>
+                </View>
+              </View>
+            </>
+          ) : sunkCosts.length > 0 && (
             <>
               <Text style={[styles.tableCell, styles.muted, { marginBottom: 4, marginTop: 8, fontFamily: "Helvetica-Oblique" }]}>
                 Capital / Sunk Costs — excluded from monthly P&amp;L

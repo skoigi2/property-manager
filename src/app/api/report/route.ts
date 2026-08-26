@@ -30,11 +30,18 @@ function uniqueByUnit<T extends { unitId: string; isActive: boolean }>(tenants: 
   return out;
 }
 
-/** Compact aging block for ReportData (top 15 debtors, oldest first). */
-async function buildReportAging(propertyIds: string[]): Promise<ReportData["arrearsAging"]> {
+/** Compact aging block for ReportData (top 15 debtors, oldest first).
+ *  Always a point-in-time snapshot AS AT generation time — never rebuilt
+ *  historically. `periodEnd` lets the renderers say so when the report
+ *  period ended before today. */
+async function buildReportAging(propertyIds: string[], periodEnd: Date): Promise<ReportData["arrearsAging"]> {
   const aging = await buildAgingSnapshot(propertyIds);
   if (aging.totalCount === 0) return undefined;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return {
+    asAt: now.toISOString(),
+    periodEndsBeforeAsAt: periodEnd < startOfToday,
     totalOutstanding: aging.totalOutstanding,
     totalCount: aging.totalCount,
     buckets: aging.buckets,
@@ -266,12 +273,35 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   if (mgmtOwing > mgmtPaid)
     alerts.push(`Management fee outstanding: ${formatCurrency(mgmtOwing - mgmtPaid, _currency1)}`);
 
+  // Headline collection rate — roll-up of the rent-collection rows.
+  const collectionExpected = rentCollection.reduce((s, r) => s + r.expectedRent + r.serviceCharge, 0);
+  const collectionReceived = rentCollection.reduce((s, r) => s + r.received, 0);
+  const collectionRate = collectionExpected > 0
+    ? Math.min(999, Math.round((collectionReceived / collectionExpected) * 100))
+    : undefined;
+
+  // Capital / sunk-cost items — excluded from the P&L, itemised for visibility.
+  const sunkEntries = expenseEntries
+    .filter((e) => e.isSunkCost)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const capitalItems = sunkEntries.length > 0
+    ? {
+        total: sunkEntries.reduce((s, e) => s + e.amount, 0),
+        rows: sunkEntries.map((e) => ({
+          date: formatDate(e.date),
+          description: e.description ?? e.category.replace(/_/g, " "),
+          category: e.category,
+          amount: e.amount,
+        })),
+      }
+    : undefined;
+
   // Tax summary
   const allLineItems = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummary = buildTaxSummary(incomeEntries, allLineItems);
 
   // Arrears aging (point-in-time, invoice-based)
-  const arrearsAging = await buildReportAging(propertyIds);
+  const arrearsAging = await buildReportAging(propertyIds, to);
 
   return {
     title:                `${propertyNames} — ${periodLabel}`,
@@ -285,11 +315,13 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",
-    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate, incomeToDate },
+    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate, incomeToDate,
+                   ...(collectionRate != null ? { collectionRate } : {}) },
     rentCollection,
     albaPerformance,
     expenses,
     vendorSpend,
+    ...(capitalItems ? { capitalItems } : {}),
     pettyCash: {
       totalIn:  pcIn,
       totalOut: pcOut,
@@ -528,9 +560,33 @@ async function buildRangeReportData(
   if (mgmtOwing > mgmtPaid)
     alerts.push(`Management fee outstanding: ${formatCurrency(mgmtOwing - mgmtPaid, _currency2)}`);
 
+  // Headline collection rate — roll-up of the rent-collection rows.
+  const collectionExpectedQ = rentCollection.reduce((s, r) => s + r.expectedRent + r.serviceCharge, 0);
+  const collectionReceivedQ = rentCollection.reduce((s, r) => s + r.received, 0);
+  const collectionRateQ = collectionExpectedQ > 0
+    ? Math.min(999, Math.round((collectionReceivedQ / collectionExpectedQ) * 100))
+    : undefined;
+
+  // Capital / sunk-cost items — excluded from the P&L, itemised for visibility.
+  const sunkEntriesQ = expenseEntries
+    .filter((e) => e.isSunkCost)
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const capitalItemsQ = sunkEntriesQ.length > 0
+    ? {
+        total: sunkEntriesQ.reduce((s, e) => s + e.amount, 0),
+        rows: sunkEntriesQ.map((e) => ({
+          date: formatDate(e.date),
+          description: e.description ?? e.category.replace(/_/g, " "),
+          category: e.category,
+          amount: e.amount,
+        })),
+      }
+    : undefined;
+
   const allLineItemsQ = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
   const taxSummaryQ   = buildTaxSummary(incomeEntries, allLineItemsQ);
-  const arrearsAgingQ = await buildReportAging(propertyIds);
+  // `to` is exclusive in the range builder — the period's last instant is just before it.
+  const arrearsAgingQ = await buildReportAging(propertyIds, new Date(to.getTime() - 1));
 
   return {
     title:                `${propertyNames} — ${periodLabel}`,
@@ -543,8 +599,10 @@ async function buildRangeReportData(
     period:      periodLabel,
     generatedAt: format(new Date(), "d MMM yyyy, HH:mm"),
     generatedBy: session?.user?.name ?? session?.user?.email ?? "Manager",
-    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate, incomeToDate },
+    kpis:        { grossIncome, agentCommissions, totalExpenses, netProfit, occupancyRate, incomeToDate,
+                   ...(collectionRateQ != null ? { collectionRate: collectionRateQ } : {}) },
     rentCollection, albaPerformance, expenses, vendorSpend,
+    ...(capitalItemsQ ? { capitalItems: capitalItemsQ } : {}),
     pettyCash: {
       totalIn: pcIn, totalOut: pcOut, balance: pcIn - pcOut,
       entries: pettyCash.map((e) => ({ date: formatDate(e.date), description: e.description, type: e.type, amount: e.amount })),

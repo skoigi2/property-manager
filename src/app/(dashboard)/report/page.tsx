@@ -161,7 +161,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: "Gross Income",   tooltip: "Total rent and charges collected this period. Deposits are excluded.",                                           value: data.kpis.grossIncome,       icon: <TrendingUp size={16} />,  color: "text-income",  border: "border-income" },
           ...(data.kpis.incomeToDate != null ? [
@@ -194,6 +194,23 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
             {data.kpis.occupancyRate}%
           </p>
         </Card>
+        {data.kpis.collectionRate != null && (() => {
+          const cr = data.kpis.collectionRate;
+          const color  = cr >= 90 ? "text-income" : cr >= 70 ? "text-amber-500" : "text-expense";
+          const border = cr >= 90 ? "border-income" : cr >= 70 ? "border-amber-400" : "border-expense";
+          return (
+            <Card padding="sm" className={`border-l-4 ${border}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={color}><Receipt size={16} /></span>
+                <p className="text-label text-gray-400 uppercase flex items-center gap-1.5">
+                  Collection Rate
+                  <HelpTip text="Rent + service charges received as a share of what was expected this period. 90%+ is healthy; below 70% needs attention." position="below" />
+                </p>
+              </div>
+              <p className={`text-h1 tabular-nums ${color}`}>{cr}%</p>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* Alerts */}
@@ -339,7 +356,17 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
       {/* Arrears Aging */}
       {data.arrearsAging && data.arrearsAging.totalCount > 0 && (
         <Card>
-          <SectionTitle><AlertTriangle size={16} className="text-gold" /> Arrears Aging</SectionTitle>
+          <SectionTitle>
+            <AlertTriangle size={16} className="text-gold" /> Arrears Aging
+            <span className="text-caption text-gray-400 font-normal">
+              as at {new Date(data.arrearsAging.asAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            </span>
+          </SectionTitle>
+          {data.arrearsAging.periodEndsBeforeAsAt && (
+            <p className="text-caption text-gray-400 italic -mt-2 mb-3">
+              Snapshot taken at report generation — reflects current arrears, not the period&apos;s.
+            </p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             {([
               ["current",  "Current"],
@@ -484,7 +511,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
               <AmountCell value={-e.amount} currency={currency} />
             </div>
           ))}
-          {sunkExpenses.length > 0 && (
+          {sunkExpenses.length > 0 && !data.capitalItems && (
             <>
               <p className="text-label text-gray-400 uppercase pt-2">Capital / Sunk Costs (excluded from P&L)</p>
               {sunkExpenses.map((e) => (
@@ -503,6 +530,43 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
           </div>
         </div>
       </Card>
+
+      {/* Capital Items (excluded from P&L) */}
+      {data.capitalItems && data.capitalItems.rows.length > 0 && (
+        <Card>
+          <SectionTitle>
+            <Receipt size={16} className="text-gold" /> Capital Items
+            <span className="text-caption text-gray-400 font-normal">excluded from P&L</span>
+          </SectionTitle>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] text-body">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {["Date", "Description", "Category", "Amount"].map((h) => (
+                    <th key={h} className="pb-2 text-left text-label font-medium text-gray-400 uppercase pr-4 last:pr-0">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.capitalItems.rows.map((r, i) => (
+                  <tr key={i} className="border-b border-gray-50 last:border-0">
+                    <td className="py-2.5 pr-4 text-gray-500 whitespace-nowrap">{r.date}</td>
+                    <td className="py-2.5 pr-4 text-header">{r.description}</td>
+                    <td className="py-2.5 pr-4 text-gray-500">{CAT_LABELS[r.category] ?? r.category.replace(/_/g, " ")}</td>
+                    <td className="py-2.5 tabular-nums text-gray-600">{fmt(r.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200 bg-cream">
+                  <td colSpan={3} className="py-2 pr-4 text-label font-medium text-gray-500 uppercase">Total capital items (not deducted)</td>
+                  <td className="py-2 tabular-nums text-body font-medium text-header">{fmt(data.capitalItems.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Vendor Spend */}
       {data.vendorSpend && data.vendorSpend.length > 0 && (

@@ -20,6 +20,10 @@ export interface ReportData {
     /** ALL income received up to the end of the report period (cash basis,
      *  deposits excluded) — cumulative, not just this period's. */
     incomeToDate?: number;
+    /** Headline rent collection: sum(received) / sum(expected rent + service
+     *  charge) across the rent-collection rows, as a whole percent (capped at
+     *  999). Absent when nothing was expected in the period. */
+    collectionRate?: number;
   };
 
   rentCollection: {
@@ -84,8 +88,20 @@ export interface ReportData {
     hasAnyTax: boolean;
   };
 
+  /** Sunk-cost (capital) expenses in the period — excluded from the P&L but
+   *  itemised here so they stay visible to the owner. */
+  capitalItems?: {
+    total: number;
+    rows: { date: string; description: string; category: string; amount: number }[];
+  };
+
   /** Point-in-time arrears aging snapshot (as of report generation). */
   arrearsAging?: {
+    /** ISO timestamp of when the snapshot was taken (report generation time). */
+    asAt: string;
+    /** True when the report period ended before the snapshot date — the aging
+     *  reflects CURRENT arrears, not the period's. */
+    periodEndsBeforeAsAt: boolean;
     totalOutstanding: number;
     totalCount: number;
     buckets: Record<"current" | "d1_30" | "d31_60" | "d61_90" | "d90plus", { amount: number; count: number }>;

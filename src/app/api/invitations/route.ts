@@ -1,12 +1,10 @@
 import { requireAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { sendOrgInvitation } from "@/lib/email";
+import { canAddUser } from "@/lib/subscription";
+import { roleOutranksCaller } from "@/lib/permissions";
 import { z } from "zod";
 import { randomUUID } from "crypto";
-
-const roleHierarchy: Record<string, number> = {
-  ADMIN: 3, MANAGER: 2, ACCOUNTANT: 1, OWNER: 0,
-};
 
 const createSchema = z.object({
   email: z.string().email(),
@@ -33,11 +31,22 @@ export async function POST(req: Request) {
   const { email, role } = parsed.data;
 
   // Role escalation guard: cannot invite someone with a higher role than your own
-  const callerOrgRole = session!.user.orgRole;
-  if ((roleHierarchy[role] ?? 0) > (roleHierarchy[callerOrgRole] ?? 0)) {
+  if (roleOutranksCaller(role, session!.user.orgRole)) {
     return Response.json(
       { error: "You cannot invite someone with a higher role than your own." },
       { status: 403 }
+    );
+  }
+
+  // Team-member cap per tier — invitations count toward the same limit as
+  // directly-created accounts (TEAM_LIMITS in paddle.ts). NOTE: invitations
+  // are exempt from the subscription write-gate (CLAUDE.md); the team cap is
+  // orthogonal to the org's lock state.
+  const capacityOk = await canAddUser(orgId);
+  if (!capacityOk) {
+    return Response.json(
+      { error: "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
+      { status: 402 },
     );
   }
 
@@ -98,6 +107,7 @@ export async function POST(req: Request) {
     role,
     acceptUrl,
     expiresAt,
+    { organizationId: orgId }, // org-scope the EmailLog row
   ).catch(console.error);
 
   return Response.json({ ok: true, invitationId: invitation.id }, { status: 201 });
@@ -115,7 +125,8 @@ export async function GET() {
   if (!orgId) return Response.json([], { status: 200 });
 
   const invitations = await prisma.orgInvitation.findMany({
-    where: { organizationId: orgId, acceptedAt: null },
+    // Only live invitations — expired ones are dead tokens, not "pending"
+    where: { organizationId: orgId, acceptedAt: null, expiresAt: { gt: new Date() } },
     include: { invitedBy: { select: { name: true, email: true } } },
     orderBy: { createdAt: "desc" },
   });

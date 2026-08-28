@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/auth-utils";
+import { roleOutranksCaller } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -34,9 +36,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const target = await prisma.user.findUnique({
     where: { id: params.id },
-    select: { role: true, organizationId: true },
+    select: { name: true, phone: true, isActive: true, role: true, organizationId: true },
   });
-  const targetIsSuperAdmin = target?.role === "ADMIN" && target?.organizationId === null;
+  if (!target) return Response.json({ error: "Not found" }, { status: 404 });
+  const targetIsSuperAdmin = target.role === "ADMIN" && target.organizationId === null;
   const callerIsSuperAdmin =
     session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
@@ -45,14 +48,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
   // Only ADMIN (org-level) can modify another ADMIN user
-  if (target?.role === "ADMIN" && session!.user.orgRole !== "ADMIN" && !callerIsSuperAdmin) {
+  if (target.role === "ADMIN" && session!.user.orgRole !== "ADMIN" && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Org-admin can only edit users within their own organisation
-  const callerIsOrgAdmin = session!.user.orgRole === "ADMIN" && !callerIsSuperAdmin;
-  if (callerIsOrgAdmin && target?.organizationId !== session!.user.organizationId) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  // Every non-super-admin caller may only touch users who are members of the
+  // caller's ACTIVE org. The membership table is the source of truth —
+  // User.organizationId is just the active-org cursor (mirrors GET /api/users).
+  const callerOrgId = session!.user.organizationId;
+  if (!callerIsSuperAdmin) {
+    if (!callerOrgId) return Response.json({ error: "Forbidden" }, { status: 403 });
+    const sharedMembership = await prisma.userOrganizationMembership.findUnique({
+      where: { userId_organizationId: { userId: params.id, organizationId: callerOrgId } },
+    });
+    if (!sharedMembership) return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -79,6 +88,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // Handle user field updates
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // Password resets are admin-only (matches the UI's isAdmin gate on "Reset pwd")
+  if (parsed.data.password && !callerIsSuperAdmin && session!.user.orgRole !== "ADMIN") {
+    return Response.json({ error: "Only admins can reset passwords" }, { status: 403 });
+  }
+
+  // Role escalation guard: cannot promote anyone above your own org role
+  if (parsed.data.role && !callerIsSuperAdmin && roleOutranksCaller(parsed.data.role, session!.user.orgRole)) {
+    return Response.json({ error: "You cannot assign a role higher than your own." }, { status: 403 });
+  }
 
   // Only super-admin can reassign a user to a different org
   if (parsed.data.organizationId !== undefined) {
@@ -122,6 +141,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
   }
 
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "UPDATE",
+    resource: "User",
+    resourceId: params.id,
+    organizationId: callerOrgId,
+    before: target,
+    after: parsed.data, // logAudit redacts password keys
+  });
+
   return Response.json(user);
 }
 
@@ -137,17 +167,29 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
   const target = await prisma.user.findUnique({
     where: { id: params.id },
-    select: { role: true, organizationId: true },
+    select: { name: true, email: true, role: true, organizationId: true },
   });
-  const targetIsSuperAdmin = target?.role === "ADMIN" && target?.organizationId === null;
+  if (!target) return Response.json({ error: "Not found" }, { status: 404 });
+  const targetIsSuperAdmin = target.role === "ADMIN" && target.organizationId === null;
   const callerIsSuperAdmin =
     session.user.role === "ADMIN" && session.user.organizationId === null;
 
   if (targetIsSuperAdmin && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (target?.role === "ADMIN" && session.user.orgRole !== "ADMIN" && !callerIsSuperAdmin) {
+  if (target.role === "ADMIN" && session.user.orgRole !== "ADMIN" && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Every non-super-admin caller may only delete members of their ACTIVE org
+  // (membership table, not the target's active-org cursor).
+  if (!callerIsSuperAdmin) {
+    const callerOrgId = session.user.organizationId;
+    if (!callerOrgId) return Response.json({ error: "Forbidden" }, { status: 403 });
+    const sharedMembership = await prisma.userOrganizationMembership.findUnique({
+      where: { userId_organizationId: { userId: params.id, organizationId: callerOrgId } },
+    });
+    if (!sharedMembership) return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Block deletion if user is the billing owner of any org
@@ -163,5 +205,16 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   }
 
   await prisma.user.delete({ where: { id: params.id } });
+
+  await logAudit({
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "DELETE",
+    resource: "User",
+    resourceId: params.id,
+    organizationId: session.user.organizationId,
+    before: target,
+  });
+
   return new Response(null, { status: 204 });
 }

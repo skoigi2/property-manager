@@ -1,5 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireAdminWrite } from "@/lib/auth-utils";
+import { roleOutranksCaller } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { canAddUser } from "@/lib/subscription";
@@ -103,24 +106,36 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { session, error } = await requireManagerSession();
+  // Admin-only (org-admin or super-admin) + subscription write-gate. Direct
+  // account creation hands out credentials, so it is not a manager-tier action
+  // — managers/accountants should use the email-invitation flow via an admin.
+  const { session, error } = await requireAdminWrite();
   if (error) return error;
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { name, email, password, role, phone, propertyIds, organizationId: bodyOrgId } = parsed.data;
+  const { name, email: rawEmail, password, role, phone, propertyIds, organizationId: bodyOrgId } = parsed.data;
+  // Normalise like signup/invitations — credentials login is an exact match on
+  // the stored value, so mixed-case rows are a login footgun and a dup bypass.
+  const email = rawEmail.toLowerCase();
 
   const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
-  // Only ADMIN (org-admin or super-admin) can create ADMIN users; MANAGERs cannot
-  if (role === "ADMIN" && session!.user.orgRole !== "ADMIN" && !isSuperAdmin) {
-    return Response.json({ error: "Only admin users can create admin users" }, { status: 403 });
+  // Role escalation guard — cannot create a user above your own org role
+  // (mirrors POST /api/invitations)
+  if (!isSuperAdmin && roleOutranksCaller(role, session!.user.orgRole)) {
+    return Response.json({ error: "You cannot create a user with a higher role than your own." }, { status: 403 });
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return Response.json({ error: "Email already in use" }, { status: 409 });
+  if (existing) {
+    return Response.json(
+      { error: "Email already in use", code: "EMAIL_EXISTS", suggestInvite: true },
+      { status: 409 },
+    );
+  }
 
   // Super-admin can specify which org the user belongs to; otherwise inherit creator's org
   const newUserOrgId = isSuperAdmin
@@ -216,6 +231,16 @@ export async function POST(req: Request) {
       update: {},
     });
   }
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "CREATE",
+    resource: "User",
+    resourceId: user.id,
+    organizationId: newUserOrgId,
+    after: { name, email, role, phone, propertyIds: effectivePropertyIds },
+  });
 
   return Response.json(user, { status: 201 });
 }

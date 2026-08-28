@@ -29,6 +29,23 @@ export function roleCan(orgRole: string | undefined | null, action: PermissionAc
   return !DENIED[orgRole]?.has(action);
 }
 
+/**
+ * Numeric ordering of org roles for escalation guards (higher = more
+ * privileged). Shared by user creation, user edits, and invitations so no
+ * flow lets a caller mint or promote a role above their own.
+ */
+export const ROLE_HIERARCHY: Record<string, number> = {
+  ADMIN: 3,
+  MANAGER: 2,
+  ACCOUNTANT: 1,
+  OWNER: 0,
+};
+
+/** True when `targetRole` outranks the caller's org role. */
+export function roleOutranksCaller(targetRole: string, callerOrgRole: string | undefined | null): boolean {
+  return (ROLE_HIERARCHY[targetRole] ?? 0) > (ROLE_HIERARCHY[callerOrgRole ?? ""] ?? 0);
+}
+
 /** Human-readable denial message per action (for 403 bodies + UI toasts). */
 export const PERMISSION_DENIED_MESSAGE: Record<PermissionAction, string> = {
   FINANCIAL_DELETE: "Accountants cannot delete financial records. Ask an admin or manager.",

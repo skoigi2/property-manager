@@ -1,5 +1,7 @@
 import { requireAuth, requireSuperAdmin, getCurrentOrgId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { roleCan, PERMISSION_DENIED_MESSAGE } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
 async function canAccessOrg(orgId: string, session: { user: { id: string; role: string; organizationId: string | null } }) {
@@ -26,7 +28,7 @@ export async function GET(
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  if (!canAccessOrg(params.id, session!)) {
+  if (!(await canAccessOrg(params.id, session!))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -65,18 +67,28 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  // NOTE: deliberately requireAuth + a manual gate, NOT require*Write —
+  // organizations routes are exempt from the subscription write-gate so a
+  // locked org can still edit its own details (CLAUDE.md exemption list).
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  // Super-admin, org-admin, or manager of this org may update branding
-  const role = session!.user.role;
-  const isSuperAdmin = role === "ADMIN" && session!.user.organizationId === null;
-  const canEdit = isSuperAdmin || (
-    (role === "ADMIN" || role === "MANAGER") &&
-    await canAccessOrg(params.id, session!)
-  );
-  if (!canEdit) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  if (!isSuperAdmin) {
+    // Gate on the caller's membership role FOR THE TARGET ORG (a multi-org
+    // admin may edit an org that isn't their active one) — never the global
+    // User.role, which is unrelated to what they may do in this org.
+    const membership = await prisma.userOrganizationMembership.findUnique({
+      where: { userId_organizationId: { userId: session!.user.id, organizationId: params.id } },
+      select: { role: true },
+    });
+    const orgRole = membership?.role;
+    if (!orgRole || orgRole === "OWNER" || !roleCan(orgRole, "ORG_SETTINGS")) {
+      return Response.json(
+        { error: orgRole ? PERMISSION_DENIED_MESSAGE.ORG_SETTINGS : "Forbidden" },
+        { status: 403 },
+      );
+    }
   }
 
   const body = await req.json();
@@ -88,9 +100,24 @@ export async function PATCH(
     return Response.json({ error: "Only super-admin can change free access" }, { status: 403 });
   }
 
+  const before = await prisma.organization.findUnique({ where: { id: params.id } });
+  if (!before) return Response.json({ error: "Not found" }, { status: 404 });
+
   const org = await prisma.organization.update({
     where: { id: params.id },
     data: parsed.data,
   });
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "UPDATE",
+    resource: "Organization",
+    resourceId: params.id,
+    organizationId: params.id,
+    before,
+    after: parsed.data, // logAudit redacts bank/M-Pesa/VAT keys
+  });
+
   return Response.json(org);
 }

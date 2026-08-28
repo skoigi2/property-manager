@@ -1,6 +1,5 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireSuperAdmin } from "@/lib/auth-utils";
+import { requireAdmin, requireSuperAdmin } from "@/lib/auth-utils";
 import { roleOutranksCaller } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -20,18 +19,12 @@ const accessSchema = z.object({
   grant: z.boolean(), // true = grant, false = revoke
 });
 
-async function requireManagerSession() {
-  const session = await auth();
-  if (!session) return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
-  const effectiveRole = session.user.orgRole ?? session.user.role;
-  if (effectiveRole !== "ADMIN" && effectiveRole !== "MANAGER" && effectiveRole !== "ACCOUNTANT") {
-    return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
-  }
-  return { session, error: null };
-}
-
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManagerSession();
+  // User management is an ADMIN action — requireAdmin judges by the
+  // MEMBERSHIP role for the active org (orgRole), never the global User.role
+  // (which a founder of another org carries as ADMIN while being a mere
+  // MANAGER here).
+  const { session, error } = await requireAdmin();
   if (error) return error;
 
   const target = await prisma.user.findUnique({
@@ -88,11 +81,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // Handle user field updates
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-
-  // Password resets are admin-only (matches the UI's isAdmin gate on "Reset pwd")
-  if (parsed.data.password && !callerIsSuperAdmin && session!.user.orgRole !== "ADMIN") {
-    return Response.json({ error: "Only admins can reset passwords" }, { status: 403 });
-  }
 
   // Role escalation guard: cannot promote anyone above your own org role
   if (parsed.data.role && !callerIsSuperAdmin && roleOutranksCaller(parsed.data.role, session!.user.orgRole)) {
@@ -156,12 +144,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  const effectiveRole = session.user.orgRole ?? session.user.role;
-  if (effectiveRole !== "ADMIN" && effectiveRole !== "MANAGER") {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Admin-only, judged by membership orgRole (see PATCH above)
+  const { session: adminSession, error } = await requireAdmin();
+  if (error) return error;
+  const session = adminSession!;
   // Prevent self-deletion
   if (session.user.id === params.id) return Response.json({ error: "Cannot delete yourself" }, { status: 400 });
 

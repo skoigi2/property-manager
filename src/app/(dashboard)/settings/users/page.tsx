@@ -109,8 +109,10 @@ export default function UsersPage() {
   const sessionOrgRole = (session?.user as any)?.orgRole as string | undefined;
   // Super-admin: global role=ADMIN with no org
   const isSuperAdmin = session?.user?.role === "ADMIN" && (sessionOrgId === null || sessionOrgId === undefined || sessionOrgId === "");
-  // Org-level admin: either global role carried over OR per-org role from membership
-  const isAdmin = isSuperAdmin || session?.user?.role === "ADMIN" || sessionOrgRole === "ADMIN";
+  // Org-level admin: judged by the MEMBERSHIP role for the active org only.
+  // Never by the global User.role — a user who founded their own org carries
+  // global ADMIN but may be just a MANAGER in the org they're viewing.
+  const isAdmin = isSuperAdmin || sessionOrgRole === "ADMIN";
   // Managers can REQUEST team-member additions (admin approves before the email goes out)
   const isManager = !isAdmin && sessionOrgRole === "MANAGER";
 
@@ -560,8 +562,8 @@ export default function UsersPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Edit user details */}
-                    {canModify && canEdit && (
+                    {/* Edit user details — admin only */}
+                    {isAdmin && canModify && canEdit && (
                       <button
                         onClick={() => {
                           setEditTarget(user);
@@ -587,8 +589,8 @@ export default function UsersPage() {
                       </button>
                     )}
 
-                    {/* Activate/deactivate */}
-                    {canModify && canEdit && (
+                    {/* Activate/deactivate — admin only */}
+                    {isAdmin && canModify && canEdit && (
                       <button
                         onClick={() => toggleActive(user.id, user.isActive)}
                         className="text-caption text-gray-400 hover:text-header underline underline-offset-2 transition-colors"
@@ -647,7 +649,7 @@ export default function UsersPage() {
                             <span className="text-body text-gray-600">{prop.name}</span>
                             <button
                               onClick={() => toggleAccess(user.id, prop.id, hasAccess)}
-                              disabled={busy || !canEdit}
+                              disabled={busy || !canEdit || !isAdmin}
                               className={`flex items-center gap-1.5 text-caption px-2.5 py-1 rounded-lg transition-colors ${
                                 hasAccess
                                   ? "bg-green-50 text-income hover:bg-red-50 hover:text-expense"

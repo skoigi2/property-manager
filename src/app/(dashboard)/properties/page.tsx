@@ -1305,8 +1305,11 @@ function PropertiesMobileList({
 export default function PropertiesPage() {
   const { data: session } = useSession();
   const { refresh: refreshPropertyContext } = useProperty();
-  const isManager = session?.user?.role === "MANAGER" || session?.user?.role === "ADMIN";
+  // Judge by the MEMBERSHIP role for the active org — never the global
+  // User.role, which stays ADMIN for anyone who founded their own org.
+  const sessionOrgRole = (session?.user as any)?.orgRole as string | undefined;
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
+  const isManager = isSuperAdmin || sessionOrgRole === "MANAGER" || sessionOrgRole === "ADMIN";
 
   // SWR-from-sessionStorage for the two heaviest fetches.
   // owners/managers/orgs are loaded once and rarely change — leave as plain state.

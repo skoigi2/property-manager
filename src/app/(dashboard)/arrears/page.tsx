@@ -580,7 +580,11 @@ export default function ArrearsPage() {
   const [aging, setAging]       = useState<AgingData | null>(null);
   const [bucketFilter, setBucketFilter] = useState<BucketKey | null>(null);
   const [casePrefill, setCasePrefill]   = useState<{ tenantId: string; amount: number } | null>(null);
-  const isManager = session?.user?.role === "MANAGER";
+  // Membership role for the active org (never the global User.role); org
+  // admins and super-admin get the same manager-tier actions.
+  const arrearsOrgRole = (session?.user as any)?.orgRole as string | undefined;
+  const arrearsSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId == null;
+  const isManager = arrearsSuperAdmin || arrearsOrgRole === "MANAGER" || arrearsOrgRole === "ADMIN";
 
   const load = useCallback(() => {
     setLoading(true);

@@ -401,7 +401,11 @@ export default function PettyCashPage() {
     return <Badge variant="blue">{prop?.name ?? "Unknown"}</Badge>;
   }
 
-  const canApprove = session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
+  // Judge by the MEMBERSHIP role for the active org — never the global
+  // User.role, which stays ADMIN for anyone who founded their own org.
+  const pcOrgRole = (session?.user as any)?.orgRole as string | undefined;
+  const pcSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId == null;
+  const canApprove = pcSuperAdmin || pcOrgRole === "ADMIN" || pcOrgRole === "MANAGER";
   const SORTABLE_COLS = new Set(["date", "description", "property", "in", "out"]);
   const COL_LABELS: Record<string, string> = {
     date: "Date", description: "Description", property: "Property",

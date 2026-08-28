@@ -11,22 +11,17 @@ function getStorageClient() {
 }
 
 async function canManageOrg(orgId: string, session: { user: { id: string; role: string; organizationId: string | null } }) {
+  // Judged by the caller's MEMBERSHIP role for the TARGET org — never the
+  // global User.role (a founder of another org carries ADMIN globally while
+  // possibly being just an ACCOUNTANT here). Mirrors the org PATCH gate:
+  // ADMIN/MANAGER membership may manage branding; ACCOUNTANT/OWNER may not.
   const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
-  const isOrgAdmin   = session.user.role === "ADMIN" && session.user.organizationId === orgId;
-  if (isSuperAdmin || isOrgAdmin) return true;
-  // Managers belonging to the org may also manage its logo
-  if (session.user.role === "MANAGER") {
-    if (session.user.organizationId === orgId) return true;
-    const membership = await prisma.userOrganizationMembership.findUnique({
-      where: { userId_organizationId: { userId: session.user.id, organizationId: orgId } },
-    });
-    if (membership) return true;
-    const access = await prisma.propertyAccess.findFirst({
-      where: { userId: session.user.id, property: { organizationId: orgId } },
-    });
-    return !!access;
-  }
-  return false;
+  if (isSuperAdmin) return true;
+  const membership = await prisma.userOrganizationMembership.findUnique({
+    where: { userId_organizationId: { userId: session.user.id, organizationId: orgId } },
+    select: { role: true },
+  });
+  return membership?.role === "ADMIN" || membership?.role === "MANAGER";
 }
 
 // ── POST /api/organizations/[id]/logo ────────────────────────────────────────

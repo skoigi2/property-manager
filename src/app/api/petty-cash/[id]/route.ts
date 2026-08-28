@@ -18,10 +18,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const body = await req.json();
 
-  // Approve / reject action
+  // Approve / reject action — gated on the MEMBERSHIP role for the active
+  // org, never the global User.role (which stays ADMIN for anyone who
+  // founded their own org; an org-ACCOUNTANT must not approve here).
   if (body.action === "approve" || body.action === "reject") {
-    const role = session!.user.role;
-    if (role !== "ADMIN" && role !== "MANAGER") {
+    const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+    const orgRole = session!.user.orgRole;
+    if (!isSuperAdmin && orgRole !== "ADMIN" && orgRole !== "MANAGER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 

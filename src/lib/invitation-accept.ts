@@ -53,7 +53,7 @@ export async function assertTeamCapacityForInvite(
  */
 export async function applyInvitationAcceptance(opts: {
   userId: string;
-  invitation: { token: string; organizationId: string; role: string };
+  invitation: { token: string; organizationId: string; role: string; propertyIds?: string[] };
 }): Promise<{ organizationId: string; orgRole: string; isBillingOwner: false; membershipCount: number }> {
   const { userId, invitation } = opts;
   const orgId = invitation.organizationId;
@@ -71,9 +71,15 @@ export async function applyInvitationAcceptance(opts: {
   });
 
   // ADMIN sees all properties automatically; OWNER is scoped to ownedProperties.
+  // A non-empty invitation.propertyIds limits the grant to that scope; empty
+  // means all org properties (legacy invitations carry no scope).
   if (role === "MANAGER" || role === "ACCOUNTANT") {
+    const scoped = invitation.propertyIds ?? [];
     const orgProperties = await prisma.property.findMany({
-      where:  { organizationId: orgId },
+      where: {
+        organizationId: orgId,
+        ...(scoped.length > 0 ? { id: { in: scoped } } : {}),
+      },
       select: { id: true },
     });
     if (orgProperties.length > 0) {

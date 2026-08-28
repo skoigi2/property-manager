@@ -23,6 +23,10 @@ export async function POST(_req: Request, { params }: { params: { token: string 
   if (!invitation) {
     return Response.json({ error: "Invitation not found." }, { status: 404 });
   }
+  // A manager's request is inert until an admin approves it
+  if (invitation.status === "REQUESTED") {
+    return Response.json({ error: "Invitation not found." }, { status: 404 });
+  }
   const problem = invitationProblem(invitation);
   if (problem === "accepted") {
     return Response.json({ error: "This invitation has already been accepted." }, { status: 410 });

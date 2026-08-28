@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     let invitation: Awaited<ReturnType<typeof prisma.orgInvitation.findUnique>> = null;
     if (inviteToken) {
       invitation = await prisma.orgInvitation.findUnique({ where: { token: String(inviteToken) } });
-      if (!invitation || invitationProblem(invitation)) {
+      if (!invitation || invitation.status === "REQUESTED" || invitationProblem(invitation)) {
         return NextResponse.json(
           { error: "This invitation is no longer valid. You can still create an account normally." },
           { status: 400 }

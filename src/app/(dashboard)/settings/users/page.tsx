@@ -22,6 +22,8 @@ interface PendingInvite {
   id: string;
   email: string;
   role: string;
+  status: "REQUESTED" | "SENT";
+  propertyIds: string[];
   expiresAt: string;
   token: string;
   invitedBy: { name: string | null; email: string | null };
@@ -109,6 +111,8 @@ export default function UsersPage() {
   const isSuperAdmin = session?.user?.role === "ADMIN" && (sessionOrgId === null || sessionOrgId === undefined || sessionOrgId === "");
   // Org-level admin: either global role carried over OR per-org role from membership
   const isAdmin = isSuperAdmin || session?.user?.role === "ADMIN" || sessionOrgRole === "ADMIN";
+  // Managers can REQUEST team-member additions (admin approves before the email goes out)
+  const isManager = !isAdmin && sessionOrgRole === "MANAGER";
 
   const [users, setUsers] = useState<UserItem[]>([]);
   const [allProps, setAllProps] = useState<PropertyInfo[]>([]);
@@ -136,9 +140,11 @@ export default function UsersPage() {
   // Invite state
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "MANAGER" | "ACCOUNTANT" | "OWNER">("MANAGER");
+  const [invitePropertyIds, setInvitePropertyIds] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -178,7 +184,7 @@ export default function UsersPage() {
   };
 
   const loadInvites = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isManager) return; // managers see their own requests
     const res = await fetch("/api/invitations");
     if (res.ok) setPendingInvites(await res.json());
   };
@@ -189,6 +195,7 @@ export default function UsersPage() {
     setModalOpen(false);
     setInviteEmail("");
     setInviteRole("MANAGER");
+    setInvitePropertyIds([]);
     setExistingEmail(null);
   };
 
@@ -196,6 +203,8 @@ export default function UsersPage() {
     reset({ role: "MANAGER", propertyIds: [] });
     setExistingEmail(null);
     setAddMode(isSuperAdmin ? "create" : "invite");
+    // Default the invitation scope to everything the caller can grant
+    setInvitePropertyIds(allProps.map((p) => p.id));
     setModalOpen(true);
   };
 
@@ -203,24 +212,49 @@ export default function UsersPage() {
     if (!inviteEmail) return;
     setInviting(true);
     try {
+      const scoped = inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT";
       const res = await fetch("/api/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({
+          email: inviteEmail,
+          role: inviteRole,
+          ...(scoped ? { propertyIds: invitePropertyIds } : {}),
+        }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        if (err.code === "TEAM_LIMIT_REACHED") {
+        if (data.code === "TEAM_LIMIT_REACHED") {
           throw new Error("Team-member limit reached for your plan — upgrade to add more people.");
         }
-        throw new Error(err.error ?? "Failed to send invitation");
+        throw new Error(data.error ?? "Failed to send invitation");
       }
-      toast.success(`Invitation sent to ${inviteEmail}`);
+      toast.success(data.requested
+        ? "Request sent — an admin will review it before the invitation goes out."
+        : `Invitation sent to ${inviteEmail}`);
       closeAddModal();
       loadInvites();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to send invitation");
     } finally { setInviting(false); }
+  };
+
+  const approveRequest = async (token: string) => {
+    setApproving(token);
+    try {
+      const res = await fetch(`/api/invitations/${token}/approve`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.code === "TEAM_LIMIT_REACHED") {
+          throw new Error("Team-member limit reached for your plan — upgrade to add more people.");
+        }
+        throw new Error(data.error ?? "Failed to approve request");
+      }
+      toast.success("Request approved — invitation emailed");
+      loadInvites();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to approve request");
+    } finally { setApproving(null); }
   };
 
   const revokeInvite = async (token: string) => {
@@ -398,9 +432,9 @@ export default function UsersPage() {
         role={session?.user?.role}
       >
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {(isAdmin || isManager) && (
             <Button size="sm" onClick={openAddModal}>
-              <Plus size={14} className="mr-1" /> Add team member
+              <Plus size={14} className="mr-1" /> {isManager ? "Request team member" : "Add team member"}
             </Button>
           )}
         </div>
@@ -419,33 +453,55 @@ export default function UsersPage() {
           </div>
         )}
 
-        {/* Pending invitations */}
-        {isAdmin && !isSuperAdmin && pendingInvites.length > 0 && (
+        {/* Pending invitations + requests */}
+        {(isAdmin || isManager) && !isSuperAdmin && pendingInvites.length > 0 && (
           <Card>
             <p className="text-label font-medium text-gray-400 uppercase mb-3">
-              Pending Invitations ({pendingInvites.length})
+              {isManager ? "Your Requests & Invitations" : "Pending Invitations & Requests"} ({pendingInvites.length})
             </p>
             <div className="space-y-2">
               {pendingInvites.map((inv) => {
+                const isRequest = inv.status === "REQUESTED";
                 const expiresAt = new Date(inv.expiresAt);
                 const hoursLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 3_600_000));
                 return (
                   <div key={inv.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                    <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                      <Mail size={13} className="text-blue-400" />
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isRequest ? "bg-amber-50" : "bg-blue-50"}`}>
+                      {isRequest ? <Clock size={13} className="text-amber-400" /> : <Mail size={13} className="text-blue-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-body text-header truncate">{inv.email}</p>
                       <p className="text-caption text-gray-400 flex items-center gap-1">
-                        <Clock size={10} /> Expires in {hoursLeft}h · invited as {inv.role}
+                        {isRequest ? (
+                          <>Requested by {inv.invitedBy?.name ?? inv.invitedBy?.email ?? "a manager"} · as {inv.role}
+                          {inv.propertyIds.length > 0 && ` · ${inv.propertyIds.length} propert${inv.propertyIds.length === 1 ? "y" : "ies"}`}</>
+                        ) : (
+                          <><Clock size={10} /> Expires in {hoursLeft}h · invited as {inv.role}</>
+                        )}
                       </p>
                     </div>
+                    {isRequest && <Badge variant="amber">Awaiting approval</Badge>}
                     <Badge variant={roleBadge[inv.role] ?? "gray"}>{inv.role}</Badge>
+                    {isRequest && isAdmin && (
+                      <button
+                        onClick={() => approveRequest(inv.token)}
+                        disabled={approving === inv.token}
+                        className="flex items-center gap-1 text-caption font-medium text-income hover:text-green-700 transition-colors disabled:opacity-50 shrink-0"
+                        title="Approve — sends the invitation email"
+                      >
+                        {approving === inv.token ? (
+                          <span className="w-3.5 h-3.5 rounded-full border-2 border-green-300 border-t-transparent animate-spin inline-block" />
+                        ) : (
+                          <Check size={14} />
+                        )}
+                        Approve
+                      </button>
+                    )}
                     <button
                       onClick={() => revokeInvite(inv.token)}
                       disabled={revoking === inv.token}
                       className="text-gray-300 hover:text-red-400 transition-colors disabled:opacity-50 shrink-0"
-                      title="Revoke invitation"
+                      title={isRequest ? (isAdmin ? "Decline request" : "Withdraw request") : "Revoke invitation"}
                     >
                       {revoking === inv.token ? (
                         <span className="w-3.5 h-3.5 rounded-full border-2 border-red-300 border-t-transparent animate-spin inline-block" />
@@ -639,10 +695,11 @@ export default function UsersPage() {
       </div>
 
       {/* Add team member modal — invite (default) or create-with-password */}
-      <Modal open={modalOpen} onClose={closeAddModal} title="Add Team Member">
+      <Modal open={modalOpen} onClose={closeAddModal} title={isManager ? "Request Team Member" : "Add Team Member"}>
         <div className="space-y-4">
-          {/* Mode switch — hidden for super-admin (no org context to invite into) */}
-          {!isSuperAdmin && (
+          {/* Mode switch — hidden for super-admin (no org context to invite
+              into) and for managers (create-with-password is admin-only) */}
+          {!isSuperAdmin && !isManager && (
             <div className="flex gap-2">
               {([
                 ["invite", "Send an email invitation"],
@@ -668,8 +725,9 @@ export default function UsersPage() {
           {addMode === "invite" && !isSuperAdmin && (
             <div className="space-y-4">
               <p className="text-body text-gray-500">
-                An invitation link valid for 48 hours will be emailed to them. They choose
-                their own password when they join.
+                {isManager
+                  ? "An admin must approve your request — once approved, an invitation link valid for 48 hours is emailed to them."
+                  : "An invitation link valid for 48 hours will be emailed to them. They choose their own password when they join."}
               </p>
               <Input
                 label="Email address *"
@@ -685,19 +743,49 @@ export default function UsersPage() {
                   onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-body text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
                 >
-                  <option value="ADMIN">Admin</option>
+                  {/* Cannot invite above your own role */}
+                  {isAdmin && <option value="ADMIN">Admin</option>}
                   <option value="MANAGER">Manager</option>
                   <option value="ACCOUNTANT">Accountant</option>
                   <option value="OWNER">Owner</option>
                 </select>
               </div>
-              <p className="text-caption text-gray-400">
-                Managers and accountants get access to all properties when they join —
-                adjust per-property access afterwards from this page.
-              </p>
+
+              {/* Property scope — granted when they join */}
+              {(inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT") && allProps.length > 0 && (
+                <div>
+                  <p className="text-body font-medium text-gray-600 mb-1.5">Property Access</p>
+                  <div className="space-y-2">
+                    {allProps.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 text-body text-header cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded accent-gold"
+                          checked={invitePropertyIds.includes(p.id)}
+                          onChange={(e) =>
+                            setInvitePropertyIds((prev) =>
+                              e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id),
+                            )
+                          }
+                        />
+                        {p.name}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-caption text-gray-400 mt-1.5">
+                    They&apos;ll get access to the selected properties when they join.
+                    {isManager && " You can only grant properties you have access to."}
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-3 pt-2">
-                <Button onClick={sendInvite} loading={inviting} disabled={!inviteEmail}>
-                  <Mail size={14} className="mr-1" /> Send Invitation
+                <Button
+                  onClick={sendInvite}
+                  loading={inviting}
+                  disabled={!inviteEmail || ((inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT") && allProps.length > 0 && invitePropertyIds.length === 0)}
+                >
+                  <Mail size={14} className="mr-1" /> {isManager ? "Send Request" : "Send Invitation"}
                 </Button>
                 <Button variant="secondary" onClick={closeAddModal}>Cancel</Button>
               </div>

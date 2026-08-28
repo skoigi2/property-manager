@@ -2018,6 +2018,14 @@ enum PricingTier {
 
 // ─── Org Invitations ─────────────────────────────────────────────────────────
 
+// SENT = live invitation (email delivered, token accepts). REQUESTED = created
+// by a MANAGER and awaiting admin approval — the token is inert until an admin
+// approves, which flips it to SENT and emails the invitee.
+enum OrgInvitationStatus {
+  REQUESTED
+  SENT
+}
+
 model OrgInvitation {
   id              String       @id @default(cuid())
   email           String
@@ -2025,6 +2033,10 @@ model OrgInvitation {
   organizationId  String
   invitedByUserId String
   token           String       @unique @default(cuid())
+  status          OrgInvitationStatus @default(SENT)
+  // Property scope granted on acceptance for MANAGER/ACCOUNTANT invitees.
+  // Empty = all org properties (legacy behaviour).
+  propertyIds     String[]     @default([])
   expiresAt       DateTime
   acceptedAt      DateTime?
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

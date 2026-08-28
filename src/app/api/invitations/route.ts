@@ -1,6 +1,6 @@
-import { requireAdmin } from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { sendOrgInvitation } from "@/lib/email";
+import { sendOrgInvitation, sendNotificationEmail, esc } from "@/lib/email";
 import { canAddUser } from "@/lib/subscription";
 import { roleOutranksCaller } from "@/lib/permissions";
 import { z } from "zod";
@@ -9,20 +9,32 @@ import { randomUUID } from "crypto";
 const createSchema = z.object({
   email: z.string().email(),
   role:  z.enum(["ADMIN", "MANAGER", "ACCOUNTANT", "OWNER"]),
+  // Property scope granted on acceptance (MANAGER/ACCOUNTANT invitees only).
+  // Empty/absent = all org properties.
+  propertyIds: z.array(z.string()).optional(),
 });
 
 /**
  * POST /api/invitations
- * Create and send an org invitation. Requires ADMIN role in the active org.
+ * ADMIN: create and email an org invitation immediately (status SENT).
+ * MANAGER: create a REQUESTED row — an admin must approve before the
+ * invitation is emailed; scope is limited to the manager's own properties.
  */
 export async function POST(req: Request) {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await requireManager();
   if (error) return error;
 
   const orgId = session!.user.organizationId;
   if (!orgId) {
     return Response.json({ error: "Super-admin must specify an org context." }, { status: 400 });
   }
+
+  const callerRole = session!.user.orgRole;
+  const isOrgAdmin = callerRole === "ADMIN" || (session!.user.role === "ADMIN" && !session!.user.orgRole);
+  if (!isOrgAdmin && callerRole !== "MANAGER") {
+    return Response.json({ error: "Only admins and managers can add team members." }, { status: 403 });
+  }
+  const isRequest = !isOrgAdmin; // MANAGER path — needs admin approval
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
@@ -38,16 +50,35 @@ export async function POST(req: Request) {
     );
   }
 
+  // Property scope only applies to MANAGER/ACCOUNTANT invitees, and every id
+  // must be a property THIS caller can access (an admin sees the whole org; a
+  // manager only their own properties — which is exactly the request limit).
+  let propertyIds = (role === "MANAGER" || role === "ACCOUNTANT") ? (parsed.data.propertyIds ?? []) : [];
+  if (propertyIds.length > 0) {
+    const accessible = new Set((await getAccessiblePropertyIds()) ?? []);
+    if (propertyIds.some((id) => !accessible.has(id))) {
+      return Response.json({ error: "One or more properties are outside your access." }, { status: 403 });
+    }
+    propertyIds = Array.from(new Set(propertyIds));
+  } else if (isRequest) {
+    // A manager's request must carry an explicit scope — "all org properties"
+    // would exceed what they can grant.
+    return Response.json({ error: "Select at least one property for the request." }, { status: 400 });
+  }
+
   // Team-member cap per tier — invitations count toward the same limit as
   // directly-created accounts (TEAM_LIMITS in paddle.ts). NOTE: invitations
   // are exempt from the subscription write-gate (CLAUDE.md); the team cap is
-  // orthogonal to the org's lock state.
-  const capacityOk = await canAddUser(orgId);
-  if (!capacityOk) {
-    return Response.json(
-      { error: "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
-      { status: 402 },
-    );
+  // orthogonal to the org's lock state. Manager REQUESTS skip this — the cap
+  // is enforced when an admin approves (and again at acceptance).
+  if (!isRequest) {
+    const capacityOk = await canAddUser(orgId);
+    if (!capacityOk) {
+      return Response.json(
+        { error: "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
+        { status: 402 },
+      );
+    }
   }
 
   // Check not already a member
@@ -92,12 +123,36 @@ export async function POST(req: Request) {
       organizationId: orgId,
       invitedByUserId: session!.user.id,
       token,
+      status: isRequest ? "REQUESTED" : "SENT",
+      propertyIds,
       expiresAt,
     },
   });
 
-  const baseUrl   = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
-  const acceptUrl = `${baseUrl}/invite/${token}`;
+  const baseUrl = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
+
+  if (isRequest) {
+    // Notify the org's admins that a request is waiting (fire-and-forget)
+    const adminMemberships = await prisma.userOrganizationMembership.findMany({
+      where: { organizationId: orgId, role: "ADMIN" },
+      select: { user: { select: { id: true, email: true } } },
+    });
+    const requesterName = session!.user.name ?? session!.user.email ?? "A manager";
+    const html = `
+      <p><strong>${esc(requesterName)}</strong> has requested adding a team member to ${esc(org?.name ?? "your organisation")}:</p>
+      <p>${esc(email)} — as ${esc(role)} with access to ${propertyIds.length} propert${propertyIds.length === 1 ? "y" : "ies"}.</p>
+      <p><a href="${baseUrl}/settings/users">Review the request on the Users page</a> to approve or decline it.</p>`;
+    for (const m of adminMemberships) {
+      if (!m.user.email) continue;
+      sendNotificationEmail(
+        m.user.email,
+        `Team member request: ${email}`,
+        html,
+        { organizationId: orgId, userId: m.user.id },
+      ).catch(console.error);
+    }
+    return Response.json({ ok: true, invitationId: invitation.id, requested: true }, { status: 201 });
+  }
 
   // Fire-and-forget
   sendOrgInvitation(
@@ -105,28 +160,37 @@ export async function POST(req: Request) {
     session!.user.name ?? session!.user.email ?? "A team member",
     org?.name ?? "your organisation",
     role,
-    acceptUrl,
+    `${baseUrl}/invite/${token}`,
     expiresAt,
     { organizationId: orgId }, // org-scope the EmailLog row
   ).catch(console.error);
 
-  return Response.json({ ok: true, invitationId: invitation.id }, { status: 201 });
+  return Response.json({ ok: true, invitationId: invitation.id, requested: false }, { status: 201 });
 }
 
 /**
  * GET /api/invitations
- * List pending invitations for the caller's org (admin only).
+ * Admins: all pending invitations + requests for the org.
+ * Managers/accountants: only rows they created (their own requests).
  */
 export async function GET() {
-  const { error, session } = await requireAdmin();
+  const { error, session } = await requireManager();
   if (error) return error;
 
   const orgId = session!.user.organizationId;
   if (!orgId) return Response.json([], { status: 200 });
 
+  const isOrgAdmin = session!.user.orgRole === "ADMIN" || (session!.user.role === "ADMIN" && !session!.user.orgRole);
+
   const invitations = await prisma.orgInvitation.findMany({
-    // Only live invitations — expired ones are dead tokens, not "pending"
-    where: { organizationId: orgId, acceptedAt: null, expiresAt: { gt: new Date() } },
+    where: {
+      organizationId: orgId,
+      acceptedAt: null,
+      // SENT invites die with their token; REQUESTED rows wait for a decision
+      // (expiresAt is reset to +48h at approval time).
+      OR: [{ status: "REQUESTED" }, { expiresAt: { gt: new Date() } }],
+      ...(isOrgAdmin ? {} : { invitedByUserId: session!.user.id }),
+    },
     include: { invitedBy: { select: { name: true, email: true } } },
     orderBy: { createdAt: "desc" },
   });

@@ -65,6 +65,10 @@ export default function OrganizationsPage() {
   const [loading, setLoading] = useState(true);
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
 
+  // List filters
+  const [statusFilter, setStatusFilter] = useState<"all" | "trial" | "trial_expired" | "paid" | "free" | "inactive">("all");
+  const [orgSearch, setOrgSearch] = useState("");
+
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -275,6 +279,28 @@ export default function OrganizationsPage() {
     } finally { setAddingUser(false); }
   }
 
+  const [changingRole, setChangingRole] = useState<string | null>(null);
+  async function changeMemberRole(orgId: string, userId: string, role: string) {
+    setChangingRole(userId);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/members/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to change role");
+      }
+      toast.success("Role updated");
+      const fresh = await fetchOrgs();
+      const updated = fresh.find((o) => o.id === orgId);
+      if (updated) setEditOrg(updated);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to change role");
+    } finally { setChangingRole(null); }
+  }
+
   async function removeFromOrg(orgId: string, userId: string) {
     setRemovingUser(userId);
     try {
@@ -444,6 +470,34 @@ export default function OrganizationsPage() {
     return { label: "Trial Expired", variant: "red" };
   }
 
+  /** Subscription-state bucket for the list filter. */
+  function orgStatusKey(org: Org): "trial" | "trial_expired" | "paid" | "free" {
+    if (org.freeAccess) return "free";
+    if (org.pricingTier !== "TRIAL") return "paid";
+    const daysLeft = org.trialEndsAt
+      ? Math.max(0, Math.ceil((new Date(org.trialEndsAt).getTime() - Date.now()) / 86_400_000))
+      : 0;
+    return daysLeft > 0 ? "trial" : "trial_expired";
+  }
+
+  const searchedOrgs = orgs.filter((o) =>
+    !orgSearch.trim() ||
+    `${o.name} ${o.email ?? ""}`.toLowerCase().includes(orgSearch.trim().toLowerCase())
+  );
+  const filteredOrgs = searchedOrgs.filter((o) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "inactive") return !o.isActive;
+    return orgStatusKey(o) === statusFilter;
+  });
+  const filterCounts: Record<string, number> = {
+    all: searchedOrgs.length,
+    trial: searchedOrgs.filter((o) => orgStatusKey(o) === "trial").length,
+    trial_expired: searchedOrgs.filter((o) => orgStatusKey(o) === "trial_expired").length,
+    paid: searchedOrgs.filter((o) => orgStatusKey(o) === "paid").length,
+    free: searchedOrgs.filter((o) => orgStatusKey(o) === "free").length,
+    inactive: searchedOrgs.filter((o) => !o.isActive).length,
+  };
+
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
   if (!isSuperAdmin && status !== "loading") return null;
 
@@ -460,6 +514,41 @@ export default function OrganizationsPage() {
           </Button>
         </div>
 
+        {/* Search + subscription-state filter */}
+        {!loading && orgs.length > 0 && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <input
+              type="search"
+              value={orgSearch}
+              onChange={(e) => setOrgSearch(e.target.value)}
+              placeholder="Search name or email…"
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-body bg-white focus:outline-none focus:ring-2 focus:ring-gold/30 w-56"
+            />
+            <div className="flex gap-1.5 flex-wrap">
+              {([
+                ["all", "All"],
+                ["trial", "Trial"],
+                ["trial_expired", "Trial Expired"],
+                ["paid", "Paid"],
+                ["free", "Free Access"],
+                ["inactive", "Inactive"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilter(key)}
+                  className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-colors ${
+                    statusFilter === key
+                      ? "bg-gold text-white border-gold"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gold/50 hover:text-gold-dark"
+                  }`}
+                >
+                  {label} ({filterCounts[key]})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Org list */}
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
@@ -470,9 +559,13 @@ export default function OrganizationsPage() {
               <p className="text-gray-400 text-body">No organisations yet.</p>
             </div>
           </Card>
+        ) : filteredOrgs.length === 0 ? (
+          <Card>
+            <p className="text-center text-gray-400 text-body py-8">No organisations match this filter.</p>
+          </Card>
         ) : (
           <div className="space-y-4">
-            {orgs.map((org) => {
+            {filteredOrgs.map((org) => {
               const isExpanded = expandedOrgs.has(org.id);
               // Users not attached to any property (admins, owners, etc.)
               const propertyUserIds = new Set([
@@ -1012,6 +1105,7 @@ export default function OrganizationsPage() {
                                   onChange={(e) => setAddUserForm((p) => ({ ...p, role: e.target.value }))}
                                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-body text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
                                 >
+                                  <option value="ADMIN">Admin</option>
                                   <option value="MANAGER">Manager</option>
                                   <option value="ACCOUNTANT">Accountant</option>
                                   <option value="OWNER">Owner</option>
@@ -1178,8 +1272,19 @@ export default function OrganizationsPage() {
                               <p className="text-body text-header truncate">{user.name ?? "—"}</p>
                               <p className="text-caption text-gray-400 truncate">{user.email}</p>
                             </div>
-                            {/* Badges */}
-                            <Badge variant={roleBadge[memberRole] ?? "gray"}>{memberRole}</Badge>
+                            {/* Role — editable per-org membership role */}
+                            <select
+                              value={memberRole}
+                              disabled={changingRole === user.id}
+                              onChange={(e) => changeMemberRole(editOrg.id, user.id, e.target.value)}
+                              title="Change this member's role in the organisation"
+                              className="text-caption font-medium border border-gray-200 rounded-lg px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50 shrink-0"
+                            >
+                              <option value="ADMIN">Admin</option>
+                              <option value="MANAGER">Manager</option>
+                              <option value="ACCOUNTANT">Accountant</option>
+                              <option value="OWNER">Owner</option>
+                            </select>
                             {isBillingOwner && (
                               <span
                                 className="flex items-center gap-1 text-caption text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 shrink-0"

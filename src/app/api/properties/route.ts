@@ -38,10 +38,16 @@ export async function GET(req: Request) {
   if (minimal) {
     const slim = await prisma.property.findMany({
       where: { id: { in: ids } },
-      select: { id: true, name: true, type: true, currency: true },
-      orderBy: { name: "asc" },
+      select: {
+        id: true, name: true, type: true, currency: true,
+        // Org context for the super-admin header selector (properties span
+        // many orgs there); harmless extra for org-scoped users.
+        organizationId: true,
+        organization: { select: { name: true } },
+      },
+      orderBy: [{ organization: { name: "asc" } }, { name: "asc" }],
     });
-    return Response.json(slim);
+    return Response.json(slim.map(({ organization, ...p }) => ({ ...p, orgName: organization?.name ?? null })));
   }
 
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);

@@ -74,6 +74,26 @@ export function Header({ title, userName, role, children }: HeaderProps) {
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
 
+  // ── Super-admin: organisation filter for the property selector ──────────────
+  // Properties span every org for super-admin — a flat list is unusable. An
+  // org dropdown narrows the property dropdown to one organisation.
+  const [orgFilter, setOrgFilterState] = useState<string | null>(null); // null = all orgs
+  const [orgFilterOpen, setOrgFilterOpen] = useState(false);
+  useEffect(() => {
+    const stored = sessionStorage.getItem("superAdminOrgFilter");
+    if (stored) setOrgFilterState(stored);
+  }, []);
+  const setOrgFilter = (id: string | null) => {
+    setOrgFilterState(id);
+    if (id) sessionStorage.setItem("superAdminOrgFilter", id);
+    else sessionStorage.removeItem("superAdminOrgFilter");
+  };
+  const propertyOrgs = (() => {
+    const map = new Map<string, string>();
+    for (const p of properties) map.set(p.organizationId ?? "__none__", p.orgName ?? "No organisation");
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
   useEffect(() => {
     if (!isSuperAdmin && membershipCount > 1) {
       fetch("/api/auth/orgs").then((r) => r.json()).then(setOrgOptions).catch(() => {});
@@ -108,11 +128,57 @@ export function Header({ title, userName, role, children }: HeaderProps) {
       <div className="flex items-center gap-3 min-w-0">
         <h1 className=" text-white text-h3 shrink-0">{title}</h1>
 
+        {/* Super-admin: organisation filter — narrows the property dropdown */}
+        {(() => {
+          const showOrgFilter = !loading && isSuperAdmin && propertyOrgs.length > 1;
+          if (!showOrgFilter) return null;
+          const activeOrgFilterName = propertyOrgs.find((o) => o.id === orgFilter)?.name ?? null;
+          return (
+            <div className="relative">
+              <button
+                onClick={() => { setOrgFilterOpen(!orgFilterOpen); setPropOpen(false); setMenuOpen(false); }}
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-body transition-colors"
+                title="Filter properties by organisation"
+              >
+                <Building2 size={13} className="text-gold shrink-0" />
+                <span className="truncate max-w-[90px] sm:max-w-[140px]">
+                  {activeOrgFilterName ?? "All orgs"}
+                </span>
+                <ChevronDown size={13} />
+              </button>
+              {orgFilterOpen && (
+                <div className="absolute left-0 top-full mt-2 w-56 max-h-80 overflow-y-auto bg-white rounded-xl shadow-card-hover border border-gray-100 z-50">
+                  <button
+                    onClick={() => { setOrgFilter(null); setOrgFilterOpen(false); }}
+                    className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${orgFilter === null ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                  >
+                    All organisations
+                  </button>
+                  {propertyOrgs.map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => { setOrgFilter(o.id); setOrgFilterOpen(false); }}
+                      className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${orgFilter === o.id ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                    >
+                      <span className="truncate">{o.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Property selector */}
-        {showSelector && (
+        {showSelector && (() => {
+          const showOrgContext = isSuperAdmin && propertyOrgs.length > 1;
+          const selectorProperties = showOrgContext && orgFilter
+            ? properties.filter((p) => (p.organizationId ?? "__none__") === orgFilter)
+            : properties;
+          return (
           <div className="relative">
             <button
-              onClick={() => { setPropOpen(!propOpen); setMenuOpen(false); }}
+              onClick={() => { setPropOpen(!propOpen); setOrgFilterOpen(false); setMenuOpen(false); }}
               className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-body transition-colors"
             >
               <Building2 size={13} className="text-gold shrink-0" />
@@ -123,29 +189,35 @@ export function Header({ title, userName, role, children }: HeaderProps) {
             </button>
 
             {propOpen && (
-              <div className="absolute left-0 top-full mt-2 w-52 bg-white rounded-xl shadow-card-hover border border-gray-100 overflow-hidden z-50">
+              <div className="absolute left-0 top-full mt-2 w-60 max-h-96 overflow-y-auto bg-white rounded-xl shadow-card-hover border border-gray-100 z-50">
                 <button
                   onClick={() => { setSelectedId(null); setPropOpen(false); }}
                   className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${selectedId === null ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                 >
                   All properties
                 </button>
-                {properties.map((p) => (
+                {selectorProperties.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => { setSelectedId(p.id); setPropOpen(false); }}
                     className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${selectedId === p.id ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                   >
                     <span className="truncate">{p.name}</span>
-                    <span className="ml-auto text-caption text-gray-400 shrink-0">
-                      {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
+                    <span className="ml-auto text-caption text-gray-400 shrink-0 truncate max-w-[90px]">
+                      {/* Across all orgs the org name is the useful context;
+                          within one org (or for org users) the billing type is */}
+                      {showOrgContext && !orgFilter ? (p.orgName ?? "—") : (p.type === "AIRBNB" ? "Airbnb" : "Long-term")}
                     </span>
                   </button>
                 ))}
+                {selectorProperties.length === 0 && (
+                  <p className="px-4 py-2.5 text-caption text-gray-400 italic">No properties in this organisation.</p>
+                )}
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Mixed-currency caveat — portfolio totals are a cross-currency sum */}
         {mixedCurrencies && (

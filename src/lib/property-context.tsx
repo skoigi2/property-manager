@@ -14,6 +14,10 @@ export interface PropertyOption {
   name: string;
   type: "AIRBNB" | "LONGTERM";
   currency: string;
+  /** Owning organisation — used by the super-admin header selector to group
+   *  properties by org (null for org-less properties). */
+  organizationId?: string | null;
+  orgName?: string | null;
 }
 
 interface PropertyContextValue {

@@ -78,8 +78,14 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.orgRole !== "ADMIN" && session.user.orgRole !== "MANAGER") {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  // Creating a property changes the billable portfolio (tier property caps) —
+  // admin-only. Managers add SAMPLE properties via POST /api/demo/seed instead.
+  const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
+  if (!isSuperAdmin && session.user.orgRole !== "ADMIN") {
+    return Response.json(
+      { error: "Only admins can add properties. Ask your admin, or load a sample property to explore." },
+      { status: 403 },
+    );
   }
 
   // ── Subscription lock guard ───────────────────────────────────────────────
@@ -100,7 +106,6 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
   const resolvedOrgId = isSuperAdmin
     ? (parsed.data.organizationId ?? null)
     : (session.user.organizationId ?? null);

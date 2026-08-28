@@ -288,6 +288,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
   const property = await prisma.property.create({
     data: {
       name: "Al Seef Residences",
+      isDemo: true,
       type: PropertyType.LONGTERM,
       category: PropertyCategory.RESIDENTIAL,
       address: "Seef District, Manama",
@@ -1114,6 +1115,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
   const property = await prisma.property.create({
     data: {
       name: "Kilimani Court",
+      isDemo: true,
       type: PropertyType.LONGTERM,
       category: PropertyCategory.RESIDENTIAL,
       address: "Ngong Road, Kilimani",
@@ -1663,6 +1665,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
   const property = await prisma.property.create({
     data: {
       name: "Sandton Heights",
+      isDemo: true,
       type: PropertyType.LONGTERM,
       category: PropertyCategory.RESIDENTIAL,
       address: "14 Rivonia Road, Sandton",
@@ -2642,6 +2645,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   const property = await prisma.property.create({
     data: {
       name: "Belsize Court",
+      isDemo: true,
       type: PropertyType.LONGTERM,
       category: PropertyCategory.RESIDENTIAL,
       address: "28 Haverstock Hill, Belsize Park",
@@ -3514,6 +3518,26 @@ export async function POST(req: Request) {
 
   if (!organizationId) {
     return NextResponse.json({ error: "No organisation found. Complete onboarding first." }, { status: 400 });
+  }
+
+  // Only admins and managers may seed sample properties. Judged by the
+  // MEMBERSHIP role for the target org (DB lookup — the JWT may be stale
+  // during onboarding). A missing membership row was already validated above
+  // via User.organizationId (brand-new founder whose membership write raced)
+  // — founders are admins, so that path stays open.
+  const callerIsSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  if (!callerIsSuperAdmin) {
+    const callerMembership = await prisma.userOrganizationMembership.findUnique({
+      where: { userId_organizationId: { userId: session!.user.id, organizationId } },
+      select: { role: true },
+    });
+    const memberRole = callerMembership?.role ?? "ADMIN"; // racing-founder fallback
+    if (memberRole !== "ADMIN" && memberRole !== "MANAGER") {
+      return NextResponse.json(
+        { error: "Only admins and managers can load sample properties." },
+        { status: 403 },
+      );
+    }
   }
 
   const demo = DEMO_PROPERTIES.find((d) => d.key === demoKey);

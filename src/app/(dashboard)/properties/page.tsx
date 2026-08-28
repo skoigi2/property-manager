@@ -218,6 +218,7 @@ interface Property {
   description: string | null;
   managementFeeRate: number | null;
   managementFeeFlat: number | null;
+  isDemo: boolean;
   serviceChargeDefault: number | null;
   currency: string | null;
   landlordEntity:    string | null;
@@ -394,8 +395,10 @@ function StatusDot({ status }: { status: string }) {
 interface OwnerUser { id: string; name: string | null; email: string | null; }
 interface OrgOption  { id: string; name: string; }
 
-function PropertyFormFields({ register, errors, owners, managers, watchedCategory, orgs }: {
+function PropertyFormFields({ register, errors, owners, managers, watchedCategory, orgs, showFeeFields }: {
   register: any; errors: any; owners: OwnerUser[]; managers: OwnerUser[]; watchedCategory?: string; orgs: OrgOption[];
+  /** Management-fee configuration is admin-only — hidden for managers. */
+  showFeeFields: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -484,6 +487,7 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
         />
       </div>
 
+      {showFeeFields && (
       <div className="grid grid-cols-2 gap-4">
         <Input
           label="Management Fee Rate (%)"
@@ -501,6 +505,7 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
           placeholder="6000"
         />
       </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <Input
@@ -960,6 +965,7 @@ function PropertiesTable({
   properties,
   isManager,
   onSelect,
+  isAdmin,
   onEdit,
   onDelete,
   onAddUnit,
@@ -971,6 +977,7 @@ function PropertiesTable({
 }: {
   properties: Property[];
   isManager: boolean;
+  isAdmin: boolean;
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
   onDelete: (p: Property) => void;
@@ -1053,9 +1060,12 @@ function PropertiesTable({
 
                 {/* Type */}
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
-                    {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
-                  </Badge>
+                  <span className="flex items-center gap-1.5">
+                    <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
+                      {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
+                    </Badge>
+                    {p.isDemo && <Badge variant="amber">Sample</Badge>}
+                  </span>
                 </td>
 
                 {/* Units: total / occupied / vacant */}
@@ -1126,13 +1136,15 @@ function PropertiesTable({
                         >
                           <PencilLine size={14} />
                         </button>
+                        {(isAdmin || p.isDemo) && (
                         <button
                           onClick={() => onDelete(p)}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Delete property"
+                          title={p.isDemo ? "Delete sample property" : "Delete property"}
                         >
                           <Trash2 size={14} />
                         </button>
+                        )}
                       </>
                     )}
                     <button
@@ -1172,6 +1184,7 @@ function PropertiesTable({
 function PropertiesMobileList({
   properties,
   isManager,
+  isAdmin,
   onSelect,
   onEdit,
   onDelete,
@@ -1180,6 +1193,7 @@ function PropertiesMobileList({
 }: {
   properties: Property[];
   isManager: boolean;
+  isAdmin: boolean;
   onSelect: (p: Property) => void;
   onEdit: (p: Property) => void;
   onDelete: (p: Property) => void;
@@ -1243,13 +1257,15 @@ function PropertiesMobileList({
                     >
                       <PencilLine size={15} />
                     </button>
+                    {(isAdmin || p.isDemo) && (
                     <button
                       onClick={() => onDelete(p)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                      title="Delete property"
+                      title={p.isDemo ? "Delete sample property" : "Delete property"}
                     >
                       <Trash2 size={15} />
                     </button>
+                    )}
                   </>
                 )}
                 <ChevronRight size={16} className="text-gray-300" />
@@ -1266,6 +1282,7 @@ function PropertiesMobileList({
               <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
                 {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
               </Badge>
+              {p.isDemo && <Badge variant="amber">Sample</Badge>}
             </div>
 
             {/* Row 3: unit counts + fee */}
@@ -1309,7 +1326,8 @@ export default function PropertiesPage() {
   // User.role, which stays ADMIN for anyone who founded their own org.
   const sessionOrgRole = (session?.user as any)?.orgRole as string | undefined;
   const isSuperAdmin = session?.user?.role === "ADMIN" && (session?.user as any)?.organizationId === null;
-  const isManager = isSuperAdmin || sessionOrgRole === "MANAGER" || sessionOrgRole === "ADMIN";
+  const isAdmin = isSuperAdmin || sessionOrgRole === "ADMIN";
+  const isManager = isAdmin || sessionOrgRole === "MANAGER";
 
   // SWR-from-sessionStorage for the two heaviest fetches.
   // owners/managers/orgs are loaded once and rarely change — leave as plain state.
@@ -1466,10 +1484,17 @@ export default function PropertiesPage() {
     try {
       const url = editProp ? `/api/properties/${editProp.id}` : "/api/properties";
       const method = editProp ? "PATCH" : "POST";
+      // Fee configuration is admin-only — never send those keys for managers
+      // (the fields aren't rendered, but RHF still includes their defaults).
+      const payload: Record<string, unknown> = { ...values };
+      if (!isAdmin) {
+        delete payload.managementFeeRate;
+        delete payload.managementFeeFlat;
+      }
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success(editProp ? "Property updated" : "Property created");
@@ -1589,7 +1614,9 @@ export default function PropertiesPage() {
             <Sparkles size={14} className="mr-1" /> Load sample
           </Button>
         )}
-        {isManager && (
+        {/* Real property creation changes the billable portfolio — admin-only.
+            Managers can still "Load sample" (demo seeder) above. */}
+        {isAdmin && (
           <Button size="sm" onClick={openAddProperty}>
             <Plus size={14} className="sm:mr-1" />
             <span className="hidden sm:inline">Add Property</span>
@@ -1633,6 +1660,7 @@ export default function PropertiesPage() {
               <PropertiesTable
                 properties={properties}
                 isManager={isManager}
+                isAdmin={isAdmin}
                 onSelect={setSelectedProperty}
                 onEdit={openEditProperty}
                 onDelete={(p) => setDeletingProperty(p)}
@@ -1649,6 +1677,7 @@ export default function PropertiesPage() {
               <PropertiesMobileList
                 properties={properties}
                 isManager={isManager}
+                isAdmin={isAdmin}
                 onSelect={setSelectedProperty}
                 onEdit={openEditProperty}
                 onDelete={(p) => setDeletingProperty(p)}
@@ -1690,6 +1719,7 @@ export default function PropertiesPage() {
                       <Badge variant={p.type === "AIRBNB" ? "gold" : "blue"}>
                         {p.type === "AIRBNB" ? "Airbnb" : "Long-term"}
                       </Badge>
+                      {p.isDemo && <Badge variant="amber">Sample</Badge>}
                       {setupByProp[p.id] && (
                         <Badge variant={setupByProp[p.id].percent === 100 ? "green" : "gold"}>
                           {setupByProp[p.id].percent}% set up
@@ -1725,13 +1755,15 @@ export default function PropertiesPage() {
                           >
                             <PencilLine size={15} />
                           </button>
+                          {(isAdmin || p.isDemo) && (
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeletingProperty(p); }}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            title="Delete property"
+                            title={p.isDemo ? "Delete sample property" : "Delete property"}
                           >
                             <Trash2 size={15} />
                           </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -1802,7 +1834,7 @@ export default function PropertiesPage() {
         title={editProp ? "Edit Property" : "Add Property"}
       >
         <form onSubmit={propForm.handleSubmit(onSaveProperty)} className="space-y-4">
-          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} managers={managers} watchedCategory={propForm.watch("category")} orgs={orgs} />
+          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} managers={managers} watchedCategory={propForm.watch("category")} orgs={orgs} showFeeFields={isAdmin} />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setPropModalOpen(false)}>
               Cancel

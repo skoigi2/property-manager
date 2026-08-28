@@ -55,13 +55,25 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const access = await requirePropertyAccess(params.id);
   if (!access.ok) return access.error!;
 
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+  // Membership role for the active org — never the global User.role.
+  const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
+  const orgRole = session.user.orgRole;
+  const isAdminCaller = isSuperAdmin || orgRole === "ADMIN";
+  if (!isAdminCaller && orgRole !== "MANAGER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // Management-fee configuration is org revenue, not day-to-day ops — admin-only.
+  if (!isAdminCaller && ("managementFeeRate" in parsed.data || "managementFeeFlat" in parsed.data)) {
+    return Response.json(
+      { error: "Management-fee configuration can only be changed by an admin." },
+      { status: 403 },
+    );
+  }
 
   // Org reassignment: super-admin only, with user cascade
   if (parsed.data.organizationId !== undefined) {
@@ -165,18 +177,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const access = await requirePropertyAccess(params.id);
   if (!access.ok) return access.error!;
 
-  // Fetch property name for audit log before deletion
+  // Fetch property name + demo flag for the gate and audit log
   const property = await prisma.property.findUnique({
     where: { id: params.id },
-    select: { name: true },
+    select: { name: true, isDemo: true },
   });
+  if (!property) return Response.json({ error: "Not found" }, { status: 404 });
+
+  // Deleting a property destroys its whole data tree and changes the billable
+  // portfolio — admin-only, judged by the MEMBERSHIP role for the active org.
+  // Exception: managers may delete demo-seeded SAMPLE properties (sandbox data).
+  const isSuperAdmin = session.user.role === "ADMIN" && session.user.organizationId === null;
+  const orgRole = session.user.orgRole;
+  const isAdminCaller = isSuperAdmin || orgRole === "ADMIN";
+  if (!isAdminCaller && !(orgRole === "MANAGER" && property.isDemo)) {
+    return Response.json(
+      { error: "Only admins can delete properties. Managers may remove sample/demo properties only." },
+      { status: 403 },
+    );
+  }
 
   // Transaction: delete orphaned chains in FK-safe order, then the property itself.
   // Note: TenantDocument/Invoice/DepositSettlement/CheckoutProcess/CommunicationLog/

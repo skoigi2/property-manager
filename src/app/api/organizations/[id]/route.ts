@@ -45,7 +45,10 @@ const updateSchema = z.object({
   name:                 z.string().min(1).optional(),
   address:              z.string().optional().nullable(),
   phone:                z.string().optional().nullable(),
-  email:                z.string().email().optional().nullable(),
+  // The settings form round-trips "" for an unset email; treat it as null
+  // rather than failing .email() validation (orgs with no email could never
+  // save ANY branding change, including a rename).
+  email:                z.preprocess((v) => (v === "" ? null : v), z.string().email().nullable().optional()),
   website:              z.string().optional().nullable(),
   isActive:             z.boolean().optional(),
   // Invoice numbering — org default series

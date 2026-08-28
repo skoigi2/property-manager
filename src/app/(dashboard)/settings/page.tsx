@@ -91,10 +91,15 @@ export default function SettingsPage() {
     if (!org) return;
     setBrandingSaving(true);
     try {
+      // Empty fields go up as null, not "" — the API validates email format
+      // and "" is not a valid email.
+      const payload = Object.fromEntries(
+        Object.entries(orgForm).map(([k, v]) => [k, typeof v === "string" && v.trim() === "" ? null : v]),
+      );
       const res = await fetch(`/api/organizations/${org.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orgForm),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
       toast.success("Organisation details updated");

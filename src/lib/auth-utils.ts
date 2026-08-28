@@ -2,7 +2,27 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { roleCan, PERMISSION_DENIED_MESSAGE, type PermissionAction } from "@/lib/permissions";
+import { cookies } from "next/headers";
 import type { Session } from "next-auth";
+
+/**
+ * Cookie set by the super-admin header org filter. Narrows the super-admin's
+ * LIST scope (getAccessiblePropertyIds) to one organisation so every page
+ * renders as if viewing that org. It never narrows AUTHORITY —
+ * requirePropertyAccess stays cross-org for super-admin so the admin tooling
+ * (property moves, org management) keeps working while a filter is active.
+ * Client-set and therefore untrusted — it can only ever NARROW the
+ * super-admin's own view, and is ignored for every other role.
+ */
+const SUPER_ORG_FILTER_COOKIE = "gw-super-org-filter";
+
+function superAdminOrgFilter(): string | null {
+  try {
+    return cookies().get(SUPER_ORG_FILTER_COOKIE)?.value || null;
+  } catch {
+    return null; // outside a request scope (e.g. cron) — no filter
+  }
+}
 
 export async function getSession() {
   return await auth();
@@ -156,6 +176,18 @@ export async function getCurrentOrgId(): Promise<string | null | undefined> {
 export async function getAccessiblePropertyIds(): Promise<string[] | null> {
   const session = await auth();
   if (!session) return null;
+  // Super-admin viewing scope: the header org filter narrows every listing
+  // to one organisation's properties (see SUPER_ORG_FILTER_COOKIE above).
+  if (isSuperAdmin(session)) {
+    const filter = superAdminOrgFilter();
+    if (filter) {
+      const props = await prisma.property.findMany({
+        where: { organizationId: filter },
+        select: { id: true },
+      });
+      return props.map((p) => p.id);
+    }
+  }
   return resolveAccessiblePropertyIds({
     userId:  session.user.id,
     orgId:   session.user.organizationId,
@@ -268,6 +300,18 @@ async function resolveAccessiblePropertyIds(actor: {
 export async function requirePropertyAccess(
   propertyId: string
 ): Promise<{ ok: boolean; error?: Response }> {
+  const session = await auth();
+  if (!session) {
+    return { ok: false, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  // Super-admin may act on ANY property — deliberately NOT narrowed by the
+  // header org filter (that filter scopes listings, not authority; the
+  // Organisations admin page operates cross-org regardless of it).
+  if (isSuperAdmin(session)) {
+    const exists = await prisma.property.findUnique({ where: { id: propertyId }, select: { id: true } });
+    if (!exists) return { ok: false, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+    return { ok: true };
+  }
   const ids = await getAccessiblePropertyIds();
   if (ids === null) {
     return { ok: false, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };

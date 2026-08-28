@@ -74,25 +74,46 @@ export function Header({ title, userName, role, children }: HeaderProps) {
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
 
-  // ── Super-admin: organisation filter for the property selector ──────────────
-  // Properties span every org for super-admin — a flat list is unusable. An
-  // org dropdown narrows the property dropdown to one organisation.
+  // ── Super-admin: organisation viewing scope ─────────────────────────────────
+  // Properties span every org for super-admin — a flat list is unusable. The
+  // org dropdown sets a cookie that the server reads in
+  // getAccessiblePropertyIds, so EVERY page renders scoped to that org (not
+  // just the property dropdown). Changing it reloads to refetch all data.
+  const SUPER_ORG_COOKIE = "gw-super-org-filter";
   const [orgFilter, setOrgFilterState] = useState<string | null>(null); // null = all orgs
   const [orgFilterOpen, setOrgFilterOpen] = useState(false);
+  const [superOrgs, setSuperOrgs] = useState<OrgOption[]>([]);
   useEffect(() => {
-    const stored = sessionStorage.getItem("superAdminOrgFilter");
-    if (stored) setOrgFilterState(stored);
+    const m = document.cookie.match(new RegExp(`(?:^|; )${SUPER_ORG_COOKIE}=([^;]*)`));
+    if (m) setOrgFilterState(decodeURIComponent(m[1]));
   }, []);
+  useEffect(() => {
+    // Full org list for the filter dropdown — the property list can't supply
+    // it once the server has narrowed it to one org.
+    if (!isSuperAdmin) return;
+    fetch("/api/organizations")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSuperOrgs(
+            data
+              .map((o: { id: string; name: string }) => ({ id: o.id, name: o.name }))
+              .sort((a: OrgOption, b: OrgOption) => a.name.localeCompare(b.name))
+          );
+        }
+      })
+      .catch(() => {});
+  }, [isSuperAdmin]);
   const setOrgFilter = (id: string | null) => {
     setOrgFilterState(id);
-    if (id) sessionStorage.setItem("superAdminOrgFilter", id);
-    else sessionStorage.removeItem("superAdminOrgFilter");
+    if (id) {
+      document.cookie = `${SUPER_ORG_COOKIE}=${encodeURIComponent(id)}; path=/; SameSite=Lax; max-age=31536000`;
+    } else {
+      document.cookie = `${SUPER_ORG_COOKIE}=; path=/; SameSite=Lax; max-age=0`;
+    }
+    // Scope changed — every page's data changes with it
+    window.location.reload();
   };
-  const propertyOrgs = (() => {
-    const map = new Map<string, string>();
-    for (const p of properties) map.set(p.organizationId ?? "__none__", p.orgName ?? "No organisation");
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  })();
 
   useEffect(() => {
     if (!isSuperAdmin && membershipCount > 1) {
@@ -128,17 +149,17 @@ export function Header({ title, userName, role, children }: HeaderProps) {
       <div className="flex items-center gap-3 min-w-0">
         <h1 className=" text-white text-h3 shrink-0">{title}</h1>
 
-        {/* Super-admin: organisation filter — narrows the property dropdown */}
+        {/* Super-admin: organisation viewing scope — scopes ALL pages */}
         {(() => {
-          const showOrgFilter = !loading && isSuperAdmin && propertyOrgs.length > 1;
+          const showOrgFilter = isSuperAdmin && superOrgs.length > 0;
           if (!showOrgFilter) return null;
-          const activeOrgFilterName = propertyOrgs.find((o) => o.id === orgFilter)?.name ?? null;
+          const activeOrgFilterName = superOrgs.find((o) => o.id === orgFilter)?.name ?? null;
           return (
             <div className="relative">
               <button
                 onClick={() => { setOrgFilterOpen(!orgFilterOpen); setPropOpen(false); setMenuOpen(false); }}
                 className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-lg text-body transition-colors"
-                title="Filter properties by organisation"
+                title="View the platform as one organisation — scopes every page"
               >
                 <Building2 size={13} className="text-gold shrink-0" />
                 <span className="truncate max-w-[90px] sm:max-w-[140px]">
@@ -149,15 +170,15 @@ export function Header({ title, userName, role, children }: HeaderProps) {
               {orgFilterOpen && (
                 <div className="absolute left-0 top-full mt-2 w-56 max-h-80 overflow-y-auto bg-white rounded-xl shadow-card-hover border border-gray-100 z-50">
                   <button
-                    onClick={() => { setOrgFilter(null); setOrgFilterOpen(false); }}
+                    onClick={() => { setOrgFilterOpen(false); setOrgFilter(null); }}
                     className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${orgFilter === null ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                   >
                     All organisations
                   </button>
-                  {propertyOrgs.map((o) => (
+                  {superOrgs.map((o) => (
                     <button
                       key={o.id}
-                      onClick={() => { setOrgFilter(o.id); setOrgFilterOpen(false); }}
+                      onClick={() => { setOrgFilterOpen(false); setOrgFilter(o.id); }}
                       className={`flex items-center gap-2 w-full px-4 py-2.5 text-body transition-colors ${orgFilter === o.id ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50"}`}
                     >
                       <span className="truncate">{o.name}</span>
@@ -171,10 +192,11 @@ export function Header({ title, userName, role, children }: HeaderProps) {
 
         {/* Property selector */}
         {showSelector && (() => {
-          const showOrgContext = isSuperAdmin && propertyOrgs.length > 1;
-          const selectorProperties = showOrgContext && orgFilter
-            ? properties.filter((p) => (p.organizationId ?? "__none__") === orgFilter)
-            : properties;
+          // Across all orgs the org name is the useful per-row context; within
+          // a single org (or for org users) the billing type is.
+          const orgSpan = new Set(properties.map((p) => p.organizationId ?? "__none__")).size;
+          const showOrgContext = isSuperAdmin && orgSpan > 1;
+          const selectorProperties = properties;
           return (
           <div className="relative">
             <button
@@ -204,9 +226,7 @@ export function Header({ title, userName, role, children }: HeaderProps) {
                   >
                     <span className="truncate">{p.name}</span>
                     <span className="ml-auto text-caption text-gray-400 shrink-0 truncate max-w-[90px]">
-                      {/* Across all orgs the org name is the useful context;
-                          within one org (or for org users) the billing type is */}
-                      {showOrgContext && !orgFilter ? (p.orgName ?? "—") : (p.type === "AIRBNB" ? "Airbnb" : "Long-term")}
+                      {showOrgContext ? (p.orgName ?? "—") : (p.type === "AIRBNB" ? "Airbnb" : "Long-term")}
                     </span>
                   </button>
                 ))}

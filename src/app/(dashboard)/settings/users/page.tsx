@@ -115,6 +115,11 @@ export default function UsersPage() {
   const [allOrgs, setAllOrgs] = useState<OrgInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  // Single "Add team member" modal: invite (default) or create-with-password.
+  // Super-admin has no org context for invitations, so create-only there.
+  const [addMode, setAddMode] = useState<"invite" | "create">("invite");
+  // Set when create mode hits a 409 EMAIL_EXISTS — offers the invite handoff
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [togglingAccess, setTogglingAccess] = useState<string | null>(null);
   const [removingUser, setRemovingUser] = useState<string | null>(null);
@@ -129,7 +134,6 @@ export default function UsersPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Invite state
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "MANAGER" | "ACCOUNTANT" | "OWNER">("MANAGER");
   const [inviting, setInviting] = useState(false);
@@ -181,6 +185,20 @@ export default function UsersPage() {
 
   useEffect(() => { load(); loadOrgs(); loadInvites(); }, [isSuperAdmin]);
 
+  const closeAddModal = () => {
+    setModalOpen(false);
+    setInviteEmail("");
+    setInviteRole("MANAGER");
+    setExistingEmail(null);
+  };
+
+  const openAddModal = () => {
+    reset({ role: "MANAGER", propertyIds: [] });
+    setExistingEmail(null);
+    setAddMode(isSuperAdmin ? "create" : "invite");
+    setModalOpen(true);
+  };
+
   const sendInvite = async () => {
     if (!inviteEmail) return;
     setInviting(true);
@@ -192,12 +210,13 @@ export default function UsersPage() {
       });
       if (!res.ok) {
         const err = await res.json();
+        if (err.code === "TEAM_LIMIT_REACHED") {
+          throw new Error("Team-member limit reached for your plan — upgrade to add more people.");
+        }
         throw new Error(err.error ?? "Failed to send invitation");
       }
       toast.success(`Invitation sent to ${inviteEmail}`);
-      setInviteOpen(false);
-      setInviteEmail("");
-      setInviteRole("MANAGER");
+      closeAddModal();
       loadInvites();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to send invitation");
@@ -221,6 +240,7 @@ export default function UsersPage() {
 
   const onSubmit = async (values: CreateForm) => {
     setSubmitting(true);
+    setExistingEmail(null);
     try {
       const res = await fetch("/api/users", {
         method: "POST",
@@ -229,10 +249,19 @@ export default function UsersPage() {
       });
       if (!res.ok) {
         const err = await res.json();
+        if (err.code === "EMAIL_EXISTS" && !isSuperAdmin) {
+          // The account exists (maybe in another org) — inviting is the flow
+          // that handles that; offer the handoff instead of a dead end.
+          setExistingEmail(values.email);
+          return;
+        }
+        if (err.code === "TEAM_LIMIT_REACHED") {
+          throw new Error("Team-member limit reached for your plan — upgrade to add more people.");
+        }
         throw new Error(err.error ?? "Failed");
       }
       toast.success("User created");
-      setModalOpen(false);
+      closeAddModal();
       reset();
       load();
     } catch (e: unknown) {
@@ -369,14 +398,11 @@ export default function UsersPage() {
         role={session?.user?.role}
       >
         <div className="flex items-center gap-2">
-          {isAdmin && !isSuperAdmin && (
-            <Button size="sm" variant="secondary" onClick={() => setInviteOpen(true)}>
-              <Mail size={14} className="mr-1" /> Invite
+          {isAdmin && (
+            <Button size="sm" onClick={openAddModal}>
+              <Plus size={14} className="mr-1" /> Add team member
             </Button>
           )}
-          <Button size="sm" onClick={() => { reset({ role: "MANAGER", propertyIds: [] }); setModalOpen(true); }}>
-            <Plus size={14} className="mr-1" /> Add User
-          </Button>
         </div>
       </Header>
 
@@ -612,15 +638,103 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Create user modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add User">
+      {/* Add team member modal — invite (default) or create-with-password */}
+      <Modal open={modalOpen} onClose={closeAddModal} title="Add Team Member">
+        <div className="space-y-4">
+          {/* Mode switch — hidden for super-admin (no org context to invite into) */}
+          {!isSuperAdmin && (
+            <div className="flex gap-2">
+              {([
+                ["invite", "Send an email invitation"],
+                ["create", "Create account with a password"],
+              ] as const).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => { setAddMode(m); setExistingEmail(null); }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-body font-medium transition-all border ${
+                    addMode === m
+                      ? "bg-gold text-white border-gold"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gold/50 hover:text-gold-dark"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Invite mode ── */}
+          {addMode === "invite" && !isSuperAdmin && (
+            <div className="space-y-4">
+              <p className="text-body text-gray-500">
+                An invitation link valid for 48 hours will be emailed to them. They choose
+                their own password when they join.
+              </p>
+              <Input
+                label="Email address *"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="colleague@example.com"
+              />
+              <div>
+                <label className="block text-caption text-gray-500 mb-1">Role *</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-body text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
+                >
+                  <option value="ADMIN">Admin</option>
+                  <option value="MANAGER">Manager</option>
+                  <option value="ACCOUNTANT">Accountant</option>
+                  <option value="OWNER">Owner</option>
+                </select>
+              </div>
+              <p className="text-caption text-gray-400">
+                Managers and accountants get access to all properties when they join —
+                adjust per-property access afterwards from this page.
+              </p>
+              <div className="flex gap-3 pt-2">
+                <Button onClick={sendInvite} loading={inviting} disabled={!inviteEmail}>
+                  <Mail size={14} className="mr-1" /> Send Invitation
+                </Button>
+                <Button variant="secondary" onClick={closeAddModal}>Cancel</Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Create mode ── */}
+          {(addMode === "create" || isSuperAdmin) && (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <p className="text-body text-gray-500">
+            No email is sent — you set the password and share it with them securely.
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Full Name *" {...register("name")} error={errors.name?.message} placeholder="Jane Doe" />
             <Input label="Phone" {...register("phone")} placeholder="+1 555 000 0000" />
           </div>
 
           <Input label="Email *" type="email" {...register("email")} error={errors.email?.message} placeholder="user@example.com" />
+
+          {existingEmail && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-body text-amber-700">
+                <span className="font-medium">{existingEmail}</span> already has an account.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteEmail(existingEmail);
+                  setExistingEmail(null);
+                  setAddMode("invite");
+                }}
+                className="text-body font-medium text-gold-dark underline underline-offset-2 mt-1"
+              >
+                Invite them to your organisation instead →
+              </button>
+            </div>
+          )}
 
           {isSuperAdmin && (
             <div>
@@ -670,9 +784,11 @@ export default function UsersPage() {
 
           <div className="flex gap-3 pt-2">
             <Button type="submit" loading={submitting}>Create User</Button>
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={closeAddModal}>Cancel</Button>
           </div>
         </form>
+          )}
+        </div>
       </Modal>
 
       {/* Edit user modal */}
@@ -709,43 +825,6 @@ export default function UsersPage() {
             </div>
           </form>
         )}
-      </Modal>
-
-      {/* Invite user modal */}
-      <Modal open={inviteOpen} onClose={() => { setInviteOpen(false); setInviteEmail(""); setInviteRole("MANAGER"); }} title="Invite Team Member">
-        <div className="space-y-4">
-          <p className="text-body text-gray-500">
-            An invitation link valid for 48 hours will be emailed to them.
-          </p>
-          <Input
-            label="Email address *"
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="colleague@example.com"
-          />
-          <div>
-            <label className="block text-caption text-gray-500 mb-1">Role *</label>
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-body text-gray-700 focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white"
-            >
-              <option value="ADMIN">Admin</option>
-              <option value="MANAGER">Manager</option>
-              <option value="ACCOUNTANT">Accountant</option>
-              <option value="OWNER">Owner</option>
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button onClick={sendInvite} loading={inviting} disabled={!inviteEmail}>
-              <Mail size={14} className="mr-1" /> Send Invitation
-            </Button>
-            <Button variant="secondary" onClick={() => { setInviteOpen(false); setInviteEmail(""); setInviteRole("MANAGER"); }}>
-              Cancel
-            </Button>
-          </div>
-        </div>
       </Modal>
 
       {/* Reset password modal */}

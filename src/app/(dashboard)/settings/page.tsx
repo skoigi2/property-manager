@@ -97,9 +97,11 @@ export default function SettingsPage() {
         body: JSON.stringify(orgForm),
       });
       if (!res.ok) throw new Error();
-      toast.success("Branding updated");
+      toast.success("Organisation details updated");
       fetchOrg();
-    } catch { toast.error("Failed to save branding"); }
+      // Let the sidebar org-switcher pick up a rename without a full reload
+      window.dispatchEvent(new CustomEvent("gw:org-updated"));
+    } catch { toast.error("Failed to save details"); }
     finally { setBrandingSaving(false); }
   }
 
@@ -224,17 +226,41 @@ export default function SettingsPage() {
             {tab === "branding" && (
               <div className="space-y-6">
                 <p className="text-body text-gray-500 ">
-                  Your company branding appears on all invoices and reports. Upload a logo and fill in your contact details.
+                  Your organisation&apos;s name, logo and contact details appear on all invoices and reports.
+                  Renaming the organisation here updates it everywhere immediately.
                 </p>
 
                 {!org ? (
                   <p className="text-body text-gray-400 text-center py-8">No organisation found.</p>
                 ) : (
                   <>
-                    {/* Company logo */}
+                    {/* Organisation profile — name + contact details */}
                     <Card>
                       <h3 className=" font-semibold text-header mb-4 flex items-center gap-2">
-                        <Building2 size={16} className="text-gold" /> Company Logo
+                        <Settings size={16} className="text-gold" /> Organisation Profile
+                      </h3>
+                      <div className="space-y-4">
+                        <Input label="Organisation name" value={orgForm.name}
+                          onChange={(e) => setOrgForm((p) => ({ ...p, name: e.target.value }))} />
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input label="Phone" value={orgForm.phone}
+                            onChange={(e) => setOrgForm((p) => ({ ...p, phone: e.target.value }))} />
+                          <Input label="Email" type="email" value={orgForm.email}
+                            onChange={(e) => setOrgForm((p) => ({ ...p, email: e.target.value }))} />
+                        </div>
+                        <Input label="Address" value={orgForm.address}
+                          onChange={(e) => setOrgForm((p) => ({ ...p, address: e.target.value }))} />
+                        <Input label="Website" value={orgForm.website}
+                          onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
+                        <p className="text-caption text-gray-400 ">KRA PIN and payment details are configured per-property under Properties → Agreement.</p>
+                        {canEditSettings && <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>}
+                      </div>
+                    </Card>
+
+                    {/* Organisation logo */}
+                    <Card>
+                      <h3 className=" font-semibold text-header mb-4 flex items-center gap-2">
+                        <Building2 size={16} className="text-gold" /> Organisation Logo
                       </h3>
                       <div className="flex items-start gap-6">
                         {/* Logo preview */}
@@ -263,29 +289,6 @@ export default function SettingsPage() {
                             )}
                           </div>
                         </div>
-                      </div>
-                    </Card>
-
-                    {/* Company details */}
-                    <Card>
-                      <h3 className=" font-semibold text-header mb-4 flex items-center gap-2">
-                        <Settings size={16} className="text-gold" /> Company Details
-                      </h3>
-                      <div className="space-y-4">
-                        <Input label="Company Name" value={orgForm.name}
-                          onChange={(e) => setOrgForm((p) => ({ ...p, name: e.target.value }))} />
-                        <div className="grid grid-cols-2 gap-4">
-                          <Input label="Phone" value={orgForm.phone}
-                            onChange={(e) => setOrgForm((p) => ({ ...p, phone: e.target.value }))} />
-                          <Input label="Email" type="email" value={orgForm.email}
-                            onChange={(e) => setOrgForm((p) => ({ ...p, email: e.target.value }))} />
-                        </div>
-                        <Input label="Address" value={orgForm.address}
-                          onChange={(e) => setOrgForm((p) => ({ ...p, address: e.target.value }))} />
-                        <Input label="Website" value={orgForm.website}
-                          onChange={(e) => setOrgForm((p) => ({ ...p, website: e.target.value }))} />
-                        <p className="text-caption text-gray-400 ">KRA PIN and payment details are configured per-property under Properties → Agreement.</p>
-                        {canEditSettings && <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>}
                       </div>
                     </Card>
 

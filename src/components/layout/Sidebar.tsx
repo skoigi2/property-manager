@@ -184,9 +184,15 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   }, [role]);
 
   useEffect(() => {
-    if (!isSuperAdmin) {
+    if (isSuperAdmin) return;
+    const loadOrgs = () => {
       fetch("/api/auth/orgs").then((r) => r.json()).then(setOrgOptions).catch(() => {});
-    }
+    };
+    loadOrgs();
+    // Settings dispatches this after saving the organisation profile so a
+    // rename shows in the switcher without a full reload.
+    window.addEventListener("gw:org-updated", loadOrgs);
+    return () => window.removeEventListener("gw:org-updated", loadOrgs);
   }, [organizationId, isSuperAdmin]);
 
   async function switchOrg(orgId: string) {

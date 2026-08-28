@@ -3,6 +3,11 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendWelcome, sendNewUserAlert } from "@/lib/email";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import {
+  invitationProblem,
+  assertTeamCapacityForInvite,
+  applyInvitationAcceptance,
+} from "@/lib/invitation-accept";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,10 +23,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, email, password, organizationName } = await req.json();
+    const { name, email, password, organizationName, inviteToken } = await req.json();
+
+    // ── Invitation context (signing up FROM an org invite link) ───────────────
+    // A valid token means the invitee joins the inviting org instead of
+    // founding a brand-new trial org of their own.
+    let invitation: Awaited<ReturnType<typeof prisma.orgInvitation.findUnique>> = null;
+    if (inviteToken) {
+      invitation = await prisma.orgInvitation.findUnique({ where: { token: String(inviteToken) } });
+      if (!invitation || invitationProblem(invitation)) {
+        return NextResponse.json(
+          { error: "This invitation is no longer valid. You can still create an account normally." },
+          { status: 400 }
+        );
+      }
+      // The invitee must sign up with the address the invitation was sent to
+      // (the client locks the field, but the server is the real gate).
+      if (email?.trim().toLowerCase() !== invitation.email.toLowerCase()) {
+        return NextResponse.json(
+          { error: "Please sign up with the email address this invitation was sent to." },
+          { status: 400 }
+        );
+      }
+    }
 
     // ── Validate ──────────────────────────────────────────────────────────────
-    if (!name?.trim() || !email?.trim() || !password || !organizationName?.trim()) {
+    if (!name?.trim() || !email?.trim() || !password || (!invitation && !organizationName?.trim())) {
       return NextResponse.json({ error: "All fields are required." }, { status: 400 });
     }
     if (password.length < 8) {
@@ -34,8 +61,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
     }
 
+    // Team-member cap of the INVITING org (new member joining it)
+    if (invitation) {
+      const capacityError = await assertTeamCapacityForInvite(invitation.organizationId);
+      if (capacityError) return capacityError;
+    }
+
     // ── Hash password ─────────────────────────────────────────────────────────
     const hashedPassword = await bcrypt.hash(password, 12);
+
+    // ── Invited signup: join the inviting org, found nothing ──────────────────
+    if (invitation) {
+      const invitedUser = await prisma.user.create({
+        data: {
+          name:           name.trim(),
+          email:          email.toLowerCase(),
+          password:       hashedPassword,
+          // Non-null organizationId means this can never read as super-admin,
+          // even for role ADMIN.
+          role:           invitation.role,
+          organizationId: invitation.organizationId,
+        },
+      });
+      await applyInvitationAcceptance({ userId: invitedUser.id, invitation });
+
+      const invitingOrg = await prisma.organization.findUnique({
+        where:  { id: invitation.organizationId },
+        select: { name: true },
+      });
+      sendWelcome(invitedUser.email as string, invitedUser.name ?? "there").catch(console.error);
+      sendNewUserAlert(invitedUser.email as string, invitedUser.name ?? "Unknown", invitingOrg?.name ?? "an existing organisation").catch(console.error);
+
+      return NextResponse.json({ ok: true, userId: invitedUser.id, invited: true }, { status: 201 });
+    }
 
     // ── Trial window ──────────────────────────────────────────────────────────
     const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);

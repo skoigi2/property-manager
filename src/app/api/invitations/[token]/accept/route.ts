@@ -1,5 +1,10 @@
 import { requireAuth } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import {
+  invitationProblem,
+  assertTeamCapacityForInvite,
+  applyInvitationAcceptance,
+} from "@/lib/invitation-accept";
 
 /**
  * POST /api/invitations/[token]/accept
@@ -18,10 +23,11 @@ export async function POST(_req: Request, { params }: { params: { token: string 
   if (!invitation) {
     return Response.json({ error: "Invitation not found." }, { status: 404 });
   }
-  if (invitation.acceptedAt) {
+  const problem = invitationProblem(invitation);
+  if (problem === "accepted") {
     return Response.json({ error: "This invitation has already been accepted." }, { status: 410 });
   }
-  if (invitation.expiresAt < new Date()) {
+  if (problem === "expired") {
     return Response.json({ error: "This invitation has expired." }, { status: 410 });
   }
 
@@ -33,53 +39,12 @@ export async function POST(_req: Request, { params }: { params: { token: string 
     );
   }
 
-  const userId = session!.user.id;
-  const orgId  = invitation.organizationId;
-  const role   = invitation.role;
+  // Team-cap re-check: the org may have filled up since the invite was sent.
+  // Existing members are never blocked from re-accepting.
+  const capacityError = await assertTeamCapacityForInvite(invitation.organizationId, session!.user.id);
+  if (capacityError) return capacityError;
 
-  // Upsert membership with the invited role; never make them billing owner
-  await prisma.userOrganizationMembership.upsert({
-    where:  { userId_organizationId: { userId, organizationId: orgId } },
-    create: { userId, organizationId: orgId, role, isBillingOwner: false },
-    update: { role },
-  });
+  const result = await applyInvitationAcceptance({ userId: session!.user.id, invitation });
 
-  // Switch active org — never overwrite global User.role (it's only for super-admin detection)
-  await prisma.user.update({
-    where: { id: userId },
-    data:  { organizationId: orgId },
-  });
-
-  // Grant PropertyAccess to all org properties for MANAGER / ACCOUNTANT roles.
-  // ADMIN sees all properties automatically; OWNER is scoped to ownedProperties.
-  if (role === "MANAGER" || role === "ACCOUNTANT") {
-    const orgProperties = await prisma.property.findMany({
-      where:  { organizationId: orgId },
-      select: { id: true },
-    });
-    if (orgProperties.length > 0) {
-      await prisma.propertyAccess.createMany({
-        data: orgProperties.map((p) => ({ userId, propertyId: p.id })),
-        skipDuplicates: true,
-      });
-    }
-  }
-
-  // Mark accepted
-  await prisma.orgInvitation.update({
-    where: { token: params.token },
-    data:  { acceptedAt: new Date() },
-  });
-
-  const membershipCount = await prisma.userOrganizationMembership.count({
-    where: { userId },
-  });
-
-  return Response.json({
-    ok: true,
-    organizationId: orgId,
-    orgRole:        invitation.role,
-    isBillingOwner: false,
-    membershipCount,
-  });
+  return Response.json({ ok: true, ...result });
 }

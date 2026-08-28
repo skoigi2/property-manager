@@ -1,12 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 
+interface InviteDetails {
+  email: string;
+  role: string;
+  orgName: string;
+  inviterName: string;
+}
+
+// useSearchParams requires a Suspense boundary for the Next 14 prerender pass.
 export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupInner />
+    </Suspense>
+  );
+}
+
+function SignupInner() {
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+  const [invite, setInvite] = useState<InviteDetails | null>(null);
   const [form, setForm] = useState({
     name:             "",
     email:            "",
@@ -15,6 +35,22 @@ export default function SignupPage() {
   });
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Signing up from an org-invitation link: prefill + lock the invited email
+  // and skip organisation creation (they join the inviting org instead).
+  useEffect(() => {
+    if (!inviteToken) return;
+    fetch(`/api/invitations/${inviteToken}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error();
+        const d: InviteDetails = await r.json();
+        setInvite(d);
+        setForm((f) => ({ ...f, email: d.email }));
+      })
+      .catch(() => {
+        toast.error("That invitation is no longer valid — you can still create your own account.");
+      });
+  }, [inviteToken]);
 
   function update(field: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -27,7 +63,7 @@ export default function SignupPage() {
       const res = await fetch("/api/auth/signup", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(form),
+        body:    JSON.stringify({ ...form, ...(invite && inviteToken ? { inviteToken } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -44,7 +80,9 @@ export default function SignupPage() {
         toast.error("Account created — please sign in.");
         window.location.href = "/login";
       } else {
-        window.location.href = "/onboarding";
+        // Invited users already belong to an org — straight to the dashboard;
+        // founders go through onboarding to set up their first property.
+        window.location.href = data.invited ? "/dashboard" : "/onboarding";
       }
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -74,7 +112,22 @@ export default function SignupPage() {
         <div className="bg-white rounded-b-2xl px-8 py-8 shadow-card">
           <h2 className=" text-h3 text-header mb-6">Create your account</h2>
 
-          {/* Google sign-up */}
+          {/* Invitation banner */}
+          {invite && (
+            <div className="mb-5 rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
+              <p className="text-body text-header">
+                You&apos;re joining <span className="font-semibold">{invite.orgName}</span> as{" "}
+                <span className="font-medium">{invite.role.charAt(0) + invite.role.slice(1).toLowerCase()}</span>
+              </p>
+              <p className="text-caption text-gray-500 mt-0.5">
+                Invited by {invite.inviterName}. Create your account below to accept.
+              </p>
+            </div>
+          )}
+
+          {/* Google sign-up — hidden in invite mode (the token can't travel
+              through the OAuth redirect; email sign-up carries it instead) */}
+          {!invite && (
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -96,12 +149,15 @@ export default function SignupPage() {
             )}
             {googleLoading ? "Redirecting…" : "Sign up with Google"}
           </button>
+          )}
 
+          {!invite && (
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px bg-gray-100" />
             <span className="text-caption text-gray-400 ">or sign up with email</span>
             <div className="flex-1 h-px bg-gray-100" />
           </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -115,6 +171,7 @@ export default function SignupPage() {
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
             </div>
+            {!invite && (
             <div>
               <label className="block text-body font-medium text-gray-600 mb-1.5">Company / agency name</label>
               <input
@@ -126,6 +183,7 @@ export default function SignupPage() {
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
               />
             </div>
+            )}
             <div>
               <label className="block text-body font-medium text-gray-600 mb-1.5">Email</label>
               <input
@@ -134,8 +192,12 @@ export default function SignupPage() {
                 onChange={(e) => update("email", e.target.value)}
                 placeholder="jane@example.com"
                 required
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50"
+                disabled={!!invite}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold bg-cream/50 disabled:opacity-70 disabled:cursor-not-allowed"
               />
+              {invite && (
+                <p className="text-caption text-gray-400 mt-1">The invitation was sent to this address.</p>
+              )}
             </div>
             <div>
               <label className="block text-body font-medium text-gray-600 mb-1.5">Password</label>
@@ -162,6 +224,8 @@ export default function SignupPage() {
                   </svg>
                   Creating account…
                 </span>
+              ) : invite ? (
+                `Create account & join ${invite.orgName}`
               ) : (
                 "Start free trial — no card required"
               )}

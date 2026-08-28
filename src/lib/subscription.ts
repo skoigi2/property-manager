@@ -54,7 +54,9 @@ export async function canAddProperty(orgId: string): Promise<boolean> {
       where: { id: orgId },
       select: { pricingTier: true, freeAccess: true },
     }),
-    prisma.property.count({ where: { organizationId: orgId } }),
+    // Sample/demo properties are a learning sandbox — they never consume a
+    // billable slot.
+    prisma.property.count({ where: { organizationId: orgId, isDemo: false } }),
   ]);
   if (!org) return false;
   if (org.freeAccess) return true; // Complimentary PRO — no property limit
@@ -128,7 +130,9 @@ export async function getSubscriptionInfo(orgId: string) {
         freeAccess:           true,
       },
     }),
-    prisma.property.count({ where: { organizationId: orgId } }),
+    // Billable properties only — demo/sample properties are cap-exempt, so
+    // the billing page's "X of Y" pairs correctly with the enforced limit.
+    prisma.property.count({ where: { organizationId: orgId, isDemo: false } }),
   ]);
   if (!org) return null;
 

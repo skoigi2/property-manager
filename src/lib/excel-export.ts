@@ -541,6 +541,7 @@ export interface RentRollRow {
   currency?: string | null;
   unitNumber: string;
   unitType: string;
+  hasDsq?: boolean;
   floor?: number | null;
   sizeSqm?: number | null;
   occupied: boolean;
@@ -559,7 +560,7 @@ export interface RentRollRow {
 
 const UNIT_TYPE_LABEL: Record<string, string> = {
   BEDSITTER: "Bedsitter", ONE_BED: "1 Bed", TWO_BED: "2 Bed", THREE_BED: "3 Bed",
-  FOUR_BED: "4 Bed", PENTHOUSE: "Penthouse", COMMERCIAL: "Commercial", OTHER: "Other",
+  FOUR_BED: "4 Bed", FIVE_BED: "5+ Bed", PENTHOUSE: "Penthouse", COMMERCIAL: "Commercial", OTHER: "Other",
 };
 
 /** Lease-snapshot rent roll: one row per unit, vacant units included. */
@@ -578,7 +579,7 @@ export function exportRentRoll(rows: RentRollRow[], currency?: string) {
   const dataRows = rows.map((r) => [
     r.propertyName,
     r.unitNumber,
-    UNIT_TYPE_LABEL[r.unitType] ?? r.unitType,
+    (UNIT_TYPE_LABEL[r.unitType] ?? r.unitType) + (r.hasDsq ? " + DSQ" : ""),
     r.floor ?? null,
     r.sizeSqm ?? null,
     r.occupied ? "Occupied" : "Vacant",

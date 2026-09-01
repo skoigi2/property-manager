@@ -290,6 +290,7 @@ enum UnitType {
   TWO_BED
   THREE_BED
   FOUR_BED
+  FIVE_BED
   PENTHOUSE
   COMMERCIAL
   OTHER
@@ -706,6 +707,9 @@ model Unit {
   status        UnitStatus            @default(ACTIVE)
   vacantSince   DateTime?
   description   String?
+  // Domestic Servant Quarter / maid's room attached to the unit — rendered as
+  // a "+ DSQ" suffix on the unit-type label (market convention: "3 Bed + DSQ").
+  hasDsq        Boolean               @default(false)
   amenities     String[]
   titleReference String?
   // Per-unit override of the property's default payment account — invoices

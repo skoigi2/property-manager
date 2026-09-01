@@ -379,13 +379,14 @@ export function downloadPettyCashTemplate() {
 }
 
 export function downloadUnitsTemplate() {
-  const validTypes   = "BEDSITTER, ONE_BED, TWO_BED, THREE_BED, FOUR_BED, PENTHOUSE, COMMERCIAL, OTHER";
+  const validTypes   = "BEDSITTER, ONE_BED, TWO_BED, THREE_BED, FOUR_BED, FIVE_BED, PENTHOUSE, COMMERCIAL, OTHER";
   const validStatus  = "ACTIVE, VACANT, LISTED, UNDER_NOTICE, MAINTENANCE, OWNER_OCCUPIED";
 
   const cols: ColDef[] = [
     { header: "Unit Number",   required: true,  width: 14 },
     { header: "Property Name", required: true,  width: 20 },
     { header: "Type",          required: true,  width: 16 },
+    { header: "Has DSQ",       required: false, width: 10 },
     { header: "Floor",         required: false, width: 10 },
     { header: "Size (sqm)",    required: false, width: 12 },
     { header: "Monthly Rent",  required: false, width: 14 },
@@ -394,15 +395,16 @@ export function downloadUnitsTemplate() {
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["A1",  "Riara One", "BEDSITTER",  2, 32,  18000, "ACTIVE",  "Ground floor studio with garden view"],
-    ["B4",  "Riara One", "TWO_BED",    4, 85,  35000, "VACANT",  ""],
-    ["G1",  "Riara One", "COMMERCIAL", 1, 120, 85000, "ACTIVE",  "Ground floor office space"],
+    ["A1",  "Riara One", "BEDSITTER",  "",    2, 32,  18000, "ACTIVE",  "Ground floor studio with garden view"],
+    ["B4",  "Riara One", "TWO_BED",    "YES", 4, 85,  35000, "VACANT",  ""],
+    ["G1",  "Riara One", "COMMERCIAL", "",    1, 120, 85000, "ACTIVE",  "Ground floor office space"],
   ];
 
   const instructions: (string | number)[][] = [
     ["Unit Number",   "Yes", "Text (e.g. A1, 2B, 101)",  "Must be unique within the property — duplicates are skipped"],
     ["Property Name", "Yes", "Text",                      "Must exactly match an existing property name in the system"],
     ["Type",          "Yes", validTypes,                  "Unit type — must match exactly"],
+    ["Has DSQ",       "No",  "YES / NO",                  "Whether the unit has a DSQ / maid's room — blank means NO"],
     ["Floor",         "No",  "Integer (e.g. 0, 1, 2)",   "Floor number; ground floor is typically 0 or 1"],
     ["Size (sqm)",    "No",  "Number",                    "Floor area in square metres"],
     ["Monthly Rent",  "No",  "Number",                    "Target or listed monthly rent"],

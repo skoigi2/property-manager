@@ -7,8 +7,9 @@ import { z } from "zod";
 const createSchema = z.object({
   propertyId: z.string().min(1),
   unitNumber: z.string().min(1, "Unit number required"),
-  type: z.enum(["BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "PENTHOUSE", "COMMERCIAL", "OTHER"]),
+  type: z.enum(["BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "FIVE_BED", "PENTHOUSE", "COMMERCIAL", "OTHER"]),
   status: z.enum(["ACTIVE", "VACANT", "LISTED", "UNDER_NOTICE", "MAINTENANCE", "OWNER_OCCUPIED"]).default("VACANT"),
+  hasDsq: z.boolean().optional(),
   monthlyRent: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),
   floor: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().int().optional()),
   sizeSqm: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),

@@ -6,6 +6,7 @@ interface UnitRow {
   unitNumber?: string;
   propertyName?: string;
   type?: string;
+  hasDsq?: string;
   floor?: string | number;
   sizeSqm?: string | number;
   monthlyRent?: string | number;
@@ -14,7 +15,7 @@ interface UnitRow {
 }
 
 const VALID_UNIT_TYPES: UnitType[] = [
-  "BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED",
+  "BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "FIVE_BED",
   "PENTHOUSE", "COMMERCIAL", "OTHER",
 ];
 
@@ -100,6 +101,9 @@ export async function POST(req: Request) {
       ? (statusRaw as UnitStatus)
       : "ACTIVE";
 
+    // Free-text yes/no → boolean (blank = false)
+    const hasDsq = ["YES", "Y", "TRUE", "1"].includes(String(row.hasDsq ?? "").trim().toUpperCase());
+
     const floor       = row.floor   ? parseInt(String(row.floor),  10) : null;
     const sizeSqm    = row.sizeSqm  ? parseFloat(String(row.sizeSqm))  : null;
     const monthlyRent = row.monthlyRent ? parseFloat(String(row.monthlyRent)) : null;
@@ -110,6 +114,7 @@ export async function POST(req: Request) {
           unitNumber,
           propertyId: property.id,
           type: typeRaw as UnitType,
+          hasDsq,
           floor:        isNaN(floor!)        ? null : floor,
           sizeSqm:      isNaN(sizeSqm!)      ? null : sizeSqm,
           monthlyRent:  isNaN(monthlyRent!)  ? null : monthlyRent,

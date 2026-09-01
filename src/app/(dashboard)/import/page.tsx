@@ -251,7 +251,7 @@ const VALID_EXPENSE_CATEGORIES = [
 const VALID_EXPENSE_SCOPES = ["UNIT", "PROPERTY", "PORTFOLIO"];
 
 const VALID_UNIT_TYPES = [
-  "BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED",
+  "BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "FIVE_BED",
   "PENTHOUSE", "COMMERCIAL", "OTHER",
 ];
 
@@ -660,6 +660,7 @@ function mapUnitRowToApi(row: Record<string, string>) {
     unitNumber:   row["Unit Number"],
     propertyName: row["Property Name"],
     type:         row["Type"],
+    hasDsq:       row["Has DSQ"],
     floor:        row["Floor"],
     sizeSqm:      row["Size (sqm)"],
     monthlyRent:  row["Monthly Rent"],

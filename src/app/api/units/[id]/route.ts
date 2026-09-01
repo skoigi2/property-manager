@@ -5,8 +5,9 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   unitNumber: z.string().min(1).optional(),
-  type: z.enum(["BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "PENTHOUSE", "COMMERCIAL", "OTHER"]).optional(),
+  type: z.enum(["BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "FIVE_BED", "PENTHOUSE", "COMMERCIAL", "OTHER"]).optional(),
   status: z.enum(["ACTIVE", "VACANT", "LISTED", "UNDER_NOTICE", "MAINTENANCE", "OWNER_OCCUPIED"]).optional(),
+  hasDsq: z.boolean().optional(),
   monthlyRent: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),
   floor: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().int().optional()),
   sizeSqm: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().min(0).optional()),
@@ -27,7 +28,8 @@ async function getUnitWithAccess(id: string) {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  // Gate on the active-org membership role, not the sticky global User.role.
+  if (session.user.orgRole !== "ADMIN" && session.user.orgRole !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { unit, accessError } = await getUnitWithAccess(params.id);
   if (accessError) return accessError;
@@ -78,7 +80,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
+  // Gate on the active-org membership role, not the sticky global User.role.
+  if (session.user.orgRole !== "ADMIN" && session.user.orgRole !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { unit, accessError } = await getUnitWithAccess(params.id);
   if (accessError) return accessError;

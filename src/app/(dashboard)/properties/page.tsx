@@ -200,6 +200,7 @@ interface Unit {
   sizeSqm: number | null;
   description: string | null;
   titleReference: string | null;
+  hasDsq?: boolean;
   paymentAccountId?: string | null;
   _count?: { tenants: number };
   incomeEntries?: { id: string; checkIn: string; checkOut: string }[];
@@ -297,8 +298,9 @@ type PropertyForm = z.infer<typeof propertySchema>;
 
 const unitSchema = z.object({
   unitNumber: z.string().min(1, "Unit number required"),
-  type: z.enum(["BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "PENTHOUSE", "COMMERCIAL", "OTHER"]),
+  type: z.enum(["BEDSITTER", "ONE_BED", "TWO_BED", "THREE_BED", "FOUR_BED", "FIVE_BED", "PENTHOUSE", "COMMERCIAL", "OTHER"]),
   status: z.enum(["ACTIVE", "VACANT", "LISTED", "UNDER_NOTICE", "MAINTENANCE", "OWNER_OCCUPIED"]),
+  hasDsq: z.boolean().optional(),
   monthlyRent: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).optional()
@@ -325,6 +327,7 @@ const UNIT_TYPE_LABELS: Record<string, string> = {
   TWO_BED: "2 Bedroom",
   THREE_BED: "3 Bedroom",
   FOUR_BED: "4 Bedroom",
+  FIVE_BED: "5+ Bedroom",
   PENTHOUSE: "Penthouse",
   COMMERCIAL: "Commercial",
   OTHER: "Other",
@@ -586,7 +589,8 @@ function UnitFormFields({ register, errors, propertyType, paymentAccountId, onPa
             { value: "ONE_BED",    label: "1 Bedroom" },
             { value: "TWO_BED",    label: "2 Bedrooms" },
             { value: "THREE_BED",  label: "3 Bedrooms" },
-            { value: "FOUR_BED",   label: "4+ Bedrooms" },
+            { value: "FOUR_BED",   label: "4 Bedrooms" },
+            { value: "FIVE_BED",   label: "5+ Bedrooms" },
             { value: "PENTHOUSE",  label: "Penthouse" },
             { value: "COMMERCIAL", label: "Commercial" },
             { value: "OTHER",      label: "Other" },
@@ -607,6 +611,15 @@ function UnitFormFields({ register, errors, propertyType, paymentAccountId, onPa
           <p className="text-caption text-gray-400 ">&quot;Occupied&quot; is set automatically when a tenant is assigned.</p>
         </div>
       </div>
+
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          {...register("hasDsq")}
+          className="h-4 w-4 rounded border-gray-300 text-gold focus:ring-gold/40"
+        />
+        <span className="text-body text-gray-600">Has DSQ / maid&apos;s room</span>
+      </label>
 
       <div className="grid grid-cols-2 gap-4">
         {propertyType === "LONGTERM" && (
@@ -689,7 +702,7 @@ function UnitPanel({ property, isManager, onAddUnit, onEditUnit, onDeleteUnit }:
                   <StatusDot status={u.status} />
                   <span className="font-medium text-header text-body ">{u.unitNumber}</span>
                   <span className="text-caption text-gray-400 hidden sm:block">
-                    {UNIT_TYPE_LABELS[u.type] ?? u.type}
+                    {(UNIT_TYPE_LABELS[u.type] ?? u.type) + (u.hasDsq ? " + DSQ" : "")}
                   </span>
                   {(() => { const ds = unitDisplayStatus(u, property.type); return (
                     <Badge variant={(STATUS_BADGE as any)[ds] ?? "gray"} className="hidden sm:inline-flex text-caption">
@@ -836,7 +849,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                             <div className="flex items-center gap-2">
                               <StatusDot status={u.status} />
                               <span className="text-body tabular-nums font-medium text-header">{u.unitNumber}</span>
-                              <span className="text-caption text-gray-400 ">{UNIT_TYPE_LABELS[u.type] ?? u.type}</span>
+                              <span className="text-caption text-gray-400 ">{(UNIT_TYPE_LABELS[u.type] ?? u.type) + (u.hasDsq ? " + DSQ" : "")}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {u.monthlyRent != null && (
@@ -1513,7 +1526,7 @@ export default function PropertiesPage() {
   const openAddUnit = (property: Property) => {
     setUnitModalProperty(property);
     setEditUnit(null);
-    unitForm.reset({ type: "ONE_BED", status: "VACANT", paymentAccountId: null });
+    unitForm.reset({ type: "ONE_BED", status: "VACANT", hasDsq: false, paymentAccountId: null });
     setUnitModalOpen(true);
   };
 
@@ -1529,6 +1542,7 @@ export default function PropertiesPage() {
       sizeSqm: unit.sizeSqm ?? undefined,
       description: unit.description ?? "",
       titleReference: unit.titleReference ?? "",
+      hasDsq: unit.hasDsq ?? false,
       paymentAccountId: unit.paymentAccountId ?? null,
     });
     setUnitModalOpen(true);

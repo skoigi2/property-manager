@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const units = await prisma.unit.findMany({
     where: { propertyId: { in: effectivePropertyIds } },
     select: {
-      id: true, unitNumber: true, type: true, floor: true, sizeSqm: true, status: true, vacantSince: true,
+      id: true, unitNumber: true, type: true, hasDsq: true, floor: true, sizeSqm: true, status: true, vacantSince: true,
       property: { select: { id: true, name: true, currency: true } },
       tenants: {
         where: { isActive: true },
@@ -47,6 +47,7 @@ export async function GET(req: Request) {
       currency: u.property.currency,
       unitNumber: u.unitNumber,
       unitType: u.type,
+      hasDsq: u.hasDsq,
       floor: u.floor,
       sizeSqm: u.sizeSqm,
       occupied: !!t,

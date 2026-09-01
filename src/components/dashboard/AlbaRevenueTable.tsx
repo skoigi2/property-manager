@@ -23,6 +23,7 @@ function unitTypeLabel(type: string) {
     TWO_BED:    "2 Bed",
     THREE_BED:  "3 Bed",
     FOUR_BED:   "4 Bed",
+    FIVE_BED:   "5+ Bed",
     PENTHOUSE:  "Penthouse",
     COMMERCIAL: "Commercial",
   };

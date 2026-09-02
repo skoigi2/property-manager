@@ -70,16 +70,31 @@ export interface ExpensePayment {
 export function calcExpensePayment(expense: {
   amount: number;
   amountPaid?: number | null;
+  /** An expense settled from the petty-cash float is paid in full by
+   *  definition — the OUT row already left the tin. Rows saved before the
+   *  form stamped amountPaid for petty-cash expenses would otherwise show as
+   *  unpaid with a phantom balance. */
+  paidFromPettyCash?: boolean | null;
   lineItems?: { amountPaid?: number | null }[] | null;
 }): ExpensePayment {
   const total = expense.amount;
-  const paid = expense.lineItems?.length
+  const recorded = expense.lineItems?.length
     ? expense.lineItems.reduce((s, li) => s + (li.amountPaid ?? 0), 0)
     : expense.amountPaid ?? 0;
+  const paid = expense.paidFromPettyCash ? Math.max(recorded, total) : recorded;
   const outstanding = Math.max(total - paid, 0);
   const status: ExpensePaymentStatus =
     paid <= 0 ? "UNPAID" : paid >= total ? "PAID" : "PARTIAL";
   return { total, paid, outstanding, status };
+}
+
+/** Payment status of one expense line, derived from what has been paid
+ *  against it. Never chosen by hand, so the line badge cannot contradict the
+ *  row badge (which calcExpensePayment derives the same way from summed lines). */
+export function calcLinePaymentStatus(amount: number, amountPaid: number | null | undefined): ExpensePaymentStatus {
+  const paid = amountPaid ?? 0;
+  if (paid <= 0) return "UNPAID";
+  return paid >= amount - 0.005 ? "PAID" : "PARTIAL";
 }
 
 /** Net income = gross income - agent commissions - operating expenses (excl sunk costs) */

@@ -4,7 +4,9 @@ import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot, lineItemCategoryToAppliesTo } from "@/lib/tax-engine";
-import { calcQtyRateAmount, normalizeLineItemUnit } from "@/lib/calculations";
+import { calcQtyRateAmount, normalizeLineItemUnit, calcLinePaymentStatus } from "@/lib/calculations";
+import { resolveExpenseTargets } from "@/lib/expense-scope";
+import { checkExpenseTargets } from "@/lib/expense-targets";
 
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true } },
@@ -61,10 +63,21 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 
   const vendorId = body.vendorId as string | undefined | null;
-  const { date, paidFromPettyCash, unitIds, lineItems, ...rest } = parsed.data;
+  const { date, paidFromPettyCash, unitIds: rawUnitIds, lineItems, ...rest } = parsed.data;
   const parsedDate = new Date(date);
 
-  // Derive each line's net amount: qty × rate (rounded to 2dp) when both are
+  // Same scope resolution as POST: the scope decides which target ids count,
+  // split units must share one property, and the target property must be
+  // accessible (the edit may move the expense to another property).
+  const targets = await checkExpenseTargets(
+    resolveExpenseTargets(rest.scope, { unitId: rest.unitId, unitIds: rawUnitIds, propertyId: rest.propertyId }),
+  );
+  if (!targets.ok) return Response.json({ error: targets.error }, { status: targets.status });
+  const { unitIds, unitId: resolvedUnitId, effectivePropertyId } = targets;
+  const isMultiUnit = unitIds.length > 1;
+  const resolvedPropertyId = isMultiUnit ? effectivePropertyId : targets.propertyId;
+
+  // Derive each line's net amount: qty x rate (rounded to 2dp) when both are
   // present, else the typed amount. The derived value IS the stored `amount`.
   const lineItemAmounts = (lineItems ?? []).map((item) =>
     item.quantity != null && item.unitRate != null
@@ -78,35 +91,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       ? lineItemAmounts.reduce((sum, a) => sum + a, 0)
       : rest.amount;
 
-  // Resolve unit / property for multi-unit
-  const isMultiUnit = unitIds && unitIds.length > 1;
-  let resolvedUnitId = rest.unitId;
-  let resolvedPropertyId = rest.propertyId;
-
-  if (isMultiUnit) {
-    resolvedUnitId = undefined;
-    const firstUnit = await prisma.unit.findUnique({
-      where: { id: unitIds![0] },
-      select: { propertyId: true },
-    });
-    resolvedPropertyId = firstUnit?.propertyId ?? undefined;
-  } else if (unitIds && unitIds.length === 1) {
-    resolvedUnitId = unitIds[0];
-  }
-
-  const shareAmount =
-    isMultiUnit && unitIds ? computedAmount / unitIds.length : computedAmount;
+  const shareAmount = isMultiUnit ? computedAmount / unitIds.length : computedAmount;
 
   // Tax configs for line-item snapshots. The replace-all recreate below used to
   // drop the tax snapshot on every edit (taxAmount silently wiped); mirror the
   // POST route instead and re-snapshot at save time from the current configs.
-  const taxPropertyId = resolvedPropertyId ?? (resolvedUnitId
-    ? (await prisma.unit.findUnique({ where: { id: resolvedUnitId }, select: { propertyId: true } }))?.propertyId
-    : undefined);
   const taxOrgId = session!.user.organizationId;
-  const taxConfigs = lineItems && lineItems.length > 0 && taxPropertyId && taxOrgId
-    ? await getActiveTaxConfigs(taxPropertyId, taxOrgId, parsedDate)
+  const taxConfigs = lineItems && lineItems.length > 0 && effectivePropertyId && taxOrgId
+    ? await getActiveTaxConfigs(effectivePropertyId, taxOrgId, parsedDate)
     : [];
+
+  // Petty cash settles the whole bill (see POST): stamp the payment fields.
+  const pettySettled = !!paidFromPettyCash;
 
   const before = await prisma.expenseEntry.findUnique({
     where: { id: params.id },
@@ -117,21 +113,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     },
   });
 
-  // Petty-cash reconciliation — keep the linked OUT row in sync with the flag.
+  // Petty-cash reconciliation: keep the linked OUT row in sync with the flag.
   const nowPetty = paidFromPettyCash ?? false;
   const linkedPettyCashId = before?.pettyCashEntry?.id ?? null;
-  let pettyCashPropertyId: string | null = null;
-  if (nowPetty) {
-    if (resolvedPropertyId) {
-      pettyCashPropertyId = resolvedPropertyId;
-    } else if (resolvedUnitId) {
-      const unit = await prisma.unit.findUnique({
-        where: { id: resolvedUnitId },
-        select: { propertyId: true },
-      });
-      pettyCashPropertyId = unit?.propertyId ?? null;
-    }
-  }
+  const pettyCashPropertyId: string | null = nowPetty ? effectivePropertyId ?? null : null;
 
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,14 +132,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         isSunkCost: rest.isSunkCost ?? false,
         paidFromPettyCash: paidFromPettyCash ?? false,
         // Line items, when present, are the source of truth for paid amounts + tax.
-        amountPaid: lineItems && lineItems.length > 0 ? 0 : rest.amountPaid ?? 0,
+        amountPaid: lineItems && lineItems.length > 0 ? 0 : pettySettled ? computedAmount : rest.amountPaid ?? 0,
         dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
         vatAmount: lineItems && lineItems.length > 0 ? null : rest.vatAmount ?? null,
         // Informational only — never subtracted from `amount`, never in totals.
         discountAmount: lineItems && lineItems.length > 0 ? null : rest.discountAmount ?? null,
-        paymentMethod: rest.paymentMethod ?? null,
+        paymentMethod: rest.paymentMethod ?? (pettySettled ? "CASH" : null),
         paymentReference: rest.paymentReference || null,
-        paymentDate: rest.paymentDate ? new Date(rest.paymentDate) : null,
+        paymentDate: rest.paymentDate ? new Date(rest.paymentDate) : pettySettled ? parsedDate : null,
         notes: rest.notes || null,
         vendorId: vendorId !== undefined ? (vendorId || null) : undefined,
         unitId: resolvedUnitId ?? null,
@@ -193,10 +178,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           ...normalizeLineItemUnit(item.unit, item.unitOther),
           discountAmount: item.discountAmount ?? null,
           isVatable,
-          paymentStatus: item.paymentStatus ?? "UNPAID",
-          amountPaid: item.amountPaid ?? 0,
+          // Status is derived from the paid amount, never trusted from the client.
+          amountPaid: pettySettled ? amount : item.amountPaid ?? 0,
+          paymentStatus: calcLinePaymentStatus(amount, pettySettled ? amount : item.amountPaid ?? 0),
           paymentReference: item.paymentReference,
-          paymentDate: item.paymentDate ? new Date(item.paymentDate) : null,
+          paymentDate: item.paymentDate ? new Date(item.paymentDate) : pettySettled ? parsedDate : null,
           ...taxSnapshot,
         };
       }),

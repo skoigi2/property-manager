@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useProperty } from "@/lib/property-context";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
@@ -64,6 +65,7 @@ const now = new Date();
 export default function RecurringExpensesPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
+  const searchParams = useSearchParams();
   const currency = useProperty().currency;
   const [items, setItems]           = useState<RecurringItem[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
@@ -83,12 +85,33 @@ export default function RecurringExpensesPage() {
   });
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: formResolver(schema),
     defaultValues: { scope: "PROPERTY", frequency: "MONTHLY" },
   });
 
   const scope = watch("scope");
   const allUnits = properties.flatMap((p:any) => (p.units ?? []).map((u:any) => ({ ...u, propertyName: p.name })));
+
+  // Deep-link prefill from the Expenses form's "set it up as a recurring
+  // expense" link: opens the Add modal with what the user had already typed.
+  const prefillDone = useRef(false);
+  useEffect(() => {
+    if (prefillDone.current || searchParams.get("prefill") !== "1") return;
+    prefillDone.current = true;
+    const cat = searchParams.get("category") ?? "";
+    const sc = searchParams.get("scope");
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    reset({
+      description: searchParams.get("description") ?? "",
+      category: (CATEGORIES as readonly string[]).includes(cat) ? (cat as FormValues["category"]) : undefined,
+      amount: Number(searchParams.get("amount")) || undefined,
+      scope: sc === "PORTFOLIO" || sc === "UNIT" ? sc : "PROPERTY",
+      propertyId: searchParams.get("propertyId") ?? undefined,
+      frequency: "MONTHLY",
+      nextDueDate: `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`,
+    } as Partial<FormValues>);
+    setShowForm(true);
+  }, [searchParams, reset]);
 
   const load = useCallback(() => {
     setLoading(true);

@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import {
@@ -244,7 +244,7 @@ function LogExpenseModal({ job, onClose, onLogged }: {
   onLogged: (updated: Job) => void;
 }) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LogExpenseForm>({
-    resolver: zodResolver(logExpenseSchema),
+    resolver: formResolver(logExpenseSchema),
     defaultValues: {
       amount:      job.cost ?? 0,
       description: job.title,
@@ -645,7 +645,7 @@ export default function MaintenancePage() {
   const [deletingSchedule, setDeletingSchedule] = useState(false);
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<JobForm>({
-    resolver: zodResolver(jobSchema),
+    resolver: formResolver(jobSchema),
     defaultValues: { category: "OTHER", priority: "MEDIUM" },
   });
   const selectedPropertyId = watch("propertyId");

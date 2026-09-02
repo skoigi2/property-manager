@@ -84,6 +84,21 @@ describe("calcExpensePayment", () => {
     const r = calcExpensePayment({ amount: 1000, amountPaid: 1000, lineItems: [] });
     expect(r.status).toBe("PAID");
   });
+
+  it("treats a petty-cash-paid expense as settled even when amountPaid was never stamped", () => {
+    const r = calcExpensePayment({ amount: 1000, amountPaid: 0, paidFromPettyCash: true });
+    expect(r).toEqual({ total: 1000, paid: 1000, outstanding: 0, status: "PAID" });
+  });
+
+  it("petty-cash flag also settles itemised expenses with unpaid lines", () => {
+    const r = calcExpensePayment({
+      amount: 800,
+      paidFromPettyCash: true,
+      lineItems: [{ amountPaid: 0 }, { amountPaid: 300 }],
+    });
+    expect(r.status).toBe("PAID");
+    expect(r.outstanding).toBe(0);
+  });
 });
 
 describe("calcQtyRateAmount", () => {

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -50,7 +50,7 @@ export default function AgreementPage() {
   const [deleting,    setDeleting]    = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: formResolver(schema),
     defaultValues: AGREEMENT_FORM_DEFAULTS,
   });
   const paymentAccountId = watch("paymentAccountId") ?? null;

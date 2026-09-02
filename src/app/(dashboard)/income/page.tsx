@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
@@ -150,7 +150,7 @@ export default function IncomePage() {
 
   const { register, handleSubmit, watch, reset, setValue, formState: { errors } } =
     useForm<IncomeEntryInput>({
-      resolver: zodResolver(incomeEntrySchema),
+      resolver: formResolver(incomeEntrySchema),
       defaultValues: { type: "LONGTERM_RENT", agentCommission: 0 },
     });
 

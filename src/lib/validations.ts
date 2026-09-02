@@ -60,12 +60,17 @@ export const expenseLineItemSchema = z.object({
 
 export const expenseEntrySchema = z.object({
   date: z.string().min(1, "Date is required"),
-  scope: z.enum(["UNIT", "PROPERTY", "PORTFOLIO"]),
+  scope: z.enum(["UNIT", "PROPERTY", "PORTFOLIO"], { message: "Pick a scope" }),
   unitId: z.string().optional(),
   unitIds: z.array(z.string()).optional(),
   propertyId: z.string().optional(),
-  category: z.enum(EXPENSE_CATEGORIES),
-  amount: z.coerce.number().min(0),
+  // The form renders a "Select category" placeholder (value ""), so a
+  // never-touched select fails here with a human message instead of the
+  // first option silently winning.
+  category: z.enum(EXPENSE_CATEGORIES, { message: "Pick a category" }),
+  // Blank input coerces to 0 and is rejected: a zero-value expense is never
+  // meaningful and only produces "why is my P&L unchanged" confusion.
+  amount: z.coerce.number().positive("Amount must be greater than 0"),
   description: z.string().optional(),
   isSunkCost: z.boolean().optional(),
   paidFromPettyCash: z.boolean().optional(),
@@ -82,6 +87,29 @@ export const expenseEntrySchema = z.object({
   paymentDate: z.string().optional(),
   notes: z.string().optional(),
   lineItems: z.array(expenseLineItemSchema).optional(),
+}).superRefine((v, ctx) => {
+  // Scope/target consistency. Without these a "Whole Property" expense with
+  // no property picked sent propertyId "" (FK failure, generic "Failed to
+  // save"), and a "Unit" expense with nothing ticked saved with no unit or
+  // property at all, invisible under every property filter.
+  if (v.scope === "PROPERTY" && !v.propertyId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["propertyId"], message: "Pick the property this cost belongs to" });
+  }
+  if (v.scope === "UNIT") {
+    const count = (v.unitIds?.length ?? 0) || (v.unitId ? 1 : 0);
+    if (count === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["unitIds"], message: "Tick at least one unit, or change the scope to Whole Property" });
+    }
+  }
+  // Payment sanity (single-amount expenses only; lines carry their own).
+  if (!(v.lineItems?.length ?? 0)) {
+    if ((v.amountPaid ?? 0) > v.amount + 0.005) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["amountPaid"], message: "Amount paid cannot exceed the expense amount" });
+    }
+    if (v.paymentDate && !(v.amountPaid ?? 0) && !v.paidFromPettyCash) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["paymentDate"], message: "A payment date needs an amount paid. Enter it, or clear the date" });
+    }
+  }
 });
 
 export const pettyCashSchema = z.object({

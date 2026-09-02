@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { usePermissions } from "@/lib/use-permissions";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -19,7 +20,12 @@ export default function SettingsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"fees" | "info" | "branding" | "tax">("fees");
+  // Deep-linkable tabs (the Expenses form links to Settings → Tax).
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<"fees" | "info" | "branding" | "tax">(() => {
+    const t = searchParams.get("tab");
+    return t === "info" || t === "branding" || t === "tax" ? t : "fees";
+  });
   const [feeForm, setFeeForm] = useState<Record<string, { ratePercent: string; flatAmount: string }>>({});
 
   // Branding state

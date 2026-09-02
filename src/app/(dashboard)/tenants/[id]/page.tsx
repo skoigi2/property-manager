@@ -23,7 +23,7 @@ import { PortalMessagesTab } from "@/components/tenants/PortalMessagesTab";
 import { TenantFormFields, cleanAdditionalContacts } from "@/components/tenants/TenantFormFields";
 import { Modal } from "@/components/ui/Modal";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import { tenantSchema, type TenantInput } from "@/lib/validations";
 import ProofVerifyDrawer from "@/components/invoices/ProofVerifyDrawer";
 import { useProperty } from "@/lib/property-context";
@@ -321,7 +321,7 @@ export default function TenantDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const { register: editRegister, handleSubmit: editHandleSubmit, reset: editReset, control: editControl, formState: { errors: editErrors } } =
-    useForm<TenantInput>({ resolver: zodResolver(tenantSchema) });
+    useForm<TenantInput>({ resolver: formResolver(tenantSchema) });
 
   const tenantId = params.id as string;
 

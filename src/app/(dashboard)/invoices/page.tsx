@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import { z } from "zod";
 import {
   Plus,
@@ -143,7 +143,7 @@ function CreateModal({
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateForm>({
-    resolver: zodResolver(createSchema),
+    resolver: formResolver(createSchema),
     defaultValues: {
       periodYear:   now.getFullYear(),
       periodMonth:  now.getMonth() + 1,
@@ -357,7 +357,7 @@ function MarkPaidModal({
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<MarkPaidForm>({
-    resolver: zodResolver(markPaidSchema),
+    resolver: formResolver(markPaidSchema),
     defaultValues: {
       paidAt: format(new Date(), "yyyy-MM-dd"),
       paidAmount: invoice.totalAmount,

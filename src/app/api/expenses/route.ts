@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot, lineItemCategoryToAppliesTo } from "@/lib/tax-engine";
-import { calcQtyRateAmount, normalizeLineItemUnit } from "@/lib/calculations";
+import { calcQtyRateAmount, normalizeLineItemUnit, calcLinePaymentStatus } from "@/lib/calculations";
+import { resolveExpenseTargets } from "@/lib/expense-scope";
+import { checkExpenseTargets } from "@/lib/expense-targets";
 
 const EXPENSE_INCLUDE = {
   unit: { select: { unitNumber: true, property: { select: { name: true } } } },
@@ -115,10 +117,23 @@ export async function POST(req: Request) {
   }
 
   const vendorId = body.vendorId as string | undefined | null;
-  const { date, paidFromPettyCash, unitIds, lineItems, ...rest } = parsed.data;
+  const { date, paidFromPettyCash, unitIds: rawUnitIds, lineItems, ...rest } = parsed.data;
   const parsedDate = new Date(date);
 
-  // Derive each line's net amount: qty × rate (rounded to 2dp) when both are
+  // Scope decides which target ids count (stale ids from a form that switched
+  // scope are dropped), split units must share one property, and the caller
+  // must actually have access to that property.
+  const targets = await checkExpenseTargets(
+    resolveExpenseTargets(rest.scope, { unitId: rest.unitId, unitIds: rawUnitIds, propertyId: rest.propertyId }),
+  );
+  if (!targets.ok) return Response.json({ error: targets.error }, { status: targets.status });
+  const { unitIds, unitId: resolvedUnitId, effectivePropertyId } = targets;
+  const isMultiUnit = unitIds.length > 1;
+  // A split across several units is stored against their (shared) property;
+  // a single-unit expense resolves its property through the unit relation.
+  const resolvedPropertyId = isMultiUnit ? effectivePropertyId : targets.propertyId;
+
+  // Derive each line's net amount: qty x rate (rounded to 2dp) when both are
   // present, else the typed amount. The derived value IS the stored `amount`.
   const lineItemAmounts = (lineItems ?? []).map((item) =>
     item.quantity != null && item.unitRate != null
@@ -132,49 +147,21 @@ export async function POST(req: Request) {
       ? lineItemAmounts.reduce((sum, a) => sum + a, 0)
       : rest.amount;
 
-  // Determine unit / property resolution for multi-unit
-  const isMultiUnit = unitIds && unitIds.length > 1;
-  let resolvedUnitId = rest.unitId;
-  let resolvedPropertyId = rest.propertyId;
-
-  if (isMultiUnit) {
-    resolvedUnitId = undefined;
-    const firstUnit = await prisma.unit.findUnique({
-      where: { id: unitIds![0] },
-      select: { propertyId: true },
-    });
-    resolvedPropertyId = firstUnit?.propertyId ?? undefined;
-  } else if (unitIds && unitIds.length === 1) {
-    resolvedUnitId = unitIds[0];
-  }
-
-  // Pre-load tax configs for the property so we can apply snapshots to line items
-  const taxPropertyId = resolvedPropertyId ?? (resolvedUnitId
-    ? (await prisma.unit.findUnique({ where: { id: resolvedUnitId }, select: { propertyId: true } }))?.propertyId
-    : undefined);
-  const taxOrgId = session!.user.organizationId;
-  // Rate as of the expense date — a backdated entry gets the rate in force
+  // Rate as of the expense date: a backdated entry gets the rate in force
   // then, not today's (the snapshot is stored absolute, never recomputed).
-  const taxConfigs = taxPropertyId && taxOrgId
-    ? await getActiveTaxConfigs(taxPropertyId, taxOrgId, parsedDate)
+  const taxOrgId = session!.user.organizationId;
+  const taxConfigs = effectivePropertyId && taxOrgId
+    ? await getActiveTaxConfigs(effectivePropertyId, taxOrgId, parsedDate)
     : [];
 
-  // Resolve propertyId for petty-cash scoping
-  let pettyCashPropertyId: string | null = null;
-  if (paidFromPettyCash) {
-    if (resolvedPropertyId) {
-      pettyCashPropertyId = resolvedPropertyId;
-    } else if (resolvedUnitId) {
-      const unit = await prisma.unit.findUnique({
-        where: { id: resolvedUnitId },
-        select: { propertyId: true },
-      });
-      pettyCashPropertyId = unit?.propertyId ?? null;
-    }
-  }
+  const pettyCashPropertyId = paidFromPettyCash ? effectivePropertyId ?? null : null;
 
-  const shareAmount =
-    isMultiUnit && unitIds ? computedAmount / unitIds.length : computedAmount;
+  const shareAmount = isMultiUnit ? computedAmount / unitIds.length : computedAmount;
+
+  // Petty cash pays the whole bill the moment it is logged: the OUT row has
+  // already left the tin. Stamp the payment fields so the derived status is
+  // PAID without the user retyping the amount (and so exports agree).
+  const pettySettled = !!paidFromPettyCash;
 
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
   // Nested writes (unitAllocations / lineItems via `create`) let us atomically
@@ -198,10 +185,11 @@ export async function POST(req: Request) {
       ...normalizeLineItemUnit(item.unit, item.unitOther),
       discountAmount: item.discountAmount ?? null,
       isVatable,
-      paymentStatus: item.paymentStatus ?? "UNPAID",
-      amountPaid: item.amountPaid ?? 0,
+      // Status is derived from the paid amount, never trusted from the client.
+      amountPaid: pettySettled ? amount : item.amountPaid ?? 0,
+      paymentStatus: calcLinePaymentStatus(amount, pettySettled ? amount : item.amountPaid ?? 0),
       paymentReference: item.paymentReference,
-      paymentDate: item.paymentDate ? new Date(item.paymentDate) : null,
+      paymentDate: item.paymentDate ? new Date(item.paymentDate) : pettySettled ? parsedDate : null,
       ...taxSnapshot,
     };
   }) ?? [];
@@ -218,15 +206,15 @@ export async function POST(req: Request) {
         isSunkCost: rest.isSunkCost ?? false,
         paidFromPettyCash: paidFromPettyCash ?? false,
         // Line items, when present, are the source of truth for paid amounts + tax.
-        amountPaid: lineItemRows.length > 0 ? 0 : rest.amountPaid ?? 0,
+        amountPaid: lineItemRows.length > 0 ? 0 : pettySettled ? computedAmount : rest.amountPaid ?? 0,
         dueDate: rest.dueDate ? new Date(rest.dueDate) : null,
         vatAmount: lineItemRows.length > 0 ? null : rest.vatAmount ?? null,
         // Informational only — never subtracted from `amount`, never in totals.
         // With line items, discounts live on the items instead.
         discountAmount: lineItemRows.length > 0 ? null : rest.discountAmount ?? null,
-        paymentMethod: rest.paymentMethod ?? null,
+        paymentMethod: rest.paymentMethod ?? (pettySettled ? "CASH" : null),
         paymentReference: rest.paymentReference || null,
-        paymentDate: rest.paymentDate ? new Date(rest.paymentDate) : null,
+        paymentDate: rest.paymentDate ? new Date(rest.paymentDate) : pettySettled ? parsedDate : null,
         notes: rest.notes || null,
         vendorId: vendorId || null,
         unitId: resolvedUnitId,

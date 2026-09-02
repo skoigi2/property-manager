@@ -1326,12 +1326,30 @@
     </div>
 
     <div class="sub-section">
+      <h3>Adding an expense &mdash; the quick path</h3>
+      <p style="margin-bottom:12px">Click <strong>Add Expense</strong> and a slide-over opens on the right, so the list stays visible. The everyday case takes four fields: the form already has today's date filled in, so pick the <strong>scope</strong> and the unit or property, pick a <strong>category</strong>, type the <strong>amount</strong>, and save. Everything else is optional.</p>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Where does the cost belong?</h4><p>Choose the scope first. <em>Unit</em> shows a checklist of units (tick several to split the cost equally; once one is ticked, units in other properties grey out because one expense belongs to one property). <em>Whole Property</em> shows a property dropdown. <em>Whole Portfolio</em> needs nothing. The form will not save a Unit expense with no unit ticked, or a Property expense with no property picked &mdash; it tells you exactly what is missing.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Category and amount</h4><p>The category starts on <em>Select category&hellip;</em> rather than silently defaulting to the first option, and the amount must be greater than zero. Type the <strong>net</strong> figure (excluding VAT, after any discount). For a bill with several parts, click <strong>Itemise</strong> under the amount &mdash; the line-item editor appears right there and the total is computed from the lines.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Payment (optional)</h4><p>Leave the payment block alone for an unpaid bill; it will show as <span class="badge badge-red">UNPAID</span> with a balance. Click <strong>Paid in full</strong> to settle it in one click (amount paid = amount, payment date = expense date), or type a partial amount. If a VAT rule is configured, an <strong>Apply VAT</strong> button fills the VAT figure from the amount.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Save</h4><p>The row appears at the top of the month you are viewing. If you dated it in a different month, a toast says which month it went to with a <em>View that month</em> link, so nothing "disappears". Expense dates cannot be in the future.</p></div></div>
+      </div>
+      <ul class="feature-list">
+        <li><strong>Nothing is lost by accident</strong> &mdash; closing the form (the &times;, Cancel, or the Escape key) with unsaved changes asks first. Clicking on the backdrop never closes it.</li>
+        <li><strong>Errors say what went wrong</strong> &mdash; a locked subscription, a permission denial, or a validation problem each show their real message instead of a generic "Failed to save".</li>
+        <li><strong>Duplicate warning</strong> &mdash; the same category and amount within three days of an existing entry (including across a month boundary) shows a soft warning; you can still save.</li>
+        <li><strong>Standing costs</strong> &mdash; a "set it up as a recurring expense" link at the bottom of the form carries what you typed over to the Recurring Expenses page, so monthly bills only need entering once.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
       <h3>Line items — itemised bills, Qty × Rate, and discounts</h3>
-      <p style="margin-bottom:12px">A quick expense is just a date, category, and amount. But for an itemised bill (say a contractor invoice with labour and materials), click <strong>Add line</strong> to break the expense into line items. Each line carries its own type (<em>Labour / Material / Quote</em>), amount, tax flag, and payment status — and the expense total is computed from the lines automatically.</p>
+      <p style="margin-bottom:12px">A quick expense is just a date, category, and amount. But for an itemised bill (say a contractor invoice with labour and materials), click <strong>Itemise</strong> under the Amount field to break the expense into line items; the editor opens right below the amount, and <strong>Add line</strong> adds more rows. Each line carries its own type (<em>Labour / Material / Fixed-price quote / Transaction charge</em>), amount, <em>Taxable</em> tick-box, and amount paid — and the expense total is computed from the lines automatically. Remove every line to go back to a single amount.</p>
       <ul class="feature-list">
         <li><strong>Qty × Rate (optional)</strong> — fill in a quantity and a per-unit rate (fractional quantities like <code>2.5</code> kg are fine) and the line's amount is calculated for you and shown read-only. Leave them blank to type the amount directly, exactly as before. The breakdown is saved with the line, so it's still there when you edit later.</li>
         <li><strong>Discount received</strong> — if a vendor gave you money off, record the discount value here (on a line, or in the payment block for a single-amount expense). This is <em>for your vendor-savings reporting only</em>: the <strong>Amount</strong> field is always what you were actually charged <em>after</em> the discount, and the discount is never added to or subtracted from any total, balance, or report figure. Think of it as "we would have paid X more at list price".</li>
-        <li><strong>Per-line payments</strong> — mark individual lines Unpaid / Partial / Paid with their own references; the expense's overall balance is derived from the lines.</li>
+        <li><strong>Per-line payments</strong> — type the amount paid on each line (or click <em>Pay in full</em>); the line's Unpaid / Partial / Paid badge is derived from that figure, so it can never disagree with the expense's overall status, which is derived from the lines the same way. A line that was paid in full stays paid in full if you later correct its amount. Payment date and reference fields appear once something has been paid.</li>
+        <li><strong>Payment method and due date stay on the expense</strong> — an itemised bill still has one payment method and one due date; only amounts, dates, references and VAT move to the lines.</li>
       </ul>
       <div class="callout note">
         <span class="callout-icon">ℹ️</span>
@@ -1366,12 +1384,16 @@
         <span class="tab-pill"><span class="badge badge-red">UNPAID</span></span>
       </p>
       <ul class="feature-list">
+        <li><strong>Paid in full</strong> — one click in the payment block settles the expense: amount paid becomes the amount and the payment date defaults to the expense date. You can still overtype either.</li>
+        <li><strong>Apply VAT</strong> — when a VAT rule exists in Settings &rarr; Tax, a button under the VAT field computes it from the net amount for you.</li>
+        <li>The form refuses an amount paid larger than the amount, and a payment date with nothing paid, with a message saying which to fix.</li>
         <li>The page surfaces a <strong>Balance + Due</strong> column, and an overdue banner lists any expense past its due date with a balance owing</li>
-        <li><strong>Bulk "Mark paid"</strong> — select several expenses and settle them in full with one payment date</li>
+        <li><strong>Bulk "Mark paid"</strong> — select several expenses and settle them in full with today's date as the payment date (after a confirmation)</li>
         <li>The add form warns softly about <strong>possible duplicates</strong> (same category + amount within ±3 days of an existing entry)</li>
-        <li>Click the <strong>🕓 Clock</strong> icon on any row for its full change history with field-level before/after diffs</li>
-        <li>Catastrophic actions are guarded — "Delete all" requires typing <code>DELETE</code> to confirm</li>
+        <li>Click the <strong>🕓 Clock</strong> icon on any row (desktop and mobile) for its full change history with field-level before/after diffs</li>
+        <li>Catastrophic actions are guarded — "Delete all" lives behind the <strong>&hellip;</strong> menu next to Export and requires typing <code>DELETE</code> to confirm</li>
       </ul>
+      <p style="margin-top:12px"><strong>Finding things:</strong> the search box matches description, vendor, payment reference and notes (line items included). The filter dropdowns are labelled by what they filter — Category, Scope, Payment, Cost type (operating vs capital) and Receipt. The Unit/Scope column reads <em>Unit 4B</em>, <em>Whole property</em> or <em>Portfolio</em>, and on a phone each card shows the property and unit it belongs to.</p>
     </div>
 
     <div class="sub-section">
@@ -1385,7 +1407,7 @@
         <img src="guide-screenshots/14-petty-cash.png" alt="Petty cash page" loading="lazy">
         <div class="screenshot-caption">Petty Cash — running balance with top-ups, withdrawals, and reconciliation badges</div>
       </div>
-      <p style="margin-bottom:12px">The petty cash balance is always recalculated from all entries (never stored). The golden rule: <strong>spending belongs on the Expenses page; petty cash is only for cash movements.</strong> Tick <em>Paid from petty cash</em> when logging an expense and the matching cash-out entry is created (and removed) automatically. The page actively helps you keep this clean:</p>
+      <p style="margin-bottom:12px">The petty cash balance is always recalculated from all entries (never stored). The golden rule: <strong>spending belongs on the Expenses page; petty cash is only for cash movements.</strong> Tick <em>Paid from petty cash</em> when logging an expense and the matching cash-out entry is created (and removed) automatically; the expense is also marked <span class="badge badge-green">PAID</span> in full with Cash as the method, because the money has already left the tin &mdash; you never need to type the amount paid again. The form shows the current float balance for that property while the box is ticked. The page actively helps you keep this clean:</p>
       <ul class="feature-list">
         <li>Trying to record a manual cash-out shows a nudge with a <strong>Record as expense instead</strong> button that opens the Expenses form pre-filled — because a manual OUT never reaches the P&amp;L</li>
         <li>An <strong>"Unaccounted cash out"</strong> banner totals any cash that left the float without a linked expense, with a one-click view of just those rows</li>
@@ -1400,7 +1422,7 @@
       <p style="margin-bottom:12px">The single most important rule: <strong>the Amount you type is always the net figure, excluding VAT</strong>. VAT lives in its own field, never inside the amount. This keeps your P&amp;L honest (VAT you can reclaim isn't a cost) and makes the Tax Summary report accurate.</p>
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Set your tax rules once</h4><p>In <strong>Settings → Tax</strong>, configure the taxes that apply to your organisation — e.g. VAT at your local rate, or withholding tax on contractor payments. Each rule has a type (<em>ADDITIVE</em> like VAT/GST, or <em>WITHHELD</em> like WHT/TDS), a rate, what it applies to (contractor labour, materials, vendor invoices, rent, management fees…), and an <em>effective from</em> date. Rules can also be overridden per property.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Enter the net amount</h4><p>From a supplier invoice, take the <em>pre-VAT</em> subtotal. For a single-amount expense, type it as the Amount and put the VAT figure in <strong>VAT Amount</strong>. For an itemised expense, enter net amounts per line and tick the <strong>Tax</strong> box on lines that carry VAT — the configured rate is applied automatically and the computed VAT shows as a badge before you save.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Enter the net amount</h4><p>From a supplier invoice, take the <em>pre-VAT</em> subtotal. For a single-amount expense, type it as the Amount and either put the VAT figure in <strong>VAT Amount</strong> or click <strong>Apply VAT</strong> to compute it from your rule. For an itemised expense, enter net amounts per line and tick <strong>Taxable</strong> on lines that carry VAT — the configured rate is applied automatically (by line type: labour, materials or vendor invoice) and the computed VAT shows as a badge before you save. The preview uses the rules of the property the expense is for, not the one selected in the header.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Saved once, fixed forever</h4><p>The VAT is computed using the rate in force <em>on the expense date</em> and stored on the record as an absolute figure. Reports read that stored figure — they never recalculate from today's rate — so historical records are never rewritten.</p></div></div>
       </div>
       <ul class="feature-list">

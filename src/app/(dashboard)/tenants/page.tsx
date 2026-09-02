@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useProperty } from "@/lib/property-context";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -130,7 +130,7 @@ export default function TenantsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const { register, handleSubmit, reset, control, formState: { errors } } =
-    useForm<TenantInput>({ resolver: zodResolver(tenantSchema) });
+    useForm<TenantInput>({ resolver: formResolver(tenantSchema) });
 
   const allUnits = properties.flatMap((p: any) =>
     (p.units ?? []).map((u: any) => ({ ...u, propertyName: p.name }))

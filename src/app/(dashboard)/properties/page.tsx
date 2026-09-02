@@ -20,7 +20,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
@@ -1393,12 +1393,12 @@ export default function PropertiesPage() {
   const [deletingProp, setDeletingProp] = useState(false);
 
   const propForm = useForm<PropertyForm>({
-    resolver: zodResolver(propertySchema),
+    resolver: formResolver(propertySchema),
     defaultValues: { type: "LONGTERM", city: "" },
   });
 
   const unitForm = useForm<UnitForm>({
-    resolver: zodResolver(unitSchema),
+    resolver: formResolver(unitSchema),
     defaultValues: { type: "ONE_BED", status: "VACANT" },
   });
 

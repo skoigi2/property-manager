@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -101,7 +101,7 @@ export default function PettyCashPage() {
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<PettyCashInput>({
-    resolver: zodResolver(pettyCashSchema),
+    resolver: formResolver(pettyCashSchema),
     defaultValues: { type: "IN" },
   });
   const watchedType = watch("type");

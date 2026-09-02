@@ -13,7 +13,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { UserCog, Plus, Check, X, KeyRound, Building2, ExternalLink, Pencil, Mail, Clock, Trash2, ArrowUp } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import { z } from "zod";
 import toast from "react-hot-toast";
 
@@ -149,7 +149,7 @@ export default function UsersPage() {
   const [approving, setApproving] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateForm>({
-    resolver: zodResolver(createSchema),
+    resolver: formResolver(createSchema),
     defaultValues: { role: "MANAGER", propertyIds: [] },
   });
 
@@ -158,14 +158,14 @@ export default function UsersPage() {
     handleSubmit: handleSubmitReset,
     reset: resetResetForm,
     formState: { errors: resetErrors },
-  } = useForm<ResetForm>({ resolver: zodResolver(resetSchema) });
+  } = useForm<ResetForm>({ resolver: formResolver(resetSchema) });
 
   const {
     register: registerEdit,
     handleSubmit: handleSubmitEdit,
     reset: resetEditForm,
     formState: { errors: editErrors },
-  } = useForm<EditForm>({ resolver: zodResolver(editSchema) });
+  } = useForm<EditForm>({ resolver: formResolver(editSchema) });
 
   const selectedRole = watch("role");
 

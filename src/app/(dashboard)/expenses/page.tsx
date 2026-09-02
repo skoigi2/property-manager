@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { formResolver } from "@/lib/form-resolver";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -22,7 +23,7 @@ import { formatDate } from "@/lib/date-utils";
 import {
   Trash2, Plus, Receipt, Wallet, Pencil, ChevronDown, ChevronRight, ChevronUp,
   CheckCircle2, Clock, AlertCircle, FileDown, Search, AlertTriangle, X,
-  ChevronsUpDown, GripVertical, Paperclip, RepeatIcon,
+  ChevronsUpDown, GripVertical, Paperclip, RepeatIcon, MoreHorizontal, ListPlus, Calculator,
 } from "lucide-react";
 import { ExpenseDocumentUpload, type ExpenseDocumentUploadHandle } from "@/components/expenses/ExpenseDocumentUpload";
 import { ExportRangeDialog, toYmd, type ExportRange } from "@/components/ui/ExportRangeDialog";
@@ -30,7 +31,7 @@ import { ExpenseDocumentList } from "@/components/expenses/ExpenseDocumentList";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { exportExpenses } from "@/lib/excel-export";
 import { formatCurrency, formatNumber } from "@/lib/currency";
-import { calcExpensePayment } from "@/lib/calculations";
+import { calcExpensePayment, calcLinePaymentStatus } from "@/lib/calculations";
 import { clsx } from "clsx";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
@@ -108,10 +109,40 @@ type LineCat = typeof LINE_CATEGORIES[number];
 const LINE_CAT_LABELS: Record<string, string> = {
   LABOUR: "Labour",
   MATERIAL: "Material",
-  QUOTE: "Quote",
+  QUOTE: "Fixed-price quote",
   TRANSACTION_CHARGE: "Transaction charge (M-Pesa/bank)",
 };
 type PayStatus = "UNPAID" | "PARTIAL" | "PAID";
+
+/** Local-date YYYY-MM-DD (toISOString would roll back a day west of UTC). */
+function todayYmd(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function monthLabel(d: Date): string {
+  return d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+function sameMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+/** Turn an API failure into something a person can act on. A 400 from zod
+ *  arrives as { error: { fieldErrors, formErrors } }; 402 (subscription
+ *  lock), 403 (permission) and our own scope checks arrive as a string. */
+async function readApiError(res: Response, fallback: string): Promise<string> {
+  const data = await res.json().catch(() => null);
+  const err = data?.error;
+  if (typeof err === "string" && err.trim()) return err;
+  if (res.status === 402) return "Your subscription is locked. Billing needs attention before you can add expenses.";
+  if (res.status === 403) return "You do not have permission to do this.";
+  if (err && typeof err === "object") {
+    const fe = (err.fieldErrors ?? {}) as Record<string, string[]>;
+    const first = Object.entries(fe).find(([, v]) => Array.isArray(v) && v.length > 0);
+    if (first) return `${first[0]}: ${first[1][0]}`;
+    if (Array.isArray(err.formErrors) && err.formErrors.length > 0) return err.formErrors[0];
+  }
+  return fallback;
+}
 
 // Unit-of-measure dropdown, grouped. Mirrors the UnitOfMeasure enum —
 // descriptive context for qty × rate only, never used in a calculation.
@@ -155,7 +186,8 @@ interface LineItemDraft {
   // net-of-discount; this never enters any total.
   discountAmount: string;
   isVatable: boolean;
-  paymentStatus: PayStatus;
+  // Payment status is DERIVED from amountPaid vs amount (calcLinePaymentStatus),
+  // never chosen by hand, so it can't contradict the row-level badge.
   amountPaid: string;
   paymentReference: string;
   // Per-line payment date (YYYY-MM-DD) — items settle on different days.
@@ -163,7 +195,11 @@ interface LineItemDraft {
 }
 
 function blankLine(): LineItemDraft {
-  return { category: "LABOUR", description: "", date: "", amount: "", quantity: "", unitRate: "", unit: "", unitOther: "", discountAmount: "", isVatable: false, paymentStatus: "UNPAID", amountPaid: "", paymentReference: "", paymentDate: "" };
+  return { category: "LABOUR", description: "", date: "", amount: "", quantity: "", unitRate: "", unit: "", unitOther: "", discountAmount: "", isVatable: false, amountPaid: "", paymentReference: "", paymentDate: "" };
+}
+
+function lineStatus(item: Pick<LineItemDraft, "amount" | "amountPaid">): PayStatus {
+  return calcLinePaymentStatus(parseFloat(item.amount) || 0, parseFloat(item.amountPaid) || 0);
 }
 
 /** round2(qty × rate) when both fields hold numbers, else null (amount is typed directly). */
@@ -214,9 +250,18 @@ function LineItemsEditor({
         const derived = qtyRateDerived(merged);
         if (derived !== null) merged.amount = String(derived);
       }
+      // A line that was paid in full stays paid in full when its amount is
+      // corrected — otherwise a typo fix silently turned "Paid" into "Partial".
+      if (merged.amount !== item.amount && lineStatus(item) === "PAID") {
+        merged.amountPaid = merged.amount;
+      }
       return merged;
     });
     onChange(next);
+  }
+  function payInFull(idx: number) {
+    const item = items[idx];
+    update(idx, { amountPaid: item.amount, paymentDate: item.paymentDate || todayYmd() });
   }
   function remove(idx: number) { onChange(items.filter((_, i) => i !== idx)); }
   function add() { onChange([...items, blankLine()]); }
@@ -258,9 +303,11 @@ function LineItemsEditor({
         <div className="space-y-3">
           {items.map((item, idx) => (
             <div key={idx} className="border border-gray-100 rounded-xl p-3 space-y-2.5 bg-cream/30">
-              {/* Row 1: category + description + amount + VAT */}
-              <div className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-3">
+              {/* Row 1: category + description + amount + VAT.
+                  Two columns on phones (the slide-over is full-width there),
+                  the 12-col layout from sm up. */}
+              <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                <div className="sm:col-span-3">
                   <label className="block text-caption text-gray-400 mb-1">Type</label>
                   <select
                     value={item.category}
@@ -270,7 +317,7 @@ function LineItemsEditor({
                     {LINE_CATEGORIES.map((c) => <option key={c} value={c}>{LINE_CAT_LABELS[c] ?? c}</option>)}
                   </select>
                 </div>
-                <div className="col-span-4">
+                <div className="sm:col-span-4">
                   <label className="block text-caption text-gray-400 mb-1">Description</label>
                   <input
                     type="text"
@@ -280,7 +327,7 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="sm:col-span-3">
                   <label className="block text-caption text-gray-400 mb-1">
                     Amount{qtyRateDerived(item) !== null && <span className="text-gray-300"> (derived)</span>}
                   </label>
@@ -297,25 +344,28 @@ function LineItemsEditor({
                     }`}
                   />
                 </div>
-                <div className="col-span-1 flex flex-col items-center gap-1">
-                  <label className="block text-caption text-gray-400 ">Tax</label>
-                  <input
-                    type="checkbox"
-                    checked={item.isVatable}
-                    onChange={(e) => update(idx, { isVatable: e.target.checked })}
-                    className="w-4 h-4 rounded accent-gold mt-1"
-                  />
-                </div>
-                <div className="col-span-1 flex justify-end pb-1">
-                  <button type="button" onClick={() => remove(idx)} className="text-gray-300 hover:text-expense transition-colors p-1">
+                <div className="sm:col-span-2 flex items-end justify-between gap-2 pb-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={item.isVatable}
+                      onChange={(e) => update(idx, { isVatable: e.target.checked })}
+                      className="w-4 h-4 rounded accent-gold"
+                    />
+                    <span className="flex items-center gap-1 text-caption text-gray-500">
+                      Taxable
+                      <HelpTip text="Tick if this line attracts VAT or withholding tax. The rate is looked up from your tax rules (Settings → Tax tab) by line type: labour, materials, or vendor invoice." />
+                    </span>
+                  </label>
+                  <button type="button" onClick={() => remove(idx)} aria-label="Remove line" className="text-gray-300 hover:text-expense transition-colors p-1">
                     <Trash2 size={13} />
                   </button>
                 </div>
               </div>
 
               {/* Row 1b: optional per-line date + qty × unit × rate + discount received */}
-              <div className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-3">
+              <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                <div className="sm:col-span-3">
                   <label className="flex items-center gap-1 text-caption text-gray-400 mb-1">
                     Date <span className="text-gray-300">(opt.)</span>
                     <HelpTip text="When this line's work/charge happened — items on one invoice can span different days. The expense's own date above still decides which month it reports in." />
@@ -327,7 +377,7 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-caption text-gray-400 mb-1">Qty <span className="text-gray-300">(opt.)</span></label>
                   <input
                     type="number"
@@ -339,7 +389,7 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-caption text-gray-400 mb-1">Unit</label>
                   <select
                     value={item.unit}
@@ -363,7 +413,7 @@ function LineItemsEditor({
                     />
                   )}
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-caption text-gray-400 mb-1">Rate <span className="text-gray-300">(per unit)</span></label>
                   <input
                     type="number"
@@ -375,7 +425,7 @@ function LineItemsEditor({
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2 sm:col-span-3">
                   <label className="flex items-center gap-1 text-caption text-gray-400 mb-1">
                     Discount received
                     <HelpTip text="The discount you got off the list price — for vendor-savings reporting only. Amount stays what you were actually charged; this is never subtracted from it." />
@@ -415,46 +465,41 @@ function LineItemsEditor({
                 <p className="text-caption text-gray-400 italic">No matching tax rule for this category.</p>
               )}
 
-              {/* Row 2: payment status */}
+              {/* Row 2: payment — status is derived from the paid amount */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
                 <div>
-                  <label className="block text-caption text-gray-400 mb-1">Payment</label>
-                  <select
-                    value={item.paymentStatus}
-                    onChange={(e) => update(idx, { paymentStatus: e.target.value as PayStatus, amountPaid: e.target.value === "PAID" ? item.amount : item.amountPaid })}
+                  <label className="block text-caption text-gray-400 mb-1">Amount Paid</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={item.amountPaid}
+                    onChange={(e) => update(idx, { amountPaid: e.target.value })}
+                    placeholder="0"
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
-                  >
-                    <option value="UNPAID">Unpaid</option>
-                    <option value="PARTIAL">Partial</option>
-                    <option value="PAID">Paid</option>
-                  </select>
+                  />
                 </div>
-                {(item.paymentStatus === "PARTIAL" || item.paymentStatus === "PAID") && (
-                  <div>
-                    <label className="block text-caption text-gray-400 mb-1">Amount Paid</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={item.amountPaid}
-                      onChange={(e) => update(idx, { amountPaid: e.target.value })}
-                      placeholder="0"
-                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
-                    />
-                  </div>
-                )}
-                {(item.paymentStatus === "PARTIAL" || item.paymentStatus === "PAID") && (
+                <div className="flex items-center gap-2 pb-1.5 self-end">
+                  <PayBadge status={lineStatus(item)} />
+                  {lineStatus(item) !== "PAID" && (parseFloat(item.amount) || 0) > 0 && (
+                    <button type="button" onClick={() => payInFull(idx)} className="text-caption text-gold hover:text-gold-dark font-medium whitespace-nowrap">
+                      Pay in full
+                    </button>
+                  )}
+                </div>
+                {lineStatus(item) !== "UNPAID" && (
                   <div>
                     <label className="block text-caption text-gray-400 mb-1">Paid On</label>
                     <input
                       type="date"
                       value={item.paymentDate}
+                      max={todayYmd()}
                       onChange={(e) => update(idx, { paymentDate: e.target.value })}
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-caption bg-white focus:outline-none focus:ring-1 focus:ring-gold"
                     />
                   </div>
                 )}
-                {(item.paymentStatus === "PARTIAL" || item.paymentStatus === "PAID") && (
+                {lineStatus(item) !== "UNPAID" && (
                   <div>
                     <label className="block text-caption text-gray-400 mb-1">Payment Reference</label>
                     <input
@@ -539,6 +584,13 @@ export default function ExpensesPage() {
   const entries = entriesData ?? [];
   const [showForm, setShowForm] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  // Unsaved-changes guard for the slide-over: what the form looked like when
+  // it opened (extras that live outside react-hook-form), plus the confirm.
+  const openSnapshot = useRef<string>("");
+  const pendingAfterDiscard = useRef<(() => void) | null>(null);
+  const [discardConfirm, setDiscardConfirm] = useState(false);
+  const [markPaidConfirm, setMarkPaidConfirm] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const receiptUploaderRef = useRef<ExpenseDocumentUploadHandle>(null);
   const [pettyCashBalance, setPettyCashBalance] = useState<number | null>(null);
   const [editEntry, setEditEntry] = useState<any | null>(null);
@@ -591,9 +643,17 @@ export default function ExpensesPage() {
   const [dragCol, setDragCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
-  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ExpenseEntryInput>({
-    resolver: zodResolver(expenseEntrySchema),
-    defaultValues: { scope: "UNIT", isSunkCost: false, paidFromPettyCash: false, amount: 0 },
+  // Fresh-form defaults: today's date, blank amount (0 was rejected but
+  // still had to be deleted first), category left for the user to pick.
+  const NEW_DEFAULTS = useMemo<Partial<ExpenseEntryInput>>(
+    () => ({ scope: "UNIT", isSunkCost: false, paidFromPettyCash: false, date: todayYmd(), unitIds: [] }),
+    [],
+  );
+  const EMPTY_EXTRAS = JSON.stringify({ lineItems: [], selectedUnitIds: [], vendorId: null });
+
+  const { register, handleSubmit, watch, reset, setValue, getValues, setError, formState: { errors, isDirty, isSubmitted } } = useForm<ExpenseEntryInput>({
+    resolver: formResolver(expenseEntrySchema),
+    defaultValues: NEW_DEFAULTS,
   });
 
   const scope = watch("scope");
@@ -601,6 +661,8 @@ export default function ExpensesPage() {
   const wCategory = watch("category");
   const wAmount = watch("amount");
   const wDate = watch("date");
+  const wPropertyId = watch("propertyId");
+  const wDescription = watch("description");
 
   // Configs in force on the typed expense date — keeps the entry-time tax
   // preview honest for backdated entries (the server re-resolves on save;
@@ -616,6 +678,18 @@ export default function ExpensesPage() {
       ),
     [properties],
   );
+  // The property the form is actually about — drives the tax-rule preview and
+  // the petty-cash balance. Not the header selection: in "All properties"
+  // mode the two differ, and the preview then applied the wrong rules.
+  const lockedPropertyId = useMemo<string | null>(() => {
+    if (selectedUnitIds.length === 0) return null;
+    return allUnits.find((u: any) => u.id === selectedUnitIds[0])?.propertyId ?? null;
+  }, [allUnits, selectedUnitIds]);
+  const formPropertyId: string | null =
+    scope === "PROPERTY" ? (wPropertyId || selectedId || null)
+    : scope === "UNIT" ? (lockedPropertyId ?? selectedId ?? null)
+    : (selectedId ?? null);
+
   // Scope the checkbox list to the header-selected property, but always keep
   // units that are already checked (editing a cross-property expense must not
   // hide its own units). A search box narrows further for large buildings.
@@ -630,53 +704,146 @@ export default function ExpensesPage() {
     });
   }, [allUnits, selectedId, selectedUnitIds, unitSearch]);
 
-  // Auto-compute amount from line items
+  // Auto-compute amount from line items. Re-validate only after a submit
+  // attempt (isSubmitted is a stable boolean; keying on the error object
+  // itself would re-run on every validation and loop).
   useEffect(() => {
     if (lineItems.length > 0) {
       const total = lineItems.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
-      setValue("amount", total);
+      setValue("amount", total, { shouldValidate: isSubmitted });
     }
-  }, [lineItems, setValue]);
+  }, [lineItems, setValue, isSubmitted]);
 
-  // Fetch tax configs when form opens.
+  // Mirror the unit picker into the form so the schema's "tick at least one
+  // unit" rule sees it (and clears the error as soon as the user fixes it).
+  useEffect(() => {
+    setValue("unitIds", selectedUnitIds, { shouldValidate: isSubmitted });
+  }, [selectedUnitIds, setValue, isSubmitted]);
+
+  // Petty cash pays the whole bill: keep Amount Paid = Amount, default the
+  // method to Cash and the payment date to the expense date. The server
+  // stamps the same, so the derived status is PAID either way.
+  useEffect(() => {
+    if (!paidFromPettyCash) return;
+    setValue("amountPaid", Number(wAmount) || 0);
+    if (!getValues("paymentMethod")) setValue("paymentMethod", "CASH");
+    if (!getValues("paymentDate") && wDate) setValue("paymentDate", wDate);
+  }, [paidFromPettyCash, wAmount, wDate, setValue, getValues]);
+
+  // Fetch tax configs for the property the form is about (see formPropertyId).
   // orgId is optional — the API derives it from propertyId when absent (covers super-admin).
   useEffect(() => {
     if (!showForm) return;
     const params = new URLSearchParams();
     const orgId = session?.user?.organizationId ?? "";
-    if (orgId)      params.set("orgId",      orgId);
-    if (selectedId) params.set("propertyId", selectedId);
-    if (!orgId && !selectedId) { setTaxConfigs([]); return; }
+    if (orgId)          params.set("orgId",      orgId);
+    if (formPropertyId) params.set("propertyId", formPropertyId);
+    if (!orgId && !formPropertyId) { setTaxConfigs([]); return; }
     fetch(`/api/tax-configs?${params}`)
       .then((r) => r.ok ? r.json() : [])
       .then((configs: TaxConfigMeta[]) => setTaxConfigs(configs.filter((c) => c.isActive !== false)))
       .catch(() => setTaxConfigs([]));
-  }, [showForm, selectedId, session?.user?.organizationId]);
+  }, [showForm, formPropertyId, session?.user?.organizationId]);
 
-  // Fetch petty cash balance when form is shown
+  // Petty cash balance for the form's property. The API returns
+  // { entries, limitsByProperty } with entries newest-first, each carrying its
+  // running balance — so entries[0].balance is the current float.
   useEffect(() => {
-    if (!showForm) return;
-    fetch("/api/petty-cash")
-      .then((r) => r.json())
-      .then((entries: any[]) => {
-        const balance = entries.length > 0 ? entries[0].balance : 0;
-        setPettyCashBalance(balance);
+    if (!showForm || !paidFromPettyCash) return;
+    setPettyCashBalance(null);
+    const params = new URLSearchParams();
+    if (formPropertyId) params.set("propertyId", formPropertyId);
+    fetch(`/api/petty-cash?${params}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { entries?: { balance?: number }[] } | null) => {
+        const entries = data?.entries ?? [];
+        setPettyCashBalance(entries.length > 0 ? entries[0].balance ?? 0 : 0);
       })
       .catch(() => setPettyCashBalance(null));
-  }, [showForm]);
+  }, [showForm, paidFromPettyCash, formPropertyId]);
+
+  // The VAT rule that applies to a single-amount vendor bill, for the
+  // "Apply VAT" shortcut. Line items match per line type instead.
+  const vatRule = useMemo(() => {
+    const c = matchTaxConfig(effectiveTaxConfigs ?? [], "VENDOR_INVOICE");
+    return c && c.type === "ADDITIVE" ? c : null;
+  }, [effectiveTaxConfigs]);
+  function applyVatRule() {
+    if (!vatRule) return;
+    const amt = Number(wAmount) || 0;
+    // Amount is always net, so VAT = net × rate (inclusive rules don't apply here).
+    setValue("vatAmount", Math.round(amt * vatRule.rate * 100) / 100, { shouldDirty: true, shouldValidate: true });
+  }
+  function markPaidInFull() {
+    setValue("amountPaid", Number(wAmount) || 0, { shouldDirty: true, shouldValidate: true });
+    if (!getValues("paymentDate")) setValue("paymentDate", wDate || todayYmd(), { shouldDirty: true });
+  }
 
   // Bulk selection is scoped to the visible month/property — clear on change.
   useEffect(() => { setSelectedIds(new Set()); }, [month, selectedId]);
 
   const resetForm = useCallback(() => {
-    reset({ scope: "UNIT", isSunkCost: false, paidFromPettyCash: false, amount: 0 });
+    reset({ ...NEW_DEFAULTS, date: todayYmd() });
     setEditEntry(null);
     setSelectedUnitIds([]);
     setLineItems([]);
     setVendorId(null);
     setUnitSearch("");
     setShowForm(false);
-  }, [reset]);
+  }, [reset, NEW_DEFAULTS]);
+
+  function openNew() {
+    reset({ ...NEW_DEFAULTS, date: todayYmd() });
+    setEditEntry(null);
+    setSelectedUnitIds([]);
+    setLineItems([]);
+    setVendorId(null);
+    setUnitSearch("");
+    openSnapshot.current = EMPTY_EXTRAS;
+    setShowForm(true);
+  }
+
+  // Anything the user typed that would be lost on close — form fields (RHF's
+  // isDirty vs the values the form opened with) plus the state kept outside
+  // the form.
+  const isFormDirty = showForm && (
+    isDirty || JSON.stringify({ lineItems, selectedUnitIds, vendorId }) !== openSnapshot.current
+  );
+  /** Close via ✕ / Cancel / Escape — asks first when there's unsaved work. */
+  function requestClose(after?: () => void) {
+    if (isFormDirty) {
+      pendingAfterDiscard.current = after ?? null;
+      setDiscardConfirm(true);
+      return;
+    }
+    resetForm();
+    after?.();
+  }
+  function discardAndClose() {
+    setDiscardConfirm(false);
+    resetForm();
+    const next = pendingAfterDiscard.current;
+    pendingAfterDiscard.current = null;
+    next?.();
+  }
+  // Escape closes the slide-over (with the same unsaved guard).
+  useEffect(() => {
+    if (!showForm) return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape" || discardConfirm) return;
+      const tag = (ev.target as HTMLElement | null)?.tagName;
+      // Let an open <select> close itself first.
+      if (tag === "SELECT") return;
+      // The discard confirm is a native <dialog>; the browser's close-watcher
+      // would close it again on this same key's keyup unless the keydown is
+      // cancelled here.
+      ev.preventDefault();
+      requestClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, discardConfirm, isFormDirty]);
 
   // Deep-link prefill from the Petty Cash page's "Record as expense instead"
   // nudge — opens the form with the typed values and the petty-cash flag on.
@@ -695,13 +862,42 @@ export default function ExpensesPage() {
       category: "OTHER",
       isSunkCost: false,
       paidFromPettyCash: true,
+      unitIds: [],
     } as any);
     setEditEntry(null);
+    openSnapshot.current = EMPTY_EXTRAS;
     setShowForm(true);
-  }, [searchParams, reset]);
+  }, [searchParams, reset, EMPTY_EXTRAS]);
 
   // Soft duplicate check (create mode only): an entry with the same category
   // and amount within ±3 days of the typed date probably means double entry.
+  // The loaded month is checked instantly; a ±3-day window is also fetched
+  // (debounced) so a duplicate just across a month boundary isn't missed.
+  const [remoteDupRows, setRemoteDupRows] = useState<any[]>([]);
+  useEffect(() => {
+    if (editEntry || !showForm || !wCategory || !wDate || !(Number(wAmount) > 0)) { setRemoteDupRows([]); return; }
+    const target = new Date(wDate);
+    if (isNaN(target.getTime())) return;
+    const DAY = 86_400_000;
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const fromDate = new Date(target.getTime() - 3 * DAY);
+    const toDate = new Date(target.getTime() + 3 * DAY);
+    const from = ymd(fromDate);
+    const to = ymd(toDate);
+    // Only worth a round-trip when the window crosses out of the loaded month.
+    if (sameMonth(fromDate, month) && sameMonth(toDate, month)) { setRemoteDupRows([]); return; }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ from, to, category: wCategory, limit: "200" });
+      if (selectedId) params.set("propertyId", selectedId);
+      fetch(`/api/expenses?${params}`, { signal: ctrl.signal })
+        .then((r) => r.ok ? r.json() : [])
+        .then((rows) => setRemoteDupRows(Array.isArray(rows) ? rows : []))
+        .catch(() => {});
+    }, 400);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [editEntry, showForm, wCategory, wAmount, wDate, month, selectedId]);
+
   const duplicateCandidate = useMemo(() => {
     if (editEntry || !showForm) return null;
     const amt = Number(wAmount);
@@ -709,12 +905,12 @@ export default function ExpensesPage() {
     const target = new Date(wDate).getTime();
     if (isNaN(target)) return null;
     const DAY = 86_400_000;
-    return entries.find((e: any) =>
+    const isDup = (e: any) =>
       e.category === wCategory &&
       Math.abs(e.amount - amt) < 0.005 &&
-      Math.abs(new Date(e.date).getTime() - target) <= 3 * DAY,
-    ) ?? null;
-  }, [editEntry, showForm, wCategory, wAmount, wDate, entries]);
+      Math.abs(new Date(e.date).getTime() - target) <= 3 * DAY;
+    return entries.find(isDup) ?? remoteDupRows.find(isDup) ?? null;
+  }, [editEntry, showForm, wCategory, wAmount, wDate, entries, remoteDupRows]);
 
   function openEdit(e: any) {
     setEditEntry(e);
@@ -740,17 +936,17 @@ export default function ExpensesPage() {
       paymentReference: e.paymentReference ?? "",
       paymentDate: e.paymentDate ? new Date(e.paymentDate).toISOString().split("T")[0] : "",
       notes: e.notes ?? "",
+      unitIds: e.unitAllocations?.length > 0
+        ? e.unitAllocations.map((a: any) => a.unitId)
+        : e.unitId ? [e.unitId] : [],
     });
     // Unit IDs
-    if (e.unitAllocations?.length > 0) {
-      setSelectedUnitIds(e.unitAllocations.map((a: any) => a.unitId));
-    } else if (e.unitId) {
-      setSelectedUnitIds([e.unitId]);
-    } else {
-      setSelectedUnitIds([]);
-    }
+    const unitIds: string[] = e.unitAllocations?.length > 0
+      ? e.unitAllocations.map((a: any) => a.unitId)
+      : e.unitId ? [e.unitId] : [];
+    setSelectedUnitIds(unitIds);
     // Line items
-    setLineItems(
+    const items: LineItemDraft[] =
       (e.lineItems ?? []).map((item: any) => ({
         id: item.id,
         category: item.category as LineCat,
@@ -763,14 +959,14 @@ export default function ExpensesPage() {
         unitOther: item.unitOther ?? "",
         discountAmount: item.discountAmount != null ? String(item.discountAmount) : "",
         isVatable: item.isVatable,
-        paymentStatus: item.paymentStatus as PayStatus,
         amountPaid: String(item.amountPaid),
         paymentReference: item.paymentReference ?? "",
         paymentDate: item.paymentDate ? String(item.paymentDate).slice(0, 10) : "",
-      }))
-    );
+      }));
+    setLineItems(items);
     setVendorId(e.vendorId ?? null);
     setUnitSearch("");
+    openSnapshot.current = JSON.stringify({ lineItems: items, selectedUnitIds: unitIds, vendorId: e.vendorId ?? null });
     setShowForm(true);
   }
 
@@ -810,14 +1006,23 @@ export default function ExpensesPage() {
   }
 
   async function onSubmit(data: ExpenseEntryInput) {
+    // The month picker can't reach the future, so a future-dated entry
+    // (usually a typo'd year) would vanish from the UI the moment it saved.
+    if (data.date > todayYmd()) {
+      setError("date", { message: "Expense date can't be in the future" });
+      return;
+    }
     setSubmitting(true);
     try {
-      // Build final unit resolution
+      // The scope decides which targets are sent — a property picked before
+      // switching to "Unit" must not travel along. The server applies the
+      // same rule; this just keeps the payload honest.
       const unitIds = scope === "UNIT" ? selectedUnitIds : [];
       const unitId = unitIds.length === 1 ? unitIds[0] : undefined;
 
       const payload = {
         ...data,
+        propertyId: scope === "PROPERTY" ? data.propertyId : undefined,
         unitId,
         unitIds,
         vendorId: vendorId || null,
@@ -839,7 +1044,7 @@ export default function ExpensesPage() {
           unitOther: item.unit === "OTHER" && item.unitOther.trim() ? item.unitOther.trim() : undefined,
           discountAmount: isFinite(d) && d > 0 ? d : undefined,
           isVatable: item.isVatable,
-          paymentStatus: item.paymentStatus,
+          paymentStatus: lineStatus(item),
           amountPaid: parseFloat(item.amountPaid) || 0,
           paymentReference: item.paymentReference || undefined,
           paymentDate: item.paymentDate || undefined,
@@ -855,15 +1060,39 @@ export default function ExpensesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(await readApiError(res, "Failed to save"));
       const saved = await res.json();
 
+      // Only splice the row into the list on screen if it belongs to the
+      // month being shown — otherwise it sat in the wrong month until refresh.
+      const savedDate = new Date(saved.date);
+      const inView = sameMonth(savedDate, month);
+      const target = new Date(savedDate.getFullYear(), savedDate.getMonth(), 1);
+      const jumpToast = (verb: string) =>
+        toast((t) => (
+          <span>
+            Expense {verb} <strong>{monthLabel(target)}</strong>.{" "}
+            <button type="button" onClick={() => { setMonth(target); toast.dismiss(t.id); }} className="underline font-medium text-gold">
+              View that month
+            </button>
+          </span>
+        ), { duration: 7000, icon: "✓" });
+
       if (editEntry) {
-        setEntriesData((prev) => (prev ?? []).map((e) => (e.id === saved.id ? saved : e)));
-        toast.success("Expense updated");
+        if (inView) {
+          setEntriesData((prev) => (prev ?? []).map((e) => (e.id === saved.id ? saved : e)));
+          toast.success("Expense updated");
+        } else {
+          setEntriesData((prev) => (prev ?? []).filter((e) => e.id !== saved.id));
+          jumpToast("moved to");
+        }
       } else {
-        setEntriesData((prev) => [saved, ...(prev ?? [])]);
-        toast.success(data.paidFromPettyCash ? "Expense saved & petty cash debited" : "Expense added");
+        if (inView) {
+          setEntriesData((prev) => [saved, ...(prev ?? [])]);
+          toast.success(data.paidFromPettyCash ? "Expense saved & petty cash debited" : "Expense added");
+        } else {
+          jumpToast("added to");
+        }
         // Deferred receipts: files queued in the create form upload now that
         // the expense id exists. Must run before resetForm unmounts the uploader.
         if (receiptUploaderRef.current?.hasQueued()) {
@@ -878,8 +1107,8 @@ export default function ExpensesPage() {
         }
       }
       resetForm();
-    } catch {
-      toast.error("Failed to save");
+    } catch (err) {
+      toast.error((err as Error)?.message || "Failed to save", { duration: 6000 });
     } finally {
       setSubmitting(false);
     }
@@ -911,11 +1140,12 @@ export default function ExpensesPage() {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      await fetch(`/api/expenses/${deleteId}`, { method: "DELETE" });
+      const res = await fetch(`/api/expenses/${deleteId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(await readApiError(res, "Failed to delete"));
       setEntriesData((prev) => (prev ?? []).filter((e) => e.id !== deleteId));
       toast.success("Deleted");
-    } catch {
-      toast.error("Failed to delete");
+    } catch (err) {
+      toast.error((err as Error)?.message || "Failed to delete");
     } finally {
       setDeleting(false);
       setDeleteId(null);
@@ -1004,7 +1234,10 @@ export default function ExpensesPage() {
     if (e.unitAllocations?.length > 1) {
       return `${e.unitAllocations.length} units (split)`;
     }
-    return e.unit?.unitNumber ?? e.property?.name ?? e.scope;
+    if (e.unit?.unitNumber) return `Unit ${e.unit.unitNumber}`;
+    if (e.scope === "PORTFOLIO") return "Portfolio";
+    if (e.scope === "PROPERTY") return "Whole property";
+    return "No unit";
   }
 
   function handleSort(col: string) {
@@ -1038,9 +1271,11 @@ export default function ExpensesPage() {
       .filter((e: any) => {
         if (!filterSearch) return true;
         const term = filterSearch.toLowerCase();
-        const inDesc  = (e.description ?? "").toLowerCase().includes(term);
-        const inItems = e.lineItems?.some((i: any) => (i.description ?? "").toLowerCase().includes(term));
-        return inDesc || inItems;
+        const hay = [
+          e.description, e.vendor?.name, e.notes, e.paymentReference,
+          ...(e.lineItems ?? []).flatMap((i: any) => [i.description, i.paymentReference]),
+        ];
+        return hay.some((v) => typeof v === "string" && v.toLowerCase().includes(term));
       })
       .filter((e: any) => !filterCategory || e.category === filterCategory)
       .filter((e: any) => !filterScope || e.scope === filterScope)
@@ -1287,7 +1522,7 @@ export default function ExpensesPage() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search description..."
+                placeholder="Search description, vendor, reference, notes..."
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-body border border-gray-200 rounded-lg bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
@@ -1298,7 +1533,7 @@ export default function ExpensesPage() {
               onChange={(e) => setFilterCategory(e.target.value)}
               className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
-              <option value="">All categories</option>
+              <option value="">Category: all</option>
               {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
             </select>
             <select
@@ -1306,9 +1541,9 @@ export default function ExpensesPage() {
               onChange={(e) => setFilterScope(e.target.value)}
               className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
-              <option value="">All scopes</option>
+              <option value="">Scope: all</option>
               <option value="UNIT">Unit</option>
-              <option value="PROPERTY">Property</option>
+              <option value="PROPERTY">Whole property</option>
               <option value="PORTFOLIO">Portfolio</option>
             </select>
             <select
@@ -1316,9 +1551,9 @@ export default function ExpensesPage() {
               onChange={(e) => setFilterPayment(e.target.value)}
               className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
-              <option value="">All payments</option>
+              <option value="">Payment: all</option>
               <option value="PAID">Paid</option>
-              <option value="PARTIAL">Partial</option>
+              <option value="PARTIAL">Partially paid</option>
               <option value="UNPAID">Unpaid</option>
             </select>
             <select
@@ -1326,9 +1561,9 @@ export default function ExpensesPage() {
               onChange={(e) => setFilterSunk(e.target.value)}
               className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
-              <option value="">All types</option>
+              <option value="">Cost type: all</option>
               <option value="op">Operating only</option>
-              <option value="sunk">Capital only</option>
+              <option value="sunk">Capital / sunk only</option>
             </select>
             <select
               value={filterReceipts}
@@ -1336,7 +1571,7 @@ export default function ExpensesPage() {
               title="Filter by attached receipts/documents"
               className="text-body border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-header focus:outline-none focus:ring-1 focus:ring-gold"
             >
-              <option value="">All receipts</option>
+              <option value="">Receipt: any</option>
               <option value="missing">Missing receipt</option>
               <option value="has">Has receipt</option>
             </select>
@@ -1359,9 +1594,9 @@ export default function ExpensesPage() {
         {/* KPI cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
-            { label: "Operating Expenses", value: -totalOp, color: "text-expense" },
-            { label: "Capital / Sunk Costs", value: -totalSunk, color: "text-gray-500" },
-            { label: "Total", value: -(totalOp + totalSunk), color: "text-expense" },
+            { label: "Operating Expenses", value: totalOp, color: "text-expense" },
+            { label: "Capital / Sunk Costs", value: totalSunk, color: "text-gray-500" },
+            { label: "Total Spend", value: totalOp + totalSunk, color: "text-expense" },
           ].map((s) => (
             <Card key={s.label} padding="sm">
               <p className="text-label text-gray-400 uppercase ">{s.label}</p>
@@ -1426,7 +1661,7 @@ export default function ExpensesPage() {
                 className="text-income border-income/30 hover:bg-income/5"
                 loading={bulkSubmitting}
                 title="Settle each selected expense in full — sets amount paid to the total (line items included) with today's payment date"
-                onClick={() => bulkAction("mark_paid")}
+                onClick={() => setMarkPaidConfirm(true)}
               >
                 <CheckCircle2 size={13} /> Mark paid
               </Button>
@@ -1454,15 +1689,39 @@ export default function ExpensesPage() {
               <FileDown size={13} /> Export
             </button>
             {canDelete && (
-            <button
-              onClick={openDeleteAll}
-              title={`Delete every expense for ${selected?.name ?? "all properties"} across all months`}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium text-expense border border-expense/30 rounded-lg hover:bg-expense/5 transition-colors"
-            >
-              <Trash2 size={13} /> Delete all
-            </button>
+              <div className="relative">
+                <button
+                  onClick={() => setMoreOpen((o) => !o)}
+                  aria-label="More actions"
+                  aria-expanded={moreOpen}
+                  className="p-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  <MoreHorizontal size={15} />
+                </button>
+                {moreOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setMoreOpen(false)} />
+                    <div className="absolute right-0 mt-1 z-20 w-64 bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                      <button
+                        onClick={() => { setMoreOpen(false); openDeleteAll(); }}
+                        className="w-full text-left px-3 py-2 text-body text-expense hover:bg-expense/5 flex items-center gap-2"
+                      >
+                        <Trash2 size={13} />
+                        <span>
+                          Delete all expenses…
+                          <span className="block text-caption text-gray-400">{selected?.name ?? "All properties"}, every month</span>
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
-            <Button onClick={() => { if (showForm && !editEntry) { resetForm(); } else { resetForm(); setShowForm(true); } }} size="sm" variant="gold">
+            <Button
+              onClick={() => { if (showForm && !editEntry) return; if (showForm) requestClose(openNew); else openNew(); }}
+              size="sm"
+              variant="gold"
+            >
               <Plus size={15} /> Add Expense
             </Button>
           </div>
@@ -1482,7 +1741,7 @@ export default function ExpensesPage() {
                 </h3>
                 <button
                   type="button"
-                  onClick={resetForm}
+                  onClick={() => requestClose()}
                   aria-label="Close"
                   className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
                 >
@@ -1493,7 +1752,7 @@ export default function ExpensesPage() {
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               {/* Date + Scope */}
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Date" type="date" {...register("date")} error={errors.date?.message} />
+                <Input label="Date" type="date" max={todayYmd()} {...register("date")} error={errors.date?.message} />
                 <Select label="Scope" tooltip="Unit = affects one apartment (e.g. a repair). Property = shared building cost (e.g. cleaning). Portfolio = applies across all your properties." {...register("scope")} options={[
                   { value: "UNIT", label: "Unit" },
                   { value: "PROPERTY", label: "Whole Property" },
@@ -1505,7 +1764,7 @@ export default function ExpensesPage() {
               {scope === "UNIT" && (
                 <div>
                   <label className="block text-body font-medium text-gray-700 mb-1.5">
-                    Units <span className="text-gray-400 ">(select one or more — cost split equally)</span>
+                    Units <span className="text-gray-400 ">(select one or more; the cost is split equally)</span>
                   </label>
                   {allUnits.length > 6 && (
                     <div className="relative mb-2">
@@ -1519,30 +1778,47 @@ export default function ExpensesPage() {
                       />
                     </div>
                   )}
-                  <div className="border border-gray-200 rounded-xl p-3 max-h-44 overflow-y-auto space-y-1.5 bg-white">
+                  <div className={clsx(
+                    "border rounded-xl p-3 max-h-44 overflow-y-auto space-y-1.5 bg-white",
+                    errors.unitIds ? "border-red-300" : "border-gray-200",
+                  )}>
                     {visibleUnits.length === 0 && (
                       <p className="text-caption text-gray-400 ">
                         {allUnits.length === 0 ? "No units available" : "No units match your search"}
                       </p>
                     )}
-                    {visibleUnits.map((u: any) => (
-                      <label key={u.id} className="flex items-center gap-2.5 cursor-pointer select-none group">
-                        <input
-                          type="checkbox"
-                          checked={selectedUnitIds.includes(u.id)}
-                          onChange={() => toggleUnit(u.id)}
-                          className="w-4 h-4 rounded accent-gold flex-shrink-0"
-                        />
-                        <span className="text-body text-gray-700 group-hover:text-header transition-colors">
-                          <span className="tabular-nums">{u.unitNumber}</span>
-                          <span className="text-gray-400 ml-1">({u.propertyName})</span>
-                        </span>
-                      </label>
-                    ))}
+                    {visibleUnits.map((u: any) => {
+                      // One expense belongs to one property: once a unit is
+                      // ticked, units elsewhere grey out instead of silently
+                      // attributing the whole cost to the first unit's property.
+                      const locked = !!lockedPropertyId && u.propertyId !== lockedPropertyId;
+                      return (
+                        <label
+                          key={u.id}
+                          title={locked ? "A split can't span two properties. Untick the other units first." : undefined}
+                          className={clsx("flex items-center gap-2.5 select-none group", locked ? "opacity-40 cursor-not-allowed" : "cursor-pointer")}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedUnitIds.includes(u.id)}
+                            disabled={locked}
+                            onChange={() => toggleUnit(u.id)}
+                            className="w-4 h-4 rounded accent-gold flex-shrink-0"
+                          />
+                          <span className="text-body text-gray-700 group-hover:text-header transition-colors">
+                            <span className="tabular-nums">{u.unitNumber}</span>
+                            <span className="text-gray-400 ml-1">({u.propertyName})</span>
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
+                  {errors.unitIds && (
+                    <p className="text-caption text-expense mt-1">{String(errors.unitIds.message ?? "Tick at least one unit")}</p>
+                  )}
                   {selectedUnitIds.length > 1 && (
                     <p className="text-caption text-gold mt-1.5 font-medium">
-                      {selectedUnitIds.length} units selected — total split equally (each gets {Math.round(100 / selectedUnitIds.length)}%)
+                      {selectedUnitIds.length} units selected; total split equally (each gets {Math.round(100 / selectedUnitIds.length)}%)
                     </p>
                   )}
                 </div>
@@ -1555,61 +1831,101 @@ export default function ExpensesPage() {
                   label="Property"
                   placeholder="Select property..."
                   {...register("propertyId")}
+                  error={errors.propertyId?.message}
                   options={properties
                     .filter((p: any) => !selectedId || p.id === selectedId || p.id === editEntry?.propertyId)
                     .map((p: any) => ({ value: p.id, label: p.name }))}
                 />
               )}
 
-              {/* Category */}
+              {/* Category + Amount */}
               <div className="grid grid-cols-2 gap-4">
                 <Select
                   label="Category"
+                  placeholder="Select category..."
                   tooltip="Categorising correctly helps you spot trends — e.g. rising Maintenance costs may signal ageing fixtures that need replacing."
                   {...register("category")}
                   options={CATEGORIES.map((c) => ({ value: c, label: CAT_LABELS[c] }))}
                   error={errors.category?.message}
                 />
-                {/* Amount — readonly when line items exist */}
                 {hasLineItems ? (
                   <div>
                     <label className="block text-body font-medium text-gray-700 mb-1.5">
-                      Total Amount <span className="text-gray-400 ">(computed)</span>
+                      Total Amount <span className="text-gray-400 ">(from line items)</span>
                     </label>
                     <div className="border border-gray-200 rounded-xl px-3 py-2 bg-cream tabular-nums text-body text-header">
                       {formatCurrency(computedTotal ?? 0, currency)}
                     </div>
                     <input type="hidden" {...register("amount")} />
+                    {errors.amount && <p className="text-caption text-expense mt-1">{errors.amount.message}</p>}
                   </div>
                 ) : (
-                  <Input label="Amount" type="number" step="0.01" min="0" {...register("amount")} error={errors.amount?.message} />
+                  <div>
+                    <Input
+                      label="Amount"
+                      tooltip="Net of VAT and after any discount: exactly what the property is charged. VAT goes in its own field below."
+                      type="number" step="0.01" min="0" placeholder="0.00"
+                      {...register("amount")}
+                      error={errors.amount?.message}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLineItems([blankLine()])}
+                      className="mt-1.5 flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium transition-colors"
+                    >
+                      <ListPlus size={13} /> Itemise (labour, materials, several lines)
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {/* Line items sit directly under the amount they drive, so nobody
+                  types an amount and then watches it get overwritten. */}
+              {hasLineItems && (
+                <div className="rounded-xl border border-gray-100 bg-white p-3 space-y-3">
+                  <LineItemsEditor
+                    items={lineItems}
+                    onChange={setLineItems}
+                    taxConfigs={effectiveTaxConfigs}
+                    currency={currency}
+                  />
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-caption text-amber-800">
+                    <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                    <span>
+                      The total, tax and amounts paid now come from the lines above.
+                      Remove every line to go back to a single amount.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <VendorSelect label="Vendor" tooltip="Link this expense to a contractor or supplier. This helps you track spending per vendor and spot your highest-cost relationships." value={vendorId} onChange={setVendorId} />
 
               <Input label="Description" {...register("description")} placeholder="Optional description..." />
 
-              {/* With line items, the per-item payment/tax fields take over —
-                  the API clears expense-level vatAmount/amountPaid on save */}
-              {hasLineItems && (
-                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-caption text-amber-800">
-                  <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-                  <span>
-                    Line items now drive the amounts paid and tax for this expense.
-                    Any manual Amount Paid / VAT entered above will be cleared on save.
-                  </span>
-                </div>
-              )}
-
-              {/* Payment tracking — only for single-amount expenses (line items track their own paid amounts) */}
-              {!hasLineItems && (
+              {/* Payment tracking. Single-amount expenses carry the full block;
+                  itemised ones track paid amounts + VAT per line, so only the
+                  parent-level fields the server keeps (method, due date) remain. */}
+              {!hasLineItems ? (
                 <div className="space-y-4 rounded-xl border border-gray-100 bg-cream/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-label font-semibold text-gray-400 uppercase">Payment</p>
+                    {!paidFromPettyCash && (
+                      <button
+                        type="button"
+                        onClick={markPaidInFull}
+                        className="flex items-center gap-1 text-caption text-income font-medium hover:underline"
+                      >
+                        <CheckCircle2 size={13} /> Paid in full
+                      </button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <Input
                       label="Amount Paid"
                       tooltip="How much of this expense has been settled. Leave at 0 for an unpaid bill; the difference shows as an outstanding balance."
-                      type="number" step="0.01" min="0"
+                      type="number" step="0.01" min="0" placeholder="0.00"
+                      readOnly={!!paidFromPettyCash}
                       {...register("amountPaid")}
                       error={errors.amountPaid?.message}
                     />
@@ -1621,6 +1937,9 @@ export default function ExpensesPage() {
                       error={errors.dueDate?.message}
                     />
                   </div>
+                  {paidFromPettyCash && (
+                    <p className="text-caption text-amber-700 -mt-2">Settled in full from petty cash on the expense date.</p>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <Select
                       label="Payment Method"
@@ -1632,6 +1951,7 @@ export default function ExpensesPage() {
                       label="Payment Date"
                       tooltip="The date the payment was actually made (may differ from the invoice date)."
                       type="date"
+                      max={todayYmd()}
                       {...register("paymentDate")}
                       error={errors.paymentDate?.message}
                     />
@@ -1643,13 +1963,29 @@ export default function ExpensesPage() {
                       {...register("paymentReference")}
                       placeholder="e.g. M-Pesa code / cheque no."
                     />
-                    <Input
-                      label="VAT Amount"
-                      tooltip="The VAT/tax portion of this expense. Amount stays net (pre-VAT); this is recorded separately."
-                      type="number" step="0.01" min="0"
-                      {...register("vatAmount")}
-                      error={errors.vatAmount?.message}
-                    />
+                    <div>
+                      <Input
+                        label="VAT Amount"
+                        tooltip="The VAT/tax portion of this expense. Amount stays net (pre-VAT); this is recorded separately."
+                        type="number" step="0.01" min="0"
+                        {...register("vatAmount")}
+                        error={errors.vatAmount?.message}
+                      />
+                      {vatRule ? (
+                        <button
+                          type="button"
+                          onClick={applyVatRule}
+                          disabled={!(Number(wAmount) > 0)}
+                          className="mt-1.5 flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium disabled:opacity-40 transition-colors"
+                        >
+                          <Calculator size={12} /> Apply {vatRule.label} ({(vatRule.rate * 100).toFixed(0)}%)
+                        </button>
+                      ) : effectiveTaxConfigs !== null ? (
+                        <p className="mt-1.5 text-caption text-gray-400">
+                          No VAT rule set up yet: <Link href="/settings?tab=tax" className="text-gold hover:underline">Settings → Tax</Link>
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <Input
@@ -1660,6 +1996,27 @@ export default function ExpensesPage() {
                       error={errors.discountAmount?.message}
                     />
                   </div>
+                </div>
+              ) : (
+                <div className="space-y-3 rounded-xl border border-gray-100 bg-cream/40 p-3">
+                  <p className="text-label font-semibold text-gray-400 uppercase">Payment</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select
+                      label="Payment Method"
+                      tooltip="How this bill is (or will be) paid. Amounts, dates and references are tracked per line above."
+                      placeholder="—"
+                      {...register("paymentMethod")}
+                      options={PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))}
+                    />
+                    <Input
+                      label="Due Date"
+                      tooltip="When payment is due. Expenses past their due date with a balance owing are flagged as overdue."
+                      type="date"
+                      {...register("dueDate")}
+                      error={errors.dueDate?.message}
+                    />
+                  </div>
+                  <p className="text-caption text-gray-400">Amounts paid, payment dates, references and VAT are recorded on each line.</p>
                 </div>
               )}
 
@@ -1693,20 +2050,29 @@ export default function ExpensesPage() {
                         {pettyCashBalance < 0 && " ⚠ Deficit — consider topping up"}
                       </span>
                     )}
-                    <p className="text-gray-400 mt-0.5">A matching Petty Cash OUT entry will be created automatically.</p>
+                    <p className="text-gray-400 mt-0.5">A matching Petty Cash OUT entry is created automatically and the expense is marked paid in full.</p>
                   </div>
                 )}
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-gray-100 pt-4">
-                <LineItemsEditor
-                  items={lineItems}
-                  onChange={setLineItems}
-                  taxConfigs={effectiveTaxConfigs}
-                  currency={currency}
-                />
-              </div>
+              {!editEntry && (
+                <p className="text-caption text-gray-400">
+                  Repeats every month or quarter?{" "}
+                  <Link
+                    href={`/recurring-expenses?${new URLSearchParams({
+                      prefill: "1",
+                      ...(wCategory ? { category: wCategory } : {}),
+                      ...(Number(wAmount) > 0 ? { amount: String(wAmount) } : {}),
+                      ...(wDescription ? { description: wDescription } : {}),
+                      scope: scope === "UNIT" ? "PROPERTY" : scope,
+                      ...(formPropertyId ? { propertyId: formPropertyId } : {}),
+                    })}`}
+                    className="text-gold hover:underline font-medium"
+                  >
+                    Set it up as a recurring expense →
+                  </Link>
+                </p>
+              )}
 
               {/* Possible duplicate warning (soft — saving is still allowed) */}
               {duplicateCandidate && (
@@ -1749,7 +2115,7 @@ export default function ExpensesPage() {
                 {/* Sticky footer — actions always visible however long the form */}
                 <div className="flex gap-3 px-5 py-4 border-t border-gray-100 bg-white flex-shrink-0">
                   <Button type="submit" loading={submitting}>{editEntry ? "Update Expense" : "Save Expense"}</Button>
-                  <Button type="button" variant="secondary" onClick={resetForm}>Cancel</Button>
+                  <Button type="button" variant="secondary" onClick={() => requestClose()}>Cancel</Button>
                 </div>
               </form>
             </div>
@@ -1765,7 +2131,7 @@ export default function ExpensesPage() {
               title="No expenses"
               description={entries.length === 0 ? "No expenses logged for this month" : "No entries match the current filters"}
               icon={<Receipt size={40} />}
-              action={entries.length === 0 ? <Button variant="gold" size="sm" onClick={() => { resetForm(); setShowForm(true); }}><Plus size={14} /> Add Expense</Button> : undefined}
+              action={entries.length === 0 ? <Button variant="gold" size="sm" onClick={openNew}><Plus size={14} /> Add Expense</Button> : undefined}
             />
           ) : (
             <>
@@ -1786,11 +2152,12 @@ export default function ExpensesPage() {
                       </span>
                     </div>
 
-                    {/* Description + vendor */}
+                    {/* Description + vendor + where it belongs */}
                     <p className="text-body text-header truncate">{e.description ?? "—"}</p>
-                    {e.vendor?.name && (
-                      <p className="text-caption text-gray-400 mt-0.5">{e.vendor.name}</p>
-                    )}
+                    <p className="text-caption text-gray-400 mt-0.5 truncate">
+                      {propertyLabel(e)} · {unitLabel(e)}
+                      {e.vendor?.name && <> · {e.vendor.name}</>}
+                    </p>
 
                     {/* Amount + pay status */}
                     <div className="flex items-center justify-between mt-2">
@@ -1830,6 +2197,9 @@ export default function ExpensesPage() {
                             {(expenseDocs[e.id]?.length ?? e._count?.documents) > 9 ? "9+" : (expenseDocs[e.id]?.length ?? e._count?.documents)}
                           </span>
                         )}
+                      </button>
+                      <button onClick={() => setHistoryId(e.id)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Change history">
+                        <Clock size={14} />
                       </button>
                       {canDelete && (
                       <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
@@ -2079,6 +2449,23 @@ export default function ExpensesPage() {
         onConfirm={() => bulkAction("delete")}
         title={`Delete ${selectedIds.size} expenses?`}
         message="These expense entries will be permanently deleted."
+        loading={bulkSubmitting}
+      />
+      <ConfirmDialog
+        open={discardConfirm}
+        onClose={() => { setDiscardConfirm(false); pendingAfterDiscard.current = null; }}
+        onConfirm={discardAndClose}
+        title="Discard unsaved changes?"
+        message={editEntry ? "Your edits to this expense haven't been saved." : "This expense hasn't been saved yet."}
+        confirmLabel="Discard"
+      />
+      <ConfirmDialog
+        open={markPaidConfirm}
+        onClose={() => setMarkPaidConfirm(false)}
+        onConfirm={() => { setMarkPaidConfirm(false); bulkAction("mark_paid"); }}
+        title={`Mark ${selectedIds.size} expense${selectedIds.size === 1 ? "" : "s"} as paid?`}
+        message="Each selected expense is settled in full (line items included) with today's date as the payment date. Open an expense afterwards to correct the date or reference if needed."
+        confirmLabel="Mark paid"
         loading={bulkSubmitting}
       />
       <ExportRangeDialog

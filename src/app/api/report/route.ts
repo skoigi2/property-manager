@@ -11,7 +11,7 @@ import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
 import { formatCurrency } from "@/lib/currency";
-import { buildTaxSummary } from "@/lib/tax-engine";
+import { buildTaxSummary, expenseTaxItems } from "@/lib/tax-engine";
 import { buildAgingSnapshot } from "@/lib/arrears-aging";
 import { calcDepositPosition } from "@/lib/deposit";
 
@@ -537,7 +537,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const remittance = await buildRemittance(netProfit, propertyIds, monthStart, monthEndExcl);
 
   // Tax summary
-  const allLineItems = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
+  const allLineItems = expenseTaxItems(expenseEntries as any);
   const taxSummary = buildTaxSummary(incomeEntries, allLineItems);
 
   // Arrears aging (point-in-time, invoice-based)
@@ -877,7 +877,7 @@ async function buildRangeReportData(
   const depositSummaryQ = await buildDepositSummary(tenants, periodEndQ);
   const remittanceQ = await buildRemittance(netProfit, propertyIds, from, to);
 
-  const allLineItemsQ = expenseEntries.flatMap((e) => (e as any).lineItems ?? []);
+  const allLineItemsQ = expenseTaxItems(expenseEntries as any);
   const taxSummaryQ   = buildTaxSummary(incomeEntries, allLineItemsQ);
   // `to` is exclusive in the range builder — the period's last instant is just before it.
   const arrearsAgingQ = await buildReportAging(propertyIds, new Date(to.getTime() - 1));

@@ -602,6 +602,11 @@ export default function ExpensesPage() {
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([]);
   const [vendorId, setVendorId] = useState<string | null>(null);
   const [taxConfigs, setTaxConfigs] = useState<TaxConfigMeta[] | null>(null);
+  // Single-amount expenses: "VAT applicable" tick. Ticking fills the VAT from
+  // the org rule (still editable); the figure then tracks the amount until
+  // the user overtypes it. vatAuto remembers whether it is still rule-derived.
+  const [vatApplicable, setVatApplicable] = useState(false);
+  const vatAuto = useRef(false);
 
   // Filters
   const [filterSearch, setFilterSearch] = useState("");
@@ -773,7 +778,23 @@ export default function ExpensesPage() {
     const amt = Number(wAmount) || 0;
     // Amount is always net, so VAT = net × rate (inclusive rules don't apply here).
     setValue("vatAmount", Math.round(amt * vatRule.rate * 100) / 100, { shouldDirty: true, shouldValidate: true });
+    vatAuto.current = true;
   }
+  function toggleVat(on: boolean) {
+    setVatApplicable(on);
+    if (on) {
+      if (vatRule && !(Number(getValues("vatAmount")) > 0)) applyVatRule();
+    } else {
+      setValue("vatAmount", undefined, { shouldDirty: true });
+      vatAuto.current = false;
+    }
+  }
+  // Keep a rule-derived VAT in step with the amount until it is overtyped.
+  useEffect(() => {
+    if (!vatApplicable || !vatRule || !vatAuto.current) return;
+    const amt = Number(wAmount) || 0;
+    setValue("vatAmount", Math.round(amt * vatRule.rate * 100) / 100);
+  }, [wAmount, vatApplicable, vatRule, setValue]);
   function markPaidInFull() {
     setValue("amountPaid", Number(wAmount) || 0, { shouldDirty: true, shouldValidate: true });
     if (!getValues("paymentDate")) setValue("paymentDate", wDate || todayYmd(), { shouldDirty: true });
@@ -789,6 +810,8 @@ export default function ExpensesPage() {
     setLineItems([]);
     setVendorId(null);
     setUnitSearch("");
+    setVatApplicable(false);
+    vatAuto.current = false;
     setShowForm(false);
   }, [reset, NEW_DEFAULTS]);
 
@@ -799,6 +822,8 @@ export default function ExpensesPage() {
     setLineItems([]);
     setVendorId(null);
     setUnitSearch("");
+    setVatApplicable(false);
+    vatAuto.current = false;
     openSnapshot.current = EMPTY_EXTRAS;
     setShowForm(true);
   }
@@ -865,6 +890,8 @@ export default function ExpensesPage() {
       unitIds: [],
     } as any);
     setEditEntry(null);
+    setVatApplicable(false);
+    vatAuto.current = false;
     openSnapshot.current = EMPTY_EXTRAS;
     setShowForm(true);
   }, [searchParams, reset, EMPTY_EXTRAS]);
@@ -966,6 +993,8 @@ export default function ExpensesPage() {
     setLineItems(items);
     setVendorId(e.vendorId ?? null);
     setUnitSearch("");
+    setVatApplicable((e.vatAmount ?? 0) > 0);
+    vatAuto.current = false; // a stored figure is the user's, never recomputed
     openSnapshot.current = JSON.stringify({ lineItems: items, selectedUnitIds: unitIds, vendorId: e.vendorId ?? null });
     setShowForm(true);
   }
@@ -1023,6 +1052,8 @@ export default function ExpensesPage() {
       const payload = {
         ...data,
         propertyId: scope === "PROPERTY" ? data.propertyId : undefined,
+        // Untick = no VAT recorded, whatever is left in the hidden field.
+        vatAmount: lineItems.length === 0 && vatApplicable ? data.vatAmount : undefined,
         unitId,
         unitIds,
         vendorId: vendorId || null,
@@ -1873,7 +1904,7 @@ export default function ExpensesPage() {
                       onClick={() => setLineItems([blankLine()])}
                       className="mt-1.5 flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium transition-colors"
                     >
-                      <ListPlus size={13} /> Itemise (labour, materials, several lines)
+                      <ListPlus size={13} /> Itemise this bill
                     </button>
                   </div>
                 )}
@@ -1964,27 +1995,42 @@ export default function ExpensesPage() {
                       placeholder="e.g. M-Pesa code / cheque no."
                     />
                     <div>
-                      <Input
-                        label="VAT Amount"
-                        tooltip="The VAT/tax portion of this expense. Amount stays net (pre-VAT); this is recorded separately."
-                        type="number" step="0.01" min="0"
-                        {...register("vatAmount")}
-                        error={errors.vatAmount?.message}
-                      />
-                      {vatRule ? (
-                        <button
-                          type="button"
-                          onClick={applyVatRule}
-                          disabled={!(Number(wAmount) > 0)}
-                          className="mt-1.5 flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium disabled:opacity-40 transition-colors"
-                        >
-                          <Calculator size={12} /> Apply {vatRule.label} ({(vatRule.rate * 100).toFixed(0)}%)
-                        </button>
-                      ) : effectiveTaxConfigs !== null ? (
-                        <p className="mt-1.5 text-caption text-gray-400">
-                          No VAT rule set up yet: <Link href="/settings?tab=tax" className="text-gold hover:underline">Settings → Tax</Link>
-                        </p>
-                      ) : null}
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-body font-medium text-gray-600 mb-1.5">
+                        <input
+                          type="checkbox"
+                          checked={vatApplicable}
+                          onChange={(e) => toggleVat(e.target.checked)}
+                          className="w-4 h-4 rounded accent-gold"
+                        />
+                        <span>VAT applicable</span>
+                        <HelpTip text="Tick if the supplier charged VAT on this bill. Amount stays net (pre-VAT); the VAT is recorded separately so it counts as reclaimable input VAT in the Tax Summary." />
+                      </label>
+                      {vatApplicable ? (
+                        <>
+                          <Input
+                            label="VAT Amount"
+                            type="number" step="0.01" min="0" placeholder="0.00"
+                            {...register("vatAmount", { onChange: () => { vatAuto.current = false; } })}
+                            error={errors.vatAmount?.message}
+                          />
+                          {vatRule ? (
+                            <button
+                              type="button"
+                              onClick={applyVatRule}
+                              disabled={!(Number(wAmount) > 0)}
+                              className="mt-1.5 flex items-center gap-1 text-caption text-gold hover:text-gold-dark font-medium disabled:opacity-40 transition-colors"
+                            >
+                              <Calculator size={12} /> Recalculate at {(vatRule.rate * 100).toFixed(0)}% ({vatRule.label})
+                            </button>
+                          ) : effectiveTaxConfigs !== null ? (
+                            <p className="mt-1.5 text-caption text-gray-400">
+                              Type the VAT from the invoice. Set a rule in <Link href="/settings?tab=tax" className="text-gold hover:underline">Settings → Tax</Link> to fill it automatically.
+                            </p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="text-caption text-gray-400">No VAT recorded on this bill.</p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -2023,11 +2069,14 @@ export default function ExpensesPage() {
               <Input label="Notes" tooltip="Internal comments about this expense — not shown to owners or tenants." {...register("notes")} placeholder="Optional comments..." />
 
               {/* Sunk cost */}
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input type="checkbox" {...register("isSunkCost")} className="w-4 h-4 rounded border-gray-300 accent-gold" />
-                <span className="text-body text-gray-600 flex items-center gap-1.5">
-                  Sunk cost / capital item <span className="text-gray-400">(excluded from monthly P&L)</span>
-                  <HelpTip text="One-off capital costs like renovations or new appliances. Tick this so they don't distort your monthly profit figures — they appear separately as capital items." />
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input type="checkbox" {...register("isSunkCost")} className="w-4 h-4 mt-0.5 rounded border-gray-300 accent-gold flex-shrink-0" />
+                <span className="text-body text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    Sunk cost / capital item
+                    <HelpTip text="One-off capital costs like renovations or new appliances. Tick this so they don't distort your monthly profit figures — they appear separately as capital items." />
+                  </span>
+                  <span className="block text-caption text-gray-400">Excluded from the monthly P&L; shown as a capital item in reports</span>
                 </span>
               </label>
 

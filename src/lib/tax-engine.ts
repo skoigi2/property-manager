@@ -254,6 +254,29 @@ export function buildTaxSummary(
   };
 }
 
+/**
+ * Every input-tax item across a set of expenses, for buildTaxSummary.
+ * Itemised expenses contribute their line items. A single-amount expense
+ * (no lines) with a typed `vatAmount` contributes one synthetic ADDITIVE
+ * item, otherwise VAT recorded on plain expenses never reached the summary.
+ */
+export function expenseTaxItems(
+  expenses: {
+    vatAmount?: number | null;
+    lineItems?: { taxAmount: number | null; taxType: TaxType | null; isVatable: boolean }[] | null;
+  }[]
+): { taxAmount: number | null; taxType: TaxType | null; isVatable: boolean }[] {
+  const items: { taxAmount: number | null; taxType: TaxType | null; isVatable: boolean }[] = [];
+  for (const e of expenses) {
+    if (e.lineItems?.length) {
+      items.push(...e.lineItems);
+    } else if ((e.vatAmount ?? 0) > 0) {
+      items.push({ taxAmount: e.vatAmount ?? 0, taxType: "ADDITIVE", isVatable: true });
+    }
+  }
+  return items;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function round2(n: number): number {

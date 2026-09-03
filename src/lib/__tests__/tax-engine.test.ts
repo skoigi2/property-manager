@@ -5,6 +5,7 @@ import {
   matchConfig,
   buildTaxSnapshot,
   buildTaxSummary,
+  expenseTaxItems,
   lineItemCategoryToAppliesTo,
   taxLabel,
   resolveEffectiveTaxConfigs,
@@ -74,6 +75,22 @@ describe("buildTaxSnapshot", () => {
       taxAmount: 1600,
       taxType: "ADDITIVE",
     });
+  });
+});
+
+describe("expenseTaxItems", () => {
+  it("uses line items when present and synthesises an ADDITIVE item from a plain expense's vatAmount", () => {
+    const items = expenseTaxItems([
+      { vatAmount: 999, lineItems: [{ taxAmount: 40, taxType: "ADDITIVE", isVatable: true }] },
+      { vatAmount: 160, lineItems: [] },
+      { vatAmount: 0 },
+      { vatAmount: null, lineItems: null },
+    ]);
+    expect(items).toEqual([
+      { taxAmount: 40, taxType: "ADDITIVE", isVatable: true },
+      { taxAmount: 160, taxType: "ADDITIVE", isVatable: true },
+    ]);
+    expect(buildTaxSummary([], items).inputTaxAdditive).toBe(200);
   });
 });
 

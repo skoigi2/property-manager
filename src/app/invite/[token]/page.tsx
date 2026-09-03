@@ -10,6 +10,8 @@ interface InviteDetails {
   orgName: string;
   inviterName: string;
   expiresAt: string;
+  /** Already applied (e.g. auto-joined at sign-in) — the member just needs sending on. */
+  accepted?: boolean;
 }
 
 export default function InviteAcceptPage() {
@@ -83,6 +85,46 @@ export default function InviteAcceptPage() {
   }
 
   const roleLabel = details.role.charAt(0) + details.role.slice(1).toLowerCase();
+  const isInvitee = status === "authenticated" && session?.user?.email?.toLowerCase() === details.email.toLowerCase();
+
+  // The invitation was already applied. For the invitee this is just a
+  // stale link — refresh the session with that org and send them on. For
+  // anyone else it's simply unavailable.
+  if (details.accepted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white rounded-xl shadow p-8 max-w-md w-full text-center">
+          {isInvitee ? (
+            <>
+              <h1 className="text-h2 text-gray-900 mb-2">You&rsquo;re already a member of {details.orgName}</h1>
+              <p className="text-body text-gray-500 mb-6">This invitation has been accepted — nothing more to do here.</p>
+              <button
+                onClick={handleAccept}
+                disabled={accepting}
+                className="w-full bg-[#1a1a2e] text-white text-body font-semibold py-3 rounded-lg
+                           hover:bg-[#2a2a4e] disabled:opacity-60 transition"
+              >
+                {accepting ? "Opening…" : "Go to dashboard"}
+              </button>
+            </>
+          ) : (
+            <>
+              <h1 className="text-h2 text-gray-900 mb-2">Invitation unavailable</h1>
+              <p className="text-body text-gray-500">This invitation has already been accepted.</p>
+              {status === "unauthenticated" && (
+                <a
+                  href={`/login?callbackUrl=/invite/${token}`}
+                  className="inline-block mt-6 text-body font-semibold text-[#1a1a2e] hover:underline"
+                >
+                  Log in
+                </a>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">

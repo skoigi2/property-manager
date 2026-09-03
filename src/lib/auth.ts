@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { autoAcceptPendingInvitations } from "@/lib/invitation-accept";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -48,6 +49,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
+        // An invitee with no org yet is joined to the inviting org now, so
+        // they land in it instead of on the create-organisation step.
+        const joinedOrgId = await autoAcceptPendingInvitations(user);
+        if (joinedOrgId) {
+          const refreshed = await prisma.user.findUnique({ where: { id: user.id } });
+          if (refreshed) Object.assign(user, refreshed);
+        }
+
         const [membershipCount, membership] = await Promise.all([
           prisma.userOrganizationMembership.count({ where: { userId: user.id } }),
           user.organizationId
@@ -86,13 +95,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Promote them to ADMIN so they can create their own organisation.
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email! },
-          select: { id: true, role: true, organizationId: true },
+          select: { id: true, email: true, role: true, organizationId: true },
         });
-        if (dbUser && dbUser.role === "MANAGER" && !dbUser.organizationId) {
-          await prisma.user.update({
-            where: { id: dbUser.id },
-            data: { role: "ADMIN" },
-          });
+        if (dbUser && !dbUser.organizationId) {
+          // Invited to an existing org? Join it — an invitee must never be
+          // promoted into founding an org of their own.
+          const joinedOrgId = await autoAcceptPendingInvitations(dbUser);
+          if (!joinedOrgId && dbUser.role === "MANAGER") {
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: { role: "ADMIN" },
+            });
+          }
         }
       }
       return true;

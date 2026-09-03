@@ -16,6 +16,7 @@ export async function GET() {
   const invitations = await prisma.orgInvitation.findMany({
     where: {
       email:      email.toLowerCase(),
+      status:     "SENT",   // a manager's REQUESTED row can't be accepted yet
       acceptedAt: null,
       expiresAt:  { gt: new Date() },
     },

@@ -43,7 +43,8 @@ function SignupInner() {
     fetch(`/api/invitations/${inviteToken}`)
       .then(async (r) => {
         if (!r.ok) throw new Error();
-        const d: InviteDetails = await r.json();
+        const d: InviteDetails & { accepted?: boolean } = await r.json();
+        if (d.accepted) throw new Error();
         setInvite(d);
         setForm((f) => ({ ...f, email: d.email }));
       })

@@ -4,7 +4,9 @@ import { requireAdmin, requireManager } from "@/lib/auth-utils";
 /**
  * GET /api/invitations/[token]
  * Public route — returns invitation details for the accept page.
- * Returns 404 if not found, 410 if expired or already accepted.
+ * Returns 404 if not found, 410 if expired. An accepted invitation still
+ * returns its details with `accepted: true` so the page can send a member who
+ * re-follows the email link to the dashboard instead of an error.
  */
 export async function GET(_req: Request, { params }: { params: { token: string } }) {
   const invitation = await prisma.orgInvitation.findUnique({
@@ -22,14 +24,12 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   if (invitation.status === "REQUESTED") {
     return Response.json({ error: "Invitation not found." }, { status: 404 });
   }
-  if (invitation.acceptedAt) {
-    return Response.json({ error: "This invitation has already been accepted." }, { status: 410 });
-  }
-  if (invitation.expiresAt < new Date()) {
+  if (!invitation.acceptedAt && invitation.expiresAt < new Date()) {
     return Response.json({ error: "This invitation has expired." }, { status: 410 });
   }
 
   return Response.json({
+    accepted:     !!invitation.acceptedAt,
     email:        invitation.email,
     role:         invitation.role,
     orgName:      invitation.organization.name,

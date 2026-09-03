@@ -1,14 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 
+// useSearchParams requires a Suspense boundary for the Next 14 prerender pass.
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+/** Only same-origin paths may be used as a post-login destination. */
+function safeCallbackUrl(raw: string | null): string {
+  if (raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/login")) return raw;
+  return "/dashboard";
+}
+
+function LoginInner() {
   const router = useRouter();
+  // The invite-accept page links here with ?callbackUrl=/invite/<token> so the
+  // invitee returns to accept after signing in — never drop it.
+  const callbackUrl = safeCallbackUrl(useSearchParams().get("callbackUrl"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,7 +45,7 @@ export default function LoginPage() {
       if (result?.error) {
         toast.error("Invalid email or password");
       } else {
-        router.push("/dashboard");
+        router.push(callbackUrl);
         router.refresh();
       }
     } catch {
@@ -39,7 +57,7 @@ export default function LoginPage() {
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
-    await signIn("google", { callbackUrl: "/dashboard" });
+    await signIn("google", { callbackUrl });
     // No setGoogleLoading(false) — page navigates away on success;
     // on error the redirect back to /login unmounts the component.
   }

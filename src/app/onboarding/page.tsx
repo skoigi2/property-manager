@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
@@ -526,6 +526,84 @@ function StepDone({ newOrgId }: { newOrgId: string | null }) {
   );
 }
 
+// ─── Pending invitations (safety net) ─────────────────────────────────────────
+//
+// Sign-in already auto-joins an invitee who has no org yet (see
+// autoAcceptPendingInvitations). This panel covers what that can't: a user
+// whose session pre-dates the invitation, or an org that was at its team cap
+// at sign-in. An invitee must never be walked through founding a new org.
+
+interface PendingInvite {
+  token: string;
+  role: string;
+  expiresAt: string;
+  organization: { name: string };
+  invitedBy: { name: string | null; email: string };
+}
+
+function PendingInvitations({ invites, onSkip }: { invites: PendingInvite[]; onSkip: () => void }) {
+  const { update } = useSession();
+  const [busyToken, setBusyToken] = useState<string | null>(null);
+
+  async function accept(inv: PendingInvite) {
+    setBusyToken(inv.token);
+    try {
+      const res  = await fetch(`/api/invitations/${inv.token}/accept`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error ?? "Could not accept the invitation. Please try again.");
+        return;
+      }
+      await update({
+        organizationId:  data.organizationId,
+        membershipCount: data.membershipCount,
+      }).catch(() => {});
+      // Hard navigation so the dashboard's first fetch uses the refreshed JWT.
+      window.location.href = "/dashboard";
+    } catch {
+      toast.error("Network error. Please check your connection and try again.");
+    } finally {
+      setBusyToken(null);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {invites.map((inv) => {
+        const roleLabel = inv.role.charAt(0) + inv.role.slice(1).toLowerCase();
+        const inviter   = inv.invitedBy.name ?? inv.invitedBy.email;
+        const busy      = busyToken === inv.token;
+        return (
+          <div key={inv.token} className="border border-gold/40 bg-gold/5 rounded-xl p-4">
+            <p className="text-body font-medium text-header">{inv.organization.name}</p>
+            <p className="text-caption text-gray-500 mt-0.5">
+              {inviter} invited you as <span className="font-medium">{roleLabel}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => accept(inv)}
+              disabled={busyToken !== null}
+              className="mt-3 w-full bg-header text-white py-2.5 rounded-lg font-semibold text-body hover:bg-header/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {busy ? (
+                <span className="flex items-center justify-center gap-2"><Spinner /> Joining…</span>
+              ) : (
+                `Join ${inv.organization.name} →`
+              )}
+            </button>
+          </div>
+        );
+      })}
+      <p className="text-caption text-gray-400 text-center pt-2">
+        Not expecting this?{" "}
+        <button type="button" onClick={onSkip} className="text-header font-medium hover:underline">
+          Set up a new organisation instead
+        </button>
+      </p>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const STEP_TITLES   = ["Set up your property", "Add your units",  "All done!"];
@@ -536,12 +614,32 @@ const STEP_SUBTITLES = [
 ];
 
 export default function OnboardingPage() {
-  const { data: session } = useSession();
-  const needsOrg = !session?.user?.organizationId;
+  const { data: session, status } = useSession();
+  const activeOrgId = session?.user?.organizationId ?? null;
+  const needsOrg = !activeOrgId;
 
   const [step,       setStep]       = useState(0);
   const [propertyId, setPropertyId] = useState<string | null>(null);
   const [newOrgId,   setNewOrgId]   = useState<string | null>(null);
+
+  // Users with no org yet: check for a pending invitation before offering to
+  // create one. null = not checked yet.
+  const [invites,     setInvites]     = useState<PendingInvite[] | null>(null);
+  const [skipInvites, setSkipInvites] = useState(false);
+
+  useEffect(() => {
+    if (status === "loading") return;
+    if (activeOrgId) { setInvites([]); return; }
+    let cancelled = false;
+    fetch("/api/invitations/my")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => { if (!cancelled) setInvites(Array.isArray(d) ? d : []); })
+      .catch(() => { if (!cancelled) setInvites([]); });
+    return () => { cancelled = true; };
+  }, [status, activeOrgId]);
+
+  const checkingInvites = step === 0 && needsOrg && invites === null;
+  const showInvites     = step === 0 && needsOrg && !skipInvites && (invites?.length ?? 0) > 0;
 
   function handlePropertyDone(pid: string, orgId: string | null) {
     setPropertyId(pid);
@@ -559,19 +657,35 @@ export default function OnboardingPage() {
             <BrandLogo size={52} />
           </div>
           <p className="text-caption text-gray-400 ">
-            Step {step + 1} of 3 — {STEP_TITLES[step]}
+            {showInvites || checkingInvites ? "Welcome" : `Step ${step + 1} of 3 — ${STEP_TITLES[step]}`}
           </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-card px-8 py-8">
-          <Steps current={step} total={3} />
+          {checkingInvites ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-body text-gray-400">
+              <Spinner /> Checking your account…
+            </div>
+          ) : showInvites ? (
+            <>
+              <h2 className=" text-h2 text-header mb-1">You&apos;ve been invited</h2>
+              <p className="text-caption text-gray-400 mb-6 ">
+                Join your team&apos;s existing organisation — there&apos;s nothing to set up.
+              </p>
+              <PendingInvitations invites={invites!} onSkip={() => setSkipInvites(true)} />
+            </>
+          ) : (
+            <>
+              <Steps current={step} total={3} />
 
-          <h2 className=" text-h2 text-header mb-1">{STEP_TITLES[step]}</h2>
-          <p className="text-caption text-gray-400 mb-6 ">
-            {STEP_SUBTITLES[step]}
-          </p>
+              <h2 className=" text-h2 text-header mb-1">{STEP_TITLES[step]}</h2>
+              <p className="text-caption text-gray-400 mb-6 ">
+                {STEP_SUBTITLES[step]}
+              </p>
+            </>
+          )}
 
-          {step === 0 && (
+          {step === 0 && !checkingInvites && !showInvites && (
             <StepProperty
               needsOrg={needsOrg}
               onNext={handlePropertyDone}

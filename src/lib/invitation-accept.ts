@@ -99,3 +99,59 @@ export async function applyInvitationAcceptance(opts: {
 
   return { organizationId: orgId, orgRole: role, isBillingOwner: false, membershipCount };
 }
+
+/**
+ * Sign-in hook. A user who holds NO org membership yet but has a live
+ * invitation to an existing org is joined to it here, so they never reach the
+ * "create your organisation" onboarding step (the screen an invitee must not
+ * see). Runs on every Google and credentials sign-in.
+ *
+ * Deliberately skipped for:
+ * - users who already belong to an org — they accept explicitly from
+ *   /invite/[token] so their active org never flips under them;
+ * - super-admin-shaped accounts (global ADMIN, no org).
+ *
+ * Mirrors the invited-signup path: the global User.role is set from the
+ * invitation because this user has no other org. Never throws — a failure
+ * here must not block sign-in. Returns the joined org id, or null.
+ */
+export async function autoAcceptPendingInvitations(user: {
+  id: string;
+  email: string | null;
+  role: string;
+  organizationId: string | null;
+}): Promise<string | null> {
+  if (!user.email) return null;
+  if (user.role === "ADMIN" && !user.organizationId) return null;
+  try {
+    const memberships = await prisma.userOrganizationMembership.count({ where: { userId: user.id } });
+    if (memberships > 0) return null;
+
+    const pending = await prisma.orgInvitation.findMany({
+      where: {
+        email:      user.email.toLowerCase(),
+        status:     "SENT",
+        acceptedAt: null,
+        expiresAt:  { gt: new Date() },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (pending.length === 0) return null;
+
+    let joined: string | null = null;
+    for (const invitation of pending) {
+      // Org filled up since the invite was sent — leave it pending; the
+      // onboarding page surfaces the limit when they try to accept.
+      if (!(await canAddUser(invitation.organizationId))) continue;
+      await applyInvitationAcceptance({ userId: user.id, invitation });
+      if (!joined) {
+        joined = invitation.organizationId;
+        await prisma.user.update({ where: { id: user.id }, data: { role: invitation.role } });
+      }
+    }
+    return joined;
+  } catch (err) {
+    console.error("[autoAcceptPendingInvitations]", err);
+    return null;
+  }
+}

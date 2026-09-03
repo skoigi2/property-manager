@@ -29,6 +29,25 @@ export async function POST(_req: Request, { params }: { params: { token: string 
   }
   const problem = invitationProblem(invitation);
   if (problem === "accepted") {
+    // Already applied for this very user (e.g. auto-joined at sign-in) —
+    // answer idempotently so the client can refresh its session and move on.
+    if (session!.user.email?.toLowerCase() === invitation.email.toLowerCase()) {
+      const membership = await prisma.userOrganizationMembership.findUnique({
+        where: { userId_organizationId: { userId: session!.user.id, organizationId: invitation.organizationId } },
+        select: { role: true, isBillingOwner: true },
+      });
+      if (membership) {
+        const membershipCount = await prisma.userOrganizationMembership.count({ where: { userId: session!.user.id } });
+        return Response.json({
+          ok: true,
+          organizationId: invitation.organizationId,
+          orgRole:        membership.role,
+          isBillingOwner: membership.isBillingOwner,
+          membershipCount,
+          alreadyMember:  true,
+        });
+      }
+    }
     return Response.json({ error: "This invitation has already been accepted." }, { status: 410 });
   }
   if (problem === "expired") {

@@ -24,6 +24,9 @@ function Dash() {
 // Only rows backed by REAL code gates are tier-differentiated:
 //   - Properties      (PROPERTY_LIMITS in src/lib/paddle.ts)
 //   - Team members    (TEAM_LIMITS in src/lib/paddle.ts, canAddUser() guard)
+//   - Caretaker seats (CARETAKER_LIMITS in src/lib/paddle.ts — a separate pool
+//                      for on-site staff, so single-operator plans can still
+//                      employ a caretaker)
 //   - Priority support (service tier, no code gate but reasonable to differentiate)
 //
 // Everything else renders as 3-checkmark rows. This is intentional and
@@ -43,6 +46,7 @@ const FEATURES: { section: string; rows: FeatureRowDef[] }[] = [
       { label: "Properties", starter: "Up to 2", growth: "Up to 10", pro: "Unlimited" },
       { label: "Units per property", starter: "Unlimited", growth: "Unlimited", pro: "Unlimited" },
       { label: "Team members", starter: "1", growth: "Up to 10", pro: "Unlimited" },
+      { label: "Caretaker seats (on-site staff)", starter: "2", growth: "Up to 10", pro: "Unlimited" },
     ],
   },
   {
@@ -139,14 +143,14 @@ const PLANS = [
 const STARTER_BULLETS = [
   "Everything in Groundwork PM",
   "Up to 2 properties · unlimited units",
-  "1 team member",
+  "1 team member + 2 caretaker seats",
   "Tenant portal · magic-link approvals · daily expiry cron",
 ];
 
 const GROWTH_BULLETS = [
   "Everything in Groundwork PM",
   "Up to 10 properties · unlimited units",
-  "Up to 10 team members",
+  "Up to 10 team members + 10 caretaker seats",
   "Inbox queue with one-click suggested actions",
   "3 / 6 / 12 month cashflow forecast",
   "Multi-property dashboard",

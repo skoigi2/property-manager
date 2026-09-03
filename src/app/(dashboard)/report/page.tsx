@@ -1561,7 +1561,7 @@ export default function ReportPage() {
   const [quarterYear, setQuarterYear]   = useState(String(currentYear));
 
   // OWNER role gets a read-only dashboard instead of the manager tab system
-  if (session?.user?.role === "OWNER") {
+  if (session?.user?.orgRole === "OWNER") {
     return (
       <div>
         <Header

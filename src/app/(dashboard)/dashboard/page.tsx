@@ -265,8 +265,8 @@ export default function DashboardPage() {
       />
 
       <div className="page-container space-y-6">
-        {session?.user?.role !== "OWNER" && <WelcomeTour />}
-        {selectedId && session?.user?.role !== "OWNER" && (
+        {session?.user?.orgRole !== "OWNER" && <WelcomeTour />}
+        {selectedId && session?.user?.orgRole !== "OWNER" && (
           <SetupChecklist propertyId={selectedId} />
         )}
 

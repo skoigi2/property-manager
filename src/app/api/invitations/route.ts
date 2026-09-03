@@ -8,9 +8,9 @@ import { randomUUID } from "crypto";
 
 const createSchema = z.object({
   email: z.string().email(),
-  role:  z.enum(["ADMIN", "MANAGER", "ACCOUNTANT", "OWNER"]),
-  // Property scope granted on acceptance (MANAGER/ACCOUNTANT invitees only).
-  // Empty/absent = all org properties.
+  role:  z.enum(["ADMIN", "MANAGER", "ACCOUNTANT", "OWNER", "CARETAKER"]),
+  // Property scope granted on acceptance (MANAGER/ACCOUNTANT/CARETAKER invitees).
+  // Empty/absent = all org properties (CARETAKER must be explicit).
   propertyIds: z.array(z.string()).optional(),
 });
 
@@ -53,7 +53,12 @@ export async function POST(req: Request) {
   // Property scope only applies to MANAGER/ACCOUNTANT invitees, and every id
   // must be a property THIS caller can access (an admin sees the whole org; a
   // manager only their own properties — which is exactly the request limit).
-  let propertyIds = (role === "MANAGER" || role === "ACCOUNTANT") ? (parsed.data.propertyIds ?? []) : [];
+  const isPropertyScopedRole = role === "MANAGER" || role === "ACCOUNTANT" || role === "CARETAKER";
+  let propertyIds = isPropertyScopedRole ? (parsed.data.propertyIds ?? []) : [];
+  // On-site staff are property-scoped by definition — never "all org properties".
+  if (role === "CARETAKER" && propertyIds.length === 0) {
+    return Response.json({ error: "Select at least one property for a caretaker." }, { status: 400 });
+  }
   if (propertyIds.length > 0) {
     const accessible = new Set((await getAccessiblePropertyIds()) ?? []);
     if (propertyIds.some((id) => !accessible.has(id))) {
@@ -72,10 +77,10 @@ export async function POST(req: Request) {
   // orthogonal to the org's lock state. Manager REQUESTS skip this — the cap
   // is enforced when an admin approves (and again at acceptance).
   if (!isRequest) {
-    const capacityOk = await canAddUser(orgId);
+    const capacityOk = await canAddUser(orgId, role);
     if (!capacityOk) {
       return Response.json(
-        { error: "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
+        { error: role === "CARETAKER" ? "Caretaker-seat limit reached for your plan. Upgrade to add more." : "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
         { status: 402 },
       );
     }

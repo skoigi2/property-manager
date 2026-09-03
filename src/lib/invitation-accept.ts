@@ -28,6 +28,7 @@ export function invitationProblem(
 export async function assertTeamCapacityForInvite(
   organizationId: string,
   userId?: string,
+  role?: string | null,
 ): Promise<Response | null> {
   if (userId) {
     const existing = await prisma.userOrganizationMembership.findUnique({
@@ -36,7 +37,7 @@ export async function assertTeamCapacityForInvite(
     });
     if (existing) return null;
   }
-  const ok = await canAddUser(organizationId);
+  const ok = await canAddUser(organizationId, role);
   if (ok) return null;
   return Response.json(
     { error: "This organisation has reached its team-member limit. Ask the admin to upgrade the plan.", code: "TEAM_LIMIT_REACHED" },
@@ -58,7 +59,7 @@ export async function applyInvitationAcceptance(opts: {
 }): Promise<{ organizationId: string; orgRole: string; isBillingOwner: false; membershipCount: number }> {
   const { userId, invitation } = opts;
   const orgId = invitation.organizationId;
-  const role = invitation.role as "ADMIN" | "MANAGER" | "ACCOUNTANT" | "OWNER";
+  const role = invitation.role as "ADMIN" | "MANAGER" | "ACCOUNTANT" | "OWNER" | "CARETAKER";
 
   await prisma.userOrganizationMembership.upsert({
     where:  { userId_organizationId: { userId, organizationId: orgId } },
@@ -73,8 +74,12 @@ export async function applyInvitationAcceptance(opts: {
 
   // ADMIN sees all properties automatically; OWNER is scoped to ownedProperties.
   // A non-empty invitation.propertyIds limits the grant to that scope; empty
-  // means all org properties (legacy invitations carry no scope).
-  if (role === "MANAGER" || role === "ACCOUNTANT") {
+  // means all org properties (legacy invitations carry no scope) — except for
+  // CARETAKER, whose invitation always carries an explicit scope (POST
+  // /api/invitations refuses an empty one) and must never default to all.
+  const scopedRole = role === "MANAGER" || role === "ACCOUNTANT"
+    || (role === "CARETAKER" && (invitation.propertyIds?.length ?? 0) > 0);
+  if (scopedRole) {
     const scoped = invitation.propertyIds ?? [];
     const orgProperties = await prisma.property.findMany({
       where: {

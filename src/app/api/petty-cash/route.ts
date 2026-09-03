@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { pettyCashSchema } from "@/lib/validations";
 import { calcPettyCashBalance } from "@/lib/calculations";
 import { logAudit } from "@/lib/audit";
-import { sendNotificationEmail } from "@/lib/email";
-import { pettyCashPendingTemplate } from "@/lib/notifications/email-templates";
+import { resolvePettyCashOutStatus } from "@/lib/petty-cash-status";
+import { notifyPettyCashPending } from "@/lib/petty-cash-approval";
 
 export async function GET(req: Request) {
   const { session, error } = await requireAuth();
@@ -48,8 +48,13 @@ export async function GET(req: Request) {
       ],
     },
     // Linked expense (when this OUT row mirrors a paid-from-petty-cash
-    // expense) — drives the "From expense" badge on the ledger.
-    include: { expenseEntry: { select: { id: true, description: true, category: true } } },
+    // expense) — drives the "From expense" badge on the ledger, and tells the
+    // float holder who submitted a PENDING row (createdBy).
+    include: {
+      expenseEntry: {
+        select: { id: true, description: true, category: true, createdBy: { select: { id: true, name: true, email: true } } },
+      },
+    },
     orderBy: { date: "asc" },
   });
   const withBalance = calcPettyCashBalance(entries);
@@ -79,20 +84,23 @@ export async function POST(req: Request) {
   }
 
   // Determine approval status based on ManagementAgreement threshold
+  // (shared rule in src/lib/petty-cash-status.ts).
   let status: "APPROVED" | "PENDING" = "APPROVED";
   if (rest.type === "OUT" && propertyId) {
     const agreement = await prisma.managementAgreement.findUnique({
       where: { propertyId },
       select: { repairAuthorityLimit: true },
     });
-    if (agreement && rest.amount > agreement.repairAuthorityLimit) {
-      if (!receiptRef || receiptRef.trim() === "") {
-        return Response.json(
-          { error: "A receipt or reference number is required for OUT entries above the approval threshold." },
-          { status: 400 }
-        );
-      }
-      status = "PENDING";
+    status = resolvePettyCashOutStatus({
+      orgRole: session!.user.orgRole,
+      amount: rest.amount,
+      repairAuthorityLimit: agreement?.repairAuthorityLimit ?? null,
+    });
+    if (status === "PENDING" && agreement && rest.amount > agreement.repairAuthorityLimit && (!receiptRef || receiptRef.trim() === "")) {
+      return Response.json(
+        { error: "A receipt or reference number is required for OUT entries above the approval threshold." },
+        { status: 400 }
+      );
     }
   }
 
@@ -119,33 +127,14 @@ export async function POST(req: Request) {
 
   // Notify managers when entry requires approval
   if (status === "PENDING" && propertyId) {
-    try {
-      const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { name: true, organizationId: true } });
-      if (property) {
-        const managers = await prisma.user.findMany({
-          where: {
-            role: { in: ["ADMIN", "MANAGER"] },
-            organizationId: property.organizationId,
-            NOT: { id: session!.user.id },
-          },
-          select: { email: true, name: true },
-        });
-        const { subject, html } = pettyCashPendingTemplate({
-          propertyName: property.name,
-          amount: rest.amount,
-          description: rest.description,
-          receiptRef: receiptRef?.trim() || null,
-          submittedBy: session!.user.email ?? "—",
-        });
-        for (const mgr of managers) {
-          if (mgr.email) {
-            sendNotificationEmail(mgr.email, subject, html).catch(() => {});
-          }
-        }
-      }
-    } catch {
-      // Fire-and-forget — don't fail the request if notification fails
-    }
+    void notifyPettyCashPending({
+      propertyId,
+      amount: rest.amount,
+      description: rest.description,
+      receiptRef: receiptRef?.trim() || null,
+      submittedBy: session!.user.email ?? "—",
+      excludeUserId: session!.user.id,
+    });
   }
 
   return Response.json(entry, { status: 201 });

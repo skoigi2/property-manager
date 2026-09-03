@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { PROPERTY_LIMITS, TEAM_LIMITS } from "@/lib/paddle";
+import { PROPERTY_LIMITS, TEAM_LIMITS, CARETAKER_LIMITS } from "@/lib/paddle";
 
 // ─── Trial & subscription status helpers ─────────────────────────────────────
 
@@ -64,23 +64,47 @@ export async function canAddProperty(orgId: string): Promise<boolean> {
   return count < limit;
 }
 
+/** Which seat pool a membership role consumes. Pure — unit-tested. */
+export function seatPoolForRole(role: string | null | undefined): "TEAM" | "CARETAKER" {
+  return role === "CARETAKER" ? "CARETAKER" : "TEAM";
+}
+
+/** Pure cap check for a seat pool (unit-tested). */
+export function hasSeatCapacity(
+  pool: "TEAM" | "CARETAKER",
+  pricingTier: string,
+  currentCount: number,
+): boolean {
+  const limits = pool === "CARETAKER" ? CARETAKER_LIMITS : TEAM_LIMITS;
+  const limit = limits[pricingTier] ?? 1;
+  return currentCount < limit;
+}
+
 /**
- * Returns true if the org can add another team member given its tier's
- * TEAM_LIMITS cap. Org members are counted via UserOrganizationMembership
- * (the source of truth for org membership).
+ * Returns true if the org can add another member with the given role. Team
+ * roles (ADMIN / MANAGER / ACCOUNTANT / OWNER) count against TEAM_LIMITS;
+ * CARETAKER memberships count against the separate CARETAKER_LIMITS pool so
+ * single-operator plans can still employ on-site staff. Members are counted
+ * via UserOrganizationMembership (the source of truth for org membership).
+ * Omitting `role` checks the team pool (legacy callers).
  */
-export async function canAddUser(orgId: string): Promise<boolean> {
+export async function canAddUser(orgId: string, role?: string | null): Promise<boolean> {
+  const pool = seatPoolForRole(role);
   const [org, count] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: orgId },
       select: { pricingTier: true, freeAccess: true },
     }),
-    prisma.userOrganizationMembership.count({ where: { organizationId: orgId } }),
+    prisma.userOrganizationMembership.count({
+      where: {
+        organizationId: orgId,
+        role: pool === "CARETAKER" ? "CARETAKER" : { not: "CARETAKER" },
+      },
+    }),
   ]);
   if (!org) return false;
   if (org.freeAccess) return true; // Complimentary PRO — no team limit
-  const limit = TEAM_LIMITS[org.pricingTier] ?? 1;
-  return count < limit;
+  return hasSeatCapacity(pool, org.pricingTier, count);
 }
 
 // ─── Write-gate: call at the top of every POST/PATCH/DELETE handler ──────────

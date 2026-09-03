@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireSession, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { MaintenanceFrequency } from "@prisma/client";
 
@@ -36,7 +36,8 @@ function calcNextDueFromToday(frequency: string): Date {
 }
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  // Read: any role incl. CARETAKER (property-scoped). Writes stay manager-only.
+  const { error } = await requireSession();
   if (error) return error;
 
   const ids = await getAccessiblePropertyIds();

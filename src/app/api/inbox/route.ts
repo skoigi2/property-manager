@@ -2,7 +2,7 @@ import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { buildInbox } from "@/lib/inbox";
 
 export async function GET(req: Request) {
-  const { error } = await requireManager();
+  const { session, error } = await requireManager();
   if (error) return error;
 
   const ids = await getAccessiblePropertyIds();
@@ -15,6 +15,6 @@ export async function GET(req: Request) {
   const propertyId = new URL(req.url).searchParams.get("propertyId");
   const scope = propertyId && ids.includes(propertyId) ? [propertyId] : ids;
 
-  const data = await buildInbox(scope);
+  const data = await buildInbox(scope, { audienceRole: session!.user.orgRole });
   return Response.json(data);
 }

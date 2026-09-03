@@ -5,7 +5,7 @@ import { roleOutranksCaller } from "@/lib/permissions";
 import { z } from "zod";
 
 const roleSchema = z.object({
-  role: z.enum(["ADMIN", "MANAGER", "ACCOUNTANT", "OWNER"]),
+  role: z.enum(["ADMIN", "MANAGER", "ACCOUNTANT", "OWNER", "CARETAKER"]),
 });
 
 /**

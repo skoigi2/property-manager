@@ -76,10 +76,10 @@ const sidebarEntries: SidebarEntry[] = [
     type: "group",
     label: "Finances",
     icon: TrendingUp,
-    roles: ["MANAGER", "ACCOUNTANT"],
+    roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"],
     items: [
       { href: "/income",             label: "Income",    icon: TrendingUp,  roles: ["MANAGER", "ACCOUNTANT"] },
-      { href: "/expenses",           label: "Expenses",  icon: Receipt,     roles: ["MANAGER", "ACCOUNTANT"] },
+      { href: "/expenses",           label: "Expenses",  icon: Receipt,     roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/petty-cash",         label: "Petty Cash",icon: Wallet,      roles: ["MANAGER"] },
       { href: "/recurring-expenses", label: "Recurring", icon: RepeatIcon,  roles: ["MANAGER"] },
       { href: "/forecast",           label: "Forecast",  icon: LineChart,   roles: ["MANAGER", "ACCOUNTANT"] },
@@ -100,12 +100,12 @@ const sidebarEntries: SidebarEntry[] = [
     type: "group",
     label: "Operations",
     icon: Wrench,
-    roles: ["MANAGER", "ACCOUNTANT"],
+    roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"],
     items: [
       { href: "/cases",       label: "Cases",       icon: Briefcase, roles: ["MANAGER", "ACCOUNTANT"] },
-      { href: "/maintenance", label: "Maintenance", icon: Wrench,    roles: ["MANAGER", "ACCOUNTANT"] },
+      { href: "/maintenance", label: "Maintenance", icon: Wrench,    roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/assets",      label: "Assets",      icon: Package,   roles: ["MANAGER", "ACCOUNTANT"] },
-      { href: "/vendors",     label: "Vendors",     icon: Building2, roles: ["MANAGER", "ACCOUNTANT"] },
+      { href: "/vendors",     label: "Vendors",     icon: Building2, roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/insurance",   label: "Insurance",   icon: ShieldPlus,roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/compliance",              label: "Compliance",  icon: BarChart3,  roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/compliance/certificates", label: "Certificates", icon: ShieldCheck, roles: ["MANAGER", "ACCOUNTANT"] },
@@ -116,12 +116,12 @@ const sidebarEntries: SidebarEntry[] = [
     type: "group",
     label: "Settings",
     icon: Settings,
-    roles: ["MANAGER"],
+    roles: ["MANAGER", "CARETAKER"],
     items: [
       { href: "/settings",       label: "General",   icon: Settings,   roles: ["MANAGER"] },
       { href: "/automations",    label: "Automations", icon: Zap,      roles: ["MANAGER"] },
       { href: "/settings/notifications", label: "Notifications", icon: Bell, roles: ["MANAGER"] },
-      { href: "/help/tutorials", label: "Tutorials", icon: PlayCircle, roles: ["MANAGER"] },
+      { href: "/help/tutorials", label: "Tutorials", icon: PlayCircle, roles: ["MANAGER", "CARETAKER"] },
       { href: "/settings/calendar", label: "Calendar Feed", icon: CalendarRange, roles: ["MANAGER"] },
       { href: "/settings/payment-accounts", label: "Payment Accounts", icon: CreditCard, roles: ["MANAGER"] },
       { href: "/settings/users", label: "Users",     icon: UserCog,    roles: ["MANAGER"] },
@@ -165,7 +165,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   const [urgentCount, setUrgentCount] = useState(0);
 
   useEffect(() => {
-    if (role === "OWNER") return;
+    // /api/inbox is manager-tier only — skip the poll for OWNER and CARETAKER.
+    if (role === "OWNER" || role === "CARETAKER") return;
     let cancelled = false;
     const load = () => {
       fetch("/api/inbox")
@@ -235,8 +236,11 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
     );
   }
 
+  // Allow-list: an entry is visible only when its roles[] names the viewer's
+  // membership role (ADMIN sees everything). Unknown / missing role → nothing.
   function canSee(roles: string[]) {
-    return !role || role === "ADMIN" || roles.includes(role);
+    if (!role) return false;
+    return role === "ADMIN" || roles.includes(role);
   }
 
   return (
@@ -294,8 +298,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
           </div>
         )}
 
-        {/* Global search trigger — opens the Cmd+K palette */}
-        {role !== "OWNER" && (
+        {/* Global search trigger — opens the Cmd+K palette (manager tier only) */}
+        {(role === "ADMIN" || role === "MANAGER" || role === "ACCOUNTANT") && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("gw:open-global-search"))}
             className="mt-3 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"

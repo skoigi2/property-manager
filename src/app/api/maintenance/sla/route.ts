@@ -1,8 +1,8 @@
-import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireSession, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  const { error } = await requireSession(); // any role incl. CARETAKER
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

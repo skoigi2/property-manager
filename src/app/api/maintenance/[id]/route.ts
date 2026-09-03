@@ -1,5 +1,6 @@
-import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
+import { requireManager, requirePropertyAccess, requireManagerWrite, requireOpsStaffWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { auth } from "@/lib/auth";
@@ -56,7 +57,9 @@ async function getJobWithAccess(id: string) {
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManagerWrite();
+  // Ops staff incl. CARETAKER: status / vendor / priority / log-expense.
+  // Deleting a job stays manager-only (see DELETE below).
+  const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
 
   const { job, accessError } = await getJobWithAccess(params.id);
@@ -90,6 +93,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           scope,
           isSunkCost,
           organizationId: job!.property?.organizationId ?? null,
+          createdByUserId: session!.user.id,
           ...(hasUnit
             ? { unitId: job!.unitId!, propertyId: job!.propertyId }
             : { propertyId: job!.propertyId }),
@@ -109,6 +113,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         unit:     { select: { id: true, unitNumber: true } },
         vendor:   { select: { id: true, name: true, category: true, phone: true } },
       },
+    });
+
+    await logAudit({
+      userId: session!.user.id,
+      userEmail: session!.user.email,
+      action: "CREATE",
+      resource: "ExpenseEntry",
+      resourceId: expense.id,
+      organizationId: session!.user.organizationId,
+      after: { category: expense.category, amount: expense.amount, date: expense.date, maintenanceJobId: params.id },
     });
 
     return Response.json({ job: linked, expense });

@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth-utils";
+import { requireSession } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import {
   invitationProblem,
@@ -13,7 +13,7 @@ import {
  * Creates (or upserts) the org membership with the invited role.
  */
 export async function POST(_req: Request, { params }: { params: { token: string } }) {
-  const { error, session } = await requireAuth();
+  const { error, session } = await requireSession(); // any role — a caretaker may accept a second org's invite
   if (error) return error;
 
   const invitation = await prisma.orgInvitation.findUnique({
@@ -64,7 +64,7 @@ export async function POST(_req: Request, { params }: { params: { token: string 
 
   // Team-cap re-check: the org may have filled up since the invite was sent.
   // Existing members are never blocked from re-accepting.
-  const capacityError = await assertTeamCapacityForInvite(invitation.organizationId, session!.user.id);
+  const capacityError = await assertTeamCapacityForInvite(invitation.organizationId, session!.user.id, invitation.role);
   if (capacityError) return capacityError;
 
   const result = await applyInvitationAcceptance({ userId: session!.user.id, invitation });

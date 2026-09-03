@@ -6,6 +6,7 @@ import { PropertyProvider } from "@/lib/property-context";
 import { TrialBanner } from "@/components/layout/TrialBanner";
 import { InviteBanner } from "@/components/layout/InviteBanner";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { MANAGER_ROLES } from "@/lib/auth-utils";
 
 export default async function DashboardLayout({
   children,
@@ -15,7 +16,10 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session) redirect("/login");
 
-  const role = session.user.role;
+  // Navigation is keyed on the ACTIVE ORG's membership role, never the global
+  // User.role (which the invitation flow never writes). Super-admin has no
+  // membership, so orgRole falls back to the global ADMIN.
+  const role = session.user.orgRole ?? session.user.role;
   const organizationId = session.user.organizationId ?? null;
 
   return (
@@ -30,8 +34,8 @@ export default async function DashboardLayout({
           </main>
         </div>
         <MobileNav role={role} />
-        {/* Cmd/Ctrl+K palette — search API is manager-only, so hide from OWNER */}
-        {role !== "OWNER" && <GlobalSearch />}
+        {/* Cmd/Ctrl+K palette — search API is manager-only (allow-list: no OWNER, no CARETAKER) */}
+        {(MANAGER_ROLES as readonly string[]).includes(role) && <GlobalSearch />}
       </div>
     </PropertyProvider>
   );

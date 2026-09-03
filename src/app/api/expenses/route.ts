@@ -1,6 +1,7 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
-import { requireActiveSubscription } from "@/lib/subscription";
+import { requireSession, requireOpsStaffWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { resolvePettyCashOutStatus } from "@/lib/petty-cash-status";
+import { notifyPettyCashPending } from "@/lib/petty-cash-approval";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot, lineItemCategoryToAppliesTo } from "@/lib/tax-engine";
@@ -19,10 +20,15 @@ const EXPENSE_INCLUDE = {
   },
   // Receipt/document count — drives the paperclip badge without loading docs.
   _count: { select: { documents: true } },
+  // Approval state of the linked petty-cash OUT row (status only — never a
+  // balance). Drives the "awaiting confirmation / rejected" badge.
+  pettyCashEntry: { select: { status: true, rejectionReason: true } },
 };
 
 export async function GET(req: Request) {
-  const { session, error } = await requireAuth();
+  // Any role incl. CARETAKER (on-site staff see expense amounts; scoping is
+  // by accessible properties below).
+  const { session, error } = await requireSession();
   if (error) return error;
   const sessionOrgId = session!.user.organizationId ?? null;
 
@@ -105,15 +111,19 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
-  const locked = await requireActiveSubscription(session!.user.organizationId);
-  if (locked) return locked;
+  const orgRole = session!.user.orgRole;
 
   const body = await req.json();
   const parsed = expenseEntrySchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  // On-site staff are property-scoped by definition: a PORTFOLIO row has no
+  // property for the access check to bite on.
+  if (orgRole === "CARETAKER" && parsed.data.scope === "PORTFOLIO") {
+    return Response.json({ error: "Caretakers can only record expenses against a property or unit." }, { status: 400 });
   }
 
   const vendorId = body.vendorId as string | undefined | null;
@@ -155,6 +165,9 @@ export async function POST(req: Request) {
     : [];
 
   const pettyCashPropertyId = paidFromPettyCash ? effectivePropertyId ?? null : null;
+  // Caretaker OUT rows wait for the float holder (PENDING never moves the
+  // balance); everyone else keeps today's immediate-APPROVED behaviour.
+  const pettyCashStatus = resolvePettyCashOutStatus({ orgRole, amount: computedAmount, repairAuthorityLimit: null });
 
   const shareAmount = isMultiUnit ? computedAmount / unitIds.length : computedAmount;
 
@@ -220,6 +233,7 @@ export async function POST(req: Request) {
         unitId: resolvedUnitId,
         propertyId: resolvedPropertyId,
         organizationId: session!.user.organizationId ?? null,
+        createdByUserId: session!.user.id,
         ...(unitIds && unitIds.length > 0
           ? { unitAllocations: { create: unitIds.map((uid) => ({ unitId: uid, shareAmount })) } }
           : {}),
@@ -236,6 +250,7 @@ export async function POST(req: Request) {
                   description: rest.description ?? `${rest.category} expense`,
                   propertyId: pettyCashPropertyId,
                   organizationId: session!.user.organizationId ?? null,
+                  status: pettyCashStatus,
                 },
               },
             }
@@ -246,6 +261,17 @@ export async function POST(req: Request) {
   ];
   const txResults = await prisma.$transaction(ops);
   const entry = txResults[0];
+
+  if (paidFromPettyCash && pettyCashStatus === "PENDING" && pettyCashPropertyId) {
+    void notifyPettyCashPending({
+      propertyId: pettyCashPropertyId,
+      amount: computedAmount,
+      description: rest.description ?? `${rest.category} expense`,
+      receiptRef: rest.paymentReference || null,
+      submittedBy: session!.user.email ?? session!.user.name ?? "—",
+      excludeUserId: session!.user.id,
+    });
+  }
 
   // Re-fetch with all relations
   const full = await prisma.expenseEntry.findUnique({

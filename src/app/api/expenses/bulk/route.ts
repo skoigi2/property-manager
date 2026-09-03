@@ -30,6 +30,15 @@ export async function POST(req: Request) {
 
   const { action } = parsed.data;
 
+  // Bulk actions touch other people's rows — never for CARETAKER (already
+  // excluded by requireManagerWrite; kept as an explicit belt-and-braces).
+  if (!roleCan(session!.user.orgRole, "EXPENSE_BULK")) {
+    return Response.json(
+      { error: PERMISSION_DENIED_MESSAGE.EXPENSE_BULK, code: "PERMISSION_DENIED" },
+      { status: 403 }
+    );
+  }
+
   // Destructive actions need the granular permission (ACCOUNTANT may retype /
   // reclassify but not delete financial records).
   if (action === "delete" || action === "delete_all") {

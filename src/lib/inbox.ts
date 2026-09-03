@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { hintTypeFilter } from "@/lib/hint-visibility";
 import { differenceInDays } from "date-fns";
 import { getLeaseStatus } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
@@ -92,6 +93,7 @@ function mapHintToInboxType(t: string): InboxType | null {
 
 export async function buildInbox(
   propertyIds: string[],
+  opts: { /** orgRole of the viewer — restricts which hint types are merged (hint-visibility.ts). */ audienceRole?: string | null } = {},
 ): Promise<{ items: InboxItem[]; counts: InboxCounts }> {
   if (propertyIds.length === 0) {
     return { items: [], counts: { urgent: 0, today: 0, thisWeek: 0 } };
@@ -476,7 +478,7 @@ export async function buildInbox(
   //     computed items above. To avoid double-counting, we drop computed items
   //     whose (type, refId) tuple matches a hint we already injected.
   const hints = await prisma.actionableHint.findMany({
-    where: { status: "ACTIVE", propertyId: { in: propertyIds } },
+    where: { status: "ACTIVE", propertyId: { in: propertyIds }, ...hintTypeFilter(opts.audienceRole) },
     include: { property: { select: { id: true, name: true, currency: true } } },
   });
   const hintKeys = new Set<string>();

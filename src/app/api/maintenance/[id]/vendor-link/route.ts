@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireManagerWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireOpsStaffWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { sendNotificationEmail, esc } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { redactToken } from "@/lib/approval-auth";
@@ -14,7 +14,8 @@ const TOKEN_TTL_DAYS = 14;
  * exists; always returns the URL for WhatsApp/SMS sharing.
  */
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const { error, session } = await requireManagerWrite();
+  // Ops staff incl. CARETAKER — assigning the contractor they met on site.
+  const { error, session } = await requireOpsStaffWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();

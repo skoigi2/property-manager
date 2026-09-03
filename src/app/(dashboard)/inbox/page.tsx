@@ -5,7 +5,9 @@ import { InboxClient } from "./InboxClient";
 export default async function InboxPage() {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role === "OWNER") redirect("/report");
+  const orgRole = session.user.orgRole ?? session.user.role;
+  if (orgRole === "OWNER") redirect("/report");
+  if (orgRole === "CARETAKER") redirect("/maintenance");
 
-  return <InboxClient userName={session.user.name} role={session.user.role} />;
+  return <InboxClient userName={session.user.name} role={orgRole} />;
 }

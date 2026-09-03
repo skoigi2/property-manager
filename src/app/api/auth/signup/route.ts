@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     // Team-member cap of the INVITING org (new member joining it)
     if (invitation) {
-      const capacityError = await assertTeamCapacityForInvite(invitation.organizationId);
+      const capacityError = await assertTeamCapacityForInvite(invitation.organizationId, undefined, invitation.role);
       if (capacityError) return capacityError;
     }
 

@@ -1,4 +1,4 @@
-import { requireManager, requirePermissionWrite } from "@/lib/auth-utils";
+import { requireOpsStaff, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -16,7 +16,9 @@ const createSchema = z.object({
 
 // GET /api/tax-configs?propertyId=&orgId=
 export async function GET(req: Request) {
-  const { session, error } = await requireManager();
+  // Rates only (no money) — the expense form needs them for VAT line items,
+  // so CARETAKER may read. Writes stay ORG_SETTINGS.
+  const { session, error } = await requireOpsStaff();
   if (error) return error;
 
   const { searchParams } = new URL(req.url);

@@ -85,6 +85,10 @@ const blankForm = { name: "", category: "OTHER", phone: "", email: "", taxId: ""
 export default function VendorsPage() {
   const { data: session } = useSession();
   const user = session?.user as any;
+  // CARETAKER: read (trimmed) + create only. No edit / deactivate / delete /
+  // payments / statements — the API denies them; this just hides the controls.
+  const isCaretaker = user?.orgRole === "CARETAKER";
+  const canManageVendors = !isCaretaker;
 
   const [vendors, setVendors]           = useState<Vendor[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -103,6 +107,8 @@ export default function VendorsPage() {
   const [detailOpen, setDetailOpen]       = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
+  // Soft duplicate-name warning from POST /api/vendors (409 DUPLICATE_VENDOR).
+  const [duplicateOf, setDuplicateOf] = useState<{ id: string; name: string; category: string; phone: string | null } | null>(null);
   const [deleting, setDeleting]         = useState(false);
 
   const [paymentVendor, setPaymentVendor]     = useState<{ id: string; name: string } | null>(null);
@@ -149,6 +155,7 @@ export default function VendorsPage() {
   }
 
   function openEdit(v: Vendor) {
+    setDuplicateOf(null);
     setEditing(v);
     setForm({
       name:        v.name,
@@ -163,7 +170,7 @@ export default function VendorsPage() {
     setModalOpen(true);
   }
 
-  async function handleSave() {
+  async function handleSave(duplicateOverride = false) {
     const errors: Record<string, string> = {};
     if (!form.name.trim()) errors.name = "Name is required";
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = "Invalid email";
@@ -184,8 +191,16 @@ export default function VendorsPage() {
           taxId:       form.taxId || null,
           bankDetails: form.bankDetails || null,
           notes:       form.notes || null,
+          ...(duplicateOverride ? { allowDuplicate: true } : {}),
         }),
       });
+      if (res.status === 409 && !editing) {
+        const err = await res.json();
+        if (err.code === "DUPLICATE_VENDOR" && !duplicateOverride) {
+          setDuplicateOf(err.existing ?? null);
+          return;
+        }
+      }
       if (!res.ok) {
         const err = await res.json();
         toast.error(err.error ?? "Failed to save");
@@ -266,7 +281,7 @@ export default function VendorsPage() {
 
   return (
     <div>
-      <Header title="Vendor Registry" userName={user?.name} role={user?.role} />
+      <Header title="Vendor Registry" userName={user?.name} role={user?.orgRole ?? user?.role} />
       <div className="page-container space-y-4 pb-24 lg:pb-8">
 
         {/* Toolbar */}
@@ -378,9 +393,11 @@ export default function VendorsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filtered.map((v) => {
+                    // _count is absent on the trimmed (CARETAKER) projection.
+                    const c = v._count ?? { expenses: 0, maintenanceJobs: 0, assetLogs: 0, recurringExpenses: 0, assets: 0 };
                     const totalUsage =
-                      v._count.expenses + v._count.maintenanceJobs +
-                      v._count.assetLogs + v._count.recurringExpenses + v._count.assets;
+                      c.expenses + c.maintenanceJobs +
+                      c.assetLogs + c.recurringExpenses + c.assets;
                     return (
                       <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-4 py-3">
@@ -422,24 +439,24 @@ export default function VendorsPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2 text-caption text-gray-500">
-                            {v._count.expenses > 0 && (
+                            {c.expenses > 0 && (
                               <span title="Expenses" className="flex items-center gap-0.5">
-                                <TrendingUp size={10} className="text-expense" />{v._count.expenses}
+                                <TrendingUp size={10} className="text-expense" />{c.expenses}
                               </span>
                             )}
-                            {v._count.maintenanceJobs > 0 && (
+                            {c.maintenanceJobs > 0 && (
                               <span title="Maintenance" className="flex items-center gap-0.5">
-                                <Wrench size={10} className="text-gold" />{v._count.maintenanceJobs}
+                                <Wrench size={10} className="text-gold" />{c.maintenanceJobs}
                               </span>
                             )}
-                            {v._count.assets > 0 && (
+                            {c.assets > 0 && (
                               <span title="Assets" className="flex items-center gap-0.5">
-                                <Package size={10} className="text-blue-400" />{v._count.assets}
+                                <Package size={10} className="text-blue-400" />{c.assets}
                               </span>
                             )}
-                            {v._count.recurringExpenses > 0 && (
+                            {c.recurringExpenses > 0 && (
                               <span title="Recurring" className="flex items-center gap-0.5">
-                                <RepeatIcon size={10} className="text-gray-400" />{v._count.recurringExpenses}
+                                <RepeatIcon size={10} className="text-gray-400" />{c.recurringExpenses}
                               </span>
                             )}
                             {totalUsage === 0 && <span className="text-gray-300">—</span>}
@@ -451,6 +468,7 @@ export default function VendorsPage() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
+                          {canManageVendors && (
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => openEdit(v)}
@@ -474,6 +492,7 @@ export default function VendorsPage() {
                               <Trash2 size={13} />
                             </button>
                           </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -557,7 +576,23 @@ export default function VendorsPage() {
             />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button onClick={handleSave} loading={saving}>
+            {duplicateOf && !editing && (
+              <div className="w-full mb-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-body text-amber-900">
+                <p>
+                  A vendor called <span className="font-medium">{duplicateOf.name}</span>
+                  {duplicateOf.phone ? ` (${duplicateOf.phone})` : ""} already exists — use it instead?
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Button size="sm" variant="secondary" onClick={() => { setDuplicateOf(null); setModalOpen(false); toast.success(`Use “${duplicateOf.name}” from the list`); }}>
+                    Use existing
+                  </Button>
+                  <Button size="sm" variant="secondary" loading={saving} onClick={() => { setDuplicateOf(null); handleSave(true); }}>
+                    Create anyway
+                  </Button>
+                </div>
+              </div>
+            )}
+            <Button onClick={() => handleSave()} loading={saving}>
               {editing ? "Save changes" : "Create vendor"}
             </Button>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
@@ -576,7 +611,8 @@ export default function VendorsPage() {
           <div className="flex justify-center py-8"><Spinner /></div>
         ) : detailVendor ? (
           <div className="space-y-5">
-            {/* Payables actions */}
+            {/* Payables actions (manager tier only) */}
+            {canManageVendors && (
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -592,6 +628,7 @@ export default function VendorsPage() {
                 <FileSpreadsheet size={14} className="mr-1.5" /> Statement
               </Button>
             </div>
+            )}
 
             {/* Info row */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -600,8 +637,10 @@ export default function VendorsPage() {
                 { label: "Phone",       value: detailVendor.phone },
                 { label: "Email",       value: detailVendor.email },
                 { label: "Tax ID",      value: detailVendor.taxId },
+                ...(detailVendor.totalSpend != null ? [
                 { label: "Total spend", value: formatCurrency(detailVendor.totalSpend, detailVendor.currency) },
                 { label: `${new Date().getFullYear()} spend`, value: formatCurrency(detailVendor.currentYearSpend, detailVendor.currency) },
+                ] : []),
               ].map(({ label, value }) => value ? (
                 <div key={label} className="bg-gray-50 rounded-lg p-3">
                   <div className="text-caption text-gray-500">{label}</div>
@@ -618,7 +657,7 @@ export default function VendorsPage() {
             )}
 
             {/* Recent expenses */}
-            {detailVendor.expenses.length > 0 && (
+            {(detailVendor.expenses?.length ?? 0) > 0 && (
               <div>
                 <div className="text-caption font-medium text-gray-500 mb-2">Recent Expenses</div>
                 <div className="border border-gray-100 rounded-lg overflow-hidden">
@@ -653,7 +692,7 @@ export default function VendorsPage() {
             )}
 
             {/* Recent maintenance jobs */}
-            {detailVendor.maintenanceJobs.length > 0 && (
+            {(detailVendor.maintenanceJobs?.length ?? 0) > 0 && (
               <div>
                 <div className="text-caption font-medium text-gray-500 mb-2">Recent Maintenance Jobs</div>
                 <div className="space-y-1.5">

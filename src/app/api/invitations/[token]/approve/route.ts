@@ -31,7 +31,7 @@ export async function POST(_req: Request, { params }: { params: { token: string 
   }
 
   // Team cap applies at approval (the request itself never consumed it)
-  const capacityOk = await canAddUser(invitation.organizationId);
+  const capacityOk = await canAddUser(invitation.organizationId, invitation.role);
   if (!capacityOk) {
     return Response.json(
       { error: "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },

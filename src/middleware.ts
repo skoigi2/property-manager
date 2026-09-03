@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
 
+// Pages an on-site CARETAKER may open (segment-aware prefix match).
+const CARETAKER_PATHS = ["/expenses", "/maintenance", "/vendors", "/select-org", "/onboarding", "/invite", "/help/tutorials"];
+const CARETAKER_HOME = "/maintenance";
+const underPath = (pathname: string, base: string) => pathname === base || pathname.startsWith(base + "/");
+
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
@@ -38,9 +43,13 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
+  // Page-level decisions key on the ACTIVE ORG's membership role (orgRole),
+  // never the global User.role — the invitation flow only ever writes the
+  // membership role. Super-admin has no membership; orgRole falls back to ADMIN.
+  const orgRole = (req.auth?.user as { orgRole?: string } | undefined)?.orgRole ?? req.auth?.user?.role;
+
   if (isLoggedIn && (isAuthPage || pathname === "/")) {
-    const role = req.auth?.user?.role;
-    const dest = role === "OWNER" ? "/report" : "/dashboard";
+    const dest = orgRole === "OWNER" ? "/report" : orgRole === "CARETAKER" ? CARETAKER_HOME : "/dashboard";
     return NextResponse.redirect(new URL(dest, req.url));
   }
 
@@ -66,6 +75,16 @@ export default auth((req) => {
     }
   }
 
+  // CARETAKER (on-site staff): an ALLOW-list of pages — everything else
+  // redirects to their home. Keep this an allow-list; the OWNER block below
+  // is a deny-list and must not be the template for new roles.
+  if (isLoggedIn && orgRole === "CARETAKER" && !isPublicPage) {
+    const superAdmin = req.auth?.user?.role === "ADMIN" && !(req.auth?.user as any)?.organizationId;
+    if (!superAdmin && !CARETAKER_PATHS.some((p) => underPath(pathname, p))) {
+      return NextResponse.redirect(new URL(CARETAKER_HOME, req.url));
+    }
+  }
+
   // Manager-only routes (OWNER is blocked)
   // "/calendar" is manager-only because every API behind it (GET /api/calendar,
   // /export, /calendar-feeds) is requireManager(), and its events deep-link to
@@ -74,8 +93,7 @@ export default auth((req) => {
   // destinations first — see docs note in CLAUDE.md.
   const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors", "/cases", "/automations", "/calendar"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
-    const role = req.auth?.user?.role;
-    if (role === "OWNER") {
+    if (orgRole === "OWNER") {
       return NextResponse.redirect(new URL("/report", req.url));
     }
   }

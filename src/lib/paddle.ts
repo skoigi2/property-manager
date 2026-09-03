@@ -76,6 +76,18 @@ export const TEAM_LIMITS: Record<string, number> = {
   PRO:     Infinity,
 };
 
+// On-site CARETAKER seats are a separate pool from the team cap above: Trial
+// and Starter are single-operator plans, but the orgs most likely to employ a
+// caretaker are exactly those small ones, so they get two caretaker seats.
+// Enforced by `canAddUser(orgId, role)` — a CARETAKER membership counts
+// against this pool only, never against TEAM_LIMITS.
+export const CARETAKER_LIMITS: Record<string, number> = {
+  TRIAL:   2,
+  STARTER: 2,
+  GROWTH:  10,
+  PRO:     Infinity,
+};
+
 // ── Price IDs for client-side checkout ────────────────────────────────────
 // These are safe to expose — they're public price identifiers.
 export const PRICE_IDS = {

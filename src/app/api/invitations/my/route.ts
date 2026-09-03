@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth-utils";
+import { requireSession } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
  * logged-in user's email. Used to surface in-app invite notifications.
  */
 export async function GET() {
-  const { error, session } = await requireAuth();
+  const { error, session } = await requireSession(); // any role — InviteBanner polls this
   if (error) return error;
 
   const email = session!.user.email;

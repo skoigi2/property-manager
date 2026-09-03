@@ -90,6 +90,7 @@ enum UserRole {
   OWNER
   MANAGER
   ACCOUNTANT
+  CARETAKER
 }
 
 model User {
@@ -121,6 +122,7 @@ model User {
   notificationPreferences NotificationPreference[]
   calendarFeedTokens      CalendarFeedToken[]
   calendarEventSnoozes    CalendarEventSnooze[]
+  createdExpenses         ExpenseEntry[]  @relation("ExpenseCreatedBy")
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -875,6 +877,10 @@ model ExpenseEntry {
   // (POST /api/recurring-expenses/apply) — drives the "Recurring" origin
   // badge. SetNull so deleting a template keeps its historical entries.
   recurringExpenseId String?
+  // Who entered the row — drives CARETAKER "edit/delete own rows only".
+  // NULL on legacy rows (= not owned by anyone; caretakers can never touch them).
+  createdByUserId   String?
+  createdBy         User?                    @relation("ExpenseCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   unit              Unit?                    @relation(fields: [unitId], references: [id])
   property          Property?                @relation(fields: [propertyId], references: [id])
   vendor            Vendor?                  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
@@ -893,6 +899,7 @@ model ExpenseEntry {
   @@index([isSunkCost, date])
   @@index([recurringExpenseId])
   @@index([organizationId])
+  @@index([createdByUserId])
 }
 
 // Unit of measurement for expense line-item quantities — purely descriptive

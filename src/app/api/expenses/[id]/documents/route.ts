@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireAuthWrite, requireManagerWrite } from "@/lib/auth-utils";
+import { requireSession, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireExpenseMutation } from "@/lib/expense-access";
 import { prisma } from "@/lib/prisma";
 import { uploadToStorage, getSignedUrl } from "@/lib/supabase-storage";
 import { ExpenseDocumentCategory } from "@prisma/client";
@@ -20,7 +21,8 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireAuth();
+  // Any role incl. CARETAKER — receipts on an accessible property's expense.
+  const { error } = await requireSession();
   if (error) return error;
 
   const resolvedPropertyId = await resolvePropertyId(params.id);
@@ -78,20 +80,9 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { session, error } = await requireAuthWrite();
+  // Auth + property/org access + CARETAKER own-row rule in one place.
+  const { session, error } = await requireExpenseMutation(params.id, "attach");
   if (error) return error;
-
-  const resolvedPropertyId = await resolvePropertyId(params.id);
-
-  if (resolvedPropertyId) {
-    const accessibleIds = await getAccessiblePropertyIds();
-    if (!accessibleIds || !accessibleIds.includes(resolvedPropertyId)) {
-      return Response.json({ error: "Not found" }, { status: 404 });
-    }
-  } else {
-    const { error: mgErr } = await requireManagerWrite();
-    if (mgErr) return mgErr;
-  }
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

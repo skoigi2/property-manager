@@ -10,7 +10,7 @@ const updateSchema = z.object({
   phone: z.string().optional(),
   isActive: z.boolean().optional(),
   password: z.string().min(6).optional(),
-  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]).optional(),
+  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT", "CARETAKER"]).optional(),
   organizationId: z.string().nullable().optional(),
 });
 

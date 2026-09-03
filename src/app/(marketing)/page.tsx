@@ -42,7 +42,9 @@ export const metadata: Metadata = {
 export default async function RootPage() {
   const session = await auth();
   if (session) {
-    if (session.user.role === "OWNER") redirect("/report");
+    const orgRole = session.user.orgRole ?? session.user.role;
+    if (orgRole === "OWNER") redirect("/report");
+    if (orgRole === "CARETAKER") redirect("/maintenance");
     redirect("/dashboard");
   }
 

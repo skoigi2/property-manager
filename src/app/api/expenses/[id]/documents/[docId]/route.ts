@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireAuthWrite, requireManagerWrite } from "@/lib/auth-utils";
+import { requireExpenseMutation } from "@/lib/expense-access";
 import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 
@@ -7,33 +7,13 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
-  const { error } = await requireAuthWrite();
+  // Auth + property/org access + CARETAKER own-row rule in one place.
+  const { error } = await requireExpenseMutation(params.id, "attach");
   if (error) return error;
 
-  const doc = await prisma.expenseDocument.findUnique({
-    where: { id: params.docId },
-    include: {
-      expense: {
-        include: { unit: { select: { propertyId: true } } },
-      },
-    },
-  });
-
+  const doc = await prisma.expenseDocument.findUnique({ where: { id: params.docId } });
   if (!doc || doc.expenseId !== params.id) {
     return Response.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const resolvedPropertyId =
-    doc.expense.propertyId ?? doc.expense.unit?.propertyId ?? null;
-
-  if (resolvedPropertyId) {
-    const accessibleIds = await getAccessiblePropertyIds();
-    if (!accessibleIds || !accessibleIds.includes(resolvedPropertyId)) {
-      return Response.json({ error: "Not found" }, { status: 404 });
-    }
-  } else {
-    const { error: mgErr } = await requireManagerWrite();
-    if (mgErr) return mgErr;
   }
 
   // Best-effort storage deletion

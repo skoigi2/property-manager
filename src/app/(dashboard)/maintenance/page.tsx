@@ -393,9 +393,11 @@ function LogExpenseModal({ job, onClose, onLogged }: {
 
 // ─── Job Card ─────────────────────────────────────────────────────────────────
 
-function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogExpense, advancing }: {
+function JobCard({ job, isManager, canDelete = true, showCaseLink = true, currency, onEdit, onDelete, onAdvance, onLogExpense, advancing }: {
   job:          Job;
   isManager:    boolean;
+  canDelete?:   boolean;
+  showCaseLink?: boolean;
   currency:     string;
   onEdit:       (j: Job) => void;
   onDelete:     (j: Job) => void;
@@ -419,7 +421,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
         </Badge>
       </div>
 
-      {job.caseThreadId && (
+      {job.caseThreadId && showCaseLink && (
         <a href={`/cases/${job.caseThreadId}`} className="text-caption text-gold hover:underline inline-flex items-center gap-1">
           Open case →
         </a>
@@ -574,6 +576,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
             >
               <PencilLine size={13} />
             </button>
+            {canDelete && (
             <button
               onClick={() => onDelete(job)}
               className="p-1 text-gray-300 hover:text-expense transition-colors"
@@ -581,6 +584,7 @@ function JobCard({ job, isManager, currency, onEdit, onDelete, onAdvance, onLogE
             >
               <Trash2 size={13} />
             </button>
+            )}
           </div>
         </div>
       )}
@@ -595,7 +599,13 @@ export default function MaintenancePage() {
   const { selectedId, selected } = useProperty();
   const currency = useProperty().currency;
   useFocusScroll();
-  const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(session?.user?.role ?? "");
+  // Membership role, never the global User.role. CARETAKER may act on jobs
+  // (create / update / assign vendor / log expense) but not delete them or
+  // manage schedules; "Open case" is hidden because /cases is manager-only.
+  const orgRole = session?.user?.orgRole ?? "";
+  const isManager = ["ADMIN", "MANAGER", "ACCOUNTANT", "CARETAKER"].includes(orgRole);
+  const isCaretaker = orgRole === "CARETAKER";
+  const canManageSchedules = ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(orgRole);
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"jobs" | "schedules">("jobs");
@@ -933,7 +943,7 @@ export default function MaintenancePage() {
 
   return (
     <div>
-      <Header title="Maintenance" userName={session?.user?.name ?? session?.user?.email} role={session?.user?.role}>
+      <Header title="Maintenance" userName={session?.user?.name ?? session?.user?.email} role={orgRole}>
         {isManager && activeTab === "jobs" && (
           <Button size="sm" onClick={openAdd}>
             <Plus size={14} className="mr-1" /> Log Job
@@ -941,7 +951,8 @@ export default function MaintenancePage() {
         )}
       </Header>
 
-      <CasesBanner />
+      {/* /cases is manager-only — the banner would send a caretaker to a redirect */}
+      {!isCaretaker && <CasesBanner />}
 
       {/* Tab switcher */}
       <div className="border-b border-gray-200 bg-white px-6">
@@ -1085,6 +1096,8 @@ export default function MaintenancePage() {
                               <JobCard
                                 job={job}
                                 isManager={isManager}
+                                canDelete={!isCaretaker}
+                                showCaseLink={!isCaretaker}
                                 currency={currency}
                                 onEdit={openEdit}
                                 onDelete={setDeleteTarget}
@@ -1160,7 +1173,7 @@ export default function MaintenancePage() {
 
             {/* Filter bar */}
             <div className="flex flex-wrap items-center gap-3">
-              {isManager && (
+              {canManageSchedules && (
                 <Button size="sm" onClick={() => setAddSchedOpen(true)}>
                   <Plus size={14} className="mr-1" /> Add Schedule
                 </Button>
@@ -1265,6 +1278,7 @@ export default function MaintenancePage() {
                               </div>
                               {/* Action buttons */}
                               <div className="flex items-center gap-1 shrink-0">
+                                {canManageSchedules && (
                                 <Button
                                   onClick={() => {
                                     setLogModal(s);
@@ -1279,7 +1293,8 @@ export default function MaintenancePage() {
                                 >
                                   <CheckCircle2 size={14} /> Log
                                 </Button>
-                                {isManager && (
+                                )}
+                                {canManageSchedules && (
                                   <>
                                     <button
                                       onClick={() => {

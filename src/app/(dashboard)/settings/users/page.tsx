@@ -56,7 +56,7 @@ const createSchema = z.object({
   name: z.string().min(1, "Name required"),
   email: z.string().email("Valid email required"),
   password: z.string().min(6, "Min 6 characters"),
-  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
+  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT", "CARETAKER"]),
   phone: z.string().optional(),
   propertyIds: z.array(z.string()).optional(),
   organizationId: z.string().optional().nullable(),
@@ -66,7 +66,7 @@ type CreateForm = z.infer<typeof createSchema>;
 const editSchema = z.object({
   name: z.string().min(1, "Name required"),
   phone: z.string().optional(),
-  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
+  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT", "CARETAKER"]),
 });
 type EditForm = z.infer<typeof editSchema>;
 
@@ -79,12 +79,16 @@ const resetSchema = z.object({
 });
 type ResetForm = z.infer<typeof resetSchema>;
 
-const roleBadge: Record<string, "green" | "blue" | "amber" | "gold"> = {
+const roleBadge: Record<string, "green" | "blue" | "amber" | "gold" | "gray"> = {
   ADMIN: "gold",
   MANAGER: "green",
   OWNER: "blue",
   ACCOUNTANT: "amber",
+  CARETAKER: "gray",
 };
+
+/** One-line explanation of the on-site role, shown under every role picker. */
+const CARETAKER_HELP = "Caretaker: on-site staff — records expenses, maintenance jobs and vendors for their properties only. No tenants, income, petty-cash balances or settings.";
 
 function orgSubscriptionBadge(org: OrgInfo | null): { label: string; variant: "green" | "amber" | "red" | "blue" | "gold" | "gray" } | null {
   if (!org) return null;
@@ -141,7 +145,7 @@ export default function UsersPage() {
 
   // Invite state
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"ADMIN" | "MANAGER" | "ACCOUNTANT" | "OWNER">("MANAGER");
+  const [inviteRole, setInviteRole] = useState<"ADMIN" | "MANAGER" | "ACCOUNTANT" | "OWNER" | "CARETAKER">("MANAGER");
   const [invitePropertyIds, setInvitePropertyIds] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
@@ -214,7 +218,7 @@ export default function UsersPage() {
     if (!inviteEmail) return;
     setInviting(true);
     try {
-      const scoped = inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT";
+      const scoped = inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT" || inviteRole === "CARETAKER";
       const res = await fetch("/api/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -750,11 +754,13 @@ export default function UsersPage() {
                   <option value="MANAGER">Manager</option>
                   <option value="ACCOUNTANT">Accountant</option>
                   <option value="OWNER">Owner</option>
+                  <option value="CARETAKER">Caretaker (on-site staff)</option>
                 </select>
+                {inviteRole === "CARETAKER" && <p className="text-caption text-gray-400 mt-1">{CARETAKER_HELP}</p>}
               </div>
 
               {/* Property scope — granted when they join */}
-              {(inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT") && allProps.length > 0 && (
+              {(inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT" || inviteRole === "CARETAKER") && allProps.length > 0 && (
                 <div>
                   <p className="text-body font-medium text-gray-600 mb-1.5">Property Access</p>
                   <div className="space-y-2">
@@ -785,7 +791,7 @@ export default function UsersPage() {
                 <Button
                   onClick={sendInvite}
                   loading={inviting}
-                  disabled={!inviteEmail || ((inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT") && allProps.length > 0 && invitePropertyIds.length === 0)}
+                  disabled={!inviteEmail || ((inviteRole === "MANAGER" || inviteRole === "ACCOUNTANT" || inviteRole === "CARETAKER") && allProps.length > 0 && invitePropertyIds.length === 0)}
                 >
                   <Mail size={14} className="mr-1" /> {isManager ? "Send Request" : "Send Invitation"}
                 </Button>
@@ -852,10 +858,12 @@ export default function UsersPage() {
                 { value: "MANAGER", label: "Manager" },
                 { value: "ACCOUNTANT", label: "Accountant" },
                 { value: "OWNER", label: "Owner" },
+                { value: "CARETAKER", label: "Caretaker (on-site staff)" },
               ]}
             />
             <Input label="Password *" type="password" {...register("password")} error={errors.password?.message} placeholder="Min 6 chars" />
           </div>
+          {selectedRole === "CARETAKER" && <p className="text-caption text-gray-400 -mt-2">{CARETAKER_HELP} Select at least one property.</p>}
 
           {/* Property access for non-owners and non-admins */}
           {selectedRole !== "OWNER" && selectedRole !== "ADMIN" && allProps.length > 0 && (
@@ -906,6 +914,7 @@ export default function UsersPage() {
                 { value: "MANAGER", label: "Manager" },
                 { value: "ACCOUNTANT", label: "Accountant" },
                 { value: "OWNER", label: "Owner" },
+                { value: "CARETAKER", label: "Caretaker (on-site staff)" },
               ]}
             />
 

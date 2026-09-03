@@ -1,4 +1,4 @@
-import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireSession, getAccessiblePropertyIds, MANAGER_ROLES } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canAddProperty, requireActiveSubscription } from "@/lib/subscription";
@@ -25,12 +25,34 @@ const createSchema = z.object({
   organizationId: z.string().optional(),
 });
 
+/** Property scalars that only the manager tier may read (fix: they leaked to every role). */
+const MANAGER_ONLY_PROPERTY_FIELDS = [
+  "bankName", "bankAccountName", "bankAccountNumber", "vatRegistrationNumber", "landlordEntity",
+] as const;
+
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  // Any role incl. CARETAKER — the shape is projected per role below.
+  const { session, error } = await requireSession();
   if (error) return error;
+  const orgRole = session!.user.orgRole;
+  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
 
   const ids = await getAccessiblePropertyIds();
   if (ids === null) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // CARETAKER: name/type/currency + a unit picker. No owner / manager
+  // contacts, fees, banking, rents or tenant counts.
+  if (orgRole === "CARETAKER") {
+    const slim = await prisma.property.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true, name: true, type: true, currency: true, organizationId: true,
+        units: { select: { id: true, unitNumber: true, type: true, status: true }, orderBy: { unitNumber: "asc" } },
+      },
+      orderBy: { name: "asc" },
+    });
+    return Response.json(slim);
+  }
 
   // Slim payload for the header property selector + currency calc.
   // Drops ~25 KB of unit metadata that PropertyProvider doesn't need on every nav.
@@ -78,7 +100,20 @@ export async function GET(req: Request) {
     orderBy: { name: "asc" },
   });
 
-  return Response.json(properties);
+  // Banking / landlord-entity fields and owner/manager emails are for the
+  // manager tier (who edit property settings). OWNER and ACCOUNTANT get the
+  // rest of the record without them.
+  const canSeeManagerFields = isSuperAdmin || (MANAGER_ROLES as readonly string[]).includes(orgRole) && orgRole !== "ACCOUNTANT";
+  if (canSeeManagerFields) return Response.json(properties);
+
+  const scrubbed = properties.map((p) => {
+    const out: Record<string, unknown> = { ...p };
+    for (const k of MANAGER_ONLY_PROPERTY_FIELDS) delete out[k];
+    if (p.owner)   out.owner   = { id: p.owner.id, name: p.owner.name };
+    if (p.manager) out.manager = { id: p.manager.id, name: p.manager.name };
+    return out;
+  });
+  return Response.json(scrubbed);
 }
 
 export async function POST(req: Request) {

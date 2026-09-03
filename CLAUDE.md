@@ -67,7 +67,9 @@ Next.js 14 App Router app. All source code lives in `src/`.
 ### Auth & access control
 Auth is **NextAuth v5 with JWT strategy** (`src/lib/auth.ts`). The JWT callback adds `role` to the token; the session callback exposes it as `session.user.role`.
 
-Roles: `ADMIN` (superuser), `MANAGER`, `ACCOUNTANT`, `OWNER`.
+Roles (`UserRole` enum): `ADMIN` (superuser), `MANAGER`, `ACCOUNTANT`, `OWNER`, `CARETAKER` (on-site staff — see below).
+
+**`role` vs `orgRole`**: `session.user.role` is the global `User.role` and is used **only** for super-admin detection. `session.user.orgRole` is the membership role for the active org (`UserOrganizationMembership.role`, falling back to `User.role`) and is what **every** authority decision keys on — API helpers, middleware, the dashboard layout, Sidebar, MobileNav and page-level gates. The invitation flow writes only the membership role, so `User.role` can lag; never branch UI on it.
 
 **Super-admin vs org-admin**: Both have `role = "ADMIN"` but differ by `organizationId`:
 - Super-admin: `organizationId = null` — platform-level, sees all orgs and all data
@@ -75,22 +77,41 @@ Roles: `ADMIN` (superuser), `MANAGER`, `ACCOUNTANT`, `OWNER`.
 
 Use `requireSuperAdmin()` from `src/lib/auth-utils.ts` for super-admin-only routes. Never use `role === "ADMIN"` alone as a super-admin check — org-admins share that role.
 
-Middleware (`src/middleware.ts`) enforces:
+**Allow-lists, never deny-lists.** Every route helper is an allow-list keyed on `orgRole` (`src/lib/roles.ts`: `MANAGER_ROLES`, `ESTABLISHED_ROLES`, `OPS_ROLES`, `isRoleAllowed`). A role that is not named is denied, so a new enum value reaches nothing until a route opts it in. Do not write `orgRole !== "OWNER"`-style checks.
+
+Middleware (`src/middleware.ts`) enforces (on `orgRole`):
 - Unauthenticated → `/login`
 - OWNER role → `/report` only; accessing any manager-only route redirects back to `/report`
+- CARETAKER role → allow-list `CARETAKER_PATHS` (`/expenses`, `/maintenance`, `/vendors`, `/help/tutorials`, plus `/select-org`, `/onboarding`, `/invite`); anything else redirects to `/maintenance`
 - ADMIN / MANAGER / ACCOUNTANT → full access
 
 Manager-only routes (OWNER is blocked) per `src/middleware.ts`: `/income`, `/expenses`, `/petty-cash`, `/tenants`, `/settings`, `/arrears`, `/recurring-expenses`, `/import`, `/insurance`, `/assets`, `/maintenance`, `/airbnb`, `/forecast`, `/vendors`, `/cases`, `/automations`. (Note: `/compliance`, `/asset-maintenance`, `/calendar`, `/billing`, `/upgrade` are reachable by all authenticated roles.)
 
 Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
-- `requireAuth()` — any logged-in user
-- `requireManager()` — ADMIN, MANAGER, or ACCOUNTANT (blocks OWNER)
+- `requireAuth()` — any logged-in user of an **established** role (ADMIN / MANAGER / ACCOUNTANT / OWNER). Excludes CARETAKER.
+- `requireSession()` — any signed-in user of **any** role, CARETAKER included. Opt-in only: `src/lib/__tests__/route-guards.test.ts` fails when a route file uses it (or `requireOpsStaff*` / `requireExpenseMutation`) without being in `CARETAKER_ROUTE_ALLOWLIST`. That test is the documented caretaker route allow-list.
+- `requireManager()` — ADMIN, MANAGER, or ACCOUNTANT (allow-list; denies OWNER and CARETAKER). Never add CARETAKER here.
+- `requireOpsStaff()` / `requireOpsStaffWrite()` — manager tier **plus CARETAKER** (`OPS_ROLES`); used by the expenses / maintenance / vendors routes a caretaker may reach.
+- `requireRoles(allowed)` / `requireRolesWrite(allowed)` — generic allow-list gate the others are built on.
 - `requireAdmin()` — ADMIN only (org-admin or super-admin)
-- `requirePermissionWrite(action)` — `requireManagerWrite` **plus** the granular role map in `src/lib/permissions.ts`. ACCOUNTANT is denied `FINANCIAL_DELETE` (deleting income/expenses/petty-cash/invoices/owner-invoices, incl. the bulk delete actions), `TENANT_LIFECYCLE` (tenant delete, vacate, settle-deposit, checkout finalize), and `ORG_SETTINGS` (settings POST, tax-config create/update/delete). Returns 403 with `code: "PERMISSION_DENIED"`. Use this instead of `requireManagerWrite` for new destructive/lifecycle mutations.
+- `requirePermissionWrite(action)` — `requireManagerWrite` **plus** the granular role map in `src/lib/permissions.ts`. ACCOUNTANT is denied `FINANCIAL_DELETE` (deleting income/expenses/petty-cash/invoices/owner-invoices, incl. the bulk delete actions), `TENANT_LIFECYCLE` (tenant delete, vacate, settle-deposit, checkout finalize), and `ORG_SETTINGS` (settings POST, tax-config create/update/delete). CARETAKER is denied `EXPENSE_EDIT_OTHERS`, `EXPENSE_BULK`, `TENANT_LIFECYCLE`, `ORG_SETTINGS`. Returns 403 with `code: "PERMISSION_DENIED"`. Use this instead of `requireManagerWrite` for new destructive/lifecycle mutations.
+- `requireExpenseMutation(id, "edit" | "delete" | "attach")` (`src/lib/expense-access.ts`) — the **only** way to mutate an `ExpenseEntry` by id (PUT, DELETE, receipt upload/delete). Does auth (`requireOpsStaffWrite`), existence, property access / org scoping, the ACCOUNTANT `FINANCIAL_DELETE` denial, and the CARETAKER rules: own rows only (`ExpenseEntry.createdByUserId === session.user.id`; `NULL` = nobody's row), and 409 `PETTY_CASH_CONFIRMED` once the linked petty-cash OUT row is APPROVED. Pure rules in `src/lib/expense-rules.ts` (`decideExpenseMutation`).
 - `requireAuthWrite()` / `requireManagerWrite()` / `requireAdminWrite()` — same auth check **plus the subscription write-gate** (`requireActiveSubscription`, 402 when the org is locked). **Use these in every mutating handler (POST/PATCH/PUT/DELETE) on org-scoped resources**; keep the base helpers for GETs so locked orgs can still read their data. Exemptions (must keep working while locked): auth flows, billing/stripe, webhooks, cron, portal/approvals token routes, invitations, onboarding, demo seed, admin, organizations, and `POST /api/report` (PDF render = read in spirit).
 - `requireSuperAdmin()` — ADMIN role **and** `organizationId === null` (platform super-admin only)
 - `requirePropertyAccess(propertyId)` — verifies current user may access a specific property; returns `{ ok: boolean, error?: Response }`
-- `getAccessiblePropertyIds()` — returns property IDs the current user may see (ADMIN = all; OWNER = their owned properties; MANAGER/ACCOUNTANT = `PropertyAccess` records)
+- `getAccessiblePropertyIds()` — returns property IDs the current user may see (ADMIN = all; OWNER = their owned properties; MANAGER/ACCOUNTANT/CARETAKER and any future role = `PropertyAccess` records only — fails closed)
+
+### CARETAKER (on-site staff)
+
+Property-scoped operations role for caretakers. Consumes a **caretaker seat** (`CARETAKER_LIMITS` in paddle.ts, a separate pool from `TEAM_LIMITS`: TRIAL/STARTER=2, GROWTH=10, PRO=∞; `canAddUser(orgId, role)` picks the pool). Creating or inviting one **requires ≥1 property** (no grant-all default).
+
+Reachable surfaces (everything else is denied by the allow-lists above): `/expenses`, `/maintenance`, `/vendors`, `/help/tutorials`; APIs per `CARETAKER_ROUTE_ALLOWLIST` in `src/lib/__tests__/route-guards.test.ts`. Rules:
+- **Expenses**: sees amounts; creates (property/unit scope only — PORTFOLIO is 400); edits/deletes/attaches receipts on **own rows only** (`createdByUserId`, stamped at every `ExpenseEntry` create site incl. maintenance `log_expense`). No bulk, no delete-all, no change history.
+- **Petty cash**: may tick `paidFromPettyCash`; the linked OUT row is created **PENDING** (`resolvePettyCashOutStatus` in `src/lib/petty-cash-status.ts`; managers' rows stay APPROVED) and the float holder confirms on `/petty-cash` (`notifyPettyCashPending` emails them). Once APPROVED the caretaker's expense is locked (409); a caretaker edit of a PENDING/REJECTED row resubmits it. **Rejecting** a linked OUT row reverts the expense to unpaid and emails the creator. The caretaker never sees a balance: `/petty-cash`, `GET /api/petty-cash`, dashboard, report, `/api/hints` and `/api/inbox` are all denied, and `hintTypesVisibleTo("CARETAKER")` (`src/lib/hint-visibility.ts`) suppresses `LOW_PETTY_CASH` in both hint surfaces for Phase 2.
+- **Vendors** (org-scoped): full-field create (bank details, tax id) with the full record echoed back; **trimmed read** `{ id, name, category, phone, isActive }` on `GET /api/vendors` and `/[id]` (`src/lib/vendor-projection.ts`); no PATCH/DELETE/statements. `POST /api/vendors` now returns 409 `DUPLICATE_VENDOR` on a normalised name match for **all roles** unless `allowDuplicate: true` (the Vendors page and `VendorSelect` quick-create offer "Use existing / Create anyway"), and writes a `Vendor` audit row (`bankdetails`/`taxid` are redacted by `SENSITIVE_KEY_PATTERNS`).
+- **Maintenance**: create, update (status / vendor / priority / `log_expense`), assign vendor; no delete, no schedule writes, no `/cases` (the "Open case" link is hidden).
+- **`GET /api/properties`** returns a caretaker projection (name/type/currency + `units {id, unitNumber, type, status}`); OWNER/ACCOUNTANT no longer receive property bank fields or owner/manager emails either.
+- Phase 2 (not built): tenant complaints via `CaseThread` `caseType = COMPLAINT`, a tenants-lite directory read, a maintenance-filtered inbox, per-group search.
 
 **Return type**: `requireAuth()` / `requireManager()` / `requireAdmin()` / `requireSuperAdmin()` all return `{ error: Response | null, session? }`. The `error` IS the full `Response` object — use `if (error) return error;`, never destructure a `status` from it. `requirePropertyAccess()` returns `{ ok, error? }` — use `if (!access.ok) return access.error!`.
 
@@ -606,12 +627,13 @@ Routes:
 
 ### Pricing & gating (capacity only)
 
-There are **only two capacity gates** in the codebase, plus a subscription-state write-lock:
+There are **only three capacity gates** in the codebase, plus a subscription-state write-lock:
 
 | Gate | Cap | Enforcement |
 |---|---|---|
 | Property count | TRIAL=2 · STARTER=2 · GROWTH=10 · PRO=∞ | `PROPERTY_LIMITS` in paddle.ts → `canAddProperty()` → POST /api/properties |
-| Team-member count | TRIAL=1 · STARTER=1 · GROWTH=10 · PRO=∞ | `TEAM_LIMITS` in paddle.ts → `canAddUser()` → POST /api/users |
+| Team-member count (ADMIN/MANAGER/ACCOUNTANT/OWNER) | TRIAL=1 · STARTER=1 · GROWTH=10 · PRO=∞ | `TEAM_LIMITS` in paddle.ts → `canAddUser(orgId, role)` → POST /api/users, POST /api/invitations, invite accept/approve |
+| Caretaker seats (CARETAKER) | TRIAL=2 · STARTER=2 · GROWTH=10 · PRO=∞ | `CARETAKER_LIMITS` in paddle.ts → same `canAddUser(orgId, "CARETAKER")` pool split |
 | Write-lock | trial-expired / cancelled / expired / past-due → HTTP 402 | `require*Write()` helpers (auth-utils) / `requireActiveSubscription()` on every mutating route |
 
 **There is no per-feature gating.** Every other capability — Airbnb tracking, tax rules, cashflow forecast, asset register, insurance, compliance, audit log, multi-org, etc. — is universally available to any active org regardless of tier. This is intentional and is the foundation of the `/pricing` page's "Why no feature gates?" positioning. Marketing copy on `/pricing` MUST reflect this rule until any per-feature gate is added in code — do not advertise gates that don't exist. See [docs/pricing-gating-roadmap.md](docs/pricing-gating-roadmap.md) for the candidate list of features that could plausibly be gated in future.

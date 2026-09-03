@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWrite } from "@/lib/auth-utils";
+import { requireSession, requireSessionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -9,7 +9,7 @@ const CATEGORIES = ["NOTIFICATION", "WORKFLOW"] as const;
 // GET /api/notification-preferences — the current user's effective email
 // preferences (defaults to opted-in where no row exists).
 export async function GET() {
-  const { session, error } = await requireAuth();
+  const { session, error } = await requireSession(); // self-only; any role
   if (error) return error;
 
   const rows = await prisma.notificationPreference.findMany({
@@ -33,7 +33,7 @@ const putSchema = z.object({
 
 // PUT /api/notification-preferences — upsert one category for the current user.
 export async function PUT(req: Request) {
-  const { session, error } = await requireAuthWrite();
+  const { session, error } = await requireSessionWrite(); // self-only; any role
   if (error) return error;
 
   const body = await req.json();

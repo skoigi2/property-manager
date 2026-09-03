@@ -217,7 +217,7 @@ export default function RecurringExpensesPage() {
   };
 
   const due = items.filter(i => i.isActive && new Date(i.nextDueDate) <= new Date());
-  const canManage = session?.user?.role !== "OWNER" && !!session?.user?.role;
+  const canManage = session?.user?.orgRole !== "OWNER" && !!session?.user?.orgRole;
 
   return (
     <div>

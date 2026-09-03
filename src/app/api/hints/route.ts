@@ -1,5 +1,6 @@
 import { requireAuth, getAccessiblePropertyIds, requireSuperAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { hintTypeFilter } from "@/lib/hint-visibility";
 
 /**
  * GET /api/hints — list ACTIVE hints scoped to the caller's accessible properties.
@@ -40,6 +41,9 @@ export async function GET(req: Request) {
   const hints = await prisma.actionableHint.findMany({
     where: {
       status: "ACTIVE",
+      // Role-scoped hint types (e.g. LOW_PETTY_CASH carries the float balance
+      // in its subtitle) — see src/lib/hint-visibility.ts.
+      ...hintTypeFilter(session!.user.orgRole),
       OR: [
         { propertyId: { in: propertyIds } },
         { propertyId: null, organizationId: session!.user.organizationId ?? "_" },

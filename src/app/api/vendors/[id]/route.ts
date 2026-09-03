@@ -1,5 +1,7 @@
-import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
+import { requireOpsStaff, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
+import { VENDOR_TRIMMED_SELECT, vendorReadIsTrimmed } from "@/lib/vendor-projection";
 import { z } from "zod";
 import { VendorCategory } from "@prisma/client";
 import { deriveVendorCurrency } from "@/lib/vendor-statement";
@@ -31,8 +33,22 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const { session, error } = await requireManager();
+  // Ops staff incl. CARETAKER — trimmed record only for the on-site role
+  // (no spend, no recent expenses, no banking).
+  const { session, error } = await requireOpsStaff();
   if (error) return error;
+
+  if (vendorReadIsTrimmed(session!.user.orgRole)) {
+    const trimmed = await prisma.vendor.findUnique({
+      where: { id: params.id },
+      select: { ...VENDOR_TRIMMED_SELECT, organizationId: true },
+    });
+    if (!trimmed || trimmed.organizationId !== (session!.user.organizationId ?? null)) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    const { organizationId: _o, ...rest } = trimmed;
+    return Response.json(rest);
+  }
 
   const vendor = await prisma.vendor.findUnique({
     where: { id: params.id },
@@ -136,6 +152,11 @@ export async function PATCH(
 
   const { email, ...rest } = parsed.data;
 
+  const before = await prisma.vendor.findUnique({
+    where: { id: params.id },
+    select: { name: true, category: true, phone: true, email: true, taxId: true, bankDetails: true, isActive: true },
+  });
+
   const updated = await prisma.vendor.update({
     where: { id: params.id },
     data: {
@@ -143,6 +164,17 @@ export async function PATCH(
       ...(email !== undefined ? { email: email || null } : {}),
     },
     include: VENDOR_DETAIL_INCLUDE,
+  });
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "UPDATE",
+    resource: "Vendor",
+    resourceId: params.id,
+    organizationId: session!.user.organizationId,
+    before,
+    after: { name: updated.name, category: updated.category, phone: updated.phone, email: updated.email, taxId: updated.taxId, bankDetails: updated.bankDetails, isActive: updated.isActive },
   });
 
   return Response.json(updated);
@@ -190,5 +222,15 @@ export async function DELETE(
   }
 
   await prisma.vendor.delete({ where: { id: params.id } });
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "DELETE",
+    resource: "Vendor",
+    resourceId: params.id,
+    organizationId: session!.user.organizationId,
+    before: { id: params.id },
+  });
   return Response.json({ success: true });
 }

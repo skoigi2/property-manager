@@ -13,6 +13,7 @@ import {
   UserCog, ShieldCheck, Building2, MoreHorizontal, X,
   BarChart3, CalendarDays, CalendarRange, BookOpen, Inbox, Briefcase,
   ArrowLeftRight, Mail, Sparkles, Zap, Bell, CreditCard,
+  PlayCircle,
 } from "lucide-react";
 
 interface NavItem {
@@ -43,6 +44,21 @@ const accountantPrimary: NavItem[] = [
 
 const ownerItems: NavItem[] = [
   { href: "/report", label: "Report", icon: FileText },
+];
+
+// On-site CARETAKER: expenses, maintenance, vendors — nothing else.
+const caretakerPrimary: NavItem[] = [
+  { href: "/maintenance", label: "Maintenance", icon: Wrench },
+  { href: "/expenses",    label: "Expenses",    icon: Receipt },
+  { href: "/vendors",     label: "Vendors",     icon: Building2 },
+];
+const caretakerDrawerSections: DrawerSection[] = [
+  {
+    heading: "Help",
+    items: [
+      { href: "/help/tutorials", label: "Tutorials", icon: PlayCircle },
+    ],
+  },
 ];
 
 // Grouped drawer sections per role
@@ -208,9 +224,18 @@ export function MobileNav({ role }: MobileNavProps) {
     );
   }
 
-  const primaryItems = role === "ACCOUNTANT" ? accountantPrimary : mgrPrimary;
-  const drawerSections =
-    role === "ACCOUNTANT" ? accountantDrawerSections : mgrDrawerSections;
+  // Allow-list lookup per role. An unknown role gets the smallest set — a
+  // new enum value must be added here deliberately, never fall through to
+  // the manager nav.
+  const NAV_BY_ROLE: Record<string, { primary: NavItem[]; drawer: DrawerSection[] }> = {
+    ADMIN:      { primary: mgrPrimary,        drawer: mgrDrawerSections },
+    MANAGER:    { primary: mgrPrimary,        drawer: mgrDrawerSections },
+    ACCOUNTANT: { primary: accountantPrimary, drawer: accountantDrawerSections },
+    CARETAKER:  { primary: caretakerPrimary,  drawer: caretakerDrawerSections },
+  };
+  const nav = NAV_BY_ROLE[role ?? ""] ?? NAV_BY_ROLE.CARETAKER;
+  const primaryItems = nav.primary;
+  const drawerSections = nav.drawer;
 
   // Check if current path is in drawer (not in primary bar)
   const drawerIsActive = drawerSections

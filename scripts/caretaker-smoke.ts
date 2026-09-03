@@ -1,0 +1,353 @@
+/* eslint-disable no-console */
+/**
+ * CARETAKER role smoke test — runs the positive / negative access matrix
+ * against a live dev server (default http://localhost:3000).
+ *
+ *   npx tsx scripts/caretaker-smoke.ts            # BASE_URL env overrides the target
+ *
+ * Seeds (idempotently) a "Caretaker Smoke Org" with one property + unit and
+ * three users — caretaker / manager / accountant — then logs each in through
+ * the real credentials flow and hits the routes. Rows created during the run
+ * are deleted at the end. Exit code 1 on any failure.
+ */
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+
+const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+const PASSWORD = "smoke-pass-123";
+const EMAILS = {
+  caretaker:  "smoke-caretaker@groundworkpm.test",
+  manager:    "smoke-manager@groundworkpm.test",
+  accountant: "smoke-accountant@groundworkpm.test",
+};
+
+const prisma = new PrismaClient();
+
+// ── tiny cookie-jar client ──────────────────────────────────────────────────
+class Client {
+  private jar = new Map<string, string>();
+  constructor(public label: string) {}
+
+  private absorb(res: Response) {
+    const raw: string[] =
+      typeof (res.headers as any).getSetCookie === "function"
+        ? (res.headers as any).getSetCookie()
+        : [res.headers.get("set-cookie")].filter(Boolean) as string[];
+    for (const c of raw) {
+      const [pair] = c.split(";");
+      const eq = pair.indexOf("=");
+      if (eq > 0) this.jar.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
+  }
+  private cookieHeader() {
+    return Array.from(this.jar.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
+  }
+
+  async fetch(path: string, init: RequestInit = {}): Promise<Response> {
+    const headers = new Headers(init.headers);
+    if (this.jar.size) headers.set("cookie", this.cookieHeader());
+    const res = await fetch(BASE + path, { ...init, headers, redirect: "manual" });
+    this.absorb(res);
+    return res;
+  }
+  async json(path: string, init: RequestInit = {}): Promise<{ status: number; body: any; res: Response }> {
+    const headers = new Headers(init.headers);
+    if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+    const res = await this.fetch(path, { ...init, headers });
+    let body: any = null;
+    try { body = await res.json(); } catch { /* non-JSON */ }
+    return { status: res.status, body, res };
+  }
+
+  async login(email: string) {
+    const csrfRes = await this.fetch("/api/auth/csrf");
+    const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
+    const form = new URLSearchParams({ csrfToken, email, password: PASSWORD, callbackUrl: BASE + "/" });
+    const res = await this.fetch("/api/auth/callback/credentials", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    });
+    const ok = Array.from(this.jar.keys()).some((k) => k.includes("session-token"));
+    if (!ok) throw new Error(`${this.label}: login failed (${res.status})`);
+  }
+}
+
+// ── assertions ──────────────────────────────────────────────────────────────
+const results: { name: string; ok: boolean; detail?: string }[] = [];
+function check(name: string, ok: boolean, detail?: string) {
+  results.push({ name, ok, detail });
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${!ok && detail ? `  — ${detail}` : ""}`);
+}
+async function expectStatus(c: Client, name: string, path: string, want: number | number[], init: RequestInit = {}) {
+  const { status, body } = await c.json(path, init);
+  const wants = Array.isArray(want) ? want : [want];
+  check(`${c.label}: ${name}`, wants.includes(status), `got ${status} ${JSON.stringify(body)?.slice(0, 120)}`);
+  return body;
+}
+async function expectRedirect(c: Client, name: string, path: string, toPrefix: string) {
+  const res = await c.fetch(path);
+  const loc = res.headers.get("location") ?? "";
+  const ok = (res.status === 302 || res.status === 307 || res.status === 308) && loc.includes(toPrefix);
+  check(`${c.label}: ${name}`, ok, `got ${res.status} → ${loc || "(no location)"}`);
+}
+
+// ── seed ────────────────────────────────────────────────────────────────────
+async function seed() {
+  const hashed = await bcrypt.hash(PASSWORD, 10);
+  let org = await prisma.organization.findFirst({ where: { name: "Caretaker Smoke Org" } });
+  if (!org) {
+    org = await prisma.organization.create({
+      data: { name: "Caretaker Smoke Org", pricingTier: "PRO", freeAccess: true } as any,
+    });
+  }
+  let property = await prisma.property.findFirst({ where: { organizationId: org.id, name: "Smoke Block A" } });
+  if (!property) {
+    property = await prisma.property.create({
+      data: { name: "Smoke Block A", type: "LONGTERM", currency: "KES", organizationId: org.id },
+    });
+  }
+  let unit = await prisma.unit.findFirst({ where: { propertyId: property.id, unitNumber: "S1" } });
+  if (!unit) {
+    unit = await prisma.unit.create({ data: { propertyId: property.id, unitNumber: "S1", type: "ONE_BED", monthlyRent: 10000 } as any });
+  }
+
+  async function user(email: string, name: string, role: "CARETAKER" | "ADMIN" | "ACCOUNTANT") {
+    const u = await prisma.user.upsert({
+      where: { email },
+      create: { email, name, password: hashed, role, organizationId: org!.id, isActive: true },
+      update: { password: hashed, role, organizationId: org!.id, isActive: true },
+    });
+    await prisma.userOrganizationMembership.upsert({
+      where: { userId_organizationId: { userId: u.id, organizationId: org!.id } },
+      create: { userId: u.id, organizationId: org!.id, role },
+      update: { role },
+    });
+    if (role !== "ADMIN") {
+      await prisma.propertyAccess.upsert({
+        where: { userId_propertyId: { userId: u.id, propertyId: property!.id } },
+        create: { userId: u.id, propertyId: property!.id },
+        update: {},
+      });
+    }
+    return u;
+  }
+
+  const caretaker  = await user(EMAILS.caretaker, "Smoke Caretaker", "CARETAKER");
+  const manager    = await user(EMAILS.manager, "Smoke Manager", "ADMIN");
+  const accountant = await user(EMAILS.accountant, "Smoke Accountant", "ACCOUNTANT");
+  return { org, property, unit, caretaker, manager, accountant };
+}
+
+// ── main ────────────────────────────────────────────────────────────────────
+async function main() {
+  const { property, unit, caretaker, manager } = await seed();
+  const created = { expenses: new Set<string>(), vendors: new Set<string>(), jobs: new Set<string>() };
+
+  const care = new Client("caretaker");
+  const mgr  = new Client("manager");
+  const acct = new Client("accountant");
+  await Promise.all([care.login(EMAILS.caretaker), mgr.login(EMAILS.manager), acct.login(EMAILS.accountant)]);
+  console.log("logged in all three users\n");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const stamp = Date.now();
+
+  // ── page redirects ──
+  for (const p of ["/petty-cash", "/dashboard", "/tenants", "/settings", "/inbox", "/report", "/cases", "/income"]) {
+    await expectRedirect(care, `page ${p} redirects to /maintenance`, p, "/maintenance");
+  }
+  for (const p of ["/expenses", "/maintenance", "/vendors"]) {
+    const res = await care.fetch(p);
+    check(`caretaker: page ${p} renders`, res.status === 200, `got ${res.status}`);
+  }
+
+  // ── positive: reads ──
+  const props = await expectStatus(care, "GET /api/properties", "/api/properties", 200);
+  const smokeProp = Array.isArray(props) ? props.find((p: any) => p.id === property.id) : null;
+  check("caretaker: properties projection has units, no bank/owner fields",
+    !!smokeProp && Array.isArray(smokeProp.units) && !("bankAccountNumber" in smokeProp) && !("owner" in smokeProp) && !("managementFeeRate" in smokeProp),
+    JSON.stringify(smokeProp)?.slice(0, 200));
+  await expectStatus(care, "GET /api/expenses", `/api/expenses?propertyId=${property.id}`, 200);
+  await expectStatus(care, "GET /api/maintenance", `/api/maintenance?propertyId=${property.id}`, 200);
+  await expectStatus(care, "GET /api/maintenance/schedules", `/api/maintenance/schedules?propertyId=${property.id}`, 200);
+  await expectStatus(care, "GET /api/tax-configs", `/api/tax-configs?propertyId=${property.id}`, 200);
+  await expectStatus(care, "GET /api/invitations/my", "/api/invitations/my", 200);
+  await expectStatus(care, "GET /api/stripe/status", "/api/stripe/status", 200);
+
+  // ── vendors ──
+  const vName = `Smoke Plumbing ${stamp}`;
+  const v1 = await expectStatus(care, "POST /api/vendors (full fields)", "/api/vendors", 201, {
+    method: "POST", body: JSON.stringify({ name: vName, category: "CONTRACTOR", phone: "0700000000", bankDetails: "KCB 1234567", taxId: "P051234567X" }),
+  });
+  if (v1?.id) created.vendors.add(v1.id);
+  check("caretaker: POST response echoes bankDetails + taxId", v1?.bankDetails === "KCB 1234567" && v1?.taxId === "P051234567X");
+  const dup = await expectStatus(care, "POST /api/vendors duplicate → 409", "/api/vendors", 409, {
+    method: "POST", body: JSON.stringify({ name: `  ${vName.toUpperCase()}, ` , category: "CONTRACTOR" }),
+  });
+  check("caretaker: 409 carries DUPLICATE_VENDOR + existing (trimmed)", dup?.code === "DUPLICATE_VENDOR" && dup?.existing?.id === v1?.id && !("bankDetails" in (dup?.existing ?? {})));
+  const v2 = await expectStatus(care, "POST /api/vendors allowDuplicate → 201", "/api/vendors", 201, {
+    method: "POST", body: JSON.stringify({ name: vName, category: "CONTRACTOR", allowDuplicate: true }),
+  });
+  if (v2?.id) created.vendors.add(v2.id);
+  const list = await expectStatus(care, "GET /api/vendors (trimmed)", "/api/vendors", 200);
+  const mine = Array.isArray(list) ? list.find((v: any) => v.id === v1?.id) : null;
+  check("caretaker: vendor list has no bankDetails/taxId/email/_count", !!mine && !("bankDetails" in mine) && !("taxId" in mine) && !("email" in mine) && !("_count" in mine), JSON.stringify(mine));
+  const one = await expectStatus(care, "GET /api/vendors/[id] (trimmed)", `/api/vendors/${v1?.id}`, 200);
+  check("caretaker: vendor detail trimmed (no totalSpend/bankDetails)", !!one && !("totalSpend" in one) && !("bankDetails" in one));
+  await expectStatus(care, "PATCH /api/vendors/[id] → 403", `/api/vendors/${v1?.id}`, 403, { method: "PATCH", body: JSON.stringify({ phone: "1" }) });
+  await expectStatus(care, "DELETE /api/vendors/[id] → 403", `/api/vendors/${v1?.id}`, 403, { method: "DELETE" });
+  await expectStatus(care, "GET /api/vendors/[id]/statement → 403", `/api/vendors/${v1?.id}/statement`, 403);
+  const mgrList = await expectStatus(mgr, "GET /api/vendors (full)", "/api/vendors", 200);
+  const mgrMine = Array.isArray(mgrList) ? mgrList.find((v: any) => v.id === v1?.id) : null;
+  check("manager: vendor list still has bankDetails", mgrMine?.bankDetails === "KCB 1234567");
+  const auditRow = await prisma.auditLog.findFirst({ where: { resource: "Vendor", resourceId: v1?.id, action: "CREATE" } });
+  check("audit: Vendor CREATE row written by caretaker, bankDetails redacted",
+    !!auditRow && auditRow.userId === caretaker.id && JSON.stringify(auditRow.after ?? {}).includes("KCB") === false, JSON.stringify(auditRow?.after));
+
+  // ── expenses: caretaker creates a petty-cash expense ──
+  const exp = await expectStatus(care, "POST /api/expenses paidFromPettyCash → 201", "/api/expenses", 201, {
+    method: "POST",
+    body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "CONSUMABLES", amount: 450, description: `Smoke paint ${stamp}`, paidFromPettyCash: true, vendorId: v1?.id }),
+  });
+  if (exp?.id) created.expenses.add(exp.id);
+  const pc = exp?.id ? await prisma.pettyCash.findUnique({ where: { expenseEntryId: exp.id } }) : null;
+  check("db: linked OUT row exists, PENDING, createdByUserId = caretaker",
+    !!pc && pc.status === "PENDING" && pc.type === "OUT" && exp?.createdByUserId === caretaker.id, JSON.stringify({ pc: pc?.status, creator: exp?.createdByUserId }));
+  check("caretaker: expense payload carries pettyCashEntry.status only", exp?.pettyCashEntry?.status === "PENDING" && !("balance" in (exp?.pettyCashEntry ?? {})));
+  await expectStatus(care, "POST /api/expenses PORTFOLIO → 400", "/api/expenses", 400, {
+    method: "POST", body: JSON.stringify({ date: today, scope: "PORTFOLIO", category: "OTHER", amount: 5, description: "x" }),
+  });
+  await expectStatus(care, "PUT own PENDING expense → 200", `/api/expenses/${exp?.id}`, 200, {
+    method: "PUT",
+    body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "CONSUMABLES", amount: 500, description: `Smoke paint ${stamp}`, paidFromPettyCash: true }),
+  });
+  const pcAfter = pc ? await prisma.pettyCash.findUnique({ where: { id: pc.id } }) : null;
+  check("db: OUT row follows the edit and stays PENDING", pcAfter?.status === "PENDING" && Number(pcAfter?.amount) === 500, JSON.stringify(pcAfter?.status));
+
+  // manager approves → caretaker locked
+  await expectStatus(mgr, "PATCH /api/petty-cash/[id] approve → 200", `/api/petty-cash/${pc?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "approve" }) });
+  await expectStatus(care, "PUT own APPROVED expense → 409", `/api/expenses/${exp?.id}`, 409, {
+    method: "PUT",
+    body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "CONSUMABLES", amount: 999, description: "tamper", paidFromPettyCash: true }),
+  });
+  await expectStatus(care, "DELETE own APPROVED expense → 409", `/api/expenses/${exp?.id}`, 409, { method: "DELETE" });
+
+  // second petty expense → manager rejects → expense reverted to unpaid
+  const exp2 = await expectStatus(care, "POST /api/expenses (2nd petty)", "/api/expenses", 201, {
+    method: "POST",
+    body: JSON.stringify({ date: today, scope: "UNIT", unitId: unit.id, category: "MAINTENANCE", amount: 120, description: `Smoke bulb ${stamp}`, paidFromPettyCash: true }),
+  });
+  if (exp2?.id) created.expenses.add(exp2.id);
+  const pc2 = exp2?.id ? await prisma.pettyCash.findUnique({ where: { expenseEntryId: exp2.id } }) : null;
+  await expectStatus(mgr, "PATCH /api/petty-cash/[id] reject → 200", `/api/petty-cash/${pc2?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "reject", rejectionReason: "No receipt" }) });
+  const exp2After = exp2?.id ? await prisma.expenseEntry.findUnique({ where: { id: exp2.id }, include: { pettyCashEntry: true } }) : null;
+  check("db: rejected → expense reverted to unpaid, REJECTED row kept linked",
+    exp2After?.paidFromPettyCash === false && Number(exp2After?.amountPaid) === 0 && exp2After?.pettyCashEntry?.status === "REJECTED",
+    JSON.stringify({ paid: exp2After?.paidFromPettyCash, amountPaid: exp2After?.amountPaid, st: exp2After?.pettyCashEntry?.status }));
+  await expectStatus(care, "PUT own REJECTED expense (resubmit) → 200", `/api/expenses/${exp2?.id}`, 200, {
+    method: "PUT",
+    body: JSON.stringify({ date: today, scope: "UNIT", unitId: unit.id, category: "MAINTENANCE", amount: 120, description: `Smoke bulb ${stamp}`, paidFromPettyCash: true }),
+  });
+  const pc2After = pc2 ? await prisma.pettyCash.findUnique({ where: { id: pc2.id } }) : null;
+  check("db: resubmitted row is PENDING again", pc2After?.status === "PENDING", pc2After?.status);
+  await expectStatus(care, "DELETE own PENDING expense → 200", `/api/expenses/${exp2?.id}`, 200, { method: "DELETE" });
+  if (exp2?.id) created.expenses.delete(exp2.id);
+
+  // manager-created expense → caretaker cannot touch
+  const mExp = await expectStatus(mgr, "POST /api/expenses (manager)", "/api/expenses", 201, {
+    method: "POST", body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "OTHER", amount: 77, description: `Smoke mgr ${stamp}` }),
+  });
+  if (mExp?.id) created.expenses.add(mExp.id);
+  await expectStatus(care, "PUT manager's expense → 403", `/api/expenses/${mExp?.id}`, 403, {
+    method: "PUT", body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "OTHER", amount: 1, description: "x" }),
+  });
+  await expectStatus(care, "DELETE manager's expense → 403", `/api/expenses/${mExp?.id}`, 403, { method: "DELETE" });
+  await expectStatus(care, "POST documents on manager's expense → 403", `/api/expenses/${mExp?.id}/documents`, 403, { method: "POST", body: new FormData() });
+  await expectStatus(care, "POST /api/expenses/bulk → 403", "/api/expenses/bulk", 403, { method: "POST", body: JSON.stringify({ action: "mark_sunk", ids: [mExp?.id] }) });
+  // legacy row with no creator
+  if (mExp?.id) await prisma.expenseEntry.update({ where: { id: mExp.id }, data: { createdByUserId: null } });
+  await expectStatus(care, "DELETE legacy (null creator) expense → 403", `/api/expenses/${mExp?.id}`, 403, { method: "DELETE" });
+  // accountant regression
+  await expectStatus(acct, "DELETE expense → 403 PERMISSION_DENIED", `/api/expenses/${mExp?.id}`, 403, { method: "DELETE" });
+  await expectStatus(acct, "PUT expense → 200 (accountant may edit)", `/api/expenses/${mExp?.id}`, 200, {
+    method: "PUT", body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "OTHER", amount: 78, description: `Smoke mgr ${stamp}` }),
+  });
+
+  // ── maintenance ──
+  const job = await expectStatus(care, "POST /api/maintenance → 201", "/api/maintenance", 201, {
+    method: "POST", body: JSON.stringify({ propertyId: property.id, unitId: unit.id, title: `Smoke leak ${stamp}`, category: "PLUMBING", priority: "MEDIUM", vendorId: v1?.id }),
+  });
+  if (job?.id) created.jobs.add(job.id);
+  await expectStatus(care, "PATCH /api/maintenance/[id] status → 200", `/api/maintenance/${job?.id}`, 200, { method: "PATCH", body: JSON.stringify({ status: "IN_PROGRESS" }) });
+  await expectStatus(care, "PATCH /api/maintenance/[id] DONE + cost → 200", `/api/maintenance/${job?.id}`, 200, { method: "PATCH", body: JSON.stringify({ status: "DONE", cost: 300 }) });
+  const logged = await expectStatus(care, "PATCH log_expense → 200", `/api/maintenance/${job?.id}`, 200, {
+    method: "PATCH", body: JSON.stringify({ action: "log_expense", amount: 300, description: `Smoke leak fix ${stamp}`, date: today, category: "MAINTENANCE" }),
+  });
+  if (logged?.expense?.id) created.expenses.add(logged.expense.id);
+  check("db: log_expense stamps createdByUserId", logged?.expense?.createdByUserId === caretaker.id);
+  await expectStatus(care, "DELETE /api/maintenance/[id] → 403", `/api/maintenance/${job?.id}`, 403, { method: "DELETE" });
+  await expectStatus(care, "POST /api/maintenance/schedules → 403", "/api/maintenance/schedules", 403, { method: "POST", body: JSON.stringify({ propertyId: property.id, taskName: "x", frequency: "MONTHLY" }) });
+
+  // ── denied APIs ──
+  const denied: [string, string, RequestInit?][] = [
+    ["GET /api/petty-cash", `/api/petty-cash?propertyId=${property.id}`],
+    ["POST /api/petty-cash", "/api/petty-cash", { method: "POST", body: JSON.stringify({ date: today, type: "IN", amount: 1, description: "x", propertyId: property.id }) }],
+    ["PATCH /api/petty-cash/[id]", `/api/petty-cash/${pc?.id}`, { method: "PATCH", body: JSON.stringify({ action: "approve" }) }],
+    ["POST /api/petty-cash/[id]/convert-to-expense", `/api/petty-cash/${pc?.id}/convert-to-expense`, { method: "POST" }],
+    ["POST /api/petty-cash/bulk", "/api/petty-cash/bulk", { method: "POST", body: JSON.stringify({ action: "delete", ids: [pc?.id] }) }],
+    ["GET /api/dashboard", `/api/dashboard?year=2026&month=9&propertyId=${property.id}`],
+    ["GET /api/dashboard/ops", `/api/dashboard/ops?propertyId=${property.id}`],
+    ["GET /api/report", `/api/report?propertyId=${property.id}&year=2026&month=9`],
+    ["GET /api/report/owner-statement", `/api/report/owner-statement?year=2026&month=9`],
+    ["GET /api/hints", "/api/hints"],
+    ["GET /api/inbox", "/api/inbox"],
+    ["GET /api/search", "/api/search?q=sm"],
+    ["GET /api/income", `/api/income?propertyId=${property.id}`],
+    ["GET /api/tenants", "/api/tenants"],
+    ["GET /api/invoices", "/api/invoices"],
+    ["GET /api/units", `/api/units?propertyId=${property.id}`],
+    ["GET /api/cases", "/api/cases"],
+    ["GET /api/settings", "/api/settings"],
+    ["GET /api/users", "/api/users"],
+    ["GET /api/audit-logs", "/api/audit-logs"],
+    ["GET /api/recurring-expenses", "/api/recurring-expenses"],
+    ["GET /api/assets", "/api/assets"],
+    ["GET /api/insurance", "/api/insurance"],
+    ["GET /api/compliance", "/api/compliance"],
+    ["POST /api/demo/seed", "/api/demo/seed", { method: "POST", body: JSON.stringify({ demoKey: "al-seef" }) }],
+    ["POST /api/invitations", "/api/invitations", { method: "POST", body: JSON.stringify({ email: "x@y.z", role: "MANAGER" }) }],
+  ];
+  for (const [name, path, init] of denied) {
+    await expectStatus(care, `${name} → 403`, path, 403, init);
+  }
+
+  // ── manager regression ──
+  await expectStatus(mgr, "GET /api/petty-cash → 200", `/api/petty-cash?propertyId=${property.id}`, 200);
+  await expectStatus(mgr, "GET /api/dashboard → 200", `/api/dashboard?year=2026&month=9&propertyId=${property.id}`, 200);
+  await expectStatus(mgr, "GET /api/inbox → 200", "/api/inbox", 200);
+  const mgrProps = await expectStatus(mgr, "GET /api/properties (full) → 200", "/api/properties", 200);
+  const mgrProp = Array.isArray(mgrProps) ? mgrProps.find((p: any) => p.id === property.id) : null;
+  check("manager: properties still carry bank fields + owner", !!mgrProp && "bankAccountNumber" in mgrProp && "owner" in mgrProp);
+  const acctProps = await expectStatus(acct, "GET /api/properties → 200", "/api/properties", 200);
+  const acctProp = Array.isArray(acctProps) ? acctProps.find((p: any) => p.id === property.id) : null;
+  check("accountant: properties scrubbed of bank fields", !!acctProp && !("bankAccountNumber" in acctProp) && "units" in acctProp, JSON.stringify(Object.keys(acctProp ?? {})));
+  await expectStatus(acct, "GET /api/units scoped → 200", `/api/units?propertyId=${property.id}`, 200);
+
+  // ── cleanup ──
+  for (const id of Array.from(created.jobs)) await prisma.maintenanceJob.deleteMany({ where: { id } });
+  for (const id of Array.from(created.expenses)) await prisma.expenseEntry.deleteMany({ where: { id } });
+  for (const id of Array.from(created.vendors)) await prisma.vendor.deleteMany({ where: { id } });
+
+  const failed = results.filter((r) => !r.ok);
+  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+  if (failed.length) {
+    console.log("FAILED:");
+    for (const f of failed) console.log(` - ${f.name}${f.detail ? `  (${f.detail})` : ""}`);
+    process.exitCode = 1;
+  }
+}
+
+main()
+  .catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => prisma.$disconnect());

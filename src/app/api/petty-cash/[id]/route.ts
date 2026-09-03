@@ -2,6 +2,7 @@ import { requireManager, getAccessiblePropertyIds, requireManagerWrite, requireP
 import { prisma } from "@/lib/prisma";
 import { pettyCashSchema, pettyCashApproveSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
+import { sendNotificationEmail } from "@/lib/email";
 
 /** Property-less rows are org-scoped: another org's row must be untouchable
  *  (legacy null-org rows grandfathered; super-admin — session org null — passes). */
@@ -64,7 +65,26 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             approvalNotes: null,
           };
 
-    const updated = await prisma.pettyCash.update({ where: { id: params.id }, data: updateData });
+    // Rejecting a row that mirrors a paid-from-petty-cash expense means the
+    // float never paid that bill: revert the expense to UNPAID (line items
+    // too) and keep the REJECTED row linked as the trail. Array-form
+    // $transaction — callback form is pgBouncer-incompatible.
+    const revertExpense = parsed.data.action === "reject" && !!existing.expenseEntryId;
+    const [updated] = await prisma.$transaction([
+      prisma.pettyCash.update({ where: { id: params.id }, data: updateData }),
+      ...(revertExpense
+        ? [
+            prisma.expenseEntry.update({
+              where: { id: existing.expenseEntryId! },
+              data: { paidFromPettyCash: false, amountPaid: 0, paymentMethod: null, paymentDate: null },
+            }),
+            prisma.expenseLineItem.updateMany({
+              where: { expenseId: existing.expenseEntryId! },
+              data: { amountPaid: 0, paymentStatus: "UNPAID", paymentDate: null },
+            }),
+          ]
+        : []),
+    ]);
 
     await logAudit({
       userId: session!.user.id,
@@ -74,8 +94,28 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       resourceId: params.id,
       organizationId: session!.user.organizationId,
       before: { status: existing.status },
-      after: { status: updated.status },
+      after: { status: updated.status, ...(revertExpense ? { revertedExpenseId: existing.expenseEntryId } : {}) },
     });
+
+    // Tell whoever recorded the expense (typically the caretaker) it was
+    // rejected — they cannot see the petty-cash ledger themselves.
+    if (revertExpense) {
+      void (async () => {
+        try {
+          const exp = await prisma.expenseEntry.findUnique({
+            where: { id: existing.expenseEntryId! },
+            select: { description: true, amount: true, createdBy: { select: { email: true, id: true } } },
+          });
+          const to = exp?.createdBy?.email;
+          if (!to || exp?.createdBy?.id === session!.user.id) return;
+          await sendNotificationEmail(
+            to,
+            "Petty cash withdrawal rejected",
+            `<p>Your petty-cash withdrawal for <strong>${(exp?.description ?? "an expense").replace(/</g, "&lt;")}</strong> (${exp?.amount}) was rejected: ${parsed.data.rejectionReason!.trim().replace(/</g, "&lt;")}</p><p>The expense is now recorded as unpaid. Edit it to resubmit or record another payment method.</p>`,
+          );
+        } catch { /* fire-and-forget */ }
+      })();
+    }
 
     return Response.json(updated);
   }

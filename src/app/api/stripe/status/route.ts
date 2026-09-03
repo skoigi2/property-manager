@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-utils";
+import { requireSession } from "@/lib/auth-utils";
 import { getSubscriptionInfo } from "@/lib/subscription";
 
 export async function GET() {
-  const { error, session } = await requireAuth();
+  const { error, session } = await requireSession(); // any role — TrialBanner polls this
   if (error) return error;
 
   const orgId = session!.user.organizationId;

@@ -30,7 +30,13 @@ interface VendorSelectProps {
   tooltip?: string;
 }
 
+// Module-level cache of GET /api/vendors for this browser session. The shape
+// is whatever the API returned for the CURRENT role (CARETAKER gets a trimmed
+// projection) — safe because a role change only happens via sign-out or an
+// org switch, both of which are full page loads that reset module state.
 let vendorCache: Vendor[] | null = null;
+
+interface DuplicateVendor { id: string; name: string; category: string; phone: string | null }
 
 export function VendorSelect({ value, onChange, label, error, disabled, tooltip }: VendorSelectProps) {
   const [open, setOpen]         = useState(false);
@@ -41,6 +47,17 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
   const [newName, setNewName]   = useState("");
   const [newCat, setNewCat]     = useState("OTHER");
   const [saving, setSaving]     = useState(false);
+  // Quick-create "More details" — lets whoever meets the contractor on site
+  // capture them completely (phone, email, tax id, bank details) in one pass
+  // instead of leaving a half-populated vendor a manager must chase later.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newTaxId, setNewTaxId] = useState("");
+  const [newBank, setNewBank]   = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [duplicateOf, setDuplicateOf] = useState<DuplicateVendor | null>(null);
   const containerRef            = useRef<HTMLDivElement>(null);
   const inputRef                = useRef<HTMLInputElement>(null);
 
@@ -86,26 +103,67 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
       (v.phone ?? "").includes(query)
   );
 
-  async function handleCreate() {
+  function resetCreate() {
+    setCreating(false);
+    setMoreOpen(false);
+    setNewName(""); setNewPhone(""); setNewEmail(""); setNewTaxId(""); setNewBank(""); setNewNotes("");
+    setCreateError(null);
+    setDuplicateOf(null);
+  }
+
+  async function handleCreate(allowDuplicate = false) {
     if (!newName.trim()) return;
     setSaving(true);
+    setCreateError(null);
     try {
       const res  = await fetch("/api/vendors", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ name: newName.trim(), category: newCat }),
+        body:    JSON.stringify({
+          name:        newName.trim(),
+          category:    newCat,
+          phone:       newPhone.trim() || null,
+          email:       newEmail.trim() || null,
+          taxId:       newTaxId.trim() || null,
+          bankDetails: newBank.trim() || null,
+          notes:       newNotes.trim() || null,
+          ...(allowDuplicate ? { allowDuplicate: true } : {}),
+        }),
       });
-      if (!res.ok) return;
+      if (res.status === 409) {
+        // Soft duplicate warning — offer "use existing" / "create anyway".
+        const err = await res.json().catch(() => ({}));
+        if (err?.code === "DUPLICATE_VENDOR" && err.existing) {
+          setDuplicateOf(err.existing as DuplicateVendor);
+          return;
+        }
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = typeof err?.error === "string" ? err.error : "Could not create vendor";
+        setCreateError(msg);
+        return;
+      }
       const created: Vendor = await res.json();
       vendorCache = null; // invalidate cache
       setVendors((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       onChange(created.id);
       setOpen(false);
-      setCreating(false);
-      setNewName("");
-    } catch { /* silent */ } finally {
+      resetCreate();
+    } catch {
+      setCreateError("Could not create vendor");
+    } finally {
       setSaving(false);
     }
+  }
+
+  function useExisting(v: DuplicateVendor) {
+    // The existing vendor may not be in the local list yet (cache from before
+    // another user added it) — add it so the selection renders.
+    setVendors((prev) => (prev.some((x) => x.id === v.id) ? prev : [...prev, { id: v.id, name: v.name, category: v.category, phone: v.phone }]));
+    onChange(v.id);
+    setOpen(false);
+    resetCreate();
   }
 
   return (
@@ -210,7 +268,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
               <input
                 autoFocus
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={(e) => { setNewName(e.target.value); setDuplicateOf(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 placeholder="Vendor name*"
                 className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream"
@@ -224,10 +282,47 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
                   <option key={k} value={k}>{label}</option>
                 ))}
               </select>
+
+              {/* More details — capture the contractor completely in one pass */}
+              <button
+                type="button"
+                onClick={() => setMoreOpen((o) => !o)}
+                className="text-caption text-gray-500 hover:text-gold transition-colors"
+              >
+                {moreOpen ? "Hide details" : "More details (phone, email, tax ID, bank)…"}
+              </button>
+              {moreOpen && (
+                <div className="space-y-2">
+                  <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Phone" className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream" />
+                  <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email" type="email" className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream" />
+                  <input value={newTaxId} onChange={(e) => setNewTaxId(e.target.value)} placeholder="Tax ID (KRA PIN)" className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream" />
+                  <textarea value={newBank} onChange={(e) => setNewBank(e.target.value)} placeholder="Bank name, account number, paybill…" rows={2} className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream" />
+                  <input value={newNotes} onChange={(e) => setNewNotes(e.target.value)} placeholder="Notes" className="w-full text-body px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 bg-cream" />
+                </div>
+              )}
+
+              {duplicateOf && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-caption text-amber-900 space-y-1.5">
+                  <p>
+                    A vendor called <span className="font-medium">{duplicateOf.name}</span>
+                    {duplicateOf.phone ? ` (${duplicateOf.phone})` : ""} already exists — use it instead?
+                  </p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => useExisting(duplicateOf)} className="flex-1 py-1 font-medium bg-gold text-white rounded-lg hover:bg-gold-dark transition-colors">
+                      Use existing
+                    </button>
+                    <button type="button" onClick={() => handleCreate(true)} disabled={saving} className="flex-1 py-1 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-50">
+                      Create anyway
+                    </button>
+                  </div>
+                </div>
+              )}
+              {createError && <p className="text-caption text-red-500">{createError}</p>}
+
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={handleCreate}
+                  onClick={() => handleCreate()}
                   disabled={saving || !newName.trim()}
                   className="flex-1 py-1.5 text-caption font-medium bg-gold text-white rounded-lg hover:bg-gold-dark transition-colors disabled:opacity-50"
                 >
@@ -235,7 +330,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCreating(false)}
+                  onClick={resetCreate}
                   className="flex-1 py-1.5 text-caption text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel

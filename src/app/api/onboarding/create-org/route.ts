@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-utils";
+import { requireSession } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { sendNewUserAlert } from "@/lib/email";
 
@@ -17,7 +17,7 @@ import { sendNewUserAlert } from "@/lib/email";
  * afterwards to refresh the JWT without a full re-login.
  */
 export async function POST(req: NextRequest) {
-  const { error, session } = await requireAuth();
+  const { error, session } = await requireSession(); // pre-org signup flow — any role
   if (error) return error;
 
   // Only allowed when the user has no org yet

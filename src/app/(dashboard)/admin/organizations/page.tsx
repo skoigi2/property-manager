@@ -1109,6 +1109,7 @@ export default function OrganizationsPage() {
                                   <option value="MANAGER">Manager</option>
                                   <option value="ACCOUNTANT">Accountant</option>
                                   <option value="OWNER">Owner</option>
+                                  <option value="CARETAKER">Caretaker (on-site staff)</option>
                                 </select>
                               </div>
                               <div className="relative">
@@ -1284,6 +1285,7 @@ export default function OrganizationsPage() {
                               <option value="MANAGER">Manager</option>
                               <option value="ACCOUNTANT">Accountant</option>
                               <option value="OWNER">Owner</option>
+                              <option value="CARETAKER">Caretaker (on-site staff)</option>
                             </select>
                             {isBillingOwner && (
                               <span

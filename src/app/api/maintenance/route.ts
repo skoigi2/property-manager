@@ -1,5 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
-import { requireActiveSubscription } from "@/lib/subscription";
+import { requireSession, requireOpsStaffWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { auth } from "@/lib/auth";
@@ -27,7 +26,8 @@ const createSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  // Any role incl. CARETAKER — scoped by accessible properties.
+  const { error } = await requireSession();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
@@ -66,10 +66,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { session, error } = await requireManager();
+  // Ops staff incl. CARETAKER (on-site staff raise jobs). Subscription
+  // write-gate included.
+  const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
-  const locked = await requireActiveSubscription(session!.user.organizationId);
-  if (locked) return locked;
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

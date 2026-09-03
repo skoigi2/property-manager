@@ -4,6 +4,7 @@ import { requireActiveSubscription } from "@/lib/subscription";
 import { roleCan, PERMISSION_DENIED_MESSAGE, type PermissionAction } from "@/lib/permissions";
 import { cookies } from "next/headers";
 import type { Session } from "next-auth";
+import { MANAGER_ROLES, ESTABLISHED_ROLES, OPS_ROLES, isRoleAllowed, type OrgRole } from "@/lib/roles";
 
 /**
  * Cookie set by the super-admin header org filter. Narrows the super-admin's
@@ -33,13 +34,57 @@ function isSuperAdmin(session: Session | null): boolean {
   if (!session) return false;
   return session.user.role === "ADMIN" && session.user.organizationId === null;
 }
+export const isSuperAdminSession = isSuperAdmin;
 
-export async function requireAuth() {
+// ─── Role allow-lists ─────────────────────────────────────────────────────────
+// Every helper below is an ALLOW-list keyed on the active org's membership role
+// (session.user.orgRole). A role that is not named is denied — so a new role
+// (e.g. CARETAKER) reaches nothing until a route opts it in explicitly. Never
+// turn one of these back into a deny-list ("everyone except X"): that fails
+// open for every role added later. Vocabulary + pure decision live in
+// src/lib/roles.ts (no next-auth import, so it is unit-testable).
+
+export { MANAGER_ROLES, ESTABLISHED_ROLES, OPS_ROLES, isRoleAllowed } from "@/lib/roles";
+export type { OrgRole } from "@/lib/roles";
+
+/** Generic allow-list gate. Platform super-admin always passes. */
+export async function requireRoles(allowed: readonly OrgRole[]) {
+  const session = await auth();
+  if (!session) {
+    return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  if (!isRoleAllowed(session.user.orgRole, allowed, isSuperAdmin(session))) {
+    return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+  return { session, error: null };
+}
+
+/**
+ * Any signed-in user of ANY role, CARETAKER included. Only for routes that
+ * explicitly opt in (see the CARETAKER allow-list in
+ * src/lib/__tests__/route-guards.test.ts, which fails when a route uses this
+ * without being listed). Everything else should use requireAuth().
+ */
+export async function requireSession() {
   const session = await auth();
   if (!session) {
     return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   return { session, error: null };
+}
+
+/**
+ * Any signed-in user of an established role (ADMIN / MANAGER / ACCOUNTANT /
+ * OWNER). Deliberately excludes CARETAKER: the on-site role must be opted in
+ * per route via requireSession() / requireOpsStaff().
+ */
+export async function requireAuth() {
+  return requireRoles(ESTABLISHED_ROLES);
+}
+
+/** Operations staff (manager tier + CARETAKER) — expenses, maintenance, vendors. */
+export async function requireOpsStaff() {
+  return requireRoles(OPS_ROLES);
 }
 
 /** Platform super-admin: global role=ADMIN AND organizationId=null */
@@ -73,17 +118,13 @@ export async function requireAdmin() {
   return { session, error: null };
 }
 
-/** ADMIN, MANAGER, or ACCOUNTANT (not OWNER) for the active org. */
+/**
+ * ADMIN, MANAGER, or ACCOUNTANT for the active org — an allow-list, so OWNER
+ * and CARETAKER are denied. Do NOT add CARETAKER here: caretaker-reachable
+ * routes opt in individually with requireOpsStaff().
+ */
 export async function requireManager() {
-  const session = await auth();
-  if (!session) {
-    return { session: null, error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
-  }
-  if (isSuperAdmin(session)) return { session, error: null };
-  if (session.user.orgRole === "OWNER") {
-    return { session: null, error: Response.json({ error: "Forbidden" }, { status: 403 }) };
-  }
-  return { session, error: null };
+  return requireRoles(MANAGER_ROLES);
 }
 
 /**
@@ -128,6 +169,21 @@ async function withActiveSubscription(result: {
 /** requireAuth + subscription write-gate. */
 export async function requireAuthWrite() {
   return withActiveSubscription(await requireAuth());
+}
+
+/** requireSession + subscription write-gate (any role incl. CARETAKER — opt-in only). */
+export async function requireSessionWrite() {
+  return withActiveSubscription(await requireSession());
+}
+
+/** requireRoles + subscription write-gate. */
+export async function requireRolesWrite(allowed: readonly OrgRole[]) {
+  return withActiveSubscription(await requireRoles(allowed));
+}
+
+/** requireOpsStaff + subscription write-gate. */
+export async function requireOpsStaffWrite() {
+  return withActiveSubscription(await requireOpsStaff());
 }
 
 /** requireManager + subscription write-gate. */
@@ -241,7 +297,7 @@ export async function getAccessiblePropertyIdsForUser(
  * - Super-admin (role=ADMIN, organizationId=null): ALL properties across all orgs
  * - Org-admin  (orgRole=ADMIN, organizationId=X):  all properties in their org
  * - OWNER:      their owned properties
- * - MANAGER / ACCOUNTANT: PropertyAccess grants only
+ * - MANAGER / ACCOUNTANT / CARETAKER (and any future role): PropertyAccess grants only
  */
 async function resolveAccessiblePropertyIds(actor: {
   userId: string;
@@ -277,7 +333,7 @@ async function resolveAccessiblePropertyIds(actor: {
     return owned.map((p) => p.id);
   }
 
-  // MANAGER / ACCOUNTANT — explicit PropertyAccess grants only, scoped to active org.
+  // MANAGER / ACCOUNTANT / CARETAKER — explicit PropertyAccess grants only, scoped to active org.
   // No "fall back to all org properties" — that silently grants full visibility to a
   // manager whose PropertyAccess rows are missing (deletion bug, race during onboarding,
   // accidental cleanup). Org-admins (handled above) keep all-org access; regular managers

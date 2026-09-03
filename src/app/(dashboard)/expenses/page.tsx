@@ -553,12 +553,37 @@ function LineItemsEditor({
   );
 }
 
+/** Approval state of the linked petty-cash OUT row — status only, never a balance. */
+function PettyStatusBadge({ status, reason }: { status?: string | null; reason?: string | null }) {
+  if (status === "PENDING") {
+    return <span className="inline-block mt-1 text-label uppercase font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200" title="The float holder has not yet confirmed this petty-cash withdrawal">Petty cash · awaiting confirmation</span>;
+  }
+  if (status === "REJECTED") {
+    return <span className="inline-block mt-1 text-label uppercase font-medium px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200" title={reason ?? "Rejected by the float holder"}>Petty cash · rejected</span>;
+  }
+  return null;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
   const { data: session } = useSession();
   const { selectedId, selected } = useProperty();
-  const canDelete = usePermissions().can("FINANCIAL_DELETE");
+  const { can } = usePermissions();
+  const canDelete = can("FINANCIAL_DELETE");
+  // Bulk actions + delete-all + change history are manager-tier tools.
+  const canBulk = can("EXPENSE_BULK");
+  // CARETAKER may only touch rows they recorded, and not once the float
+  // holder has confirmed a petty-cash withdrawal (server enforces the same in
+  // src/lib/expense-access.ts — this only hides controls the API would 403).
+  const isCaretaker = (session?.user as { orgRole?: string } | undefined)?.orgRole === "CARETAKER";
+  const canEditOthers = can("EXPENSE_EDIT_OTHERS");
+  const canEditRow = (e: any): boolean => {
+    if (canEditOthers) return true;
+    if (!e?.createdByUserId || e.createdByUserId !== session?.user?.id) return false;
+    return e?.pettyCashEntry?.status !== "APPROVED";
+  };
+  const canDeleteRow = (e: any): boolean => canDelete && canEditRow(e);
   const currency = useProperty().currency;
   const searchParams = useSearchParams();
   // The header context list is minimal (?minimal=true — no units), so the
@@ -754,7 +779,7 @@ export default function ExpensesPage() {
   // { entries, limitsByProperty } with entries newest-first, each carrying its
   // running balance — so entries[0].balance is the current float.
   useEffect(() => {
-    if (!showForm || !paidFromPettyCash) return;
+    if (!showForm || !paidFromPettyCash || isCaretaker) return;
     setPettyCashBalance(null);
     const params = new URLSearchParams();
     if (formPropertyId) params.set("propertyId", formPropertyId);
@@ -1012,6 +1037,7 @@ export default function ExpensesPage() {
     const t = ev.target as HTMLElement | null;
     if (t?.closest("button, a, input, select, textarea, label, [data-no-row-click]")) return;
     if (window.getSelection()?.toString()) return;
+    if (!canEditRow(e)) return;
     openEdit(e);
   }
 
@@ -1499,6 +1525,7 @@ export default function ExpensesPage() {
           <td key={key} className="px-4 py-3 text-body text-gray-500 max-w-[160px]">
             <span title={e.description ?? ""}>{e.description ? (e.description.length > 30 ? e.description.slice(0, 30) + "…" : e.description) : "—"}</span>
             {e.vendor && <p className="text-caption text-gray-400 mt-0.5 truncate">{e.vendor.name}</p>}
+            <PettyStatusBadge status={e.pettyCashEntry?.status} reason={e.pettyCashEntry?.rejectionReason} />
           </td>
         );
       case "amount":
@@ -1668,7 +1695,7 @@ export default function ExpensesPage() {
         )}
 
         {/* Bulk action toolbar */}
-        {selectedIds.size > 0 && (
+        {canBulk && selectedIds.size > 0 && (
           <Card padding="sm" className="border border-gold/40 bg-cream-dark">
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-body font-medium text-header">{selectedIds.size} selected</span>
@@ -1729,7 +1756,7 @@ export default function ExpensesPage() {
             >
               <FileDown size={13} /> Export
             </button>
-            {canDelete && (
+            {canDelete && canBulk && (
               <div className="relative">
                 <button
                   onClick={() => setMoreOpen((o) => !o)}
@@ -2099,7 +2126,13 @@ export default function ExpensesPage() {
                     <span className="text-body text-gray-700 font-medium">Paid from petty cash</span>
                   </div>
                 </label>
-                {paidFromPettyCash && (
+                {paidFromPettyCash && isCaretaker && (
+                  <div className="pl-7 text-caption text-gray-500">
+                    Recorded as a petty-cash withdrawal — the float holder will confirm it before it affects the float.
+                    You can edit or delete this expense until then.
+                  </div>
+                )}
+                {paidFromPettyCash && !isCaretaker && (
                   <div className="pl-7 text-caption ">
                     {pettyCashBalance === null ? (
                       <span className="text-gray-400">Loading balance…</span>
@@ -2217,6 +2250,7 @@ export default function ExpensesPage() {
                       {propertyLabel(e)} · {unitLabel(e)}
                       {e.vendor?.name && <> · {e.vendor.name}</>}
                     </p>
+                    <PettyStatusBadge status={e.pettyCashEntry?.status} reason={e.pettyCashEntry?.rejectionReason} />
 
                     {/* Amount + pay status */}
                     <div className="flex items-center justify-between mt-2">
@@ -2242,9 +2276,11 @@ export default function ExpensesPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 border-t border-gray-50 mt-2 pt-2">
+                      {canEditRow(e) && (
                       <button onClick={() => openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Edit">
                         <Pencil size={14} />
                       </button>
+                      )}
                       <button
                         onClick={() => toggleDocPanel(e.id)}
                         className={clsx("relative text-gray-300 hover:text-gold transition-colors p-1", docPanelRows.has(e.id) && "text-gold")}
@@ -2257,10 +2293,12 @@ export default function ExpensesPage() {
                           </span>
                         )}
                       </button>
+                      {canBulk && (
                       <button onClick={() => setHistoryId(e.id)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Change history">
                         <Clock size={14} />
                       </button>
-                      {canDelete && (
+                      )}
+                      {canDeleteRow(e) && (
                       <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
                         <Trash2 size={14} />
                       </button>
@@ -2279,11 +2317,13 @@ export default function ExpensesPage() {
                               documents={expenseDocs[e.id] ?? []}
                               onDeleted={() => loadDocs(e.id)}
                             />
+                            {canEditRow(e) && (
                             <ExpenseDocumentUpload
                               expenseId={e.id}
                               onUploaded={() => loadDocs(e.id)}
                               existingFiles={(expenseDocs[e.id] ?? []).map((d: any) => ({ fileName: d.fileName, fileSize: d.fileSize }))}
                             />
+                            )}
                           </>
                         )}
                       </div>
@@ -2301,6 +2341,7 @@ export default function ExpensesPage() {
                     <th className="px-3 py-3 w-8">
                       <input
                         type="checkbox"
+                        disabled={!canBulk}
                         checked={displayEntries.length > 0 && selectedIds.size === displayEntries.length}
                         onChange={toggleSelectAll}
                         className="w-4 h-4 rounded border-gray-300 accent-gold"
@@ -2333,6 +2374,7 @@ export default function ExpensesPage() {
                           <td className="px-3 py-3">
                             <input
                               type="checkbox"
+                              disabled={!canBulk}
                               checked={selectedIds.has(e.id)}
                               onChange={() => toggleSelect(e.id)}
                               className="w-4 h-4 rounded border-gray-300 accent-gold"
@@ -2349,9 +2391,11 @@ export default function ExpensesPage() {
                           {colOrder.map((key) => renderColCell(key, e))}
                           <td className="sticky right-0 px-4 py-3 bg-white group-hover:bg-cream transition-colors shadow-[-8px_0_10px_-8px_rgba(0,0,0,0.12)]">
                             <div className="flex items-center gap-1">
+                              {canEditRow(e) && (
                               <button onClick={() => openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Edit">
                                 <Pencil size={14} />
                               </button>
+                              )}
                               <button
                                 onClick={() => toggleDocPanel(e.id)}
                                 className={clsx("relative text-gray-300 hover:text-gold transition-colors p-1", docPanelRows.has(e.id) && "text-gold")}
@@ -2364,10 +2408,12 @@ export default function ExpensesPage() {
                                   </span>
                                 )}
                               </button>
+                              {canBulk && (
                               <button onClick={() => setHistoryId(e.id)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Change history">
                                 <Clock size={14} />
                               </button>
-                              {canDelete && (
+                              )}
+                              {canDeleteRow(e) && (
                               <button onClick={() => setDeleteId(e.id)} className="text-gray-300 hover:text-expense transition-colors p-1" title="Delete">
                                 <Trash2 size={14} />
                               </button>
@@ -2393,11 +2439,13 @@ export default function ExpensesPage() {
                                       documents={expenseDocs[e.id] ?? []}
                                       onDeleted={() => loadDocs(e.id)}
                                     />
+                                    {canEditRow(e) && (
                                     <ExpenseDocumentUpload
                                       expenseId={e.id}
                                       onUploaded={() => loadDocs(e.id)}
                                       existingFiles={(expenseDocs[e.id] ?? []).map((d: any) => ({ fileName: d.fileName, fileSize: d.fileSize }))}
                                     />
+                                    )}
                                   </>
                                 )}
                               </div>

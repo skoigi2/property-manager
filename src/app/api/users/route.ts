@@ -11,7 +11,7 @@ const createSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"]),
+  role: z.enum(["ADMIN", "OWNER", "MANAGER", "ACCOUNTANT", "CARETAKER"]),
   phone: z.string().optional(),
   propertyIds: z.array(z.string()).optional(),
   organizationId: z.string().optional().nullable(),
@@ -142,12 +142,17 @@ export async function POST(req: Request) {
     ? (bodyOrgId ?? null)
     : session!.user.organizationId ?? null;
 
-  // Team-member cap per tier (TEAM_LIMITS in paddle.ts). Super-admin is exempt.
+  // On-site staff are property-scoped by definition — never "all org properties".
+  if (role === "CARETAKER" && !(propertyIds?.length)) {
+    return Response.json({ error: "Select at least one property for a caretaker." }, { status: 400 });
+  }
+
+  // Seat cap per tier (TEAM_LIMITS / CARETAKER_LIMITS in paddle.ts). Super-admin is exempt.
   if (!isSuperAdmin && newUserOrgId) {
-    const allowed = await canAddUser(newUserOrgId);
+    const allowed = await canAddUser(newUserOrgId, role);
     if (!allowed) {
       return Response.json(
-        { error: "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
+        { error: role === "CARETAKER" ? "Caretaker-seat limit reached for your plan. Upgrade to add more." : "Team-member limit reached for your plan. Upgrade to add more.", code: "TEAM_LIMIT_REACHED" },
         { status: 402 },
       );
     }

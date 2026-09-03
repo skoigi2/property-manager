@@ -1,5 +1,7 @@
-import { requireManager, requirePropertyAccess, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { requireExpenseMutation } from "@/lib/expense-access";
+import { resolvePettyCashOutStatus } from "@/lib/petty-cash-status";
+import { notifyPettyCashPending } from "@/lib/petty-cash-approval";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { deleteFromStorage } from "@/lib/supabase-storage";
@@ -19,47 +21,25 @@ const EXPENSE_INCLUDE = {
   },
 };
 
-// PORTFOLIO-scope expenses legitimately have no property (propertyId and
-// unitId both null) — distinguish "doesn't exist" from "exists, org-wide".
-// When no property resolves, the org check below (organizationId stamped on
-// create; legacy null-org rows grandfathered) plus the requireManagerWrite /
-// requirePermissionWrite gate is the access check; a 404 here would make
-// portfolio expenses permanently un-editable and un-deletable.
-async function loadExpensePropertyId(id: string): Promise<{ exists: boolean; propertyId: string | null; organizationId: string | null }> {
-  const e = await prisma.expenseEntry.findUnique({
-    where: { id },
-    select: {
-      propertyId: true,
-      organizationId: true,
-      unit: { select: { propertyId: true } },
-    },
-  });
-  if (!e) return { exists: false, propertyId: null, organizationId: null };
-  return { exists: true, propertyId: e.propertyId ?? e.unit?.propertyId ?? null, organizationId: e.organizationId };
-}
-
-/** Portfolio rows: another org's expense must look like it doesn't exist. */
-function orgMismatch(rowOrgId: string | null, sessionOrgId: string | null | undefined): boolean {
-  return !!rowOrgId && !!sessionOrgId && rowOrgId !== sessionOrgId;
-}
+// Existence, property access / org scoping (PORTFOLIO rows have no property —
+// the org check is the access check), the ACCOUNTANT delete denial and the
+// CARETAKER own-row + confirmed-withdrawal rules all live in
+// requireExpenseMutation (src/lib/expense-access.ts). Every mutation of an
+// expense by id goes through it.
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireManagerWrite();
+  const { session, row: accessRow, error } = await requireExpenseMutation(params.id, "edit");
   if (error) return error;
-
-  const { exists, propertyId, organizationId } = await loadExpensePropertyId(params.id);
-  if (!exists) return Response.json({ error: "Not found" }, { status: 404 });
-  if (propertyId) {
-    const access = await requirePropertyAccess(propertyId);
-    if (!access.ok) return access.error!;
-  } else if (orgMismatch(organizationId, session!.user.organizationId)) {
-    return Response.json({ error: "Not found" }, { status: 404 });
-  }
+  const organizationId = accessRow.organizationId;
+  const orgRole = session.user.orgRole;
 
   const body = await req.json();
   const parsed = expenseEntrySchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  if (orgRole === "CARETAKER" && parsed.data.scope === "PORTFOLIO") {
+    return Response.json({ error: "Caretakers can only record expenses against a property or unit." }, { status: 400 });
   }
 
   const vendorId = body.vendorId as string | undefined | null;
@@ -116,6 +96,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   // Petty-cash reconciliation: keep the linked OUT row in sync with the flag.
   const nowPetty = paidFromPettyCash ?? false;
   const linkedPettyCashId = before?.pettyCashEntry?.id ?? null;
+  let pendingNotify = false;
   const pettyCashPropertyId: string | null = nowPetty ? effectivePropertyId ?? null : null;
 
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
@@ -197,6 +178,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (linkedPettyCashId && !nowPetty) {
     ops.push(prisma.pettyCash.delete({ where: { id: linkedPettyCashId } }));
   } else if (linkedPettyCashId && nowPetty) {
+    // A caretaker's edit resubmits the withdrawal: the row can only be
+    // PENDING or REJECTED here (APPROVED is locked by requireExpenseMutation),
+    // so a fixed REJECTED row goes back into the float holder's queue.
+    const resubmit = orgRole === "CARETAKER";
     ops.push(prisma.pettyCash.update({
       where: { id: linkedPettyCashId },
       data: {
@@ -204,9 +189,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         amount: computedAmount,
         description: rest.description ?? `${rest.category} expense`,
         propertyId: pettyCashPropertyId,
+        ...(resubmit
+          ? { status: "PENDING" as const, rejectedAt: null, rejectionReason: null, approvedBy: null, approvedAt: null, approvalNotes: null }
+          : {}),
       },
     }));
+    if (resubmit) pendingNotify = true;
   } else if (!linkedPettyCashId && nowPetty && before && !before.paidFromPettyCash) {
+    const status = resolvePettyCashOutStatus({ orgRole, amount: computedAmount, repairAuthorityLimit: null });
     ops.push(prisma.pettyCash.create({
       data: {
         date: parsedDate,
@@ -216,10 +206,23 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         propertyId: pettyCashPropertyId,
         expenseEntryId: params.id,
         organizationId: session!.user.organizationId ?? organizationId ?? null,
+        status,
       },
     }));
+    if (status === "PENDING") pendingNotify = true;
   }
   await prisma.$transaction(ops);
+
+  if (pendingNotify && pettyCashPropertyId) {
+    void notifyPettyCashPending({
+      propertyId: pettyCashPropertyId,
+      amount: computedAmount,
+      description: rest.description ?? `${rest.category} expense`,
+      receiptRef: rest.paymentReference || null,
+      submittedBy: session!.user.email ?? session!.user.name ?? "—",
+      excludeUserId: session!.user.id,
+    });
+  }
 
   const entry = await prisma.expenseEntry.findUnique({
     where: { id: params.id },
@@ -241,17 +244,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
+  // FINANCIAL_DELETE (ACCOUNTANT) and the CARETAKER own-row / confirmed-
+  // withdrawal rules are enforced inside requireExpenseMutation.
+  const { session, error } = await requireExpenseMutation(params.id, "delete");
   if (error) return error;
-
-  const { exists, propertyId, organizationId } = await loadExpensePropertyId(params.id);
-  if (!exists) return Response.json({ error: "Not found" }, { status: 404 });
-  if (propertyId) {
-    const access = await requirePropertyAccess(propertyId);
-    if (!access.ok) return access.error!;
-  } else if (orgMismatch(organizationId, session!.user.organizationId)) {
-    return Response.json({ error: "Not found" }, { status: 404 });
-  }
 
   const before = await prisma.expenseEntry.findUnique({
     where: { id: params.id },

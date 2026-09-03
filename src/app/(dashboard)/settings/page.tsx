@@ -394,17 +394,30 @@ export default function SettingsPage() {
             )}
 
             {/* ── Tax ── */}
-            {tab === "tax" && (
+            {tab === "tax" && (() => {
+              // A super-admin session carries no organizationId. When the header
+              // org filter narrows the property list to one organisation, use
+              // that org for the org-level defaults instead of hiding the panel.
+              const propertyOrgIds: string[] = Array.from(new Set(
+                (data.properties ?? []).map((p: any) => p.organizationId).filter(Boolean),
+              ));
+              const orgLevelId: string | null =
+                session?.user?.organizationId ?? (propertyOrgIds.length === 1 ? propertyOrgIds[0] : null);
+              return (
               <div className="space-y-6">
                 {/* Org-level defaults */}
-                {session?.user?.organizationId && (
+                {orgLevelId ? (
                   <div>
                     <h3 className=" text-body font-medium text-header mb-1">Organisation Defaults</h3>
                     <TaxConfigPanel
-                      orgId={session.user.organizationId}
+                      orgId={orgLevelId}
                       propertyId={null}
                     />
                   </div>
+                ) : (
+                  <p className="text-caption text-gray-400">
+                    Pick a single organisation in the header filter to manage its organisation-level tax defaults.
+                  </p>
                 )}
                 {/* Per-property overrides */}
                 {data.properties?.map((property: any) => (
@@ -418,7 +431,8 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
-            )}
+              );
+            })()}
 
             {/* ── Property Info ── */}
             {tab === "info" && (

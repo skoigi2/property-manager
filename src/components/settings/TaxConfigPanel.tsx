@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
 import { Plus, Pencil, ToggleLeft, ToggleRight, Info } from "lucide-react";
 import toast from "react-hot-toast";
+import { usePermissions } from "@/lib/use-permissions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,8 +95,21 @@ function TaxConfigForm({
         }),
       });
       if (!res.ok) {
+        // Show the real reason: permission (403), subscription lock (402),
+        // or the first validation problem - never "[object Object]".
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to save");
+        let msg = typeof err?.error === "string" ? err.error : "";
+        if (!msg && err?.error && typeof err.error === "object") {
+          const fe = (err.error.fieldErrors ?? {}) as Record<string, string[]>;
+          const first = Object.entries(fe).find(([, v]) => Array.isArray(v) && v.length > 0);
+          msg = first ? `${first[0]}: ${first[1][0]}` : (err.error.formErrors?.[0] ?? "");
+        }
+        if (!msg) {
+          msg = res.status === 403 ? "You don't have permission to manage tax rules. Ask an organisation admin or manager."
+            : res.status === 402 ? "Your subscription is locked. Billing needs attention before settings can change."
+            : `Failed to save (HTTP ${res.status})`;
+        }
+        throw new Error(msg);
       }
       const saved: TaxConfig = await res.json();
       toast.success(initial ? "Tax config updated" : "Tax config created");
@@ -252,6 +266,9 @@ export function TaxConfigPanel({
   const [showModal, setShowModal] = useState(false);
   const [editing,   setEditing]   = useState<TaxConfig | null>(null);
   const [toggling,  setToggling]  = useState<string | null>(null);
+  // Mirrors the API gate (requirePermissionWrite("ORG_SETTINGS")): accountants
+  // can look but not change.
+  const canEdit = usePermissions().can("ORG_SETTINGS");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -275,12 +292,15 @@ export function TaxConfigPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !config.isActive }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err?.error === "string" ? err.error : res.status === 403 ? "You don't have permission to change tax rules" : "Failed to update");
+      }
       const updated: TaxConfig = await res.json();
       setConfigs((prev) => prev.map((c) => c.id === updated.id ? updated : c));
       toast.success(updated.isActive ? "Tax config activated" : "Tax config deactivated");
-    } catch {
-      toast.error("Failed to update");
+    } catch (err) {
+      toast.error((err as Error)?.message || "Failed to update");
     } finally {
       setToggling(null);
     }
@@ -320,12 +340,16 @@ export function TaxConfigPanel({
             </div>
           )}
         </div>
-        <Button
-          onClick={() => { setEditing(null); setShowModal(true); }}
-          className="flex items-center gap-1.5 text-body"
-        >
-          <Plus size={14} /> Add Tax Rule
-        </Button>
+        {canEdit ? (
+          <Button
+            onClick={() => { setEditing(null); setShowModal(true); }}
+            className="flex items-center gap-1.5 text-body"
+          >
+            <Plus size={14} /> Add Tax Rule
+          </Button>
+        ) : (
+          <span className="text-caption text-gray-400">View only: ask an admin or manager to change tax rules</span>
+        )}
       </div>
 
       {loading ? (
@@ -364,6 +388,7 @@ export function TaxConfigPanel({
                           </p>
                         </div>
                       </div>
+                      {canEdit && (
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => { setEditing(config); setShowModal(true); }}
@@ -384,6 +409,7 @@ export function TaxConfigPanel({
                           }
                         </button>
                       </div>
+                      )}
                     </div>
                   ))}
                 </div>

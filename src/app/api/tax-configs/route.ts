@@ -1,4 +1,4 @@
-import { requireManager, requireAdmin, requireAdminWrite } from "@/lib/auth-utils";
+import { requireManager, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -53,15 +53,34 @@ export async function GET(req: Request) {
 }
 
 // POST /api/tax-configs
+// Same gate as the rest of organisation settings (ADMIN + MANAGER, not
+// ACCOUNTANT, plus the subscription write-lock). It used to demand the ADMIN
+// org role while the Settings page admitted managers, so a manager saw the
+// Add button and got a bare "Forbidden".
 export async function POST(req: Request) {
-  const { session, error } = await requireAdminWrite();
+  const { session, error } = await requirePermissionWrite("ORG_SETTINGS");
   if (error) return error;
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
-  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return Response.json({ error: `${first?.path.join(".") || "input"}: ${first?.message ?? "invalid"}` }, { status: 400 });
+  }
 
   const data = parsed.data;
+  // An org member may only write rules for their own organisation; a
+  // super-admin (no session org) may write for any.
+  const sessionOrg = session!.user.organizationId;
+  if (sessionOrg && data.orgId !== sessionOrg) {
+    return Response.json({ error: "You can only manage tax rules for your own organisation" }, { status: 403 });
+  }
+  if (data.propertyId) {
+    const prop = await prisma.property.findUnique({ where: { id: data.propertyId }, select: { organizationId: true } });
+    if (!prop || prop.organizationId !== data.orgId) {
+      return Response.json({ error: "That property does not belong to this organisation" }, { status: 400 });
+    }
+  }
 
   try {
     const config = await prisma.taxConfiguration.create({

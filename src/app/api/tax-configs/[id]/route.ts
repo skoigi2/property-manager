@@ -1,4 +1,4 @@
-import { requireAdmin, requireAdminWrite } from "@/lib/auth-utils";
+import { requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -15,18 +15,23 @@ const patchSchema = z.object({
 
 // PATCH /api/tax-configs/[id]
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireAdminWrite();
+  const { session, error } = await requirePermissionWrite("ORG_SETTINGS");
   if (error) return error;
 
   const body = await req.json();
   const parsed = patchSchema.safeParse(body);
-  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return Response.json({ error: `${first?.path.join(".") || "input"}: ${first?.message ?? "invalid"}` }, { status: 400 });
+  }
 
   const data = parsed.data;
 
   try {
     const before = await prisma.taxConfiguration.findUnique({ where: { id: params.id } });
     if (!before) return Response.json({ error: "Not found" }, { status: 404 });
+    const sessionOrg = session!.user.organizationId;
+    if (sessionOrg && before.orgId !== sessionOrg) return Response.json({ error: "Not found" }, { status: 404 });
 
     const updated = await prisma.taxConfiguration.update({
       where: { id: params.id },
@@ -61,12 +66,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 // DELETE /api/tax-configs/[id]
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const { session, error } = await requireAdminWrite();
+  const { session, error } = await requirePermissionWrite("ORG_SETTINGS");
   if (error) return error;
 
   try {
     const config = await prisma.taxConfiguration.findUnique({ where: { id: params.id } });
     if (!config) return Response.json({ error: "Not found" }, { status: 404 });
+    const sessionOrg = session!.user.organizationId;
+    if (sessionOrg && config.orgId !== sessionOrg) return Response.json({ error: "Not found" }, { status: 404 });
 
     const [incomeCount, expenseCount] = await Promise.all([
       prisma.incomeEntry.count({ where: { taxConfigId: params.id } }),

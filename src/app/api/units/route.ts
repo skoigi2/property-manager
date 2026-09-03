@@ -1,4 +1,4 @@
-import { requireAuth, requirePropertyAccess } from "@/lib/auth-utils";
+import { requireAuth, requirePropertyAccess, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -23,11 +23,19 @@ export async function GET(req: Request) {
   const { error } = await requireAuth();
   if (error) return error;
 
+  // Scope to the caller's accessible properties — this used to return every
+  // unit (and its active tenant) in the database to any signed-in user.
+  const accessible = await getAccessiblePropertyIds();
+  if (accessible === null) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const propertyId = searchParams.get("propertyId");
+  if (propertyId && !accessible.includes(propertyId)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const units = await prisma.unit.findMany({
-    where: propertyId ? { propertyId } : undefined,
+    where: { propertyId: propertyId ? propertyId : { in: accessible } },
     include: {
       property: { select: { name: true, type: true } },
       tenants: { where: { isActive: true }, take: 1 },

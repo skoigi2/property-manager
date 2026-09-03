@@ -132,6 +132,7 @@ Users belong to organisations via the `UserOrganizationMembership` join table (u
 **Membership API routes**:
 - `DELETE /api/organizations/[id]/members/[userId]` — removes user from org; if their active org was this one, switches them to another membership or nulls it
 - `POST /api/organizations` — optionally creates a first ADMIN user and upserts their membership
+- `DELETE /api/organizations/[id]` — **super-admin only**, irreversible. Cascades everything org-scoped at the FK level; user accounts survive — members whose active org was this one are re-pointed at another membership or left org-less, and an org-less founder's global `ADMIN` is downgraded (pending-invitation role, else `MANAGER`) so they never read as a platform super-admin. UI: red trash icon per row on `/admin/organizations` behind a type-`DELETE` `ConfirmDialog`. Built to clean up duplicate orgs created by invitees before the auto-join fix
 - `POST /api/users` — always upserts a `UserOrganizationMembership` for the assigned org
 
 **Property → org reassignment cascade** (`PATCH /api/properties/[id]` with `organizationId`, super-admin only):

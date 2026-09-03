@@ -124,3 +124,88 @@ export async function PATCH(
 
   return Response.json(org);
 }
+
+// ── DELETE /api/organizations/[id] ───────────────────────────────────────────
+//
+// Super-admin only. Permanently removes an organisation and everything scoped
+// to it (properties, units, tenants, financials, invitations, memberships —
+// all cascade at the FK level). User accounts are NOT deleted: members whose
+// active org was this one are re-pointed at another org they belong to, or
+// left org-less. An org-less user is never left with global role ADMIN — that
+// is exactly the shape the app reads as a platform super-admin (see
+// requireSuperAdmin) — so founders of a deleted org drop to the role of any
+// invitation still pending for them, else MANAGER.
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  const { error, session } = await requireSuperAdmin();
+  if (error) return error;
+
+  const org = await prisma.organization.findUnique({
+    where: { id: params.id },
+    include: {
+      _count: { select: { properties: true, memberships: true, users: true } },
+    },
+  });
+  if (!org) return Response.json({ error: "Organisation not found." }, { status: 404 });
+
+  // Every user whose ACTIVE org is the one being deleted
+  const activeHere = await prisma.user.findMany({
+    where:  { organizationId: org.id },
+    select: {
+      id: true, email: true, role: true,
+      organizationMemberships: {
+        where:   { organizationId: { not: org.id } },
+        orderBy: { createdAt: "asc" },
+        take:    1,
+        select:  { organizationId: true },
+      },
+    },
+  });
+
+  // Sequential awaits by design — callback-form $transaction is pgBouncer-
+  // incompatible. Each step is idempotent, so a retry after a failure is safe.
+  for (const u of activeHere) {
+    const fallbackOrg = u.organizationMemberships[0]?.organizationId ?? null;
+    let role = u.role;
+    if (!fallbackOrg && u.role === "ADMIN") {
+      const pending = u.email
+        ? await prisma.orgInvitation.findFirst({
+            where:   { email: u.email.toLowerCase(), acceptedAt: null, expiresAt: { gt: new Date() }, status: "SENT" },
+            orderBy: { createdAt: "desc" },
+            select:  { role: true },
+          })
+        : null;
+      role = pending?.role ?? "MANAGER";
+    }
+    await prisma.user.update({
+      where: { id: u.id },
+      data:  { organizationId: fallbackOrg, role },
+    });
+  }
+
+  await prisma.organization.delete({ where: { id: org.id } });
+
+  await logAudit({
+    userId:         session!.user.id,
+    userEmail:      session!.user.email,
+    action:         "DELETE",
+    resource:       "Organization",
+    resourceId:     org.id,
+    organizationId: org.id,
+    before: {
+      name:        org.name,
+      pricingTier: org.pricingTier,
+      properties:  org._count.properties,
+      members:     org._count.memberships,
+      detachedUsers: activeHere.map((u) => u.email),
+    },
+  });
+
+  return Response.json({
+    ok: true,
+    deleted: { id: org.id, name: org.name },
+    detachedUsers: activeHere.length,
+  });
+}

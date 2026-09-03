@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { Badge } from "@/components/ui/Badge";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Building2, Plus, Users, Home, X, Eye, EyeOff,
   Mail, Phone, MapPin, ChevronDown, ChevronRight,
@@ -122,6 +123,28 @@ export default function OrganizationsPage() {
   }
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [confirming, setConfirming] = useState(false);
+
+  // ── Delete organisation (super-admin, irreversible) ──
+  const [deleteTarget, setDeleteTarget] = useState<Org | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function deleteOrg() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res  = await fetch(`/api/organizations/${deleteTarget.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Failed to delete organisation");
+      toast.success(`"${deleteTarget.name}" deleted${data.detachedUsers ? ` — ${data.detachedUsers} user${data.detachedUsers === 1 ? "" : "s"} detached` : ""}`);
+      setDeleteTarget(null);
+      if (editOrg?.id === deleteTarget.id) setEditOrg(null);
+      await fetchOrgs();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete organisation");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   // Guard: only super-admin
   useEffect(() => {
@@ -645,6 +668,13 @@ export default function OrganizationsPage() {
                         title={org.isActive ? "Deactivate" : "Activate"}
                       >
                         {org.isActive ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(org)}
+                        className="text-caption text-gray-300 hover:text-expense transition-colors"
+                        title="Delete organisation permanently"
+                      >
+                        <Trash2 size={15} />
                       </button>
                       <button
                         onClick={() => toggleExpand(org.id)}
@@ -1426,6 +1456,21 @@ export default function OrganizationsPage() {
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => { if (!deleting) setDeleteTarget(null); }}
+        onConfirm={deleteOrg}
+        loading={deleting}
+        typeToConfirm="DELETE"
+        confirmLabel="Delete organisation"
+        title={`Delete "${deleteTarget?.name ?? ""}"?`}
+        message={
+          deleteTarget
+            ? `This permanently removes the organisation and everything in it: ${deleteTarget._count.properties} propert${deleteTarget._count.properties === 1 ? "y" : "ies"} with all units, tenants, income, expenses and documents, plus ${deleteTarget.memberships.length} membership${deleteTarget.memberships.length === 1 ? "" : "s"} and any pending invitations. User accounts are kept — members are switched to another organisation they belong to, or left without one. This cannot be undone.`
+            : ""
+        }
+      />
     </div>
   );
 }

@@ -1005,6 +1005,16 @@ export default function ExpensesPage() {
     );
   }
 
+  /** Row / card click opens the expense — unless the click landed on a
+   *  control (checkbox, chevron, icon, link, the receipts panel) or the user
+   *  was selecting text. */
+  function rowClick(ev: React.MouseEvent, e: any) {
+    const t = ev.target as HTMLElement | null;
+    if (t?.closest("button, a, input, select, textarea, label, [data-no-row-click]")) return;
+    if (window.getSelection()?.toString()) return;
+    openEdit(e);
+  }
+
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
       const next = new Set(prev);
@@ -2191,7 +2201,7 @@ export default function ExpensesPage() {
                 const payStatus = pay.status;
                 const mIsOverdue = e.dueDate && pay.status !== "PAID" && new Date(e.dueDate).getTime() < Date.now();
                 return (
-                  <div key={e.id} className="px-4 py-3">
+                  <div key={e.id} onClick={(ev) => rowClick(ev, e)} className="px-4 py-3 cursor-pointer active:bg-cream/50">
                     {/* Top row: date + category badge */}
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-caption text-gray-400 ">{formatDate(e.date)}</span>
@@ -2259,7 +2269,7 @@ export default function ExpensesPage() {
 
                     {/* Receipts panel (mobile) */}
                     {docPanelRows.has(e.id) && (
-                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-4">
+                      <div data-no-row-click className="mt-3 pt-3 border-t border-gray-100 space-y-4">
                         {docLoading.has(e.id) ? (
                           <div className="flex justify-center py-4"><Spinner /></div>
                         ) : (
@@ -2298,7 +2308,8 @@ export default function ExpensesPage() {
                     </th>
                     <th className="px-2 py-3 w-6" />
                     {colOrder.map((key) => renderColHeader(key))}
-                    <th className="px-4 py-3 text-left text-label font-medium text-gray-400 uppercase " />
+                    {/* Pinned so the icons stay reachable however wide the table gets */}
+                    <th className="sticky right-0 bg-cream-dark px-4 py-3 text-left text-label font-medium text-gray-400 uppercase " />
                   </tr>
                 </thead>
                 <tbody>
@@ -2308,7 +2319,17 @@ export default function ExpensesPage() {
 
                     return (
                       <>
-                        <tr key={e.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", selectedIds.has(e.id) && "bg-gold/5")}>
+                        <tr
+                          key={e.id}
+                          onClick={(ev) => rowClick(ev, e)}
+                          onKeyDown={(ev) => { if (ev.key === "Enter" && ev.target === ev.currentTarget) openEdit(e); }}
+                          tabIndex={0}
+                          title="Click to open this expense"
+                          className={clsx(
+                            "group border-t border-gray-50 hover:bg-cream/50 transition-colors cursor-pointer focus:outline-none focus-visible:bg-cream/50",
+                            selectedIds.has(e.id) && "bg-gold/5",
+                          )}
+                        >
                           <td className="px-3 py-3">
                             <input
                               type="checkbox"
@@ -2326,7 +2347,7 @@ export default function ExpensesPage() {
                             ) : <span className="w-6 inline-block" />}
                           </td>
                           {colOrder.map((key) => renderColCell(key, e))}
-                          <td className="px-4 py-3">
+                          <td className="sticky right-0 px-4 py-3 bg-white group-hover:bg-cream transition-colors shadow-[-8px_0_10px_-8px_rgba(0,0,0,0.12)]">
                             <div className="flex items-center gap-1">
                               <button onClick={() => openEdit(e)} className="text-gray-300 hover:text-gold transition-colors p-1" title="Edit">
                                 <Pencil size={14} />

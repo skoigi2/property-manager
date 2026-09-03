@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { sendWelcome, sendNewUserAlert } from "@/lib/email";
+import { sendWelcome, sendTeamWelcome, sendNewUserAlert } from "@/lib/email";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   invitationProblem,
@@ -85,11 +85,21 @@ export async function POST(req: NextRequest) {
       });
       await applyInvitationAcceptance({ userId: invitedUser.id, invitation });
 
-      const invitingOrg = await prisma.organization.findUnique({
-        where:  { id: invitation.organizationId },
-        select: { name: true },
-      });
-      sendWelcome(invitedUser.email as string, invitedUser.name ?? "there").catch(console.error);
+      const [invitingOrg, inviter] = await Promise.all([
+        prisma.organization.findUnique({ where: { id: invitation.organizationId }, select: { name: true } }),
+        prisma.user.findUnique({ where: { id: invitation.invitedByUserId }, select: { name: true, email: true } }),
+      ]);
+      // Team-member welcome — NOT the founder one (no trial started, no
+      // "set up your first property" onboarding link).
+      sendTeamWelcome({
+        email:          invitedUser.email as string,
+        name:           invitedUser.name ?? "there",
+        orgName:        invitingOrg?.name ?? "your organisation",
+        role:           invitation.role,
+        inviterName:    inviter?.name ?? inviter?.email ?? null,
+        userId:         invitedUser.id,
+        organizationId: invitation.organizationId,
+      }).catch(console.error);
       sendNewUserAlert(invitedUser.email as string, invitedUser.name ?? "Unknown", invitingOrg?.name ?? "an existing organisation").catch(console.error);
 
       return NextResponse.json({ ok: true, userId: invitedUser.id, invited: true }, { status: 201 });

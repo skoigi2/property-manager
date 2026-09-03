@@ -348,7 +348,66 @@ export async function sendNewUserAlert(
   });
 }
 
-// ─── Welcome email ────────────────────────────────────────────────────────────
+// ─── Welcome email (team member joining an existing organisation) ─────────────
+//
+// Invitees never start a trial and must not be pointed at /onboarding — the
+// founder welcome below does both. This one welcomes them to the organisation
+// they were invited into and sends them to the dashboard.
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN:      "an Administrator",
+  MANAGER:    "a Property Manager",
+  ACCOUNTANT: "an Accountant",
+  OWNER:      "a Property Owner",
+};
+
+export async function sendTeamWelcome(opts: {
+  email: string;
+  name: string;
+  orgName: string;
+  role: string;
+  inviterName?: string | null;
+  userId?: string | null;
+  organizationId?: string | null;
+}): Promise<void> {
+  const { email, name, orgName, role, inviterName, userId, organizationId } = opts;
+  const roleLabel = ROLE_LABELS[role] ?? "a team member";
+  const appUrl = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
+  await sendAndLog({
+    kind: "WELCOME",
+    to: email,
+    userId: userId ?? null,
+    organizationId: organizationId ?? null,
+    subject: `Welcome to ${orgName} on Groundwork PM`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Welcome to ${esc(orgName)}, ${esc(name)}!</h2>
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+          ${inviterName ? `<strong>${esc(inviterName)}</strong> has added you` : "You've been added"} to
+          <strong>${esc(orgName)}</strong> as ${esc(roleLabel)}. Your account is ready and the
+          organisation's properties are already set up — there's nothing for you to configure.
+        </p>
+        <ul style="color: #6b7280; font-size: 14px; line-height: 2;">
+          <li>See the properties and units you've been given access to</li>
+          <li>Record income, track rent and manage tenants</li>
+          <li>Work the Inbox — overdue rent, expiring leases, maintenance</li>
+          <li>Generate owner reports and invoices</li>
+        </ul>
+        <a href="${appUrl}/dashboard"
+           style="display: inline-block; margin: 24px 0; background: #c9a84c; color: white;
+                  padding: 12px 28px; border-radius: 8px; text-decoration: none;
+                  font-size: 14px; font-weight: 600;">
+          Open your dashboard →
+        </a>
+        <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">
+          Questions? Reply to this email and we'll be happy to help.
+        </p>
+      </div>
+    `,
+  });
+}
+
+// ─── Welcome email (founder — new organisation on a 30-day trial) ────────────
 
 export async function sendWelcome(email: string, name: string, userId?: string): Promise<void> {
   await sendAndLog({

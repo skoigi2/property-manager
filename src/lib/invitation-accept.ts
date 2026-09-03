@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { canAddUser } from "@/lib/subscription";
+import { sendTeamWelcome } from "@/lib/email";
 
 // Shared invitation-acceptance logic, used by both acceptance paths:
 // POST /api/invitations/[token]/accept (existing logged-in user) and
@@ -118,6 +119,7 @@ export async function applyInvitationAcceptance(opts: {
 export async function autoAcceptPendingInvitations(user: {
   id: string;
   email: string | null;
+  name?: string | null;
   role: string;
   organizationId: string | null;
 }): Promise<string | null> {
@@ -135,6 +137,10 @@ export async function autoAcceptPendingInvitations(user: {
         expiresAt:  { gt: new Date() },
       },
       orderBy: { createdAt: "asc" },
+      include: {
+        organization: { select: { name: true } },
+        invitedBy:    { select: { name: true, email: true } },
+      },
     });
     if (pending.length === 0) return null;
 
@@ -148,6 +154,16 @@ export async function autoAcceptPendingInvitations(user: {
         joined = invitation.organizationId;
         await prisma.user.update({ where: { id: user.id }, data: { role: invitation.role } });
       }
+      // Welcome them to the organisation (never the founder/trial email).
+      sendTeamWelcome({
+        email:          user.email,
+        name:           user.name ?? "there",
+        orgName:        invitation.organization.name,
+        role:           invitation.role,
+        inviterName:    invitation.invitedBy.name ?? invitation.invitedBy.email,
+        userId:         user.id,
+        organizationId: invitation.organizationId,
+      }).catch(console.error);
     }
     return joined;
   } catch (err) {

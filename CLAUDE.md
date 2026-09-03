@@ -134,7 +134,7 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `calculations.ts` | `calcUnitSummary`, `calcPettyCashBalance`, `calcPettyCashTotal`, `calcOccupancyRate`, `calcLateInterest`, `calcExpensePayment` (derived paid/outstanding/status per expense) |
 | `management-fee.ts` | `calcPropertyManagementFee` — single fee-precedence chain (per-unit `ManagementFeeConfig` → property rate/flat → agreement rate → 0) used by owner statements, report P&L, and mgmt-fee invoicing |
 | `date-utils.ts` | `getLeaseStatus` (OK/WARNING/CRITICAL/TBC), `daysUntilExpiry`, `getMonthRange` |
-| `email.ts` | Resend wrapper. Every send goes through `sendAndLog()` which writes an `EmailLog` row. Exports `sendPasswordReset`, `sendOrgInvitation`, `sendContactEmail`, `sendNewUserAlert`, `sendWelcome`, `sendNotificationEmail` |
+| `email.ts` | Resend wrapper. Every send goes through `sendAndLog()` which writes an `EmailLog` row. Exports `sendPasswordReset`, `sendOrgInvitation`, `sendContactEmail`, `sendNewUserAlert`, `sendWelcome` (founder — mentions the trial, links `/onboarding`), `sendTeamWelcome` (invitee joining an existing org — names the org + role, links `/dashboard`; used by the invited-signup path and sign-in auto-join), `sendNotificationEmail` |
 | `excel-export.ts` | SheetJS multi-sheet Excel export for income/expenses |
 | `forecast-engine.ts` | `buildForecast(tenants, recurringExpenses, insurancePolicies, agreements, horizon)` — projects monthly cash flow for 3/6/12 months. Called by `GET /api/forecast?propertyId=&months=` |
 | `import-templates.ts` | XLSX download template generators for bulk import |

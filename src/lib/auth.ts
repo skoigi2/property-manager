@@ -95,7 +95,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Promote them to ADMIN so they can create their own organisation.
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email! },
-          select: { id: true, email: true, role: true, organizationId: true },
+          select: { id: true, email: true, name: true, role: true, organizationId: true },
         });
         if (dbUser && !dbUser.organizationId) {
           // Invited to an existing org? Join it — an invitee must never be

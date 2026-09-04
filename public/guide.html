@@ -364,14 +364,15 @@
     <a class="toc-link" href="#income"><span class="num">09</span>Income, Invoices &amp; Arrears</a>
     <a class="toc-link" href="#expenses"><span class="num">10</span>Expenses &amp; Petty Cash</a>
     <a class="toc-link" href="#maintenance"><span class="num">11</span>Maintenance</a>
-    <a class="toc-link" href="#reports"><span class="num">12</span>Reports</a>
-    <a class="toc-link" href="#operations"><span class="num">13</span>Operations</a>
-    <a class="toc-link" href="#import"><span class="num">14</span>Data Import</a>
-    <a class="toc-link" href="#settings"><span class="num">15</span>Settings &amp; Team</a>
-    <a class="toc-link" href="#portal"><span class="num">16</span>Tenant Portal</a>
-    <a class="toc-link" href="#billing"><span class="num">17</span>Billing &amp; Plans</a>
-    <a class="toc-link" href="#automations"><span class="num">18</span>Automations</a>
-    <a class="toc-link" href="#appendix"><span class="num">19</span>Appendix</a>
+    <a class="toc-link" href="#complaints"><span class="num">12</span>Tenant Complaints</a>
+    <a class="toc-link" href="#reports"><span class="num">13</span>Reports</a>
+    <a class="toc-link" href="#operations"><span class="num">14</span>Operations</a>
+    <a class="toc-link" href="#import"><span class="num">15</span>Data Import</a>
+    <a class="toc-link" href="#settings"><span class="num">16</span>Settings &amp; Team</a>
+    <a class="toc-link" href="#portal"><span class="num">17</span>Tenant Portal</a>
+    <a class="toc-link" href="#billing"><span class="num">18</span>Billing &amp; Plans</a>
+    <a class="toc-link" href="#automations"><span class="num">19</span>Automations</a>
+    <a class="toc-link" href="#appendix"><span class="num">20</span>Appendix</a>
   </div>
 </nav>
 
@@ -434,7 +435,7 @@
     <div class="section-header">
       <div class="section-num">01 — User Roles</div>
       <h2>Roles &amp; Access Control</h2>
-      <p class="intro">GroundWorkPM has four roles. Access is enforced at both the route and API level — users cannot reach pages outside their role.</p>
+      <p class="intro">GroundWorkPM has five roles. Access is enforced at both the route and API level — users cannot reach pages outside their role. Every role is an allow-list: a page or action a role is not named on is closed to it.</p>
     </div>
 
     <table class="data-table">
@@ -457,6 +458,11 @@
           <td>Operational and financial pages — income, expenses, invoices, arrears, forecast, reports. Cannot delete financial records, run tenant lifecycle actions (vacate, checkout, deposit settlement), or change organisation settings.</td>
         </tr>
         <tr>
+          <td><span class="badge badge-gray">CARETAKER</span></td>
+          <td>On-site staff — caretaker, estate supervisor, site hand</td>
+          <td>Only the day-to-day operational pages for the properties they are assigned: <strong>Maintenance</strong>, <strong>Complaints</strong>, <strong>Expenses</strong> and <strong>Vendors</strong>. Never sees rent, tenant finances, petty-cash balances, reports, cases, the inbox or settings. Details in <a href="#caretaker">The Caretaker role</a> below.</td>
+        </tr>
+        <tr>
           <td><span class="badge badge-green">OWNER</span></td>
           <td>Property owner / landlord</td>
           <td>The <strong>Report</strong> page only — owner statements with income breakdown, deductions, and net returns. Cannot see day-to-day financial details.</td>
@@ -468,6 +474,26 @@
         </tr>
       </tbody>
     </table>
+
+    <div class="sub-section" id="caretaker">
+      <h3>The Caretaker role — on-site staff without the office view</h3>
+      <p style="margin-bottom:12px">A caretaker used to need a full Manager seat just to log a repair or a receipt, which exposed the rent roll, tenant balances and the petty-cash float. The <span class="badge badge-gray">CARETAKER</span> role gives on-site staff exactly the four pages they work from, on the properties you assign them, and nothing else. Their home page is <strong>Maintenance</strong>; any other address redirects there.</p>
+      <table class="data-table">
+        <thead><tr><th>Page</th><th>A caretaker can</th><th>A caretaker cannot</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Maintenance</strong></td><td>Log jobs, move them through stages, set priority, assign a vendor, request quotes, and <em>Log as Expense</em> when done</td><td>Delete jobs, edit recurring schedules, or open the linked case (the <em>Open case →</em> link is hidden)</td></tr>
+          <tr><td><strong>Complaints</strong></td><td>Log, acknowledge, investigate and resolve tenant complaints, add notes and photos</td><td>Close or reopen a complaint, delete one, or see <em>Staff conduct</em> complaints at all — that category is invisible to the role end to end</td></tr>
+          <tr><td><strong>Expenses</strong></td><td>Record expenses with amounts, VAT and receipts; edit, delete and attach receipts on <strong>their own entries</strong>; tick <em>Paid from petty cash</em></td><td>Touch anyone else's entries, use bulk actions or <em>Delete all</em>, view change history, record portfolio-wide costs, or see any petty-cash balance</td></tr>
+          <tr><td><strong>Vendors</strong></td><td>Add a contractor with full details (phone, email, tax ID, bank details)</td><td>See more than name, category and phone on existing vendors; edit, deactivate, delete, or open statements</td></tr>
+        </tbody>
+      </table>
+      <ul class="feature-list" style="margin-top:12px">
+        <li><strong>Petty cash stays with the float holder</strong> — a caretaker can mark an expense as paid from petty cash, but the withdrawal is created <em>awaiting confirmation</em> and only moves the float once a manager approves it on the Petty Cash page. The caretaker sees a status badge on their row, never the balance. See <a href="#expenses">Expenses &amp; Petty Cash</a>.</li>
+        <li><strong>Assigned properties only</strong> — a caretaker must be given at least one property when created or invited; there is no "all properties" default. Everything they see is filtered to those properties.</li>
+        <li><strong>Separate seats</strong> — caretakers do not use your team-member seats. Every plan includes its own caretaker allowance (see <a href="#billing">Billing &amp; Plans</a>).</li>
+        <li><strong>Quiet by design</strong> — caretakers receive no manager alert emails, have no Inbox, and their search palette covers only maintenance, complaints, expenses, vendors and property names.</li>
+      </ul>
+    </div>
 
     <div class="callout note">
       <span class="callout-icon">ℹ️</span>
@@ -770,7 +796,7 @@
 
     <div class="sub-section">
       <h3>When a case is created</h3>
-      <p>Cases are created automatically the moment a backing record exists. Two case types are fully live today: <strong>MAINTENANCE</strong> — every maintenance job auto-creates a case with the job description as its first comment — and <strong>ARREARS</strong> — the arrears escalation ladder runs entirely on cases (see <a href="#income">Income, Invoices &amp; Arrears</a>). The workflow types <em>LEASE_RENEWAL</em>, <em>COMPLIANCE</em>, and <em>GENERAL</em> are defined and can be opened by the corresponding <a href="#automations">Automations</a> or manually.</p>
+      <p>Cases are created automatically the moment a backing record exists. Three case types are fully live today: <strong>MAINTENANCE</strong> — every maintenance job auto-creates a case with the job description as its first comment; <strong>ARREARS</strong> — the arrears escalation ladder runs entirely on cases (see <a href="#income">Income, Invoices &amp; Arrears</a>); and <strong>COMPLAINT</strong> — every tenant complaint carries its own case with a six-stage workflow (see <a href="#complaints">Tenant Complaints</a>). The workflow types <em>LEASE_RENEWAL</em>, <em>COMPLIANCE</em>, and <em>GENERAL</em> are defined and can be opened by the corresponding <a href="#automations">Automations</a> or manually.</p>
     </div>
 
     <div class="sub-section">
@@ -830,12 +856,12 @@
 
     <div class="sub-section">
       <h3>Cases list</h3>
-      <p><code>/cases</code> shows every case across your accessible properties with filters for status, waiting-on, type, and "assigned to me." Each row has a thin progress bar (e.g. <em>4 / 11</em>) plus a coloured dot indicating who the case is waiting on. Click any row to open the case detail.</p>
+      <p><code>/cases</code> shows every case across your accessible properties with filters for status, waiting-on, type (including <em>Complaint</em>), and "assigned to me." Each row has a thin progress bar (e.g. <em>4 / 11</em>) plus a coloured dot indicating who the case is waiting on. Click any row to open the case detail.</p>
     </div>
 
     <div class="sub-section">
       <h3>Maintenance ↔ Cases co-existence</h3>
-      <p>The <code>/maintenance</code> page still exists — it's the domain-specific view (job board with status columns). <code>/cases</code> is the cross-cutting workflow view (timeline + comments + approvals). Each Maintenance job card has an <em>Open case →</em> link; each Case detail page has a <em>View as maintenance job →</em> link. Use whichever fits the moment.</p>
+      <p>The <code>/maintenance</code> page still exists — it's the domain-specific view (job board with status columns). <code>/cases</code> is the cross-cutting workflow view (timeline + comments + approvals). Each Maintenance job card has an <em>Open case →</em> link; each Case detail page has a <em>View as maintenance job →</em> link. Complaints work the same way: the case behind a complaint shows a <em>View as complaint</em> link back to the complaint page, where the complaint-specific actions live. Use whichever fits the moment.</p>
     </div>
   </div>
 
@@ -976,6 +1002,7 @@
         <span class="tab-pill">Deposit</span>
         <span class="tab-pill">Comms</span>
         <span class="tab-pill">Portal Msgs</span>
+        <span class="tab-pill">Complaints</span>
       </div>
       <table class="data-table" style="margin-top:16px">
         <thead><tr><th>Tab</th><th>What you can do</th></tr></thead>
@@ -987,7 +1014,8 @@
           <tr><td><strong>Renewal</strong></td><td>Progress the lease renewal pipeline (Notice Sent → Terms Agreed → Renewed), set proposed rent and end date</td></tr>
           <tr><td><strong>Deposit</strong></td><td>See the deposit position (contractual vs actually received), link deposit receipts, and record settlement with itemised deductions</td></tr>
           <tr><td><strong>Comms</strong></td><td>Log outbound emails sent to the tenant, with templates for rent reminders, receipts, and renewal offers</td></tr>
-          <tr><td><strong>Portal Msgs</strong></td><td>Read and reply to two-way message threads the tenant opens from their portal</td></tr>
+          <tr><td><strong>Portal Msgs</strong></td><td>Read and reply to two-way message threads the tenant opens from their portal. A thread that is really a grievance has a <strong>Log as complaint</strong> button — it opens a complaint pre-filled from the thread and links the two, so the chat history and the formal record stay together.</td></tr>
+          <tr><td><strong>Complaints</strong></td><td>Every complaint this tenant has raised or been the subject of, with stage, category and SLA status, plus a <em>Log complaint</em> button pre-filled with the tenant and unit. See <a href="#complaints">Tenant Complaints</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1416,6 +1444,13 @@
         <li>A negative balance shows a deficit banner with a <strong>Record top-up</strong> shortcut</li>
         <li><strong>Export</strong> produces a proper Excel ledger — opening balance carried in from before the range, running balance per row, and closing totals</li>
       </ul>
+      <div class="callout note" style="margin-top:16px">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Withdrawals that wait for the float holder</strong>
+          Two kinds of petty-cash expense are created <em>awaiting confirmation</em> rather than approved on the spot: anything logged by a <a href="#caretaker">Caretaker</a>, and any manager entry above the property's <em>repair authority limit</em> from the Management Agreement. The row shows a <span class="badge badge-amber">Petty cash · awaiting confirmation</span> badge on the Expenses page, the float holder is emailed, and the withdrawal only moves the balance once approved on the Petty Cash page. <strong>Approve</strong> locks a caretaker's entry (they can no longer edit or delete it). <strong>Reject</strong> flips the expense back to unpaid, keeps the rejected row as the trail, and emails whoever logged it so they can correct and resubmit. Editing a pending entry's amount re-checks the limit; editing other fields leaves the approval alone.
+        </div>
+      </div>
     </div>
 
     <div class="sub-section">
@@ -1515,6 +1550,14 @@
       </ul>
     </div>
 
+    <div class="callout note">
+      <span class="callout-icon">ℹ️</span>
+      <div class="callout-body">
+        <strong>Built for on-site staff</strong>
+        Maintenance is the home page for the <a href="#caretaker">Caretaker</a> role. A caretaker can log jobs, move them through the stages, assign vendors, request quotes and log the expense when done — everything on this page except deleting a job, editing recurring schedules, and opening the case view. Expenses they log from a job are theirs to edit until a petty-cash withdrawal on them is confirmed.
+      </div>
+    </div>
+
     <div class="callout tip">
       <span class="callout-icon">💡</span>
       <div class="callout-body">
@@ -1525,11 +1568,96 @@
   </div>
 
   <!-- ══════════════════════
-       12. REPORTS
+       12. TENANT COMPLAINTS
+  ══════════════════════ -->
+  <div id="complaints" class="section">
+    <div class="section-header">
+      <div class="section-num">12 — Tenant Complaints</div>
+      <h2>Tenant Complaints</h2>
+      <p class="intro">Noise, a neighbour dispute, a security worry, a broken gate that isn't quite a repair job — complaints get their own log at <code>/complaints</code>, each backed by a case with a visible workflow and an acknowledgement SLA, so nothing raised by a tenant is left sitting in a WhatsApp thread.</p>
+    </div>
+
+    <div class="screenshot-wrap">
+      <img src="guide-screenshots/30-complaints.png" alt="Complaints list" loading="lazy">
+      <div class="screenshot-caption">Complaints — every open complaint with its category, stage, source and SLA countdown</div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Three ways a complaint arrives</h3>
+      <ul class="feature-list">
+        <li><strong>Logged by staff</strong> — click <em>Log complaint</em> on the Complaints page or on a tenant's <em>Complaints</em> tab. Pick the property, the complainant, the category, and optionally the <em>unit concerned</em> (the flat being complained about, when it isn't the complainant's own). Managers, accountants and caretakers can all do this.</li>
+        <li><strong>Raised from the tenant portal</strong> — the portal's <em>Request</em> tab has a <em>Repair request / Complaint</em> toggle. A complaint the tenant submits appears here with a <span class="badge badge-gold">Portal</span> badge and emails the property's managers.</li>
+        <li><strong>Converted from a portal message</strong> — when a chat thread on the tenant's <em>Portal Msgs</em> tab turns out to be a grievance, <strong>Log as complaint</strong> creates the complaint from the thread and links them (once per thread).</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>Categories</h3>
+      <table class="data-table">
+        <thead><tr><th>Category</th><th>Typical use</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Noise</strong></td><td>Parties, late-night noise, building works out of hours</td></tr>
+          <tr><td><strong>Neighbour dispute</strong></td><td>Conflicts between residents — parking, shared spaces, pets</td></tr>
+          <tr><td><strong>Security</strong></td><td>Gates, lighting, guards, break-ins, strangers on the premises</td></tr>
+          <tr><td><strong>Premises &amp; services</strong></td><td>Common-area cleanliness, water or power supply, lifts, refuse collection</td></tr>
+          <tr><td><strong>Staff conduct</strong> <span class="badge badge-gold">Managers only</span></td><td>Complaints about on-site staff. These never appear to Caretaker accounts — not in the list, the detail page, search, or the category picker — because the caretaker may be the subject.</td></tr>
+          <tr><td><strong>Other</strong></td><td>Anything that doesn't fit above</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sub-section">
+      <h3>The workflow and who can move it</h3>
+      <p style="margin-bottom:12px">A complaint moves through <em>Received → Acknowledged → Investigating → Awaiting tenant → Resolved → Closed</em>. The action buttons on the complaint page do the moving — you never edit the stage directly:</p>
+      <table class="data-table">
+        <thead><tr><th>Action</th><th>Moves to</th><th>Who</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Acknowledge</strong></td><td>Acknowledged — stops the acknowledgement SLA clock</td><td>Managers, accountants, caretakers</td></tr>
+          <tr><td><strong>Start investigating</strong></td><td>Investigating</td><td>Managers, accountants, caretakers</td></tr>
+          <tr><td><strong>Awaiting tenant</strong></td><td>Awaiting tenant — the SLA clock pauses while you wait on them</td><td>Managers, accountants, caretakers</td></tr>
+          <tr><td><strong>Mark resolved</strong></td><td>Resolved — asks for a resolution note, which the tenant sees</td><td>Managers, accountants, caretakers</td></tr>
+          <tr><td><strong>Close</strong></td><td>Closed</td><td>Managers and accountants</td></tr>
+          <tr><td><strong>Reopen</strong></td><td>Back to Investigating — a reason is required</td><td>Managers and accountants</td></tr>
+        </tbody>
+      </table>
+      <div class="screenshot-wrap">
+        <img src="guide-screenshots/31-complaint-detail.png" alt="Complaint detail" loading="lazy">
+        <div class="screenshot-caption">Complaint detail — stage tracker, timeline of notes and photos, and the action buttons</div>
+      </div>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Acknowledgement SLA</strong>
+          The <em>Received</em> stage's budget comes from the property's Management Agreement (<em>Standard response hours</em>), so the countdown on each row reflects what you promised the owner. Later stages use the built-in defaults (72 h to acknowledge, 120 h investigating). A complaint that sits past its budget shows as overdue on the list and surfaces as an SLA-breach hint in your Inbox.
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>Notes, photos, and what the tenant sees</h3>
+      <ul class="feature-list">
+        <li><strong>Notes are internal by default.</strong> Every note you add to the timeline is staff-only unless you tick <em>Visible to tenant</em> before posting. Photos and PDFs attach to a note — up to 8 per note, 10 MB each.</li>
+        <li><strong>The tenant sees only what you share.</strong> Under <em>My complaints</em> in the portal, a tenant who raised a complaint sees its stage plus the notes marked visible; the resolution note is always visible to them.</li>
+        <li><strong>Emails land once.</strong> Notifications about a complaint (new complaint to managers, resolution to the tenant) are recorded on the case timeline once, listing every recipient, rather than once per person.</li>
+        <li><strong>Deleting</strong> a complaint (managers only) removes it and its case timeline — use <em>Close</em> for anything that was real.</li>
+      </ul>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div class="callout-body">
+        <strong>Two email switches</strong>
+        <em>New complaint alerts</em> (to the property's managers) and <em>Complaint resolved</em> (to the tenant, portal complaints only) are separate toggles on the <a href="#automations">Automations</a> page, so you can keep managers informed without emailing tenants, or the other way round.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       13. REPORTS
   ══════════════════════ -->
   <div id="reports" class="section">
     <div class="section-header">
-      <div class="section-num">12 — Reports</div>
+      <div class="section-num">13 — Reports</div>
       <h2>Reports &amp; Owner Statements</h2>
       <p class="intro">Generate professional monthly P&amp;L reports and owner statements. The report page is accessible to Managers, Accountants, and Owners (with Owners seeing only the owner-facing statement).</p>
     </div>
@@ -1600,11 +1728,11 @@
   </div>
 
   <!-- ══════════════════════
-       13. OPERATIONS
+       14. OPERATIONS
   ══════════════════════ -->
   <div id="operations" class="section">
     <div class="section-header">
-      <div class="section-num">13 — Operations</div>
+      <div class="section-num">14 — Operations</div>
       <h2>Operations</h2>
       <p class="intro">Supporting modules that keep your portfolio compliant, insured, and organised — forecast, vendors, insurance, compliance, and assets. The proactive layer that surfaces issues from these modules lives in the <a href="#inbox">Operational Inbox</a> as Smart Reminders, and their dates plot on the <a href="#calendar">Calendar</a>.</p>
     </div>
@@ -1643,7 +1771,12 @@
 
     <div class="sub-section">
       <h3>Vendors</h3>
-      <p>Maintain a directory of contractors and suppliers. Each vendor has a category (Contractor, Supplier, Utility Provider, Consultant, Other), contact details, KRA PIN, and bank details. Vendors can be linked to expenses, maintenance jobs, assets, and recurring expenses — use the <strong>Vendor Select</strong> dropdown wherever you see a contractor/supplier field.</p>
+      <p>Maintain a directory of contractors and suppliers. Each vendor has a category (Contractor, Supplier, Utility Provider, Consultant, Other), contact details, KRA PIN, and bank details. Vendors can be linked to expenses, maintenance jobs, assets, and recurring expenses — use the <strong>Vendor Select</strong> dropdown wherever you see a contractor/supplier field. Its quick-create form now has a <em>More details</em> section, so a contractor can be captured completely (phone, email, tax ID, bank details) without leaving the expense or job you're on.</p>
+      <ul class="feature-list" style="margin:12px 0">
+        <li><strong>Duplicate check</strong> — saving a vendor whose name matches an existing one (ignoring case, spacing and punctuation) prompts <em>Use existing</em> or <em>Create anyway</em>, on the Vendors page and in the quick-create alike</li>
+        <li><strong>Audited</strong> — creating, editing and deleting a vendor is written to the audit log, with bank details and tax IDs redacted</li>
+        <li><strong>Caretakers</strong> can add vendors with full details but see only name, category and phone on the directory, and cannot edit or deactivate anything</li>
+      </ul>
       <div class="callout note">
         <span class="callout-icon">ℹ️</span>
         <div class="callout-body">
@@ -1674,11 +1807,11 @@
   </div>
 
   <!-- ══════════════════════
-       14. DATA IMPORT
+       15. DATA IMPORT
   ══════════════════════ -->
   <div id="import" class="section">
     <div class="section-header">
-      <div class="section-num">14 — Data Import</div>
+      <div class="section-num">15 — Data Import</div>
       <h2>Data Import</h2>
       <p class="intro">Moving from spreadsheets or another system? Bulk-import your data from Excel — every importer follows the same three-step pattern: download the template, fill it in, upload.</p>
     </div>
@@ -1730,11 +1863,11 @@
   </div>
 
   <!-- ══════════════════════
-       15. SETTINGS
+       16. SETTINGS
   ══════════════════════ -->
   <div id="settings" class="section">
     <div class="section-header">
-      <div class="section-num">15 — Settings &amp; Team</div>
+      <div class="section-num">16 — Settings &amp; Team</div>
       <h2>Settings &amp; Team Management</h2>
       <p class="intro">Configure your organisation, properties, management fees, branding, payment accounts, and team members. Settings are accessible to Manager and Admin roles only.</p>
     </div>
@@ -1749,7 +1882,7 @@
       <div>
         <div class="screenshot-wrap">
           <img src="guide-screenshots/22-settings-users.png" alt="Team members" loading="lazy">
-          <div class="screenshot-caption">Team — add members with Manager, Accountant, or Owner roles</div>
+          <div class="screenshot-caption">Team — add members with Manager, Accountant, Owner, or Caretaker roles</div>
         </div>
       </div>
     </div>
@@ -1813,9 +1946,16 @@
     <div class="sub-section">
       <h3>Adding Team Members</h3>
       <div class="steps">
-        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Go to Settings → Users</h4><p>Click <em>Invite User</em> or <em>Add User</em>. Enter name, email, password, and assign a role.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Set property access</h4><p>For Manager and Accountant roles, you can restrict access to specific properties. Users without access to a property cannot see its data anywhere in the app.</p></div></div>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Go to Settings → Users</h4><p>Click <em>Invite User</em> or <em>Add User</em>. Enter name, email, password, and assign a role — Manager, Accountant, Owner, or <a href="#caretaker">Caretaker</a> for on-site staff.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Set property access</h4><p>For Manager and Accountant roles, you can restrict access to specific properties. A Caretaker <strong>must</strong> be given at least one property — there is no all-properties default for the role. Users without access to a property cannot see its data anywhere in the app.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Assign the billing owner</h4><p>Only one user per organisation manages the subscription. This is set at account creation and can be transferred in billing settings.</p></div></div>
+      </div>
+      <div class="callout note">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <strong>Two seat pools</strong>
+          Managers, accountants and owners share the plan's <em>team member</em> seats; caretakers draw from a separate <em>caretaker</em> allowance, so adding on-site staff never uses up an office seat. Changing an existing user's role to Caretaker moves them between pools. See <a href="#billing">Plans</a> for the numbers.
+        </div>
       </div>
     </div>
 
@@ -1840,11 +1980,11 @@
   </div>
 
   <!-- ══════════════════════
-       16. TENANT PORTAL
+       17. TENANT PORTAL
   ══════════════════════ -->
   <div id="portal" class="section">
     <div class="section-header">
-      <div class="section-num">16 — Tenant Portal</div>
+      <div class="section-num">17 — Tenant Portal</div>
       <h2>Tenant Self-Service Portal</h2>
       <p class="intro">A public, token-based portal for tenants. No account creation required — tenants access their information via a unique shareable link generated by their manager. Mobile-first, since that's where tenants open it.</p>
     </div>
@@ -1872,7 +2012,7 @@
           <tr><td><strong>Balance</strong></td><td>A full statement-style ledger — every invoice issued and payment received, with a running total invoiced / paid / outstanding. Paid invoices offer a one-page <strong>receipt PDF</strong>.</td></tr>
           <tr><td><strong>Files</strong></td><td>Documents shared by the manager (lease agreement, receipts, notices) with secure download links</td></tr>
           <tr><td><strong>Messages</strong></td><td>Two-way message threads with the manager — lease queries, payment notifications, permission requests, general questions</td></tr>
-          <tr><td><strong>Request</strong></td><td>Submit maintenance requests (title, description, category, emergency flag) and track the status of previous submissions</td></tr>
+          <tr><td><strong>Request</strong></td><td>A <em>Repair request / Complaint</em> toggle. Repairs take a title, description, category and emergency flag and land on your Maintenance board. Complaints take a category (noise, neighbour, security, premises, other) and land on your Complaints page. Both lists show the tenant the stage of everything they've submitted; <em>My complaints</em> also shows any notes you marked visible and the resolution note.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1897,18 +2037,18 @@
     <div class="callout tip">
       <span class="callout-icon">💡</span>
       <div class="callout-body">
-        <strong>Maintenance requests from the portal</strong>
-        Jobs submitted via the tenant portal appear in the Maintenance board with a <span class="badge badge-gold">Tenant Request</span> badge, land in your Inbox until acknowledged, and can be filtered with <em>Portal Requests Only</em>.
+        <strong>Requests and complaints from the portal</strong>
+        Jobs submitted via the tenant portal appear in the Maintenance board with a <span class="badge badge-gold">Tenant Request</span> badge, land in your Inbox until acknowledged, and can be filtered with <em>Portal Requests Only</em>. Complaints appear on the <a href="#complaints">Complaints</a> page with a <span class="badge badge-gold">Portal</span> badge, email the property's managers, and email the tenant back when marked resolved.
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════
-       17. BILLING
+       18. BILLING
   ══════════════════════ -->
   <div id="billing" class="section">
     <div class="section-header">
-      <div class="section-num">17 — Billing &amp; Plans</div>
+      <div class="section-num">18 — Billing &amp; Plans</div>
       <h2>Billing &amp; Subscription</h2>
       <p class="intro">GroundWorkPM offers a 30-day free trial with no credit card required. After the trial, choose a plan that fits your portfolio size. Every feature is available on every plan — plans differ only in capacity.</p>
     </div>
@@ -1921,13 +2061,14 @@
     <div class="sub-section">
       <h3>Plans</h3>
       <table class="data-table">
-        <thead><tr><th>Plan</th><th>Monthly</th><th>Annual</th><th>Properties</th><th>Team Members</th></tr></thead>
+        <thead><tr><th>Plan</th><th>Monthly</th><th>Annual</th><th>Properties</th><th>Team Members</th><th>Caretaker seats</th></tr></thead>
         <tbody>
-          <tr><td><strong>Starter</strong></td><td>$29/mo</td><td>$290/yr</td><td>Up to 2</td><td>Up to 2</td></tr>
-          <tr><td><strong>Growth</strong></td><td>$79/mo</td><td>$790/yr</td><td>Up to 10</td><td>Up to 10</td></tr>
-          <tr><td><strong>Pro</strong></td><td>$149/mo</td><td>$1,490/yr</td><td>Unlimited</td><td>Unlimited</td></tr>
+          <tr><td><strong>Starter</strong></td><td>$29/mo</td><td>$290/yr</td><td>Up to 2</td><td>Up to 2</td><td>Up to 2</td></tr>
+          <tr><td><strong>Growth</strong></td><td>$79/mo</td><td>$790/yr</td><td>Up to 10</td><td>Up to 10</td><td>Up to 10</td></tr>
+          <tr><td><strong>Pro</strong></td><td>$149/mo</td><td>$1,490/yr</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td></tr>
         </tbody>
       </table>
+      <p style="margin-top:10px">Team members are Manager, Accountant and Owner accounts. <a href="#caretaker">Caretaker</a> accounts count against their own allowance, never against team seats. There are no feature gates — every plan has every feature.</p>
     </div>
 
     <div class="sub-section">
@@ -1951,11 +2092,11 @@
   </div>
 
   <!-- ══════════════════════
-       18. AUTOMATIONS
+       19. AUTOMATIONS
   ══════════════════════ -->
   <div id="automations" class="section">
     <div class="section-header">
-      <div class="section-num">18 — Automations</div>
+      <div class="section-num">19 — Automations</div>
       <h2>Automations</h2>
       <p class="intro">One control surface for everything the platform does automatically — the workflows that open Cases and generate invoices, the email alerts managers receive, and the proactive Inbox reminders. It's not a custom workflow builder; it's a fixed registry of proven templates your organisation switches on or off.</p>
     </div>
@@ -1978,7 +2119,7 @@
           <tr>
             <td><span class="badge badge-green">Email notification</span></td>
             <td><span class="badge badge-green">On</span></td>
-            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance) plus two opt-ins: <strong>Tenant rent reminders</strong> (emails tenants 3 days before rent is due, on the due date, and once 7 days overdue — logged to each tenant's comms trail) and the <strong>Owner monthly report</strong> (the previous month's statement PDF emailed to the property owner on the agreement's remittance day).</td>
+            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance, <strong>new complaint</strong>) and the tenant-facing <strong>Complaint resolved</strong> email, plus two opt-ins: <strong>Tenant rent reminders</strong> (emails tenants 3 days before rent is due, on the due date, and once 7 days overdue — logged to each tenant's comms trail) and the <strong>Owner monthly report</strong> (the previous month's statement PDF emailed to the property owner on the agreement's remittance day).</td>
           </tr>
           <tr>
             <td><span class="badge badge-amber">Smart reminder</span></td>
@@ -1996,7 +2137,7 @@
         <span class="callout-icon">ℹ️</span>
         <div class="callout-body">
           <strong>Who gets notified</strong>
-          Each card shows how many recipients an alert reaches (property managers with access, falling back to the organisation's contact email so an alert is never silently dropped). A grid / table view toggle lets you scan all automations at a glance.
+          Each card shows how many recipients an alert reaches: every <em>Admin</em> in the organisation, plus every <em>Manager</em> who has access to that property — judged by the person's role <em>in this organisation</em>, so an invited admin is included even without property-by-property access. Accountants, owners and caretakers are never alert recipients. If a property has no manager at all, the alert falls back to the organisation's contact email so it is never silently dropped. A grid / table view toggle lets you scan all automations at a glance.
         </div>
       </div>
     </div>
@@ -2008,11 +2149,11 @@
   </div>
 
   <!-- ══════════════════════
-       19. APPENDIX
+       20. APPENDIX
   ══════════════════════ -->
   <div id="appendix" class="section">
     <div class="section-header">
-      <div class="section-num">19 — Appendix</div>
+      <div class="section-num">20 — Appendix</div>
       <h2>Appendix</h2>
       <p class="intro">Role access matrix, global search, mobile navigation, automated notifications, and multi-organisation setup.</p>
     </div>
@@ -2026,32 +2167,34 @@
             <th style="text-align:center">Manager</th>
             <th style="text-align:center">Accountant</th>
             <th style="text-align:center">Owner</th>
+            <th style="text-align:center">Caretaker</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>Inbox</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Dashboard</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Calendar</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Cases</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Properties</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Tenants</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no lifecycle actions)</span></td><td style="text-align:center">❌</td></tr>
-          <tr><td>Income / Invoices</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no deletes)</span></td><td style="text-align:center">❌</td></tr>
-          <tr><td>Expenses / Petty Cash</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no deletes)</span></td><td style="text-align:center">❌</td></tr>
-          <tr><td>Arrears</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Maintenance</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Forecast / Vendors / Insurance / Compliance / Assets</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Import</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Automations</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Report</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
-          <tr><td>Settings (org)</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
-          <tr><td>Billing</td><td style="text-align:center">Billing owner only</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Inbox</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Dashboard</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Calendar</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Cases</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Properties</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Tenants</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no lifecycle actions)</span></td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Income / Invoices</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no deletes)</span></td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Expenses / Petty Cash</td><td style="text-align:center">✅</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no deletes)</span></td><td style="text-align:center">❌</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(expenses only, own rows; no petty cash)</span></td></tr>
+          <tr><td>Arrears</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Maintenance</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no deletes)</span></td></tr>
+          <tr><td>Complaints</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">✅ <span style="font-size:11px;color:var(--text-muted)">(no close / reopen / delete; no Staff conduct)</span></td></tr>
+          <tr><td>Forecast / Vendors / Insurance / Compliance / Assets</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center"><span style="font-size:11px;color:var(--text-muted)">Vendors only (view + add)</span></td></tr>
+          <tr><td>Import</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Automations</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Report</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Settings (org)</td><td style="text-align:center">✅</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
+          <tr><td>Billing</td><td style="text-align:center">Billing owner only</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td><td style="text-align:center">❌</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="sub-section">
       <h3>Global Search</h3>
-      <p>Press <strong>Cmd / Ctrl + K</strong> anywhere in the dashboard (or use the Search entry in the sidebar) to open a command palette that searches tenants, properties, invoices, cases, maintenance jobs, <strong>expenses</strong> (by description or payment reference), <strong>documents</strong> (by file name — "find that plumber receipt"), and vendors at once. Results are scoped to the properties you can access. Available to managers, admins, and accountants — hidden for the Owner role.</p>
+      <p>Press <strong>Cmd / Ctrl + K</strong> anywhere in the dashboard (or use the Search entry in the sidebar) to open a command palette that searches tenants, properties, invoices, cases, <strong>complaints</strong>, maintenance jobs, <strong>expenses</strong> (by description or payment reference), <strong>documents</strong> (by file name — "find that plumber receipt"), and vendors at once. Results are scoped to the properties you can access. Available to managers, admins, and accountants; caretakers get a trimmed palette (properties, vendors, maintenance, expenses and complaints — never tenants, invoices, cases or documents); hidden for the Owner role.</p>
     </div>
 
     <div class="sub-section">
@@ -2060,13 +2203,14 @@
       <ul class="feature-list">
         <li><strong>Inbox first</strong> — the action queue is the first tab, followed by the other primary tabs</li>
         <li><strong>More menu</strong>: tap the ⋮ icon to open a full-page drawer with all remaining sections (Finances, Operations, Settings)</li>
+        <li><strong>Role-aware tabs</strong> — caretakers get Maintenance, Complaints, Expenses and Vendors as their bottom tabs, with Tutorials in the drawer; owners get the Report</li>
         <li>Table views switch to stacked card layouts automatically on small screens — including the tenant ledger, invoices, and report tables</li>
       </ul>
     </div>
 
     <div class="sub-section">
       <h3>Automated Notifications</h3>
-      <p>A daily job (07:00 UTC) sends email alerts to all Managers and Admins with property access when:</p>
+      <p>A daily job (07:00 UTC) sends email alerts to the organisation's Admins and to Managers with access to the property (by their role in the organisation) when:</p>
       <p style="margin-bottom:6px"><em>Each of these alerts can be switched off per organisation or per property from the <a href="#automations">Automations</a> page, and individual users can opt out from Settings → Notifications.</em></p>
       <table class="data-table">
         <thead><tr><th>Trigger</th><th>Alert</th><th>Window</th></tr></thead>
@@ -2079,6 +2223,7 @@
         </tbody>
       </table>
       <p style="margin-top:10px">Notifications are deduplicated — you will not receive the same alert repeatedly within the dedup window.</p>
+      <p style="margin-top:10px">Some emails are sent the moment something happens rather than by the daily job: a <strong>new complaint</strong> (to the property's managers), a <strong>complaint resolved</strong> (to the tenant who raised it via the portal), a <strong>petty-cash withdrawal awaiting confirmation</strong> (to the float holder) and a <strong>rejected withdrawal</strong> (to whoever logged the expense). Where a case is linked, each of these appears once on its timeline, listing every recipient.</p>
     </div>
 
     <div class="sub-section">
@@ -2093,7 +2238,7 @@
         <div style="font-size:12px;color:var(--text-muted)">Professional Property Management Software</div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);text-align:right">
-        User Guide · August 2026
+        User Guide · September 2026
       </div>
     </div>
   </div>

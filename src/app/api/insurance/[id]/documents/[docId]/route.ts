@@ -1,34 +1,13 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@supabase/supabase-js";
-
-const BUCKET = "property-documents";
-
-function getStorageClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase storage not configured");
-  return createClient(url, key);
-}
-
-function storagePathFromUrl(fileUrl: string): string | null {
-  try {
-    const url = new URL(fileUrl);
-    // Path is typically /storage/v1/object/public/{bucket}/{path}
-    const marker = `/object/public/${BUCKET}/`;
-    const idx = url.pathname.indexOf(marker);
-    if (idx === -1) return null;
-    return url.pathname.slice(idx + marker.length);
-  } catch {
-    return null;
-  }
-}
+import { logAudit } from "@/lib/audit";
+import { removeInsuranceDocumentFile } from "@/lib/insurance-document-urls";
 
 export async function DELETE(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
@@ -36,29 +15,31 @@ export async function DELETE(
 
   const doc = await prisma.insurancePolicyDocument.findUnique({
     where: { id: params.docId },
-    include: { policy: { select: { propertyId: true } } },
+    include: { policy: { select: { propertyId: true, policyNumber: true } } },
   });
 
-  if (!doc) return Response.json({ error: "Not found" }, { status: 404 });
+  if (!doc || doc.policyId !== params.id) return Response.json({ error: "Not found" }, { status: 404 });
   if (!propertyIds.includes(doc.policy.propertyId)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Delete from storage (best effort)
-  try {
-    const storagePath = storagePathFromUrl(doc.fileUrl);
-    if (storagePath) {
-      const supabase = getStorageClient();
-      await supabase.storage.from(BUCKET).remove([storagePath]);
-    }
-  } catch {
-    // Non-fatal — continue to delete DB record
-  }
+  await removeInsuranceDocumentFile(doc.fileUrl);
 
   try {
     await prisma.insurancePolicyDocument.delete({ where: { id: params.docId } });
-    return Response.json({ success: true });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "DELETE",
+    resource: "InsurancePolicyDocument",
+    resourceId: params.docId,
+    organizationId: session!.user.organizationId,
+    before: { policyId: doc.policyId, policyNumber: doc.policy.policyNumber, category: doc.category, label: doc.label, fileName: doc.fileName },
+  });
+
+  return Response.json({ success: true });
 }

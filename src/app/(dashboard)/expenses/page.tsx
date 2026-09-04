@@ -899,12 +899,14 @@ export default function ExpensesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showForm, discardConfirm, isFormDirty]);
 
-  // Deep-link prefill from the Petty Cash page's "Record as expense instead"
-  // nudge — opens the form with the typed values and the petty-cash flag on.
+  // Deep-link prefill: `prefill=petty` from the Petty Cash page's "Record as
+  // expense instead" nudge (petty-cash flag on), `prefill=insurance` from a
+  // policy's "Log premium" link (INSURANCE category, paid however you like).
   const prefillDone = useRef(false);
   useEffect(() => {
     if (prefillDone.current) return;
-    if (searchParams.get("prefill") !== "petty") return;
+    const kind = searchParams.get("prefill");
+    if (kind !== "petty" && kind !== "insurance") return;
     prefillDone.current = true;
     const propertyId = searchParams.get("propertyId") ?? "";
     reset({
@@ -913,9 +915,9 @@ export default function ExpensesPage() {
       date: searchParams.get("date") || new Date().toISOString().split("T")[0],
       amount: Number(searchParams.get("amount")) || 0,
       description: searchParams.get("description") ?? "",
-      category: "OTHER",
+      category: kind === "insurance" ? "INSURANCE" : "OTHER",
       isSunkCost: false,
-      paidFromPettyCash: true,
+      paidFromPettyCash: kind === "petty",
       unitIds: [],
     } as any);
     setEditEntry(null);

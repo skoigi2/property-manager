@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { useProperty } from "@/lib/property-context";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
@@ -11,22 +12,21 @@ import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { useFocusScroll } from "@/lib/use-focus-scroll";
+import { InsuranceDocuments, type InsuranceDocumentsHandle, type PolicyDocument } from "@/components/insurance/InsuranceDocuments";
+import { INSURANCE_DOCUMENT_CATEGORY_LABEL, policyLifecycle, renewalDates } from "@/lib/insurance-documents";
 import {
-  ShieldPlus,
   Plus,
   Pencil,
   Trash2,
   AlertTriangle,
   FileText,
-  Upload,
-  X,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
+  RefreshCw,
+  Receipt,
 } from "lucide-react";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -55,19 +55,14 @@ const FREQ_MULTIPLIER: Record<string, number> = {
   BIANNUALLY: 2,
   ANNUALLY: 1,
 };
+const STATUS_META: Record<string, { label: string; variant: "red" | "amber" | "green" | "blue" }> = {
+  expired:  { label: "Expired",       variant: "red" },
+  expiring: { label: "Expiring Soon", variant: "amber" },
+  upcoming: { label: "Upcoming",      variant: "blue" },
+  active:   { label: "Active",        variant: "green" },
+};
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-interface PolicyDocument {
-  id: string;
-  policyId: string;
-  label: string;
-  fileName: string;
-  fileUrl: string;
-  fileSize: number | null;
-  mimeType: string | null;
-  uploadedAt: string;
-}
 
 interface InsurancePolicy {
   id: string;
@@ -84,9 +79,9 @@ interface InsurancePolicy {
   brokerName: string | null;
   brokerContact: string | null;
   notes: string | null;
-  property: { name: string };
+  property: { name: string; currency: string | null };
   documentsCount: number;
-  documents?: PolicyDocument[];
+  documentCategories: string[];
 }
 
 interface Property {
@@ -96,31 +91,14 @@ interface Property {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function daysUntil(dateStr: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const end = new Date(dateStr);
-  end.setHours(0, 0, 0, 0);
-  return Math.round((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function expiryStatus(endDate: string): { label: string; variant: "red" | "amber" | "green" } {
-  const days = daysUntil(endDate);
-  if (days < 0) return { label: "Expired", variant: "red" };
-  if (days <= 60) return { label: "Expiring Soon", variant: "amber" };
-  return { label: "Active", variant: "green" };
-}
-
 function annualisedPremium(amount: number | null, freq: string | null): number {
   if (!amount || !freq) return 0;
   return amount * (FREQ_MULTIPLIER[freq] ?? 1);
 }
 
-function formatFileSize(bytes: number | null): string {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+function typeLabel(p: { type: string; typeOther: string | null }): string {
+  if (p.type === "OTHER" && p.typeOther) return p.typeOther;
+  return TYPE_LABELS[p.type] ?? p.type;
 }
 
 // ── Blank form ─────────────────────────────────────────────────────────────────
@@ -143,153 +121,30 @@ function blankForm() {
   };
 }
 
-// ── Document Panel ────────────────────────────────────────────────────────────
-
-function DocumentPanel({ policyId }: { policyId: string }) {
-  const [docs, setDocs] = useState<PolicyDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [label, setLabel] = useState("");
-  const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const loadDocs = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/insurance/${policyId}/documents`);
-      if (res.ok) setDocs(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [policyId]);
-
-  useEffect(() => { loadDocs(); }, [loadDocs]);
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("label", label || file.name);
-      const res = await fetch(`/api/insurance/${policyId}/documents`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || "Upload failed");
-      } else {
-        toast.success("Document uploaded");
-        setLabel("");
-        if (fileRef.current) fileRef.current.value = "";
-        await loadDocs();
-      }
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleDelete(docId: string) {
-    const res = await fetch(`/api/insurance/${policyId}/documents/${docId}`, { method: "DELETE" });
-    if (res.ok) {
-      toast.success("Document deleted");
-      setDocs((d) => d.filter((x) => x.id !== docId));
-    } else {
-      toast.error("Delete failed");
-    }
-    setDeleteDocId(null);
-  }
-
-  if (loading) return <div className="py-4 flex justify-center"><Spinner size="sm" /></div>;
-
-  return (
-    <div className="mt-3 border-t border-gray-100 pt-3 space-y-3">
-      <h4 className="text-label font-semibold text-gray-500 uppercase ">Documents</h4>
-
-      {docs.length === 0 && (
-        <p className="text-body text-gray-400 ">No documents uploaded yet.</p>
-      )}
-
-      {docs.map((doc) => (
-        <div key={doc.id} className="flex items-center justify-between gap-2 text-body ">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText size={14} className="text-gray-400 shrink-0" />
-            <a
-              href={doc.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gold hover:text-gold-dark truncate flex items-center gap-1"
-            >
-              {doc.label}
-              <ExternalLink size={11} />
-            </a>
-            {doc.fileSize && (
-              <span className="text-gray-400 text-caption shrink-0">{formatFileSize(doc.fileSize)}</span>
-            )}
-          </div>
-          <button
-            onClick={() => setDeleteDocId(doc.id)}
-            className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
-
-      {/* Upload area */}
-      <div className="flex items-center gap-2 pt-1">
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Document label (optional)"
-          className="flex-1 text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-gold/30"
-        />
-        <label className="cursor-pointer">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            className="hidden"
-            onChange={handleUpload}
-            disabled={uploading}
-          />
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-cream rounded-lg text-body text-header hover:bg-cream-dark transition-colors">
-            {uploading ? <Spinner size="sm" /> : <Upload size={13} />}
-            Upload
-          </span>
-        </label>
-      </div>
-
-      <ConfirmDialog
-        open={!!deleteDocId}
-        title="Delete document"
-        message="Are you sure you want to delete this document? This cannot be undone."
-        confirmLabel="Delete"
-        onConfirm={() => deleteDocId && handleDelete(deleteDocId)}
-        onClose={() => setDeleteDocId(null)}
-      />
-    </div>
-  );
-}
+const inputCls = "w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30";
+const selectCls = `${inputCls} bg-white`;
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function InsurancePage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
-  const currency = useProperty().currency;
+  const { selectedId, currency } = useProperty();
   useFocusScroll();
   const [policies, setPolicies] = useState<InsurancePolicy[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterProperty, setFilterProperty] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [search, setSearch] = useState("");
   const [expandedDocPanel, setExpandedDocPanel] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editPolicy, setEditPolicy] = useState<InsurancePolicy | null>(null);
+  const [renewingFrom, setRenewingFrom] = useState<InsurancePolicy | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(blankForm());
+  const docsRef = useRef<InsuranceDocumentsHandle>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -297,7 +152,7 @@ export default function InsurancePage() {
       const propParam = selectedId ? `?propertyId=${selectedId}` : "";
       const [polRes, propRes] = await Promise.all([
         fetch(`/api/insurance${propParam}`),
-        fetch("/api/properties"),
+        fetch("/api/properties?minimal=true"),
       ]);
       if (polRes.ok) setPolicies(await polRes.json());
       if (propRes.ok) setProperties(await propRes.json());
@@ -310,12 +165,14 @@ export default function InsurancePage() {
 
   function openAdd() {
     setEditPolicy(null);
-    setForm(blankForm());
+    setRenewingFrom(null);
+    setForm({ ...blankForm(), propertyId: selectedId ?? "" });
     setModalOpen(true);
   }
 
   function openEdit(p: InsurancePolicy) {
     setEditPolicy(p);
+    setRenewingFrom(null);
     setForm({
       propertyId: p.propertyId,
       type: p.type,
@@ -334,9 +191,45 @@ export default function InsurancePage() {
     setModalOpen(true);
   }
 
+  /** Renew = a new policy for the next term with the same cover, so the expired one stays on record. */
+  function openRenew(p: InsurancePolicy) {
+    const dates = renewalDates(p.startDate, p.endDate);
+    setEditPolicy(null);
+    setRenewingFrom(p);
+    setForm({
+      propertyId: p.propertyId,
+      type: p.type,
+      typeOther: p.typeOther ?? "",
+      insurer: p.insurer,
+      policyNumber: "",
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      premiumAmount: p.premiumAmount?.toString() ?? "",
+      premiumFrequency: p.premiumFrequency ?? "",
+      coverageAmount: p.coverageAmount?.toString() ?? "",
+      brokerName: p.brokerName ?? "",
+      brokerContact: p.brokerContact ?? "",
+      notes: "",
+    });
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    if (!editPolicy && docsRef.current?.hasQueued() && !window.confirm("Files you added have not been uploaded yet. Discard them?")) return;
+    setModalOpen(false);
+  }
+
   async function handleSave() {
-    if (!form.propertyId || !form.insurer || !form.policyNumber || !form.startDate || !form.endDate) {
+    if (!form.propertyId || !form.insurer.trim() || !form.policyNumber.trim() || !form.startDate || !form.endDate) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (new Date(form.endDate) <= new Date(form.startDate)) {
+      toast.error("End date must be after the start date");
+      return;
+    }
+    if (form.premiumAmount && !form.premiumFrequency) {
+      toast.error("Pick how often the premium is paid");
       return;
     }
     setSaving(true);
@@ -345,8 +238,8 @@ export default function InsurancePage() {
         propertyId: form.propertyId,
         type: form.type,
         typeOther: form.typeOther || null,
-        insurer: form.insurer,
-        policyNumber: form.policyNumber,
+        insurer: form.insurer.trim(),
+        policyNumber: form.policyNumber.trim(),
         startDate: form.startDate,
         endDate: form.endDate,
         premiumAmount: form.premiumAmount ? parseFloat(form.premiumAmount) : null,
@@ -365,13 +258,36 @@ export default function InsurancePage() {
         body: JSON.stringify(payload),
       });
 
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error?.formErrors?.[0] || err.error || "Save failed");
+        const msg = typeof body.error === "string" ? body.error : body.error?.formErrors?.[0] || "Save failed";
+        toast.error(msg);
         return;
       }
 
-      toast.success(editPolicy ? "Policy updated" : "Policy created");
+      if (editPolicy) {
+        toast.success("Policy updated");
+      } else {
+        // New policy: push any files chosen in the form now that it has an id.
+        const created = body as InsurancePolicy;
+        if (docsRef.current?.hasQueued()) {
+          const { done, failed } = await docsRef.current.uploadAllTo(created.id);
+          if (failed.length === 0) {
+            toast.success(`Policy created · ${done} document${done === 1 ? "" : "s"} attached`);
+          } else {
+            // Keep the form open on the saved policy so the failed rows keep their Retry button.
+            toast.error(`Policy created, but ${failed.length} document${failed.length === 1 ? "" : "s"} failed to upload. Retry below or close to leave them off.`);
+            setRenewingFrom(null);
+            setEditPolicy(created);
+            setExpandedDocPanel(created.id);
+            await load();
+            return;
+          }
+        } else {
+          toast.success(renewingFrom ? "Renewal recorded" : "Policy created");
+        }
+        setExpandedDocPanel(created.id);
+      }
       setModalOpen(false);
       await load();
     } finally {
@@ -390,17 +306,28 @@ export default function InsurancePage() {
     setDeleteId(null);
   }
 
+  function onDocsChanged(policyId: string, docs: PolicyDocument[]) {
+    setPolicies((list) => list.map((p) => p.id === policyId
+      ? { ...p, documentsCount: docs.length, documentCategories: Array.from(new Set(docs.map((d) => d.category))) }
+      : p));
+  }
+
   // ── Filtered list ──────────────────────────────────────────────────────────
 
-  const filtered = policies.filter((p) => {
+  const withStatus = policies.map((p) => ({ p, life: policyLifecycle(p.startDate, p.endDate) }));
+
+  const filtered = withStatus.filter(({ p, life }) => {
     if (filterProperty && p.propertyId !== filterProperty) return false;
     if (filterType && p.type !== filterType) return false;
+    if (filterStatus && life.status !== filterStatus) return false;
     if (search) {
       const q = search.toLowerCase();
       if (
         !p.insurer.toLowerCase().includes(q) &&
         !p.policyNumber.toLowerCase().includes(q) &&
-        !(p.brokerName ?? "").toLowerCase().includes(q)
+        !(p.brokerName ?? "").toLowerCase().includes(q) &&
+        !(p.typeOther ?? "").toLowerCase().includes(q) &&
+        !p.property.name.toLowerCase().includes(q)
       )
         return false;
     }
@@ -410,23 +337,20 @@ export default function InsurancePage() {
   // ── KPIs ───────────────────────────────────────────────────────────────────
 
   const totalPolicies = policies.length;
-  const activePolicies = policies.filter((p) => daysUntil(p.endDate) > 60).length;
-  const expiringSoon = policies.filter((p) => {
-    const d = daysUntil(p.endDate);
-    return d >= 0 && d <= 60;
-  }).length;
-  const expired = policies.filter((p) => daysUntil(p.endDate) < 0).length;
-  const totalAnnualPremium = policies.reduce(
-    (sum, p) => sum + annualisedPremium(p.premiumAmount, p.premiumFrequency),
-    0
-  );
+  const activePolicies = withStatus.filter(({ life }) => life.status === "active" || life.status === "upcoming").length;
+  const expiringSoon = withStatus.filter(({ life }) => life.status === "expiring").length;
+  const expired = withStatus.filter(({ life }) => life.status === "expired").length;
+  const totalAnnualPremium = withStatus
+    .filter(({ life }) => life.status !== "expired")
+    .reduce((sum, { p }) => sum + annualisedPremium(p.premiumAmount, p.premiumFrequency), 0);
+  const missingValuation = withStatus.filter(({ p, life }) =>
+    life.status !== "expired" && (p.type === "BUILDING" || p.type === "CONTENTS") && !p.documentCategories.includes("VALUATION_REPORT")).length;
 
   // ── Alert banner policies ─────────────────────────────────────────────────
 
-  const alertPolicies = policies.filter((p) => {
-    const d = daysUntil(p.endDate);
-    return d <= 60;
-  });
+  const alertPolicies = withStatus.filter(({ life }) => life.status === "expired" || life.status === "expiring");
+
+  const modalTitle = editPolicy ? "Edit Insurance Policy" : renewingFrom ? `Renew — ${renewingFrom.insurer} ${renewingFrom.policyNumber}` : "Add Insurance Policy";
 
   return (
     <>
@@ -437,22 +361,24 @@ export default function InsurancePage() {
         {alertPolicies.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex gap-3">
             <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-body font-semibold text-amber-800">
                 {alertPolicies.length} {alertPolicies.length === 1 ? "policy requires" : "policies require"} attention
               </p>
               <ul className="mt-1 space-y-0.5">
-                {alertPolicies.map((p) => {
-                  const days = daysUntil(p.endDate);
-                  return (
-                    <li key={p.id} className="text-caption text-amber-700">
+                {alertPolicies.map(({ p, life }) => (
+                  <li key={p.id} className="text-caption text-amber-700 flex items-center gap-2 flex-wrap">
+                    <span>
                       <span className="font-medium">{p.insurer}</span> ({p.policyNumber}) —{" "}
-                      {days < 0
-                        ? `expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? "s" : ""} ago`
-                        : `expires in ${days} day${days !== 1 ? "s" : ""}`}
-                    </li>
-                  );
-                })}
+                      {life.daysToEnd < 0
+                        ? `expired ${Math.abs(life.daysToEnd)} day${Math.abs(life.daysToEnd) !== 1 ? "s" : ""} ago`
+                        : life.daysToEnd === 0 ? "expires today" : `expires in ${life.daysToEnd} day${life.daysToEnd !== 1 ? "s" : ""}`}
+                    </span>
+                    <button onClick={() => openRenew(p)} className="inline-flex items-center gap-1 text-amber-800 underline underline-offset-2 hover:text-amber-900">
+                      <RefreshCw size={11} /> Renew
+                    </button>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -476,38 +402,40 @@ export default function InsurancePage() {
             )}
           </Card>
           <Card className="p-4">
-            <p className="text-label text-gray-500 uppercase ">Total Annual Premium</p>
+            <p className="text-label text-gray-500 uppercase ">Annual Premium (current cover)</p>
             <p className="text-h3 text-header mt-1">{formatCurrency(totalAnnualPremium, currency)}</p>
+            {missingValuation > 0 && (
+              <p className="text-caption text-amber-600 mt-0.5">{missingValuation} {missingValuation === 1 ? "policy has" : "policies have"} no valuation report</p>
+            )}
           </Card>
         </div>
 
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={filterProperty}
-            onChange={(e) => setFilterProperty(e.target.value)}
-            className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-          >
+          <select value={filterProperty} onChange={(e) => setFilterProperty(e.target.value)} className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
             <option value="">All properties</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-          >
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
             <option value="">All types</option>
             {Object.entries(TYPE_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30">
+            <option value="">Any status</option>
+            <option value="active">Active</option>
+            <option value="expiring">Expiring soon</option>
+            <option value="expired">Expired</option>
+            <option value="upcoming">Upcoming</option>
+          </select>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search insurer, policy no..."
+            placeholder="Search insurer, policy no, broker..."
             className="flex-1 min-w-[200px] text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
           />
           <Button onClick={openAdd} className="ml-auto flex items-center gap-2">
@@ -520,15 +448,19 @@ export default function InsurancePage() {
           <div className="flex justify-center py-16"><Spinner size="lg" /></div>
         ) : filtered.length === 0 ? (
           <EmptyState
-            title="No insurance policies"
-            description="Add your first insurance policy to track coverage and renewals."
-            action={<Button onClick={openAdd}><Plus size={14} className="mr-1" />Add Policy</Button>}
+            title={policies.length === 0 ? "No insurance policies" : "No policies match these filters"}
+            description={policies.length === 0 ? "Add your first insurance policy to track coverage, renewals and the paperwork behind them." : "Try clearing the type, status or search filters."}
+            action={policies.length === 0 ? <Button onClick={openAdd}><Plus size={14} className="mr-1" />Add Policy</Button> : undefined}
           />
         ) : (
           <div className="space-y-3">
-            {filtered.map((policy) => {
-              const status = expiryStatus(policy.endDate);
+            {filtered.map(({ p: policy, life }) => {
+              const status = STATUS_META[life.status];
               const docsOpen = expandedDocPanel === policy.id;
+              const policyCurrency = policy.property.currency ?? currency;
+              const premiumExpenseHref = policy.premiumAmount
+                ? `/expenses?prefill=insurance&propertyId=${policy.propertyId}&amount=${policy.premiumAmount}&description=${encodeURIComponent(`Insurance premium — ${policy.insurer} ${policy.policyNumber}`)}`
+                : null;
 
               return (
                 <div key={policy.id} id={`item-${policy.id}`}>
@@ -537,29 +469,28 @@ export default function InsurancePage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant={TYPE_BADGE[policy.type] ?? "gray"}>
-                          {TYPE_LABELS[policy.type] ?? policy.type}
-                        </Badge>
-                        <span className=" font-semibold text-header">{policy.insurer}</span>
+                        <Badge variant={TYPE_BADGE[policy.type] ?? "gray"}>{typeLabel(policy)}</Badge>
+                        <span className="font-semibold text-header">{policy.insurer}</span>
                         <span className="tabular-nums text-caption text-gray-400">{policy.policyNumber}</span>
                       </div>
                       <p className="text-caption text-gray-500 mt-0.5">{policy.property.name}</p>
                     </div>
+                    <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
 
                   {/* Body grid */}
-                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-body ">
+                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-body">
                     <div>
                       <span className="text-gray-400 text-caption">Coverage</span>
                       <p className="text-header font-medium">
-                        {policy.coverageAmount ? formatCurrency(policy.coverageAmount, currency) : "—"}
+                        {policy.coverageAmount ? formatCurrency(policy.coverageAmount, policyCurrency) : "—"}
                       </p>
                     </div>
                     <div>
                       <span className="text-gray-400 text-caption">Premium</span>
                       <p className="text-header font-medium">
                         {policy.premiumAmount
-                          ? `${formatCurrency(policy.premiumAmount, currency)} / ${FREQ_LABELS[policy.premiumFrequency ?? ""] ?? ""}`
+                          ? `${formatCurrency(policy.premiumAmount, policyCurrency)}${policy.premiumFrequency ? ` / ${FREQ_LABELS[policy.premiumFrequency] ?? policy.premiumFrequency}` : ""}`
                           : "—"}
                       </p>
                     </div>
@@ -569,7 +500,12 @@ export default function InsurancePage() {
                     </div>
                     <div>
                       <span className="text-gray-400 text-caption">End date</span>
-                      <p className="text-header">{formatDate(new Date(policy.endDate))}</p>
+                      <p className="text-header">
+                        {formatDate(new Date(policy.endDate))}
+                        {life.status !== "expired" && life.status !== "upcoming" && (
+                          <span className="text-caption text-gray-400"> · {life.daysToEnd === 0 ? "today" : `${life.daysToEnd} days left`}</span>
+                        )}
+                      </p>
                     </div>
                     {(policy.brokerName || policy.brokerContact) && (
                       <div className="col-span-2">
@@ -579,11 +515,34 @@ export default function InsurancePage() {
                         </p>
                       </div>
                     )}
+                    {policy.notes && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400 text-caption">Notes</span>
+                        <p className="text-header whitespace-pre-wrap">{policy.notes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Paperwork on file */}
+                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                    {policy.documentCategories.length === 0 ? (
+                      <span className="text-caption text-gray-400">No documents on file</span>
+                    ) : (
+                      policy.documentCategories.map((c) => (
+                        <span key={c} className="text-label uppercase font-medium px-1.5 py-0.5 rounded bg-cream text-header border border-cream-dark">
+                          {INSURANCE_DOCUMENT_CATEGORY_LABEL[c] ?? c}
+                        </span>
+                      ))
+                    )}
+                    {life.status !== "expired" && (policy.type === "BUILDING" || policy.type === "CONTENTS") && !policy.documentCategories.includes("VALUATION_REPORT") && (
+                      <span className="text-label uppercase font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200" title="Upload the valuation the sum insured is based on">
+                        No valuation report
+                      </span>
+                    )}
                   </div>
 
                   {/* Footer */}
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <Badge variant={status.variant}>{status.label}</Badge>
                     <button
                       onClick={() => setExpandedDocPanel(docsOpen ? null : policy.id)}
                       className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream"
@@ -592,7 +551,21 @@ export default function InsurancePage() {
                       {policy.documentsCount} doc{policy.documentsCount !== 1 ? "s" : ""}
                       {docsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </button>
+                    {premiumExpenseHref && (
+                      <Link href={premiumExpenseHref} className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream" title="Record a premium payment on the Expenses page">
+                        <Receipt size={12} /> Log premium
+                      </Link>
+                    )}
                     <div className="ml-auto flex items-center gap-2">
+                      {(life.status === "expired" || life.status === "expiring") && (
+                        <button
+                          onClick={() => openRenew(policy)}
+                          className="flex items-center gap-1 text-caption text-gold-dark hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream"
+                          title="Record the next term as a new policy"
+                        >
+                          <RefreshCw size={12} /> Renew
+                        </button>
+                      )}
                       <button
                         onClick={() => openEdit(policy)}
                         className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream"
@@ -609,7 +582,12 @@ export default function InsurancePage() {
                   </div>
 
                   {/* Document panel */}
-                  {docsOpen && <DocumentPanel policyId={policy.id} />}
+                  {docsOpen && (
+                    <div className="mt-3 border-t border-gray-100 pt-3">
+                      <h4 className="text-label font-semibold text-gray-500 uppercase mb-2">Documents</h4>
+                      <InsuranceDocuments policyId={policy.id} onChanged={(docs) => onDocsChanged(policy.id, docs)} />
+                    </div>
+                  )}
                 </Card>
                 </div>
               );
@@ -618,24 +596,21 @@ export default function InsurancePage() {
         )}
       </div>
 
-      {/* Add / Edit modal */}
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editPolicy ? "Edit Insurance Policy" : "Add Insurance Policy"}
-        size="xl"
-      >
+      {/* Add / Edit / Renew modal */}
+      <Modal open={modalOpen} onClose={closeModal} title={modalTitle} size="xl">
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          {renewingFrom && (
+            <p className="text-caption text-gray-500 bg-cream rounded-lg px-3 py-2">
+              This records the next term as a new policy so the old one stays on file. Enter the new policy number and check the dates and premium.
+            </p>
+          )}
+
           {/* Property */}
           <div>
             <label className="block text-caption font-medium text-gray-500 mb-1">
               Property <span className="text-expense">*</span>
             </label>
-            <select
-              value={form.propertyId}
-              onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))}
-              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-            >
+            <select value={form.propertyId} onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))} className={selectCls}>
               <option value="">Select property</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -648,11 +623,7 @@ export default function InsurancePage() {
             <label className="block text-caption font-medium text-gray-500 mb-1">
               Type <span className="text-expense">*</span>
             </label>
-            <select
-              value={form.type}
-              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-            >
+            <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={selectCls}>
               {Object.entries(TYPE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
@@ -662,38 +633,26 @@ export default function InsurancePage() {
                 type="text"
                 value={form.typeOther}
                 onChange={(e) => setForm((f) => ({ ...f, typeOther: e.target.value }))}
-                placeholder="Specify type..."
-                className="mt-2 w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
+                placeholder="Specify type, e.g. Employer's liability"
+                className={`mt-2 ${inputCls}`}
               />
             )}
           </div>
 
-          {/* Insurer */}
-          <div>
-            <label className="block text-caption font-medium text-gray-500 mb-1">
-              Insurer <span className="text-expense">*</span>
-            </label>
-            <input
-              type="text"
-              value={form.insurer}
-              onChange={(e) => setForm((f) => ({ ...f, insurer: e.target.value }))}
-              placeholder="e.g. Jubilee Insurance"
-              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
-          </div>
-
-          {/* Policy Number */}
-          <div>
-            <label className="block text-caption font-medium text-gray-500 mb-1">
-              Policy Number <span className="text-expense">*</span>
-            </label>
-            <input
-              type="text"
-              value={form.policyNumber}
-              onChange={(e) => setForm((f) => ({ ...f, policyNumber: e.target.value }))}
-              placeholder="e.g. POL-2024-001"
-              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
+          {/* Insurer / Policy number */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-caption font-medium text-gray-500 mb-1">
+                Insurer <span className="text-expense">*</span>
+              </label>
+              <input type="text" value={form.insurer} onChange={(e) => setForm((f) => ({ ...f, insurer: e.target.value }))} placeholder="e.g. Jubilee Insurance" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-caption font-medium text-gray-500 mb-1">
+                Policy Number <span className="text-expense">*</span>
+              </label>
+              <input type="text" value={form.policyNumber} onChange={(e) => setForm((f) => ({ ...f, policyNumber: e.target.value }))} placeholder="e.g. POL-2024-001" className={`${inputCls} tabular-nums`} />
+            </div>
           </div>
 
           {/* Start / End dates */}
@@ -702,65 +661,31 @@ export default function InsurancePage() {
               <label className="block text-caption font-medium text-gray-500 mb-1">
                 Start Date <span className="text-expense">*</span>
               </label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
+              <input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} className={inputCls} />
             </div>
             <div>
               <label className="block text-caption font-medium text-gray-500 mb-1">
                 End Date <span className="text-expense">*</span>
               </label>
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
+              <input type="date" value={form.endDate} min={form.startDate || undefined} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} className={inputCls} />
             </div>
           </div>
 
           {/* Coverage Amount */}
           <div>
-            <label className="block text-caption font-medium text-gray-500 mb-1">
-              Coverage Amount
-            </label>
-            <input
-              type="number"
-              value={form.coverageAmount}
-              onChange={(e) => setForm((f) => ({ ...f, coverageAmount: e.target.value }))}
-              placeholder="0"
-              min="0"
-              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
+            <label className="block text-caption font-medium text-gray-500 mb-1">Coverage Amount <span className="text-gray-400 font-normal">(sum insured)</span></label>
+            <input type="number" value={form.coverageAmount} onChange={(e) => setForm((f) => ({ ...f, coverageAmount: e.target.value }))} placeholder="0" min="0" className={`${inputCls} tabular-nums`} />
           </div>
 
           {/* Premium Amount + Frequency */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-caption font-medium text-gray-500 mb-1">
-                Premium Amount
-              </label>
-              <input
-                type="number"
-                value={form.premiumAmount}
-                onChange={(e) => setForm((f) => ({ ...f, premiumAmount: e.target.value }))}
-                placeholder="0"
-                min="0"
-                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
+              <label className="block text-caption font-medium text-gray-500 mb-1">Premium Amount</label>
+              <input type="number" value={form.premiumAmount} onChange={(e) => setForm((f) => ({ ...f, premiumAmount: e.target.value }))} placeholder="0" min="0" className={`${inputCls} tabular-nums`} />
             </div>
             <div>
-              <label className="block text-caption font-medium text-gray-500 mb-1">
-                Frequency
-              </label>
-              <select
-                value={form.premiumFrequency}
-                onChange={(e) => setForm((f) => ({ ...f, premiumFrequency: e.target.value }))}
-                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-              >
+              <label className="block text-caption font-medium text-gray-500 mb-1">Frequency{form.premiumAmount ? <span className="text-expense"> *</span> : null}</label>
+              <select value={form.premiumFrequency} onChange={(e) => setForm((f) => ({ ...f, premiumFrequency: e.target.value }))} className={selectCls}>
                 <option value="">Select...</option>
                 {Object.entries(FREQ_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -772,50 +697,41 @@ export default function InsurancePage() {
           {/* Broker Name / Contact */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-caption font-medium text-gray-500 mb-1">
-                Broker Name
-              </label>
-              <input
-                type="text"
-                value={form.brokerName}
-                onChange={(e) => setForm((f) => ({ ...f, brokerName: e.target.value }))}
-                placeholder="Broker name"
-                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
+              <label className="block text-caption font-medium text-gray-500 mb-1">Broker Name</label>
+              <input type="text" value={form.brokerName} onChange={(e) => setForm((f) => ({ ...f, brokerName: e.target.value }))} placeholder="Broker name" className={inputCls} />
             </div>
             <div>
-              <label className="block text-caption font-medium text-gray-500 mb-1">
-                Broker Contact
-              </label>
-              <input
-                type="text"
-                value={form.brokerContact}
-                onChange={(e) => setForm((f) => ({ ...f, brokerContact: e.target.value }))}
-                placeholder="+1 555 000 0000"
-                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
+              <label className="block text-caption font-medium text-gray-500 mb-1">Broker Contact</label>
+              <input type="text" value={form.brokerContact} onChange={(e) => setForm((f) => ({ ...f, brokerContact: e.target.value }))} placeholder="+1 555 000 0000" className={inputCls} />
             </div>
           </div>
 
           {/* Notes */}
           <div>
             <label className="block text-caption font-medium text-gray-500 mb-1">Notes</label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={3}
-              placeholder="Additional notes..."
-              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
-            />
+            <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Excesses, exclusions, renewal reminders..." className={`${inputCls} resize-none`} />
+          </div>
+
+          {/* Documents */}
+          <div className="border-t border-gray-100 pt-4">
+            <label className="block text-caption font-medium text-gray-500 mb-1">Documents</label>
+            <p className="text-caption text-gray-400 mb-2">Policy schedule, certificate, the valuation report the sum insured is based on, insurer assessments, claims and premium receipts.</p>
+            {modalOpen && (
+              <InsuranceDocuments
+                ref={docsRef}
+                policyId={editPolicy?.id}
+                onChanged={editPolicy ? (docs) => onDocsChanged(editPolicy.id, docs) : undefined}
+              />
+            )}
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setModalOpen(false)} disabled={saving}>
-              Cancel
+            <Button variant="ghost" onClick={closeModal} disabled={saving}>
+              {editPolicy ? "Close" : "Cancel"}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Spinner size="sm" /> : editPolicy ? "Save changes" : "Create policy"}
+              {saving ? <Spinner size="sm" /> : editPolicy ? "Save changes" : renewingFrom ? "Record renewal" : "Create policy"}
             </Button>
           </div>
         </div>

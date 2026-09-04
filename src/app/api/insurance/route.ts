@@ -9,8 +9,8 @@ const insurancePolicySchema = z.object({
   propertyId: z.string().min(1, "Property is required"),
   type: z.nativeEnum(InsuranceType),
   typeOther: z.string().optional().nullable(),
-  insurer: z.string().min(1, "Insurer is required"),
-  policyNumber: z.string().min(1, "Policy number is required"),
+  insurer: z.string().trim().min(1, "Insurer is required"),
+  policyNumber: z.string().trim().min(1, "Policy number is required"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   premiumAmount: z.number().positive().optional().nullable(),
@@ -19,7 +19,20 @@ const insurancePolicySchema = z.object({
   brokerName: z.string().optional().nullable(),
   brokerContact: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+}).superRefine((v, ctx) => {
+  if (new Date(v.endDate) <= new Date(v.startDate)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date must be after the start date" });
+  }
+  if (v.premiumAmount && !v.premiumFrequency) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["premiumFrequency"], message: "Pick how often the premium is paid" });
+  }
 });
+
+/** First human-readable message out of a flattened zod error. */
+function firstZodMessage(err: z.ZodError): string {
+  const f = err.flatten();
+  return f.formErrors[0] ?? Object.values(f.fieldErrors).flat()[0] ?? "Invalid input";
+}
 
 export async function GET(req: Request) {
   const { error } = await requireAuth();
@@ -40,15 +53,18 @@ export async function GET(req: Request) {
     const policies = await prisma.insurancePolicy.findMany({
       where: { propertyId: { in: effectivePropertyIds } },
       include: {
-        property: { select: { name: true } },
-        documents: { select: { id: true } },
+        property: { select: { name: true, currency: true } },
+        documents: { select: { id: true, category: true } },
       },
       orderBy: { endDate: "asc" },
     });
 
-    const result = policies.map((p) => ({
+    const result = policies.map(({ documents, ...p }) => ({
       ...p,
-      documentsCount: p.documents.length,
+      documentsCount: documents.length,
+      // Which kinds of paperwork are on file — the card shows these as chips
+      // so "no valuation report" is visible without opening the panel.
+      documentCategories: Array.from(new Set(documents.map((d) => d.category))),
     }));
 
     return Response.json(result);
@@ -75,7 +91,7 @@ export async function POST(req: Request) {
 
   const parsed = insurancePolicySchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+    return Response.json({ error: firstZodMessage(parsed.error) }, { status: 400 });
   }
 
   const data = parsed.data;
@@ -89,7 +105,7 @@ export async function POST(req: Request) {
       data: {
         propertyId: data.propertyId,
         type: data.type,
-        typeOther: data.typeOther ?? null,
+        typeOther: data.type === "OTHER" ? (data.typeOther?.trim() || null) : null,
         insurer: data.insurer,
         policyNumber: data.policyNumber,
         startDate: new Date(data.startDate),
@@ -97,13 +113,12 @@ export async function POST(req: Request) {
         premiumAmount: data.premiumAmount ?? null,
         premiumFrequency: data.premiumFrequency ?? null,
         coverageAmount: data.coverageAmount ?? null,
-        brokerName: data.brokerName ?? null,
-        brokerContact: data.brokerContact ?? null,
-        notes: data.notes ?? null,
+        brokerName: data.brokerName?.trim() || null,
+        brokerContact: data.brokerContact?.trim() || null,
+        notes: data.notes?.trim() || null,
       },
       include: {
-        property: { select: { name: true } },
-        documents: true,
+        property: { select: { name: true, currency: true } },
       },
     });
 
@@ -114,10 +129,10 @@ export async function POST(req: Request) {
       resource: "InsurancePolicy",
       resourceId: policy.id,
       organizationId: session!.user.organizationId,
-      after: { insurer: policy.insurer, type: policy.type, policyNumber: policy.policyNumber },
+      after: { insurer: policy.insurer, type: policy.type, policyNumber: policy.policyNumber, endDate: policy.endDate },
     });
 
-    return Response.json(policy, { status: 201 });
+    return Response.json({ ...policy, documentsCount: 0, documentCategories: [] }, { status: 201 });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }

@@ -1,66 +1,44 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@supabase/supabase-js";
+import { logAudit } from "@/lib/audit";
+import { uploadToStorage } from "@/lib/supabase-storage";
+import {
+  INSURANCE_DOCUMENT_MAX_MB,
+  isAllowedInsuranceDocument,
+  isInsuranceDocumentCategory,
+  insuranceStoragePath,
+} from "@/lib/insurance-documents";
+import { withInsuranceDocumentUrls } from "@/lib/insurance-document-urls";
 
-const BUCKET = "property-documents";
-
-function getStorageClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase storage not configured");
-  return createClient(url, key);
+async function loadPolicy(id: string) {
+  const propertyIds = await getAccessiblePropertyIds();
+  if (!propertyIds) return { error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
+  const policy = await prisma.insurancePolicy.findUnique({ where: { id }, select: { propertyId: true, insurer: true, policyNumber: true } });
+  if (!policy) return { error: Response.json({ error: "Not found" }, { status: 404 }) };
+  if (!propertyIds.includes(policy.propertyId)) return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  return { policy };
 }
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+/** GET — documents on a policy, `fileUrl` already signed (or the legacy public URL). */
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const { error } = await requireAuth();
   if (error) return error;
+  const loaded = await loadPolicy(params.id);
+  if (loaded.error) return loaded.error;
 
-  const propertyIds = await getAccessiblePropertyIds();
-  if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
-  const policy = await prisma.insurancePolicy.findUnique({
-    where: { id: params.id },
-    select: { propertyId: true },
+  const documents = await prisma.insurancePolicyDocument.findMany({
+    where: { policyId: params.id },
+    orderBy: { uploadedAt: "desc" },
   });
-
-  if (!policy) return Response.json({ error: "Not found" }, { status: 404 });
-  if (!propertyIds.includes(policy.propertyId)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  try {
-    const documents = await prisma.insurancePolicyDocument.findMany({
-      where: { policyId: params.id },
-      orderBy: { uploadedAt: "desc" },
-    });
-    return Response.json(documents);
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
-  }
+  return Response.json(await withInsuranceDocumentUrls(documents));
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const { error } = await requireManagerWrite();
+/** POST — multipart `file` + `category` + `label` + optional `documentDate` (YYYY-MM-DD). */
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
-
-  const propertyIds = await getAccessiblePropertyIds();
-  if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
-  const policy = await prisma.insurancePolicy.findUnique({
-    where: { id: params.id },
-    select: { propertyId: true },
-  });
-
-  if (!policy) return Response.json({ error: "Not found" }, { status: 404 });
-  if (!propertyIds.includes(policy.propertyId)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const loaded = await loadPolicy(params.id);
+  if (loaded.error) return loaded.error;
 
   let formData: FormData;
   try {
@@ -70,46 +48,66 @@ export async function POST(
   }
 
   const file = formData.get("file") as File | null;
-  const label = (formData.get("label") as string) || "";
+  const label = ((formData.get("label") as string) || "").trim();
+  const categoryRaw = (formData.get("category") as string) || "OTHER";
+  const documentDateRaw = ((formData.get("documentDate") as string) || "").trim();
 
   if (!file) return Response.json({ error: "No file provided" }, { status: 400 });
-
-  const maxMb = 10;
-  if (file.size > maxMb * 1024 * 1024) {
-    return Response.json({ error: `File too large (max ${maxMb} MB)` }, { status: 400 });
+  if (file.size > INSURANCE_DOCUMENT_MAX_MB * 1024 * 1024) {
+    return Response.json(
+      { error: `"${file.name}" is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB) — the maximum is ${INSURANCE_DOCUMENT_MAX_MB} MB per file.` },
+      { status: 400 },
+    );
+  }
+  if (!isAllowedInsuranceDocument(file)) {
+    return Response.json(
+      { error: `"${file.name}" is not a supported file type. Upload a PDF, an image, or a Word / Excel document.` },
+      { status: 400 },
+    );
+  }
+  if (!isInsuranceDocumentCategory(categoryRaw)) {
+    return Response.json({ error: "Unknown document category" }, { status: 400 });
+  }
+  let documentDate: Date | null = null;
+  if (documentDateRaw) {
+    documentDate = new Date(documentDateRaw);
+    if (isNaN(documentDate.getTime())) return Response.json({ error: "Invalid document date" }, { status: 400 });
   }
 
-  const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `insurance/${params.id}/${Date.now()}_${safeFileName}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-
-  let fileUrl: string;
+  const storagePath = insuranceStoragePath(params.id, file.name);
   try {
-    const supabase = getStorageClient();
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(storagePath, buffer, { contentType: file.type, upsert: false });
-    if (uploadError) throw new Error(uploadError.message);
-
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-    fileUrl = urlData.publicUrl;
-  } catch (err: any) {
-    return Response.json({ error: `Storage upload failed: ${err.message}` }, { status: 500 });
+    await uploadToStorage(storagePath, buffer, file.type || "application/octet-stream");
+  } catch (e: any) {
+    // Private bucket not reachable — nothing was written, so tell the client to retry later.
+    return Response.json({ error: `Storage is unavailable right now: ${e.message}`, code: "STORAGE_UNAVAILABLE" }, { status: 503 });
   }
 
-  try {
-    const doc = await prisma.insurancePolicyDocument.create({
-      data: {
-        policyId: params.id,
-        label: label || file.name,
-        fileName: file.name,
-        fileUrl,
-        fileSize: file.size,
-        mimeType: file.type,
-      },
-    });
-    return Response.json(doc, { status: 201 });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
-  }
+  const doc = await prisma.insurancePolicyDocument.create({
+    data: {
+      policyId: params.id,
+      category: categoryRaw,
+      label: label || file.name,
+      fileName: file.name,
+      fileUrl: storagePath,
+      fileSize: file.size,
+      mimeType: file.type || null,
+      documentDate,
+      uploadedByEmail: session!.user.email ?? null,
+      uploadedByName: session!.user.name ?? null,
+    },
+  });
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "CREATE",
+    resource: "InsurancePolicyDocument",
+    resourceId: doc.id,
+    organizationId: session!.user.organizationId,
+    after: { policyId: params.id, policyNumber: loaded.policy!.policyNumber, category: doc.category, label: doc.label, fileName: doc.fileName, fileSize: doc.fileSize },
+  });
+
+  const [signed] = await withInsuranceDocumentUrls([doc]);
+  return Response.json(signed, { status: 201 });
 }

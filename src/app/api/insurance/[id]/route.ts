@@ -1,15 +1,16 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { InsuranceType, PremiumFrequency } from "@prisma/client";
+import { withInsuranceDocumentUrls, removeInsuranceDocumentFile } from "@/lib/insurance-document-urls";
 
 const updateSchema = z.object({
   propertyId: z.string().optional(),
   type: z.nativeEnum(InsuranceType).optional(),
   typeOther: z.string().optional().nullable(),
-  insurer: z.string().optional(),
-  policyNumber: z.string().optional(),
+  insurer: z.string().trim().min(1).optional(),
+  policyNumber: z.string().trim().min(1).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   premiumAmount: z.number().positive().optional().nullable(),
@@ -19,6 +20,11 @@ const updateSchema = z.object({
   brokerContact: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
+
+function firstMessage(err: z.ZodError): string {
+  const f = err.flatten();
+  return f.formErrors[0] ?? Object.values(f.fieldErrors).flat()[0] ?? "Invalid input";
+}
 
 export async function GET(
   _req: Request,
@@ -34,7 +40,7 @@ export async function GET(
     const policy = await prisma.insurancePolicy.findUnique({
       where: { id: params.id },
       include: {
-        property: { select: { name: true } },
+        property: { select: { name: true, currency: true } },
         documents: { orderBy: { uploadedAt: "desc" } },
       },
     });
@@ -44,7 +50,7 @@ export async function GET(
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return Response.json(policy);
+    return Response.json({ ...policy, documents: await withInsuranceDocumentUrls(policy.documents) });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
@@ -62,7 +68,7 @@ export async function PATCH(
 
   const policy = await prisma.insurancePolicy.findUnique({
     where: { id: params.id },
-    select: { propertyId: true, insurer: true, type: true, policyNumber: true },
+    select: { propertyId: true, insurer: true, type: true, policyNumber: true, startDate: true, endDate: true },
   });
 
   if (!policy) return Response.json({ error: "Not found" }, { status: 404 });
@@ -79,10 +85,24 @@ export async function PATCH(
 
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+    return Response.json({ error: firstMessage(parsed.error) }, { status: 400 });
   }
 
   const data = parsed.data;
+
+  // Moving a policy to another property needs access to that property too.
+  if (data.propertyId !== undefined && !propertyIds.includes(data.propertyId)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const nextStart = data.startDate !== undefined ? new Date(data.startDate) : policy.startDate;
+  const nextEnd = data.endDate !== undefined ? new Date(data.endDate) : policy.endDate;
+  if (isNaN(nextStart.getTime()) || isNaN(nextEnd.getTime())) {
+    return Response.json({ error: "Invalid date" }, { status: 400 });
+  }
+  if (nextEnd <= nextStart) {
+    return Response.json({ error: "End date must be after the start date" }, { status: 400 });
+  }
+  const nextType = data.type ?? policy.type;
 
   try {
     const updated = await prisma.insurancePolicy.update({
@@ -90,21 +110,23 @@ export async function PATCH(
       data: {
         ...(data.propertyId !== undefined && { propertyId: data.propertyId }),
         ...(data.type !== undefined && { type: data.type }),
-        ...(data.typeOther !== undefined && { typeOther: data.typeOther }),
+        ...((data.typeOther !== undefined || data.type !== undefined) && {
+          typeOther: nextType === "OTHER" ? (data.typeOther?.trim() || null) : null,
+        }),
         ...(data.insurer !== undefined && { insurer: data.insurer }),
         ...(data.policyNumber !== undefined && { policyNumber: data.policyNumber }),
-        ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
-        ...(data.endDate !== undefined && { endDate: new Date(data.endDate) }),
+        ...(data.startDate !== undefined && { startDate: nextStart }),
+        ...(data.endDate !== undefined && { endDate: nextEnd }),
         ...(data.premiumAmount !== undefined && { premiumAmount: data.premiumAmount }),
         ...(data.premiumFrequency !== undefined && { premiumFrequency: data.premiumFrequency }),
         ...(data.coverageAmount !== undefined && { coverageAmount: data.coverageAmount }),
-        ...(data.brokerName !== undefined && { brokerName: data.brokerName }),
-        ...(data.brokerContact !== undefined && { brokerContact: data.brokerContact }),
-        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.brokerName !== undefined && { brokerName: data.brokerName?.trim() || null }),
+        ...(data.brokerContact !== undefined && { brokerContact: data.brokerContact?.trim() || null }),
+        ...(data.notes !== undefined && { notes: data.notes?.trim() || null }),
       },
       include: {
-        property: { select: { name: true } },
-        documents: { orderBy: { uploadedAt: "desc" } },
+        property: { select: { name: true, currency: true } },
+        documents: { select: { id: true, category: true } },
       },
     });
 
@@ -116,10 +138,15 @@ export async function PATCH(
       resourceId: params.id,
       organizationId: session!.user.organizationId,
       before: policy,
-      after: { insurer: updated.insurer, type: updated.type, policyNumber: updated.policyNumber },
+      after: { insurer: updated.insurer, type: updated.type, policyNumber: updated.policyNumber, startDate: updated.startDate, endDate: updated.endDate },
     });
 
-    return Response.json(updated);
+    const { documents, ...rest } = updated;
+    return Response.json({
+      ...rest,
+      documentsCount: documents.length,
+      documentCategories: Array.from(new Set(documents.map((d) => d.category))),
+    });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
@@ -137,7 +164,7 @@ export async function DELETE(
 
   const policy = await prisma.insurancePolicy.findUnique({
     where: { id: params.id },
-    select: { propertyId: true, insurer: true, type: true, policyNumber: true },
+    select: { propertyId: true, insurer: true, type: true, policyNumber: true, documents: { select: { fileUrl: true } } },
   });
 
   if (!policy) return Response.json({ error: "Not found" }, { status: 404 });
@@ -148,6 +175,9 @@ export async function DELETE(
   try {
     await prisma.insurancePolicy.delete({ where: { id: params.id } });
 
+    // The document rows cascade; the files behind them don't — clean up best-effort.
+    for (const d of policy.documents) await removeInsuranceDocumentFile(d.fileUrl);
+
     await logAudit({
       userId: session!.user.id,
       userEmail: session!.user.email,
@@ -155,7 +185,7 @@ export async function DELETE(
       resource: "InsurancePolicy",
       resourceId: params.id,
       organizationId: session!.user.organizationId,
-      before: policy,
+      before: { insurer: policy.insurer, type: policy.type, policyNumber: policy.policyNumber, documents: policy.documents.length },
     });
 
     return Response.json({ success: true });

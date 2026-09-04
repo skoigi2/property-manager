@@ -263,6 +263,18 @@ enum PremiumFrequency {
   ANNUALLY
 }
 
+/// What a file attached to an insurance policy is — drives the "valuation on
+/// file?" style checks and the grouping on the policy card.
+enum InsuranceDocumentCategory {
+  POLICY_SCHEDULE
+  CERTIFICATE
+  VALUATION_REPORT
+  INSURER_ASSESSMENT
+  CLAIM
+  INVOICE_RECEIPT
+  OTHER
+}
+
 enum MaintenanceFrequency {
   WEEKLY
   MONTHLY
@@ -1567,15 +1579,23 @@ model InsurancePolicy {
 }
 
 model InsurancePolicyDocument {
-  id         String          @id @default(cuid())
-  policyId   String
-  policy     InsurancePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
-  label      String
-  fileName   String
-  fileUrl    String
-  fileSize   Int?
-  mimeType   String?
-  uploadedAt DateTime        @default(now())
+  id              String          @id @default(cuid())
+  policyId        String
+  policy          InsurancePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  category        InsuranceDocumentCategory @default(OTHER)
+  label           String
+  fileName        String
+  /// Storage path inside the private `tenant-documents` bucket (signed on read).
+  /// Rows from before 2026-09 hold a public URL in the old `property-documents`
+  /// bucket instead — `isLegacyPublicUrl()` in src/lib/insurance-documents.ts.
+  fileUrl         String
+  fileSize        Int?
+  mimeType        String?
+  /// The date the document speaks to (valuation date, assessment date), not the upload date.
+  documentDate    DateTime?
+  uploadedByEmail String?
+  uploadedByName  String?
+  uploadedAt      DateTime        @default(now())
 
   @@index([policyId])
 }

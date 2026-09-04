@@ -1798,7 +1798,14 @@
 
     <div class="sub-section">
       <h3>Insurance</h3>
-      <p>Track policies per property with type (Building, Public Liability, Contents, Other), insurer, premium, frequency, coverage amount, and broker. Policies expiring within 30 days trigger automated alerts. Documents can be uploaded directly to each policy record.</p>
+      <p style="margin-bottom:12px">Track policies per property with type (Building, Public Liability, Contents, Other), insurer, premium, frequency, sum insured, and broker. Each card shows the policy's status — <span class="badge badge-green">Active</span> <span class="badge badge-amber">Expiring Soon (≤60 days)</span> <span class="badge badge-red">Expired</span> <span class="badge badge-blue">Upcoming</span> — and the days left on the term. Policies expiring within 30 days trigger the automated email alert and an Inbox item.</p>
+      <ul class="feature-list">
+        <li><strong>Paperwork lives on the policy</strong> — the add / edit form has a Documents section, so the policy schedule, certificate, the <em>valuation report</em> the sum insured is based on, the insurer's survey or risk assessment, claims correspondence and premium receipts are filed as you enter the policy. Each file carries a category, a label and the date on the document (the valuation date, say). Files chosen while creating a policy upload as soon as it is saved; the card's <em>docs</em> panel adds or removes files later.</li>
+        <li><strong>What's on file is visible at a glance</strong> — the card shows chips for the categories attached, and a Building or Contents policy with no valuation report is flagged, with a count on the premium KPI card.</li>
+        <li><strong>Renew</strong> — an expiring or expired policy has a <em>Renew</em> button that opens a new policy pre-filled with the same cover, dated from the day after the old term ends, so the old policy stays on record. Enter the new policy number and confirm the premium.</li>
+        <li><strong>Log premium</strong> — jumps to the Expenses form pre-filled with the premium, the property and the INSURANCE category, so the payment reaches the P&amp;L without retyping.</li>
+        <li><strong>Private storage</strong> — documents are stored privately and opened through short-lived links, like tenant documents. Uploads and deletions are written to the audit log.</li>
+      </ul>
     </div>
 
     <div class="sub-section">

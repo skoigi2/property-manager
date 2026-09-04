@@ -505,44 +505,54 @@
 
     <!-- Flow diagram: navigation per role -->
     <div class="flow-diagram">
-      <svg viewBox="0 0 760 160" xmlns="http://www.w3.org/2000/svg" width="760" height="160">
+      <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" width="760" height="220">
+        <!-- Owner -->
+        <rect x="10" y="5" width="110" height="40" rx="6" fill="#16a34a"/>
+        <text x="65" y="30" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Owner</text>
+        <line x1="120" y1="25" x2="155" y2="25" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <rect x="155" y="5" width="130" height="40" rx="6" fill="#dcfce7"/>
+        <text x="220" y="30" text-anchor="middle" fill="#166534" font-size="11" font-family="DM Sans,sans-serif">Report only</text>
+
         <!-- Manager -->
         <rect x="10" y="60" width="110" height="40" rx="6" fill="#132635"/>
         <text x="65" y="85" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Manager / Admin</text>
         <line x1="120" y1="80" x2="155" y2="80" stroke="#132635" stroke-width="1.5" marker-end="url(#arr)"/>
-        <rect x="155" y="60" width="80" height="40" rx="6" fill="#1e3a50"/>
-        <text x="195" y="85" text-anchor="middle" fill="white" font-size="11" font-family="DM Sans,sans-serif">All Pages</text>
+        <rect x="155" y="60" width="130" height="40" rx="6" fill="#1e3a50"/>
+        <text x="220" y="85" text-anchor="middle" fill="white" font-size="11" font-family="DM Sans,sans-serif">All Pages</text>
 
         <!-- Accountant -->
         <rect x="10" y="115" width="110" height="40" rx="6" fill="#d97706"/>
         <text x="65" y="140" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Accountant</text>
         <line x1="120" y1="135" x2="155" y2="135" stroke="#d97706" stroke-width="1.5" marker-end="url(#arr2)"/>
-        <rect x="155" y="115" width="80" height="40" rx="6" fill="#fef3c7"/>
-        <text x="195" y="137" text-anchor="middle" fill="#92400e" font-size="10" font-family="DM Sans,sans-serif">Income · Expenses</text>
-        <text x="195" y="150" text-anchor="middle" fill="#92400e" font-size="10" font-family="DM Sans,sans-serif">Invoices · Reports</text>
+        <rect x="155" y="115" width="130" height="40" rx="6" fill="#fef3c7"/>
+        <text x="220" y="131" text-anchor="middle" fill="#92400e" font-size="10" font-family="DM Sans,sans-serif">All pages, minus</text>
+        <text x="220" y="144" text-anchor="middle" fill="#92400e" font-size="10" font-family="DM Sans,sans-serif">deletes &amp; settings</text>
 
-        <!-- Owner -->
-        <rect x="10" y="5" width="110" height="40" rx="6" fill="#16a34a"/>
-        <text x="65" y="30" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Owner</text>
-        <line x1="120" y1="25" x2="155" y2="25" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arr3)"/>
-        <rect x="155" y="5" width="80" height="40" rx="6" fill="#dcfce7"/>
-        <text x="195" y="30" text-anchor="middle" fill="#166534" font-size="11" font-family="DM Sans,sans-serif">Report only</text>
+        <!-- Caretaker -->
+        <rect x="10" y="170" width="110" height="40" rx="6" fill="#4b5563"/>
+        <text x="65" y="195" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Caretaker</text>
+        <line x1="120" y1="190" x2="155" y2="190" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr5)"/>
+        <rect x="155" y="170" width="130" height="40" rx="6" fill="#e5e7eb"/>
+        <text x="220" y="186" text-anchor="middle" fill="#1f2937" font-size="10" font-family="DM Sans,sans-serif">Maintenance · Complaints</text>
+        <text x="220" y="199" text-anchor="middle" fill="#1f2937" font-size="10" font-family="DM Sans,sans-serif">Expenses · Vendors</text>
 
         <!-- Tenant portal -->
-        <rect x="320" y="60" width="110" height="40" rx="6" fill="#6b7280"/>
-        <text x="375" y="82" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Tenant</text>
-        <text x="375" y="95" text-anchor="middle" fill="white" font-size="10" font-family="DM Sans,sans-serif">(no account)</text>
-        <line x1="430" y1="80" x2="465" y2="80" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr4)"/>
-        <rect x="465" y="55" width="100" height="50" rx="6" fill="#f3f4f6"/>
-        <text x="515" y="76" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Portal token link</text>
-        <text x="515" y="89" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Invoices · Docs</text>
-        <text x="515" y="102" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Messages · Requests</text>
+        <rect x="360" y="88" width="110" height="40" rx="6" fill="#6b7280"/>
+        <text x="415" y="110" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Tenant</text>
+        <text x="415" y="123" text-anchor="middle" fill="white" font-size="10" font-family="DM Sans,sans-serif">(no account)</text>
+        <line x1="470" y1="108" x2="505" y2="108" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="505" y="76" width="140" height="64" rx="6" fill="#f3f4f6"/>
+        <text x="575" y="94" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Portal token link</text>
+        <text x="575" y="107" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Invoices · Docs · Messages</text>
+        <text x="575" y="120" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Repair requests</text>
+        <text x="575" y="133" text-anchor="middle" fill="#374151" font-size="10" font-family="DM Sans,sans-serif">Complaints</text>
 
         <defs>
           <marker id="arr" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#132635"/></marker>
           <marker id="arr2" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#d97706"/></marker>
           <marker id="arr3" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#16a34a"/></marker>
           <marker id="arr4" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#6b7280"/></marker>
+          <marker id="arr5" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#4b5563"/></marker>
         </defs>
       </svg>
     </div>

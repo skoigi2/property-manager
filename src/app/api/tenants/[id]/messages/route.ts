@@ -44,6 +44,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       preview: t.messages[0]?.body.slice(0, 120) ?? "",
       lastSender: t.messages[0]?.sender ?? null,
       unreadCount: t._count.messages,
+      complaintId: t.complaintId,
     }))
   );
 }

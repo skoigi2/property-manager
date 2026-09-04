@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireExpenseMutation } from "@/lib/expense-access";
-import { resolvePettyCashOutStatus } from "@/lib/petty-cash-status";
+import { resolvePettyCashOutStatus, reevaluatePettyCashOutStatus } from "@/lib/petty-cash-status";
 import { notifyPettyCashPending } from "@/lib/petty-cash-approval";
 import { expenseEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
@@ -89,7 +89,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     select: {
       category: true, amount: true, date: true,
       paidFromPettyCash: true,
-      pettyCashEntry: { select: { id: true } },
+      pettyCashEntry: { select: { id: true, status: true } },
     },
   });
 
@@ -98,6 +98,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const linkedPettyCashId = before?.pettyCashEntry?.id ?? null;
   let pendingNotify = false;
   const pettyCashPropertyId: string | null = nowPetty ? effectivePropertyId ?? null : null;
+  // Repair authority limit for the target property — the same threshold the
+  // Petty Cash page applies (see resolvePettyCashOutStatus).
+  const repairAuthorityLimit = nowPetty && pettyCashPropertyId
+    ? (await prisma.managementAgreement.findUnique({ where: { propertyId: pettyCashPropertyId }, select: { repairAuthorityLimit: true } }))?.repairAuthorityLimit ?? null
+    : null;
 
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -178,10 +183,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (linkedPettyCashId && !nowPetty) {
     ops.push(prisma.pettyCash.delete({ where: { id: linkedPettyCashId } }));
   } else if (linkedPettyCashId && nowPetty) {
-    // A caretaker's edit resubmits the withdrawal: the row can only be
-    // PENDING or REJECTED here (APPROVED is locked by requireExpenseMutation),
-    // so a fixed REJECTED row goes back into the float holder's queue.
-    const resubmit = orgRole === "CARETAKER";
+    // Re-evaluate approval when the amount changes (same rule as PATCH
+    // /api/petty-cash/[id]): crossing the repair authority limit makes an
+    // APPROVED row PENDING again; a caretaker's edit always resubmits (the row
+    // can only be PENDING or REJECTED for them — APPROVED is locked upstream).
+    const amountChanged = before ? Math.abs(Number(before.amount) - computedAmount) > 0.005 : true;
+    const change = reevaluatePettyCashOutStatus({
+      orgRole,
+      currentStatus: (before?.pettyCashEntry?.status ?? "APPROVED") as "PENDING" | "APPROVED" | "REJECTED",
+      amountChanged,
+      amount: computedAmount,
+      repairAuthorityLimit,
+    });
     ops.push(prisma.pettyCash.update({
       where: { id: linkedPettyCashId },
       data: {
@@ -189,14 +202,20 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         amount: computedAmount,
         description: rest.description ?? `${rest.category} expense`,
         propertyId: pettyCashPropertyId,
-        ...(resubmit
-          ? { status: "PENDING" as const, rejectedAt: null, rejectionReason: null, approvedBy: null, approvedAt: null, approvalNotes: null }
+        receiptRef: rest.paymentReference || null,
+        ...(change
+          ? {
+              status: change.status,
+              ...(change.clearApproval
+                ? { rejectedAt: null, rejectionReason: null, approvedBy: null, approvedAt: null, approvalNotes: null }
+                : {}),
+            }
           : {}),
       },
     }));
-    if (resubmit) pendingNotify = true;
+    if (change?.status === "PENDING") pendingNotify = true;
   } else if (!linkedPettyCashId && nowPetty && before && !before.paidFromPettyCash) {
-    const status = resolvePettyCashOutStatus({ orgRole, amount: computedAmount, repairAuthorityLimit: null });
+    const status = resolvePettyCashOutStatus({ orgRole, amount: computedAmount, repairAuthorityLimit });
     ops.push(prisma.pettyCash.create({
       data: {
         date: parsedDate,
@@ -206,6 +225,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         propertyId: pettyCashPropertyId,
         expenseEntryId: params.id,
         organizationId: session!.user.organizationId ?? organizationId ?? null,
+        receiptRef: rest.paymentReference || null,
         status,
       },
     }));

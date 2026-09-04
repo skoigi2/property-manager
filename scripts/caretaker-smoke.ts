@@ -148,6 +148,13 @@ async function seed() {
     tenant = await prisma.tenant.update({ where: { id: tenant.id }, data: { portalToken: `smoke-portal-${Date.now()}`, portalTokenExpiresAt: null } });
   }
 
+  // Repair authority limit for the threshold checks (Petty Cash page + expense path).
+  await prisma.managementAgreement.upsert({
+    where: { propertyId: property.id },
+    create: { propertyId: property.id, repairAuthorityLimit: 1000 } as any,
+    update: { repairAuthorityLimit: 1000 },
+  });
+
   const caretaker  = await user(EMAILS.caretaker, "Smoke Caretaker", "CARETAKER");
   const manager    = await user(EMAILS.manager, "Smoke Manager", "ADMIN");
   const accountant = await user(EMAILS.accountant, "Smoke Accountant", "ACCOUNTANT");
@@ -526,6 +533,64 @@ async function main() {
       types.has("tenant") && (res?.results ?? []).some((r: any) => r.id === pcStaff?.id), JSON.stringify(Array.from(types)));
   }
   await expectStatus(acct, "GET /api/search (accountant) → 200", `/api/search?q=Smoke`, 200);
+
+  // ── Repair authority limit on the expense path (managers) ──
+  {
+    const big = await expectStatus(mgr, "manager POST petty expense above limit → 201", "/api/expenses", 201, {
+      method: "POST", body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "MAINTENANCE", amount: 2500, description: `Smoke big petty ${stamp}`, paidFromPettyCash: true, paymentReference: "RCPT-1" }),
+    });
+    if (big?.id) created.expenses.add(big.id);
+    const bigRow = big?.id ? await prisma.pettyCash.findUnique({ where: { expenseEntryId: big.id } }) : null;
+    check("db: manager OUT row above the repair authority limit is PENDING with receiptRef", bigRow?.status === "PENDING" && bigRow?.receiptRef === "RCPT-1", JSON.stringify({ s: bigRow?.status, r: bigRow?.receiptRef }));
+    const small = await expectStatus(mgr, "manager POST petty expense under limit → 201", "/api/expenses", 201, {
+      method: "POST", body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "CONSUMABLES", amount: 500, description: `Smoke small petty ${stamp}`, paidFromPettyCash: true }),
+    });
+    if (small?.id) created.expenses.add(small.id);
+    const smallRow = small?.id ? await prisma.pettyCash.findUnique({ where: { expenseEntryId: small.id } }) : null;
+    check("db: manager OUT row under the limit is APPROVED", smallRow?.status === "APPROVED");
+    // Description-only edit must not un-approve
+    await expectStatus(mgr, "manager PUT (description only) → 200", `/api/expenses/${small?.id}`, 200, {
+      method: "PUT", body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "CONSUMABLES", amount: 500, description: `Smoke small petty edited ${stamp}`, paidFromPettyCash: true }),
+    });
+    const stillApproved = smallRow ? await prisma.pettyCash.findUnique({ where: { id: smallRow.id } }) : null;
+    check("db: description-only edit keeps the row APPROVED", stillApproved?.status === "APPROVED");
+    // Raising the amount over the limit un-approves
+    await expectStatus(mgr, "manager PUT raising amount over limit → 200", `/api/expenses/${small?.id}`, 200, {
+      method: "PUT", body: JSON.stringify({ date: today, scope: "PROPERTY", propertyId: property.id, category: "CONSUMABLES", amount: 3000, description: `Smoke small petty edited ${stamp}`, paidFromPettyCash: true }),
+    });
+    const nowPending = smallRow ? await prisma.pettyCash.findUnique({ where: { id: smallRow.id } }) : null;
+    check("db: raised over the limit → PENDING, approval cleared", nowPending?.status === "PENDING" && nowPending?.approvedBy === null && Number(nowPending?.amount) === 3000, JSON.stringify(nowPending?.status));
+    // Petty Cash page rule unchanged: manager direct OUT above limit still needs a receiptRef
+    await expectStatus(mgr, "POST /api/petty-cash OUT above limit without receipt → 400", "/api/petty-cash", 400, {
+      method: "POST", body: JSON.stringify({ date: today, type: "OUT", amount: 5000, description: "direct", propertyId: property.id }),
+    });
+  }
+
+  // ── Convert a portal message thread into a complaint ──
+  {
+    const thread = await expectStatus(portal, "POST portal message → 201", `/api/portal/${tok}/messages`, 201, {
+      method: "POST", body: JSON.stringify({ subject: `Water pressure ${stamp}`, category: "GENERAL", body: "The water pressure on the 3rd floor is very low in the mornings." }),
+    });
+    const threadId = thread?.id ?? thread?.threadId ?? thread?.thread?.id;
+    check("portal: message thread created", !!threadId, JSON.stringify(thread)?.slice(0, 120));
+    await expectStatus(care, "caretaker convert-to-complaint → 403", `/api/tenants/${tenant.id}/messages/${threadId}/convert-to-complaint`, 403, { method: "POST", body: JSON.stringify({ category: "PREMISES" }) });
+    const conv = await expectStatus(mgr, "manager convert-to-complaint → 201", `/api/tenants/${tenant.id}/messages/${threadId}/convert-to-complaint`, 201, {
+      method: "POST", body: JSON.stringify({ category: "PREMISES" }),
+    });
+    if (conv?.id) created.complaints.add(conv.id);
+    check("converted complaint: PORTAL source, tenant = complainant, title from subject, description = tenant's words",
+      conv?.source === "PORTAL" && conv?.tenant?.id === tenant.id && conv?.title === `Water pressure ${stamp}` && /3rd floor/.test(conv?.description ?? ""), JSON.stringify(conv)?.slice(0, 160));
+    const linked = threadId ? await prisma.portalMessageThread.findUnique({ where: { id: threadId }, include: { messages: { orderBy: { createdAt: "asc" } } } }) : null;
+    check("db: thread linked to the complaint and got a MANAGER reply pointing to the portal",
+      !!(linked?.complaintId === conv?.id && linked?.messages.some((m) => m.sender === "MANAGER" && /formal complaint/.test(m.body))));
+    await expectStatus(mgr, "manager convert again → 409", `/api/tenants/${tenant.id}/messages/${threadId}/convert-to-complaint`, 409, { method: "POST", body: JSON.stringify({ category: "PREMISES" }) });
+    const detail = await expectStatus(mgr, "GET thread (manager) carries complaintId", `/api/tenants/${tenant.id}/messages/${threadId}`, 200);
+    check("manager: thread detail exposes complaintId", detail?.complaintId === conv?.id);
+    const mineNow = await expectStatus(portal, "GET portal complaints shows the converted one", `/api/portal/${tok}/complaints`, 200);
+    check("portal: converted complaint visible to the tenant with their own words as the first update",
+      Array.isArray(mineNow) && mineNow.some((c: any) => c.id === conv?.id && c.updates?.[0]?.byStaff === false));
+    if (threadId) await prisma.portalMessageThread.deleteMany({ where: { id: threadId } });
+  }
 
   // ── cleanup ──
   for (const id of Array.from(created.complaints)) {

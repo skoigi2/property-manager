@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { isRoleAllowed, MANAGER_ROLES, ESTABLISHED_ROLES, OPS_ROLES } from "@/lib/roles";
-import { resolvePettyCashOutStatus } from "@/lib/petty-cash-status";
+import { resolvePettyCashOutStatus, reevaluatePettyCashOutStatus } from "@/lib/petty-cash-status";
 import { hintTypesVisibleTo } from "@/lib/hint-visibility";
 import { seatPoolForRole, hasSeatCapacity } from "@/lib/subscription";
 
@@ -81,5 +81,29 @@ describe("seat pools", () => {
     expect(hasSeatCapacity("CARETAKER", "STARTER", 1)).toBe(true);
     expect(hasSeatCapacity("CARETAKER", "STARTER", 2)).toBe(false);
     expect(hasSeatCapacity("CARETAKER", "PRO", 500)).toBe(true);
+  });
+});
+
+describe("reevaluatePettyCashOutStatus (linked OUT row edited from the expense form)", () => {
+  const limit = 1000;
+  it("caretaker edits always resubmit as PENDING with approval cleared", () => {
+    expect(reevaluatePettyCashOutStatus({ orgRole: "CARETAKER", currentStatus: "REJECTED", amountChanged: false, amount: 10, repairAuthorityLimit: limit }))
+      .toEqual({ status: "PENDING", clearApproval: true });
+  });
+  it("manager: no amount change → no status change, even above the limit", () => {
+    expect(reevaluatePettyCashOutStatus({ orgRole: "MANAGER", currentStatus: "APPROVED", amountChanged: false, amount: 5000, repairAuthorityLimit: limit })).toBeNull();
+  });
+  it("manager: amount raised over the limit un-approves the row", () => {
+    expect(reevaluatePettyCashOutStatus({ orgRole: "MANAGER", currentStatus: "APPROVED", amountChanged: true, amount: 5000, repairAuthorityLimit: limit }))
+      .toEqual({ status: "PENDING", clearApproval: true });
+  });
+  it("manager: amount lowered under the limit while PENDING approves it; already approved stays", () => {
+    expect(reevaluatePettyCashOutStatus({ orgRole: "MANAGER", currentStatus: "PENDING", amountChanged: true, amount: 500, repairAuthorityLimit: limit }))
+      .toEqual({ status: "APPROVED", clearApproval: false });
+    expect(reevaluatePettyCashOutStatus({ orgRole: "MANAGER", currentStatus: "APPROVED", amountChanged: true, amount: 500, repairAuthorityLimit: limit })).toBeNull();
+  });
+  it("manager: a REJECTED row is left alone; no limit → never pending", () => {
+    expect(reevaluatePettyCashOutStatus({ orgRole: "MANAGER", currentStatus: "REJECTED", amountChanged: true, amount: 5000, repairAuthorityLimit: limit })).toBeNull();
+    expect(reevaluatePettyCashOutStatus({ orgRole: "MANAGER", currentStatus: "APPROVED", amountChanged: true, amount: 5000, repairAuthorityLimit: null })).toBeNull();
   });
 });

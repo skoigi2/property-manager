@@ -523,6 +523,7 @@ model TenantComplaint {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   raisedBy     User?        @relation("ComplaintRaisedBy", fields: [raisedByUserId], references: [id], onDelete: SetNull)
   caseThread   CaseThread?  @relation("CaseThreadComplaint", fields: [caseThreadId], references: [id], onDelete: SetNull)
+  sourceThread PortalMessageThread? @relation("ComplaintSourceThread")
 
   @@index([propertyId, createdAt])
   @@index([tenantId])
@@ -2060,6 +2061,10 @@ model PortalMessageThread {
   category      PortalMessageCategory
   status        PortalThreadStatus    @default(SENT)
   lastMessageAt DateTime              @default(now())
+  // Set when a manager logs this chat thread as a formal complaint
+  // (POST .../messages/[threadId]/convert-to-complaint). One-way, once.
+  complaintId   String?               @unique
+  complaint     TenantComplaint?      @relation("ComplaintSourceThread", fields: [complaintId], references: [id], onDelete: SetNull)
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   messages      PortalMessage[]

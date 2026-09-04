@@ -618,6 +618,9 @@ export default function ExpensesPage() {
   const [moreOpen, setMoreOpen] = useState(false);
   const receiptUploaderRef = useRef<ExpenseDocumentUploadHandle>(null);
   const [pettyCashBalance, setPettyCashBalance] = useState<number | null>(null);
+  // Repair authority limit for the form's property (from the same fetch) —
+  // a petty-cash expense above it is created PENDING for the float holder.
+  const [pettyCashLimit, setPettyCashLimit] = useState<number | null>(null);
   const [editEntry, setEditEntry] = useState<any | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [docPanelRows, setDocPanelRows] = useState<Set<string>>(new Set());
@@ -785,11 +788,12 @@ export default function ExpensesPage() {
     if (formPropertyId) params.set("propertyId", formPropertyId);
     fetch(`/api/petty-cash?${params}`)
       .then((r) => r.ok ? r.json() : null)
-      .then((data: { entries?: { balance?: number }[] } | null) => {
+      .then((data: { entries?: { balance?: number }[]; limitsByProperty?: Record<string, number> } | null) => {
         const entries = data?.entries ?? [];
         setPettyCashBalance(entries.length > 0 ? entries[0].balance ?? 0 : 0);
+        setPettyCashLimit(formPropertyId ? data?.limitsByProperty?.[formPropertyId] ?? null : null);
       })
-      .catch(() => setPettyCashBalance(null));
+      .catch(() => { setPettyCashBalance(null); setPettyCashLimit(null); });
   }, [showForm, paidFromPettyCash, formPropertyId]);
 
   // The VAT rule that applies to a single-amount vendor bill, for the
@@ -2142,7 +2146,13 @@ export default function ExpensesPage() {
                         {pettyCashBalance < 0 && " ⚠ Deficit — consider topping up"}
                       </span>
                     )}
-                    <p className="text-gray-400 mt-0.5">A matching Petty Cash OUT entry is created automatically and the expense is marked paid in full.</p>
+                    {pettyCashLimit != null && Number(wAmount) > pettyCashLimit ? (
+                      <p className="text-amber-700 mt-0.5">
+                        Above this property&apos;s repair authority limit ({formatCurrency(pettyCashLimit, currency)}) — the petty-cash withdrawal will wait for approval on the Petty Cash page before it moves the float.
+                      </p>
+                    ) : (
+                      <p className="text-gray-400 mt-0.5">A matching Petty Cash OUT entry is created automatically and the expense is marked paid in full.</p>
+                    )}
                   </div>
                 )}
               </div>

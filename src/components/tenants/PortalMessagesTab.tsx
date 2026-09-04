@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
+import Link from "next/link";
+import { COMPLAINT_CATEGORY_LABEL, type ComplaintCategory } from "@/lib/complaint-rules";
 
 type ThreadSummary = {
   id: string;
@@ -14,6 +16,7 @@ type ThreadSummary = {
   preview: string;
   lastSender: "TENANT" | "MANAGER" | null;
   unreadCount: number;
+  complaintId?: string | null;
 };
 
 type ThreadDetail = {
@@ -22,6 +25,7 @@ type ThreadDetail = {
   category: string;
   status: "SENT" | "READ" | "RESOLVED";
   tenantName: string;
+  complaintId?: string | null;
   messages: { id: string; body: string; sender: "TENANT" | "MANAGER"; createdAt: string }[];
 };
 
@@ -45,6 +49,11 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
   const [reply, setReply] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  // "Log as complaint" mini-form (one-way, once per thread)
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertCategory, setConvertCategory] = useState<ComplaintCategory>("OTHER");
+  const [convertTitle, setConvertTitle] = useState("");
+  const [converting, setConverting] = useState(false);
 
   const loadThreads = useCallback(async () => {
     setLoading(true);
@@ -86,6 +95,26 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
       }
     } finally {
       setSending(false);
+    }
+  }
+
+  async function convertToComplaint() {
+    if (!activeId) return;
+    setConverting(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/messages/${activeId}/convert-to-complaint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: convertCategory, title: convertTitle.trim() || undefined }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(typeof body.error === "string" ? body.error : "Could not log the complaint"); return; }
+      toast.success("Logged as a complaint");
+      setConvertOpen(false);
+      await loadDetail(activeId);
+      await loadThreads();
+    } finally {
+      setConverting(false);
     }
   }
 
@@ -164,6 +193,19 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
                     <p className="text-caption text-gray-400">{CATEGORY_LABELS[detail.category]}</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {detail.complaintId ? (
+                      <Link href={`/complaints/${detail.complaintId}`} className="text-caption px-2 py-1 border border-gold/40 rounded text-gold hover:bg-gold/5">
+                        Logged as complaint →
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => { setConvertTitle(detail.subject); setConvertOpen((v) => !v); }}
+                        className="text-caption px-2 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+                        title="Turn this conversation into a tracked complaint with a response-time SLA"
+                      >
+                        Log as complaint
+                      </button>
+                    )}
                     {detail.status !== "RESOLVED" && (
                       <button
                         onClick={() => setStatus("RESOLVED")}
@@ -177,6 +219,24 @@ export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
                     </span>
                   </div>
                 </div>
+
+                {convertOpen && !detail.complaintId && (
+                  <div className="px-4 py-3 border-b border-amber-100 bg-amber-50 space-y-2">
+                    <p className="text-caption text-amber-900">
+                      The tenant becomes the complainant, their messages become the complaint description, and they can follow it in their portal.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <select value={convertCategory} onChange={(e) => setConvertCategory(e.target.value as ComplaintCategory)} className="text-body border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
+                        {(Object.keys(COMPLAINT_CATEGORY_LABEL) as ComplaintCategory[]).map((c) => <option key={c} value={c}>{COMPLAINT_CATEGORY_LABEL[c]}</option>)}
+                      </select>
+                      <input value={convertTitle} onChange={(e) => setConvertTitle(e.target.value)} placeholder="Complaint title" className="flex-1 min-w-40 text-body border border-gray-200 rounded-lg px-2 py-1.5 bg-white" />
+                      <button onClick={convertToComplaint} disabled={converting} className="text-caption font-medium px-3 py-1.5 bg-gold text-white rounded-lg hover:bg-gold-dark disabled:opacity-50">
+                        {converting ? "Logging…" : "Log complaint"}
+                      </button>
+                      <button onClick={() => setConvertOpen(false)} className="text-caption px-3 py-1.5 border border-gray-200 rounded-lg text-gray-500 bg-white hover:bg-gray-50">Cancel</button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
                   {detail.messages.map((m) => (

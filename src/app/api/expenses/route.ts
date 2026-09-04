@@ -165,9 +165,13 @@ export async function POST(req: Request) {
     : [];
 
   const pettyCashPropertyId = paidFromPettyCash ? effectivePropertyId ?? null : null;
-  // Caretaker OUT rows wait for the float holder (PENDING never moves the
-  // balance); everyone else keeps today's immediate-APPROVED behaviour.
-  const pettyCashStatus = resolvePettyCashOutStatus({ orgRole, amount: computedAmount, repairAuthorityLimit: null });
+  // Same approval rule as POST /api/petty-cash: caretaker rows always wait
+  // for the float holder; anyone else's row waits when it exceeds the
+  // property's repair authority limit (the expense path used to skip this).
+  const repairAuthorityLimit = pettyCashPropertyId
+    ? (await prisma.managementAgreement.findUnique({ where: { propertyId: pettyCashPropertyId }, select: { repairAuthorityLimit: true } }))?.repairAuthorityLimit ?? null
+    : null;
+  const pettyCashStatus = resolvePettyCashOutStatus({ orgRole, amount: computedAmount, repairAuthorityLimit });
 
   const shareAmount = isMultiUnit ? computedAmount / unitIds.length : computedAmount;
 
@@ -250,6 +254,7 @@ export async function POST(req: Request) {
                   description: rest.description ?? `${rest.category} expense`,
                   propertyId: pettyCashPropertyId,
                   organizationId: session!.user.organizationId ?? null,
+                  receiptRef: rest.paymentReference || null,
                   status: pettyCashStatus,
                 },
               },

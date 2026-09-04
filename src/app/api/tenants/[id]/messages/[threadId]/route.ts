@@ -48,6 +48,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; thr
     category: thread!.category,
     status: thread!.status === "SENT" ? "READ" : thread!.status,
     tenantName: thread!.tenant.name,
+    complaintId: thread!.complaintId,
     messages: thread!.messages.map((m) => ({
       id: m.id,
       body: m.body,

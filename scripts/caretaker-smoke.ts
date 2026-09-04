@@ -317,7 +317,6 @@ async function main() {
     ["GET /api/report/owner-statement", `/api/report/owner-statement?year=2026&month=9`],
     ["GET /api/hints", "/api/hints"],
     ["GET /api/inbox", "/api/inbox"],
-    ["GET /api/search", "/api/search?q=sm"],
     ["GET /api/income", `/api/income?propertyId=${property.id}`],
     ["GET /api/invoices", "/api/invoices"],
     ["GET /api/units", `/api/units?propertyId=${property.id}`],
@@ -501,6 +500,32 @@ async function main() {
   await expectStatus(care, "GET /api/complaints?tenantId= (caretaker) hides STAFF_CONDUCT", `/api/complaints?tenantId=${tenant.id}`, 200).then((rows: any) => {
     check("caretaker: tenantId filter still excludes STAFF_CONDUCT", Array.isArray(rows) && !rows.some((c: any) => c.id === pcStaff?.id));
   });
+
+  // ── Phase 2c: search ──
+  {
+    const res = await expectStatus(care, "GET /api/search?q= (caretaker) → 200", `/api/search?q=${stamp}`, 200);
+    const resSmoke = await expectStatus(care, "GET /api/search?q=Smoke (caretaker) → 200", `/api/search?q=Smoke`, 200);
+    const types = new Set<string>((res?.results ?? []).map((r: any) => r.type));
+    check("caretaker: search never returns tenant / invoice / case / document groups",
+      !types.has("tenant") && !types.has("invoice") && !types.has("case") && !types.has("document"), JSON.stringify(Array.from(types)));
+    const compHit = (res?.results ?? []).find((r: any) => r.type === "complaint" && r.id === pc1?.id);
+    check("caretaker: portal complaint is a complaint hit linking to /complaints/[id]", !!compHit && compHit.href === `/complaints/${pc1?.id}`);
+    check("caretaker: STAFF_CONDUCT complaint is not a search hit", !(res?.results ?? []).some((r: any) => r.id === pcStaff?.id));
+    check("caretaker: property hit links to /maintenance, not /properties",
+      !(res?.results ?? []).some((r: any) => r.type === "property" && r.href !== "/maintenance"));
+    check("caretaker: maintenance hits never link to /cases",
+      !(res?.results ?? []).some((r: any) => r.type === "maintenance" && /\/cases\//.test(r.href)));
+    const tenantHit = (resSmoke?.results ?? []).some((r: any) => /Smoke Tenant/.test(r.title));
+    check("caretaker: tenant name does not appear as a result title", !tenantHit);
+  }
+  {
+    const res = await expectStatus(mgr, "GET /api/search?q= (manager) → 200", `/api/search?q=${stamp}`, 200);
+    const resSmoke = await expectStatus(mgr, "GET /api/search?q=Smoke (manager) → 200", `/api/search?q=Smoke`, 200);
+    const types = new Set<string>((resSmoke?.results ?? []).map((r: any) => r.type));
+    check("manager: search still returns tenants, and complaints incl. STAFF_CONDUCT",
+      types.has("tenant") && (res?.results ?? []).some((r: any) => r.id === pcStaff?.id), JSON.stringify(Array.from(types)));
+  }
+  await expectStatus(acct, "GET /api/search (accountant) → 200", `/api/search?q=Smoke`, 200);
 
   // ── cleanup ──
   for (const id of Array.from(created.complaints)) {

@@ -6,7 +6,7 @@ import { PropertyProvider } from "@/lib/property-context";
 import { TrialBanner } from "@/components/layout/TrialBanner";
 import { InviteBanner } from "@/components/layout/InviteBanner";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
-import { MANAGER_ROLES } from "@/lib/auth-utils";
+import { OPS_ROLES } from "@/lib/auth-utils";
 
 export default async function DashboardLayout({
   children,
@@ -34,8 +34,8 @@ export default async function DashboardLayout({
           </main>
         </div>
         <MobileNav role={role} />
-        {/* Cmd/Ctrl+K palette — search API is manager-only (allow-list: no OWNER, no CARETAKER) */}
-        {(MANAGER_ROLES as readonly string[]).includes(role) && <GlobalSearch />}
+        {/* Cmd/Ctrl+K palette — ops staff incl. CARETAKER (per-group scoping in the API); never OWNER */}
+        {(OPS_ROLES as readonly string[]).includes(role) && <GlobalSearch />}
       </div>
     </PropertyProvider>
   );

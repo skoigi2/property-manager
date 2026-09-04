@@ -1,9 +1,12 @@
-import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireOpsStaff, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { searchGroupsFor, searchHrefs, type SearchGroup } from "@/lib/search-visibility";
+import { complaintCategoryFilter } from "@/lib/complaints";
+import { COMPLAINT_CATEGORY_LABEL, type ComplaintCategory } from "@/lib/complaint-rules";
 
 export interface SearchResult {
   id: string;
-  type: "tenant" | "property" | "invoice" | "vendor" | "case" | "maintenance" | "expense" | "document";
+  type: SearchGroup;
   title: string;
   subtitle?: string;
   href: string;
@@ -11,14 +14,26 @@ export interface SearchResult {
 
 const PER_GROUP = 5;
 
+const CASE_TYPE_LABEL: Record<string, string> = {
+  MAINTENANCE: "Maintenance", LEASE_RENEWAL: "Lease renewal", ARREARS: "Arrears",
+  COMPLIANCE: "Compliance", GENERAL: "General", COMPLAINT: "Complaint",
+};
+
 /**
  * GET /api/search?q= — global search across core entities, scoped to the
  * caller's accessible properties (and org for vendors). Returns grouped,
  * deep-linked results for the Cmd+K palette.
+ *
+ * Ops staff incl. CARETAKER: the groups a role may query come from
+ * src/lib/search-visibility.ts — a group the role cannot open is never
+ * queried at all.
  */
 export async function GET(req: Request) {
-  const { session, error } = await requireManager();
+  const { session, error } = await requireOpsStaff();
   if (error) return error;
+  const orgRole = session!.user.orgRole;
+  const groups = new Set<SearchGroup>(searchGroupsFor(orgRole));
+  const hrefs = searchHrefs(orgRole);
 
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return Response.json({ results: [] });
@@ -29,108 +44,146 @@ export async function GET(req: Request) {
 
   const orgId = session!.user.organizationId;
   const contains = { contains: q, mode: "insensitive" as const };
+  const none = <T,>(): Promise<T[]> => Promise.resolve([]);
 
-  const [tenants, properties, invoices, vendors, cases, jobs, expenses, documents] = await Promise.all([
-    prisma.tenant.findMany({
-      where: {
-        unit: { propertyId: { in: propertyIds } },
-        OR: [{ name: contains }, { email: contains }, { phone: contains }],
-      },
-      select: {
-        id: true,
-        name: true,
-        isActive: true,
-        unit: { select: { unitNumber: true, property: { select: { name: true } } } },
-      },
-      orderBy: { isActive: "desc" },
-      take: PER_GROUP,
-    }),
-    prisma.property.findMany({
-      where: { id: { in: propertyIds }, name: contains },
-      select: { id: true, name: true, type: true },
-      take: PER_GROUP,
-    }),
-    prisma.invoice.findMany({
-      where: {
-        tenant: { unit: { propertyId: { in: propertyIds } } },
-        invoiceNumber: contains,
-      },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        status: true,
-        tenant: { select: { name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: PER_GROUP,
-    }),
-    orgId
+  const [tenants, properties, invoices, vendors, cases, jobs, expenses, documents, complaints] = await Promise.all([
+    groups.has("tenant")
+      ? prisma.tenant.findMany({
+          where: {
+            unit: { propertyId: { in: propertyIds } },
+            OR: [{ name: contains }, { email: contains }, { phone: contains }],
+          },
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+            unit: { select: { unitNumber: true, property: { select: { name: true } } } },
+          },
+          orderBy: { isActive: "desc" },
+          take: PER_GROUP,
+        })
+      : none<never>(),
+    groups.has("property")
+      ? prisma.property.findMany({
+          where: { id: { in: propertyIds }, name: contains },
+          select: { id: true, name: true, type: true },
+          take: PER_GROUP,
+        })
+      : none<never>(),
+    groups.has("invoice")
+      ? prisma.invoice.findMany({
+          where: {
+            tenant: { unit: { propertyId: { in: propertyIds } } },
+            invoiceNumber: contains,
+          },
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+            tenant: { select: { name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: PER_GROUP,
+        })
+      : none<never>(),
+    groups.has("vendor") && orgId
       ? prisma.vendor.findMany({
           where: { organizationId: orgId, name: contains },
           select: { id: true, name: true, category: true, isActive: true },
           take: PER_GROUP,
         })
-      : Promise.resolve([]),
-    prisma.caseThread.findMany({
-      where: { propertyId: { in: propertyIds }, title: contains },
-      select: { id: true, title: true, status: true, caseType: true },
-      orderBy: { lastActivityAt: "desc" },
-      take: PER_GROUP,
-    }),
-    prisma.maintenanceJob.findMany({
-      where: {
-        propertyId: { in: propertyIds },
-        OR: [{ title: contains }, { description: contains }],
-      },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        caseThreadId: true,
-        property: { select: { name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: PER_GROUP,
-    }),
+      : none<never>(),
+    groups.has("case")
+      ? prisma.caseThread.findMany({
+          where: { propertyId: { in: propertyIds }, title: contains },
+          select: { id: true, title: true, status: true, caseType: true },
+          orderBy: { lastActivityAt: "desc" },
+          take: PER_GROUP,
+        })
+      : none<never>(),
+    groups.has("maintenance")
+      ? prisma.maintenanceJob.findMany({
+          where: {
+            propertyId: { in: propertyIds },
+            OR: [{ title: contains }, { description: contains }],
+          },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            caseThreadId: true,
+            property: { select: { name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: PER_GROUP,
+        })
+      : none<never>(),
     // Expenses: description / payment reference, property-linked rows via
     // access, property-less (PORTFOLIO) rows via the caller's org.
-    prisma.expenseEntry.findMany({
-      where: {
-        OR: [
-          { propertyId: { in: propertyIds } },
-          { unit: { propertyId: { in: propertyIds } } },
-          ...(orgId ? [{ propertyId: null, unitId: null, organizationId: orgId }] : []),
-        ],
-        AND: { OR: [{ description: contains }, { paymentReference: contains }] },
-      },
-      select: {
-        id: true,
-        description: true,
-        category: true,
-        amount: true,
-        date: true,
-        property: { select: { name: true, currency: true } },
-        unit: { select: { unitNumber: true, property: { select: { name: true, currency: true } } } },
-      },
-      orderBy: { date: "desc" },
-      take: PER_GROUP,
-    }),
+    groups.has("expense")
+      ? prisma.expenseEntry.findMany({
+          where: {
+            OR: [
+              { propertyId: { in: propertyIds } },
+              { unit: { propertyId: { in: propertyIds } } },
+              ...(orgId ? [{ propertyId: null, unitId: null, organizationId: orgId }] : []),
+            ],
+            AND: { OR: [{ description: contains }, { paymentReference: contains }] },
+          },
+          select: {
+            id: true,
+            description: true,
+            category: true,
+            amount: true,
+            date: true,
+            property: { select: { name: true, currency: true } },
+            unit: { select: { unitNumber: true, property: { select: { name: true, currency: true } } } },
+          },
+          orderBy: { date: "desc" },
+          take: PER_GROUP,
+        })
+      : none<never>(),
     // Tenant documents by file name — "find that plumber receipt from March".
-    prisma.tenantDocument.findMany({
-      where: {
-        tenant: { unit: { propertyId: { in: propertyIds } } },
-        fileName: contains,
-      },
-      select: {
-        id: true,
-        fileName: true,
-        category: true,
-        tenantId: true,
-        tenant: { select: { name: true } },
-      },
-      orderBy: { uploadedAt: "desc" },
-      take: PER_GROUP,
-    }),
+    groups.has("document")
+      ? prisma.tenantDocument.findMany({
+          where: {
+            tenant: { unit: { propertyId: { in: propertyIds } } },
+            fileName: contains,
+          },
+          select: {
+            id: true,
+            fileName: true,
+            category: true,
+            tenantId: true,
+            tenant: { select: { name: true } },
+          },
+          orderBy: { uploadedAt: "desc" },
+          take: PER_GROUP,
+        })
+      : none<never>(),
+    // Tenant complaints — title / description; categories the role cannot see
+    // are excluded in the query (STAFF_CONDUCT for CARETAKER).
+    groups.has("complaint")
+      ? prisma.tenantComplaint.findMany({
+          where: {
+            propertyId: { in: propertyIds },
+            ...complaintCategoryFilter(orgRole),
+            OR: [{ title: contains }, { description: contains }],
+          },
+          select: {
+            id: true,
+            title: true,
+            category: true,
+            source: true,
+            property: { select: { name: true } },
+            subjectUnit: { select: { unitNumber: true } },
+            unit: { select: { unitNumber: true } },
+            caseThread: { select: { status: true, stage: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: PER_GROUP,
+        })
+      : none<never>(),
   ]);
 
   const results: SearchResult[] = [
@@ -146,7 +199,7 @@ export async function GET(req: Request) {
       type: "property" as const,
       title: p.name,
       subtitle: p.type === "AIRBNB" ? "Short-let property" : "Long-term property",
-      href: "/properties",
+      href: hrefs.property(),
     })),
     ...invoices.map((i) => ({
       id: i.id,
@@ -166,7 +219,7 @@ export async function GET(req: Request) {
       id: c.id,
       type: "case" as const,
       title: c.title,
-      subtitle: `${c.caseType} · ${c.status}`,
+      subtitle: `${CASE_TYPE_LABEL[c.caseType] ?? c.caseType} · ${c.status.replace(/_/g, " ").toLowerCase()}`,
       href: `/cases/${c.id}`,
     })),
     ...jobs.map((j) => ({
@@ -174,7 +227,7 @@ export async function GET(req: Request) {
       type: "maintenance" as const,
       title: j.title,
       subtitle: `${j.property.name} · ${j.status}`,
-      href: j.caseThreadId ? `/cases/${j.caseThreadId}` : "/maintenance",
+      href: hrefs.maintenance(j.id, j.caseThreadId),
     })),
     ...expenses.map((e) => {
       const prop = e.property ?? e.unit?.property ?? null;
@@ -195,6 +248,16 @@ export async function GET(req: Request) {
       subtitle: `${d.tenant.name} · ${d.category.replace(/_/g, " ").toLowerCase()}`,
       href: `/tenants/${d.tenantId}?tab=documents`,
     })),
+    ...complaints.map((c) => {
+      const unitRef = c.subjectUnit?.unitNumber ?? c.unit?.unitNumber ?? null;
+      return {
+        id: c.id,
+        type: "complaint" as const,
+        title: c.title,
+        subtitle: `${COMPLAINT_CATEGORY_LABEL[c.category as ComplaintCategory] ?? c.category} · ${c.property.name}${unitRef ? ` · ${unitRef}` : ""} · ${c.caseThread?.stage ?? "Received"}`,
+        href: `/complaints/${c.id}`,
+      };
+    }),
   ];
 
   return Response.json({ results });

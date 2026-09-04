@@ -114,7 +114,8 @@ Reachable surfaces (everything else is denied by the allow-lists above): `/expen
 - **Tenant complaints** (Phase 2a, shipped): `/complaints` list + detail, `GET/POST /api/complaints`, `GET/PATCH/DELETE /api/complaints/[id]`, `POST /api/complaints/[id]/events` — see "Tenant Complaints" below. Caretakers log, photograph, acknowledge, investigate and **resolve** complaints; close / reopen / delete are manager-only; `STAFF_CONDUCT` complaints are invisible to the role end to end.
 - **Tenants directory read**: `GET /api/tenants` returns `TENANT_DIRECTORY_SELECT` (`src/lib/tenant-projection.ts` — id, name, phone, isActive, unit) for CARETAKER, or for anyone passing `?projection=directory`. `GET /api/tenants/[id]` stays closed.
 - **Portal complaints** (Phase 2b, shipped): tenants raise complaints from the portal's Request tab ("Repair request / Complaint" toggle) via `POST/GET /api/portal/[token]/complaints`; they see only their own PORTAL-sourced rows and only tenant-visible updates. Resolving one emails the tenant (`NOTIFY_COMPLAINT_RESOLVED`). The tenant detail page has a Complaints tab (`GET /api/complaints?tenantId=`).
-- Not built by decision: a caretaker inbox (`/complaints` is its own SLA-sorted queue). Phase 2c (caretaker search) is planned. A "convert portal message → complaint" button is deferred until complaints actually arrive as chat.
+- **Search** (Phase 2c, shipped): the Cmd+K palette is mounted for ops staff incl. CARETAKER. `GET /api/search` is `requireOpsStaff()`; `searchGroupsFor(orgRole)` (`src/lib/search-visibility.ts`) decides which groups are **queried at all** — caretakers get properties, vendors, maintenance, expenses and complaints (never tenants, invoices, cases, documents), complaint hits exclude `STAFF_CONDUCT`, and `searchHrefs` keeps their deep links off `/cases` and `/properties`. A `complaint` group exists for every role.
+- Not built by decision: a caretaker inbox (`/complaints` is its own SLA-sorted queue). A "convert portal message → complaint" button is deferred until complaints actually arrive as chat.
 
 ### Tenant Complaints
 
@@ -193,7 +194,7 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 
 ### Global search
 
-`GET /api/search?q=` (`requireManager`, min 2 chars) searches tenants, properties, invoices, vendors, cases, and maintenance jobs (5 per group), scoped by `getAccessiblePropertyIds()` + org for vendors. UI: `src/components/layout/GlobalSearch.tsx` — Cmd/Ctrl+K palette mounted in the dashboard layout (hidden for OWNER), with a Sidebar trigger that dispatches the `gw:open-global-search` window event.
+`GET /api/search?q=` (`requireOpsStaff`, min 2 chars) searches tenants, properties, invoices, vendors, cases, maintenance jobs, expenses, tenant documents and complaints (5 per group), scoped by `getAccessiblePropertyIds()` + org for vendors. Which groups run is decided per role by `searchGroupsFor` in `src/lib/search-visibility.ts` (CARETAKER: properties, vendors, maintenance, expenses, complaints only). UI: `src/components/layout/GlobalSearch.tsx` — Cmd/Ctrl+K palette mounted in the dashboard layout for ops staff (never OWNER), with a Sidebar trigger that dispatches the `gw:open-global-search` window event.
 
 ### Public API & Webhooks
 

@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Users, Building2, FileText, Store, FolderOpen, Wrench, Loader2, Receipt, Paperclip } from "lucide-react";
+import { Search, Users, Building2, FileText, Store, FolderOpen, Wrench, Loader2, Receipt, Paperclip, MessageSquareWarning } from "lucide-react";
 
 interface SearchResult {
   id: string;
-  type: "tenant" | "property" | "invoice" | "vendor" | "case" | "maintenance" | "expense" | "document";
+  type: "tenant" | "property" | "invoice" | "vendor" | "case" | "maintenance" | "expense" | "document" | "complaint";
   title: string;
   subtitle?: string;
   href: string;
@@ -21,18 +21,20 @@ const TYPE_META: Record<SearchResult["type"], { label: string; icon: typeof User
   maintenance: { label: "Maintenance", icon: Wrench },
   expense:     { label: "Expenses",    icon: Receipt },
   document:    { label: "Documents",   icon: Paperclip },
+  complaint:   { label: "Complaints",  icon: MessageSquareWarning },
 };
 
 const GROUP_ORDER: SearchResult["type"][] = [
-  "tenant", "property", "invoice", "case", "maintenance", "expense", "document", "vendor",
+  "tenant", "property", "invoice", "case", "maintenance", "complaint", "expense", "document", "vendor",
 ];
 
 /** Event name the Sidebar trigger dispatches to open the palette. */
 export const OPEN_SEARCH_EVENT = "gw:open-global-search";
 
 /**
- * Cmd/Ctrl+K command palette. Mounted once in the dashboard layout; not
- * rendered for OWNER role (the search API is manager-only).
+ * Cmd/Ctrl+K command palette. Mounted once in the dashboard layout for ops
+ * staff (manager tier + CARETAKER); never for OWNER. The API decides which
+ * groups a role may query (src/lib/search-visibility.ts).
  */
 export function GlobalSearch() {
   const router = useRouter();

@@ -300,8 +300,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
           </div>
         )}
 
-        {/* Global search trigger — opens the Cmd+K palette (manager tier only) */}
-        {(role === "ADMIN" || role === "MANAGER" || role === "ACCOUNTANT") && (
+        {/* Global search trigger — opens the Cmd+K palette (ops staff incl. CARETAKER; never OWNER) */}
+        {(role === "ADMIN" || role === "MANAGER" || role === "ACCOUNTANT" || role === "CARETAKER") && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("gw:open-global-search"))}
             className="mt-3 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"

@@ -34,6 +34,8 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   "src/app/api/complaints/route.ts",
   "src/app/api/complaints/[id]/route.ts",
   "src/app/api/complaints/[id]/events/route.ts",
+  // Global search — per-group scoping in src/lib/search-visibility.ts
+  "src/app/api/search/route.ts",
   // Identity-scoped plumbing every signed-in user needs
   "src/app/api/notification-preferences/route.ts",
   "src/app/api/invitations/my/route.ts",

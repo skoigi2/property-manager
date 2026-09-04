@@ -6,6 +6,7 @@ import {
 import { WORKFLOWS, computeDefaultStageSlaHours } from "@/lib/case-workflow-defs";
 import { TENANT_DIRECTORY_SELECT, TENANT_DIRECTORY_KEYS, tenantReadIsDirectory } from "@/lib/tenant-projection";
 import { validateCaseAttachments, CASE_ATTACHMENT_MAX_FILES } from "@/lib/case-events";
+import { searchGroupsFor, searchHrefs, ALL_SEARCH_GROUPS } from "@/lib/search-visibility";
 
 const ROLES = ["ADMIN", "MANAGER", "ACCOUNTANT", "OWNER", "CARETAKER"] as const;
 const CATS = Object.keys(COMPLAINT_CATEGORY_LABEL);
@@ -122,5 +123,30 @@ describe("validateCaseAttachments", () => {
     expect(validateCaseAttachments(img(CASE_ATTACHMENT_MAX_FILES + 1)).ok).toBe(false);
     expect(validateCaseAttachments([{ name: "big.jpg", size: 12 * 1024 * 1024, type: "image/jpeg" }]).ok).toBe(false);
     expect(validateCaseAttachments([{ name: "x.exe", size: 10, type: "application/octet-stream" }]).ok).toBe(false);
+  });
+});
+
+describe("search visibility", () => {
+  it("CARETAKER queries only the groups whose pages they can open", () => {
+    const g = searchGroupsFor("CARETAKER");
+    expect([...g].sort()).toEqual(["complaint", "expense", "maintenance", "property", "vendor"]);
+    for (const hidden of ["tenant", "invoice", "case", "document"]) expect(g).not.toContain(hidden);
+  });
+
+  it("every other role gets every group, complaints included", () => {
+    for (const r of ["ADMIN", "MANAGER", "ACCOUNTANT", undefined]) {
+      expect(searchGroupsFor(r)).toEqual(ALL_SEARCH_GROUPS);
+    }
+    expect(ALL_SEARCH_GROUPS).toContain("complaint");
+  });
+
+  it("deep links never send a caretaker to /cases or /properties", () => {
+    const care = searchHrefs("CARETAKER");
+    expect(care.property()).toBe("/maintenance");
+    expect(care.maintenance("job1", "case1")).toBe("/maintenance?focus=job1");
+    const mgr = searchHrefs("MANAGER");
+    expect(mgr.property()).toBe("/properties");
+    expect(mgr.maintenance("job1", "case1")).toBe("/cases/case1");
+    expect(mgr.maintenance("job1", null)).toBe("/maintenance?focus=job1");
   });
 });

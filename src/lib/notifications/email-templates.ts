@@ -277,6 +277,30 @@ export function complaintRaisedTemplate(data: {
   return { subject, html };
 }
 
+export function complaintResolvedTemplate(data: {
+  tenantName: string;
+  title: string;
+  propertyName: string;
+  resolutionNote: string | null;
+  portalUrl: string | null;
+}): { subject: string; html: string } {
+  const subject = `Your complaint has been resolved — ${data.title}`;
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:${NAVY};font-size:20px;margin-bottom:6px;">Complaint resolved</h2>
+      <p style="color:${GRAY};font-size:14px;line-height:1.6;">Hi ${escapeHtml(data.tenantName)},</p>
+      <p style="color:${GRAY};font-size:14px;line-height:1.6;">
+        Your complaint <strong>${escapeHtml(data.title)}</strong> at ${escapeHtml(data.propertyName)} has been marked as resolved.
+      </p>
+      ${data.resolutionNote ? `<p style="color:#111827;font-size:13px;line-height:1.6;background:#f9fafb;padding:10px 12px;border-radius:6px;white-space:pre-wrap;">${escapeHtml(data.resolutionNote)}</p>` : ""}
+      <p style="color:${GRAY};font-size:14px;line-height:1.6;">If the issue is not sorted, reply through your tenant portal and we will look again.</p>
+      ${data.portalUrl ? cta("Open tenant portal", data.portalUrl) : ""}
+      <hr style="border:none;border-top:1px solid #f3f4f6;margin:24px 0;" />
+      <p style="color:${LGRAY};font-size:11px;margin:0;">Sent by your property manager via GroundWorkPM.</p>
+    </div>`;
+  return { subject, html };
+}
+
 // ─── Monthly owner statement ──────────────────────────────────────────────────
 
 export function ownerMonthlyReportTemplate(data: {

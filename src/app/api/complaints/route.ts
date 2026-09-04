@@ -25,6 +25,7 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
   const category = searchParams.get("category");
   const mine = searchParams.get("mine") === "true";
+  const tenantId = searchParams.get("tenantId");
   const openOnly = searchParams.get("open") === "true";
   const effectiveIds = propertyId && propertyIds.includes(propertyId) ? [propertyId] : propertyIds;
 
@@ -36,6 +37,7 @@ export async function GET(req: Request) {
         ? { category: category as (typeof COMPLAINT_CATEGORIES)[number] }
         : {}),
       ...(mine ? { raisedByUserId: session!.user.id } : {}),
+      ...(tenantId ? { tenantId } : {}),
       ...(status && (CASE_STATUSES as readonly string[]).includes(status)
         ? { caseThread: { status: status as (typeof CASE_STATUSES)[number] } }
         : {}),

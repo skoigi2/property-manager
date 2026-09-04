@@ -77,6 +77,22 @@ type MaintenanceRequest = {
   notes: string | null;
 };
 
+type PortalComplaint = {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  categoryLabel: string;
+  status: string;
+  stage: string;
+  isResolved: boolean;
+  unitConcerned: string | null;
+  acknowledgedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updates: { id: string; body: string; at: string; byStaff: boolean; staffName: string | null }[];
+};
+
 type LedgerEvent =
   | {
       kind: "INVOICE_ISSUED";
@@ -146,6 +162,15 @@ const MAINT_CATEGORIES = [
   { value: "SECURITY", label: "Security" },
   { value: "PEST_CONTROL", label: "Pest Control" },
   { value: "OTHER", label: "Other" },
+];
+
+const COMPLAINT_CATEGORIES_PORTAL = [
+  { value: "NOISE", label: "Noise" },
+  { value: "NEIGHBOUR", label: "A neighbour" },
+  { value: "SECURITY", label: "Security" },
+  { value: "PREMISES", label: "The building or services" },
+  { value: "STAFF_CONDUCT", label: "Staff conduct" },
+  { value: "OTHER", label: "Something else" },
 ];
 
 const MSG_CATEGORIES = [
@@ -225,6 +250,14 @@ export default function PortalPage({ params }: { params: { token: string } }) {
   const [maintForm, setMaintForm] = useState({ title: "", description: "", category: "OTHER", isEmergency: false });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Request tab: repair request (maintenance) vs complaint
+  const [requestKind, setRequestKind] = useState<"repair" | "complaint">("repair");
+  const [complaints, setComplaints] = useState<PortalComplaint[]>([]);
+  const [complaintsLoading, setComplaintsLoading] = useState(false);
+  const [complaintForm, setComplaintForm] = useState({ title: "", description: "", category: "NOISE" });
+  const [complaintSubmitting, setComplaintSubmitting] = useState(false);
+  const [complaintSubmitted, setComplaintSubmitted] = useState(false);
+  const [openComplaintId, setOpenComplaintId] = useState<string | null>(null);
 
   // Ledger
   const [ledger, setLedger] = useState<LedgerData | null>(null);
@@ -288,6 +321,15 @@ export default function PortalPage({ params }: { params: { token: string } }) {
       .finally(() => setRequestsLoading(false));
   }, [tab, params.token]);
 
+  useEffect(() => {
+    if (tab !== "request" || requestKind !== "complaint") return;
+    setComplaintsLoading(true);
+    fetch(`/api/portal/${params.token}/complaints`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setComplaints(Array.isArray(d) ? d : []))
+      .finally(() => setComplaintsLoading(false));
+  }, [tab, requestKind, params.token]);
+
   const loadThreads = useCallback(async () => {
     setThreadsLoading(true);
     try {
@@ -342,6 +384,28 @@ export default function PortalPage({ params }: { params: { token: string } }) {
       await loadThreads();
     } else {
       toast.error("Failed to send message");
+    }
+  }
+
+  async function handleSubmitComplaint(e: React.FormEvent) {
+    e.preventDefault();
+    if (complaintForm.title.trim().length < 3) return;
+    setComplaintSubmitting(true);
+    const res = await fetch(`/api/portal/${params.token}/complaints`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(complaintForm),
+    });
+    setComplaintSubmitting(false);
+    if (res.ok) {
+      const created: PortalComplaint = await res.json();
+      setComplaints((prev) => [created, ...prev]);
+      setComplaintSubmitted(true);
+      setComplaintForm({ title: "", description: "", category: "NOISE" });
+      toast.success("Complaint sent to your property manager");
+    } else {
+      const body = await res.json().catch(() => ({}));
+      toast.error(typeof body.error === "string" ? body.error : "Failed to send complaint");
     }
   }
 
@@ -896,110 +960,253 @@ export default function PortalPage({ params }: { params: { token: string } }) {
         {/* ── Request Tab (Maintenance) ── */}
         {tab === "request" && (
           <>
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-h3 text-gray-900 mb-1">Submit a Maintenance Request</h2>
-              <p className="text-body text-gray-500 mb-4">
-                Describe the issue and we&apos;ll get back to you as soon as possible.
-              </p>
-
-              {submitted ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-4 text-center">
-                  <div className="text-h1 mb-2">✓</div>
-                  <p className="text-green-700 font-medium text-body">Request submitted!</p>
-                  <button onClick={() => setSubmitted(false)} className="mt-3 text-caption text-green-700 underline">
-                    Submit another
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmitMaint} className="space-y-4">
-                  <div>
-                    <label className="block text-body font-medium text-gray-700 mb-1">Category</label>
-                    <select
-                      value={maintForm.category}
-                      onChange={(e) => setMaintForm((f) => ({ ...f, category: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
-                    >
-                      {MAINT_CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-body font-medium text-gray-700 mb-1">
-                      What&apos;s the issue? <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text" required minLength={3}
-                      placeholder="e.g. Leaking tap in kitchen"
-                      value={maintForm.title}
-                      onChange={(e) => setMaintForm((f) => ({ ...f, title: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-body font-medium text-gray-700 mb-1">Additional details</label>
-                    <textarea
-                      rows={3}
-                      value={maintForm.description}
-                      onChange={(e) => setMaintForm((f) => ({ ...f, description: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
-                    />
-                  </div>
-                  <label className="flex items-center gap-3 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={maintForm.isEmergency}
-                      onChange={(e) => setMaintForm((f) => ({ ...f, isEmergency: e.target.checked }))}
-                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                    />
-                    <span className="text-body text-gray-700">This is an emergency</span>
-                  </label>
-                  <button
-                    type="submit" disabled={submitting || !maintForm.title.trim()}
-                    className="w-full bg-gray-900 text-white rounded-lg py-3 text-body font-medium disabled:opacity-50 hover:bg-gray-800"
-                  >
-                    {submitting ? "Submitting..." : "Submit Request"}
-                  </button>
-                </form>
-              )}
+            {/* Repair request vs complaint */}
+            <div className="flex rounded-xl border border-gray-200 bg-white p-1">
+              {([["repair", "Repair request"], ["complaint", "Complaint"]] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setRequestKind(k)}
+                  className={`flex-1 rounded-lg py-2 text-body font-medium transition-colors ${requestKind === k ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50"}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
-            <div>
-              <h2 className="text-body font-semibold text-gray-700 mb-2">My Requests</h2>
-              {requestsLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="w-6 h-6 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
-                </div>
-              ) : requests.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-body">
-                  No requests submitted yet
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {requests.map((req) => {
-                    const s = REQUEST_STATUS[req.status];
-                    return (
-                      <div key={req.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-body font-medium text-gray-900">{req.title}</p>
-                          <span className={`shrink-0 text-caption font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
-                            {s.label}
-                          </span>
-                        </div>
-                        {req.description && (
-                          <p className="text-caption text-gray-500 line-clamp-2">{req.description}</p>
-                        )}
-                        <div className="flex items-center gap-3 text-caption text-gray-400 flex-wrap">
-                          <span>{MAINT_CATEGORIES.find((c) => c.value === req.category)?.label ?? req.category}</span>
-                          <span>{format(new Date(req.reportedDate), "d MMM yyyy")}</span>
-                          {req.isEmergency && <span className="text-red-500 font-medium">Emergency</span>}
-                        </div>
+            {requestKind === "repair" && (
+              <>
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h2 className="text-h3 text-gray-900 mb-1">Submit a Maintenance Request</h2>
+                  <p className="text-body text-gray-500 mb-4">
+                    Describe the issue and we&apos;ll get back to you as soon as possible.
+                  </p>
+
+                  {submitted ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-4 text-center">
+                      <div className="text-h1 mb-2">✓</div>
+                      <p className="text-green-700 font-medium text-body">Request submitted!</p>
+                      <button onClick={() => setSubmitted(false)} className="mt-3 text-caption text-green-700 underline">
+                        Submit another
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmitMaint} className="space-y-4">
+                      <div>
+                        <label className="block text-body font-medium text-gray-700 mb-1">Category</label>
+                        <select
+                          value={maintForm.category}
+                          onChange={(e) => setMaintForm((f) => ({ ...f, category: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+                        >
+                          {MAINT_CATEGORIES.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </select>
                       </div>
-                    );
-                  })}
+                      <div>
+                        <label className="block text-body font-medium text-gray-700 mb-1">
+                          What&apos;s the issue? <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text" required minLength={3}
+                          placeholder="e.g. Leaking tap in kitchen"
+                          value={maintForm.title}
+                          onChange={(e) => setMaintForm((f) => ({ ...f, title: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-body font-medium text-gray-700 mb-1">Additional details</label>
+                        <textarea
+                          rows={3}
+                          value={maintForm.description}
+                          onChange={(e) => setMaintForm((f) => ({ ...f, description: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                        />
+                      </div>
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={maintForm.isEmergency}
+                          onChange={(e) => setMaintForm((f) => ({ ...f, isEmergency: e.target.checked }))}
+                          className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        />
+                        <span className="text-body text-gray-700">This is an emergency</span>
+                      </label>
+                      <button
+                        type="submit" disabled={submitting || !maintForm.title.trim()}
+                        className="w-full bg-gray-900 text-white rounded-lg py-3 text-body font-medium disabled:opacity-50 hover:bg-gray-800"
+                      >
+                        {submitting ? "Submitting..." : "Submit Request"}
+                      </button>
+                    </form>
+                  )}
                 </div>
-              )}
-            </div>
+
+                <div>
+                  <h2 className="text-body font-semibold text-gray-700 mb-2">My Requests</h2>
+                  {requestsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="w-6 h-6 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
+                    </div>
+                  ) : requests.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-body">
+                      No requests submitted yet
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {requests.map((req) => {
+                        const s = REQUEST_STATUS[req.status];
+                        return (
+                          <div key={req.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-body font-medium text-gray-900">{req.title}</p>
+                              <span className={`shrink-0 text-caption font-medium px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+                                {s.label}
+                              </span>
+                            </div>
+                            {req.description && (
+                              <p className="text-caption text-gray-500 line-clamp-2">{req.description}</p>
+                            )}
+                            <div className="flex items-center gap-3 text-caption text-gray-400 flex-wrap">
+                              <span>{MAINT_CATEGORIES.find((c) => c.value === req.category)?.label ?? req.category}</span>
+                              <span>{format(new Date(req.reportedDate), "d MMM yyyy")}</span>
+                              {req.isEmergency && <span className="text-red-500 font-medium">Emergency</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {requestKind === "complaint" && (
+              <>
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <h2 className="text-h3 text-gray-900 mb-1">Raise a Complaint</h2>
+                  <p className="text-body text-gray-500 mb-4">
+                    Noise, a neighbour, security, the building or how you were treated — your property manager will acknowledge it and keep you updated here.
+                  </p>
+
+                  {complaintSubmitted ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-4 text-center">
+                      <div className="text-h1 mb-2">✓</div>
+                      <p className="text-green-700 font-medium text-body">Complaint sent!</p>
+                      <p className="text-caption text-green-700 mt-1">You&apos;ll see updates under &ldquo;My complaints&rdquo; below.</p>
+                      <button onClick={() => setComplaintSubmitted(false)} className="mt-3 text-caption text-green-700 underline">
+                        Raise another
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmitComplaint} className="space-y-4">
+                      <div>
+                        <label className="block text-body font-medium text-gray-700 mb-1">What is it about?</label>
+                        <select
+                          value={complaintForm.category}
+                          onChange={(e) => setComplaintForm((f) => ({ ...f, category: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+                        >
+                          {COMPLAINT_CATEGORIES_PORTAL.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-body font-medium text-gray-700 mb-1">
+                          In a sentence <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text" required minLength={3} maxLength={200}
+                          placeholder="e.g. Generator in 4B runs all night"
+                          value={complaintForm.title}
+                          onChange={(e) => setComplaintForm((f) => ({ ...f, title: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-body font-medium text-gray-700 mb-1">Details</label>
+                        <textarea
+                          rows={4} maxLength={5000}
+                          placeholder="When it happens, how often, what you have already tried…"
+                          value={complaintForm.description}
+                          onChange={(e) => setComplaintForm((f) => ({ ...f, description: e.target.value }))}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                        />
+                      </div>
+                      <button
+                        type="submit" disabled={complaintSubmitting || complaintForm.title.trim().length < 3}
+                        className="w-full bg-gray-900 text-white rounded-lg py-3 text-body font-medium disabled:opacity-50 hover:bg-gray-800"
+                      >
+                        {complaintSubmitting ? "Sending..." : "Send Complaint"}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                <div>
+                  <h2 className="text-body font-semibold text-gray-700 mb-2">My complaints</h2>
+                  {complaintsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="w-6 h-6 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
+                    </div>
+                  ) : complaints.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-body">
+                      No complaints raised yet
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {complaints.map((c) => {
+                        const open = openComplaintId === c.id;
+                        const pill = c.isResolved
+                          ? { bg: "bg-green-100", text: "text-green-700" }
+                          : c.acknowledgedAt
+                          ? { bg: "bg-amber-100", text: "text-amber-700" }
+                          : { bg: "bg-red-100", text: "text-red-700" };
+                        return (
+                          <div key={c.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 space-y-1.5">
+                            <button type="button" onClick={() => setOpenComplaintId(open ? null : c.id)} className="w-full text-left">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-body font-medium text-gray-900">{c.title}</p>
+                                <span className={`shrink-0 text-caption font-medium px-2 py-0.5 rounded-full ${pill.bg} ${pill.text}`}>
+                                  {c.stage}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-caption text-gray-400 flex-wrap mt-1">
+                                <span>{c.categoryLabel}</span>
+                                <span>{format(new Date(c.createdAt), "d MMM yyyy")}</span>
+                                {c.updates.length > 1 && <span>{c.updates.length - 1} update{c.updates.length === 2 ? "" : "s"}</span>}
+                              </div>
+                            </button>
+                            {open && (
+                              <div className="border-t border-gray-100 pt-2 space-y-2">
+                                {c.updates.length === 0 && c.description && (
+                                  <p className="text-caption text-gray-600 whitespace-pre-wrap">{c.description}</p>
+                                )}
+                                {c.updates.map((u) => (
+                                  <div key={u.id} className={`rounded-lg px-3 py-2 text-caption ${u.byStaff ? "bg-gray-50 text-gray-700" : "bg-blue-50 text-blue-900"}`}>
+                                    <div className="flex items-center justify-between text-gray-400 mb-0.5">
+                                      <span>{u.byStaff ? (u.staffName ?? "Property manager") : "You"}</span>
+                                      <span>{format(new Date(u.at), "d MMM, HH:mm")}</span>
+                                    </div>
+                                    <p className="whitespace-pre-wrap">{u.body}</p>
+                                  </div>
+                                ))}
+                                {c.resolvedAt && (
+                                  <p className="text-caption text-green-700">Resolved {format(new Date(c.resolvedAt), "d MMM yyyy")}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

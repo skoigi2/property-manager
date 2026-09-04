@@ -78,7 +78,10 @@ export default auth((req) => {
   // CARETAKER (on-site staff): an ALLOW-list of pages — everything else
   // redirects to their home. Keep this an allow-list; the OWNER block below
   // is a deny-list and must not be the template for new roles.
-  if (isLoggedIn && orgRole === "CARETAKER" && !isPublicPage) {
+  // Token-authenticated pages (tenant portal, approvals, e-sign) are outside
+  // the role model entirely — a logged-in caretaker opening a tenant's portal
+  // link must not be bounced to their home.
+  if (isLoggedIn && orgRole === "CARETAKER" && !isPublicPage && !isPortalPage && !isApprovePage && !isSignPage) {
     const superAdmin = req.auth?.user?.role === "ADMIN" && !(req.auth?.user as any)?.organizationId;
     if (!superAdmin && !CARETAKER_PATHS.some((p) => underPath(pathname, p))) {
       return NextResponse.redirect(new URL(CARETAKER_HOME, req.url));

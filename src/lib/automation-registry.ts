@@ -104,6 +104,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
   {
+    key: "NOTIFY_COMPLAINT_RESOLVED",
+    name: "Complaint resolved (tenant email)",
+    description: "Email the tenant when a complaint they raised through the portal is marked resolved, including the resolution note.",
+    trigger: "Portal complaint resolved",
+    actions: ["Email Tenant"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_LEASE_EXPIRY",
     name: "Lease expiry alerts",
     description: "Email managers when a lease is within 30 days (and again within 7 days) of expiring.",

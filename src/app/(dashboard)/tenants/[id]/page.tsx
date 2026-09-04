@@ -20,6 +20,7 @@ import { StatementModal } from "@/components/tenants/StatementModal";
 import { RentHistoryTab } from "@/components/tenants/RentHistoryTab";
 import { CommunicationLogTab } from "@/components/tenants/CommunicationLogTab";
 import { PortalMessagesTab } from "@/components/tenants/PortalMessagesTab";
+import { TenantComplaintsTab } from "@/components/tenants/TenantComplaintsTab";
 import { TenantFormFields, cleanAdditionalContacts } from "@/components/tenants/TenantFormFields";
 import { Modal } from "@/components/ui/Modal";
 import { useForm } from "react-hook-form";
@@ -278,8 +279,8 @@ interface Invoice {
 // extracted so the money math is unit-tested and shared with the Income
 // page's arrears conventions.
 
-type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages";
-const VALID_TABS: Tab[] = ["ledger", "invoices", "documents", "renewal", "deposit", "history", "comms", "messages"];
+type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages" | "complaints";
+const VALID_TABS: Tab[] = ["ledger", "invoices", "documents", "renewal", "deposit", "history", "comms", "messages", "complaints"];
 
 export default function TenantDetailPage() {
   const canLifecycle = usePermissions().can("TENANT_LIFECYCLE");
@@ -519,6 +520,7 @@ export default function TenantDetailPage() {
     { id: "deposit",   label: "Deposit",      icon: <Banknote size={14} /> },
     { id: "comms",     label: "Comms",        icon: <MessageSquare size={14} /> },
     { id: "messages",  label: "Portal Msgs",  icon: <MessageSquare size={14} /> },
+    { id: "complaints", label: "Complaints",  icon: <MessageSquare size={14} /> },
   ];
 
   return (
@@ -1243,6 +1245,11 @@ export default function TenantDetailPage() {
                 {/* ── PORTAL MESSAGES TAB ────────────────────────────────────── */}
                 {tab === "messages" && (
                   <PortalMessagesTab tenantId={tenantId} />
+                )}
+
+                {/* ── COMPLAINTS TAB ─────────────────────────────────────────── */}
+                {tab === "complaints" && (
+                  <TenantComplaintsTab tenantId={tenantId} />
                 )}
 
                 {/* ── RENEWAL TAB ────────────────────────────────────────────── */}

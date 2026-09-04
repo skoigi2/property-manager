@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendNotificationEmail } from "@/lib/email";
 import { getPropertyManagers } from "@/lib/notifications/checkers";
-import { complaintRaisedTemplate } from "@/lib/notifications/email-templates";
+import { complaintRaisedTemplate, complaintResolvedTemplate } from "@/lib/notifications/email-templates";
 import { isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
 import { COMPLAINT_CATEGORY_LABEL, type ComplaintCategory } from "@/lib/complaint-rules";
 
@@ -48,5 +48,39 @@ export async function notifyNewComplaint(complaintId: string): Promise<void> {
     }
   } catch (e) {
     console.error("[complaints] notifyNewComplaint failed:", e);
+  }
+}
+
+/**
+ * "Your complaint was resolved" → the tenant who raised it through the portal.
+ * Tenant audience only (never for STAFF-sourced complaints), gated by the
+ * NOTIFY_COMPLAINT_RESOLVED automation — a separate toggle from the staff
+ * alert so an org can have one without the other. Fire-and-forget.
+ */
+export async function notifyComplaintResolved(complaintId: string, resolutionNote: string | null): Promise<void> {
+  try {
+    const c = await prisma.tenantComplaint.findUnique({
+      where: { id: complaintId },
+      select: {
+        id: true, title: true, source: true, propertyId: true, organizationId: true, caseThreadId: true,
+        property: { select: { name: true } },
+        tenant: { select: { name: true, email: true, portalToken: true, portalTokenExpiresAt: true } },
+      },
+    });
+    if (!c || c.source !== "PORTAL" || !c.tenant?.email) return;
+    if (!(await isAutomationEnabled(c.organizationId, "NOTIFY_COMPLAINT_RESOLVED", c.propertyId))) return;
+
+    const tokenLive = !!c.tenant.portalToken && (!c.tenant.portalTokenExpiresAt || c.tenant.portalTokenExpiresAt > new Date());
+    const base = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
+    const { subject, html } = complaintResolvedTemplate({
+      tenantName: c.tenant.name,
+      title: c.title,
+      propertyName: c.property.name,
+      resolutionNote,
+      portalUrl: tokenLive ? `${base}/portal/${c.tenant.portalToken}` : null,
+    });
+    sendNotificationEmail(c.tenant.email, subject, html, { organizationId: c.organizationId, caseThreadId: c.caseThreadId ?? null }).catch(() => {});
+  } catch (e) {
+    console.error("[complaints] notifyComplaintResolved failed:", e);
   }
 }

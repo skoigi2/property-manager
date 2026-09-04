@@ -246,7 +246,7 @@ export default function ComplaintDetailPage() {
                   const danger = a === "close";
                   return noteFor === a ? (
                     <div key={a} className="space-y-2">
-                      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={a === "reopen" ? "Why is it being reopened? *" : "Note (optional)"}
+                      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder={a === "reopen" ? "Why is it being reopened? *" : "What was done? (shown to the tenant, optional)"}
                         className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40" />
                       <div className="flex gap-2">
                         <Button size="sm" loading={saving} disabled={a === "reopen" && !note.trim()} onClick={() => runAction(a, note.trim() || undefined)}>{def.label}</Button>

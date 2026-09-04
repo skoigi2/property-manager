@@ -8,6 +8,7 @@ import { computeCaseSlaDueDate } from "@/lib/cases";
 import { appendCaseEvent, type CaseEventActor } from "@/lib/case-events";
 import { hiddenCategoriesFor, complaintVisibleTo, decideComplaintAction, type ComplaintAction, type ComplaintCategory } from "@/lib/complaint-rules";
 import { TENANT_DIRECTORY_SELECT } from "@/lib/tenant-projection";
+import { notifyComplaintResolved } from "@/lib/complaint-notify";
 
 /**
  * Server-side complaint helpers: the DTO shape, creation (domain row + linked
@@ -224,6 +225,20 @@ export async function applyComplaintAction(input: {
       if (!input.complaint.resolvedAt) stamps.resolvedAt = now;
     }
     if (Object.keys(stamps).length) await prisma.tenantComplaint.update({ where: { id: input.complaint.id }, data: stamps });
+
+    if (input.action === "resolve") {
+      const resolutionNote = input.note?.trim() || null;
+      // The resolution note is the outcome message: it is written as a
+      // tenant-visible COMMENT (so the portal shows it) and emailed to a
+      // portal complainant (NOTIFY_COMPLAINT_RESOLVED toggle).
+      if (resolutionNote) {
+        await appendCaseEvent({
+          threadId: ct.id, organizationId: input.complaint.organizationId, actor: input.actor,
+          body: resolutionNote, meta: { visibleToTenant: true, resolution: true },
+        });
+      }
+      void notifyComplaintResolved(input.complaint.id, resolutionNote);
+    }
   }
 
   if (input.actor.userId) {

@@ -144,6 +144,10 @@ async function seed() {
     });
   }
 
+  if (!tenant.portalToken) {
+    tenant = await prisma.tenant.update({ where: { id: tenant.id }, data: { portalToken: `smoke-portal-${Date.now()}`, portalTokenExpiresAt: null } });
+  }
+
   const caretaker  = await user(EMAILS.caretaker, "Smoke Caretaker", "CARETAKER");
   const manager    = await user(EMAILS.manager, "Smoke Manager", "ADMIN");
   const accountant = await user(EMAILS.accountant, "Smoke Accountant", "ACCOUNTANT");
@@ -433,6 +437,70 @@ async function main() {
   check("manager: STAFF_CONDUCT present", Array.isArray(mgrCompList) && mgrCompList.some((c: any) => c.id === sc?.id));
   await expectStatus(mgr, "DELETE STAFF_CONDUCT (manager) → 200", `/api/complaints/${sc?.id}`, 200, { method: "DELETE" });
   if (sc?.id) created.complaints.delete(sc.id);
+
+  // ── Phase 2b: tenant portal complaints ──
+  const portal = new Client("portal");
+  const tok = tenant.portalToken!;
+  {
+    // A logged-in caretaker opening a tenant's portal link must not be bounced to /maintenance.
+    const res = await care.fetch(`/portal/${tok}`);
+    check("caretaker: /portal/[token] renders (not redirected)", res.status === 200, `got ${res.status} → ${res.headers.get("location") ?? ""}`);
+  }
+  await expectStatus(portal, "GET /api/portal/[bad]/complaints → 404", `/api/portal/not-a-token/complaints`, 404);
+  await expectStatus(portal, "POST portal complaint (title too short) → 400", `/api/portal/${tok}/complaints`, 400, { method: "POST", body: JSON.stringify({ category: "NOISE", title: "x" }) });
+  const pc1 = await expectStatus(portal, "POST portal complaint → 201", `/api/portal/${tok}/complaints`, 201, {
+    method: "POST", body: JSON.stringify({ category: "NOISE", title: `Portal noise ${stamp}`, description: "Music until 2am every weekend" }),
+  });
+  if (pc1?.id) created.complaints.add(pc1.id);
+  check("portal: response is the tenant shape (stage Received, own description as first update, no case internals)",
+    pc1?.stage === "Received" && pc1?.isResolved === false && Array.isArray(pc1?.updates) && pc1.updates.length === 1 && pc1.updates[0].byStaff === false && !("caseThread" in pc1) && !("tenant" in pc1),
+    JSON.stringify(pc1)?.slice(0, 200));
+  const pcRow = pc1?.id ? await prisma.tenantComplaint.findUnique({ where: { id: pc1.id }, include: { caseThread: true } }) : null;
+  check("db: portal complaint is source PORTAL, tenantId = tenant, unit = tenant unit, case COMPLAINT with SLA",
+    pcRow?.source === "PORTAL" && pcRow?.tenantId === tenant.id && pcRow?.unitId === unit.id && pcRow?.raisedByUserId === null && pcRow?.caseThread?.caseType === "COMPLAINT" && !!pcRow?.caseThread?.stageSlaHours);
+
+  const careSees = await expectStatus(care, "GET /api/complaints (caretaker sees the portal complaint)", `/api/complaints?propertyId=${property.id}`, 200);
+  check("caretaker: portal complaint listed with source PORTAL and tenant name", Array.isArray(careSees) && careSees.some((c: any) => c.id === pc1?.id && c.source === "PORTAL" && c.tenant?.name === "Smoke Tenant"));
+
+  await expectStatus(care, "caretaker adds INTERNAL note", `/api/complaints/${pc1?.id}/events`, 201, { method: "POST", body: JSON.stringify({ body: "Internal: checked with guard" }) });
+  await expectStatus(care, "caretaker adds tenant-visible note", `/api/complaints/${pc1?.id}/events`, 201, { method: "POST", body: JSON.stringify({ body: "We have spoken to 4B", visibleToTenant: true }) });
+  let portalMine = await expectStatus(portal, "GET portal complaints → 200", `/api/portal/${tok}/complaints`, 200);
+  let mineRow = Array.isArray(portalMine) ? portalMine.find((c: any) => c.id === pc1?.id) : null;
+  check("portal: shows the visible note, hides the internal one (2 updates: own description + staff reply)",
+    !!mineRow && mineRow.updates.length === 2 && mineRow.updates.some((u: any) => u.byStaff && /spoken to 4B/.test(u.body)) && !mineRow.updates.some((u: any) => /Internal/.test(u.body)),
+    JSON.stringify(mineRow?.updates));
+
+  await expectStatus(care, "caretaker acknowledges portal complaint", `/api/complaints/${pc1?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "acknowledge" }) });
+  await expectStatus(care, "caretaker resolves with a resolution note", `/api/complaints/${pc1?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "resolve", note: "Neighbour agreed to stop by 10pm" }) });
+  portalMine = await expectStatus(portal, "GET portal complaints after resolve → 200", `/api/portal/${tok}/complaints`, 200);
+  mineRow = Array.isArray(portalMine) ? portalMine.find((c: any) => c.id === pc1?.id) : null;
+  check("portal: resolved, resolvedAt set, resolution note visible as a staff update",
+    !!mineRow && mineRow.isResolved === true && !!mineRow.resolvedAt && mineRow.updates.some((u: any) => u.byStaff && /10pm/.test(u.body)),
+    JSON.stringify({ r: mineRow?.isResolved, u: mineRow?.updates?.length }));
+  const resolvedMail = await prisma.emailLog.findFirst({ where: { toEmail: "smoke-tenant@groundworkpm.test", subject: { contains: "resolved" } }, orderBy: { sentAt: "desc" } });
+  check("email: 'complaint resolved' email attempted to the tenant (EmailLog row, any status)", !!resolvedMail, "no EmailLog row");
+
+  // A STAFF complaint that names the tenant as complainant is NOT theirs to see in the portal
+  const staffAbout = await expectStatus(care, "caretaker logs STAFF complaint naming the tenant", "/api/complaints", 201, {
+    method: "POST", body: JSON.stringify({ propertyId: property.id, tenantId: tenant.id, category: "PREMISES", title: `Staff-logged ${stamp}`, description: "Bins overflowing" }),
+  });
+  if (staffAbout?.id) created.complaints.add(staffAbout.id);
+  portalMine = await expectStatus(portal, "GET portal complaints (staff-logged excluded)", `/api/portal/${tok}/complaints`, 200);
+  check("portal: staff-logged complaint absent", Array.isArray(portalMine) && !portalMine.some((c: any) => c.id === staffAbout?.id));
+
+  // Tenant may raise STAFF_CONDUCT; the caretaker never sees it
+  const pcStaff = await expectStatus(portal, "POST portal STAFF_CONDUCT complaint → 201", `/api/portal/${tok}/complaints`, 201, {
+    method: "POST", body: JSON.stringify({ category: "STAFF_CONDUCT", title: `Rude caretaker ${stamp}`, description: "Shouted at me" }),
+  });
+  if (pcStaff?.id) created.complaints.add(pcStaff.id);
+  const careAfter = await expectStatus(care, "GET /api/complaints (after portal STAFF_CONDUCT)", `/api/complaints?propertyId=${property.id}`, 200);
+  check("caretaker: portal STAFF_CONDUCT complaint absent", Array.isArray(careAfter) && !careAfter.some((c: any) => c.id === pcStaff?.id));
+  await expectStatus(care, "GET portal STAFF_CONDUCT detail (caretaker) → 404", `/api/complaints/${pcStaff?.id}`, 404);
+  const tenantTab = await expectStatus(mgr, "GET /api/complaints?tenantId= (manager tenant tab)", `/api/complaints?tenantId=${tenant.id}`, 200);
+  check("manager: tenant tab lists portal + staff complaints incl. STAFF_CONDUCT", Array.isArray(tenantTab) && [pc1?.id, staffAbout?.id, pcStaff?.id].every((id) => tenantTab.some((c: any) => c.id === id)));
+  await expectStatus(care, "GET /api/complaints?tenantId= (caretaker) hides STAFF_CONDUCT", `/api/complaints?tenantId=${tenant.id}`, 200).then((rows: any) => {
+    check("caretaker: tenantId filter still excludes STAFF_CONDUCT", Array.isArray(rows) && !rows.some((c: any) => c.id === pcStaff?.id));
+  });
 
   // ── cleanup ──
   for (const id of Array.from(created.complaints)) {

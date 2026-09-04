@@ -1,8 +1,12 @@
-import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
+import { requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
-import { uploadCaseAttachment } from "@/lib/supabase-storage";
+import { parseCaseEventRequest, appendCaseEvent, attachmentErrorResponse } from "@/lib/case-events";
 
+/**
+ * POST /api/cases/[id]/events — comment + multipart attachments. The parsing,
+ * limits (8 files, 10 MB, images + PDF), upload and timeline write live in
+ * src/lib/case-events.ts, shared with the complaints route.
+ */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
@@ -13,58 +17,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const access = await requirePropertyAccess(thread.propertyId);
   if (!access.ok) return access.error!;
 
-  const contentType = req.headers.get("content-type") ?? "";
-  let body: string | null = null;
-  const attachmentPaths: string[] = [];
-  let kind: "COMMENT" | "DOCUMENT_ADDED" = "COMMENT";
+  const parsed = await parseCaseEventRequest(req);
+  if (parsed instanceof Response) return parsed;
 
-  if (contentType.startsWith("multipart/form-data")) {
-    const form = await req.formData();
-    body = (form.get("body") as string | null) ?? null;
-    const files = form.getAll("file").filter((f): f is File => f instanceof File);
-    for (const file of files) {
-      const buf = Buffer.from(await file.arrayBuffer());
-      const path = await uploadCaseAttachment(thread.id, file.name, buf, file.type || "application/octet-stream");
-      attachmentPaths.push(path);
-    }
-    if (attachmentPaths.length > 0 && !body) kind = "DOCUMENT_ADDED";
-  } else {
-    const json = await req.json();
-    body = json.body ?? null;
+  let event;
+  try {
+    event = await appendCaseEvent({
+      threadId: thread.id,
+      organizationId: thread.organizationId,
+      actor: { userId: session!.user.id, email: session!.user.email ?? null, name: session!.user.name ?? null },
+      body: parsed.body,
+      files: parsed.files,
+    });
+  } catch (e) {
+    const r = attachmentErrorResponse(e);
+    if (r) return r;
+    throw e;
   }
-
-  if (!body && attachmentPaths.length === 0) {
-    return Response.json({ error: "Comment body or attachment required" }, { status: 400 });
-  }
-
-  const now = new Date();
-  const [event] = await prisma.$transaction([
-    prisma.caseEvent.create({
-      data: {
-        caseThreadId: thread.id,
-        kind,
-        actorUserId: session!.user.id,
-        actorEmail: session!.user.email ?? null,
-        actorName: session!.user.name ?? null,
-        body,
-        attachmentUrls: attachmentPaths,
-      },
-    }),
-    prisma.caseThread.update({
-      where: { id: thread.id },
-      data: { lastActivityAt: now },
-    }),
-  ]);
-
-  await logAudit({
-    userId: session!.user.id,
-    userEmail: session!.user.email,
-    action: "CREATE",
-    resource: "CaseEvent",
-    resourceId: event.id,
-    organizationId: thread.organizationId,
-    after: event,
-  });
 
   return Response.json(event, { status: 201 });
 }

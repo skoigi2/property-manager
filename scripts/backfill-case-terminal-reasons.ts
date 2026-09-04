@@ -21,6 +21,7 @@ const NATURAL_COMPLETION_INDEX: Record<CaseType, number> = {
   ARREARS:       3,
   COMPLIANCE:    4,
   GENERAL:       1,
+  COMPLAINT:     1,
 };
 
 const WORKFLOW_STAGE_KEYS: Record<CaseType, string[]> = {
@@ -29,6 +30,7 @@ const WORKFLOW_STAGE_KEYS: Record<CaseType, string[]> = {
   ARREARS:       ["informal_reminder","formal_notice","demand_letter","legal_action","settled","closed"],
   COMPLIANCE:    ["identified","quote_requested","scheduled","in_progress","certificate_received","filed"],
   GENERAL:       ["open","in_progress","resolved","closed"],
+  COMPLAINT:     ["received","acknowledged","investigating","awaiting_tenant","resolved","closed"],
 };
 
 async function main() {

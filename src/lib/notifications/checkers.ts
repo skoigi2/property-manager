@@ -1,6 +1,7 @@
 import { differenceInDays, differenceInHours, subDays } from "date-fns";
 import { NotificationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import type { CaseType } from "@prisma/client";
 import { sendNotificationEmail } from "@/lib/email";
 import { formatDate } from "@/lib/date-utils";
 import { upsertHint } from "@/lib/hints";
@@ -111,7 +112,7 @@ async function sendToManagers(
 
 /** Look up an existing CaseThread by caseType + subjectId. Returns null when none. */
 async function findCaseThreadId(
-  caseType: "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE",
+  caseType: CaseType,
   subjectId: string,
 ): Promise<string | null> {
   const t = await prisma.caseThread.findFirst({

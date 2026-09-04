@@ -75,6 +75,17 @@ const WORKFLOWS: Record<CaseType, { key: string; stages: Stage[] }> = {
       { key: "closed",      label: "Closed",      terminal: true },
     ],
   },
+  COMPLAINT: {
+    key: "COMPLAINT_V1",
+    stages: [
+      { key: "received",        label: "Received",        defaultSlaHours: 24 },
+      { key: "acknowledged",    label: "Acknowledged",    defaultSlaHours: 72 },
+      { key: "investigating",   label: "Investigating",   defaultSlaHours: 120 },
+      { key: "awaiting_tenant", label: "Awaiting tenant", defaultSlaHours: null },
+      { key: "resolved",        label: "Resolved",        terminal: true },
+      { key: "closed",          label: "Closed",          terminal: true },
+    ],
+  },
 };
 
 function computeStageSlaHours(

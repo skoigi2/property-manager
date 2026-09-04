@@ -134,6 +134,7 @@ export default function CasesPage() {
               { value: "ARREARS", label: "Arrears" },
               { value: "COMPLIANCE", label: "Compliance" },
               { value: "GENERAL", label: "General" },
+              { value: "COMPLAINT", label: "Complaint" },
             ]}
           />
           <label className="flex items-center gap-2 text-body h-10 px-3 rounded-lg bg-gray-50 border border-gray-200">

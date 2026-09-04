@@ -60,6 +60,7 @@ model Organization {
   caseThreads            CaseThread[]
   actionableHints        ActionableHint[]
   automationTemplates    AutomationTemplate[]
+  complaints             TenantComplaint[]
   apiKeys                ApiKey[]
   webhookEndpoints       WebhookEndpoint[]
   checkouts              CheckoutProcess[]
@@ -116,6 +117,7 @@ model User {
   emailLogs        EmailLog[]
   caseAssignments  CaseThread[]     @relation("CaseAssignee")
   caseEvents       CaseEvent[]      @relation("CaseEventActor")
+  raisedComplaints TenantComplaint[] @relation("ComplaintRaisedBy")
   approvalRequests ApprovalRequest[] @relation("ApprovalRequester")
   accounts         Account[]
   sessions         Session[]
@@ -471,6 +473,60 @@ enum CaseType {
   ARREARS
   COMPLIANCE
   GENERAL
+  COMPLAINT
+}
+
+// ─── Tenant complaints ────────────────────────────────────────────────────────
+// STAFF_CONDUCT is manager-only end to end (the caretaker may be the subject):
+// never listed, readable, actionable or creatable by CARETAKER — see
+// src/lib/complaint-rules.ts. Enum values are permanent.
+enum ComplaintCategory {
+  NOISE
+  NEIGHBOUR
+  SECURITY
+  PREMISES
+  STAFF_CONDUCT
+  OTHER
+}
+
+enum ComplaintSource {
+  STAFF
+  PORTAL
+}
+
+// Domain record for a tenant complaint. Status / stage / SLA / timeline live on
+// the linked CaseThread (caseType COMPLAINT, subjectId = complaint.id) — the
+// same split as MaintenanceJob ↔ CaseThread, minus the mirrored status column.
+model TenantComplaint {
+  id              String            @id @default(cuid())
+  propertyId      String
+  unitId          String?           // the complainant's unit
+  tenantId        String?           // the COMPLAINANT — null for staff-observed / anonymous
+  subjectUnitId   String?           // the unit the complaint is ABOUT, when different
+  organizationId  String
+  category        ComplaintCategory @default(OTHER)
+  title           String
+  description     String?
+  source          ComplaintSource
+  raisedByUserId  String?           // staff who logged it (null for PORTAL)
+  raisedByName    String            // survives user / tenant deletion
+  caseThreadId    String?           @unique
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  property     Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit         Unit?        @relation("ComplaintUnit", fields: [unitId], references: [id], onDelete: SetNull)
+  subjectUnit  Unit?        @relation("ComplaintSubjectUnit", fields: [subjectUnitId], references: [id], onDelete: SetNull)
+  tenant       Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  raisedBy     User?        @relation("ComplaintRaisedBy", fields: [raisedByUserId], references: [id], onDelete: SetNull)
+  caseThread   CaseThread?  @relation("CaseThreadComplaint", fields: [caseThreadId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, createdAt])
+  @@index([tenantId])
+  @@index([organizationId])
 }
 
 enum CaseStatus {
@@ -670,6 +726,7 @@ model Property {
   complianceCertificates ComplianceCertificate[]
   caseThreads            CaseThread[]
   actionableHints        ActionableHint[]
+  complaints             TenantComplaint[]
   ownerPayouts           OwnerPayout[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
@@ -728,6 +785,8 @@ model Unit {
   expenseAllocations ExpenseUnitAllocation[]
   assets             Asset[]
   caseThreads        CaseThread[]
+  complaints         TenantComplaint[] @relation("ComplaintUnit")
+  subjectComplaints  TenantComplaint[] @relation("ComplaintSubjectUnit")
   checkouts          CheckoutProcess[]
   conditionReports   ConditionReport[]
   createdAt          DateTime              @default(now())
@@ -784,6 +843,7 @@ model Tenant {
   rentHistory          RentHistory[]
   communicationLogs    CommunicationLog[]
   portalThreads        PortalMessageThread[]
+  complaints           TenantComplaint[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -1102,6 +1162,7 @@ model CaseThread {
   approvalRequests ApprovalRequest[]
   actionableHints  ActionableHint[]
   invoices         Invoice[]    @relation("InvoiceCaseThread")
+  complaint        TenantComplaint? @relation("CaseThreadComplaint")
 
   @@index([organizationId, status])
   @@index([propertyId, status])

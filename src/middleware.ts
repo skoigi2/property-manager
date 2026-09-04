@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 const { auth } = NextAuth(authConfig);
 
 // Pages an on-site CARETAKER may open (segment-aware prefix match).
-const CARETAKER_PATHS = ["/expenses", "/maintenance", "/vendors", "/select-org", "/onboarding", "/invite", "/help/tutorials"];
+const CARETAKER_PATHS = ["/expenses", "/maintenance", "/complaints", "/vendors", "/select-org", "/onboarding", "/invite", "/help/tutorials"];
 const CARETAKER_HOME = "/maintenance";
 const underPath = (pathname: string, base: string) => pathname === base || pathname.startsWith(base + "/");
 
@@ -91,7 +91,7 @@ export default auth((req) => {
   // manager-only pages. Leaving the page reachable by OWNER gave them a shell
   // that could never load. An owner-facing calendar needs owner-appropriate
   // destinations first — see docs note in CLAUDE.md.
-  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/airbnb", "/forecast", "/vendors", "/cases", "/automations", "/calendar"];
+  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/complaints", "/airbnb", "/forecast", "/vendors", "/cases", "/automations", "/calendar"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
     if (orgRole === "OWNER") {
       return NextResponse.redirect(new URL("/report", req.url));

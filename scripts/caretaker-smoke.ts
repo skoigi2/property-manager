@@ -52,7 +52,7 @@ class Client {
   }
   async json(path: string, init: RequestInit = {}): Promise<{ status: number; body: any; res: Response }> {
     const headers = new Headers(init.headers);
-    if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+    if (init.body && !(init.body instanceof FormData) && !headers.has("content-type")) headers.set("content-type", "application/json");
     const res = await this.fetch(path, { ...init, headers });
     let body: any = null;
     try { body = await res.json(); } catch { /* non-JSON */ }
@@ -133,16 +133,27 @@ async function seed() {
     return u;
   }
 
+  let tenant = await prisma.tenant.findFirst({ where: { unitId: unit.id, name: "Smoke Tenant" } });
+  if (!tenant) {
+    tenant = await prisma.tenant.create({
+      data: {
+        name: "Smoke Tenant", phone: "0711000000", email: "smoke-tenant@groundworkpm.test", unitId: unit.id,
+        depositAmount: 10000, leaseStart: new Date("2026-01-01"), monthlyRent: 10000, isActive: true,
+        nationalId: "12345678", notes: "SECRET NOTE",
+      } as any,
+    });
+  }
+
   const caretaker  = await user(EMAILS.caretaker, "Smoke Caretaker", "CARETAKER");
   const manager    = await user(EMAILS.manager, "Smoke Manager", "ADMIN");
   const accountant = await user(EMAILS.accountant, "Smoke Accountant", "ACCOUNTANT");
-  return { org, property, unit, caretaker, manager, accountant };
+  return { org, property, unit, tenant, caretaker, manager, accountant };
 }
 
 // ── main ────────────────────────────────────────────────────────────────────
 async function main() {
-  const { property, unit, caretaker, manager } = await seed();
-  const created = { expenses: new Set<string>(), vendors: new Set<string>(), jobs: new Set<string>() };
+  const { property, unit, tenant, caretaker, manager } = await seed();
+  const created = { expenses: new Set<string>(), vendors: new Set<string>(), jobs: new Set<string>(), complaints: new Set<string>() };
 
   const care = new Client("caretaker");
   const mgr  = new Client("manager");
@@ -304,7 +315,6 @@ async function main() {
     ["GET /api/inbox", "/api/inbox"],
     ["GET /api/search", "/api/search?q=sm"],
     ["GET /api/income", `/api/income?propertyId=${property.id}`],
-    ["GET /api/tenants", "/api/tenants"],
     ["GET /api/invoices", "/api/invoices"],
     ["GET /api/units", `/api/units?propertyId=${property.id}`],
     ["GET /api/cases", "/api/cases"],
@@ -334,7 +344,102 @@ async function main() {
   check("accountant: properties scrubbed of bank fields", !!acctProp && !("bankAccountNumber" in acctProp) && "units" in acctProp, JSON.stringify(Object.keys(acctProp ?? {})));
   await expectStatus(acct, "GET /api/units scoped → 200", `/api/units?propertyId=${property.id}`, 200);
 
+  // ── Phase 2a: complaints + tenant directory ──
+  {
+    const res = await care.fetch("/complaints");
+    check("caretaker: page /complaints renders", res.status === 200, `got ${res.status}`);
+  }
+  const dir = await expectStatus(care, "GET /api/tenants (directory projection)", `/api/tenants?propertyId=${property.id}`, 200);
+  const dirRow = Array.isArray(dir) ? dir.find((t: any) => t.id === tenant.id) : null;
+  check("caretaker: tenant directory has name/phone/unit and nothing financial",
+    !!dirRow && dirRow.name === "Smoke Tenant" && dirRow.phone === "0711000000" && dirRow.unit?.unitNumber === "S1"
+      && !("monthlyRent" in dirRow) && !("depositAmount" in dirRow) && !("email" in dirRow) && !("nationalId" in dirRow) && !("notes" in dirRow) && !("portalToken" in dirRow),
+    JSON.stringify(dirRow));
+  await expectStatus(care, "GET /api/tenants/[id] → 403", `/api/tenants/${tenant.id}`, 403);
+  const mgrDir = await expectStatus(mgr, "GET /api/tenants?projection=directory (manager opt-in)", `/api/tenants?projection=directory&propertyId=${property.id}`, 200);
+  check("manager: directory projection on request has no monthlyRent", Array.isArray(mgrDir) && mgrDir.length > 0 && !("monthlyRent" in mgrDir[0]));
+  const mgrFull = await expectStatus(mgr, "GET /api/tenants (full)", `/api/tenants?propertyId=${property.id}`, 200);
+  check("manager: full tenant shape unchanged", Array.isArray(mgrFull) && mgrFull.some((t: any) => t.id === tenant.id && "monthlyRent" in t));
+
+  const comp = await expectStatus(care, "POST /api/complaints → 201", "/api/complaints", 201, {
+    method: "POST",
+    body: JSON.stringify({ propertyId: property.id, tenantId: tenant.id, subjectUnitId: unit.id, category: "NOISE", title: `Smoke noise ${stamp}`, description: "Generator all night" }),
+  });
+  if (comp?.id) created.complaints.add(comp.id);
+  const compCase = comp?.caseThread?.id ? await prisma.caseThread.findUnique({ where: { id: comp.caseThread.id } }) : null;
+  check("db: COMPLAINT case created with workflowKey + stageSlaHours, subjectId = complaint.id",
+    !!compCase && compCase.caseType === "COMPLAINT" && compCase.workflowKey === "COMPLAINT_V1" && !!compCase.stageSlaHours && compCase.subjectId === comp.id && compCase.waitingOn === "MANAGER",
+    JSON.stringify({ wf: compCase?.workflowKey, sla: compCase?.stageSlaHours }));
+  check("caretaker: complaint DTO carries tenant directory fields only",
+    comp?.tenant?.name === "Smoke Tenant" && !("monthlyRent" in (comp?.tenant ?? {})) && !("email" in (comp?.tenant ?? {})) && comp?.source === "STAFF" && comp?.raisedByName === "Smoke Caretaker");
+  const firstEvent = comp?.caseThread?.id ? await prisma.caseEvent.findFirst({ where: { caseThreadId: comp.caseThread.id, kind: "COMMENT" } }) : null;
+  check("db: description became the first COMMENT, visible to tenant", !!firstEvent && (firstEvent.meta as any)?.visibleToTenant === true);
+  await expectStatus(care, "POST /api/complaints STAFF_CONDUCT → 403", "/api/complaints", 403, {
+    method: "POST", body: JSON.stringify({ propertyId: property.id, category: "STAFF_CONDUCT", title: "Rude guard" }),
+  });
+  await expectStatus(care, "POST /api/complaints tenant from another property → 400", "/api/complaints", 400, {
+    method: "POST", body: JSON.stringify({ propertyId: property.id, tenantId: "nope", category: "NOISE", title: "Bad tenant id" }),
+  });
+
+  const compList = await expectStatus(care, "GET /api/complaints → 200", `/api/complaints?propertyId=${property.id}`, 200);
+  check("caretaker: list contains the new complaint", Array.isArray(compList) && compList.some((c: any) => c.id === comp?.id));
+  const detail = await expectStatus(care, "GET /api/complaints/[id] → 200 with timeline", `/api/complaints/${comp?.id}`, 200);
+  check("caretaker: detail has events, no tenantContext / rent", Array.isArray(detail?.events) && detail.events.length >= 1 && !("tenantContext" in detail) && !JSON.stringify(detail).includes("monthlyRent"));
+
+  const form = new FormData();
+  form.append("body", "Spoke to the neighbour");
+  form.append("file", new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0])], { type: "image/jpeg" }), "photo.jpg");
+  form.append("visibleToTenant", "true");
+  // 503 = file storage not configured on this machine (dev without Supabase keys) — the code path is exercised up to the upload.
+  const ev = await expectStatus(care, "POST /api/complaints/[id]/events (photo) → 201 (or 503 when storage is unconfigured)", `/api/complaints/${comp?.id}/events`, [201, 503], { method: "POST", body: form });
+  if (ev?.id) check("caretaker: event has one attachment and visibleToTenant meta", ev?.attachmentUrls?.length === 1 && ev?.meta?.visibleToTenant === true, JSON.stringify(ev?.meta));
+  const noteEv = await expectStatus(care, "POST /api/complaints/[id]/events (text, visibleToTenant) → 201", `/api/complaints/${comp?.id}/events`, 201, { method: "POST", body: JSON.stringify({ body: "Spoke to the neighbour", visibleToTenant: true }) });
+  check("caretaker: text note carries visibleToTenant meta", noteEv?.meta?.visibleToTenant === true, JSON.stringify(noteEv?.meta));
+  const hiddenEv = await expectStatus(care, "POST events (internal note) → 201", `/api/complaints/${comp?.id}/events`, 201, { method: "POST", body: JSON.stringify({ body: "Internal: tenant was rude" }) });
+  check("caretaker: internal note defaults to hidden", hiddenEv?.meta?.visibleToTenant === false, JSON.stringify(hiddenEv?.meta));
+  const big = new FormData();
+  big.append("file", new Blob([new Uint8Array(11 * 1024 * 1024)], { type: "image/jpeg" }), "huge.jpg");
+  await expectStatus(care, "POST events with 11 MB file → 400", `/api/complaints/${comp?.id}/events`, 400, { method: "POST", body: big });
+
+  const ack = await expectStatus(care, "PATCH acknowledge → 200", `/api/complaints/${comp?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "acknowledge" }) });
+  check("caretaker: acknowledged → stage 1 + acknowledgedAt", ack?.caseThread?.currentStageIndex === 1 && !!ack?.acknowledgedAt);
+  await expectStatus(care, "PATCH acknowledge again → 409", `/api/complaints/${comp?.id}`, 409, { method: "PATCH", body: JSON.stringify({ action: "acknowledge" }) });
+  await expectStatus(care, "PATCH close → 403", `/api/complaints/${comp?.id}`, 403, { method: "PATCH", body: JSON.stringify({ action: "close" }) });
+  const res1 = await expectStatus(care, "PATCH resolve → 200", `/api/complaints/${comp?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "resolve", note: "Talked to 4B" }) });
+  check("caretaker: resolved → RESOLVED, COMPLETED_NORMALLY (not bypassed), resolvedAt", res1?.caseThread?.status === "RESOLVED" && res1?.caseThread?.terminalReason === "COMPLETED_NORMALLY" && !!res1?.resolvedAt, JSON.stringify(res1?.caseThread));
+  await expectStatus(care, "PATCH reopen → 403", `/api/complaints/${comp?.id}`, 403, { method: "PATCH", body: JSON.stringify({ action: "reopen", note: "still noisy" }) });
+  const reopened = await expectStatus(mgr, "PATCH reopen (manager) → 200", `/api/complaints/${comp?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "reopen", note: "still noisy" }) });
+  check("manager: reopened → investigating, IN_PROGRESS, resolvedAt cleared", reopened?.caseThread?.currentStageIndex === 2 && reopened?.caseThread?.status === "IN_PROGRESS" && !reopened?.resolvedAt);
+  await expectStatus(mgr, "PATCH close (manager) → 200", `/api/complaints/${comp?.id}`, 200, { method: "PATCH", body: JSON.stringify({ action: "close" }) });
+  await expectStatus(care, "DELETE /api/complaints/[id] → 403", `/api/complaints/${comp?.id}`, 403, { method: "DELETE" });
+  await expectStatus(care, "GET /api/cases/[id] for the complaint's case → 403", `/api/cases/${comp?.caseThread?.id}`, 403);
+  await expectStatus(care, "POST /api/cases/[id]/events → 403", `/api/cases/${comp?.caseThread?.id}/events`, 403, { method: "POST", body: JSON.stringify({ body: "x" }) });
+  const mgrCases = await expectStatus(mgr, "GET /api/cases?caseType=COMPLAINT → 200", `/api/cases?caseType=COMPLAINT&propertyId=${property.id}`, 200);
+  check("manager: complaint case visible in /api/cases", Array.isArray(mgrCases) && mgrCases.some((c: any) => c.id === comp?.caseThread?.id));
+
+  // STAFF_CONDUCT: manager-only end to end
+  const sc = await expectStatus(mgr, "POST /api/complaints STAFF_CONDUCT (manager) → 201", "/api/complaints", 201, {
+    method: "POST", body: JSON.stringify({ propertyId: property.id, category: "STAFF_CONDUCT", title: `Smoke staff conduct ${stamp}` }),
+  });
+  if (sc?.id) created.complaints.add(sc.id);
+  const careList = await expectStatus(care, "GET /api/complaints (after STAFF_CONDUCT exists)", `/api/complaints?propertyId=${property.id}`, 200);
+  check("caretaker: STAFF_CONDUCT absent from list", Array.isArray(careList) && !careList.some((c: any) => c.id === sc?.id));
+  const careListCat = await expectStatus(care, "GET /api/complaints?category=STAFF_CONDUCT (caretaker)", `/api/complaints?propertyId=${property.id}&category=STAFF_CONDUCT`, 200);
+  check("caretaker: category filter cannot surface it", Array.isArray(careListCat) && !careListCat.some((c: any) => c.category === "STAFF_CONDUCT"));
+  await expectStatus(care, "GET STAFF_CONDUCT detail → 404", `/api/complaints/${sc?.id}`, 404);
+  await expectStatus(care, "PATCH STAFF_CONDUCT → 404", `/api/complaints/${sc?.id}`, 404, { method: "PATCH", body: JSON.stringify({ action: "acknowledge" }) });
+  await expectStatus(care, "POST events on STAFF_CONDUCT → 404", `/api/complaints/${sc?.id}/events`, 404, { method: "POST", body: JSON.stringify({ body: "x" }) });
+  const mgrCompList = await expectStatus(mgr, "GET /api/complaints (manager sees STAFF_CONDUCT)", `/api/complaints?propertyId=${property.id}`, 200);
+  check("manager: STAFF_CONDUCT present", Array.isArray(mgrCompList) && mgrCompList.some((c: any) => c.id === sc?.id));
+  await expectStatus(mgr, "DELETE STAFF_CONDUCT (manager) → 200", `/api/complaints/${sc?.id}`, 200, { method: "DELETE" });
+  if (sc?.id) created.complaints.delete(sc.id);
+
   // ── cleanup ──
+  for (const id of Array.from(created.complaints)) {
+    const row = await prisma.tenantComplaint.findUnique({ where: { id }, select: { caseThreadId: true } });
+    await prisma.tenantComplaint.deleteMany({ where: { id } });
+    if (row?.caseThreadId) await prisma.caseThread.deleteMany({ where: { id: row.caseThreadId } });
+  }
   for (const id of Array.from(created.jobs)) await prisma.maintenanceJob.deleteMany({ where: { id } });
   for (const id of Array.from(created.expenses)) await prisma.expenseEntry.deleteMany({ where: { id } });
   for (const id of Array.from(created.vendors)) await prisma.vendor.deleteMany({ where: { id } });

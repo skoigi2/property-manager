@@ -124,12 +124,33 @@ const GENERAL_V1: CaseWorkflow = {
   ],
 };
 
+// Tenant complaints (src/lib/complaint-rules.ts drives the transitions).
+// naturalCompletionIndex = 1: resolving straight from "Acknowledged" is the
+// normal outcome for most complaints ("spoke to the neighbour, sorted") and
+// must not render as BYPASSED — only a complaint closed while still
+// "Received" is a bypass. `received` SLA is overridden from the management
+// agreement's kpiStandardResponseHrs (computeDefaultStageSlaHours).
+const COMPLAINT_V1: CaseWorkflow = {
+  key: "COMPLAINT_V1",
+  caseType: "COMPLAINT",
+  naturalCompletionIndex: 1, // `acknowledged`
+  stages: [
+    { key: "received",        label: "Received",        defaultSlaHours: 24,  requiresAction: "MANAGER" },
+    { key: "acknowledged",    label: "Acknowledged",    defaultSlaHours: 72,  requiresAction: "MANAGER" },
+    { key: "investigating",   label: "Investigating",   defaultSlaHours: 120, requiresAction: "MANAGER" },
+    { key: "awaiting_tenant", label: "Awaiting tenant", defaultSlaHours: null, requiresAction: "TENANT" },
+    { key: "resolved",        label: "Resolved",        terminal: true, terminalStatus: "RESOLVED" },
+    { key: "closed",          label: "Closed",          terminal: true, terminalStatus: "CLOSED" },
+  ],
+};
+
 export const WORKFLOWS: Record<CaseType, CaseWorkflow> = {
   MAINTENANCE:   MAINTENANCE_V1,
   LEASE_RENEWAL: LEASE_RENEWAL_V1,
   ARREARS:       ARREARS_V1,
   COMPLIANCE:    COMPLIANCE_V1,
   GENERAL:       GENERAL_V1,
+  COMPLAINT:     COMPLAINT_V1,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -172,6 +193,12 @@ export function computeDefaultStageSlaHours(
       map.triaged = hrs;
       map.quote_requested = hrs;
     }
+  }
+  // Complaints: one agreement-level response SLA for acknowledgement, the
+  // same figure maintenance triage uses. Workflow defaults cover the rest.
+  if (wf.caseType === "COMPLAINT" && opts?.agreement) {
+    const hrs = opts.agreement.kpiStandardResponseHrs;
+    if (typeof hrs === "number" && hrs > 0) map.received = hrs;
   }
   return map;
 }

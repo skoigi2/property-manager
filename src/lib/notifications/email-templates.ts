@@ -238,6 +238,45 @@ export function urgentMaintenanceTemplate(data: {
   return { subject, html };
 }
 
+// ─── Tenant complaint logged ──────────────────────────────────────────────────
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+export function complaintRaisedTemplate(data: {
+  complaintId: string;
+  title: string;
+  description: string | null;
+  categoryLabel: string;
+  propertyName: string;
+  unitRef: string | null;
+  tenantName: string | null;
+  raisedByName: string;
+  source: "STAFF" | "PORTAL";
+}): { subject: string; html: string } {
+  const subject = `New complaint — ${data.title} (${data.propertyName})`;
+  const excerpt = data.description ? escapeHtml(data.description.slice(0, 300)) + (data.description.length > 300 ? "…" : "") : null;
+  const html = shell(
+    `New tenant complaint`,
+    AMBER,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      A complaint was ${data.source === "PORTAL" ? "raised through the tenant portal" : "logged by on-site staff"} and is waiting to be acknowledged.
+    </p>
+    <table style="border-collapse:collapse;margin-bottom:4px;">
+      ${row("Complaint", escapeHtml(data.title))}
+      ${row("Category", escapeHtml(data.categoryLabel))}
+      ${row("Property", escapeHtml(data.propertyName))}
+      ${row("Unit", data.unitRef ? escapeHtml(data.unitRef) : "—")}
+      ${row("Tenant", data.tenantName ? escapeHtml(data.tenantName) : "Not linked")}
+      ${row("Raised by", escapeHtml(data.raisedByName))}
+    </table>
+    ${excerpt ? `<p style="color:#111827;font-size:13px;line-height:1.6;background:#f9fafb;padding:10px 12px;border-radius:6px;white-space:pre-wrap;">${excerpt}</p>` : ""}
+    ${cta("Open complaint", `${APP_URL}/complaints/${data.complaintId}`)}`,
+  );
+  return { subject, html };
+}
+
 // ─── Monthly owner statement ──────────────────────────────────────────────────
 
 export function ownerMonthlyReportTemplate(data: {

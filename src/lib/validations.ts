@@ -208,7 +208,7 @@ export type OwnerInvoiceLineItem = z.infer<typeof ownerInvoiceLineItemSchema>;
 export type OwnerInvoiceCreateInput = z.infer<typeof ownerInvoiceCreateSchema>;
 
 // Case workflow
-const CASE_TYPES = ["MAINTENANCE", "LEASE_RENEWAL", "ARREARS", "COMPLIANCE", "GENERAL"] as const;
+export const CASE_TYPES = ["MAINTENANCE", "LEASE_RENEWAL", "ARREARS", "COMPLIANCE", "GENERAL", "COMPLAINT"] as const;
 const CASE_STATUSES = ["OPEN", "IN_PROGRESS", "AWAITING_APPROVAL", "AWAITING_VENDOR", "AWAITING_TENANT", "RESOLVED", "CLOSED"] as const;
 const CASE_WAITING_ON = ["MANAGER", "OWNER", "TENANT", "VENDOR", "NONE"] as const;
 
@@ -236,6 +236,25 @@ export const updateCaseSchema = z.object({
 export const createCaseEventSchema = z.object({
   kind: z.enum(["COMMENT", "DOCUMENT_ADDED"]).default("COMMENT"),
   body: z.string().min(1).max(20_000),
+});
+
+// ─── Tenant complaints ────────────────────────────────────────────────────────
+export const COMPLAINT_CATEGORIES = ["NOISE", "NEIGHBOUR", "SECURITY", "PREMISES", "STAFF_CONDUCT", "OTHER"] as const;
+
+export const createComplaintSchema = z.object({
+  propertyId:    z.string().min(1),
+  unitId:        z.string().optional().nullable(),
+  tenantId:      z.string().optional().nullable(),
+  subjectUnitId: z.string().optional().nullable(),
+  category:      z.enum(COMPLAINT_CATEGORIES).default("OTHER"),
+  title:         z.string().min(3, "Give the complaint a short title").max(200),
+  description:   z.string().max(5000).optional().nullable(),
+});
+export type CreateComplaintInput = z.infer<typeof createComplaintSchema>;
+
+export const complaintActionSchema = z.object({
+  action: z.enum(["acknowledge", "investigate", "await_tenant", "resolve", "reopen", "close"]),
+  note:   z.string().max(2000).optional(),
 });
 
 export const createApprovalSchema = z.object({

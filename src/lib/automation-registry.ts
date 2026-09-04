@@ -95,6 +95,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
 
   // ── Email notifications (email managers + Inbox hint) — on by default ────────
   {
+    key: "NOTIFY_NEW_COMPLAINT",
+    name: "New complaint alerts",
+    description: "Email managers when a tenant complaint is logged by on-site staff or raised through the tenant portal.",
+    trigger: "Complaint logged",
+    actions: ["Email Manager", "Add Inbox Item"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_LEASE_EXPIRY",
     name: "Lease expiry alerts",
     description: "Email managers when a lease is within 30 days (and again within 7 days) of expiring.",

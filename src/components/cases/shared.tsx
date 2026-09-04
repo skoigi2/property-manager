@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { formatRelativeWithTooltip } from "@/lib/relative-time";
+import { WORKFLOWS } from "@/lib/case-workflow-defs";
 
 export type CaseStatus =
   | "OPEN" | "IN_PROGRESS" | "AWAITING_APPROVAL" | "AWAITING_VENDOR" | "AWAITING_TENANT" | "RESOLVED" | "CLOSED";
 export type CaseWaitingOn = "MANAGER" | "OWNER" | "TENANT" | "VENDOR" | "NONE";
-export type CaseType = "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE" | "GENERAL";
+export type CaseType = "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE" | "GENERAL" | "COMPLAINT";
+
+export const CASE_TYPE_LABEL: Record<CaseType, string> = {
+  MAINTENANCE: "Maintenance", LEASE_RENEWAL: "Lease renewal", ARREARS: "Arrears",
+  COMPLIANCE: "Compliance", GENERAL: "General", COMPLAINT: "Complaint",
+};
 
 export interface CaseRow {
   id: string;
@@ -62,13 +68,11 @@ export const STATUS_ORDER: CaseStatus[] = [
   "OPEN", "IN_PROGRESS", "AWAITING_APPROVAL", "AWAITING_VENDOR", "AWAITING_TENANT", "RESOLVED", "CLOSED",
 ];
 
-export const WORKFLOW_LENGTHS: Record<CaseType, number> = {
-  MAINTENANCE:   11,
-  LEASE_RENEWAL: 8,
-  ARREARS:       6,
-  COMPLIANCE:    6,
-  GENERAL:       4,
-};
+// Derived from the workflow registry so it can never drift (the hand-kept
+// copy had ARREARS at 6 while ARREARS_V1 has 7 stages).
+export const WORKFLOW_LENGTHS: Record<CaseType, number> = Object.fromEntries(
+  (Object.keys(WORKFLOWS) as CaseType[]).map((t) => [t, WORKFLOWS[t].stages.length]),
+) as Record<CaseType, number>;
 
 export function ProgressChip({ c }: { c: CaseRow }) {
   const total = WORKFLOW_LENGTHS[c.caseType] ?? 1;

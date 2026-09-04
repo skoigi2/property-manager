@@ -28,6 +28,12 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   "src/app/api/vendors/[id]/route.ts",
   // Property list (CARETAKER projection)
   "src/app/api/properties/route.ts",
+  // Tenants directory projection (id / name / phone / unit only for CARETAKER)
+  "src/app/api/tenants/route.ts",
+  // Tenant complaints (STAFF_CONDUCT hidden from CARETAKER — src/lib/complaint-rules.ts)
+  "src/app/api/complaints/route.ts",
+  "src/app/api/complaints/[id]/route.ts",
+  "src/app/api/complaints/[id]/events/route.ts",
   // Identity-scoped plumbing every signed-in user needs
   "src/app/api/notification-preferences/route.ts",
   "src/app/api/invitations/my/route.ts",

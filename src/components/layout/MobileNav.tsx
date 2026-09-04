@@ -14,6 +14,7 @@ import {
   BarChart3, CalendarDays, CalendarRange, BookOpen, Inbox, Briefcase,
   ArrowLeftRight, Mail, Sparkles, Zap, Bell, CreditCard,
   PlayCircle,
+  MessageSquareWarning,
 } from "lucide-react";
 
 interface NavItem {
@@ -49,6 +50,7 @@ const ownerItems: NavItem[] = [
 // On-site CARETAKER: expenses, maintenance, vendors — nothing else.
 const caretakerPrimary: NavItem[] = [
   { href: "/maintenance", label: "Maintenance", icon: Wrench },
+  { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
   { href: "/expenses",    label: "Expenses",    icon: Receipt },
   { href: "/vendors",     label: "Vendors",     icon: Building2 },
 ];
@@ -92,6 +94,7 @@ const mgrDrawerSections: DrawerSection[] = [
     items: [
       { href: "/cases",       label: "Cases",       icon: Briefcase },
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
+      { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
       { href: "/assets",      label: "Assets",      icon: Package },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/insurance",   label: "Insurance",   icon: ShieldPlus },
@@ -141,6 +144,7 @@ const accountantDrawerSections: DrawerSection[] = [
     items: [
       { href: "/cases",       label: "Cases",       icon: Briefcase },
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
+      { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/compliance",  label: "Compliance",  icon: BarChart3 },
     ],

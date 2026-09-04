@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import {
   Wrench, ChevronLeft, MessageSquare, Paperclip,
   GitBranch, UserCheck, Send, Mail, Briefcase, ShieldQuestion,
+  MessageSquareWarning,
 } from "lucide-react";
 import { formatRelative, formatFull } from "@/lib/relative-time";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
@@ -38,7 +39,7 @@ interface CaseEvent {
 
 interface CaseDetail {
   id: string;
-  caseType: "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE" | "GENERAL";
+  caseType: "MAINTENANCE" | "LEASE_RENEWAL" | "ARREARS" | "COMPLIANCE" | "GENERAL" | "COMPLAINT";
   subjectId: string;
   title: string;
   status: CaseStatus;
@@ -165,6 +166,14 @@ export default function CaseDetailPage() {
               className="ml-auto text-caption text-gray-500 hover:text-gold inline-flex items-center gap-1"
             >
               <Wrench size={12} /> View as maintenance job
+            </Link>
+          )}
+          {c.caseType === "COMPLAINT" && (
+            <Link
+              href={`/complaints/${c.subjectId}`}
+              className="ml-auto text-caption text-gray-500 hover:text-gold inline-flex items-center gap-1"
+            >
+              <MessageSquareWarning size={12} /> View as complaint
             </Link>
           )}
         </div>

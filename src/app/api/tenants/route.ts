@@ -1,10 +1,14 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireSession, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
+import { TENANT_DIRECTORY_SELECT, tenantReadIsDirectory } from "@/lib/tenant-projection";
 
 export async function GET(req: Request) {
-  const { error } = await requireAuth();
+  // Any role — but CARETAKER (and anyone passing ?projection=directory) only
+  // ever gets the directory shape: id, name, phone, unit. Never rent, deposit,
+  // lease terms, ID numbers, notes or the portal token.
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
@@ -18,6 +22,20 @@ export async function GET(req: Request) {
     filterPropertyId && propertyIds.includes(filterPropertyId)
       ? [filterPropertyId]
       : propertyIds;
+
+  if (tenantReadIsDirectory(session!.user.orgRole, searchParams.get("projection") === "directory")) {
+    const directory = await prisma.tenant.findMany({
+      where: {
+        unit: { propertyId: { in: effectivePropertyIds } },
+        ...(unitId ? { unitId } : {}),
+        isActive: true,
+      },
+      select: TENANT_DIRECTORY_SELECT,
+      orderBy: [{ unit: { unitNumber: "asc" } }, { name: "asc" }],
+      take: 2000,
+    });
+    return Response.json(directory);
+  }
 
   const tenants = await prisma.tenant.findMany({
     where: {

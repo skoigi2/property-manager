@@ -1,8 +1,10 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds, requirePropertyAccess } from "@/lib/auth-utils";
+import { getWorkflow, computeDefaultStageSlaHours } from "@/lib/case-workflows";
+import type { Prisma } from "@prisma/client";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { createCaseSchema } from "@/lib/validations";
+import { createCaseSchema, CASE_TYPES } from "@/lib/validations";
 import { computeCaseSlaDueDate } from "@/lib/cases";
 
 export async function GET(req: Request) {
@@ -28,7 +30,8 @@ export async function GET(req: Request) {
       propertyId: { in: effectivePropertyIds },
       ...(status ? { status: status as never } : {}),
       ...(waitingOn ? { waitingOn: waitingOn as never } : {}),
-      ...(caseType ? { caseType: caseType as never } : {}),
+      // Validate rather than cast — an unknown value used to reach Prisma and 500.
+    ...(caseType && (CASE_TYPES as readonly string[]).includes(caseType) ? { caseType: caseType as (typeof CASE_TYPES)[number] } : {}),
       ...(assignedToMe && session?.user.id ? { assignedToUserId: session.user.id } : {}),
     },
     include: {
@@ -79,6 +82,10 @@ export async function POST(req: Request) {
 
   const { initialBody, ...threadData } = parsed.data;
   const now = new Date();
+  // Manually created cases used to start with no workflowKey / stageSlaHours,
+  // which made them invisible to the SLA-breach cron. Seed both like the
+  // automation and maintenance paths do.
+  const wf = getWorkflow(threadData.caseType);
 
   const thread = await prisma.caseThread.create({
     data: {
@@ -86,6 +93,10 @@ export async function POST(req: Request) {
       organizationId: property.organizationId,
       stageStartedAt: now,
       lastActivityAt: now,
+      workflowKey: wf.key,
+      currentStageIndex: 0,
+      stage: threadData.stage ?? wf.stages[0].label,
+      stageSlaHours: computeDefaultStageSlaHours(wf) as Prisma.InputJsonValue,
     },
   });
 

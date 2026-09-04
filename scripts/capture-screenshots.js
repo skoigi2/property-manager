@@ -131,6 +131,17 @@ async function shot(page, name, { waitFor = 'main', fullPage = false, delay = 15
 
   await page.goto(`${BASE_URL}/insurance`);
   await shot(page, '17-insurance');
+  // The renewed Contents policy (ZUR-BC-004, seeded 2026-09) carries the
+  // contents-cover-vs-asset-register line; capture that card on its own.
+  const contentsCard = page.locator('a[href^="/insurance"], [id^="item-"]').filter({ hasText: 'ZUR-BC-004' }).first();
+  if (await contentsCard.count()) {
+    await contentsCard.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await contentsCard.screenshot({ path: path.join(OUT_DIR, '17b-insurance-contents.png') });
+    console.log('✓ 17b-insurance-contents');
+  } else {
+    console.log('⚠ ZUR-BC-004 not found, skipping 17b-insurance-contents');
+  }
 
   await page.goto(`${BASE_URL}/compliance`);
   await shot(page, '18-compliance');

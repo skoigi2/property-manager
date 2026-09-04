@@ -18,6 +18,7 @@ export type EventType =
   | "MAINTENANCE_DUE"
   | "MAINTENANCE_VISIT"
   | "INSURANCE_RENEWAL"
+  | "WARRANTY_EXPIRY"
   | "COMPLIANCE_EXPIRY"
   | "RECURRING_EXPENSE"
   | "RENT_REMITTANCE"
@@ -188,6 +189,7 @@ export async function buildCalendarEvents(
     maintenanceSchedules,
     maintenanceJobs,
     insurancePolicies,
+    assetWarranties,
     complianceCerts,
     recurringExpenses,
     agreements,
@@ -262,6 +264,12 @@ export async function buildCalendarEvents(
     prisma.insurancePolicy.findMany({
       where: { propertyId: { in: propertyIds }, endDate: { gte: from, lte: to } },
       include: { property: { select: { id: true, name: true, currency: true } } },
+    }),
+
+    // Asset warranties ending — the last chance to claim on the manufacturer.
+    prisma.asset.findMany({
+      where: { propertyId: { in: propertyIds }, warrantyExpiry: { gte: from, lte: to } },
+      select: { id: true, name: true, warrantyExpiry: true, property: { select: { id: true, name: true, currency: true } } },
     }),
 
     prisma.complianceCertificate.findMany({
@@ -512,6 +520,29 @@ export async function buildCalendarEvents(
       urgency: expiryUrgency(days),
       isOverdue: days < 0,
       actions: [{ label: "Open policy", href: `/insurance?focus=${p.id}` }],
+    });
+  }
+
+  // ── Asset warranties ──────────────────────────────────────────────────────
+  for (const a of assetWarranties) {
+    if (!a.warrantyExpiry) continue;
+    const end = new Date(a.warrantyExpiry);
+    const days = daysFromToday(end, today);
+    events.push({
+      id: `WARRANTY_EXPIRY-${a.id}`,
+      refId: a.id,
+      type: "WARRANTY_EXPIRY",
+      title: `${a.name} — warranty ${days < 0 ? "expired" : "ends"}`,
+      feedSummary: `Asset warranty ${days < 0 ? "expired" : "ends"}`,
+      date: toDateStr(end),
+      propertyId: a.property.id,
+      propertyName: a.property.name,
+      link: `/assets?focus=${a.id}`,
+      daysUntil: days,
+      urgency: expiryUrgency(days),
+      // An expired warranty is a fact, not an open obligation.
+      isOverdue: false,
+      actions: [{ label: "Open asset", href: `/assets?focus=${a.id}` }],
     });
   }
 

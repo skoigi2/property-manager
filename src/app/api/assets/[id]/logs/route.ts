@@ -23,7 +23,7 @@ export async function GET(
 
     const logs = await prisma.assetMaintenanceLog.findMany({
       where: { assetId: params.id },
-      include: { schedule: { select: { taskName: true } } },
+      include: { schedule: { select: { taskName: true } }, vendor: { select: { id: true, name: true } } },
       orderBy: { date: "desc" },
     });
 

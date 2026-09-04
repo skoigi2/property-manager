@@ -1,5 +1,6 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 function calcNextDue(lastDone: Date, frequency: string): Date {
   const d = new Date(lastDone);
@@ -17,7 +18,7 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string; scheduleId: string } }
 ) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
@@ -94,6 +95,8 @@ export async function POST(
           scope: hasUnit ? "UNIT" : "PROPERTY",
           propertyId: asset.propertyId,
           organizationId: asset.property?.organizationId ?? null,
+          createdByUserId: session!.user.id,
+          vendorId: vendorId ?? null,
           ...(hasUnit ? { unitId: asset.unitId! } : {}),
           description: `${asset.name} — ${existing.taskName}: ${description}`,
           maintenanceLogs: { create: [logData] },
@@ -120,6 +123,16 @@ export async function POST(
     const log = (cost && cost > 0)
       ? (txResults[0] as { maintenanceLogs: unknown[] }).maintenanceLogs[0]
       : txResults[0];
+
+    await logAudit({
+      userId: session!.user.id,
+      userEmail: session!.user.email,
+      action: "CREATE",
+      resource: "AssetMaintenanceLog",
+      resourceId: (log as { id: string }).id,
+      organizationId: session!.user.organizationId,
+      after: { assetId: params.id, asset: asset.name, task: existing.taskName, date, cost: cost ?? null, expenseCreated: !!(cost && cost > 0) },
+    });
 
     return Response.json(log, { status: 201 });
   } catch (err: any) {

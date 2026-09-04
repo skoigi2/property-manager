@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { InsuranceType, PremiumFrequency } from "@prisma/client";
-import { withInsuranceDocumentUrls, removeInsuranceDocumentFile } from "@/lib/insurance-document-urls";
+import { withSignedDocumentUrls, removeStoredDocumentFile } from "@/lib/entity-document-urls";
 
 const updateSchema = z.object({
   propertyId: z.string().optional(),
@@ -50,7 +50,7 @@ export async function GET(
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return Response.json({ ...policy, documents: await withInsuranceDocumentUrls(policy.documents) });
+    return Response.json({ ...policy, documents: await withSignedDocumentUrls(policy.documents) });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
@@ -176,7 +176,7 @@ export async function DELETE(
     await prisma.insurancePolicy.delete({ where: { id: params.id } });
 
     // The document rows cascade; the files behind them don't — clean up best-effort.
-    for (const d of policy.documents) await removeInsuranceDocumentFile(d.fileUrl);
+    for (const d of policy.documents) await removeStoredDocumentFile(d.fileUrl);
 
     await logAudit({
       userId: session!.user.id,

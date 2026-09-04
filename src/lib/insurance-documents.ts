@@ -1,9 +1,22 @@
 /**
  * Insurance policy documents — pure helpers shared by the API routes, the
  * upload component and the policy card. No Prisma, no React.
+ * File rules (allowed types, storage paths, legacy URLs) are shared with the
+ * asset register in src/lib/document-files.ts.
  */
+import {
+  DOCUMENT_ACCEPT,
+  DOCUMENT_MAX_MB,
+  categoryLabelMap,
+  documentStoragePath,
+  isAllowedDocumentFile,
+  sortDocumentsByCategory,
+  type DocumentCategoryDef,
+} from "@/lib/document-files";
 
-export const INSURANCE_DOCUMENT_CATEGORIES = [
+export { isLegacyPublicUrl } from "@/lib/document-files";
+
+export const INSURANCE_DOCUMENT_CATEGORIES: readonly DocumentCategoryDef[] = [
   { value: "POLICY_SCHEDULE",    label: "Policy schedule",    hint: "The policy wording / schedule from the insurer" },
   { value: "CERTIFICATE",        label: "Certificate",        hint: "Certificate of insurance or cover note" },
   { value: "VALUATION_REPORT",   label: "Valuation report",   hint: "Independent valuation the sum insured is based on" },
@@ -11,61 +24,30 @@ export const INSURANCE_DOCUMENT_CATEGORIES = [
   { value: "CLAIM",              label: "Claim",              hint: "Claim forms, correspondence, settlement letters" },
   { value: "INVOICE_RECEIPT",    label: "Invoice / receipt",  hint: "Premium invoice or proof of payment" },
   { value: "OTHER",              label: "Other",              hint: "Anything else related to this policy" },
-] as const;
+];
 
-export type InsuranceDocumentCategoryValue = (typeof INSURANCE_DOCUMENT_CATEGORIES)[number]["value"];
+export const INSURANCE_DOCUMENT_CATEGORY_LABEL = categoryLabelMap(INSURANCE_DOCUMENT_CATEGORIES);
 
-export const INSURANCE_DOCUMENT_CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  INSURANCE_DOCUMENT_CATEGORIES.map((c) => [c.value, c.label]),
-);
-
-export function isInsuranceDocumentCategory(v: unknown): v is InsuranceDocumentCategoryValue {
+export function isInsuranceDocumentCategory(v: unknown): v is string {
   return typeof v === "string" && INSURANCE_DOCUMENT_CATEGORIES.some((c) => c.value === v);
 }
 
 /** Order the card lists documents in: the ones you reach for first, first. */
 export const INSURANCE_DOCUMENT_CATEGORY_ORDER: readonly string[] = INSURANCE_DOCUMENT_CATEGORIES.map((c) => c.value);
 
-export const INSURANCE_DOCUMENT_MAX_MB = 10;
-export const INSURANCE_DOCUMENT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx";
+export const INSURANCE_DOCUMENT_MAX_MB = DOCUMENT_MAX_MB;
+export const INSURANCE_DOCUMENT_ACCEPT = DOCUMENT_ACCEPT;
 
-const ALLOWED_TYPES = new Set([
-  "application/pdf",
-  "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-]);
-const ALLOWED_EXTENSIONS = /\.(pdf|jpe?g|png|webp|heic|heif|docx?|xlsx?)$/i;
-
-/** Some browsers give HEIC (and some Office) files an empty MIME type — fall back to the extension. */
-export function isAllowedInsuranceDocument(file: { type: string; name: string }): boolean {
-  return file.type ? ALLOWED_TYPES.has(file.type) : ALLOWED_EXTENSIONS.test(file.name);
-}
-
-/**
- * Rows created before the move to private storage hold a full public URL in
- * `fileUrl`; newer rows hold a bucket path that has to be signed on read.
- */
-export function isLegacyPublicUrl(fileUrl: string): boolean {
-  return /^https?:\/\//i.test(fileUrl);
-}
+export const isAllowedInsuranceDocument = isAllowedDocumentFile;
 
 /** Bucket path for a fresh upload. */
 export function insuranceStoragePath(policyId: string, fileName: string, now = Date.now()): string {
-  const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return `insurance/${policyId}/${now}-${safe}`;
+  return documentStoragePath("insurance", policyId, fileName, now);
 }
 
 /** Sort documents for display: category order, then newest upload first. */
 export function sortInsuranceDocuments<T extends { category: string; uploadedAt: string | Date }>(docs: T[]): T[] {
-  return [...docs].sort((a, b) => {
-    const ca = INSURANCE_DOCUMENT_CATEGORY_ORDER.indexOf(a.category);
-    const cb = INSURANCE_DOCUMENT_CATEGORY_ORDER.indexOf(b.category);
-    if (ca !== cb) return ca - cb;
-    return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
-  });
+  return sortDocumentsByCategory(docs, INSURANCE_DOCUMENT_CATEGORY_ORDER);
 }
 
 export type PolicyLifecycle = "expired" | "expiring" | "upcoming" | "active";

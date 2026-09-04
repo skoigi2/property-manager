@@ -1,33 +1,13 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@supabase/supabase-js";
-
-const BUCKET = "property-documents";
-
-function getStorageClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase storage not configured");
-  return createClient(url, key);
-}
-
-function storagePathFromUrl(fileUrl: string): string | null {
-  try {
-    const url = new URL(fileUrl);
-    const marker = `/object/public/${BUCKET}/`;
-    const idx = url.pathname.indexOf(marker);
-    if (idx === -1) return null;
-    return url.pathname.slice(idx + marker.length);
-  } catch {
-    return null;
-  }
-}
+import { logAudit } from "@/lib/audit";
+import { removeStoredDocumentFile } from "@/lib/entity-document-urls";
 
 export async function DELETE(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
 
   const propertyIds = await getAccessiblePropertyIds();
@@ -35,29 +15,31 @@ export async function DELETE(
 
   const doc = await prisma.assetDocument.findUnique({
     where: { id: params.docId },
-    include: { asset: { select: { propertyId: true } } },
+    include: { asset: { select: { propertyId: true, name: true } } },
   });
 
-  if (!doc) return Response.json({ error: "Not found" }, { status: 404 });
+  if (!doc || doc.assetId !== params.id) return Response.json({ error: "Not found" }, { status: 404 });
   if (!propertyIds.includes(doc.asset.propertyId)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Delete from storage (best effort)
-  try {
-    const storagePath = storagePathFromUrl(doc.fileUrl);
-    if (storagePath) {
-      const supabase = getStorageClient();
-      await supabase.storage.from(BUCKET).remove([storagePath]);
-    }
-  } catch {
-    // Non-fatal
-  }
+  await removeStoredDocumentFile(doc.fileUrl);
 
   try {
     await prisma.assetDocument.delete({ where: { id: params.docId } });
-    return Response.json({ success: true });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
+
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "DELETE",
+    resource: "AssetDocument",
+    resourceId: params.docId,
+    organizationId: session!.user.organizationId,
+    before: { assetId: doc.assetId, asset: doc.asset.name, category: doc.category, label: doc.label, fileName: doc.fileName },
+  });
+
+  return Response.json({ success: true });
 }

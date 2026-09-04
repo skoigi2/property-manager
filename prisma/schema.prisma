@@ -1615,6 +1615,8 @@ model Asset {
   modelNumber     String?
   purchaseDate    DateTime?
   purchaseCost    Decimal? @db.Decimal(14, 2)
+  /// What it would cost to replace today — what a contents policy should cover.
+  replacementValue Decimal? @db.Decimal(14, 2)
   warrantyExpiry  DateTime?
   serviceProvider String?
   serviceContact  String?
@@ -1631,16 +1633,35 @@ model Asset {
   @@index([warrantyExpiry])
 }
 
+/// What a file attached to an asset is — warranty card, manual, service report…
+enum AssetDocumentCategory {
+  WARRANTY
+  MANUAL
+  INVOICE_RECEIPT
+  SERVICE_REPORT
+  CERTIFICATE
+  PHOTO
+  OTHER
+}
+
 model AssetDocument {
-  id         String   @id @default(cuid())
-  assetId    String
-  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  label      String
-  fileName   String
-  fileUrl    String
-  fileSize   Int?
-  mimeType   String?
-  uploadedAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  assetId         String
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  category        AssetDocumentCategory @default(OTHER)
+  label           String
+  fileName        String
+  /// Storage path inside the private `tenant-documents` bucket (signed on read).
+  /// Rows from before 2026-09 hold a public URL in the old `property-documents`
+  /// bucket instead — `isLegacyPublicUrl()` in src/lib/document-files.ts.
+  fileUrl         String
+  fileSize        Int?
+  mimeType        String?
+  /// The date the document speaks to (service date, invoice date), not the upload date.
+  documentDate    DateTime?
+  uploadedByEmail String?
+  uploadedByName  String?
+  uploadedAt      DateTime @default(now())
 
   @@index([assetId])
 }

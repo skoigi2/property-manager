@@ -1,7 +1,7 @@
 import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { removeInsuranceDocumentFile } from "@/lib/insurance-document-urls";
+import { removeStoredDocumentFile } from "@/lib/entity-document-urls";
 
 export async function DELETE(
   _req: Request,
@@ -23,7 +23,7 @@ export async function DELETE(
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await removeInsuranceDocumentFile(doc.fileUrl);
+  await removeStoredDocumentFile(doc.fileUrl);
 
   try {
     await prisma.insurancePolicyDocument.delete({ where: { id: params.docId } });

@@ -14,20 +14,19 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { VendorSelect } from "@/components/ui/VendorSelect";
+import { useFocusScroll } from "@/lib/use-focus-scroll";
+import { AssetDocuments, type AssetDocumentsHandle, type AssetDocument } from "@/components/assets/AssetDocuments";
+import { ASSET_DOCUMENT_CATEGORY_LABEL, warrantyLifecycle } from "@/lib/asset-documents";
 import {
-  Package,
   Plus,
   Pencil,
   Trash2,
   AlertTriangle,
   FileText,
-  Upload,
   X,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
   Wrench,
-  Clock,
   CheckCircle2,
   History,
 } from "lucide-react";
@@ -74,17 +73,6 @@ const FREQ_LABELS: Record<string, string> = {
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-interface AssetDocument {
-  id: string;
-  assetId: string;
-  label: string;
-  fileName: string;
-  fileUrl: string;
-  fileSize: number | null;
-  mimeType: string | null;
-  uploadedAt: string;
-}
-
 interface MaintenanceSchedule {
   id: string;
   taskName: string;
@@ -106,6 +94,7 @@ interface MaintenanceLog {
   technician: string | null;
   notes: string | null;
   schedule: { taskName: string } | null;
+  vendor: { id: string; name: string } | null;
 }
 
 interface Asset {
@@ -119,14 +108,17 @@ interface Asset {
   modelNumber: string | null;
   purchaseDate: string | null;
   purchaseCost: number | null;
+  replacementValue: number | null;
   warrantyExpiry: string | null;
   serviceProvider: string | null;
   serviceContact: string | null;
+  vendorId: string | null;
+  vendor: { id: string; name: string; phone: string | null } | null;
   notes: string | null;
-  property: { name: string };
+  property: { name: string; currency: string | null };
   unit: { unitNumber: string } | null;
   documentsCount: number;
-  documents?: AssetDocument[];
+  documentCategories: string[];
   maintenanceSchedules: MaintenanceSchedule[];
 }
 
@@ -154,11 +146,18 @@ function daysUntil(dateStr: string): number {
 type WarrantyStatus = { label: string; variant: "red" | "amber" | "green" | "gray" };
 
 function warrantyStatus(dateStr: string | null): WarrantyStatus {
-  if (!dateStr) return { label: "No Warranty", variant: "gray" };
-  const days = daysUntil(dateStr);
-  if (days < 0) return { label: "Expired", variant: "red" };
-  if (days <= 90) return { label: "Expiring Soon", variant: "amber" };
-  return { label: "Valid", variant: "green" };
+  const { status, daysLeft } = warrantyLifecycle(dateStr);
+  switch (status) {
+    case "none":     return { label: "No Warranty", variant: "gray" };
+    case "expired":  return { label: "Warranty expired", variant: "red" };
+    case "expiring": return { label: `Warranty ends in ${daysLeft}d`, variant: "amber" };
+    default:         return { label: "Under warranty", variant: "green" };
+  }
+}
+
+function categoryLabel(a: { category: string; categoryOther: string | null }): string {
+  if (a.category === "OTHER" && a.categoryOther) return a.categoryOther;
+  return CAT_LABELS[a.category] ?? a.category;
 }
 
 type MaintStatus = { label: string; variant: "red" | "amber" | "green" | "gray" };
@@ -169,13 +168,6 @@ function maintenanceStatus(nextDue: string | null, lastDone: string | null): Mai
   if (days < 0) return { label: `Overdue ${Math.abs(days)}d`, variant: "red" };
   if (days <= 30) return { label: `Due in ${days}d`, variant: "amber" };
   return { label: "OK", variant: "green" };
-}
-
-function formatFileSize(bytes: number | null): string {
-  if (!bytes) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // ── Blank form ─────────────────────────────────────────────────────────────────
@@ -191,6 +183,7 @@ function blankForm() {
     modelNumber: "",
     purchaseDate: "",
     purchaseCost: "",
+    replacementValue: "",
     warrantyExpiry: "",
     serviceProvider: "",
     serviceContact: "",
@@ -199,139 +192,9 @@ function blankForm() {
   };
 }
 
-// ── Document Panel ────────────────────────────────────────────────────────────
-
-function DocumentPanel({ assetId }: { assetId: string }) {
-  const [docs, setDocs] = useState<AssetDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [label, setLabel] = useState("");
-  const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const loadDocs = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/assets/${assetId}/documents`);
-      if (res.ok) setDocs(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [assetId]);
-
-  useEffect(() => { loadDocs(); }, [loadDocs]);
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("label", label || file.name);
-      const res = await fetch(`/api/assets/${assetId}/documents`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || "Upload failed");
-      } else {
-        toast.success("Document uploaded");
-        setLabel("");
-        if (fileRef.current) fileRef.current.value = "";
-        await loadDocs();
-      }
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleDelete(docId: string) {
-    const res = await fetch(`/api/assets/${assetId}/documents/${docId}`, { method: "DELETE" });
-    if (res.ok) {
-      toast.success("Document deleted");
-      setDocs((d) => d.filter((x) => x.id !== docId));
-    } else {
-      toast.error("Delete failed");
-    }
-    setDeleteDocId(null);
-  }
-
-  if (loading) return <div className="py-4 flex justify-center"><Spinner size="sm" /></div>;
-
-  return (
-    <div className="mt-3 border-t border-gray-100 pt-3 space-y-3">
-      <h4 className="text-label font-semibold text-gray-500 uppercase ">Documents</h4>
-
-      {docs.length === 0 && (
-        <p className="text-body text-gray-400 ">No documents uploaded yet.</p>
-      )}
-
-      {docs.map((doc) => (
-        <div key={doc.id} className="flex items-center justify-between gap-2 text-body ">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText size={14} className="text-gray-400 shrink-0" />
-            <a
-              href={doc.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gold hover:text-gold-dark truncate flex items-center gap-1"
-            >
-              {doc.label}
-              <ExternalLink size={11} />
-            </a>
-            {doc.fileSize && (
-              <span className="text-gray-400 text-caption shrink-0">{formatFileSize(doc.fileSize)}</span>
-            )}
-          </div>
-          <button
-            onClick={() => setDeleteDocId(doc.id)}
-            className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
-
-      {/* Upload area */}
-      <div className="flex items-center gap-2 pt-1">
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Document label (optional)"
-          className="flex-1 text-body border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-gold/30"
-        />
-        <label className="cursor-pointer">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            className="hidden"
-            onChange={handleUpload}
-            disabled={uploading}
-          />
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-cream rounded-lg text-body text-header hover:bg-cream-dark transition-colors">
-            {uploading ? <Spinner size="sm" /> : <Upload size={13} />}
-            Upload
-          </span>
-        </label>
-      </div>
-
-      <ConfirmDialog
-        open={!!deleteDocId}
-        title="Delete document"
-        message="Are you sure you want to delete this document? This cannot be undone."
-        confirmLabel="Delete"
-        onConfirm={() => deleteDocId && handleDelete(deleteDocId)}
-        onClose={() => setDeleteDocId(null)}
-      />
-    </div>
-  );
-}
-
 // ── Maintenance Panel ─────────────────────────────────────────────────────────
 
-function MaintenancePanel({ assetId }: { assetId: string }) {
-  const { selected } = useProperty();
-  const currency = useProperty().currency;
+function MaintenancePanel({ assetId, currency }: { assetId: string; currency: string }) {
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -538,7 +401,7 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
                   <span className="text-gray-400">{formatDate(new Date(log.date))}</span>
                   {log.schedule && <span className="mx-1 text-blue-500">[{log.schedule.taskName}]</span>}
                   <span className="text-header"> {log.description}</span>
-                  {log.technician && <span className="text-gray-400"> · {log.technician}</span>}
+                  {(log.vendor?.name || log.technician) && <span className="text-gray-400"> · {log.vendor?.name ?? log.technician}</span>}
                   {log.cost != null && <span className="text-expense font-medium"> · {formatCurrency(log.cost, currency)}</span>}
                 </div>
                 <button
@@ -716,14 +579,15 @@ function MaintenancePanel({ assetId }: { assetId: string }) {
 
 export default function AssetsPage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
-  const currency = useProperty().currency;
+  const { selectedId, currency } = useProperty();
+  useFocusScroll();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterProperty, setFilterProperty] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterWarranty, setFilterWarranty] = useState("");
   const [search, setSearch] = useState("");
   const [expandedPanel, setExpandedPanel] = useState<{ assetId: string; tab: "documents" | "maintenance" } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -731,6 +595,7 @@ export default function AssetsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(blankForm());
+  const docsRef = useRef<AssetDocumentsHandle>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -738,7 +603,7 @@ export default function AssetsPage() {
       const propParam = selectedId ? `?propertyId=${selectedId}` : "";
       const [assetRes, propRes] = await Promise.all([
         fetch(`/api/assets${propParam}`),
-        fetch("/api/properties"),
+        fetch("/api/properties?minimal=true"),
       ]);
       if (assetRes.ok) setAssets(await assetRes.json());
       if (propRes.ok) setProperties(await propRes.json());
@@ -760,9 +625,14 @@ export default function AssetsPage() {
 
   function openAdd() {
     setEditAsset(null);
-    setForm(blankForm());
+    setForm({ ...blankForm(), propertyId: selectedId ?? "" });
     setUnits([]);
     setModalOpen(true);
+  }
+
+  function closeModal() {
+    if (!editAsset && docsRef.current?.hasQueued() && !window.confirm("Files you added have not been uploaded yet. Discard them?")) return;
+    setModalOpen(false);
   }
 
   function openEdit(a: Asset) {
@@ -777,10 +647,11 @@ export default function AssetsPage() {
       modelNumber: a.modelNumber ?? "",
       purchaseDate: a.purchaseDate ? a.purchaseDate.slice(0, 10) : "",
       purchaseCost: a.purchaseCost?.toString() ?? "",
+      replacementValue: a.replacementValue?.toString() ?? "",
       warrantyExpiry: a.warrantyExpiry ? a.warrantyExpiry.slice(0, 10) : "",
       serviceProvider: a.serviceProvider ?? "",
       serviceContact: a.serviceContact ?? "",
-      vendorId: (a as any).vendorId ?? "",
+      vendorId: a.vendorId ?? "",
       notes: a.notes ?? "",
     });
     setModalOpen(true);
@@ -803,6 +674,7 @@ export default function AssetsPage() {
         modelNumber: form.modelNumber || null,
         purchaseDate: form.purchaseDate || null,
         purchaseCost: form.purchaseCost ? parseFloat(form.purchaseCost) : null,
+        replacementValue: form.replacementValue ? parseFloat(form.replacementValue) : null,
         warrantyExpiry: form.warrantyExpiry || null,
         serviceProvider: form.serviceProvider || null,
         serviceContact: form.serviceContact || null,
@@ -818,13 +690,34 @@ export default function AssetsPage() {
         body: JSON.stringify(payload),
       });
 
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error?.formErrors?.[0] || err.error || "Save failed");
+        toast.error(typeof body.error === "string" ? body.error : body.error?.formErrors?.[0] || "Save failed");
         return;
       }
 
-      toast.success(editAsset ? "Asset updated" : "Asset created");
+      if (editAsset) {
+        toast.success("Asset updated");
+      } else {
+        // New asset: push any files chosen in the form now that it has an id.
+        const created = body as Asset;
+        if (docsRef.current?.hasQueued()) {
+          const { done, failed } = await docsRef.current.uploadAllTo(created.id);
+          if (failed.length === 0) {
+            toast.success(`Asset created · ${done} document${done === 1 ? "" : "s"} attached`);
+          } else {
+            // Keep the form open on the saved asset so the failed rows keep their Retry button.
+            toast.error(`Asset created, but ${failed.length} document${failed.length === 1 ? "" : "s"} failed to upload. Retry below or close to leave them off.`);
+            setEditAsset(created);
+            setExpandedPanel({ assetId: created.id, tab: "documents" });
+            await load();
+            return;
+          }
+        } else {
+          toast.success("Asset created");
+        }
+        setExpandedPanel({ assetId: created.id, tab: "documents" });
+      }
       setModalOpen(false);
       await load();
     } finally {
@@ -843,17 +736,29 @@ export default function AssetsPage() {
     setDeleteId(null);
   }
 
+  function onDocsChanged(assetId: string, docs: AssetDocument[]) {
+    setAssets((list) => list.map((a) => a.id === assetId
+      ? { ...a, documentsCount: docs.length, documentCategories: Array.from(new Set(docs.map((d) => d.category))) }
+      : a));
+  }
+
   // ── Filtered list ──────────────────────────────────────────────────────────
 
   const filtered = assets.filter((a) => {
     if (filterProperty && a.propertyId !== filterProperty) return false;
     if (filterCategory && a.category !== filterCategory) return false;
+    if (filterWarranty && warrantyLifecycle(a.warrantyExpiry).status !== filterWarranty) return false;
     if (search) {
       const q = search.toLowerCase();
       if (
         !a.name.toLowerCase().includes(q) &&
         !(a.serialNumber ?? "").toLowerCase().includes(q) &&
-        !(a.serviceProvider ?? "").toLowerCase().includes(q)
+        !(a.modelNumber ?? "").toLowerCase().includes(q) &&
+        !(a.serviceProvider ?? "").toLowerCase().includes(q) &&
+        !(a.vendor?.name ?? "").toLowerCase().includes(q) &&
+        !(a.categoryOther ?? "").toLowerCase().includes(q) &&
+        !a.property.name.toLowerCase().includes(q) &&
+        !(a.unit?.unitNumber ?? "").toLowerCase().includes(q)
       )
         return false;
     }
@@ -864,6 +769,8 @@ export default function AssetsPage() {
 
   const totalAssets = assets.length;
   const totalValue = assets.reduce((s, a) => s + (a.purchaseCost ?? 0), 0);
+  const totalReplacement = assets.reduce((s, a) => s + (a.replacementValue ?? 0), 0);
+  const withReplacement = assets.filter((a) => a.replacementValue != null).length;
   const warrantiesExpiring = assets.filter((a) => {
     if (!a.warrantyExpiry) return false;
     const d = daysUntil(a.warrantyExpiry);
@@ -880,10 +787,12 @@ export default function AssetsPage() {
 
   // ── Alert banner ──────────────────────────────────────────────────────────
 
+  // Ending within 90 days, or ended in the last 90 — a warranty that lapsed
+  // years ago is history, not something to act on.
   const alertAssets = assets.filter((a) => {
     if (!a.warrantyExpiry) return false;
     const d = daysUntil(a.warrantyExpiry);
-    return d <= 90;
+    return d <= 90 && d >= -90;
   });
 
   const maintAlertAssets = assets.filter((a) =>
@@ -956,8 +865,11 @@ export default function AssetsPage() {
             <p className="text-h1 text-header mt-1">{totalAssets}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-label text-gray-500 uppercase ">Total Purchase Value</p>
+            <p className="text-label text-gray-500 uppercase ">Purchase / Replacement Value</p>
             <p className="text-h3 text-header mt-1">{formatCurrency(totalValue, currency)}</p>
+            <p className="text-caption text-gray-400 mt-0.5" title="Sum of replacement values — what a contents policy should cover">
+              {withReplacement > 0 ? `${formatCurrency(totalReplacement, currency)} to replace (${withReplacement} of ${totalAssets} valued)` : "No replacement values recorded"}
+            </p>
           </Card>
           <Card className="p-4">
             <p className="text-label text-gray-500 uppercase ">Warranties Expiring</p>
@@ -993,11 +905,22 @@ export default function AssetsPage() {
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
+          <select
+            value={filterWarranty}
+            onChange={(e) => setFilterWarranty(e.target.value)}
+            className="text-body border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+          >
+            <option value="">Any warranty</option>
+            <option value="valid">Under warranty</option>
+            <option value="expiring">Warranty ending soon</option>
+            <option value="expired">Warranty expired</option>
+            <option value="none">No warranty</option>
+          </select>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, serial, provider..."
+            placeholder="Search name, serial, model, vendor, unit..."
             className="flex-1 min-w-[200px] text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
           />
           <Button onClick={openAdd} className="ml-auto flex items-center gap-2">
@@ -1010,24 +933,27 @@ export default function AssetsPage() {
           <div className="flex justify-center py-16"><Spinner size="lg" /></div>
         ) : filtered.length === 0 ? (
           <EmptyState
-            title="No assets registered"
-            description="Add your first asset to start tracking equipment, appliances, and more."
-            action={<Button onClick={openAdd}><Plus size={14} className="mr-1" />Add Asset</Button>}
+            title={assets.length === 0 ? "No assets registered" : "No assets match these filters"}
+            description={assets.length === 0 ? "Add your first asset to start tracking equipment, appliances, warranties and the paperwork behind them." : "Try clearing the category, warranty or search filters."}
+            action={assets.length === 0 ? <Button onClick={openAdd}><Plus size={14} className="mr-1" />Add Asset</Button> : undefined}
           />
         ) : (
           <div className="space-y-3">
             {filtered.map((asset) => {
               const ws = warrantyStatus(asset.warrantyExpiry);
+              const assetCurrency = asset.property.currency ?? currency;
+              const provider = asset.vendor
+                ? [asset.vendor.name, asset.vendor.phone].filter(Boolean).join(" · ")
+                : [asset.serviceProvider, asset.serviceContact].filter(Boolean).join(" · ");
 
               return (
-                <Card key={asset.id} className="p-4">
+                <div key={asset.id} id={`item-${asset.id}`}>
+                <Card className="p-4">
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant={CAT_BADGE[asset.category] ?? "gray"}>
-                          {CAT_LABELS[asset.category] ?? asset.category}
-                        </Badge>
+                        <Badge variant={CAT_BADGE[asset.category] ?? "gray"}>{categoryLabel(asset)}</Badge>
                         <span className=" font-semibold text-header">{asset.name}</span>
                         {asset.serialNumber && (
                           <span className="tabular-nums text-caption text-gray-400">S/N: {asset.serialNumber}</span>
@@ -1051,7 +977,10 @@ export default function AssetsPage() {
                     <div>
                       <span className="text-gray-400 text-caption">Purchase Cost</span>
                       <p className="text-header font-medium">
-                        {asset.purchaseCost ? formatCurrency(asset.purchaseCost, currency) : "—"}
+                        {asset.purchaseCost ? formatCurrency(asset.purchaseCost, assetCurrency) : "—"}
+                        {asset.replacementValue != null && (
+                          <span className="text-caption text-gray-400 font-normal" title="Replacement value"> · {formatCurrency(asset.replacementValue, assetCurrency)} to replace</span>
+                        )}
                       </p>
                     </div>
                     {asset.modelNumber && (
@@ -1069,19 +998,40 @@ export default function AssetsPage() {
                         <Badge variant={ws.variant}>{ws.label}</Badge>
                       </p>
                     </div>
-                    {(asset.serviceProvider || asset.serviceContact) && (
+                    {provider && (
                       <div className="col-span-2">
                         <span className="text-gray-400 text-caption">Service Provider</span>
-                        <p className="text-header">
-                          {[asset.serviceProvider, asset.serviceContact].filter(Boolean).join(" · ")}
-                        </p>
+                        <p className="text-header">{provider}</p>
                       </div>
+                    )}
+                    {asset.notes && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400 text-caption">Notes</span>
+                        <p className="text-header whitespace-pre-wrap">{asset.notes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Paperwork on file */}
+                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                    {asset.documentCategories.length === 0 ? (
+                      <span className="text-caption text-gray-400">No documents on file</span>
+                    ) : (
+                      asset.documentCategories.map((c) => (
+                        <span key={c} className="text-label uppercase font-medium px-1.5 py-0.5 rounded bg-cream text-header border border-cream-dark">
+                          {ASSET_DOCUMENT_CATEGORY_LABEL[c] ?? c}
+                        </span>
+                      ))
+                    )}
+                    {asset.warrantyExpiry && warrantyLifecycle(asset.warrantyExpiry).status !== "expired" && !asset.documentCategories.includes("WARRANTY") && (
+                      <span className="text-label uppercase font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200" title="Upload the warranty card so a claim has something to lean on">
+                        No warranty document
+                      </span>
                     )}
                   </div>
 
                   {/* Footer */}
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <Badge variant={ws.variant}>{ws.label}</Badge>
                     {asset.maintenanceSchedules.length > 0 && (
                       <Badge variant={maintenanceStatus(
                         asset.maintenanceSchedules.reduce((min, s) => {
@@ -1104,7 +1054,7 @@ export default function AssetsPage() {
                           : "text-gray-500 hover:text-header hover:bg-cream"
                       }`}
                     >
-                      <FileText size={12} /> Docs
+                      <FileText size={12} /> {asset.documentsCount} doc{asset.documentsCount !== 1 ? "s" : ""}
                       {expandedPanel?.assetId === asset.id && expandedPanel.tab === "documents" ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </button>
                     <button
@@ -1132,12 +1082,16 @@ export default function AssetsPage() {
 
                   {/* Expandable panels */}
                   {expandedPanel?.assetId === asset.id && expandedPanel.tab === "documents" && (
-                    <DocumentPanel assetId={asset.id} />
+                    <div className="mt-3 border-t border-gray-100 pt-3">
+                      <h4 className="text-label font-semibold text-gray-500 uppercase mb-2">Documents</h4>
+                      <AssetDocuments assetId={asset.id} onChanged={(docs) => onDocsChanged(asset.id, docs)} />
+                    </div>
                   )}
                   {expandedPanel?.assetId === asset.id && expandedPanel.tab === "maintenance" && (
-                    <MaintenancePanel assetId={asset.id} />
+                    <MaintenancePanel assetId={asset.id} currency={assetCurrency} />
                   )}
                 </Card>
+                </div>
               );
             })}
           </div>
@@ -1147,7 +1101,7 @@ export default function AssetsPage() {
       {/* Add / Edit modal */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={closeModal}
         title={editAsset ? "Edit Asset" : "Add Asset"}
         size="xl"
       >
@@ -1282,17 +1236,33 @@ export default function AssetsPage() {
             </div>
           </div>
 
-          {/* Warranty Expiry */}
-          <div>
-            <label className="block text-caption font-medium text-gray-500 mb-1">
-              Warranty Expiry
-            </label>
-            <input
-              type="date"
-              value={form.warrantyExpiry}
-              onChange={(e) => setForm((f) => ({ ...f, warrantyExpiry: e.target.value }))}
-              className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
+          {/* Replacement value / Warranty Expiry */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-caption font-medium text-gray-500 mb-1">
+                Replacement Value <span className="text-gray-400 font-normal">(today)</span>
+              </label>
+              <input
+                type="number"
+                value={form.replacementValue}
+                onChange={(e) => setForm((f) => ({ ...f, replacementValue: e.target.value }))}
+                placeholder="0"
+                min="0"
+                title="What it would cost to replace now — the figure a contents policy should cover"
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
+            <div>
+              <label className="block text-caption font-medium text-gray-500 mb-1">
+                Warranty Expiry
+              </label>
+              <input
+                type="date"
+                value={form.warrantyExpiry}
+                onChange={(e) => setForm((f) => ({ ...f, warrantyExpiry: e.target.value }))}
+                className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+            </div>
           </div>
 
           {/* Service Provider */}
@@ -1314,10 +1284,23 @@ export default function AssetsPage() {
             />
           </div>
 
+          {/* Documents */}
+          <div className="border-t border-gray-100 pt-4">
+            <label className="block text-caption font-medium text-gray-500 mb-1">Documents</label>
+            <p className="text-caption text-gray-400 mb-2">Warranty card, manual, purchase invoice, service reports, test certificates and photos.</p>
+            {modalOpen && (
+              <AssetDocuments
+                ref={docsRef}
+                assetId={editAsset?.id}
+                onChanged={editAsset ? (docs) => onDocsChanged(editAsset.id, docs) : undefined}
+              />
+            )}
+          </div>
+
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setModalOpen(false)} disabled={saving}>
-              Cancel
+            <Button variant="ghost" onClick={closeModal} disabled={saving}>
+              {editAsset ? "Close" : "Cancel"}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Spinner size="sm" /> : editAsset ? "Save changes" : "Create asset"}

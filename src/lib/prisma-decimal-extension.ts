@@ -98,6 +98,7 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
     },
     asset: {
       purchaseCost: { needs: { purchaseCost: true }, compute: (r) => (r.purchaseCost === null ? null : Number(r.purchaseCost)) },
+      replacementValue: { needs: { replacementValue: true }, compute: (r) => (r.replacementValue === null ? null : Number(r.replacementValue)) },
     },
     assetMaintenanceSchedule: {
       estimatedCost: { needs: { estimatedCost: true }, compute: (r) => (r.estimatedCost === null ? null : Number(r.estimatedCost)) },

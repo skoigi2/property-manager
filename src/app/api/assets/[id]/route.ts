@@ -1,25 +1,38 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { AssetCategory } from "@prisma/client";
+import { withSignedDocumentUrls, removeStoredDocumentFile } from "@/lib/entity-document-urls";
 
 const updateSchema = z.object({
   propertyId: z.string().optional(),
   unitId: z.string().optional().nullable(),
-  name: z.string().optional(),
+  name: z.string().trim().min(1).optional(),
   category: z.nativeEnum(AssetCategory).optional(),
   categoryOther: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
   modelNumber: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
   purchaseCost: z.number().nonnegative().optional().nullable(),
+  replacementValue: z.number().nonnegative().optional().nullable(),
   warrantyExpiry: z.string().optional().nullable(),
   serviceProvider: z.string().optional().nullable(),
   serviceContact: z.string().optional().nullable(),
   vendorId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
+
+function firstMessage(err: z.ZodError): string {
+  const f = err.flatten();
+  return f.formErrors[0] ?? Object.values(f.fieldErrors).flat()[0] ?? "Invalid input";
+}
+
+const INCLUDE = {
+  property: { select: { name: true, currency: true } },
+  unit: { select: { unitNumber: true } },
+  vendor: { select: { id: true, name: true, category: true, phone: true } },
+} as const;
 
 export async function GET(
   _req: Request,
@@ -34,12 +47,7 @@ export async function GET(
   try {
     const asset = await prisma.asset.findUnique({
       where: { id: params.id },
-      include: {
-        property: { select: { name: true } },
-        unit: { select: { unitNumber: true } },
-        vendor: { select: { id: true, name: true, category: true, phone: true } },
-        documents: { orderBy: { uploadedAt: "desc" } },
-      },
+      include: { ...INCLUDE, documents: { orderBy: { uploadedAt: "desc" } } },
     });
 
     if (!asset) return Response.json({ error: "Not found" }, { status: 404 });
@@ -47,7 +55,7 @@ export async function GET(
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return Response.json(asset);
+    return Response.json({ ...asset, documents: await withSignedDocumentUrls(asset.documents) });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
@@ -65,7 +73,7 @@ export async function PATCH(
 
   const asset = await prisma.asset.findUnique({
     where: { id: params.id },
-    select: { propertyId: true, name: true, category: true },
+    select: { propertyId: true, unitId: true, name: true, category: true, serialNumber: true },
   });
 
   if (!asset) return Response.json({ error: "Not found" }, { status: 404 });
@@ -82,10 +90,24 @@ export async function PATCH(
 
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+    return Response.json({ error: firstMessage(parsed.error) }, { status: 400 });
   }
 
   const data = parsed.data;
+
+  // Moving an asset to another property needs access to that property too.
+  if (data.propertyId !== undefined && !propertyIds.includes(data.propertyId)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const nextPropertyId = data.propertyId ?? asset.propertyId;
+  const nextUnitId = data.unitId !== undefined ? data.unitId : asset.unitId;
+  if (nextUnitId) {
+    const unit = await prisma.unit.findUnique({ where: { id: nextUnitId }, select: { propertyId: true } });
+    if (!unit || unit.propertyId !== nextPropertyId) {
+      return Response.json({ error: "That unit is not in the selected property" }, { status: 400 });
+    }
+  }
+  const nextCategory = data.category ?? asset.category;
 
   try {
     const updated = await prisma.asset.update({
@@ -95,26 +117,28 @@ export async function PATCH(
         ...(data.unitId !== undefined && { unitId: data.unitId }),
         ...(data.name !== undefined && { name: data.name }),
         ...(data.category !== undefined && { category: data.category }),
-        ...(data.categoryOther !== undefined && { categoryOther: data.categoryOther }),
-        ...(data.serialNumber !== undefined && { serialNumber: data.serialNumber }),
-        ...(data.modelNumber !== undefined && { modelNumber: data.modelNumber }),
+        ...((data.categoryOther !== undefined || data.category !== undefined) && {
+          categoryOther: nextCategory === "OTHER" ? (data.categoryOther?.trim() || null) : null,
+        }),
+        ...(data.serialNumber !== undefined && { serialNumber: data.serialNumber?.trim() || null }),
+        ...(data.modelNumber !== undefined && { modelNumber: data.modelNumber?.trim() || null }),
         ...(data.purchaseDate !== undefined && {
           purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
         }),
         ...(data.purchaseCost !== undefined && { purchaseCost: data.purchaseCost }),
+        ...(data.replacementValue !== undefined && { replacementValue: data.replacementValue }),
         ...(data.warrantyExpiry !== undefined && {
           warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
         }),
-        ...(data.serviceProvider !== undefined && { serviceProvider: data.serviceProvider }),
-        ...(data.serviceContact !== undefined && { serviceContact: data.serviceContact }),
+        ...(data.serviceProvider !== undefined && { serviceProvider: data.serviceProvider?.trim() || null }),
+        ...(data.serviceContact !== undefined && { serviceContact: data.serviceContact?.trim() || null }),
         ...(data.vendorId !== undefined && { vendorId: data.vendorId }),
-        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.notes !== undefined && { notes: data.notes?.trim() || null }),
       },
       include: {
-        property: { select: { name: true } },
-        unit: { select: { unitNumber: true } },
-        vendor: { select: { id: true, name: true, category: true, phone: true } },
-        documents: { orderBy: { uploadedAt: "desc" } },
+        ...INCLUDE,
+        documents: { select: { id: true, category: true } },
+        maintenanceSchedules: { where: { isActive: true }, select: { id: true, taskName: true, frequency: true, nextDue: true, lastDone: true } },
       },
     });
 
@@ -126,10 +150,15 @@ export async function PATCH(
       resourceId: params.id,
       organizationId: session!.user.organizationId,
       before: asset,
-      after: { name: updated.name, category: updated.category },
+      after: { name: updated.name, category: updated.category, propertyId: updated.propertyId, serialNumber: updated.serialNumber },
     });
 
-    return Response.json(updated);
+    const { documents, ...rest } = updated;
+    return Response.json({
+      ...rest,
+      documentsCount: documents.length,
+      documentCategories: Array.from(new Set(documents.map((d) => d.category))),
+    });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
@@ -147,7 +176,7 @@ export async function DELETE(
 
   const asset = await prisma.asset.findUnique({
     where: { id: params.id },
-    select: { propertyId: true, name: true, category: true },
+    select: { propertyId: true, name: true, category: true, documents: { select: { fileUrl: true } } },
   });
 
   if (!asset) return Response.json({ error: "Not found" }, { status: 404 });
@@ -158,6 +187,9 @@ export async function DELETE(
   try {
     await prisma.asset.delete({ where: { id: params.id } });
 
+    // The document rows cascade; the files behind them don't — clean up best-effort.
+    for (const d of asset.documents) await removeStoredDocumentFile(d.fileUrl);
+
     await logAudit({
       userId: session!.user.id,
       userEmail: session!.user.email,
@@ -165,7 +197,7 @@ export async function DELETE(
       resource: "Asset",
       resourceId: params.id,
       organizationId: session!.user.organizationId,
-      before: asset,
+      before: { name: asset.name, category: asset.category, documents: asset.documents.length },
     });
 
     return Response.json({ success: true });

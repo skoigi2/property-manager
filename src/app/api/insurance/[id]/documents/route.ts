@@ -8,7 +8,8 @@ import {
   isInsuranceDocumentCategory,
   insuranceStoragePath,
 } from "@/lib/insurance-documents";
-import { withInsuranceDocumentUrls } from "@/lib/insurance-document-urls";
+import { withSignedDocumentUrls } from "@/lib/entity-document-urls";
+import type { InsuranceDocumentCategory } from "@prisma/client";
 
 async function loadPolicy(id: string) {
   const propertyIds = await getAccessiblePropertyIds();
@@ -30,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     where: { policyId: params.id },
     orderBy: { uploadedAt: "desc" },
   });
-  return Response.json(await withInsuranceDocumentUrls(documents));
+  return Response.json(await withSignedDocumentUrls(documents));
 }
 
 /** POST — multipart `file` + `category` + `label` + optional `documentDate` (YYYY-MM-DD). */
@@ -86,7 +87,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const doc = await prisma.insurancePolicyDocument.create({
     data: {
       policyId: params.id,
-      category: categoryRaw,
+      category: categoryRaw as InsuranceDocumentCategory,
       label: label || file.name,
       fileName: file.name,
       fileUrl: storagePath,
@@ -108,6 +109,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     after: { policyId: params.id, policyNumber: loaded.policy!.policyNumber, category: doc.category, label: doc.label, fileName: doc.fileName, fileSize: doc.fileSize },
   });
 
-  const [signed] = await withInsuranceDocumentUrls([doc]);
+  const [signed] = await withSignedDocumentUrls([doc]);
   return Response.json(signed, { status: 201 });
 }

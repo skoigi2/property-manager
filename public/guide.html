@@ -892,11 +892,11 @@
 
     <div class="sub-section">
       <h3>What appears on the calendar</h3>
-      <p style="margin-bottom:12px">Twelve event types, drawn live from your data — nothing to enter manually:</p>
+      <p style="margin-bottom:12px">Thirteen event types, drawn live from your data — nothing to enter manually:</p>
       <ul class="feature-list">
         <li><strong>Leases</strong> — lease starts and lease expiries</li>
         <li><strong>Money</strong> — rent due dates (from invoices), recurring expenses, rent remittance day (verified against recorded owner payouts — a remitted period drops off; an unpaid past one shows overdue), and management-fee invoice day (from the property's agreement)</li>
-        <li><strong>Maintenance</strong> — scheduled contractor visits and recurring maintenance schedules coming due</li>
+        <li><strong>Maintenance</strong> — scheduled contractor visits, recurring maintenance schedules coming due, and asset warranties ending</li>
         <li><strong>Renewals &amp; compliance</strong> — insurance renewals and compliance certificate expiries</li>
         <li><strong>Workflow deadlines</strong> — approval expiry deadlines and case SLA deadlines</li>
       </ul>
@@ -1819,7 +1819,13 @@
         <img src="guide-screenshots/19-assets.png" alt="Assets" loading="lazy">
         <div class="screenshot-caption">Asset Register — inventory with maintenance schedules</div>
       </div>
-      <p>Maintain an inventory of property assets — appliances, fixtures, furniture, plant &amp; equipment. Each asset can have recurring maintenance schedules and a maintenance log (which can be linked to expense entries). The register tracks serial numbers, warranty dates, and replacement values.</p>
+      <p style="margin-bottom:12px">Maintain an inventory of property assets — appliances, fixtures, furniture, plant &amp; equipment. Each asset can have recurring maintenance schedules and a maintenance log (a logged cost becomes a MAINTENANCE expense automatically, with the vendor carried across). The register tracks serial and model numbers, purchase cost, <em>replacement value</em>, warranty dates, and the service provider.</p>
+      <ul class="feature-list">
+        <li><strong>Paperwork lives on the asset</strong> — the add / edit form has a Documents section for the warranty card, manual, purchase invoice, service reports, test certificates (lift, pressure vessel, electrical) and photos, each with a category, a label and the date on the document. Files chosen while creating an asset upload as soon as it is saved; the card's <em>docs</em> panel adds or removes files later. The card shows chips for what is on file and flags an in-warranty asset with no warranty document.</li>
+        <li><strong>Warranty status</strong> — <span class="badge badge-green">Under warranty</span> <span class="badge badge-amber">Ends in N days (≤90)</span> <span class="badge badge-red">Expired</span> <span class="badge badge-gray">No warranty</span>, with a warranty filter and a banner listing what needs attention. Warranty end dates also appear on the <a href="#calendar">Calendar</a> under Building.</li>
+        <li><strong>Replacement value</strong> — what the asset would cost to replace today. The KPI card sums it across the register, which is the figure to check a Contents policy's sum insured against.</li>
+        <li><strong>Private storage</strong> — asset documents are stored privately and opened through short-lived links; uploads, deletions and logged maintenance are written to the audit log.</li>
+      </ul>
     </div>
   </div>
 

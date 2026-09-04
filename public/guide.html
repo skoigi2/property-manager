@@ -1744,7 +1744,7 @@
     <div class="section-header">
       <div class="section-num">14 — Operations</div>
       <h2>Operations</h2>
-      <p class="intro">Supporting modules that keep your portfolio compliant, insured, and organised — forecast, vendors, insurance, compliance, and assets. The proactive layer that surfaces issues from these modules lives in the <a href="#inbox">Operational Inbox</a> as Smart Reminders, and their dates plot on the <a href="#calendar">Calendar</a>.</p>
+      <p class="intro">Supporting modules that keep your portfolio compliant, insured, and organised &mdash; forecast, vendors, insurance, compliance, and the asset register, with insurance and assets checked against each other so a Contents policy is never quietly short of what the plant would cost to replace. The proactive layer that surfaces issues from these modules lives in the <a href="#inbox">Operational Inbox</a> as Smart Reminders, and their dates plot on the <a href="#calendar">Calendar</a>.</p>
     </div>
 
     <div class="screenshot-grid">
@@ -1763,7 +1763,7 @@
       <div>
         <div class="screenshot-wrap">
           <img src="guide-screenshots/17-insurance.png" alt="Insurance" loading="lazy">
-          <div class="screenshot-caption">Insurance — policy tracking with expiry alerts</div>
+          <div class="screenshot-caption">Insurance &mdash; policies with status, renewal, paperwork and the contents-cover check</div>
         </div>
       </div>
       <div>
@@ -1798,20 +1798,27 @@
 
     <div class="sub-section">
       <h3>Insurance</h3>
-      <p style="margin-bottom:12px">Track policies per property with type (Building, Public Liability, Contents, Other), insurer, premium, frequency, sum insured, and broker. Each card shows the policy's status — <span class="badge badge-green">Active</span> <span class="badge badge-amber">Expiring Soon (≤60 days)</span> <span class="badge badge-red">Expired</span> <span class="badge badge-blue">Upcoming</span> — and the days left on the term. Policies expiring within 30 days trigger the automated email alert and an Inbox item.</p>
-      <ul class="feature-list">
-        <li><strong>Paperwork lives on the policy</strong> — the add / edit form has a Documents section, so the policy schedule, certificate, the <em>valuation report</em> the sum insured is based on, the insurer's survey or risk assessment, claims correspondence and premium receipts are filed as you enter the policy. Each file carries a category, a label and the date on the document (the valuation date, say). Files chosen while creating a policy upload as soon as it is saved; the card's <em>docs</em> panel adds or removes files later.</li>
-        <li><strong>What's on file is visible at a glance</strong> — the card shows chips for the categories attached, and a Building or Contents policy with no valuation report is flagged, with a count on the premium KPI card.</li>
-      </ul>
-      <div class="screenshot-wrap" style="margin-top:14px">
-        <img src="guide-screenshots/17b-insurance-contents.png" alt="Contents policy compared with the asset register" loading="lazy">
-        <div class="screenshot-caption">A Contents policy card — documents on file, and the sum insured checked against the asset register</div>
+      <p style="margin-bottom:12px">One record per policy, per property: Building, Public Liability, Contents, or Other (with your own label). Each card carries the insurer, policy number, term, sum insured, premium and how often it is paid, the broker, and the paperwork behind it. The list is sorted by end date so what needs renewing first is at the top, and filters by property, type, status and a search across insurer, policy number, broker and property.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Add the policy</h4><p>Click <em>Add Policy</em>. Property, type, insurer, policy number and the term are required; the end date must come after the start. Enter the <strong>Coverage Amount</strong> as the sum insured on the schedule, and the premium with its frequency &mdash; the page annualises premiums for the KPI card.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Attach the paperwork in the same form</h4><p>The <strong>Documents</strong> section at the bottom of the form takes the policy schedule, the certificate or cover note, the <em>valuation report</em> the sum insured is based on, the insurer's survey or risk assessment, claims correspondence, and premium invoices or receipts. Pick a category, add an optional label and the date on the document (the valuation date, say), then choose one or more files &mdash; PDF, images, Word or Excel, up to 10 MB each. On a new policy the files are queued and uploaded the moment the policy is saved; if one fails, the form stays open with a <em>Retry</em> on that file.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Keep it current from the card</h4><p>The <em>docs</em> panel on each card adds or removes files later, <em>Edit</em> reopens the form with the documents inline, and <em>Log premium</em> jumps to the Expenses form pre-filled with the premium, the property and the INSURANCE category so the payment reaches the P&amp;L without retyping.</p></div></div>
       </div>
+
+      <p style="margin-bottom:12px">Each card shows where the policy sits today &mdash; <span class="badge badge-green">Active</span> with the days left, <span class="badge badge-amber">Expiring Soon</span> inside 60 days, <span class="badge badge-red">Expired</span>, or <span class="badge badge-blue">Upcoming</span> for a term that has not started &mdash; and chips for the document categories on file. Amounts format in the property's own currency, so a mixed-currency portfolio reads correctly.</p>
+
+      <div class="screenshot-wrap">
+        <img src="guide-screenshots/17b-insurance-contents.png" alt="Contents policy compared with the asset register" loading="lazy">
+        <div class="screenshot-caption">A Contents policy card &mdash; status, paperwork on file, and the sum insured checked against the asset register</div>
+      </div>
+
       <ul class="feature-list">
-        <li><strong>Contents cover vs the asset register</strong> — a Contents policy's card compares its sum insured with what the <a href="#operations">Asset Register</a> says the property's in-service assets would cost to replace. It reads <em>Covers the register</em> or <em>Under-insured by …</em> with the shortfall, and tells you when the register has no replacement values or the policy has no sum insured to compare.</li>
-        <li><strong>Renew</strong> — an expiring or expired policy has a <em>Renew</em> button that opens a new policy pre-filled with the same cover, dated from the day after the old term ends, so the old policy stays on record. Enter the new policy number and confirm the premium.</li>
-        <li><strong>Log premium</strong> — jumps to the Expenses form pre-filled with the premium, the property and the INSURANCE category, so the payment reaches the P&amp;L without retyping.</li>
-        <li><strong>Private storage</strong> — documents are stored privately and opened through short-lived links, like tenant documents. Uploads and deletions are written to the audit log.</li>
+        <li><strong>Missing valuation</strong> &mdash; a Building or Contents policy with no valuation report on file is flagged on the card, and the premium KPI card counts how many policies are in that state.</li>
+        <li><strong>Contents cover vs the asset register</strong> &mdash; a Contents policy's card compares its sum insured with what the <a href="#operations">Asset Register</a> says the property's in-service assets would cost to replace. It reads <em>Covers the register</em>, or <em>Under-insured by &hellip;</em> with the shortfall and the two figures side by side, and says so plainly when the register has no replacement values yet or the policy has no sum insured to compare. The KPI card counts under-insured policies.</li>
+        <li><strong>Renewals</strong> &mdash; an expiring or expired policy shows <em>Renew</em> on its card and in the alert banner. It opens a new policy pre-filled with the same cover, dated from the day after the old term ends for the same length (a near-year term renews as a full year), so the old policy stays on record with its documents. Enter the new policy number, confirm the premium, and attach the new schedule.</li>
+        <li><strong>Alerts</strong> &mdash; the page banner lists policies expiring within 60 days or already expired. The daily job emails the property's managers 30 and 7 days before the end date and raises an Inbox item (the <em>Insurance expiry alerts</em> switch on the <a href="#automations">Automations</a> page), and renewal dates plot on the <a href="#calendar">Calendar</a>.</li>
+        <li><strong>Private storage and audit</strong> &mdash; documents are stored privately and opened through short-lived links, like tenant documents, never from a public address. Uploads, deletions and every policy change are written to the audit log; deleting a policy removes its files.</li>
       </ul>
     </div>
 
@@ -1824,16 +1831,24 @@
       <h3>Asset Register</h3>
       <div class="screenshot-wrap">
         <img src="guide-screenshots/19-assets.png" alt="Assets" loading="lazy">
-        <div class="screenshot-caption">Asset Register — warranties, replacement values, paperwork and maintenance schedules per asset</div>
+        <div class="screenshot-caption">Asset Register &mdash; warranties, replacement values, paperwork and maintenance schedules per asset</div>
       </div>
-      <p style="margin-bottom:12px">Maintain an inventory of property assets — appliances, fixtures, furniture, plant &amp; equipment. Each asset can have recurring maintenance schedules and a maintenance log (a logged cost becomes a MAINTENANCE expense automatically, with the vendor carried across). The register tracks serial and model numbers, purchase cost, <em>replacement value</em>, warranty dates, and the service provider.</p>
+      <p style="margin-bottom:12px">An inventory of the plant, appliances, furniture, IT and vehicles at each property &mdash; generators, lifts, boilers, CCTV, chargers &mdash; with what each one cost, what it would cost to replace, when its warranty ends, who services it, and the paperwork and maintenance history behind it. Filter by property, category and warranty status, or search by name, serial or model number, vendor, unit or property.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Add the asset</h4><p>Click <em>Add Asset</em>. Property and name are required; a unit is optional (common-area plant has none), and the unit must belong to the chosen property. Record the category (Generator, Lift, HVAC, Pool, Electrical, Plumbing, Security, Appliance, Furniture, IT Equipment, Vehicle, or Other with your own label), serial and model numbers, purchase date and cost, the <strong>Replacement Value</strong> &mdash; what it would cost to replace today &mdash; the warranty expiry, and the service provider picked from your <a href="#operations">Vendors</a>.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Attach the paperwork in the same form</h4><p>The <strong>Documents</strong> section takes the warranty card, the manual or spec sheet, the purchase invoice, service reports, test or inspection certificates (lift, pressure vessel, electrical) and condition photos, each with a category, an optional label and the date on the document. Files chosen on a new asset upload as soon as it is saved; the card's <em>docs</em> panel adds or removes files later.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Schedule and log the maintenance</h4><p>The card's <em>Maintenance</em> panel holds recurring schedules (weekly to annual, with an estimated cost that can become a recurring expense) and the history. Logging a completed task with a cost creates a MAINTENANCE expense automatically, with the vendor carried across, and moves the schedule's next-due date on.</p></div></div>
+      </div>
+
+      <p style="margin-bottom:12px">Each card shows the warranty position &mdash; <span class="badge badge-green">Under warranty</span>, <span class="badge badge-amber">Warranty ends in N days</span> inside 90 days, <span class="badge badge-red">Warranty expired</span>, or <span class="badge badge-gray">No warranty</span> &mdash; the purchase cost with the replacement value beside it, the linked vendor as the service provider, notes, chips for the document categories on file, and a flag when an in-warranty asset has no warranty document to lean on for a claim. Amounts format in the property's own currency.</p>
+
       <ul class="feature-list">
-        <li><strong>Paperwork lives on the asset</strong> — the add / edit form has a Documents section for the warranty card, manual, purchase invoice, service reports, test certificates (lift, pressure vessel, electrical) and photos, each with a category, a label and the date on the document. Files chosen while creating an asset upload as soon as it is saved; the card's <em>docs</em> panel adds or removes files later. The card shows chips for what is on file and flags an in-warranty asset with no warranty document.</li>
-        <li><strong>Warranty status</strong> — <span class="badge badge-green">Under warranty</span> <span class="badge badge-amber">Ends in N days (≤90)</span> <span class="badge badge-red">Expired</span> <span class="badge badge-gray">No warranty</span>, with a warranty filter and a banner listing what needs attention. Warranty end dates also appear on the <a href="#calendar">Calendar</a> under Building, and the daily job emails managers 30 and 7 days before a warranty ends (the <em>Asset warranty alerts</em> switch on the <a href="#automations">Automations</a> page) with a matching Inbox item.</li>
-        <li><strong>Dispose, don't delete</strong> — <em>Dispose</em> on a card records the date and what happened (sold, scrapped, replaced) and keeps the asset with its documents and maintenance history. Disposed assets drop out of the counts, the alerts, the calendar and the contents-cover figure; tick <em>Show disposed</em> to see them, and <em>Reinstate</em> puts one back in service.</li>
-        <li><strong>Bulk load and resync</strong> — the <a href="#import">Data Import</a> page has an Assets tab: download the template, fill in the register (property, unit, serial, cost, replacement value, warranty, vendor), upload. <em>Export existing</em> downloads the current register with IDs so an edited re-upload updates rows in place.</li>
-        <li><strong>Replacement value</strong> — what the asset would cost to replace today. The KPI card sums it across the register, which is the figure to check a Contents policy's sum insured against.</li>
-        <li><strong>Private storage</strong> — asset documents are stored privately and opened through short-lived links; uploads, deletions and logged maintenance are written to the audit log.</li>
+        <li><strong>Warranty alerts</strong> &mdash; the banner at the top lists warranties ending within 90 days or ended in the last 90, and the KPI card counts those ending soon. The daily job emails the property's managers 30 and 7 days before a warranty ends and raises an Inbox item that opens the asset (the <em>Asset warranty alerts</em> switch on the <a href="#automations">Automations</a> page). Warranty end dates also plot on the <a href="#calendar">Calendar</a> under Building.</li>
+        <li><strong>Replacement value</strong> &mdash; the KPI card sums it across the assets in service, alongside the purchase total, and says how many assets have been valued. That total is what the <a href="#operations">Insurance</a> page checks a Contents policy's sum insured against.</li>
+        <li><strong>Dispose, don't delete</strong> &mdash; when an asset is sold, scrapped or replaced, <em>Dispose</em> on its card records the date and what happened and keeps the asset with its documents and maintenance history. Disposed assets are greyed and struck through, and drop out of the counts, the alerts, the calendar and the contents-cover figure. Tick <em>Show disposed</em> to see them; <em>Reinstate</em> puts one back in service. <em>Delete</em> remains for records entered in error.</li>
+        <li><strong>Bulk load and resync</strong> &mdash; the <a href="#import">Data Import</a> page has an Assets tab. Download the template, fill in the register (property, unit, serial, cost, replacement value, warranty, vendor, disposal date), and upload; property, unit and vendor names are matched to existing records, and an unmatched unit or vendor still imports, just unlinked, with a note. A row matching an existing asset (same property, name and serial number) is skipped unless <em>Update existing records</em> is on. <em>Export existing</em> downloads the current register with IDs so an edited re-upload changes any field without duplicates.</li>
+        <li><strong>Private storage and audit</strong> &mdash; asset documents are stored privately and opened through short-lived links; uploads, deletions, edits, disposals and logged maintenance are written to the audit log, and deleting an asset removes its files.</li>
       </ul>
     </div>
   </div>

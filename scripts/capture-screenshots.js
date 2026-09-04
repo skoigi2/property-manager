@@ -75,6 +75,19 @@ async function shot(page, name, { waitFor = 'main', fullPage = false, delay = 15
     console.log('⚠ no case link found, skipping 27-case-detail');
   }
 
+  // Complaints (guide org holds two seeded complaints; the NOISE one is at Investigating with tenant-visible notes)
+  await page.goto(`${BASE_URL}/complaints`);
+  await shot(page, '30-complaints', { delay: 2500 });
+
+  const complaintLink = page.locator('a[href^="/complaints/"]').first();
+  const complaintHref = await complaintLink.getAttribute('href').catch(() => null);
+  if (complaintHref) {
+    await page.goto(`${BASE_URL}${complaintHref}`);
+    await shot(page, '31-complaint-detail', { delay: 2800 });
+  } else {
+    console.log('⚠ no complaint link found, skipping 31-complaint-detail');
+  }
+
   // ── Core pages ──
   await page.goto(`${BASE_URL}/properties`);
   await shot(page, '05-properties');

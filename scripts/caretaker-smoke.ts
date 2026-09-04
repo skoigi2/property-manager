@@ -12,6 +12,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { mirrorEmailToCase } from "../src/lib/email";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const PASSWORD = "smoke-pass-123";
@@ -157,6 +158,7 @@ async function seed() {
 
   const caretaker  = await user(EMAILS.caretaker, "Smoke Caretaker", "CARETAKER");
   const manager    = await user(EMAILS.manager, "Smoke Manager", "ADMIN");
+  await user("smoke-manager2@groundworkpm.test", "Smoke Manager Two", "ADMIN"); // second recipient for the notification checks
   const accountant = await user(EMAILS.accountant, "Smoke Accountant", "ACCOUNTANT");
   return { org, property, unit, tenant, caretaker, manager, accountant };
 }
@@ -465,6 +467,23 @@ async function main() {
   check("db: portal complaint is source PORTAL, tenantId = tenant, unit = tenant unit, case COMPLAINT with SLA",
     pcRow?.source === "PORTAL" && pcRow?.tenantId === tenant.id && pcRow?.unitId === unit.id && pcRow?.raisedByUserId === null && pcRow?.caseThread?.caseType === "COMPLAINT" && !!pcRow?.caseThread?.stageSlaHours);
 
+  await new Promise((r) => setTimeout(r, 2500)); // notifyNewComplaint is fire-and-forget
+  const newComplaintMails = await prisma.emailLog.findMany({ where: { subject: { startsWith: "New complaint" }, bodyHtml: { contains: pc1?.id ?? "no-id" } }, select: { toEmail: true, status: true } });
+  check("email: 'new complaint' attempted once per manager (2 recipients)", newComplaintMails.length === 2 && new Set(newComplaintMails.map((m) => m.toEmail)).size === 2, JSON.stringify(newComplaintMails));
+  {
+    // Emails don't actually send on a dev box without a Resend key, so drive the
+    // timeline mirror directly: two recipients, same subject → ONE event.
+    const threadId = pcRow?.caseThreadId ?? "x";
+    await mirrorEmailToCase({ caseThreadId: threadId, subject: `Smoke merge ${stamp}`, html: "<p>hello</p>", to: "a@groundworkpm.test", emailLogId: "log-a", kind: "NOTIFICATION" });
+    await mirrorEmailToCase({ caseThreadId: threadId, subject: `Smoke merge ${stamp}`, html: "<p>hello</p>", to: "b@groundworkpm.test", emailLogId: "log-b", kind: "NOTIFICATION" });
+    const evs = await prisma.caseEvent.findMany({ where: { caseThreadId: threadId, kind: "EMAIL_SENT", body: { startsWith: `Smoke merge ${stamp}` } } });
+    const meta = (evs[0]?.meta ?? {}) as any;
+    check("timeline: two sends of one notification collapse into ONE EMAIL_SENT event listing both recipients",
+      evs.length === 1 && Array.isArray(meta.recipients) && meta.recipients.length === 2 && meta.emailLogIds?.length === 2, JSON.stringify(evs.map((e) => e.meta)));
+    await mirrorEmailToCase({ caseThreadId: threadId, subject: `Different subject ${stamp}`, html: "<p>x</p>", to: "a@groundworkpm.test", emailLogId: "log-c", kind: "NOTIFICATION" });
+    const all = await prisma.caseEvent.count({ where: { caseThreadId: threadId, kind: "EMAIL_SENT", body: { contains: String(stamp) } } });
+    check("timeline: a different subject is its own event", all === 2);
+  }
   const careSees = await expectStatus(care, "GET /api/complaints (caretaker sees the portal complaint)", `/api/complaints?propertyId=${property.id}`, 200);
   check("caretaker: portal complaint listed with source PORTAL and tenant name", Array.isArray(careSees) && careSees.some((c: any) => c.id === pc1?.id && c.source === "PORTAL" && c.tenant?.name === "Smoke Tenant"));
 

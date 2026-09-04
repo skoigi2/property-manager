@@ -39,7 +39,8 @@ export async function notifyPettyCashPending(input: {
       submittedBy: input.submittedBy,
     });
     for (const mgr of managers) {
-      if (mgr.email) sendNotificationEmail(mgr.email, subject, html).catch(() => {});
+      if (!mgr.email) continue;
+      try { await sendNotificationEmail(mgr.email, subject, html); } catch { /* one bad address must not block the rest */ }
     }
   } catch {
     // Fire-and-forget — don't fail the request if notification fails

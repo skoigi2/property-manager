@@ -42,9 +42,11 @@ export async function notifyNewComplaint(complaintId: string): Promise<void> {
       source: c.source,
     });
 
+    // Sequential on purpose: the timeline dual-write merges same-subject
+    // sends into one event, which only works when they don't race.
     for (const mgr of managers) {
       if (!(await wantsEmail(mgr.userId, "NOTIFICATION"))) continue;
-      sendNotificationEmail(mgr.email, subject, html, { caseThreadId: c.caseThreadId ?? null }).catch(() => {});
+      try { await sendNotificationEmail(mgr.email, subject, html, { caseThreadId: c.caseThreadId ?? null }); } catch { /* one bad address must not block the rest */ }
     }
   } catch (e) {
     console.error("[complaints] notifyNewComplaint failed:", e);

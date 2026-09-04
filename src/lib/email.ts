@@ -14,6 +14,9 @@ function getResend(): Resend {
   return _resend;
 }
 
+/** Same-subject emails to a case within this window collapse into one timeline event. */
+const EMAIL_EVENT_MERGE_WINDOW_MS = 10 * 60 * 1000;
+
 const FROM = process.env.RESEND_FROM_EMAIL ?? "Groundwork PM <noreply@groundworkpm.com>";
 
 // ─── HTML escaping ────────────────────────────────────────────────────────────
@@ -54,6 +57,62 @@ interface SendAndLogArgs {
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+
+/**
+ * Mirror a sent email onto a case timeline. One notification usually goes to
+ * several managers; that is ONE timeline event, not one per recipient — the
+ * same subject on the same thread within EMAIL_EVENT_MERGE_WINDOW_MS is merged
+ * and recipients accumulate in meta.recipients. Never throws.
+ */
+export async function mirrorEmailToCase(args: {
+  caseThreadId: string;
+  subject: string;
+  html: string;
+  to: string;
+  emailLogId: string;
+  kind: string;
+}): Promise<void> {
+  const snippet = stripHtml(args.html).slice(0, 200);
+  try {
+    const recent = await prisma.caseEvent.findFirst({
+      where: {
+        caseThreadId: args.caseThreadId,
+        kind: "EMAIL_SENT",
+        body: { startsWith: `${args.subject}
+` },
+        createdAt: { gte: new Date(Date.now() - EMAIL_EVENT_MERGE_WINDOW_MS) },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, meta: true },
+    });
+    if (recent) {
+      const meta = (recent.meta && typeof recent.meta === "object" ? recent.meta : {}) as Record<string, unknown>;
+      const recipients = Array.isArray(meta.recipients) ? (meta.recipients as string[]) : meta.recipient ? [String(meta.recipient)] : [];
+      const emailLogIds = Array.isArray(meta.emailLogIds) ? (meta.emailLogIds as string[]) : meta.emailLogId ? [String(meta.emailLogId)] : [];
+      if (!recipients.includes(args.to)) recipients.push(args.to);
+      emailLogIds.push(args.emailLogId);
+      await prisma.caseEvent.update({ where: { id: recent.id }, data: { meta: { ...meta, recipients, emailLogIds } } });
+      return;
+    }
+    await prisma.$transaction([
+      prisma.caseEvent.create({
+        data: {
+          caseThreadId: args.caseThreadId,
+          kind: "EMAIL_SENT",
+          actorEmail: FROM,
+          body: `${args.subject}
+
+${snippet}`,
+          meta: { recipient: args.to, recipients: [args.to], emailLogId: args.emailLogId, emailLogIds: [args.emailLogId], kind: args.kind },
+        },
+      }),
+      prisma.caseThread.update({ where: { id: args.caseThreadId }, data: { lastActivityAt: new Date() } }),
+    ]);
+  } catch (mirrorErr) {
+    console.error("CaseEvent mirror write failed:", mirrorErr);
+  }
 }
 
 export async function sendAndLog(args: SendAndLogArgs): Promise<{ id: string; resendId: string | null }> {
@@ -107,28 +166,9 @@ export async function sendAndLog(args: SendAndLogArgs): Promise<{ id: string; re
     });
     logId = log.id;
 
-    // Dual-write to the case timeline when a thread is linked.
+    // Dual-write to the case timeline when a thread is linked (see mirrorEmailToCase).
     if (args.caseThreadId && status === "sent") {
-      const snippet = stripHtml(args.html).slice(0, 200);
-      try {
-        await prisma.$transaction([
-          prisma.caseEvent.create({
-            data: {
-              caseThreadId: args.caseThreadId,
-              kind: "EMAIL_SENT",
-              actorEmail: FROM,
-              body: `${args.subject}\n\n${snippet}`,
-              meta: { recipient: to, emailLogId: logId, kind: args.kind },
-            },
-          }),
-          prisma.caseThread.update({
-            where: { id: args.caseThreadId },
-            data: { lastActivityAt: new Date() },
-          }),
-        ]);
-      } catch (mirrorErr) {
-        console.error("CaseEvent mirror write failed:", mirrorErr);
-      }
+      await mirrorEmailToCase({ caseThreadId: args.caseThreadId, subject: args.subject, html: args.html, to, emailLogId: logId, kind: args.kind });
     }
   } catch (logErr) {
     // Logging failure must never mask a real send error.

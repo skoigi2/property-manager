@@ -7,6 +7,7 @@ import { WORKFLOWS, computeDefaultStageSlaHours } from "@/lib/case-workflow-defs
 import { TENANT_DIRECTORY_SELECT, TENANT_DIRECTORY_KEYS, tenantReadIsDirectory } from "@/lib/tenant-projection";
 import { validateCaseAttachments, CASE_ATTACHMENT_MAX_FILES } from "@/lib/case-events";
 import { searchGroupsFor, searchHrefs, ALL_SEARCH_GROUPS } from "@/lib/search-visibility";
+import { propertyManagerWhere, orgAdminWhere } from "@/lib/manager-recipients";
 
 const ROLES = ["ADMIN", "MANAGER", "ACCOUNTANT", "OWNER", "CARETAKER"] as const;
 const CATS = Object.keys(COMPLAINT_CATEGORY_LABEL);
@@ -148,5 +149,23 @@ describe("search visibility", () => {
     expect(mgr.property()).toBe("/properties");
     expect(mgr.maintenance("job1", "case1")).toBe("/cases/case1");
     expect(mgr.maintenance("job1", null)).toBe("/maintenance?focus=job1");
+  });
+});
+
+describe("manager recipients — membership role, never global User.role", () => {
+  it("propertyManagerWhere keys on organizationMemberships for both arms", () => {
+    const w = propertyManagerWhere("prop1", "org1") as any;
+    expect(w.isActive).toBe(true);
+    expect(JSON.stringify(w)).not.toMatch(/"role":"(ADMIN|MANAGER)","organizationId"|"organizationId":"org1","role"/);
+    const arms = w.OR as any[];
+    expect(arms[0].organizationMemberships.some).toEqual({ organizationId: "org1", role: "ADMIN" });
+    expect(arms[1].organizationMemberships.some).toEqual({ organizationId: "org1", role: "MANAGER" });
+    expect(arms[1].propertyAccess.some).toEqual({ propertyId: "prop1" });
+    expect("role" in w).toBe(false);
+  });
+  it("orgAdminWhere is membership-based too", () => {
+    const w = orgAdminWhere("org1") as any;
+    expect(w.organizationMemberships.some).toEqual({ organizationId: "org1", role: "ADMIN" });
+    expect("role" in w).toBe(false);
   });
 });

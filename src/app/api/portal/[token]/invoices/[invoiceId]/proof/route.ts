@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import crypto from "crypto";
 import { validatePortalToken } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
+import { propertyManagerWhere } from "@/lib/manager-recipients";
 import { uploadToStorage } from "@/lib/supabase-storage";
 import { sendNotificationEmail, esc } from "@/lib/email";
 import type { ProofOfPaymentType } from "@prisma/client";
@@ -97,14 +98,7 @@ export async function POST(
     const orgId = property.organizationId;
     if (orgId) {
       const recipients = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          email: { not: null },
-          OR: [
-            { organizationId: orgId, role: "ADMIN" },
-            { role: "MANAGER", propertyAccess: { some: { propertyId: property.id } } },
-          ],
-        },
+        where: propertyManagerWhere(property.id, orgId),
         select: { email: true, id: true },
       });
 

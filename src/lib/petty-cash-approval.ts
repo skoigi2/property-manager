@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { propertyManagerWhere } from "@/lib/manager-recipients";
 import { sendNotificationEmail } from "@/lib/email";
 import { pettyCashPendingTemplate } from "@/lib/notifications/email-templates";
 
@@ -22,11 +23,10 @@ export async function notifyPettyCashPending(input: {
       select: { name: true, organizationId: true },
     });
     if (!property) return;
+    if (!property.organizationId) return;
     const managers = await prisma.user.findMany({
       where: {
-        role: { in: ["ADMIN", "MANAGER"] },
-        organizationId: property.organizationId,
-        isActive: true,
+        ...propertyManagerWhere(input.propertyId, property.organizationId),
         ...(input.excludeUserId ? { NOT: { id: input.excludeUserId } } : {}),
       },
       select: { email: true, name: true },

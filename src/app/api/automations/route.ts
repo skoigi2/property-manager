@@ -1,5 +1,6 @@
 import { requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { orgAdminWhere } from "@/lib/manager-recipients";
 import { AUTOMATION_DEFS, DEF_BY_KEY, ensureAutomationTemplates } from "@/lib/automation-registry";
 
 // GET /api/automations — list this org's automation templates merged with the
@@ -27,14 +28,17 @@ export async function GET() {
       where: { organizationId, propertyId: { in: propertyIds } },
       select: { automationKey: true, propertyId: true, enabled: true },
     }),
-    // Org-admins receive alerts for every property in the org.
+    // Org-admins (membership role) receive alerts for every property in the org.
     prisma.user.findMany({
-      where: { organizationId, role: "ADMIN", isActive: true, email: { not: null } },
+      where: orgAdminWhere(organizationId),
       select: { name: true, email: true },
     }),
-    // Managers receive alerts for the properties they have access to.
+    // Managers (membership role) receive alerts for the properties they have access to.
     prisma.propertyAccess.findMany({
-      where: { propertyId: { in: propertyIds }, user: { role: "MANAGER", isActive: true, email: { not: null } } },
+      where: {
+        propertyId: { in: propertyIds },
+        user: { isActive: true, email: { not: null }, organizationMemberships: { some: { organizationId, role: "MANAGER" } } },
+      },
       select: { propertyId: true, user: { select: { name: true, email: true } } },
     }),
     prisma.organization.findUnique({ where: { id: organizationId }, select: { email: true, name: true } }),

@@ -1,5 +1,6 @@
 import type { CaseType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { propertyManagerWhere } from "@/lib/manager-recipients";
 import { esc, sendNotificationEmail } from "@/lib/email";
 import { getPropertyManagers } from "@/lib/notifications/checkers";
 import { getWorkflow, computeDefaultStageSlaHours } from "@/lib/case-workflows";
@@ -315,13 +316,7 @@ async function runUrgentMaintenance(organizationId: string): Promise<HandlerResu
 
     if (!job.caseThread?.assignedToUserId) {
       const managerUserId = await prisma.user.findFirst({
-        where: {
-          isActive: true,
-          OR: [
-            { organizationId, role: "ADMIN" },
-            { role: "MANAGER", propertyAccess: { some: { propertyId: job.propertyId } } },
-          ],
-        },
+        where: propertyManagerWhere(job.propertyId, organizationId),
         select: { id: true, name: true, email: true },
         orderBy: { createdAt: "asc" },
       });

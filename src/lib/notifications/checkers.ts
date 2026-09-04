@@ -1,6 +1,7 @@
 import { differenceInDays, differenceInHours, subDays } from "date-fns";
 import { NotificationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { propertyManagerWhere } from "@/lib/manager-recipients";
 import type { CaseType } from "@prisma/client";
 import { sendNotificationEmail } from "@/lib/email";
 import { formatDate } from "@/lib/date-utils";
@@ -60,15 +61,9 @@ export async function getPropertyManagers(
   propertyId: string,
   organizationId: string,
 ): Promise<NotificationRecipient[]> {
+  // Membership role, not the global User.role — see src/lib/manager-recipients.ts.
   const users = await prisma.user.findMany({
-    where: {
-      isActive: true,
-      email: { not: null },
-      OR: [
-        { organizationId, role: "ADMIN" },
-        { role: "MANAGER", propertyAccess: { some: { propertyId } } },
-      ],
-    },
+    where: propertyManagerWhere(propertyId, organizationId),
     select: { id: true, email: true, name: true },
   });
   const managers = users

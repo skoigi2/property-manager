@@ -159,6 +159,22 @@ async function seed() {
   const caretaker  = await user(EMAILS.caretaker, "Smoke Caretaker", "CARETAKER");
   const manager    = await user(EMAILS.manager, "Smoke Manager", "ADMIN");
   await user("smoke-manager2@groundworkpm.test", "Smoke Manager Two", "ADMIN"); // second recipient for the notification checks
+  // An INVITED org admin: global User.role stays MANAGER (the invitation flow never
+  // writes it), membership role is ADMIN, and no PropertyAccess rows. Must still be
+  // notified for every property in the org.
+  {
+    const u = await prisma.user.upsert({
+      where: { email: "smoke-invited-admin@groundworkpm.test" },
+      create: { email: "smoke-invited-admin@groundworkpm.test", name: "Smoke Invited Admin", password: hashed, role: "MANAGER", organizationId: org!.id, isActive: true },
+      update: { role: "MANAGER", organizationId: org!.id, isActive: true },
+    });
+    await prisma.userOrganizationMembership.upsert({
+      where: { userId_organizationId: { userId: u.id, organizationId: org!.id } },
+      create: { userId: u.id, organizationId: org!.id, role: "ADMIN" },
+      update: { role: "ADMIN" },
+    });
+    await prisma.propertyAccess.deleteMany({ where: { userId: u.id } });
+  }
   const accountant = await user(EMAILS.accountant, "Smoke Accountant", "ACCOUNTANT");
   return { org, property, unit, tenant, caretaker, manager, accountant };
 }
@@ -469,7 +485,9 @@ async function main() {
 
   await new Promise((r) => setTimeout(r, 2500)); // notifyNewComplaint is fire-and-forget
   const newComplaintMails = await prisma.emailLog.findMany({ where: { subject: { startsWith: "New complaint" }, bodyHtml: { contains: pc1?.id ?? "no-id" } }, select: { toEmail: true, status: true } });
-  check("email: 'new complaint' attempted once per manager (2 recipients)", newComplaintMails.length === 2 && new Set(newComplaintMails.map((m) => m.toEmail)).size === 2, JSON.stringify(newComplaintMails));
+  check("email: 'new complaint' attempted once per manager — incl. the invited admin whose global role is MANAGER (3 recipients)",
+    newComplaintMails.length === 3 && new Set(newComplaintMails.map((m) => m.toEmail)).size === 3 && newComplaintMails.some((m) => m.toEmail === "smoke-invited-admin@groundworkpm.test"),
+    JSON.stringify(newComplaintMails));
   {
     // Emails don't actually send on a dev box without a Resend key, so drive the
     // timeline mirror directly: two recipients, same subject → ONE event.

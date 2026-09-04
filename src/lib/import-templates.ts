@@ -475,6 +475,58 @@ export function downloadMaintenanceTemplate() {
   buildTemplate({ cols, sampleRows, instructions, filename: "import-template-maintenance.xlsx" });
 }
 
+export function downloadAssetsTemplate() {
+  const validCategories = "GENERATOR, LIFT, HVAC, POOL, ELECTRICAL, PLUMBING, SECURITY, APPLIANCE, FURNITURE, IT_EQUIPMENT, VEHICLE, OTHER";
+
+  const cols: ColDef[] = [
+    { header: "Property Name",     required: true,  width: 20 },
+    { header: "Name",              required: true,  width: 30 },
+    { header: "Category",          required: true,  width: 14 },
+    { header: "Category (Other)",  required: false, width: 18 },
+    { header: "Unit Number",       required: false, width: 12 },
+    { header: "Serial Number",     required: false, width: 18 },
+    { header: "Model Number",      required: false, width: 16 },
+    { header: "Purchase Date",     required: false, width: 14 },
+    { header: "Purchase Cost",     required: false, width: 14 },
+    { header: "Replacement Value", required: false, width: 18 },
+    { header: "Warranty Expiry",   required: false, width: 16 },
+    { header: "Service Provider",  required: false, width: 22 },
+    { header: "Service Contact",   required: false, width: 18 },
+    { header: "Vendor Name",       required: false, width: 24 },
+    { header: "Notes",             required: false, width: 32 },
+    { header: "Disposed Date",     required: false, width: 14 },
+    { header: "ID",                required: false, width: 26 },
+  ];
+
+  const sampleRows: (string | number)[][] = [
+    ["Riara One", "Perkins 80kVA Standby Generator", "GENERATOR", "", "", "PK-80-2019-114", "1104A-44TG2", "2019-03-12", 1850000, 2400000, "2021-03-12", "", "", "Kenya Power Solutions", "Serviced quarterly", "", ""],
+    ["Riara One", "Otis Gen2 Passenger Lift", "LIFT", "", "", "OT-G2-55871", "Gen2 Premier", "2018-07-01", 4200000, 5600000, "2020-07-01", "Otis Kenya", "+254 20 000 0000", "", "", "", ""],
+    ["Alba Gardens", "Samsung 55in TV", "APPLIANCE", "", "Studio 2", "SN-TV-2231", "UA55AU7000", "2024-11-20", 65000, 70000, "2026-11-20", "", "", "", "Wall mounted", "", ""],
+  ];
+
+  const instructions: (string | number)[][] = [
+    ["Property Name",     "Yes", "Text",            "Must match an existing property name in the system"],
+    ["Name",              "Yes", "Text",            "What the asset is — shown on the register"],
+    ["Category",          "Yes", validCategories,   "Asset category — must match exactly"],
+    ["Category (Other)",  "No",  "Text",            "Only used when Category is OTHER"],
+    ["Unit Number",       "No",  "Text",            "Leave blank for common-area / building assets"],
+    ["Serial Number",     "No",  "Text",            "Used with Name + Property to spot duplicates on re-upload"],
+    ["Model Number",      "No",  "Text",            "Manufacturer model"],
+    ["Purchase Date",     "No",  "YYYY-MM-DD",      ""],
+    ["Purchase Cost",     "No",  "Number",          "What was paid"],
+    ["Replacement Value", "No",  "Number",          "What it would cost to replace today — the contents-cover figure"],
+    ["Warranty Expiry",   "No",  "YYYY-MM-DD",      "Drives warranty alerts and the calendar"],
+    ["Service Provider",  "No",  "Text",            "Free-text provider name (use Vendor Name to link a vendor record)"],
+    ["Service Contact",   "No",  "Text",            "Phone / email for the provider"],
+    ["Vendor Name",       "No",  "Text",            "Matched against existing vendor records by name"],
+    ["Notes",             "No",  "Text",            ""],
+    ["Disposed Date",     "No",  "YYYY-MM-DD",      "Set when the asset has been retired, sold or scrapped"],
+    ["ID",                "No",  "Text",            "Leave blank for new assets. Filled by 'Export existing' so a re-upload updates rows instead of duplicating"],
+  ];
+
+  buildTemplate({ cols, sampleRows, instructions, filename: "import-template-assets.xlsx" });
+}
+
 export function downloadVendorsTemplate() {
   const validCategories = "CONTRACTOR, SUPPLIER, UTILITY_PROVIDER, SERVICE_PROVIDER, CONSULTANT, OTHER";
 

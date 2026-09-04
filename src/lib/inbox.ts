@@ -13,6 +13,7 @@ export type InboxType =
   | "PORTAL_REQUEST"
   | "COMPLIANCE_EXPIRY"
   | "INSURANCE_EXPIRY"
+  | "WARRANTY_EXPIRY"
   | "ARREARS_ESCALATION"
   | "CASE_NEEDS_ATTENTION"
   | "APPROVAL_PENDING";
@@ -79,6 +80,8 @@ function mapHintToInboxType(t: string): InboxType | null {
     case "COMPLIANCE_EXPIRY_30D":    return "COMPLIANCE_EXPIRY";
     case "INSURANCE_EXPIRY_7D":
     case "INSURANCE_EXPIRY_30D":     return "INSURANCE_EXPIRY";
+    case "WARRANTY_EXPIRY_7D":
+    case "WARRANTY_EXPIRY_30D":      return "WARRANTY_EXPIRY";
     // The proactive-only hints don't have an exact computed counterpart — render them as CASE_NEEDS_ATTENTION so existing UI handles them.
     case "VACANT_OVER_30D":
     case "DEPOSIT_NOT_SETTLED":

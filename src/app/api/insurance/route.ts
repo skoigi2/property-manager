@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { InsuranceType, PremiumFrequency } from "@prisma/client";
+import { contentsCoverCheck } from "@/lib/contents-cover";
 
 const insurancePolicySchema = z.object({
   propertyId: z.string().min(1, "Property is required"),
@@ -50,22 +51,42 @@ export async function GET(req: Request) {
       : propertyIds;
 
   try {
-    const policies = await prisma.insurancePolicy.findMany({
-      where: { propertyId: { in: effectivePropertyIds } },
-      include: {
-        property: { select: { name: true, currency: true } },
-        documents: { select: { id: true, category: true } },
-      },
-      orderBy: { endDate: "asc" },
-    });
+    const [policies, assetTotals] = await Promise.all([
+      prisma.insurancePolicy.findMany({
+        where: { propertyId: { in: effectivePropertyIds } },
+        include: {
+          property: { select: { name: true, currency: true } },
+          documents: { select: { id: true, category: true } },
+        },
+        orderBy: { endDate: "asc" },
+      }),
+      // What the asset register says the contents would cost to replace, per
+      // property — in-service assets that carry a replacement value only.
+      prisma.asset.groupBy({
+        by: ["propertyId"],
+        where: { propertyId: { in: effectivePropertyIds }, disposedAt: null, replacementValue: { not: null } },
+        _sum: { replacementValue: true },
+        _count: { _all: true },
+      }),
+    ]);
+    const replacementByProperty = new Map(
+      assetTotals.map((t) => [t.propertyId, { total: Number(t._sum.replacementValue ?? 0), count: t._count._all }]),
+    );
 
-    const result = policies.map(({ documents, ...p }) => ({
-      ...p,
-      documentsCount: documents.length,
-      // Which kinds of paperwork are on file — the card shows these as chips
-      // so "no valuation report" is visible without opening the panel.
-      documentCategories: Array.from(new Set(documents.map((d) => d.category))),
-    }));
+    const result = policies.map(({ documents, ...p }) => {
+      const reg = replacementByProperty.get(p.propertyId) ?? { total: 0, count: 0 };
+      return {
+        ...p,
+        documentsCount: documents.length,
+        // Which kinds of paperwork are on file — the card shows these as chips
+        // so "no valuation report" is visible without opening the panel.
+        documentCategories: Array.from(new Set(documents.map((d) => d.category))),
+        // Only meaningful for CONTENTS cover; null elsewhere.
+        contentsCheck: p.type === "CONTENTS"
+          ? contentsCoverCheck(p.coverageAmount === null ? null : Number(p.coverageAmount), reg.total, reg.count)
+          : null,
+      };
+    });
 
     return Response.json(result);
   } catch (err: any) {

@@ -20,6 +20,7 @@ import {
   Wrench,
   Store,
   ScrollText,
+  Package,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -36,6 +37,7 @@ import {
   downloadUnitsTemplate,
   downloadMaintenanceTemplate,
   downloadVendorsTemplate,
+  downloadAssetsTemplate,
   downloadRentHistoryTemplate,
   downloadInvoicesTemplate,
   downloadRowsAsWorkbook,
@@ -46,7 +48,7 @@ import { PackageOpen } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "tenants" | "rent-history" | "income" | "invoices" | "expenses" | "recurring" | "petty-cash" | "units" | "maintenance" | "vendors" | "handover";
+type Tab = "tenants" | "rent-history" | "income" | "invoices" | "expenses" | "recurring" | "petty-cash" | "units" | "maintenance" | "assets" | "vendors" | "handover";
 
 interface ParsedRow {
   rowIndex: number;
@@ -190,6 +192,31 @@ const MAINTENANCE_COLS = [
   "Vendor Name",
   "Notes",
   "Is Emergency",
+];
+
+const ASSET_COLS = [
+  "Property Name",
+  "Name",
+  "Category",
+  "Category (Other)",
+  "Unit Number",
+  "Serial Number",
+  "Model Number",
+  "Purchase Date",
+  "Purchase Cost",
+  "Replacement Value",
+  "Warranty Expiry",
+  "Service Provider",
+  "Service Contact",
+  "Vendor Name",
+  "Notes",
+  "Disposed Date",
+  "ID",
+];
+
+const VALID_ASSET_CATEGORIES = [
+  "GENERATOR", "LIFT", "HVAC", "POOL", "ELECTRICAL", "PLUMBING", "SECURITY",
+  "APPLIANCE", "FURNITURE", "IT_EQUIPMENT", "VEHICLE", "OTHER",
 ];
 
 const VENDOR_COLS = [
@@ -441,6 +468,26 @@ function validateMaintenanceRow(row: Record<string, string>): string[] {
   return errors;
 }
 
+function validateAssetRow(row: Record<string, string>): string[] {
+  const errors: string[] = [];
+  if (!row["Property Name"]?.trim()) errors.push("Property Name is required");
+  if (!row["Name"]?.trim()) errors.push("Name is required");
+  const category = row["Category"]?.trim()?.toUpperCase().replace(/[\s-]+/g, "_");
+  if (!category) errors.push("Category is required");
+  else if (!VALID_ASSET_CATEGORIES.includes(category))
+    errors.push(`Invalid Category "${row["Category"]}" — must be one of: ${VALID_ASSET_CATEGORIES.join(", ")}`);
+  for (const col of ["Purchase Cost", "Replacement Value"]) {
+    const v = row[col]?.trim();
+    if (v && (isNaN(parseFloat(v.replace(/[, ]/g, ""))) || parseFloat(v.replace(/[, ]/g, "")) < 0))
+      errors.push(`${col} must be a non-negative number`);
+  }
+  for (const col of ["Purchase Date", "Warranty Expiry", "Disposed Date"]) {
+    const v = row[col]?.trim();
+    if (v && isNaN(new Date(v).getTime())) errors.push(`${col} must be a date (YYYY-MM-DD)`);
+  }
+  return errors;
+}
+
 function validateVendorRow(row: Record<string, string>): string[] {
   const errors: string[] = [];
   if (!row["Name"]?.trim()) errors.push("Name is required");
@@ -685,6 +732,44 @@ function mapMaintenanceRowToApi(row: Record<string, string>) {
     vendorName:    row["Vendor Name"],
     notes:         row["Notes"],
     isEmergency:   row["Is Emergency"],
+  };
+}
+
+async function exportExistingAssets() {
+  const res = await fetch("/api/import/assets/export");
+  if (!res.ok) {
+    alert("Could not export existing assets. Please try again.");
+    return;
+  }
+  const data = await res.json();
+  const rows: Record<string, string | number>[] = data.rows ?? [];
+  if (rows.length === 0) {
+    alert("There are no existing assets to export yet.");
+    return;
+  }
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadRowsAsWorkbook(ASSET_COLS, rows, `assets-export-${stamp}.xlsx`);
+}
+
+function mapAssetRowToApi(row: Record<string, string>) {
+  return {
+    id:               row["ID"],
+    propertyName:     row["Property Name"],
+    name:             row["Name"],
+    category:         row["Category"],
+    categoryOther:    row["Category (Other)"],
+    unitNumber:       row["Unit Number"],
+    serialNumber:     row["Serial Number"],
+    modelNumber:      row["Model Number"],
+    purchaseDate:     row["Purchase Date"],
+    purchaseCost:     row["Purchase Cost"],
+    replacementValue: row["Replacement Value"],
+    warrantyExpiry:   row["Warranty Expiry"],
+    serviceProvider:  row["Service Provider"],
+    serviceContact:   row["Service Contact"],
+    vendorName:       row["Vendor Name"],
+    notes:            row["Notes"],
+    disposedDate:     row["Disposed Date"],
   };
 }
 
@@ -1164,6 +1249,7 @@ export default function ImportPage() {
     ["petty-cash",   "Petty Cash",   Wallet],
     ["units",        "Units",        Building2],
     ["maintenance",  "Maintenance",  Wrench],
+    ["assets",       "Assets",       Package],
     ["vendors",      "Vendors",      Store],
     ["handover",     "Handover",     PackageOpen],
   ];
@@ -1333,6 +1419,21 @@ export default function ImportPage() {
             onDownloadTemplate={downloadMaintenanceTemplate}
             templateName="Maintenance"
             mapRowToApi={mapMaintenanceRowToApi}
+          />
+        )}
+
+        {tab === "assets" && (
+          <ImportSection
+            title="Import Assets"
+            description="Bulk-load the asset register — plant, appliances, furniture, vehicles — with serial numbers, purchase cost, replacement value and warranty dates. Rows matching an existing asset (same property, name and serial number) are skipped unless 'Update existing records' is on. Unit and vendor names are matched softly: a miss imports the row without the link and tells you. Use 'Export existing' to download the register with IDs, edit it, and re-upload with 'Update existing records' on to change any field without duplicates."
+            cols={ASSET_COLS}
+            validate={validateAssetRow}
+            apiPath="/api/import/assets"
+            onDownloadTemplate={downloadAssetsTemplate}
+            templateName="Assets"
+            mapRowToApi={mapAssetRowToApi}
+            supportsUpsert
+            onExportExisting={exportExistingAssets}
           />
         )}
 

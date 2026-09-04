@@ -29,6 +29,8 @@ import {
   Wrench,
   CheckCircle2,
   History,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -115,6 +117,8 @@ interface Asset {
   vendorId: string | null;
   vendor: { id: string; name: string; phone: string | null } | null;
   notes: string | null;
+  disposedAt: string | null;
+  disposalNotes: string | null;
   property: { name: string; currency: string | null };
   unit: { unitNumber: string } | null;
   documentsCount: number;
@@ -588,6 +592,10 @@ export default function AssetsPage() {
   const [filterProperty, setFilterProperty] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterWarranty, setFilterWarranty] = useState("");
+  const [includeDisposed, setIncludeDisposed] = useState(false);
+  const [disposeTarget, setDisposeTarget] = useState<Asset | null>(null);
+  const [disposeForm, setDisposeForm] = useState({ date: new Date().toISOString().slice(0, 10), notes: "" });
+  const [disposing, setDisposing] = useState(false);
   const [search, setSearch] = useState("");
   const [expandedPanel, setExpandedPanel] = useState<{ assetId: string; tab: "documents" | "maintenance" } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -600,9 +608,12 @@ export default function AssetsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const propParam = selectedId ? `?propertyId=${selectedId}` : "";
+      const params = new URLSearchParams();
+      if (selectedId) params.set("propertyId", selectedId);
+      if (includeDisposed) params.set("includeDisposed", "true");
+      const qs = params.toString();
       const [assetRes, propRes] = await Promise.all([
-        fetch(`/api/assets${propParam}`),
+        fetch(`/api/assets${qs ? `?${qs}` : ""}`),
         fetch("/api/properties?minimal=true"),
       ]);
       if (assetRes.ok) setAssets(await assetRes.json());
@@ -610,9 +621,27 @@ export default function AssetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+  }, [selectedId, includeDisposed]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function setDisposal(asset: Asset, disposedAt: string | null, notes: string) {
+    setDisposing(true);
+    try {
+      const res = await fetch(`/api/assets/${asset.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disposedAt, disposalNotes: disposedAt ? notes || null : null }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(typeof body.error === "string" ? body.error : "Update failed"); return; }
+      toast.success(disposedAt ? `${asset.name} marked as disposed` : `${asset.name} reinstated`);
+      setDisposeTarget(null);
+      await load();
+    } finally {
+      setDisposing(false);
+    }
+  }
 
   // Load units when property changes in form
   useEffect(() => {
@@ -767,17 +796,19 @@ export default function AssetsPage() {
 
   // ── KPIs ───────────────────────────────────────────────────────────────────
 
-  const totalAssets = assets.length;
-  const totalValue = assets.reduce((s, a) => s + (a.purchaseCost ?? 0), 0);
-  const totalReplacement = assets.reduce((s, a) => s + (a.replacementValue ?? 0), 0);
-  const withReplacement = assets.filter((a) => a.replacementValue != null).length;
-  const warrantiesExpiring = assets.filter((a) => {
+  // KPIs, banners and the contents figure only count assets still in service.
+  const activeAssets = assets.filter((a) => !a.disposedAt);
+  const disposedCount = assets.length - activeAssets.length;
+  const totalAssets = activeAssets.length;
+  const totalValue = activeAssets.reduce((s, a) => s + (a.purchaseCost ?? 0), 0);
+  const totalReplacement = activeAssets.reduce((s, a) => s + (a.replacementValue ?? 0), 0);
+  const withReplacement = activeAssets.filter((a) => a.replacementValue != null).length;
+  const warrantiesExpiring = activeAssets.filter((a) => {
     if (!a.warrantyExpiry) return false;
     const d = daysUntil(a.warrantyExpiry);
     return d >= 0 && d <= 90;
   }).length;
-  const distinctCategories = new Set(assets.map((a) => a.category)).size;
-  const maintenanceDue = assets.reduce((count, a) => {
+  const maintenanceDue = activeAssets.reduce((count, a) => {
     const overdue = a.maintenanceSchedules.filter((s) => {
       if (!s.nextDue) return false;
       return daysUntil(s.nextDue) <= 30;
@@ -789,13 +820,13 @@ export default function AssetsPage() {
 
   // Ending within 90 days, or ended in the last 90 — a warranty that lapsed
   // years ago is history, not something to act on.
-  const alertAssets = assets.filter((a) => {
+  const alertAssets = activeAssets.filter((a) => {
     if (!a.warrantyExpiry) return false;
     const d = daysUntil(a.warrantyExpiry);
     return d <= 90 && d >= -90;
   });
 
-  const maintAlertAssets = assets.filter((a) =>
+  const maintAlertAssets = activeAssets.filter((a) =>
     a.maintenanceSchedules.some((s) => s.nextDue && daysUntil(s.nextDue) <= 30)
   );
 
@@ -861,8 +892,9 @@ export default function AssetsPage() {
         {/* KPI cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="p-4">
-            <p className="text-label text-gray-500 uppercase ">Total Assets</p>
+            <p className="text-label text-gray-500 uppercase ">Assets in service</p>
             <p className="text-h1 text-header mt-1">{totalAssets}</p>
+            {disposedCount > 0 && <p className="text-caption text-gray-400 mt-0.5">{disposedCount} disposed shown</p>}
           </Card>
           <Card className="p-4">
             <p className="text-label text-gray-500 uppercase ">Purchase / Replacement Value</p>
@@ -923,6 +955,10 @@ export default function AssetsPage() {
             placeholder="Search name, serial, model, vendor, unit..."
             className="flex-1 min-w-[200px] text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30"
           />
+          <label className="flex items-center gap-1.5 text-caption text-gray-500 cursor-pointer select-none">
+            <input type="checkbox" checked={includeDisposed} onChange={(e) => setIncludeDisposed(e.target.checked)} className="rounded accent-gold" />
+            Show disposed
+          </label>
           <Button onClick={openAdd} className="ml-auto flex items-center gap-2">
             <Plus size={15} /> Add Asset
           </Button>
@@ -941,6 +977,7 @@ export default function AssetsPage() {
           <div className="space-y-3">
             {filtered.map((asset) => {
               const ws = warrantyStatus(asset.warrantyExpiry);
+              const disposed = !!asset.disposedAt;
               const assetCurrency = asset.property.currency ?? currency;
               const provider = asset.vendor
                 ? [asset.vendor.name, asset.vendor.phone].filter(Boolean).join(" · ")
@@ -948,13 +985,14 @@ export default function AssetsPage() {
 
               return (
                 <div key={asset.id} id={`item-${asset.id}`}>
-                <Card className="p-4">
+                <Card className={`p-4 ${disposed ? "opacity-75 bg-gray-50/60" : ""}`}>
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant={CAT_BADGE[asset.category] ?? "gray"}>{categoryLabel(asset)}</Badge>
-                        <span className=" font-semibold text-header">{asset.name}</span>
+                        <span className={`font-semibold text-header ${disposed ? "line-through decoration-gray-400" : ""}`}>{asset.name}</span>
+                        {disposed && <Badge variant="gray">Disposed {formatDate(new Date(asset.disposedAt!))}</Badge>}
                         {asset.serialNumber && (
                           <span className="tabular-nums text-caption text-gray-400">S/N: {asset.serialNumber}</span>
                         )}
@@ -1010,6 +1048,12 @@ export default function AssetsPage() {
                         <p className="text-header whitespace-pre-wrap">{asset.notes}</p>
                       </div>
                     )}
+                    {disposed && asset.disposalNotes && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400 text-caption">Disposal</span>
+                        <p className="text-header whitespace-pre-wrap">{asset.disposalNotes}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Paperwork on file */}
@@ -1023,7 +1067,7 @@ export default function AssetsPage() {
                         </span>
                       ))
                     )}
-                    {asset.warrantyExpiry && warrantyLifecycle(asset.warrantyExpiry).status !== "expired" && !asset.documentCategories.includes("WARRANTY") && (
+                    {!disposed && asset.warrantyExpiry && warrantyLifecycle(asset.warrantyExpiry).status !== "expired" && !asset.documentCategories.includes("WARRANTY") && (
                       <span className="text-label uppercase font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200" title="Upload the warranty card so a claim has something to lean on">
                         No warranty document
                       </span>
@@ -1071,6 +1115,15 @@ export default function AssetsPage() {
                       {expandedPanel?.assetId === asset.id && expandedPanel.tab === "maintenance" ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                     </button>
                     <div className="ml-auto flex items-center gap-2">
+                      {disposed ? (
+                        <button onClick={() => setDisposal(asset, null, "")} disabled={disposing} className="flex items-center gap-1 text-caption text-gold-dark hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream" title="Put the asset back in service">
+                          <RotateCcw size={12} /> Reinstate
+                        </button>
+                      ) : (
+                        <button onClick={() => { setDisposeTarget(asset); setDisposeForm({ date: new Date().toISOString().slice(0, 10), notes: "" }); }} className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream" title="Retire, sell or scrap — keeps the history">
+                          <Archive size={12} /> Dispose
+                        </button>
+                      )}
                       <button onClick={() => openEdit(asset)} className="flex items-center gap-1 text-caption text-gray-500 hover:text-header transition-colors px-2 py-1 rounded-md hover:bg-cream">
                         <Pencil size={12} /> Edit
                       </button>
@@ -1304,6 +1357,27 @@ export default function AssetsPage() {
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Spinner size="sm" /> : editAsset ? "Save changes" : "Create asset"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Dispose modal */}
+      <Modal open={!!disposeTarget} onClose={() => setDisposeTarget(null)} title={disposeTarget ? `Dispose of ${disposeTarget.name}` : "Dispose"} size="md">
+        <div className="space-y-4">
+          <p className="text-body text-gray-500">The asset stays on the register with its documents and maintenance history, but drops out of the counts, warranty alerts, the calendar and the contents-cover figure. You can reinstate it later.</p>
+          <div>
+            <label className="block text-caption font-medium text-gray-500 mb-1">Disposal date <span className="text-expense">*</span></label>
+            <input type="date" value={disposeForm.date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDisposeForm((f) => ({ ...f, date: e.target.value }))} className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30" />
+          </div>
+          <div>
+            <label className="block text-caption font-medium text-gray-500 mb-1">What happened</label>
+            <textarea value={disposeForm.notes} onChange={(e) => setDisposeForm((f) => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Sold for scrap, replaced by the new unit, written off after the flood..." className="w-full text-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none" />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setDisposeTarget(null)} disabled={disposing}>Cancel</Button>
+            <Button onClick={() => disposeTarget && disposeForm.date && setDisposal(disposeTarget, disposeForm.date, disposeForm.notes)} disabled={disposing || !disposeForm.date}>
+              {disposing ? <Spinner size="sm" /> : "Mark disposed"}
             </Button>
           </div>
         </div>

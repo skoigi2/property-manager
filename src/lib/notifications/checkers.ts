@@ -15,6 +15,7 @@ import {
   invoiceOverdueTemplate,
   complianceExpiryTemplate,
   insuranceExpiryTemplate,
+  warrantyExpiryTemplate,
   urgentMaintenanceTemplate,
   ownerMonthlyReportTemplate,
 } from "./email-templates";
@@ -382,6 +383,71 @@ export async function checkInsuranceRenewals(): Promise<{ sent: number; skipped:
       actionMethod: "PATCH",
       actionLabel: "Open policy",
       expiresAt: policy.endDate,
+    });
+
+    sent += managers.length;
+  }
+
+  return { sent, skipped };
+}
+
+// ─── Asset warranty checker ───────────────────────────────────────────────────
+
+export async function checkAssetWarranties(): Promise<{ sent: number; skipped: number }> {
+  const today = new Date();
+  let sent = 0, skipped = 0;
+
+  const assets = await prisma.asset.findMany({
+    where: {
+      disposedAt: null,
+      warrantyExpiry: { gte: today, lte: new Date(today.getTime() + 30 * 86400_000) },
+    },
+    include: { property: true, unit: { select: { unitNumber: true } } },
+  });
+
+  for (const asset of assets) {
+    const orgId = asset.property.organizationId;
+    if (!orgId || !asset.warrantyExpiry) continue;
+    if (!(await isAutomationEnabled(orgId, "NOTIFY_WARRANTY_EXPIRY", asset.propertyId))) { skipped++; continue; }
+
+    const days = differenceInDays(asset.warrantyExpiry, today);
+    const is7D = days <= 7;
+    const type: NotificationType = is7D ? "WARRANTY_EXPIRY_7D" : "WARRANTY_EXPIRY_30D";
+    const dedupDays = is7D ? 6 : 20;
+
+    if (await wasRecentlySent(type, asset.id, dedupDays)) { skipped++; continue; }
+
+    const managers = await getPropertyManagers(asset.propertyId, orgId);
+    if (managers.length === 0) { skipped++; continue; }
+
+    const category = asset.category === "OTHER" && asset.categoryOther ? asset.categoryOther : asset.category.replace(/_/g, " ");
+    const { subject, html } = warrantyExpiryTemplate({
+      assetName:    asset.name,
+      category,
+      serialNumber: asset.serialNumber,
+      propertyName: asset.property.name,
+      unitNumber:   asset.unit?.unitNumber ?? null,
+      expiryDate:   formatDate(asset.warrantyExpiry),
+      daysLeft:     days,
+      assetId:      asset.id,
+    });
+
+    await sendToManagers(managers, subject, html, orgId, type, asset.id, "Asset", null);
+
+    await upsertHint({
+      organizationId: orgId,
+      propertyId: asset.propertyId,
+      caseThreadId: null,
+      hintType: is7D ? "WARRANTY_EXPIRY_7D" : "WARRANTY_EXPIRY_30D",
+      refId: asset.id,
+      severity: is7D ? "URGENT" : "WARNING",
+      title: `Warranty ending — ${asset.name}`,
+      subtitle: `${category} · ${asset.property.name} · ${days} day${days === 1 ? "" : "s"} left`,
+      suggestedAction: "Check for faults to claim before the warranty ends",
+      // GET = a deep link, not a mutation: the inbox row opens the asset card.
+      actionEndpoint: `/assets?focus=${asset.id}`,
+      actionMethod: "GET",
+      expiresAt: asset.warrantyExpiry,
     });
 
     sent += managers.length;

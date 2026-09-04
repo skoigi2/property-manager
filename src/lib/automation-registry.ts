@@ -149,6 +149,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
   {
+    key: "NOTIFY_WARRANTY_EXPIRY",
+    name: "Asset warranty alerts",
+    description: "Email managers when an asset's warranty is within 30 / 7 days of ending — the last chance to claim on the manufacturer.",
+    trigger: "Warranty ends within 30 / 7 days",
+    actions: ["Email Manager", "Add Inbox Item"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_URGENT_MAINTENANCE",
     name: "Urgent maintenance alerts",
     description: "Email managers when an urgent maintenance job stays open for more than 4 hours.",

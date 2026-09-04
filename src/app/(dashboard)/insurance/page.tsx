@@ -17,6 +17,7 @@ import { formatCurrency } from "@/lib/currency";
 import { useFocusScroll } from "@/lib/use-focus-scroll";
 import { InsuranceDocuments, type InsuranceDocumentsHandle, type PolicyDocument } from "@/components/insurance/InsuranceDocuments";
 import { INSURANCE_DOCUMENT_CATEGORY_LABEL, policyLifecycle, renewalDates } from "@/lib/insurance-documents";
+import type { ContentsCoverCheck } from "@/lib/contents-cover";
 import {
   Plus,
   Pencil,
@@ -82,6 +83,7 @@ interface InsurancePolicy {
   property: { name: string; currency: string | null };
   documentsCount: number;
   documentCategories: string[];
+  contentsCheck: ContentsCoverCheck | null;
 }
 
 interface Property {
@@ -343,6 +345,7 @@ export default function InsurancePage() {
   const totalAnnualPremium = withStatus
     .filter(({ life }) => life.status !== "expired")
     .reduce((sum, { p }) => sum + annualisedPremium(p.premiumAmount, p.premiumFrequency), 0);
+  const underInsured = withStatus.filter(({ p, life }) => life.status !== "expired" && p.contentsCheck?.status === "under").length;
   const missingValuation = withStatus.filter(({ p, life }) =>
     life.status !== "expired" && (p.type === "BUILDING" || p.type === "CONTENTS") && !p.documentCategories.includes("VALUATION_REPORT")).length;
 
@@ -406,6 +409,9 @@ export default function InsurancePage() {
             <p className="text-h3 text-header mt-1">{formatCurrency(totalAnnualPremium, currency)}</p>
             {missingValuation > 0 && (
               <p className="text-caption text-amber-600 mt-0.5">{missingValuation} {missingValuation === 1 ? "policy has" : "policies have"} no valuation report</p>
+            )}
+            {underInsured > 0 && (
+              <p className="text-caption text-expense mt-0.5">{underInsured} contents {underInsured === 1 ? "policy covers" : "policies cover"} less than the asset register</p>
             )}
           </Card>
         </div>
@@ -519,6 +525,29 @@ export default function InsurancePage() {
                       <div className="col-span-2">
                         <span className="text-gray-400 text-caption">Notes</span>
                         <p className="text-header whitespace-pre-wrap">{policy.notes}</p>
+                      </div>
+                    )}
+                    {policy.contentsCheck && life.status !== "expired" && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400 text-caption">Contents cover vs asset register</span>
+                        {policy.contentsCheck.status === "no_assets" ? (
+                          <p className="text-header">
+                            No replacement values on the asset register yet.{" "}
+                            <Link href="/assets" className="text-gold hover:text-gold-dark">Add them</Link> to check this cover.
+                          </p>
+                        ) : policy.contentsCheck.status === "no_cover_figure" ? (
+                          <p className="text-header">
+                            Assets would cost {formatCurrency(policy.contentsCheck.replacementTotal, policyCurrency)} to replace ({policy.contentsCheck.valuedAssets} valued) — enter the sum insured to compare.
+                          </p>
+                        ) : policy.contentsCheck.status === "under" ? (
+                          <p className="text-expense font-medium">
+                            Under-insured by {formatCurrency(policy.contentsCheck.shortfall, policyCurrency)} — the register would cost {formatCurrency(policy.contentsCheck.replacementTotal, policyCurrency)} to replace ({policy.contentsCheck.valuedAssets} asset{policy.contentsCheck.valuedAssets === 1 ? "" : "s"}) against {formatCurrency(policy.coverageAmount ?? 0, policyCurrency)} of cover.
+                          </p>
+                        ) : (
+                          <p className="text-income">
+                            Covers the register — {formatCurrency(policy.contentsCheck.replacementTotal, policyCurrency)} to replace ({policy.contentsCheck.valuedAssets} asset{policy.contentsCheck.valuedAssets === 1 ? "" : "s"}){policy.contentsCheck.coverRatio ? `, ${Math.round(policy.contentsCheck.coverRatio * 100)}% covered` : ""}.
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

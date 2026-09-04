@@ -1802,6 +1802,7 @@
       <ul class="feature-list">
         <li><strong>Paperwork lives on the policy</strong> — the add / edit form has a Documents section, so the policy schedule, certificate, the <em>valuation report</em> the sum insured is based on, the insurer's survey or risk assessment, claims correspondence and premium receipts are filed as you enter the policy. Each file carries a category, a label and the date on the document (the valuation date, say). Files chosen while creating a policy upload as soon as it is saved; the card's <em>docs</em> panel adds or removes files later.</li>
         <li><strong>What's on file is visible at a glance</strong> — the card shows chips for the categories attached, and a Building or Contents policy with no valuation report is flagged, with a count on the premium KPI card.</li>
+        <li><strong>Contents cover vs the asset register</strong> — a Contents policy's card compares its sum insured with what the <a href="#operations">Asset Register</a> says the property's in-service assets would cost to replace. It reads <em>Covers the register</em> or <em>Under-insured by …</em> with the shortfall, and tells you when the register has no replacement values or the policy has no sum insured to compare.</li>
         <li><strong>Renew</strong> — an expiring or expired policy has a <em>Renew</em> button that opens a new policy pre-filled with the same cover, dated from the day after the old term ends, so the old policy stays on record. Enter the new policy number and confirm the premium.</li>
         <li><strong>Log premium</strong> — jumps to the Expenses form pre-filled with the premium, the property and the INSURANCE category, so the payment reaches the P&amp;L without retyping.</li>
         <li><strong>Private storage</strong> — documents are stored privately and opened through short-lived links, like tenant documents. Uploads and deletions are written to the audit log.</li>
@@ -1822,7 +1823,9 @@
       <p style="margin-bottom:12px">Maintain an inventory of property assets — appliances, fixtures, furniture, plant &amp; equipment. Each asset can have recurring maintenance schedules and a maintenance log (a logged cost becomes a MAINTENANCE expense automatically, with the vendor carried across). The register tracks serial and model numbers, purchase cost, <em>replacement value</em>, warranty dates, and the service provider.</p>
       <ul class="feature-list">
         <li><strong>Paperwork lives on the asset</strong> — the add / edit form has a Documents section for the warranty card, manual, purchase invoice, service reports, test certificates (lift, pressure vessel, electrical) and photos, each with a category, a label and the date on the document. Files chosen while creating an asset upload as soon as it is saved; the card's <em>docs</em> panel adds or removes files later. The card shows chips for what is on file and flags an in-warranty asset with no warranty document.</li>
-        <li><strong>Warranty status</strong> — <span class="badge badge-green">Under warranty</span> <span class="badge badge-amber">Ends in N days (≤90)</span> <span class="badge badge-red">Expired</span> <span class="badge badge-gray">No warranty</span>, with a warranty filter and a banner listing what needs attention. Warranty end dates also appear on the <a href="#calendar">Calendar</a> under Building.</li>
+        <li><strong>Warranty status</strong> — <span class="badge badge-green">Under warranty</span> <span class="badge badge-amber">Ends in N days (≤90)</span> <span class="badge badge-red">Expired</span> <span class="badge badge-gray">No warranty</span>, with a warranty filter and a banner listing what needs attention. Warranty end dates also appear on the <a href="#calendar">Calendar</a> under Building, and the daily job emails managers 30 and 7 days before a warranty ends (the <em>Asset warranty alerts</em> switch on the <a href="#automations">Automations</a> page) with a matching Inbox item.</li>
+        <li><strong>Dispose, don't delete</strong> — <em>Dispose</em> on a card records the date and what happened (sold, scrapped, replaced) and keeps the asset with its documents and maintenance history. Disposed assets drop out of the counts, the alerts, the calendar and the contents-cover figure; tick <em>Show disposed</em> to see them, and <em>Reinstate</em> puts one back in service.</li>
+        <li><strong>Bulk load and resync</strong> — the <a href="#import">Data Import</a> page has an Assets tab: download the template, fill in the register (property, unit, serial, cost, replacement value, warranty, vendor), upload. <em>Export existing</em> downloads the current register with IDs so an edited re-upload updates rows in place.</li>
         <li><strong>Replacement value</strong> — what the asset would cost to replace today. The KPI card sums it across the register, which is the figure to check a Contents policy's sum insured against.</li>
         <li><strong>Private storage</strong> — asset documents are stored privately and opened through short-lived links; uploads, deletions and logged maintenance are written to the audit log.</li>
       </ul>
@@ -1846,12 +1849,12 @@
 
     <div class="sub-section">
       <h3>What you can import</h3>
-      <p style="margin-bottom:12px">Tabs cover: <strong>tenants, rent history, income, invoices, expenses, recurring expenses, petty cash, units, maintenance, vendors</strong>, and a full-property <strong>handover ZIP</strong> (the counterpart of the property export — moving a whole property between organisations or systems in one file).</p>
+      <p style="margin-bottom:12px">Tabs cover: <strong>tenants, rent history, income, invoices, expenses, recurring expenses, petty cash, units, maintenance, assets, vendors</strong>, and a full-property <strong>handover ZIP</strong> (the counterpart of the property export — moving a whole property between organisations or systems in one file).</p>
       <ul class="feature-list">
         <li><strong>Rows validate client-side</strong> before anything is sent — errors point at the exact row and column</li>
         <li><strong>Names resolve automatically</strong> — Property Name, Vendor Name, and Unit Number columns are matched to the right records; an unmatched name still imports, just unlinked, with a warning</li>
-        <li><strong>Update-existing mode</strong> — tenants, rent history, expenses, petty cash, and recurring expenses support an "Update existing records" toggle so re-importing edits rows in place instead of duplicating them</li>
-        <li><strong>Edit-and-resync (expenses)</strong> — click <em>Export existing</em> to download your current expenses pre-filled into the template with their IDs; edit any field and re-upload, and each row updates in place</li>
+        <li><strong>Update-existing mode</strong> — tenants, rent history, expenses, petty cash, recurring expenses, and assets support an "Update existing records" toggle so re-importing edits rows in place instead of duplicating them</li>
+        <li><strong>Edit-and-resync (expenses, assets)</strong> — click <em>Export existing</em> to download your current records pre-filled into the template with their IDs; edit any field and re-upload, and each row updates in place</li>
         <li>The tenants importer can carry <strong>Deposit Received + date</strong> columns, minting the linked deposit receipt so your deposit position is verified from day one</li>
       </ul>
     </div>
@@ -2142,7 +2145,7 @@
           <tr>
             <td><span class="badge badge-green">Email notification</span></td>
             <td><span class="badge badge-green">On</span></td>
-            <td>The manager email alerts (lease, invoice, compliance, insurance, urgent maintenance, <strong>new complaint</strong>) and the tenant-facing <strong>Complaint resolved</strong> email, plus two opt-ins: <strong>Tenant rent reminders</strong> (emails tenants 3 days before rent is due, on the due date, and once 7 days overdue — logged to each tenant's comms trail) and the <strong>Owner monthly report</strong> (the previous month's statement PDF emailed to the property owner on the agreement's remittance day).</td>
+            <td>The manager email alerts (lease, invoice, compliance, insurance, <strong>asset warranty</strong>, urgent maintenance, <strong>new complaint</strong>) and the tenant-facing <strong>Complaint resolved</strong> email, plus two opt-ins: <strong>Tenant rent reminders</strong> (emails tenants 3 days before rent is due, on the due date, and once 7 days overdue — logged to each tenant's comms trail) and the <strong>Owner monthly report</strong> (the previous month's statement PDF emailed to the property owner on the agreement's remittance day).</td>
           </tr>
           <tr>
             <td><span class="badge badge-amber">Smart reminder</span></td>
@@ -2242,6 +2245,7 @@
           <tr><td>Invoice overdue</td><td>Overdue invoice alert</td><td>&gt;7 days past due date</td></tr>
           <tr><td>Compliance cert expiring</td><td>Compliance alert</td><td>≤30 days or ≤7 days</td></tr>
           <tr><td>Insurance policy ending</td><td>Insurance alert</td><td>≤30 days or ≤7 days</td></tr>
+          <tr><td>Asset warranty ending</td><td>Asset warranty alert</td><td>≤30 days or ≤7 days (in-service assets only)</td></tr>
           <tr><td>Urgent maintenance open</td><td>Urgent maintenance alert</td><td>Still OPEN after 4+ hours</td></tr>
         </tbody>
       </table>

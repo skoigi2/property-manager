@@ -1227,6 +1227,8 @@ enum HintType {
   INSURANCE_EXPIRY_30D
   INSURANCE_EXPIRY_7D
   SLA_BREACH
+  WARRANTY_EXPIRY_30D
+  WARRANTY_EXPIRY_7D
 }
 
 enum HintSeverity {
@@ -1617,6 +1619,10 @@ model Asset {
   purchaseCost    Decimal? @db.Decimal(14, 2)
   /// What it would cost to replace today — what a contents policy should cover.
   replacementValue Decimal? @db.Decimal(14, 2)
+  /// Set when the asset is retired / sold / scrapped. Disposed assets keep their
+  /// history but drop out of KPIs, alerts, the calendar and the contents check.
+  disposedAt      DateTime?
+  disposalNotes   String?
   warrantyExpiry  DateTime?
   serviceProvider String?
   serviceContact  String?
@@ -2044,6 +2050,8 @@ enum NotificationType {
   COMPLIANCE_EXPIRY_7D
   INSURANCE_EXPIRY_30D
   INSURANCE_EXPIRY_7D
+  WARRANTY_EXPIRY_30D
+  WARRANTY_EXPIRY_7D
   MAINTENANCE_URGENT_OPEN
   OWNER_MONTHLY_REPORT
   TENANT_RENT_REMINDER

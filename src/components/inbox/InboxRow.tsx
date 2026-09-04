@@ -16,6 +16,7 @@ import {
   X,
   Clock,
   Sparkles,
+  Package,
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { InboxItem, InboxType } from "@/lib/inbox";
@@ -28,6 +29,7 @@ const TYPE_ICON: Record<InboxType, React.ElementType> = {
   PORTAL_REQUEST: MessageSquare,
   COMPLIANCE_EXPIRY: ShieldCheck,
   INSURANCE_EXPIRY: ShieldPlus,
+  WARRANTY_EXPIRY: Package,
   ARREARS_ESCALATION: AlertTriangle,
   CASE_NEEDS_ATTENTION: Briefcase,
   APPROVAL_PENDING: ShieldQuestion,

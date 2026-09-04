@@ -179,6 +179,45 @@ export function insuranceExpiryTemplate(data: {
   return { subject, html };
 }
 
+// ─── Asset warranty expiry ───────────────────────────────────────────────────
+
+export function warrantyExpiryTemplate(data: {
+  assetName: string;
+  category: string;
+  serialNumber: string | null;
+  propertyName: string;
+  unitNumber: string | null;
+  expiryDate: string;
+  daysLeft: number;
+  assetId: string;
+}): { subject: string; html: string } {
+  const urgent = data.daysLeft <= 7;
+  const color  = urgent ? RED : AMBER;
+  const tag    = `${data.daysLeft} day${data.daysLeft === 1 ? "" : "s"} left`;
+
+  const subject = `${urgent ? "URGENT: " : ""}Warranty ending in ${data.daysLeft} day${data.daysLeft === 1 ? "" : "s"} — ${data.assetName}, ${data.propertyName}`;
+
+  const html = shell(
+    `Asset warranty ending — ${tag}`,
+    color,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      The warranty on <strong>${data.assetName}</strong> at <strong>${data.propertyName}</strong>
+      ends on <strong>${data.expiryDate}</strong>. Any faults to claim on the manufacturer should be raised before then.
+    </p>
+    <table style="border-collapse:collapse;margin-bottom:4px;">
+      ${row("Asset", data.assetName)}
+      ${row("Category", data.category)}
+      ${data.serialNumber ? row("Serial number", data.serialNumber) : ""}
+      ${row("Property", data.unitNumber ? `${data.propertyName} · Unit ${data.unitNumber}` : data.propertyName)}
+      ${row("Warranty ends", data.expiryDate)}
+      ${row("Days remaining", tag)}
+    </table>
+    ${cta("Open the asset", `${APP_URL}/assets?focus=${data.assetId}`)}`,
+  );
+
+  return { subject, html };
+}
+
 // ─── Urgent maintenance stale ────────────────────────────────────────────────
 
 export function pettyCashPendingTemplate(data: {

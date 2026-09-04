@@ -6,6 +6,7 @@ import {
   checkOverdueInvoices,
   checkComplianceCertificates,
   checkInsuranceRenewals,
+  checkAssetWarranties,
   checkUrgentMaintenance,
   checkVacantUnits,
   checkDepositNotSettled,
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
   // serves a stale enabled/disabled value from a previous invocation.
   resetAutomationCache();
 
-  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports, tenantReminders] = await Promise.allSettled([
+  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports, tenantReminders, warranties] = await Promise.allSettled([
     checkLeaseExpiries(),
     checkOverdueInvoices(),
     checkComplianceCertificates(),
@@ -55,6 +56,7 @@ export async function GET(request: Request) {
     runAutomations(),
     checkOwnerMonthlyReports(),
     checkTenantRentReminders(),
+    checkAssetWarranties(),
   ]);
 
   // Auto-expire DISMISSED hints older than 30 days
@@ -70,6 +72,7 @@ export async function GET(request: Request) {
     invoicesOverdue:         invoices.status    === "fulfilled" ? invoices.value    : { error: String(invoices.reason) },
     complianceCertificates:  compliance.status  === "fulfilled" ? compliance.value  : { error: String(compliance.reason) },
     insuranceRenewals:       insurance.status   === "fulfilled" ? insurance.value   : { error: String(insurance.reason) },
+    assetWarranties:         warranties.status  === "fulfilled" ? warranties.value  : { error: String(warranties.reason) },
     urgentMaintenance:       maintenance.status === "fulfilled" ? maintenance.value : { error: String(maintenance.reason) },
     vacantUnits:             vacant.status      === "fulfilled" ? vacant.value      : { error: String(vacant.reason) },
     depositNotSettled:       deposit.status     === "fulfilled" ? deposit.value     : { error: String(deposit.reason) },

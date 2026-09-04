@@ -38,6 +38,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const filterPropertyId = searchParams.get("propertyId");
   const filterCategory = searchParams.get("category");
+  const includeDisposed = searchParams.get("includeDisposed") === "true";
 
   const effectivePropertyIds =
     filterPropertyId && propertyIds.includes(filterPropertyId)
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
       where: {
         propertyId: { in: effectivePropertyIds },
         ...(filterCategory ? { category: filterCategory as AssetCategory } : {}),
+        ...(includeDisposed ? {} : { disposedAt: null }),
       },
       include: {
         property: { select: { name: true, currency: true } },

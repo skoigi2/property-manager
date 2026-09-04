@@ -21,6 +21,9 @@ const updateSchema = z.object({
   serviceContact: z.string().optional().nullable(),
   vendorId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  /** Set to retire the asset (kept with its history); null to reinstate. */
+  disposedAt: z.string().optional().nullable(),
+  disposalNotes: z.string().max(2000).optional().nullable(),
 });
 
 function firstMessage(err: z.ZodError): string {
@@ -73,7 +76,7 @@ export async function PATCH(
 
   const asset = await prisma.asset.findUnique({
     where: { id: params.id },
-    select: { propertyId: true, unitId: true, name: true, category: true, serialNumber: true },
+    select: { propertyId: true, unitId: true, name: true, category: true, serialNumber: true, disposedAt: true },
   });
 
   if (!asset) return Response.json({ error: "Not found" }, { status: 404 });
@@ -108,6 +111,12 @@ export async function PATCH(
     }
   }
   const nextCategory = data.category ?? asset.category;
+  let disposedAt: Date | null | undefined = undefined;
+  if (data.disposedAt !== undefined) {
+    disposedAt = data.disposedAt ? new Date(data.disposedAt) : null;
+    if (disposedAt && isNaN(disposedAt.getTime())) return Response.json({ error: "Invalid disposal date" }, { status: 400 });
+    if (disposedAt && disposedAt.getTime() > Date.now() + 86_400_000) return Response.json({ error: "Disposal date cannot be in the future" }, { status: 400 });
+  }
 
   try {
     const updated = await prisma.asset.update({
@@ -134,6 +143,10 @@ export async function PATCH(
         ...(data.serviceContact !== undefined && { serviceContact: data.serviceContact?.trim() || null }),
         ...(data.vendorId !== undefined && { vendorId: data.vendorId }),
         ...(data.notes !== undefined && { notes: data.notes?.trim() || null }),
+        ...(disposedAt !== undefined && { disposedAt }),
+        // Reinstating clears the note; disposing without a note leaves it null.
+        ...(disposedAt !== undefined && { disposalNotes: disposedAt ? (data.disposalNotes?.trim() || null) : null }),
+        ...(disposedAt === undefined && data.disposalNotes !== undefined && { disposalNotes: data.disposalNotes?.trim() || null }),
       },
       include: {
         ...INCLUDE,
@@ -150,7 +163,7 @@ export async function PATCH(
       resourceId: params.id,
       organizationId: session!.user.organizationId,
       before: asset,
-      after: { name: updated.name, category: updated.category, propertyId: updated.propertyId, serialNumber: updated.serialNumber },
+      after: { name: updated.name, category: updated.category, propertyId: updated.propertyId, serialNumber: updated.serialNumber, disposedAt: updated.disposedAt },
     });
 
     const { documents, ...rest } = updated;

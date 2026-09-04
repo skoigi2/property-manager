@@ -268,7 +268,7 @@ export async function buildCalendarEvents(
 
     // Asset warranties ending — the last chance to claim on the manufacturer.
     prisma.asset.findMany({
-      where: { propertyId: { in: propertyIds }, warrantyExpiry: { gte: from, lte: to } },
+      where: { propertyId: { in: propertyIds }, disposedAt: null, warrantyExpiry: { gte: from, lte: to } },
       select: { id: true, name: true, warrantyExpiry: true, property: { select: { id: true, name: true, currency: true } } },
     }),
 

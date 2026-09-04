@@ -56,7 +56,7 @@ async function main() {
     else groups.push([e]);
     byKey.set(key, groups);
   }
-  for (const groups of byKey.values()) for (const g of groups) if (g.length > 1) clusters.push(g);
+  for (const groups of Array.from(byKey.values())) for (const g of groups) if (g.length > 1) clusters.push(g);
 
   const lines: string[] = [
     `# Dedupe EMAIL_SENT case events — ${new Date().toISOString()} ${DRY ? "(DRY RUN)" : ""}`,

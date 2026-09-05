@@ -1054,7 +1054,7 @@
     </div>
 
     <div class="sub-section">
-      <h3>Deposits — contractual vs actually received</h3>
+      <h3 id="deposits">Deposits — contractual vs actually received</h3>
       <p style="margin-bottom:12px">GroundWorkPM distinguishes the deposit a tenant <em>should</em> have paid (the contractual amount on their lease) from what you can <em>prove</em> was received (DEPOSIT income receipts linked to the tenant):</p>
       <ul class="feature-list">
         <li>The Tenants page shows a <strong>Deposits held</strong> card summing receipt-verified deposits, with a count of tenants whose deposit is still unverified</li>
@@ -1067,6 +1067,25 @@
         <div class="callout-body">
           <strong>Deposits never inflate income</strong>
           DEPOSIT receipts appear in the tenant's ledger and the deposit position, but are always excluded from gross income and the P&amp;L.
+        </div>
+      </div>
+
+      <h4 style="margin-top:20px;font-size:15px;font-weight:600;color:var(--navy)">Recording a deposit — step by step</h4>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Set the agreed deposit on the tenant</h4><p>When you add (or edit) the tenant, enter the deposit from the lease in the <em>Deposit</em> field. This is the <strong>contract</strong>, not a receipt — the Tenants page will show it as unverified until step 2.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>When the money lands, record the receipt — once</h4><p>Two places create the same deposit receipt; pick one:</p>
+          <ul class="feature-list">
+            <li><strong>Tenants page → Deposits held card → Verify deposits</strong> — the quick path for the routine case. It lists every active tenant without a receipt, pre-fills the contractual amount, and only needs the date received.</li>
+            <li><strong>Income page → Add Entry → type "Deposit (not P&amp;L income)"</strong> — use this when the receipt needs detail: a note such as the M-Pesa or bank reference, or an amount that differs from the contract. Pick the unit and the active tenant is linked automatically.</li>
+          </ul></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Check the tenant's Deposit tab</h4><p>The tenant detail page shows contractual vs received and flags any shortfall. To add a payment reference afterwards, edit the existing receipt's note on the Income page rather than adding another entry.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><h4>At move-out, use Checkout</h4><p>The checkout flow refunds from the receipts recorded in step 2 — which is why the receipt matters, not just the figure on the lease.</p></div></div>
+      </div>
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <strong>Never record the same deposit both ways</strong>
+          Verify deposits and an Income "Deposit" entry each create a receipt. Doing both for one tenant doubles the deposit held and inflates the refund at checkout. If you did, delete the duplicate from the Income page.
         </div>
       </div>
     </div>
@@ -1326,7 +1345,7 @@
           <tr><td>AIRBNB</td><td>Short-let booking revenue</td><td>Includes nightly rate, check-in/out dates, platform source</td></tr>
           <tr><td>SERVICE_CHARGE</td><td>Service charge or maintenance levy</td><td>Included in gross income</td></tr>
           <tr><td>UTILITY_RECOVERY</td><td>Recovered utility costs from tenant</td><td>Included in gross income</td></tr>
-          <tr><td>DEPOSIT</td><td>Security deposit received</td><td><em>Excluded</em> from gross income — feeds the deposit position instead</td></tr>
+          <tr><td>DEPOSIT</td><td>Security deposit received</td><td><em>Excluded</em> from gross income — feeds the deposit position instead. Same receipt as <em>Verify deposits</em> on the Tenants page — record it in one place only (see <a href="#deposits">Recording a deposit</a>)</td></tr>
           <tr><td>OTHER</td><td>Any other income</td><td>Included in gross income</td></tr>
         </tbody>
       </table>

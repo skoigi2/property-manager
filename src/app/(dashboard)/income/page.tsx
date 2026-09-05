@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { formResolver } from "@/lib/form-resolver";
+import { readApiError } from "@/lib/api-error";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
@@ -788,7 +789,7 @@ export default function IncomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(await readApiError(res, "Failed to save entry"));
       const entry = await res.json();
       setEntries((prev) => [entry, ...prev]);
       // Refresh arrears data after recording a payment
@@ -798,8 +799,8 @@ export default function IncomePage() {
       setShowForm(false);
       const linked = entry.invoice ? ` · Invoice ${entry.invoice.invoiceNumber} marked paid` : "";
       toast.success(`Income saved${linked}`);
-    } catch {
-      toast.error("Failed to save entry");
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : "Failed to save entry", { duration: 7000 });
     } finally {
       setSubmitting(false);
     }

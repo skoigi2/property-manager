@@ -218,8 +218,23 @@ export async function POST(req: Request) {
       }),
     );
   }
-  const txResults = await prisma.$transaction(ops);
-  const entry = txResults[0];
+  let entry;
+  try {
+    const txResults = await prisma.$transaction(ops);
+    entry = txResults[0];
+  } catch (e) {
+    // A bare throw becomes an empty-bodied 500 the client can only render as
+    // "Failed to save entry". Name the likely cause instead.
+    const code = (e as { code?: string })?.code;
+    if (code === "P2003") {
+      return Response.json(
+        { error: "The linked tenant or invoice no longer exists. Reload the page and try again." },
+        { status: 409 },
+      );
+    }
+    console.error("[POST /api/income] create failed", e);
+    return Response.json({ error: "Could not save this entry. Please try again." }, { status: 500 });
+  }
 
   // Parity with PATCH /api/invoices/[id] when a payment settles the invoice.
   if (becomesPaid && matchedInvoice) {

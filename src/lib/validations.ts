@@ -1,19 +1,30 @@
 import { z } from "zod";
 import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
 
+// Coerce empty Select/Input strings to undefined before Zod validates,
+// so `.optional()` actually means "not picked" (mirrors the same helper used
+// in the property form — see src/app/(dashboard)/properties/page.tsx).
+const emptyToUndef = (v: unknown) => (v === "" || v == null ? undefined : v);
+
 export const incomeEntrySchema = z.object({
   date: z.string().min(1, "Date is required"),
   checkIn: z.string().optional(),
   checkOut: z.string().optional(),
   unitId: z.string().min(1, "Unit is required"),
-  tenantId: z.string().optional(),
-  invoiceId: z.string().optional(),
+  // The Income form carries tenantId / invoiceId as hidden inputs, which
+  // react-hook-form submits as "" when nothing is linked. An empty string
+  // must never reach the FK columns (it would fail the Invoice/Tenant FK and
+  // 500 every non-rent entry), so it is normalised to "not provided" here.
+  tenantId: z.preprocess(emptyToUndef, z.string().optional()),
+  invoiceId: z.preprocess(emptyToUndef, z.string().optional()),
   type: z.enum(["LONGTERM_RENT", "SERVICE_CHARGE", "DEPOSIT", "AIRBNB", "UTILITY_RECOVERY", "OTHER", "LETTING_FEE", "RENEWAL_FEE", "VACANCY_FEE", "SETUP_FEE_INSTALMENT", "CONSULTANCY_FEE"]),
   grossAmount: z.coerce.number().positive("Amount must be positive"),
-  agentCommission: z.coerce.number().min(0).default(0),
-  platform: z.enum(["AIRBNB", "BOOKING_COM", "DIRECT", "AGENT"]).optional(),
-  agentName: z.string().optional(),
-  nightlyRate: z.coerce.number().min(0).optional(),
+  agentCommission: z.preprocess(emptyToUndef, z.coerce.number().min(0).default(0)),
+  // Platform/agent/nightly-rate only render for AIRBNB; if the user switched
+  // type afterwards their unmounted "" values must not block the submit.
+  platform: z.preprocess(emptyToUndef, z.enum(["AIRBNB", "BOOKING_COM", "DIRECT", "AGENT"]).optional()),
+  agentName: z.preprocess(emptyToUndef, z.string().optional()),
+  nightlyRate: z.preprocess(emptyToUndef, z.coerce.number().min(0).optional()),
   note: z.string().optional(),
 });
 
@@ -126,11 +137,6 @@ export const pettyCashApproveSchema = z.object({
   approvalNotes: z.string().optional(),
   rejectionReason: z.string().optional(),
 });
-
-// Coerce empty Select/Input strings to undefined before Zod validates,
-// so `.optional()` actually means "not picked" (mirrors the same helper used
-// in the property form — see src/app/(dashboard)/properties/page.tsx).
-const emptyToUndef = (v: unknown) => (v === "" || v == null ? undefined : v);
 
 export const tenantSchema = z.object({
   name:             z.string().min(1, "Name is required"),

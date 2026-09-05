@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { formResolver } from "@/lib/form-resolver";
+import { readApiError } from "@/lib/api-error";
 import toast from "react-hot-toast";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
@@ -126,23 +127,6 @@ function sameMonth(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 }
 
-/** Turn an API failure into something a person can act on. A 400 from zod
- *  arrives as { error: { fieldErrors, formErrors } }; 402 (subscription
- *  lock), 403 (permission) and our own scope checks arrive as a string. */
-async function readApiError(res: Response, fallback: string): Promise<string> {
-  const data = await res.json().catch(() => null);
-  const err = data?.error;
-  if (typeof err === "string" && err.trim()) return err;
-  if (res.status === 402) return "Your subscription is locked. Billing needs attention before you can add expenses.";
-  if (res.status === 403) return "You do not have permission to do this.";
-  if (err && typeof err === "object") {
-    const fe = (err.fieldErrors ?? {}) as Record<string, string[]>;
-    const first = Object.entries(fe).find(([, v]) => Array.isArray(v) && v.length > 0);
-    if (first) return `${first[0]}: ${first[1][0]}`;
-    if (Array.isArray(err.formErrors) && err.formErrors.length > 0) return err.formErrors[0];
-  }
-  return fallback;
-}
 
 // Unit-of-measure dropdown, grouped. Mirrors the UnitOfMeasure enum —
 // descriptive context for qty × rate only, never used in a calculation.

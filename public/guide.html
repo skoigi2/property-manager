@@ -389,7 +389,7 @@
     <h1>Everything you need to master<br><em>GroundWorkPM</em></h1>
     <p>An end-to-end walkthrough of every feature and workflow — from signing up to running your daily inbox, collecting rent, escalating arrears, and sending owner reports.</p>
     <div class="meta">
-      <div class="meta-item"><strong>Updated</strong> &nbsp;August 2026</div>
+      <div class="meta-item"><strong>Updated</strong> &nbsp;September 2026</div>
       <div class="meta-item"><strong>Audience</strong> &nbsp;Property managers &amp; admins</div>
       <div class="meta-item"><strong>Tip</strong> &nbsp;Press Ctrl/Cmd + K to search this guide</div>
     </div>
@@ -971,6 +971,7 @@
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Click <em>Add Property</em></h4><p>Opens a form for name, type, currency, address, and city.</p></div></div>
         <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Set currency</h4><p>Choose the currency for all income and expenses on this property. Supported: KES, USD, GBP, EUR, AED, ZAR, TZS, UGX, INR, CHF, and more.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Add units</h4><p>From the property card or detail page, add units with number, type, and monthly rent. Unit types: Bedsitter, 1–4 Bed, Penthouse, Commercial, Other.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Set the defaults new tenants inherit</h4><p>On the property form, <strong>Default Service Charge</strong> prefills each new tenant's service charge, and <strong>Default Lease Agreement Fee</strong> (e.g. the 2,000 lease-preparation fee in the standard tenancy agreement) prefills the <em>Move-in</em> invoice preset. Management fee settings live on the same form — see <a href="#settings">Management fees</a>.</p></div></div>
       </div>
     </div>
 
@@ -1020,11 +1021,11 @@
         <thead><tr><th>Tab</th><th>What you can do</th></tr></thead>
         <tbody>
           <tr><td><strong>Ledger</strong></td><td>Month-by-month rent payment ledger showing expected vs received amounts and a running balance. Receipts are allocated oldest-first (statement-style), so a tenant who pays a quarter or year up-front is not shown as unpaid for the covered months.</td></tr>
-          <tr><td><strong>Invoices</strong></td><td>View, generate, send by email, and mark invoices paid. Download individual invoice PDFs.</td></tr>
+          <tr><td><strong>Invoices</strong></td><td>View, generate, send by email, and mark invoices paid. Download individual invoice PDFs; paid invoices also offer <strong>Download receipt</strong> and <strong>Email receipt</strong>. Move-in invoices show their lines (deposit, lease agreement fee) as chips.</td></tr>
           <tr><td><strong>Documents</strong></td><td>Upload and manage lease agreements, IDs, receipts, and other documents in the secure vault</td></tr>
           <tr><td><strong>Rent History</strong></td><td>Log rent escalations and adjustments with effective dates. Warns when the timeline is out of sync with the tenant's current rent, with a one-click fix.</td></tr>
           <tr><td><strong>Renewal</strong></td><td>Progress the lease renewal pipeline (Notice Sent → Terms Agreed → Renewed), set proposed rent and end date</td></tr>
-          <tr><td><strong>Deposit</strong></td><td>See the deposit position (contractual vs actually received), link deposit receipts, and record settlement with itemised deductions</td></tr>
+          <tr><td><strong>Deposit</strong></td><td>See the deposit position (contractual vs actually received), the list of deposit receipts (each downloadable / emailable), link stray deposit entries, and record settlement with itemised deductions</td></tr>
           <tr><td><strong>Comms</strong></td><td>Log outbound emails sent to the tenant, with templates for rent reminders, receipts, and renewal offers</td></tr>
           <tr><td><strong>Portal Msgs</strong></td><td>Read and reply to two-way message threads the tenant opens from their portal. A thread that is really a grievance has a <strong>Log as complaint</strong> button — it opens a complaint pre-filled from the thread and links the two, so the chat history and the formal record stay together.</td></tr>
           <tr><td><strong>Complaints</strong></td><td>Every complaint this tenant has raised or been the subject of, with stage, category and SLA status, plus a <em>Log complaint</em> button pre-filled with the tenant and unit. See <a href="#complaints">Tenant Complaints</a>.</td></tr>
@@ -1168,6 +1169,7 @@
         <li>A payment automatically finds and settles the tenant's open invoice — even when a quarterly or annual payer pays after their billing month, the payment matches the invoice covering that period</li>
         <li>Partial payments accumulate on the invoice; it only flips to PAID once effectively fully paid — short payments leave it SENT/OVERDUE with the balance visible</li>
         <li>Recording a payment prefills the correct period amount for the tenant's payment frequency, not blindly one month's rent</li>
+        <li>A payment against a <strong>move-in invoice</strong> is split automatically into rent, deposit and lease-fee entries (see <a href="#invoice-lines">Invoice types &amp; lines</a>), and every recorded payment emails the tenant a <a href="#receipts">receipt</a></li>
       </ul>
     </div>
 
@@ -1225,6 +1227,39 @@
     </div>
 
     <div class="sub-section">
+      <h3 id="invoice-lines">Invoice types &amp; lines — the move-in invoice</h3>
+      <p style="margin-bottom:12px">An invoice is a set of <strong>lines</strong>: rent, service charge, other charges, and the once-off move-in lines — the <strong>refundable security deposit</strong> and the <strong>lease agreement fee</strong>. Click <em>New Invoice</em> and pick an <strong>invoice type</strong>; it only decides which lines the form starts with, and you can add or remove any line afterwards with <em>+ Add line</em>. Amounts show thousands separators as you type and the total updates live.</p>
+      <table class="data-table">
+        <thead><tr><th>Type</th><th>Starts with</th><th>Use it for</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Monthly rent</strong></td><td>Rent + service charge (from the tenant record)</td><td>The regular month — the same invoice <em>Generate All</em> and the auto-generation automation produce</td></tr>
+          <tr><td><strong>Move-in</strong></td><td>Rent + service charge + refundable deposit (the tenant's contractual deposit) + lease agreement fee (the property default)</td><td>The tenancy agreement's move-in schedule on one invoice — e.g. first month 25,000 + deposit 50,000 + lease preparation 2,000 = 77,000. The period defaults to the lease-start month.</td></tr>
+          <tr><td><strong>Deposit only</strong></td><td>Refundable deposit</td><td>Billing the deposit on its own — it can sit beside the month's rent invoice</td></tr>
+          <tr><td><strong>Custom</strong></td><td>Rent</td><td>Anything else — add whichever lines you need</td></tr>
+        </tbody>
+      </table>
+      <ul class="feature-list" style="margin-top:12px">
+        <li><strong>One rent invoice per tenant per month.</strong> The form warns you inline (and the server refuses) if a rent invoice already exists for that month — remove the rent line to raise a deposit / fee-only invoice instead. Extra invoices without a rent line are always allowed.</li>
+        <li><strong>The tenant list follows the header property.</strong> Select a property in the header and only its active tenants are offered; on <em>All properties</em> every tenant is listed with their property name.</li>
+        <li><strong>Edit lines…</strong> in an unpaid invoice's status menu reopens the same form to change amounts, due date or notes. Paid invoices are read-only — revert them first.</li>
+        <li><strong>Paying a move-in invoice books each line correctly.</strong> Mark it paid (singly, in bulk, by approving proof, or by bank-statement reconciliation) and the rent side is recorded as rent, the deposit as a <em>DEPOSIT</em> receipt (it never counts as rent income or in the management-fee base, and the tenant's deposit position becomes "verified"), and the lease agreement fee as <em>LEASE_FEE</em> landlord income. A rent payment logged on the Income page against a move-in invoice is split the same way and the toast tells you how.</li>
+        <li><strong>Short payments</strong> fill the rent side first, then the deposit, then the fee; the balance stays outstanding on the invoice.</li>
+        <li>The PDF lists every line; when a deposit is included it carries a note that the deposit is refundable and may not be applied to rent.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3 id="receipts">Payment receipts — automatic, for every payment</h3>
+      <p style="margin-bottom:12px">Every payment a tenant makes — rent, deposit, lease agreement fee — has a numbered <strong>receipt PDF</strong> (e.g. <code>RCPT-20261001-P9XQWS</code>). One payment is one receipt: a move-in payment shows its rent, deposit and fee as separate lines on a single receipt. The receipt carries the amount received, date, method and reference, the invoice position (total, paid to date, balance outstanding — stamped <em>Paid in full</em> or <em>Part payment</em>), and for deposits the contractual amount against what has been received to date.</p>
+      <ul class="feature-list">
+        <li><strong>Emailed automatically.</strong> The moment a payment is recorded — mark paid, bulk mark paid, proof of payment approved, an income entry logged, or a statement match confirmed — the tenant is emailed the receipt. It is the <em>Tenant payment receipts</em> automation (on by default, can be switched off per organisation or property); tenants without an email address are simply skipped. Every send is logged on the tenant's Comms tab.</li>
+        <li><strong>Always available in the portal.</strong> Tenants download receipts from their portal at any time: a receipt per payment on the Balance timeline, the deposit row on Overview, and a "Payment Receipts" list at the top of Files (see <a href="#portal">Tenant Portal</a>).</li>
+        <li><strong>Manager buttons.</strong> Paid invoices on the Invoices page and the tenant's Invoices tab, every row on the tenant's Deposit tab, and every tenant-linked entry on the Income page offer <em>Download receipt</em> and <em>Email receipt</em>.</li>
+        <li>A receipt is generated on demand from the recorded payment, so it always reflects the books; reverting a payment (<em>Revert to unpaid…</em>) removes its receipt with it.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
       <h3>Reconciling a bank / M-Pesa statement</h3>
       <p style="margin-bottom:12px">When payments arrive in bulk, you don't have to match them row by row. Click <strong>Reconcile</strong> in the Invoices header, then paste your statement (or upload a CSV export) — M-Pesa confirmation texts, bank CSV exports, and Excel pastes are all understood:</p>
       <ul class="feature-list">
@@ -1239,6 +1274,7 @@
       <ul class="feature-list">
         <li><strong>Your numbering series</strong> — invoice numbers follow a configurable format (default <code>INV-{YYYYMM}-{SEQ}</code>) with tokens for year, month, and sequence. Each payment account can run its own independent series (e.g. <code>SHAH-2026-0042</code>), and you can set the next number to continue seamlessly from a previous system. Configured in <strong>Settings → Payment Accounts</strong>.</li>
         <li><strong>Frequency-aware description</strong> — reads "Rent — July 2026 (payable quarterly in advance)" for non-monthly tenants, with a Payment Terms line</li>
+        <li><strong>Move-in lines</strong> — a refundable security deposit and a lease agreement fee print as their own lines when billed, with a note that the deposit is refundable and cannot be applied to rent (see <a href="#invoice-lines">Invoice types &amp; lines</a>)</li>
         <li><strong>Lease start &amp; end dates</strong> and the tenant's <strong>P.O. Box</strong> in the Bill To block</li>
         <li><strong>How to Pay</strong> — bank / M-Pesa details resolved from the property's payment account (or a per-unit override — see <a href="#settings">Payment Accounts</a>)</li>
         <li><strong>Outstanding balance</strong> — an amber note showing unpaid amounts from the tenant's other invoices, plus the combined total</li>
@@ -1265,11 +1301,11 @@
 
     <div class="sub-section">
       <h3>Tax on invoices &amp; rent receipts</h3>
-      <p style="margin-bottom:12px">Tenant rent invoices are issued <strong>without a VAT line</strong> — residential rent is exempt in most jurisdictions, so the invoice total is simply rent + service charge + other charges (+ any late fee). Where tax does come in:</p>
+      <p style="margin-bottom:12px">Tenant rent invoices are issued <strong>without a VAT line</strong> — residential rent is exempt in most jurisdictions, so the invoice total is simply rent + service charge + other charges (+ deposit and lease agreement fee on a move-in invoice, + any late fee). Where tax does come in:</p>
       <ul class="feature-list">
         <li><strong>Rent receipts</strong> — if a tax rule in <strong>Settings → Tax</strong> applies to rent, the tax is captured on the <em>income entry</em> when the payment is recorded, using the rate in force on the payment date. This happens consistently however the payment lands — manual income entry, marking an invoice paid (singly or in bulk), verifying a tenant's proof of payment, or bank-statement reconciliation.</li>
         <li><strong>Tax-exempt tenants</strong> — flag a tenant as tax exempt on their profile and no tax is ever snapshotted on their receipts.</li>
-        <li><strong>Owner invoices</strong> — management-fee and letting-fee invoices to the landlord automatically add a VAT line when a rule covers management/letting-fee income, since those are your taxable services. The rate used is the one in force for the billed period.</li>
+        <li><strong>Owner invoices</strong> — lease-preparation-fee recovery lines are never taxed (they reimburse what the tenant already paid); management-fee and letting-fee invoices to the landlord automatically add a VAT line when a rule covers management/letting-fee income, since those are your taxable services. The rate used is the one in force for the billed period.</li>
         <li>Recorded tax is stored on each record at entry time — later rate changes never alter historical invoices or receipts.</li>
       </ul>
     </div>
@@ -1281,7 +1317,28 @@
 
     <div class="sub-section">
       <h3>Fixing an accidental "mark paid"</h3>
-      <p>Marking an invoice paid creates the matching income entry, so a PAID invoice's status menu deliberately offers only one path back: <strong>Revert to unpaid…</strong>. This properly reverses the payment — status returns to SENT/OVERDUE and the linked income entry is removed in the same step, so your books never double-count. (Deleting financial records requires the appropriate permission; accountants can't.)</p>
+      <p>Marking an invoice paid creates the matching income entry, so a PAID invoice's status menu deliberately offers only one path back: <strong>Revert to unpaid…</strong>. This properly reverses the payment — status returns to SENT/OVERDUE and the linked income entries (rent, and on a move-in invoice the deposit and fee) are removed in the same step, so your books never double-count. (Deleting financial records requires the appropriate permission; accountants can't.)</p>
+    </div>
+
+    <div class="sub-section">
+      <h3 id="owner-invoices">Owner invoices — billing the landlord</h3>
+      <p style="margin-bottom:12px">The <strong>Owner Invoices</strong> tab on the Invoices page bills the landlord for your services. Use <em>Generate</em> for the automatic ones, or <em>New Owner Invoice</em> for anything ad hoc; each is a draft you can edit, email as a PDF and mark paid.</p>
+      <table class="data-table">
+        <thead><tr><th>Invoice</th><th>How it is calculated</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Management fee</strong> (monthly)</td><td>Per-unit fee configs if set; otherwise the property's % of the month's <em>gross income</em> (rent, service charge and other income received — deposits excluded, before expenses) or its flat fee; otherwise the agreement rate. Tax is added when a tax rule covers management fees. Any <strong>lease preparation fee recovery</strong> lines for the month follow the tax line (see below).</td></tr>
+          <tr><td><strong>Letting fee</strong> (per new tenancy)</td><td>The agreement's letting-fee rate (50% by default) × the tenant's <em>full</em> first-month charge — rent + service charge (+ parking) — never rent alone. Raised from the next-steps prompt when you add a tenant (one invoice per tenant, never twice), or for every lease starting in a month from the Generate menu.</td></tr>
+          <tr><td><strong>Renewal fee</strong></td><td>The agreement's flat renewal fee for each tenant whose renewed lease ends in the month</td></tr>
+          <tr><td><strong>Vacancy fee</strong></td><td>The agreement's vacancy rate × unit rent for units vacant beyond the threshold</td></tr>
+          <tr><td><strong>Airbnb periodic letting fee</strong></td><td>Bundles the month's short-let bookings at the short-term letting-fee rate</td></tr>
+        </tbody>
+      </table>
+      <h4 style="margin-top:14px">Recovering the lease preparation fee from the owner</h4>
+      <p style="margin-bottom:12px">When a tenant pays the lease agreement fee on their move-in invoice, the money lands in the <em>landlord's</em> account, but the manager prepared the lease. The next monthly <strong>Generate → Management Fee</strong> invoice therefore adds a line for each such fee received that month that has not yet been recovered — "Lease preparation fee recovery — Muhidin Haji Muhumed, Unit 2.11 (received 11 Sept 2026): KES 2,000" — after the tax line, untaxed, because it is a reimbursement rather than a fee. The Owner Invoices tab shows a <strong>Lease preparation fees — recovery from the owner</strong> panel: collected from tenants, invoiced to the owner, settled (owner paid), and what is still to invoice, with the state of each fee. Nothing is billed twice: a fee is recovered once it sits on a non-cancelled owner invoice, and deleting that line from a draft (or cancelling the invoice) makes it pending again for the next month.</p>
+      <ul class="feature-list">
+        <li>Editing a generated owner invoice keeps its tracking behind the scenes — only the description and amount change.</li>
+        <li>Marking an owner invoice paid books the income; the recovery amount is the manager's, not a tenant payment, so it never touches the tenant's ledger or deposit.</li>
+      </ul>
     </div>
 
     <div class="sub-section">
@@ -1348,6 +1405,7 @@
           <tr><td>SERVICE_CHARGE</td><td>Service charge or maintenance levy</td><td>Included in gross income</td></tr>
           <tr><td>UTILITY_RECOVERY</td><td>Recovered utility costs from tenant</td><td>Included in gross income</td></tr>
           <tr><td>DEPOSIT</td><td>Security deposit received</td><td><em>Excluded</em> from gross income — feeds the deposit position instead. Same receipt as <em>Verify deposits</em> on the Tenants page — record it in one place only (see <a href="#deposits">Recording a deposit</a>)</td></tr>
+          <tr><td>LEASE_FEE</td><td>Lease agreement (preparation) fee paid by a tenant</td><td>Booked automatically when a move-in invoice is paid. Landlord income (included in gross income); excluded from the rent ledger. Recovered from the owner on the management-fee invoice (see <a href="#owner-invoices">Owner invoices</a>)</td></tr>
           <tr><td>OTHER</td><td>Any other income</td><td>Included in gross income</td></tr>
         </tbody>
       </table>

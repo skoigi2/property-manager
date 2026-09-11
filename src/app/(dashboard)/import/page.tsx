@@ -243,6 +243,8 @@ const VALID_INCOME_TYPES = [
   "VACANCY_FEE",
   "SETUP_FEE_INSTALMENT",
   "CONSULTANCY_FEE",
+  "ADMIN_FEE",
+  "LEASE_FEE",
 ];
 
 const VALID_EXPENSE_CATEGORIES = [
@@ -603,6 +605,9 @@ function mapInvoiceRowToApi(row: Record<string, string>) {
     rentAmount:    row["Rent Amount"],
     serviceCharge: row["Service Charge"],
     otherCharges:  row["Other Charges"],
+    depositAmount: row["Deposit"],
+    adminFee:      row["Admin Fee"],
+    leaseFee:      row["Lease Fee"],
     dueDate:       row["Due Date"],
     invoiceNumber: row["Invoice Number"],
     propertyName:  row["Property Name"],

@@ -1036,7 +1036,7 @@
       <h3>Adding a Tenant</h3>
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Click <em>Add Tenant</em></h4><p>Opens a two-step modal. Step 1: name, contact details, unit assignment, lease dates, monthly rent, service charge, parking fee, deposit, payment frequency, escalation, and postal address (see below). Step 2: optional document upload (ID, lease agreement).</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Letting fee prompt</h4><p>After saving, the system automatically prompts you to record a letting fee (50% of first month's rent by default). Confirm to create the expense entry.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Next steps prompt: letting fee and move-in invoice</h4><p>After saving, the system offers two things. <strong>Generate letting fee invoice</strong> raises the owner invoice at the agreement's letting-fee rate (50% by default) applied to the tenant's <em>full</em> first-month charge — rent + service charge (+ parking), never rent alone. <strong>Raise the move-in invoice</strong> opens the Invoices page on the <em>Move-in</em> preset: first month's rent + service charge + refundable deposit + any once-off lease-agreement / admin fee on one invoice, matching the tenancy agreement's move-in schedule.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Generate first invoice</h4><p>Navigate to the <em>Invoices</em> tab on the tenant detail page and click <em>Generate Invoice</em> for the first rental month.</p></div></div>
       </div>
     </div>
@@ -1073,11 +1073,13 @@
       <h4 style="margin-top:20px;font-size:15px;font-weight:600;color:var(--navy)">Recording a deposit — step by step</h4>
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Set the agreed deposit on the tenant</h4><p>When you add (or edit) the tenant, enter the deposit from the lease in the <em>Deposit</em> field. This is the <strong>contract</strong>, not a receipt — the Tenants page will show it as unverified until step 2.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>When the money lands, record the receipt — once</h4><p>Two places create the same deposit receipt; pick one:</p>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>When the money lands, record the receipt — once</h4><p>Three places create the same deposit receipt; pick one:</p>
           <ul class="feature-list">
-            <li><strong>Tenants page → Deposits held card → Verify deposits</strong> — the quick path for the routine case. It lists every active tenant without a receipt, pre-fills the contractual amount, and only needs the date received.</li>
+            <li><strong>Invoices page → New Invoice → <em>Move-in</em> or <em>Deposit only</em></strong> — bill the deposit to the tenant (on its own, or together with the first month's rent and once-off fees). Marking that invoice paid books the deposit as a DEPOSIT receipt automatically, never as rent.</li>
+            <li><strong>Tenants page → Deposits held card → Verify deposits</strong> — the quick path when the deposit was never invoiced. It lists every active tenant without a receipt, pre-fills the contractual amount, and only needs the date received.</li>
             <li><strong>Income page → Add Entry → type "Deposit (not P&amp;L income)"</strong> — use this when the receipt needs detail: a note such as the M-Pesa or bank reference, or an amount that differs from the contract. Pick the unit and the active tenant is linked automatically.</li>
-          </ul></div></div>
+          </ul>
+          <p style="margin-top:8px">Whichever path you use, the tenant is <strong>emailed a receipt PDF</strong> the moment the deposit is recorded (the <em>Tenant payment receipts</em> automation, on by default) and can download it any time from their portal.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Check the tenant's Deposit tab</h4><p>The tenant detail page shows contractual vs received and flags any shortfall. To add a payment reference afterwards, edit the existing receipt's note on the Income page rather than adding another entry.</p></div></div>
         <div class="step"><div class="step-num">4</div><div class="step-content"><h4>At move-out, use Checkout</h4><p>The checkout flow refunds from the receipts recorded in step 2 — which is why the receipt matters, not just the figure on the lease.</p></div></div>
       </div>
@@ -1997,6 +1999,7 @@
           <defs><marker id="mfa" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#C9A84C"/></marker></defs>
         </svg>
       </div>
+      <p style="margin-bottom:10px">Where a <strong>% rate</strong> applies (property rate or agreement rate), the base is the <strong>gross income received in the period</strong> — rent, service charge and any other income entries, before expenses. Security deposits are never part of it. Per-unit % configs apply to that unit's monthly rent.</p>
       <p>"No management fee" is a first-class state — a self-managed property simply shows no fee anywhere, rather than a phantom default.</p>
     </div>
 
@@ -2076,9 +2079,9 @@
       <table class="data-table">
         <thead><tr><th>Tab</th><th>Content</th></tr></thead>
         <tbody>
-          <tr><td><strong>Overview</strong></td><td>Lease dates, monthly rent, outstanding balance, and recent invoices with status and PDF download</td></tr>
-          <tr><td><strong>Balance</strong></td><td>A full statement-style ledger — every invoice issued and payment received, with a running total invoiced / paid / outstanding. Paid invoices offer a one-page <strong>receipt PDF</strong>.</td></tr>
-          <tr><td><strong>Files</strong></td><td>Documents shared by the manager (lease agreement, receipts, notices) with secure download links</td></tr>
+          <tr><td><strong>Overview</strong></td><td>Lease dates, monthly rent, outstanding balance, the <strong>security deposit</strong> (received vs due, with a receipt link per payment), and recent invoices with status and PDF download</td></tr>
+          <tr><td><strong>Balance</strong></td><td>A full statement-style ledger — every invoice issued and payment received, with a running total invoiced / paid / outstanding. Every payment (rent, deposit, fees) carries a numbered <strong>receipt PDF</strong>; a move-in payment shows its rent / deposit / fee lines on one receipt.</td></tr>
+          <tr><td><strong>Files</strong></td><td>The receipts for every payment, followed by documents shared by the manager (lease agreement, notices) and any payment proofs the tenant uploaded, with secure download links</td></tr>
           <tr><td><strong>Messages</strong></td><td>Two-way message threads with the manager — lease queries, payment notifications, permission requests, general questions</td></tr>
           <tr><td><strong>Request</strong></td><td>A <em>Repair request / Complaint</em> toggle. Repairs take a title, description, category and emergency flag and land on your Maintenance board. Complaints take a category (noise, neighbour, security, premises, other) and land on your Complaints page. Both lists show the tenant the stage of everything they've submitted; <em>My complaints</em> also shows any notes you marked visible and the resolution note.</td></tr>
         </tbody>
@@ -2091,7 +2094,7 @@
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Tenant submits proof</h4><p>File and/or text, straight from their phone. The invoice shows an amber <strong>Check Proof</strong> badge on your Invoices page.</p></div></div>
         <div class="step"><div class="step-num">2</div><div class="step-content"><h4>You verify in the drawer</h4><p>Click the badge to open the verification drawer — inline preview of the file, copy-on-click text, and paid-amount + payment-method fields.</p></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Approve or reject</h4><p>Approving marks the invoice paid, creates the income entry, and files the proof into the tenant's document vault as a payment receipt. Rejecting reverts the invoice so the tenant can resubmit.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Approve or reject</h4><p>Approving marks the invoice paid, creates the income entries (rent — and, on a move-in invoice, the deposit and fees as their own entries), files the proof into the tenant's document vault, and emails the tenant a receipt. Rejecting reverts the invoice so the tenant can resubmit.</p></div></div>
       </div>
       <div class="callout note">
         <span class="callout-icon">ℹ️</span>
@@ -2187,7 +2190,7 @@
           <tr>
             <td><span class="badge badge-green">Email notification</span></td>
             <td><span class="badge badge-green">On</span></td>
-            <td>The manager email alerts (lease, invoice, compliance, insurance, <strong>asset warranty</strong>, urgent maintenance, <strong>new complaint</strong>) and the tenant-facing <strong>Complaint resolved</strong> email, plus two opt-ins: <strong>Tenant rent reminders</strong> (emails tenants 3 days before rent is due, on the due date, and once 7 days overdue — logged to each tenant's comms trail) and the <strong>Owner monthly report</strong> (the previous month's statement PDF emailed to the property owner on the agreement's remittance day).</td>
+            <td>The manager email alerts (lease, invoice, compliance, insurance, <strong>asset warranty</strong>, urgent maintenance, <strong>new complaint</strong>) and the tenant-facing <strong>Complaint resolved</strong> and <strong>Tenant payment receipts</strong> emails (a receipt PDF the moment a rent or deposit payment is recorded — mark paid, proof approved, income entry logged, statement reconciled), plus two opt-ins: <strong>Tenant rent reminders</strong> (emails tenants 3 days before rent is due, on the due date, and once 7 days overdue — logged to each tenant's comms trail) and the <strong>Owner monthly report</strong> (the previous month's statement PDF emailed to the property owner on the agreement's remittance day).</td>
           </tr>
           <tr>
             <td><span class="badge badge-amber">Smart reminder</span></td>
@@ -2292,7 +2295,7 @@
         </tbody>
       </table>
       <p style="margin-top:10px">Notifications are deduplicated — you will not receive the same alert repeatedly within the dedup window.</p>
-      <p style="margin-top:10px">Some emails are sent the moment something happens rather than by the daily job: a <strong>new complaint</strong> (to the property's managers), a <strong>complaint resolved</strong> (to the tenant who raised it via the portal), a <strong>petty-cash withdrawal awaiting confirmation</strong> (to the float holder) and a <strong>rejected withdrawal</strong> (to whoever logged the expense). Where a case is linked, each of these appears once on its timeline, listing every recipient.</p>
+      <p style="margin-top:10px">Some emails are sent the moment something happens rather than by the daily job: a <strong>payment receipt</strong> (to the tenant, for every rent or deposit payment recorded — switch off under Automations → <em>Tenant payment receipts</em>), a <strong>new complaint</strong> (to the property's managers), a <strong>complaint resolved</strong> (to the tenant who raised it via the portal), a <strong>petty-cash withdrawal awaiting confirmation</strong> (to the float holder) and a <strong>rejected withdrawal</strong> (to whoever logged the expense). Where a case is linked, each of these appears once on its timeline, listing every recipient.</p>
     </div>
 
     <div class="sub-section">

@@ -8,7 +8,9 @@ import { allocateInvoiceNumber } from "@/lib/invoice-numbering";
 // (manager-clicked "Generate All") and the AUTO_INVOICE_GENERATION cron
 // automation, so both paths bill identically: schedule-aware (quarterly/annual
 // payers get one invoice on their billing month), escalation-aware
-// (RentHistory), idempotent via @@unique([tenantId, periodYear, periodMonth]).
+// (RentHistory), idempotent per tenant + period: at most ONE rent invoice per
+// month (a deposit-only / fees-only invoice for the same month never blocks
+// the rent invoice, and vice versa).
 
 export interface InvoicingTenant {
   id: string;
@@ -54,6 +56,8 @@ export async function generateInvoicesForTenants(opts: {
       periodYear: year,
       periodMonth: month,
       tenantId: { in: tenants.map((t) => t.id) },
+      rentAmount: { gt: 0 },
+      status: { not: "CANCELLED" },
     },
     select: { tenantId: true },
   });

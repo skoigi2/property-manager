@@ -8,6 +8,11 @@ import { frequencyMonths } from "@/lib/rent-schedule";
 import { clearHints } from "@/lib/hints";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { tryAutoAdvance } from "@/lib/case-workflows";
+import { invoiceHasMoveInLines } from "@/lib/invoice-payment";
+import { buildInvoicePaymentOps } from "@/lib/invoice-payment-entries";
+import { maybeAutoEmailReceipt } from "@/lib/receipt-email";
+
+export const maxDuration = 30;
 
 export async function GET(req: Request) {
   const { error } = await requireAuth();
@@ -131,10 +136,21 @@ export async function POST(req: Request) {
     paidAmount: true,
     status: true,
     caseThreadId: true,
+    rentAmount: true,
+    serviceCharge: true,
+    otherCharges: true,
+    lateFeeAmount: true,
+    depositAmount: true,
+    adminFee: true,
+    leaseFee: true,
   } as const;
   let resolvedInvoiceId = invoiceId ?? null;
   let matchedInvoice:
-    | { id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null }
+    | {
+        id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null;
+        rentAmount: number; serviceCharge: number; otherCharges: number; lateFeeAmount: number;
+        depositAmount: number; adminFee: number; leaseFee: number;
+      }
     | null = null;
   if (!resolvedInvoiceId && resolvedTenantId && rest.type === "LONGTERM_RENT") {
     const entryDate = new Date(date);
@@ -178,31 +194,65 @@ export async function POST(req: Request) {
     }
   }
 
+  // A rent payment against an invoice that carries deposit / fee lines is
+  // split into typed entries by the shared allocator (rent side first, then
+  // deposit, then fees) — the deposit must never be booked as rent. The
+  // manager's single amount stays the payment; the split is reported back.
+  const prevPaid = matchedInvoice?.paidAmount ?? 0;
+  const splitAcrossLines =
+    !!matchedInvoice &&
+    matchedInvoice.status !== "PAID" &&
+    rest.type === "LONGTERM_RENT" &&
+    invoiceHasMoveInLines(matchedInvoice);
+  const includeShape = {
+    unit: { include: { property: { select: { name: true } } } },
+    tenant: { select: { id: true, name: true } },
+    invoice: { select: { id: true, invoiceNumber: true } },
+  } as const;
+
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ops: any[] = [
-    prisma.incomeEntry.create({
-      data: {
-        ...rest,
+  const ops: any[] = [];
+  let allocation: { type: string; amount: number }[] | null = null;
+  if (splitAcrossLines && matchedInvoice && resolvedTenantId && propertyId) {
+    const tenantMeta = await prisma.tenant.findUnique({ where: { id: resolvedTenantId }, select: { isTaxExempt: true } });
+    const { ops: entryOps, parts } = await buildInvoicePaymentOps({
+      invoice: {
+        ...matchedInvoice,
         tenantId: resolvedTenantId,
-        invoiceId: resolvedInvoiceId,
-        date: new Date(date),
-        checkIn: checkIn ? new Date(checkIn) : null,
-        checkOut: checkOut ? new Date(checkOut) : null,
-        ...taxSnapshot,
+        unitId: rest.unitId,
+        propertyId,
+        organizationId: orgId,
+        isTaxExempt: tenantMeta?.isTaxExempt,
+        alreadyPaid: prevPaid,
       },
-      include: {
-        unit: { include: { property: { select: { name: true } } } },
-        tenant: { select: { id: true, name: true } },
-        invoice: { select: { id: true, invoiceNumber: true } },
-      },
-    }),
-  ];
+      amount: rest.grossAmount,
+      date: new Date(date),
+      paymentMethod: (rest as { paymentMethod?: string | null }).paymentMethod ?? null,
+      note: rest.note ?? `Payment against invoice ${matchedInvoice.invoiceNumber}`,
+    });
+    ops.push(...entryOps);
+    allocation = parts;
+  } else {
+    ops.push(
+      prisma.incomeEntry.create({
+        data: {
+          ...rest,
+          tenantId: resolvedTenantId,
+          invoiceId: resolvedInvoiceId,
+          date: new Date(date),
+          checkIn: checkIn ? new Date(checkIn) : null,
+          checkOut: checkOut ? new Date(checkOut) : null,
+          ...taxSnapshot,
+        },
+        include: includeShape,
+      }),
+    );
+  }
   // Settle the invoice from accumulated payments: a short payment records
   // paidAmount but leaves the invoice SENT/OVERDUE — it must NOT flip to
   // fully PAID off a partial amount. ~1% tolerance mirrors the collection
   // view's paid >= expected * 0.99 convention.
-  const prevPaid = matchedInvoice?.paidAmount ?? 0;
   const newPaidTotal = prevPaid + rest.grossAmount;
   const becomesPaid =
     !!matchedInvoice &&
@@ -222,6 +272,11 @@ export async function POST(req: Request) {
   try {
     const txResults = await prisma.$transaction(ops);
     entry = txResults[0];
+    if (allocation) {
+      // Allocator rows are created with a minimal select — reload the primary
+      // entry in the shape the Income page expects.
+      entry = await prisma.incomeEntry.findUnique({ where: { id: entry.id }, include: includeShape });
+    }
   } catch (e) {
     // A bare throw becomes an empty-bodied 500 the client can only render as
     // "Failed to save entry". Name the likely cause instead.
@@ -259,8 +314,14 @@ export async function POST(req: Request) {
     resource: "IncomeEntry",
     resourceId: entry.id,
     organizationId: session!.user.organizationId,
-    after: { type: entry.type, grossAmount: entry.grossAmount, date: entry.date },
+    after: { type: entry.type, grossAmount: entry.grossAmount, date: entry.date, ...(allocation ? { allocation } : {}) },
   });
 
-  return Response.json(entry, { status: 201 });
+  // Receipt to the tenant — one per payment event (rent, deposit, fees);
+  // only payments linked to a tenant can be receipted.
+  const receipt = resolvedTenantId
+    ? await maybeAutoEmailReceipt(entry.id, orgId, propertyId)
+    : null;
+
+  return Response.json({ ...entry, allocation, receipt }, { status: 201 });
 }

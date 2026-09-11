@@ -26,6 +26,8 @@ export const STATEMENT_INCOME_TYPES = [
   "SERVICE_CHARGE",
   "UTILITY_RECOVERY",
   "OTHER",
+  "ADMIN_FEE",
+  "LEASE_FEE",
 ] as const;
 
 export type StatementMode = "lease-year" | "tenancy" | "calendar-year" | "custom";
@@ -234,6 +236,8 @@ export interface StatementInvoiceRow {
   periodMonth: number;
   totalAmount: number;
   lateFeeAmount: number;
+  /** Refundable deposit billed on the invoice - has its own block, never a tenancy charge. */
+  depositAmount?: number;
   lateFeeAppliedAt: Date | null;
   dueDate: Date;
   status: string;
@@ -321,7 +325,10 @@ export function computeTenantStatement(
   type Charge = { date: Date; amount: number; kind: "INVOICE" | "LATE_FEE"; inv: StatementInvoiceRow };
   const charges: Charge[] = [];
   for (const inv of src.invoices) {
-    const base = inv.totalAmount - inv.lateFeeAmount;
+    // The deposit line is billed on the invoice but is NOT a tenancy charge:
+    // it has its own block and DEPOSIT receipts are excluded from payments,
+    // so leaving it in would show a phantom balance once the deposit is paid.
+    const base = inv.totalAmount - inv.lateFeeAmount - (inv.depositAmount ?? 0);
     charges.push({ date: invoiceChargeDate(inv), amount: base, kind: "INVOICE", inv });
     if (inv.lateFeeAmount > 0) {
       charges.push({ date: inv.lateFeeAppliedAt ?? invoiceChargeDate(inv), amount: inv.lateFeeAmount, kind: "LATE_FEE", inv });
@@ -604,7 +611,7 @@ export async function buildTenantStatement(tenantId: string, period: StatementPe
       where: { tenantId, status: { notIn: ["DRAFT", "CANCELLED"] } },
       select: {
         id: true, invoiceNumber: true, periodYear: true, periodMonth: true,
-        totalAmount: true, lateFeeAmount: true, lateFeeAppliedAt: true,
+        totalAmount: true, lateFeeAmount: true, depositAmount: true, lateFeeAppliedAt: true,
         dueDate: true, status: true, paidAmount: true, proofSubmittedAt: true, createdAt: true,
       },
     }),

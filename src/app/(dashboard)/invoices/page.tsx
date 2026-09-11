@@ -31,6 +31,8 @@ import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import { useFocusScroll } from "@/lib/use-focus-scroll";
 import OwnerInvoicesTab from "./OwnerInvoicesTab";
+import InvoiceForm, { type InvoiceKind } from "@/components/invoices/InvoiceForm";
+import { InvoiceLineChips } from "@/components/invoices/InvoiceLineChips";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -54,9 +56,14 @@ interface Invoice {
   rentAmount: number;
   serviceCharge: number;
   otherCharges: number;
+  depositAmount?: number;
+  adminFee?: number;
+  leaseFee?: number;
   lateFeeAmount?: number;
   lateFeeAppliedAt?: string | null;
   totalAmount: number;
+  /** Latest payment (receipt link for PAID rows). */
+  incomeEntries?: { id: string }[];
   dueDate: string;
   status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED";
   paidAt?: string | null;
@@ -91,23 +98,11 @@ const STATUS_CONFIG = {
 
 // ── Zod schemas ────────────────────────────────────────────────────────────────
 
-const createSchema = z.object({
-  tenantId:     z.string().min(1, "Select a tenant"),
-  periodYear:   z.number().int().min(2020),
-  periodMonth:  z.number().int().min(1).max(12),
-  rentAmount:   z.number().min(0, "Required"),
-  serviceCharge: z.number().min(0).default(0),
-  otherCharges: z.number().min(0).default(0),
-  dueDate:      z.string().min(1, "Required"),
-  notes:        z.string().optional(),
-});
-
 const markPaidSchema = z.object({
   paidAt:    z.string().min(1, "Required"),
   paidAmount: z.number().optional(),
 });
 
-type CreateForm = z.infer<typeof createSchema>;
 type MarkPaidForm = z.infer<typeof markPaidSchema>;
 
 // ── StatusBadge ────────────────────────────────────────────────────────────────
@@ -120,224 +115,6 @@ function StatusBadge({ status }: { status: Invoice["status"] }) {
       <Icon size={11} />
       {cfg.label}
     </span>
-  );
-}
-
-// ── CreateModal ────────────────────────────────────────────────────────────────
-
-function CreateModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: () => void;
-}) {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loadingTenants, setLoadingTenants] = useState(true);
-
-  const now = new Date();
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<CreateForm>({
-    resolver: formResolver(createSchema),
-    defaultValues: {
-      periodYear:   now.getFullYear(),
-      periodMonth:  now.getMonth() + 1,
-      serviceCharge: 0,
-      otherCharges: 0,
-      dueDate: format(new Date(now.getFullYear(), now.getMonth(), 5), "yyyy-MM-dd"),
-    },
-  });
-
-  const selectedTenantId = watch("tenantId");
-
-  // Load active tenants
-  useEffect(() => {
-    fetch("/api/tenants?activeOnly=true")
-      .then((r) => r.json())
-      .then((data) => {
-        setTenants(Array.isArray(data) ? data : []);
-        setLoadingTenants(false);
-      })
-      .catch(() => setLoadingTenants(false));
-  }, []);
-
-  // Auto-fill rent when tenant selected
-  useEffect(() => {
-    if (!selectedTenantId) return;
-    const t = tenants.find((x) => x.id === selectedTenantId);
-    if (!t) return;
-    // Fetch tenant detail to get rent
-    fetch(`/api/tenants/${selectedTenantId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.rentAmount) setValue("rentAmount", data.rentAmount);
-        if (data.serviceCharge) setValue("serviceCharge", data.serviceCharge);
-      })
-      .catch(() => {});
-  }, [selectedTenantId, tenants, setValue]);
-
-  async function onSubmit(data: CreateForm) {
-    const res = await fetch("/api/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      toast.error(err.error || "Failed to create invoice");
-      return;
-    }
-    toast.success("Invoice created");
-    onCreated();
-    onClose();
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className=" text-h3 text-header">New Invoice</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          {/* Tenant */}
-          <div>
-            <label className="text-label font-medium text-gray-500 uppercase block mb-1">
-              Tenant *
-            </label>
-            {loadingTenants ? (
-              <div className="flex items-center gap-2 text-gray-400 text-body py-2">
-                <Loader2 size={14} className="animate-spin" /> Loading tenants…
-              </div>
-            ) : (
-              <select
-                {...register("tenantId")}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
-              >
-                <option value="">Select tenant…</option>
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} — Unit {t.unit.unitNumber} ({t.unit.property.name})
-                  </option>
-                ))}
-              </select>
-            )}
-            {errors.tenantId && <p className="text-red-500 text-caption mt-1">{errors.tenantId.message}</p>}
-          </div>
-
-          {/* Period */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Month *</label>
-              <select
-                {...register("periodMonth", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
-              >
-                {MONTH_NAMES.map((m, i) => (
-                  <option key={m} value={i + 1}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Year *</label>
-              <select
-                {...register("periodYear", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
-              >
-                {[2024, 2025, 2026, 2027].map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Amounts */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Rent *</label>
-              <input
-                type="number"
-                min={0}
-                {...register("rentAmount", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
-                placeholder="0"
-              />
-              {errors.rentAmount && <p className="text-red-500 text-caption mt-1">{errors.rentAmount.message}</p>}
-            </div>
-            <div>
-              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Svc Charge</label>
-              <input
-                type="number"
-                min={0}
-                {...register("serviceCharge", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="text-label font-medium text-gray-500 uppercase block mb-1">Other</label>
-              <input
-                type="number"
-                min={0}
-                {...register("otherCharges", { valueAsNumber: true })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
-                placeholder="0"
-              />
-            </div>
-          </div>
-
-          {/* Due date */}
-          <div>
-            <label className="text-label font-medium text-gray-500 uppercase block mb-1">Due Date *</label>
-            <input
-              type="date"
-              {...register("dueDate")}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
-            {errors.dueDate && <p className="text-red-500 text-caption mt-1">{errors.dueDate.message}</p>}
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="text-label font-medium text-gray-500 uppercase block mb-1">Notes</label>
-            <textarea
-              {...register("notes")}
-              rows={2}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
-              placeholder="Optional note for tenant…"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-body text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-gold text-white rounded-lg text-body font-medium hover:bg-gold-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Receipt size={14} />}
-              Create Invoice
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   );
 }
 
@@ -596,6 +373,7 @@ function InvoiceRow({
   onSync,
   onLateFee,
   onUnpay,
+  onEdit,
   selected,
   onToggleSelect,
 }: {
@@ -607,6 +385,7 @@ function InvoiceRow({
   onSync: (id: string) => void | Promise<void>;
   onLateFee: (inv: Invoice) => void;
   onUnpay: (inv: Invoice) => void;
+  onEdit: (inv: Invoice) => void;
   selected: boolean;
   onToggleSelect: (id: string) => void;
 }) {
@@ -614,6 +393,23 @@ function InvoiceRow({
   const [showActions, setShowActions] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [emailing, setEmailing] = useState(false);
+  const [emailingReceipt, setEmailingReceipt] = useState(false);
+  const receiptEntryId = invoice.status === "PAID" ? invoice.incomeEntries?.[0]?.id ?? null : null;
+
+  async function emailReceipt() {
+    if (!receiptEntryId) return;
+    setEmailingReceipt(true);
+    try {
+      const res = await fetch(`/api/income/${receiptEntryId}/receipt/email`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to send");
+      toast.success(`Receipt ${data.receiptNumber} emailed to ${data.sentTo}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setEmailingReceipt(false);
+    }
+  }
 
   async function emailToTenant() {
     setEmailing(true);
@@ -701,6 +497,7 @@ function InvoiceRow({
         <p className="text-body font-medium tabular-nums text-gray-800">
           {formatCurrency(invoice.totalAmount, currency)}
         </p>
+        <InvoiceLineChips invoice={invoice} currency={currency} className="justify-end mt-1" />
         {(invoice.lateFeeAmount ?? 0) > 0 && (
           <p className="text-caption text-amber-600 mt-0.5">incl. late fee {formatCurrency(invoice.lateFeeAmount!, currency)}</p>
         )}
@@ -739,6 +536,29 @@ function InvoiceRow({
           >
             {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
           </button>
+
+          {/* Receipt (PAID): download + email */}
+          {receiptEntryId && (
+            <>
+              <a
+                href={`/api/income/${receiptEntryId}/receipt`}
+                target="_blank"
+                rel="noreferrer"
+                title="Download receipt"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors"
+              >
+                <Receipt size={15} />
+              </a>
+              <button
+                onClick={emailReceipt}
+                disabled={emailingReceipt}
+                title="Email receipt to tenant"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors disabled:opacity-40"
+              >
+                {emailingReceipt ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+              </button>
+            </>
+          )}
 
           {/* Email PDF to tenant */}
           {invoice.status !== "PAID" && invoice.status !== "CANCELLED" && (
@@ -801,7 +621,18 @@ function InvoiceRow({
                     >
                       Revert to unpaid…
                     </button>
-                  ) : (["DRAFT","SENT","OVERDUE","CANCELLED"] as const).map((s) => (
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          onEdit(invoice);
+                          setShowActions(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-gray-700 border-b border-gray-100 mb-1"
+                      >
+                        Edit lines…
+                      </button>
+                      {(["DRAFT","SENT","OVERDUE","CANCELLED"] as const).map((s) => (
                     <button
                       key={s}
                       disabled={invoice.status === s}
@@ -814,6 +645,8 @@ function InvoiceRow({
                       {STATUS_CONFIG[s].label}
                     </button>
                   ))}
+                    </>
+                  )}
                   {((["SENT", "OVERDUE"].includes(invoice.status) && new Date(invoice.dueDate) < new Date()) || invoice.lateFeeAppliedAt) && (
                     <div className="border-t border-gray-100 mt-1 pt-1">
                       <button
@@ -1031,7 +864,15 @@ export default function InvoicesPage() {
   );
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
+  // ?new=move-in&tenantId=… (Tenants-page onboarding prompt) opens the form
+  // on the Move-in preset for that tenant.
+  const newParam = searchParams.get("new");
+  const [showCreate, setShowCreate] = useState(!!newParam);
+  const [createPreset] = useState<{ kind: InvoiceKind | null; tenantId: string | null }>({
+    kind: newParam === "move-in" ? "MOVE_IN" : newParam === "deposit" ? "DEPOSIT" : null,
+    tenantId: searchParams.get("tenantId"),
+  });
+  const [editTarget, setEditTarget] = useState<Invoice | null>(null);
   const [showBulkGenerate, setShowBulkGenerate] = useState(false);
   const [markPaidTarget, setMarkPaidTarget] = useState<Invoice | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
@@ -1457,6 +1298,7 @@ export default function InvoicesPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-body font-medium tabular-nums text-gray-800">{formatCurrency(inv.totalAmount, currency)}</p>
+                        <InvoiceLineChips invoice={inv} currency={currency} className="justify-end mt-1" />
                         {inv.status === "PAID" && inv.paidAmount && inv.paidAmount !== inv.totalAmount && (
                           <p className="text-caption text-green-600">Paid: {formatCurrency(inv.paidAmount, currency)}</p>
                         )}
@@ -1472,6 +1314,24 @@ export default function InvoicesPage() {
                             className="text-caption text-green-700 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100 transition-colors"
                           >
                             Mark Paid
+                          </button>
+                        )}
+                        {inv.status === "PAID" && inv.incomeEntries?.[0] && (
+                          <a
+                            href={`/api/income/${inv.incomeEntries[0].id}/receipt`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-caption text-green-700 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100 transition-colors"
+                          >
+                            Receipt
+                          </a>
+                        )}
+                        {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
+                          <button
+                            onClick={() => setEditTarget(inv)}
+                            className="text-caption text-gray-600 bg-gray-100 px-2 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            Edit
                           </button>
                         )}
                         {inv.status === "PAID" && (
@@ -1542,6 +1402,7 @@ export default function InvoicesPage() {
                       onSync={handleSync}
                       onLateFee={setLateFeeTarget}
                       onUnpay={setUnpayTarget}
+                      onEdit={setEditTarget}
                       selected={selectedIds.has(inv.id)}
                       onToggleSelect={toggleSelect}
                     />
@@ -1582,7 +1443,21 @@ export default function InvoicesPage() {
         />
       )}
       {showCreate && (
-        <CreateModal onClose={() => setShowCreate(false)} onCreated={fetchInvoices} />
+        <InvoiceForm
+          initialKind={createPreset.kind}
+          initialTenantId={createPreset.tenantId}
+          currency={currency}
+          onClose={() => setShowCreate(false)}
+          onSaved={fetchInvoices}
+        />
+      )}
+      {editTarget && (
+        <InvoiceForm
+          invoice={editTarget}
+          currency={currency}
+          onClose={() => setEditTarget(null)}
+          onSaved={fetchInvoices}
+        />
       )}
       {markPaidTarget && (
         <MarkPaidModal

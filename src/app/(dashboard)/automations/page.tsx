@@ -253,7 +253,7 @@ export default function AutomationsPage() {
     if (!sendsEmail(a)) return null;
     // These two email someone other than the property managers — the manager
     // recipient count would mislead, so show who actually receives them.
-    if (a.key === "TENANT_RENT_REMINDERS") {
+    if (a.key === "TENANT_RENT_REMINDERS" || a.key === "TENANT_PAYMENT_RECEIPTS") {
       return (
         <p className="mt-3 flex items-start gap-1.5 text-caption text-gray-500">
           <Mail className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />

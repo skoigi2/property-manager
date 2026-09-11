@@ -23,6 +23,10 @@ export async function GET(
       rentAmount: true,
       serviceCharge: true,
       otherCharges: true,
+      depositAmount: true,
+      adminFee: true,
+      leaseFee: true,
+      lateFeeAmount: true,
       totalAmount: true,
       dueDate: true,
       status: true,
@@ -34,6 +38,21 @@ export async function GET(
   const outstandingBalance = invoices
     .filter((inv) => inv.status === "SENT" || inv.status === "OVERDUE")
     .reduce((sum, inv) => sum + (inv.totalAmount - (inv.paidAmount ?? 0)), 0);
+
+  // Security deposit actually received (DEPOSIT receipts linked to the
+  // tenant) — each carries a downloadable receipt.
+  const depositEntries = await prisma.incomeEntry.findMany({
+    where: { tenantId: tenant.id, type: "DEPOSIT" },
+    orderBy: { date: "desc" },
+    select: { id: true, date: true, grossAmount: true },
+  });
+  const depositReceipts = depositEntries.map((e) => ({
+    id: e.id,
+    date: e.date,
+    amount: e.grossAmount,
+    receiptUrl: `/api/portal/${params.token}/payments/${e.id}/receipt`,
+  }));
+  const depositReceived = depositEntries.reduce((s, e) => s + e.grossAmount, 0);
 
   const property = tenant.unit.property;
   const org = property.organization;
@@ -69,5 +88,7 @@ export async function GET(
       : null,
     invoices,
     outstandingBalance,
+    depositReceipts,
+    depositReceived: depositEntries.length > 0 ? depositReceived : null,
   });
 }

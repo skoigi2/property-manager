@@ -61,6 +61,8 @@ const INCOME_TYPE_LABELS: Record<string, { label: string; badge: "blue"|"gold"|"
   VACANCY_FEE:         { label: "Vacancy Fee",       badge: "amber" },
   SETUP_FEE_INSTALMENT:{ label: "Setup Fee",         badge: "gold" },
   CONSULTANCY_FEE:     { label: "Consultancy Fee",   badge: "gray" },
+  ADMIN_FEE:           { label: "Admin Fee",         badge: "amber" },
+  LEASE_FEE:           { label: "Lease Agreement Fee", badge: "amber" },
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -436,6 +438,22 @@ export default function IncomePage() {
   // ── Column render helpers ──────────────────────────────────────────────────
   const ENTRIES_SORTABLE = new Set(["date","unit","tenant","type","platform","invoice","gross","commission","net"]);
   const COLL_SORTABLE    = new Set(["unit","tenant","property","expected","received","status"]);
+  // Payment receipt (tenant-linked entries only): download / email.
+  const [emailingReceiptId, setEmailingReceiptId] = useState<string | null>(null);
+  async function emailReceipt(entryId: string) {
+    setEmailingReceiptId(entryId);
+    try {
+      const res = await fetch(`/api/income/${entryId}/receipt/email`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to send");
+      toast.success(`Receipt ${data.receiptNumber} emailed to ${data.sentTo}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setEmailingReceiptId(null);
+    }
+  }
+
   const INCOME_COL_LABELS: Record<string, string> = {
     date:"Date", unit:"Unit", tenant:"Tenant", type:"Type", platform:"Platform/Agent",
     invoice:"Invoice", gross:"Gross", commission:"Comm.", net:"Net",
@@ -1879,11 +1897,33 @@ export default function IncomePage() {
                                 <p className="text-caption text-gray-400 mt-0.5">Net: {fmt(net)}</p>
                               )}
                             </div>
-                            {canDelete && (
-                            <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
-                              <Trash2 size={15} />
-                            </button>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {entry.tenant?.id && (
+                                <>
+                                  <a
+                                    href={`/api/income/${entry.id}/receipt`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-caption text-green-700 bg-green-50 px-2 py-1 rounded-lg hover:bg-green-100 transition-colors"
+                                  >
+                                    Receipt
+                                  </a>
+                                  <button
+                                    onClick={() => emailReceipt(entry.id)}
+                                    disabled={emailingReceiptId === entry.id}
+                                    title="Email receipt to tenant"
+                                    className="text-gray-300 hover:text-green-700 transition-colors p-1 disabled:opacity-40"
+                                  >
+                                    {emailingReceiptId === entry.id ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+                                  </button>
+                                </>
+                              )}
+                              {canDelete && (
+                              <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">
+                                <Trash2 size={15} />
+                              </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1916,6 +1956,27 @@ export default function IncomePage() {
                                       >
                                         {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                                       </button>
+                                    )}
+                                    {entry.tenant?.id && (
+                                      <>
+                                        <a
+                                          href={`/api/income/${entry.id}/receipt`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title="Download receipt"
+                                          className="text-gray-300 hover:text-green-700 transition-colors p-1"
+                                        >
+                                          <Receipt size={15} />
+                                        </a>
+                                        <button
+                                          onClick={() => emailReceipt(entry.id)}
+                                          disabled={emailingReceiptId === entry.id}
+                                          title="Email receipt to tenant"
+                                          className="text-gray-300 hover:text-green-700 transition-colors p-1 disabled:opacity-40"
+                                        >
+                                          {emailingReceiptId === entry.id ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+                                        </button>
+                                      </>
                                     )}
                                     {canDelete && (
                                     <button onClick={() => setDeleteId(entry.id)} className="text-gray-300 hover:text-expense transition-colors p-1">

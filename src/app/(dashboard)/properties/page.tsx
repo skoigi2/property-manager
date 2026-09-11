@@ -221,6 +221,8 @@ interface Property {
   managementFeeFlat: number | null;
   isDemo: boolean;
   serviceChargeDefault: number | null;
+  adminFeeDefault: number | null;
+  leaseFeeDefault: number | null;
   currency: string | null;
   landlordEntity:    string | null;
   bankName:          string | null;
@@ -285,6 +287,14 @@ const propertySchema = z.object({
     z.number().min(0).optional()
   ),
   serviceChargeDefault: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : Number(v)),
+    z.number().min(0).optional()
+  ),
+  adminFeeDefault: z.preprocess(
+    (v) => (v === "" || v == null ? undefined : Number(v)),
+    z.number().min(0).optional()
+  ),
+  leaseFeeDefault: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).optional()
   ),
@@ -524,6 +534,23 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
           placeholder="— Select currency —"
           {...register("currency")}
           options={SUPPORTED_CURRENCIES.map((c) => ({ value: c.code, label: c.label }))}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Default Lease Agreement Fee"
+          tooltip="Once-off fee charged to a new tenant for preparing the tenancy agreement. Prefills the Move-in invoice preset; leave blank if you don't charge one."
+          type="number"
+          {...register("leaseFeeDefault")}
+          placeholder="2000"
+        />
+        <Input
+          label="Default Admin Fee"
+          tooltip="Once-off admin fee charged to a new tenant at move-in. Prefills the Move-in invoice preset; leave blank if you don't charge one."
+          type="number"
+          {...register("adminFeeDefault")}
+          placeholder="0"
         />
       </div>
 
@@ -1465,6 +1492,8 @@ export default function PropertiesPage() {
       managementFeeRate: p.managementFeeRate ?? undefined,
       managementFeeFlat: p.managementFeeFlat ?? undefined,
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
+      adminFeeDefault: p.adminFeeDefault ?? undefined,
+      leaseFeeDefault: p.leaseFeeDefault ?? undefined,
       currency: p.currency ?? undefined,
       landlordEntity:    p.landlordEntity    ?? "",
       bankName:          p.bankName          ?? "",

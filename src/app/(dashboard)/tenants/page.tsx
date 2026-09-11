@@ -33,6 +33,7 @@ import { DepositVerifyDrawer, type UnverifiedDepositTenant } from "@/components/
 import { TbcDateFix } from "@/components/tenants/TbcDateFix";
 import { clsx } from "clsx";
 import { HelpTip } from "@/components/ui/HelpTip";
+import { calcLettingFee, type LettingFeeResult } from "@/lib/letting-fee";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -110,7 +111,12 @@ export default function TenantsPage() {
   const [onboardingDocCount, setOnboardingDocCount]     = useState(0);
 
   // Letting fee prompt (shown after new tenant created)
-  const [lettingFeePrompt, setLettingFeePrompt] = useState<{ tenantName: string; tenantId: string; unitId: string; amount: number; propertyId: string } | null>(null);
+  const [lettingFeePrompt, setLettingFeePrompt] = useState<{
+    tenantName: string; tenantId: string; unitId: string; propertyId: string;
+    fee: LettingFeeResult;
+    /** Move-in invoice preview: first month + deposit (fees added on the form). */
+    moveIn: { rent: number; serviceCharge: number; deposit: number };
+  } | null>(null);
   const [lettingFeeLogging, setLettingFeeLogging] = useState(false);
 
   // Layout (persisted)
@@ -341,16 +347,30 @@ export default function TenantsPage() {
         setOnboardingTenantId(updated.id);
         setOnboardingTenantName(updated.name);
         setOnboardingDocCount(0);
-        // Pre-load letting fee prompt so it appears when onboarding is finished
+        // Pre-load the next-steps prompt (letting fee + move-in invoice) so it
+        // appears when onboarding is finished. The letting fee applies the
+        // agreement rate to rent + service charge + parking (src/lib/letting-fee.ts).
         if (updated.monthlyRent) {
           const prop = properties.find((p: any) => p.units?.some((u: any) => u.id === updated.unitId));
           if (prop) {
+            const agreement = await fetch(`/api/properties/${prop.id}/agreement`)
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null);
+            const rate = typeof agreement?.newLettingFeeRate === "number" ? agreement.newLettingFeeRate : 50;
             setLettingFeePrompt({
               tenantName: updated.name,
               tenantId:   updated.id,
               unitId:     updated.unitId,
-              amount:     Math.round(updated.monthlyRent * 0.5),
               propertyId: prop.id,
+              fee: calcLettingFee(
+                { monthlyRent: updated.monthlyRent, serviceCharge: updated.serviceCharge, parkingFee: updated.parkingFee },
+                rate,
+              ),
+              moveIn: {
+                rent: updated.monthlyRent ?? 0,
+                serviceCharge: updated.serviceCharge ?? 0,
+                deposit: updated.depositAmount ?? 0,
+              },
             });
           }
         }
@@ -1066,63 +1086,82 @@ export default function TenantsPage() {
         onClose={() => setShowDepositDrawer(false)}
       />
 
-      {/* ── Letting Fee Prompt ── */}
+      {/* ── New tenancy: next steps (letting fee + move-in invoice) ── */}
       {lettingFeePrompt && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
                 <Banknote size={18} className="text-gold" />
               </div>
               <div>
-                <h3 className=" text-header text-h3">Generate Letting Fee Invoice?</h3>
-                <p className="text-caption text-gray-400 mt-0.5">New tenancy created for {lettingFeePrompt.tenantName}</p>
+                <h3 className="text-header text-h3">New tenancy &mdash; next steps</h3>
+                <p className="text-caption text-gray-400 mt-0.5">{lettingFeePrompt.tenantName}</p>
               </div>
             </div>
-            <p className="text-body text-gray-600">
-              A letting fee of <span className="font-semibold text-header">{formatCurrency(lettingFeePrompt.amount, currency)}</span> (50% of first month&apos;s rent) will be invoiced to the owner. Mark it paid once settled.
-            </p>
-            <div className="flex gap-3 pt-1">
+
+            {/* Letting fee to the owner */}
+            <div className="border border-gray-100 rounded-xl p-4 space-y-2">
+              <p className="text-body font-medium text-header">Letting fee invoice to the owner</p>
+              <p className="text-body text-gray-600">
+                <span className="font-semibold text-header">{formatCurrency(lettingFeePrompt.fee.amount, currency)}</span>
+                {" "}&mdash; {lettingFeePrompt.fee.ratePercent}% of the first month&apos;s charge of {formatCurrency(lettingFeePrompt.fee.base, currency)}
+                {lettingFeePrompt.fee.breakdown.length > 1 && (
+                  <span className="text-caption text-gray-400 block mt-0.5">
+                    {lettingFeePrompt.fee.breakdown.map((b) => `${b.label} ${formatCurrency(b.amount, currency)}`).join(" + ")}
+                  </span>
+                )}
+              </p>
               <Button
                 size="sm"
                 loading={lettingFeeLogging}
                 onClick={async () => {
                   setLettingFeeLogging(true);
                   try {
-                    const now   = new Date();
-                    const due   = new Date(now); due.setDate(due.getDate() + 7);
-                    await fetch("/api/owner-invoices", {
+                    const now = new Date();
+                    const res = await fetch("/api/owner-invoices/generate-letting-fee", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         propertyId:  lettingFeePrompt.propertyId,
-                        type:        "LETTING_FEE",
                         periodYear:  now.getFullYear(),
                         periodMonth: now.getMonth() + 1,
-                        lineItems: [{
-                          description: `Letting fee — ${lettingFeePrompt.tenantName} (50% of first month\u2019s rent)`,
-                          amount:      lettingFeePrompt.amount,
-                          unitId:      lettingFeePrompt.unitId,
-                          tenantId:    lettingFeePrompt.tenantId,
-                          incomeType:  "LETTING_FEE",
-                        }],
-                        dueDate: due.toISOString().split("T")[0],
-                        notes: `New tenant: ${lettingFeePrompt.tenantName}`,
+                        tenantId:    lettingFeePrompt.tenantId,
                       }),
                     });
-                    toast.success(`Letting fee invoice of ${formatCurrency(lettingFeePrompt.amount, currency)} generated (DRAFT)`);
-                  } catch {
-                    toast.error("Failed to log letting fee");
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to generate the letting fee invoice");
+                    toast.success(`Letting fee invoice of ${formatCurrency(lettingFeePrompt.fee.amount, currency)} generated (DRAFT)`);
+                  } catch (err) {
+                    toast.error((err as Error).message);
                   } finally {
                     setLettingFeeLogging(false);
-                    setLettingFeePrompt(null);
                   }
                 }}
               >
-                Generate Invoice
+                Generate letting fee invoice
               </Button>
+            </div>
+
+            {/* Move-in invoice to the tenant */}
+            <div className="border border-gray-100 rounded-xl p-4 space-y-2">
+              <p className="text-body font-medium text-header">Move-in invoice to the tenant</p>
+              <p className="text-body text-gray-600">
+                First month {formatCurrency(lettingFeePrompt.moveIn.rent + lettingFeePrompt.moveIn.serviceCharge, currency)}
+                {lettingFeePrompt.moveIn.deposit > 0 ? ` + deposit ${formatCurrency(lettingFeePrompt.moveIn.deposit, currency)}` : ""}
+                {" "}plus any once-off fees &mdash; one invoice, and each payment is receipted to the tenant automatically.
+              </p>
+              <Link
+                href={`/invoices?new=move-in&tenantId=${lettingFeePrompt.tenantId}`}
+                className="inline-flex items-center gap-1.5 text-body font-medium text-gold hover:text-gold-dark"
+              >
+                Raise the move-in invoice <ChevronRight size={14} />
+              </Link>
+            </div>
+
+            <div className="flex justify-end pt-1">
               <Button variant="secondary" size="sm" onClick={() => setLettingFeePrompt(null)}>
-                Skip
+                Done
               </Button>
             </div>
           </div>

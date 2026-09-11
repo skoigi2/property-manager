@@ -22,6 +22,8 @@ const createSchema = z.object({
   managementFeeRate: z.number().optional(),
   managementFeeFlat: z.number().optional(),
   serviceChargeDefault: z.number().optional(),
+  adminFeeDefault: z.number().optional(),
+  leaseFeeDefault: z.number().optional(),
   organizationId: z.string().optional(),
 });
 

@@ -11,6 +11,8 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
     property: {
       managementFeeFlat: { needs: { managementFeeFlat: true }, compute: (r) => (r.managementFeeFlat === null ? null : Number(r.managementFeeFlat)) },
       serviceChargeDefault: { needs: { serviceChargeDefault: true }, compute: (r) => (r.serviceChargeDefault === null ? null : Number(r.serviceChargeDefault)) },
+      adminFeeDefault: { needs: { adminFeeDefault: true }, compute: (r) => (r.adminFeeDefault === null ? null : Number(r.adminFeeDefault)) },
+      leaseFeeDefault: { needs: { leaseFeeDefault: true }, compute: (r) => (r.leaseFeeDefault === null ? null : Number(r.leaseFeeDefault)) },
     },
     unit: {
       monthlyRent: { needs: { monthlyRent: true }, compute: (r) => (r.monthlyRent === null ? null : Number(r.monthlyRent)) },
@@ -67,6 +69,9 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
       rentAmount: { needs: { rentAmount: true }, compute: (r) => Number(r.rentAmount) },
       serviceCharge: { needs: { serviceCharge: true }, compute: (r) => Number(r.serviceCharge) },
       otherCharges: { needs: { otherCharges: true }, compute: (r) => Number(r.otherCharges) },
+      depositAmount: { needs: { depositAmount: true }, compute: (r) => Number(r.depositAmount) },
+      adminFee: { needs: { adminFee: true }, compute: (r) => Number(r.adminFee) },
+      leaseFee: { needs: { leaseFee: true }, compute: (r) => Number(r.leaseFee) },
       lateFeeAmount: { needs: { lateFeeAmount: true }, compute: (r) => Number(r.lateFeeAmount) },
       totalAmount: { needs: { totalAmount: true }, compute: (r) => Number(r.totalAmount) },
       paidAmount: { needs: { paidAmount: true }, compute: (r) => (r.paidAmount === null ? null : Number(r.paidAmount)) },

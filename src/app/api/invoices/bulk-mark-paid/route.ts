@@ -7,7 +7,8 @@ import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
-import { snapshotRentTax } from "@/lib/tax-engine";
+import { buildInvoicePaymentOps } from "@/lib/invoice-payment-entries";
+import { maybeAutoEmailReceipt } from "@/lib/receipt-email";
 
 const MAX_BATCH = 100;
 
@@ -19,9 +20,10 @@ const schema = z.object({
 
 // ── POST /api/invoices/bulk-mark-paid ────────────────────────────────────────
 // Marks each selected invoice PAID with the same side effects as the single
-// PATCH: paidAmount defaults to the invoice total, a matching IncomeEntry is
-// created when none exists, overdue hints clear, linked cases auto-advance,
-// and the invoice.paid webhook fires. Already-paid/cancelled rows are skipped.
+// PATCH: paidAmount defaults to the invoice total, typed IncomeEntry rows are
+// created when none exist (rent side / deposit / fees), overdue hints clear,
+// linked cases auto-advance, the invoice.paid webhook fires and the tenant is
+// emailed a receipt. Already-paid/cancelled rows are skipped.
 export async function POST(req: Request) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
@@ -39,6 +41,8 @@ export async function POST(req: Request) {
     where: { id: { in: parsed.data.ids } },
     select: {
       id: true, invoiceNumber: true, status: true, totalAmount: true, paidAmount: true,
+      rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
+      depositAmount: true, adminFee: true, leaseFee: true,
       caseThreadId: true, tenantId: true,
       tenant: { select: { id: true, name: true, isTaxExempt: true, unit: { select: { id: true, propertyId: true, property: { select: { organizationId: true } } } } } },
     },
@@ -47,6 +51,7 @@ export async function POST(req: Request) {
   const paid: { id: string; invoiceNumber: string }[] = [];
   const skipped: { id: string; invoiceNumber: string; reason: string }[] = [];
   const failed: { id: string; invoiceNumber: string; error: string }[] = [];
+  const receipts: { entryId: string; orgId: string | null; propertyId: string }[] = [];
 
   for (const inv of invoices) {
     if (!propertyIds.includes(inv.tenant.unit.propertyId)) {
@@ -63,6 +68,7 @@ export async function POST(req: Request) {
         where: { invoiceId: inv.id },
         select: { id: true },
       });
+      const orgId = inv.tenant.unit.property.organizationId ?? session!.user.organizationId;
 
       // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,29 +79,33 @@ export async function POST(req: Request) {
         }),
       ];
       if (!existingIncome) {
-        // Tax snapshot — parity with the single PATCH / POST /api/income.
-        const taxSnapshot = await snapshotRentTax({
-          propertyId: inv.tenant.unit.propertyId,
-          orgId: inv.tenant.unit.property.organizationId ?? session!.user.organizationId,
-          isTaxExempt: inv.tenant.isTaxExempt,
+        const { ops: entryOps } = await buildInvoicePaymentOps({
+          invoice: {
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            tenantId: inv.tenant.id,
+            unitId: inv.tenant.unit.id,
+            propertyId: inv.tenant.unit.propertyId,
+            organizationId: orgId,
+            isTaxExempt: inv.tenant.isTaxExempt,
+            rentAmount: inv.rentAmount,
+            serviceCharge: inv.serviceCharge,
+            otherCharges: inv.otherCharges,
+            lateFeeAmount: inv.lateFeeAmount,
+            depositAmount: inv.depositAmount,
+            adminFee: inv.adminFee,
+            leaseFee: inv.leaseFee,
+            alreadyPaid: 0,
+          },
           amount: inv.paidAmount ?? inv.totalAmount,
           date: paidAt,
+          note: `Auto-created from invoice ${inv.invoiceNumber}`,
         });
-        ops.push(prisma.incomeEntry.create({
-          data: {
-            date: paidAt,
-            unitId: inv.tenant.unit.id,
-            tenantId: inv.tenant.id,
-            invoiceId: inv.id,
-            type: "LONGTERM_RENT",
-            grossAmount: inv.paidAmount ?? inv.totalAmount,
-            agentCommission: 0,
-            note: `Auto-created from invoice ${inv.invoiceNumber}`,
-            ...taxSnapshot,
-          },
-        }));
+        ops.push(...entryOps);
       }
-      await prisma.$transaction(ops);
+      const results = await prisma.$transaction(ops);
+      const created = results.slice(1) as { id: string }[];
+      if (created[0]) receipts.push({ entryId: created[0].id, orgId, propertyId: inv.tenant.unit.propertyId });
 
       await clearHints(inv.id, "INVOICE_OVERDUE");
       if (inv.caseThreadId) {
@@ -120,6 +130,16 @@ export async function POST(req: Request) {
     }
   }
 
+  // Receipts after the bookkeeping, a few at a time (PDF render + send each).
+  let receiptsSent = 0;
+  for (let i = 0; i < receipts.length; i += 5) {
+    const batch = receipts.slice(i, i + 5);
+    const settled = await Promise.allSettled(
+      batch.map((r) => maybeAutoEmailReceipt(r.entryId, r.orgId, r.propertyId)),
+    );
+    receiptsSent += settled.filter((s) => s.status === "fulfilled" && s.value.sent).length;
+  }
+
   if (paid.length > 0) {
     await logAudit({
       userId: session!.user.id,
@@ -128,7 +148,7 @@ export async function POST(req: Request) {
       resource: "Invoice",
       resourceId: paid.map((p) => p.invoiceNumber).join(", ").slice(0, 190),
       organizationId: session!.user.organizationId,
-      after: { bulkMarkPaid: paid.length, paidAt },
+      after: { bulkMarkPaid: paid.length, paidAt, receiptsSent },
     });
   }
 
@@ -136,6 +156,7 @@ export async function POST(req: Request) {
     paid: paid.length,
     skipped: skipped.length,
     failed: failed.length,
+    receiptsSent,
     paidDetails: paid,
     skippedDetails: skipped,
     failedDetails: failed,

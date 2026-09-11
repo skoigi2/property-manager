@@ -5,7 +5,11 @@ import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
-import { snapshotRentTax } from "@/lib/tax-engine";
+import { buildInvoicePaymentOps } from "@/lib/invoice-payment-entries";
+import { invoiceLinesTotal } from "@/lib/invoice-payment";
+import { maybeAutoEmailReceipt } from "@/lib/receipt-email";
+
+export const maxDuration = 30;
 
 const updateSchema = z.object({
   status: z.enum(["DRAFT","SENT","PENDING_VERIFICATION","PAID","OVERDUE","CANCELLED"]).optional(),
@@ -15,6 +19,9 @@ const updateSchema = z.object({
   rentAmount: z.number().min(0).optional(),
   serviceCharge: z.number().min(0).optional(),
   otherCharges: z.number().min(0).optional(),
+  depositAmount: z.number().min(0).optional(),
+  adminFee: z.number().min(0).optional(),
+  leaseFee: z.number().min(0).optional(),
   dueDate: z.string().optional(),
 });
 
@@ -66,13 +73,30 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { paidAt, dueDate, rentAmount, serviceCharge, otherCharges, status, ...rest } = parsed.data;
+  const {
+    paidAt, dueDate, rentAmount, serviceCharge, otherCharges,
+    depositAmount, adminFee, leaseFee, status, ...rest
+  } = parsed.data;
 
-  const newRent = rentAmount ?? invoice!.rentAmount;
-  const newService = serviceCharge ?? invoice!.serviceCharge;
-  const newOther = otherCharges ?? invoice!.otherCharges;
-  // An applied late fee stays part of the total (managed via /late-fee).
-  const newTotal = newRent + newService + newOther + invoice!.lateFeeAmount;
+  const editsLines = [rentAmount, serviceCharge, otherCharges, depositAmount, adminFee, leaseFee].some((v) => v !== undefined);
+  if (editsLines && invoice!.status === "PAID") {
+    return Response.json({ error: "A paid invoice's lines can't be changed — revert it to unpaid first." }, { status: 400 });
+  }
+
+  const lines = {
+    rentAmount: rentAmount ?? invoice!.rentAmount,
+    serviceCharge: serviceCharge ?? invoice!.serviceCharge,
+    otherCharges: otherCharges ?? invoice!.otherCharges,
+    depositAmount: depositAmount ?? invoice!.depositAmount,
+    adminFee: adminFee ?? invoice!.adminFee,
+    leaseFee: leaseFee ?? invoice!.leaseFee,
+    // An applied late fee stays part of the total (managed via /late-fee).
+    lateFeeAmount: invoice!.lateFeeAmount,
+  };
+  if (editsLines && invoiceLinesTotal(lines) <= 0) {
+    return Response.json({ error: "An invoice needs at least one line with an amount." }, { status: 400 });
+  }
+  const newTotal = invoiceLinesTotal(lines);
   const resolvedPaidAt = paidAt !== undefined ? (paidAt ? new Date(paidAt) : null) : invoice!.paidAt;
 
   // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
@@ -90,9 +114,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     data: {
       ...rest,
       status,
-      rentAmount: newRent,
-      serviceCharge: newService,
-      otherCharges: newOther,
+      rentAmount: lines.rentAmount,
+      serviceCharge: lines.serviceCharge,
+      otherCharges: lines.otherCharges,
+      depositAmount: lines.depositAmount,
+      adminFee: lines.adminFee,
+      leaseFee: lines.leaseFee,
       totalAmount: newTotal,
       ...(paidAt !== undefined ? { paidAt: resolvedPaidAt } : {}),
       ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
@@ -117,32 +144,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (willEnsureIncome && !existingIncome) {
     const payDate = resolvedPaidAt ?? invoice!.paidAt ?? new Date();
     const gross = parsed.data.paidAmount ?? invoice!.paidAmount ?? newTotal;
-    // Tax snapshot — parity with POST /api/income (rate as of the receipt date;
-    // stored absolute, never recomputed on read).
-    const taxSnapshot = await snapshotRentTax({
-      propertyId: invoice!.tenant.unit.property.id,
-      orgId: invoice!.tenant.unit.property.organizationId ?? session!.user.organizationId,
-      isTaxExempt: invoice!.tenant.isTaxExempt,
+    // One typed IncomeEntry per invoice line (rent side / deposit / fees) —
+    // a move-in payment must not read as rent. Tax snapshot per entry.
+    const { ops: entryOps } = await buildInvoicePaymentOps({
+      invoice: {
+        id: invoice!.id,
+        invoiceNumber: invoice!.invoiceNumber,
+        tenantId: invoice!.tenant.id,
+        unitId: invoice!.tenant.unit.id,
+        propertyId: invoice!.tenant.unit.property.id,
+        organizationId: invoice!.tenant.unit.property.organizationId ?? session!.user.organizationId,
+        isTaxExempt: invoice!.tenant.isTaxExempt,
+        ...lines,
+        alreadyPaid: 0,
+      },
       amount: gross,
       date: payDate,
+      note: `Auto-created from invoice ${invoice!.invoiceNumber}`,
     });
-    ops.push(prisma.incomeEntry.create({
-      data: {
-        date: payDate,
-        // invoice.tenant.unit comes pre-loaded by getInvoiceWithAccess above.
-        unitId: invoice!.tenant.unit.id,
-        tenantId: invoice!.tenant.id,
-        invoiceId: params.id,
-        type: "LONGTERM_RENT",
-        grossAmount: gross,
-        agentCommission: 0,
-        note: `Auto-created from invoice ${invoice!.invoiceNumber}`,
-        ...taxSnapshot,
-      },
-    }));
+    ops.push(...entryOps);
   }
   const txResults = await prisma.$transaction(ops);
   const updated = txResults[0];
+  const createdEntries = txResults.slice(1) as { id: string }[];
 
   await logAudit({ userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "Invoice", resourceId: params.id, organizationId: session!.user.organizationId, after: { status: updated.status, totalAmount: updated.totalAmount } });
 
@@ -168,7 +192,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     });
   }
 
-  return Response.json(updated);
+  // Receipt to the tenant — one per payment event, when the payment was
+  // recorded here (a pre-existing entry already had its receipt).
+  let receipt: { sent: boolean; reason?: string } | null = null;
+  if (createdEntries.length > 0) {
+    receipt = await maybeAutoEmailReceipt(
+      createdEntries[0].id,
+      invoice!.tenant.unit.property.organizationId ?? session!.user.organizationId,
+      invoice!.tenant.unit.property.id,
+    );
+  }
+
+  return Response.json({ ...updated, receipt, primaryEntryId: createdEntries[0]?.id ?? null });
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {

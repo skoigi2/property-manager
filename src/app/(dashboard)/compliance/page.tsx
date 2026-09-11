@@ -296,7 +296,7 @@ export default function CompliancePage() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-body ">
                   <div><p className="text-gray-400 text-caption">Mgmt Fee</p><p className="font-semibold text-header">{data.agreement.managementFeeRate}%</p></div>
-                  <div><p className="text-gray-400 text-caption">Letting Fee</p><p className="font-semibold text-header">{data.agreement.newLettingFeeRate}% of first month</p></div>
+                  <div><p className="text-gray-400 text-caption">Letting Fee</p><p className="font-semibold text-header">{data.agreement.newLettingFeeRate}% of first month (rent + service charge)</p></div>
                   <div><p className="text-gray-400 text-caption">Renewal Fee</p><p className="font-semibold text-header">{formatCurrency(data.agreement.leaseRenewalFeeFlat, currency)}</p></div>
                   <div><p className="text-gray-400 text-caption">Repair Limit</p><p className="font-semibold text-header">{formatCurrency(data.agreement.repairAuthorityLimit, currency)}</p></div>
                   <div><p className="text-gray-400 text-caption">Vacancy Fee</p><p className="font-semibold text-header">{data.agreement.vacancyFeeRate}% after {data.agreement.vacancyFeeThresholdMonths} months</p></div>

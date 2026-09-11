@@ -333,6 +333,10 @@ enum IncomeType {
   VACANCY_FEE
   SETUP_FEE_INSTALMENT
   CONSULTANCY_FEE
+  // Once-off tenant charges raised on a tenant invoice (move-in). Landlord
+  // income: counted in gross income like OTHER, excluded from the rent ledger.
+  ADMIN_FEE
+  LEASE_FEE
 }
 
 enum Platform {
@@ -714,6 +718,9 @@ model Property {
   managementFeeRate    Float?
   managementFeeFlat    Decimal? @db.Decimal(14, 2)
   serviceChargeDefault Decimal? @db.Decimal(14, 2)
+  // Defaults for the once-off lines on a move-in invoice (InvoiceForm preset).
+  adminFeeDefault      Decimal? @db.Decimal(14, 2)
+  leaseFeeDefault      Decimal? @db.Decimal(14, 2)
   currency              String            @default("USD")
   vatRegistrationNumber String?
   landlordEntity        String?
@@ -1328,6 +1335,12 @@ model Invoice {
   rentAmount    Decimal @db.Decimal(14, 2)
   serviceCharge Decimal         @default(0) @db.Decimal(14, 2)
   otherCharges  Decimal         @default(0) @db.Decimal(14, 2)
+  // Optional move-in lines. When the invoice is paid, each non-zero line
+  // becomes its own typed IncomeEntry (DEPOSIT / ADMIN_FEE / LEASE_FEE) via
+  // src/lib/invoice-payment.ts, so the deposit never counts as rent income.
+  depositAmount Decimal         @default(0) @db.Decimal(14, 2)
+  adminFee      Decimal         @default(0) @db.Decimal(14, 2)
+  leaseFee      Decimal         @default(0) @db.Decimal(14, 2)
   lateFeeAmount Decimal         @default(0) @db.Decimal(14, 2)
   lateFeeAppliedAt DateTime?
   totalAmount   Decimal @db.Decimal(14, 2)
@@ -1347,7 +1360,11 @@ model Invoice {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  @@unique([tenantId, periodYear, periodMonth])
+  // Several invoices per tenant per month are allowed (a deposit-only or
+  // fees-only invoice may sit beside the rent invoice). Only ONE invoice with
+  // rentAmount > 0 per period is enforced, in code (POST /api/invoices and
+  // generateInvoicesForTenants), not by the database.
+  @@index([tenantId, periodYear, periodMonth])
   @@index([tenantId])
   @@index([status])
   @@index([caseThreadId])

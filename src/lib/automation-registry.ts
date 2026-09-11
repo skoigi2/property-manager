@@ -181,6 +181,19 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
   },
 
   {
+    key: "TENANT_PAYMENT_RECEIPTS",
+    name: "Tenant payment receipts",
+    description:
+      "Email the tenant a receipt PDF the moment a rent or deposit payment is recorded (mark paid, proof approved, or an income entry logged). Tenants without an email address are skipped; receipts stay downloadable in the tenant portal either way.",
+    trigger: "Payment recorded",
+    actions: ["Email Tenant", "Log to Comms Trail"],
+    category: "NOTIFICATION",
+    // On by default (unlike the rent-reminder chasers): a receipt acknowledges
+    // money the tenant has just sent — it is expected, not unsolicited.
+    defaultEnabled: true,
+  },
+
+  {
     key: "OWNER_MONTHLY_REPORT",
     name: "Monthly owner statement",
     description:

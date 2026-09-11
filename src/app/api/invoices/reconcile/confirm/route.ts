@@ -8,16 +8,18 @@ import { logAudit } from "@/lib/audit";
 import { clearHints } from "@/lib/hints";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { tryAutoAdvance } from "@/lib/case-workflows";
-import { snapshotRentTax } from "@/lib/tax-engine";
+import { buildInvoicePaymentOps } from "@/lib/invoice-payment-entries";
+import { maybeAutoEmailReceipt } from "@/lib/receipt-email";
 
 /**
  * POST /api/invoices/reconcile/confirm — apply confirmed statement matches.
  *
- * Each match creates a LONGTERM_RENT income entry linked to the invoice and
- * accumulates the invoice's paidAmount, flipping it to PAID only when
- * effectively fully paid — full parity with POST /api/income (hints cleared,
- * case auto-advance, invoice.paid webhook, tax snapshot). Per-match failures
- * are reported without aborting the batch.
+ * Each match books typed income entries against the invoice (rent side /
+ * deposit / fees via the shared allocator) and accumulates the invoice's
+ * paidAmount, flipping it to PAID only when effectively fully paid — full
+ * parity with POST /api/income (hints cleared, case auto-advance, invoice.paid
+ * webhook, tax snapshot, tenant receipt). Per-match failures are reported
+ * without aborting the batch.
  */
 
 const matchSchema = z.object({
@@ -46,6 +48,7 @@ export async function POST(req: Request) {
 
   const applied: { invoiceId: string; invoiceNumber: string; amount: number; nowPaid: boolean }[] = [];
   const failed: { invoiceId: string; error: string }[] = [];
+  const receipts: { entryId: string; orgId: string | null; propertyId: string }[] = [];
 
   for (const m of parsed.data.matches) {
     try {
@@ -53,6 +56,8 @@ export async function POST(req: Request) {
         where: { id: m.invoiceId },
         select: {
           id: true, invoiceNumber: true, totalAmount: true, paidAmount: true,
+          rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
+          depositAmount: true, adminFee: true, leaseFee: true,
           status: true, caseThreadId: true, tenantId: true,
           tenant: {
             select: {
@@ -71,37 +76,40 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Tax snapshot — parity with POST /api/income (shared helper).
-      const taxSnapshot = await snapshotRentTax({
-        propertyId: invoice.tenant.unit.propertyId,
-        orgId: invoice.tenant.unit.property.organizationId ?? session!.user.organizationId,
-        isTaxExempt: invoice.tenant.isTaxExempt,
-        amount: m.amount,
-        date: new Date(m.date),
-      });
-
+      const orgId = invoice.tenant.unit.property.organizationId ?? session!.user.organizationId;
       const prevPaid = invoice.paidAmount ?? 0;
       const newPaidTotal = prevPaid + m.amount;
       const becomesPaid = newPaidTotal >= invoice.totalAmount * 0.99;
       const paidDate = new Date(m.date);
 
-      const [entry] = await prisma.$transaction([
-        prisma.incomeEntry.create({
-          data: {
-            unitId: invoice.tenant.unitId,
-            tenantId: invoice.tenantId,
-            invoiceId: invoice.id,
-            type: "LONGTERM_RENT",
-            grossAmount: m.amount,
-            agentCommission: 0,
-            date: paidDate,
-            paymentMethod: m.method ?? "BANK_TRANSFER",
-            note: m.reference
-              ? `Statement reconciliation — ref ${m.reference}`
-              : "Statement reconciliation",
-            ...taxSnapshot,
-          },
-        }),
+      const { ops: entryOps, parts } = await buildInvoicePaymentOps({
+        invoice: {
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          tenantId: invoice.tenantId,
+          unitId: invoice.tenant.unitId,
+          propertyId: invoice.tenant.unit.propertyId,
+          organizationId: orgId,
+          isTaxExempt: invoice.tenant.isTaxExempt,
+          rentAmount: invoice.rentAmount,
+          serviceCharge: invoice.serviceCharge,
+          otherCharges: invoice.otherCharges,
+          lateFeeAmount: invoice.lateFeeAmount,
+          depositAmount: invoice.depositAmount,
+          adminFee: invoice.adminFee,
+          leaseFee: invoice.leaseFee,
+          alreadyPaid: prevPaid,
+        },
+        amount: m.amount,
+        date: paidDate,
+        paymentMethod: m.method ?? "BANK_TRANSFER",
+        note: m.reference
+          ? `Statement reconciliation — ref ${m.reference}`
+          : "Statement reconciliation",
+      });
+
+      const results = await prisma.$transaction([
+        ...entryOps,
         prisma.invoice.update({
           where: { id: invoice.id },
           data: becomesPaid
@@ -109,6 +117,8 @@ export async function POST(req: Request) {
             : { paidAmount: newPaidTotal },
         }),
       ]);
+      const entry = results[0] as { id: string };
+      receipts.push({ entryId: entry.id, orgId, propertyId: invoice.tenant.unit.propertyId });
 
       if (becomesPaid) {
         await clearHints(invoice.id, "INVOICE_OVERDUE");
@@ -132,7 +142,7 @@ export async function POST(req: Request) {
         resource: "IncomeEntry",
         resourceId: entry.id,
         organizationId: session!.user.organizationId,
-        after: { type: "LONGTERM_RENT", grossAmount: m.amount, date: paidDate, source: "statement-reconciliation", invoiceId: invoice.id },
+        after: { allocation: parts, grossAmount: m.amount, date: paidDate, source: "statement-reconciliation", invoiceId: invoice.id },
       });
 
       applied.push({ invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, amount: m.amount, nowPaid: becomesPaid });
@@ -141,5 +151,13 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ applied, failed });
+  let receiptsSent = 0;
+  for (let i = 0; i < receipts.length; i += 5) {
+    const settled = await Promise.allSettled(
+      receipts.slice(i, i + 5).map((r) => maybeAutoEmailReceipt(r.entryId, r.orgId, r.propertyId)),
+    );
+    receiptsSent += settled.filter((s) => s.status === "fulfilled" && s.value.sent).length;
+  }
+
+  return NextResponse.json({ applied, failed, receiptsSent });
 }

@@ -1,6 +1,13 @@
 import { NextRequest } from "next/server";
 import { validatePortalToken } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
+import { groupReceipts, receiptLines, receiptNumberFor } from "@/lib/payment-receipt";
+
+// Income types a tenant pays and can hold a receipt for. AIRBNB stays out
+// (not a tenancy payment); owner-fee types never carry a tenantId.
+const TENANT_PAYMENT_TYPES = [
+  "LONGTERM_RENT", "DEPOSIT", "SERVICE_CHARGE", "UTILITY_RECOVERY", "OTHER", "ADMIN_FEE", "LEASE_FEE",
+] as const;
 
 type LedgerEvent =
   | {
@@ -19,8 +26,14 @@ type LedgerEvent =
   | {
       kind: "PAYMENT_RECEIVED";
       date: Date;
+      /** Primary entry of the payment event — the receipt's id. */
       incomeEntryId: string;
+      receiptNumber: string;
+      receiptUrl: string;
       amount: number;
+      /** One row per component (rent / deposit / fee). */
+      lines: { type: string; label: string; amount: number }[];
+      isDeposit: boolean;
       paymentMethod: string | null;
       invoiceId: string | null;
       invoiceNumber: string | null;
@@ -67,30 +80,56 @@ export async function GET(
         proofOfPaymentType: true,
       },
     }),
+    // Over-fetch: a payment event may span several rows (rent + deposit + fee
+    // on one day) which collapse into one PAYMENT_RECEIVED event below.
     prisma.incomeEntry.findMany({
       where: {
         tenantId: tenant.id,
-        type: "LONGTERM_RENT",
+        type: { in: [...TENANT_PAYMENT_TYPES] },
         ...(cursorDate ? { date: { lt: cursorDate } } : {}),
       },
       orderBy: { date: "desc" },
-      take: limit,
+      take: limit * 4,
       select: {
         id: true,
         date: true,
+        type: true,
         grossAmount: true,
         paymentMethod: true,
         invoiceId: true,
-        invoice: { select: { invoiceNumber: true } },
+        createdAt: true,
+        invoice: { select: { invoiceNumber: true, periodYear: true, periodMonth: true } },
       },
     }),
   ]);
 
+  // Summary stays invoice-based: deposits and fees paid outside an invoice
+  // must not reduce the rent "outstanding" figure.
   const totalInvoiced = allInvoices
     .filter((i) => i.status !== "DRAFT")
     .reduce((s, i) => s + i.totalAmount, 0);
   const totalPaid = allInvoices.reduce((s, i) => s + (i.paidAmount ?? 0), 0);
   const outstanding = Math.max(0, totalInvoiced - totalPaid);
+
+  const paymentEvents = groupReceipts(eventPayments)
+    .slice(0, limit)
+    .map<LedgerEvent>((g) => {
+      const inv = g.primary.invoice;
+      const lines = receiptLines(g.entries, inv ? { periodYear: inv.periodYear, periodMonth: inv.periodMonth } : null);
+      return {
+        kind: "PAYMENT_RECEIVED",
+        date: new Date(g.primary.date),
+        incomeEntryId: g.primary.id,
+        receiptNumber: receiptNumberFor(g.primary),
+        receiptUrl: `/api/portal/${params.token}/payments/${g.primary.id}/receipt`,
+        amount: g.amount,
+        lines: g.entries.map((e, i) => ({ type: e.type, label: lines[i].label, amount: e.grossAmount })),
+        isDeposit: g.entries.every((e) => e.type === "DEPOSIT"),
+        paymentMethod: g.entries.find((e) => e.paymentMethod)?.paymentMethod ?? null,
+        invoiceId: g.primary.invoiceId,
+        invoiceNumber: inv?.invoiceNumber ?? null,
+      };
+    });
 
   const events: LedgerEvent[] = [
     ...eventInvoices.map<LedgerEvent>((i) => ({
@@ -106,15 +145,7 @@ export async function GET(
       status: i.status,
       proofType: i.proofOfPaymentType,
     })),
-    ...eventPayments.map<LedgerEvent>((p) => ({
-      kind: "PAYMENT_RECEIVED",
-      date: p.date,
-      incomeEntryId: p.id,
-      amount: p.grossAmount,
-      paymentMethod: p.paymentMethod,
-      invoiceId: p.invoiceId,
-      invoiceNumber: p.invoice?.invoiceNumber ?? null,
-    })),
+    ...paymentEvents,
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   // Cursor for next page = oldest event's date (clients pass it back).

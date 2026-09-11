@@ -108,7 +108,7 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
       "The tenant opens their portal link → Balance tab → \"I've paid this\" and attaches a file or pastes the confirmation text.",
       "The invoice now shows an amber \"Check Proof\" badge on the tenant's Invoices tab.",
       "Click the badge — the drawer previews the file or text without downloading anything.",
-      "Check the amount and payment method fields, then Approve: invoice becomes PAID, an income entry is created, and the proof is vaulted as a payment receipt.",
+      "Check the amount and payment method fields, then Approve: invoice becomes PAID, the income entries are created, the proof is vaulted, and the tenant is emailed a receipt.",
       "Not right? Reject — the file is discarded and the invoice returns to SENT or OVERDUE for follow-up.",
     ],
     next: "petty-cash-vs-expenses",

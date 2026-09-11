@@ -27,6 +27,7 @@ import { useForm } from "react-hook-form";
 import { formResolver } from "@/lib/form-resolver";
 import { tenantSchema, type TenantInput } from "@/lib/validations";
 import ProofVerifyDrawer from "@/components/invoices/ProofVerifyDrawer";
+import { InvoiceLineChips } from "@/components/invoices/InvoiceLineChips";
 import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import toast from "react-hot-toast";
@@ -34,7 +35,7 @@ import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
   Download, FileText, Loader2, ScrollText, FolderOpen, RefreshCw, Mail,
   ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy, History, MessageSquare, LogOut, ClipboardCheck,
-  Pencil,
+  Pencil, Receipt,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -271,8 +272,11 @@ const INVOICE_STATUS_CONFIG = {
 interface Invoice {
   id: string; invoiceNumber: string; periodYear: number; periodMonth: number;
   totalAmount: number; rentAmount: number; serviceCharge: number; otherCharges: number;
+  depositAmount?: number; adminFee?: number; leaseFee?: number;
   dueDate: string; status: keyof typeof INVOICE_STATUS_CONFIG;
   paidAt?: string | null; paidAmount?: number | null;
+  /** Latest payment — receipt link for PAID rows. */
+  incomeEntries?: { id: string }[];
 }
 
 // Payment-ledger construction lives in src/lib/rent-ledger.ts (buildLedger) —
@@ -420,6 +424,22 @@ export default function TenantDetailPage() {
       URL.revokeObjectURL(url);
     } catch { /* silently fail */ }
     finally { setDownloadingId(null); }
+  }
+
+  // Payment receipts — download opens /api/income/<entry>/receipt; email sends it to the tenant.
+  const [emailingReceiptId, setEmailingReceiptId] = useState<string | null>(null);
+  async function emailReceipt(entryId: string) {
+    setEmailingReceiptId(entryId);
+    try {
+      const res = await fetch(`/api/income/${entryId}/receipt/email`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to send");
+      toast.success(`Receipt ${data.receiptNumber} emailed to ${data.sentTo}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setEmailingReceiptId(null);
+    }
   }
 
   const [emailingId, setEmailingId] = useState<string | null>(null);
@@ -925,6 +945,7 @@ export default function TenantDetailPage() {
                                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-50">
                                   <div>
                                     <CurrencyDisplay currency={currency} amount={inv.totalAmount} size="sm" className="text-gray-700" />
+                                    <InvoiceLineChips invoice={inv} currency={currency} className="mt-1" />
                                     <p className="text-caption text-gray-400 mt-0.5">
                                       Due {format(new Date(inv.dueDate), "d MMM yyyy")}
                                       {inv.status === "PAID" && inv.paidAt ? ` · Paid ${format(new Date(inv.paidAt), "d MMM")}` : ""}
@@ -939,6 +960,27 @@ export default function TenantDetailPage() {
                                     >
                                       {downloadingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                                     </button>
+                                    {inv.status === "PAID" && inv.incomeEntries?.[0] && (
+                                      <>
+                                        <a
+                                          href={`/api/income/${inv.incomeEntries[0].id}/receipt`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title="Download receipt"
+                                          className="p-1.5 rounded-lg text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors"
+                                        >
+                                          <Receipt size={14} />
+                                        </a>
+                                        <button
+                                          onClick={() => emailReceipt(inv.incomeEntries![0].id)}
+                                          disabled={emailingReceiptId === inv.incomeEntries[0].id}
+                                          title="Email receipt to tenant"
+                                          className="p-1.5 rounded-lg text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors disabled:opacity-40"
+                                        >
+                                          {emailingReceiptId === inv.incomeEntries[0].id ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                                        </button>
+                                      </>
+                                    )}
                                     {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
                                       <button
                                         onClick={() => emailInvoice(inv)}
@@ -974,6 +1016,7 @@ export default function TenantDetailPage() {
                                     <td className="px-4 py-3 text-body text-gray-600">{MONTH_NAMES[inv.periodMonth - 1]} {inv.periodYear}</td>
                                     <td className="px-4 py-3 text-right">
                                       <CurrencyDisplay currency={currency} amount={inv.totalAmount} size="sm" className="text-gray-700" />
+                                      <InvoiceLineChips invoice={inv} currency={currency} className="justify-end mt-1" />
                                       {inv.status === "PAID" && inv.paidAmount && inv.paidAmount !== inv.totalAmount && (
                                         <span className="block text-caption text-green-600 mt-0.5">Paid: {formatCurrency(inv.paidAmount, currency)}</span>
                                       )}
@@ -1006,6 +1049,27 @@ export default function TenantDetailPage() {
                                         >
                                           {downloadingId === inv.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                                         </button>
+                                        {inv.status === "PAID" && inv.incomeEntries?.[0] && (
+                                          <>
+                                            <a
+                                              href={`/api/income/${inv.incomeEntries[0].id}/receipt`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              title="Download receipt"
+                                              className="p-1.5 rounded-lg text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors"
+                                            >
+                                              <Receipt size={14} />
+                                            </a>
+                                            <button
+                                              onClick={() => emailReceipt(inv.incomeEntries![0].id)}
+                                              disabled={emailingReceiptId === inv.incomeEntries[0].id}
+                                              title="Email receipt to tenant"
+                                              className="p-1.5 rounded-lg text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors disabled:opacity-40"
+                                            >
+                                              {emailingReceiptId === inv.incomeEntries[0].id ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                                            </button>
+                                          </>
+                                        )}
                                         {inv.status !== "PAID" && inv.status !== "CANCELLED" && (
                                           <button
                                             onClick={() => emailInvoice(inv)}
@@ -1115,6 +1179,41 @@ export default function TenantDetailPage() {
                           </div>
                         </div>
 
+                        {depositReceipts.length > 0 && (
+                          <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            <div className="px-4 py-2.5 bg-cream-dark text-label text-gray-500 uppercase flex items-center justify-between">
+                              <span>Deposit receipts</span>
+                              <span className="normal-case text-gray-400">Each payment has a receipt the tenant can also download from their portal</span>
+                            </div>
+                            {depositReceipts.map((e: any) => (
+                              <div key={e.id} className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-gray-100">
+                                <span className="text-body text-gray-600 min-w-0">
+                                  {formatDate(e.date)} · <span className="tabular-nums">{formatCurrency(e.grossAmount, currency)}</span>
+                                  {e.note ? <span className="text-caption text-gray-400 block truncate">{e.note}</span> : null}
+                                </span>
+                                <span className="flex items-center gap-1 shrink-0">
+                                  <a
+                                    href={`/api/income/${e.id}/receipt`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-caption font-medium text-green-700 bg-green-50 hover:bg-green-100 px-2.5 py-1 rounded-lg transition-colors"
+                                  >
+                                    Receipt
+                                  </a>
+                                  <button
+                                    onClick={() => emailReceipt(e.id)}
+                                    disabled={emailingReceiptId === e.id}
+                                    title="Email receipt to tenant"
+                                    className="p-1.5 rounded-lg text-gray-400 hover:text-green-700 hover:bg-green-50 transition-colors disabled:opacity-40"
+                                  >
+                                    {emailingReceiptId === e.id ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                                  </button>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {depositPosition.shortfall > 0 && (
                           <div className="border border-amber-100 bg-amber-50/60 rounded-xl p-4 flex items-start gap-3">
                             <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
@@ -1138,8 +1237,8 @@ export default function TenantDetailPage() {
                               <p className="text-body font-medium text-gray-600">Deposit unverified — no receipts on record</p>
                               <p className="text-caption text-gray-500 mt-0.5">
                                 The contractual amount is shown, but no DEPOSIT income entry is linked to this tenant.
-                                Record the deposit on the Income page (type &ldquo;Deposit&rdquo;) so settlement can work from
-                                what was actually received.
+                                Raise a move-in or deposit-only invoice from the Invoices page and mark it paid, or verify the
+                                deposit from the Tenants page &mdash; either way the receipt is recorded and emailed to the tenant.
                               </p>
                             </div>
                           </div>

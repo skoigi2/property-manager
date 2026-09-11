@@ -1,9 +1,10 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { formatCurrency } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
 import { getActiveTaxConfigs, matchConfig, calcTax, taxLabel } from "@/lib/tax-engine";
+import { calcLettingFee, lettingFeeDescription } from "@/lib/letting-fee";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -13,6 +14,16 @@ function generateOwnerInvoiceNumber(year: number, month: number, seq: number) {
   return `OWN-${year}${mm}-${nn}`;
 }
 
+// Letting fee invoice to the owner. The % (ManagementAgreement.newLettingFeeRate,
+// default 50) applies to the tenant's FULL first-month charge — rent + service
+// charge + parking (src/lib/letting-fee.ts) — never rent alone.
+//
+// Two modes:
+//   { propertyId, periodYear, periodMonth }            — every tenant whose lease
+//     started in the month, one invoice; 409 if the period already has one.
+//   { …, tenantId }                                     — one tenant (the
+//     Tenants-page prompt after onboarding); 409 only if THAT tenant already
+//     has a letting-fee line, so two new tenants in one month get two invoices.
 export async function POST(req: Request) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
@@ -21,10 +32,11 @@ export async function POST(req: Request) {
   if (!accessibleIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { propertyId, periodYear, periodMonth } = body as {
+  const { propertyId, periodYear, periodMonth, tenantId } = body as {
     propertyId: string;
     periodYear: number;
     periodMonth: number;
+    tenantId?: string;
   };
 
   if (!propertyId || !periodYear || !periodMonth) {
@@ -34,16 +46,33 @@ export async function POST(req: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Idempotency — return 409 if already exists
-  const existing = await prisma.ownerInvoice.findFirst({
-    where: { propertyId, type: "LETTING_FEE", periodYear, periodMonth },
-    select: { id: true, invoiceNumber: true },
-  });
-  if (existing) {
-    return Response.json(
-      { error: "A letting fee invoice already exists for this period", invoiceId: existing.id },
-      { status: 409 }
+  // Idempotency
+  if (tenantId) {
+    const priorInvoices = await prisma.ownerInvoice.findMany({
+      where: { propertyId, type: "LETTING_FEE", status: { not: "CANCELLED" } },
+      select: { id: true, invoiceNumber: true, lineItems: true },
+    });
+    const dup = priorInvoices.find((inv) =>
+      (Array.isArray(inv.lineItems) ? (inv.lineItems as { refTenantId?: string | null; tenantId?: string | null }[]) : [])
+        .some((li) => li.refTenantId === tenantId || li.tenantId === tenantId),
     );
+    if (dup) {
+      return Response.json(
+        { error: `A letting fee for this tenant was already invoiced (${dup.invoiceNumber})`, invoiceId: dup.id },
+        { status: 409 },
+      );
+    }
+  } else {
+    const existing = await prisma.ownerInvoice.findFirst({
+      where: { propertyId, type: "LETTING_FEE", periodYear, periodMonth, status: { not: "CANCELLED" } },
+      select: { id: true, invoiceNumber: true },
+    });
+    if (existing) {
+      return Response.json(
+        { error: "A letting fee invoice already exists for this period", invoiceId: existing.id },
+        { status: 409 }
+      );
+    }
   }
 
   const { from: start, to: end } = getMonthRange(periodYear, periodMonth - 1);
@@ -51,20 +80,23 @@ export async function POST(req: Request) {
   const [property, agreement, newTenants] = await Promise.all([
     prisma.property.findUnique({
       where: { id: propertyId },
-      select: { ownerId: true, currency: true },
+      select: { ownerId: true, currency: true, organizationId: true },
     }),
     prisma.managementAgreement.findUnique({
       where: { propertyId },
       select: { newLettingFeeRate: true, mgmtFeeInvoiceDay: true },
     }),
     prisma.tenant.findMany({
-      where: {
-        unit: { propertyId },
-        leaseStart: { gte: start, lte: end },
-      },
+      where: tenantId
+        ? { id: tenantId, unit: { propertyId } }
+        : { unit: { propertyId }, leaseStart: { gte: start, lte: end } },
       select: {
+        id: true,
         name: true,
         monthlyRent: true,
+        serviceCharge: true,
+        parkingFee: true,
+        unitId: true,
         unit: { select: { unitNumber: true } },
       },
     }),
@@ -74,19 +106,26 @@ export async function POST(req: Request) {
 
   if (newTenants.length === 0) {
     return Response.json(
-      { error: `No new tenants found with a lease starting in ${MONTH_NAMES[periodMonth - 1]} ${periodYear}` },
-      { status: 400 }
+      tenantId
+        ? { error: "Tenant not found on this property" }
+        : { error: `No new tenants found with a lease starting in ${MONTH_NAMES[periodMonth - 1]} ${periodYear}` },
+      { status: tenantId ? 404 : 400 }
     );
   }
 
+  const currency = property.currency ?? "USD";
+  const fmt = (n: number) => formatCurrency(n, currency);
   const rate = agreement?.newLettingFeeRate ?? 50;
   const lineItems = newTenants.map((t) => {
-    const amount = (rate / 100) * t.monthlyRent;
+    const fee = calcLettingFee(t, rate);
     return {
-      description: `Letting Fee — ${t.name} — Unit ${t.unit.unitNumber} (${rate}% \u00d7 ${formatCurrency(t.monthlyRent, property!.currency ?? "USD")})`,
-      amount,
-      unitId:     null,
-      tenantId:   null,
+      description: `Letting Fee — ${t.name} — Unit ${t.unit.unitNumber} (${lettingFeeDescription(fee, fmt)})`,
+      amount: fee.amount,
+      unitId: t.unitId,
+      // Reference only: the fee is OWNER income. tenantId stays null so paying
+      // this invoice never books an income entry against the tenant.
+      refTenantId: t.id,
+      tenantId: null,
       incomeType: "LETTING_FEE",
     };
   });
@@ -95,7 +134,7 @@ export async function POST(req: Request) {
   let totalAmount = subtotal;
 
   // Apply tax if an ADDITIVE config covers letting fee income
-  const orgId = (await prisma.property.findUnique({ where: { id: propertyId }, select: { organizationId: true } }))?.organizationId;
+  const orgId = property.organizationId;
   if (orgId) {
     // Rate as of the billed period's end, so regenerating an old period after
     // a rate change still bills at the rate in force then.
@@ -103,7 +142,7 @@ export async function POST(req: Request) {
     const taxConfig = matchConfig(taxConfigs, "LETTING_FEE_INCOME");
     if (taxConfig && taxConfig.type === "ADDITIVE") {
       const { taxAmount } = calcTax(subtotal, taxConfig);
-      (lineItems as any[]).push({
+      (lineItems as unknown[]).push({
         description: taxLabel(taxConfig),
         amount: taxAmount,
         unitId: null,
@@ -133,6 +172,7 @@ export async function POST(req: Request) {
       totalAmount,
       dueDate,
       status:      "DRAFT",
+      ...(tenantId ? { notes: `New tenant: ${newTenants[0].name}` } : {}),
     },
     include: {
       property: { select: { name: true } },
@@ -147,7 +187,7 @@ export async function POST(req: Request) {
     resource:   "OwnerInvoice",
     resourceId: invoice.id,
     organizationId: session!.user.organizationId,
-    after: { invoiceNumber, type: "LETTING_FEE", totalAmount },
+    after: { invoiceNumber, type: "LETTING_FEE", totalAmount, rate, tenants: newTenants.map((t) => t.name) },
   });
 
   return Response.json(invoice, { status: 201 });

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { allocateInvoiceNumber } from "@/lib/invoice-numbering";
 import { z } from "zod";
 import { format } from "date-fns";
+import { invoiceLinesTotal } from "@/lib/invoice-payment";
 
 const createSchema = z.object({
   tenantId: z.string().min(1),
@@ -12,8 +13,14 @@ const createSchema = z.object({
   rentAmount: z.number().min(0),
   serviceCharge: z.number().min(0).default(0),
   otherCharges: z.number().min(0).default(0),
+  // Optional move-in lines (see Invoice model). Paid → typed income entries.
+  depositAmount: z.number().min(0).default(0),
+  adminFee: z.number().min(0).default(0),
+  leaseFee: z.number().min(0).default(0),
   dueDate: z.string().min(1),
   notes: z.string().optional(),
+  // UI preset only (Monthly rent / Move-in / Deposit only / Custom) — not stored.
+  kind: z.enum(["RENT", "MOVE_IN", "DEPOSIT", "CUSTOM"]).optional(),
 });
 
 export async function GET(req: Request) {
@@ -55,6 +62,8 @@ export async function GET(req: Request) {
         },
       },
       _count: { select: { incomeEntries: true } },
+      // Latest payment - the receipt link for PAID rows (`/api/income/<id>/receipt`).
+      incomeEntries: { select: { id: true }, orderBy: [{ date: "desc" }, { createdAt: "asc" }], take: 1 },
     },
     // `id` tiebreak keeps the order stable for cursor paging.
     orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }, { id: "desc" }],
@@ -87,7 +96,13 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { dueDate, ...rest } = parsed.data;
+  const { dueDate, kind: _kind, ...rest } = parsed.data;
+  void _kind;
+
+  const totalAmount = invoiceLinesTotal(rest);
+  if (totalAmount <= 0) {
+    return Response.json({ error: "Add at least one line with an amount." }, { status: 400 });
+  }
 
   // Verify the tenant belongs to an accessible property
   const tenant = await prisma.tenant.findUnique({
@@ -98,12 +113,22 @@ export async function POST(req: Request) {
     return Response.json({ error: "Tenant not found or access denied" }, { status: 404 });
   }
 
-  // Check for duplicate
-  const existing = await prisma.invoice.findUnique({
-    where: { tenantId_periodYear_periodMonth: { tenantId: rest.tenantId, periodYear: rest.periodYear, periodMonth: rest.periodMonth } },
-  });
-  if (existing) {
-    return Response.json({ error: `Invoice already exists for ${format(new Date(rest.periodYear, rest.periodMonth - 1), "MMM yyyy")}` }, { status: 409 });
+  // One RENT invoice per tenant per month. Deposit-only / fees-only invoices
+  // may sit beside the month's rent invoice.
+  if (rest.rentAmount > 0) {
+    const existing = await prisma.invoice.findFirst({
+      where: {
+        tenantId: rest.tenantId, periodYear: rest.periodYear, periodMonth: rest.periodMonth,
+        rentAmount: { gt: 0 }, status: { not: "CANCELLED" },
+      },
+      select: { id: true, invoiceNumber: true },
+    });
+    if (existing) {
+      return Response.json(
+        { error: `A rent invoice (${existing.invoiceNumber}) already exists for ${format(new Date(rest.periodYear, rest.periodMonth - 1), "MMM yyyy")}. Remove the rent line to raise a deposit / fees-only invoice for this month.` },
+        { status: 409 },
+      );
+    }
   }
 
   // Allocate from the resolved numbering series (payment account → org).
@@ -111,8 +136,6 @@ export async function POST(req: Request) {
     rest.tenantId,
     new Date(rest.periodYear, rest.periodMonth - 1, 1),
   );
-
-  const totalAmount = rest.rentAmount + rest.serviceCharge + rest.otherCharges;
 
   const invoice = await prisma.invoice.create({
     data: {

@@ -83,6 +83,10 @@ export type InvoiceData = {
   rentAmount: number;
   serviceCharge: number;
   otherCharges: number;
+  /** Optional move-in lines — rendered only when > 0. */
+  depositAmount?: number;
+  adminFee?: number;
+  leaseFee?: number;
   lateFeeAmount?: number;
   totalAmount: number;
   dueDate: Date | string;
@@ -175,10 +179,14 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
   const leaseEnd   = data.tenant.leaseEnd ? format(new Date(data.tenant.leaseEnd), "d MMM yyyy") : null;
   const outstanding = data.outstandingBalance ?? 0;
 
+  const hasDeposit = (data.depositAmount ?? 0) > 0;
   const lineItems = [
-    { label: rentLabel, amount: data.rentAmount },
+    ...(data.rentAmount > 0 || !hasDeposit ? [{ label: rentLabel, amount: data.rentAmount }] : []),
     ...(data.serviceCharge > 0 ? [{ label: "Service Charge", amount: data.serviceCharge }] : []),
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
+    ...(hasDeposit ? [{ label: "Refundable Security Deposit", amount: data.depositAmount! }] : []),
+    ...((data.adminFee ?? 0) > 0 ? [{ label: "Admin Fee", amount: data.adminFee! }] : []),
+    ...((data.leaseFee ?? 0) > 0 ? [{ label: "Lease Agreement Fee", amount: data.leaseFee! }] : []),
     ...((data.lateFeeAmount ?? 0) > 0 ? [{ label: "Late Payment Fee", amount: data.lateFeeAmount! }] : []),
   ];
 
@@ -317,6 +325,13 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
             <Text style={styles.totalLabel}>Total Due</Text>
             <Text style={styles.totalAmt}>{fmt(data.totalAmount)}</Text>
           </View>
+
+          {hasDeposit && (
+            <Text style={{ fontSize: 8.5, color: "#6b7280", marginTop: 6, lineHeight: 1.4 }}>
+              The security deposit is refundable at the end of the tenancy, subject to the terms of the tenancy
+              agreement. It is not rent and may not be applied to any month&apos;s rent.
+            </Text>
+          )}
 
           {/* Arrears reminder — other unpaid invoices at generation time */}
           {outstanding > 0 && (

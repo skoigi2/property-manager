@@ -3,8 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { uploadToStorage, deleteFromStorage } from "@/lib/supabase-storage";
-import { snapshotRentTax } from "@/lib/tax-engine";
+import { buildInvoicePaymentOps } from "@/lib/invoice-payment-entries";
+import { maybeAutoEmailReceipt } from "@/lib/receipt-email";
 import crypto from "crypto";
+
+export const maxDuration = 30;
 
 const schema = z.object({
   action: z.enum(["approve", "reject"]),
@@ -111,33 +114,39 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }),
   ]);
 
-  // Ensure an IncomeEntry exists for this invoice.
+  // Ensure IncomeEntry rows exist for this invoice — one per line (rent
+  // side / deposit / fees), so a move-in payment never reads as rent.
   const existing = await prisma.incomeEntry.findFirst({
     where: { invoiceId: invoice.id },
   });
+  let primaryEntryId: string | null = null;
+  const orgId = invoice.tenant.unit.property.organizationId ?? session!.user.organizationId;
   if (!existing) {
-    // Tax snapshot — parity with the single PATCH / POST /api/income.
-    const taxSnapshot = await snapshotRentTax({
-      propertyId: invoice.tenant.unit.property.id,
-      orgId: invoice.tenant.unit.property.organizationId ?? session!.user.organizationId,
-      isTaxExempt: invoice.tenant.isTaxExempt,
+    const { ops } = await buildInvoicePaymentOps({
+      invoice: {
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        tenantId: invoice.tenantId,
+        unitId: invoice.tenant.unit.id,
+        propertyId: invoice.tenant.unit.property.id,
+        organizationId: orgId,
+        isTaxExempt: invoice.tenant.isTaxExempt,
+        rentAmount: invoice.rentAmount,
+        serviceCharge: invoice.serviceCharge,
+        otherCharges: invoice.otherCharges,
+        lateFeeAmount: invoice.lateFeeAmount,
+        depositAmount: invoice.depositAmount,
+        adminFee: invoice.adminFee,
+        leaseFee: invoice.leaseFee,
+        alreadyPaid: 0,
+      },
       amount: finalPaidAmount,
       date: finalPaidAt,
+      paymentMethod: paymentMethod ?? null,
+      note: `Auto-created from invoice ${invoice.invoiceNumber} (proof verified)`,
     });
-    await prisma.incomeEntry.create({
-      data: {
-        date: finalPaidAt,
-        unitId: invoice.tenant.unit.id,
-        tenantId: invoice.tenantId,
-        invoiceId: invoice.id,
-        type: "LONGTERM_RENT",
-        grossAmount: finalPaidAmount,
-        agentCommission: 0,
-        paymentMethod: paymentMethod ?? null,
-        note: `Auto-created from invoice ${invoice.invoiceNumber} (proof verified)`,
-        ...taxSnapshot,
-      },
-    });
+    const created = (await prisma.$transaction(ops)) as { id: string }[];
+    primaryEntryId = created[0]?.id ?? null;
   } else if (paymentMethod && !existing.paymentMethod) {
     await prisma.incomeEntry.update({
       where: { id: existing.id },
@@ -184,7 +193,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     after: { status: "PAID", paidAmount: finalPaidAmount, paymentMethod },
   });
 
-  return Response.json({ ok: true, status: "PAID" });
+  // Receipt to the tenant for the payment just recorded (their proof is now
+  // confirmed). A pre-existing entry already had its receipt.
+  const receipt = primaryEntryId
+    ? await maybeAutoEmailReceipt(primaryEntryId, orgId, invoice.tenant.unit.property.id)
+    : null;
+
+  return Response.json({ ok: true, status: "PAID", receipt });
 }
 
 // GET — fetch a fresh signed URL for the manager drawer's image/PDF preview.

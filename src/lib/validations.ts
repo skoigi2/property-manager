@@ -17,7 +17,7 @@ export const incomeEntrySchema = z.object({
   // 500 every non-rent entry), so it is normalised to "not provided" here.
   tenantId: z.preprocess(emptyToUndef, z.string().optional()),
   invoiceId: z.preprocess(emptyToUndef, z.string().optional()),
-  type: z.enum(["LONGTERM_RENT", "SERVICE_CHARGE", "DEPOSIT", "AIRBNB", "UTILITY_RECOVERY", "OTHER", "LETTING_FEE", "RENEWAL_FEE", "VACANCY_FEE", "SETUP_FEE_INSTALMENT", "CONSULTANCY_FEE"]),
+  type: z.enum(["LONGTERM_RENT", "SERVICE_CHARGE", "DEPOSIT", "AIRBNB", "UTILITY_RECOVERY", "OTHER", "LETTING_FEE", "RENEWAL_FEE", "VACANCY_FEE", "SETUP_FEE_INSTALMENT", "CONSULTANCY_FEE", "ADMIN_FEE", "LEASE_FEE"]),
   grossAmount: z.coerce.number().positive("Amount must be positive"),
   agentCommission: z.preprocess(emptyToUndef, z.coerce.number().min(0).default(0)),
   // Platform/agent/nightly-rate only render for AIRBNB; if the user switched
@@ -175,7 +175,7 @@ export const managementFeeConfigSchema = z.object({
   effectiveTo: z.string().optional(),
 });
 
-const INCOME_TYPE_VALUES = ["LONGTERM_RENT","SERVICE_CHARGE","DEPOSIT","AIRBNB","UTILITY_RECOVERY","OTHER","LETTING_FEE","RENEWAL_FEE","VACANCY_FEE","SETUP_FEE_INSTALMENT","CONSULTANCY_FEE"] as const;
+const INCOME_TYPE_VALUES = ["LONGTERM_RENT","SERVICE_CHARGE","DEPOSIT","AIRBNB","UTILITY_RECOVERY","OTHER","LETTING_FEE","RENEWAL_FEE","VACANCY_FEE","SETUP_FEE_INSTALMENT","CONSULTANCY_FEE","ADMIN_FEE","LEASE_FEE"] as const;
 const OWNER_INVOICE_TYPE_VALUES = ["LETTING_FEE","PERIODIC_LETTING_FEE","RENEWAL_FEE","MANAGEMENT_FEE","VACANCY_FEE","SETUP_FEE_INSTALMENT","CONSULTANCY_FEE"] as const;
 
 export const ownerInvoiceLineItemSchema = z.object({

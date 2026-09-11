@@ -180,10 +180,10 @@ export default function AgreementPage() {
           <Card>
             <SectionHeader icon={DollarSign} title="Fee Structure" subtitle="Rates charged to the property owner" />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Input type="number" step="0.1" label="Management Fee (%)" help="% of gross collected rent per month" error={errors.managementFeeRate?.message} placeholder="8.5" {...register("managementFeeRate")} />
+              <Input type="number" step="0.1" label="Management Fee (%)" help="% of gross income received in the period (rent, service charge and other income; deposits excluded; before expenses)" error={errors.managementFeeRate?.message} placeholder="8.5" {...register("managementFeeRate")} />
               <Input type="number" step="0.1" label="Vacancy Fee (%)" help="% of last gross rent after vacancy threshold" error={errors.vacancyFeeRate?.message} placeholder="5" {...register("vacancyFeeRate")} />
               <Input type="number" label="Vacancy Threshold (months)" help="Months vacant before fee kicks in" error={errors.vacancyFeeThresholdMonths?.message} placeholder="9" {...register("vacancyFeeThresholdMonths")} />
-              <Input type="number" step="0.1" label="New Letting Fee (%)" help="% of first month's rent for new long-term tenancy" error={errors.newLettingFeeRate?.message} placeholder="50" {...register("newLettingFeeRate")} />
+              <Input type="number" step="0.1" label="New Letting Fee (%)" help="% of the new tenant's full first-month charge: rent + service charge (+ parking)" error={errors.newLettingFeeRate?.message} placeholder="50" {...register("newLettingFeeRate")} />
               <Input type="number" label="Lease Renewal Fee" help="Flat fee per unit on lease renewal" error={errors.leaseRenewalFeeFlat?.message} placeholder="3000" {...register("leaseRenewalFeeFlat")} />
               <Input type="number" step="0.1" label="Short-term Letting Fee (%)" help="% of daily rent for short-term furnished lets" error={errors.shortTermLettingFeeRate?.message} placeholder="10" {...register("shortTermLettingFeeRate")} />
               <Input type="number" label="Repair Authority Limit" help="Max repair cost without landlord written approval" error={errors.repairAuthorityLimit?.message} placeholder="100000" {...register("repairAuthorityLimit")} />

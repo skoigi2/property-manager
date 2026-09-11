@@ -74,13 +74,13 @@ export async function GET(req: Request) {
       // this arm they were invisible in the list (the bulk route and petty-cash
       // GET already include the equivalent). Only in the unscoped view: a
       // single-property filter shouldn't show org-wide costs. Org-scoped via
-      // organizationId (legacy null-org rows stay visible; super-admin —
-      // session org null — sees all).
+      // organizationId — FAIL CLOSED: a row with no org is never shown to an
+      // org session (only a super-admin session, org null, sees all).
       ...(propertyId ? [] : [{
         AND: [
           { propertyId: null },
           { unitId: null },
-          ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+          ...(sessionOrgId ? [{ organizationId: sessionOrgId }] : []),
         ],
       }]),
     ],

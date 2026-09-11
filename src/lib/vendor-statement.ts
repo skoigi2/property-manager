@@ -196,9 +196,8 @@ export async function buildVendorStatement(
   });
   if (!vendor) return null;
 
-  const orgArm = scope.orgId
-    ? { OR: [{ organizationId: scope.orgId }, { organizationId: null }] }
-    : {};
+  // Fail closed: rows with no org never belong to an org session.
+  const orgArm = scope.orgId ? { organizationId: scope.orgId } : {};
 
   const [expenses, payments] = await Promise.all([
     prisma.expenseEntry.findMany({

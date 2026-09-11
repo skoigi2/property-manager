@@ -534,7 +534,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         type: PettyCashType.IN,
         amount: 500,
         description: "Monthly petty cash top-up",
-        propertyId: property.id,
+        propertyId: property.id, organizationId,
       })),
       // OUT withdrawals
       ...([
@@ -552,7 +552,7 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
         type: PettyCashType.OUT,
         amount: p.amount,
         description: p.desc,
-        propertyId: property.id,
+        propertyId: property.id, organizationId,
       })),
     ],
   });
@@ -1327,7 +1327,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         type: PettyCashType.IN,
         amount: 15000,
         description: "Monthly petty cash top-up",
-        propertyId: property.id,
+        propertyId: property.id, organizationId,
       })),
       ...([
         { month: 0, day: 7,  amount: 1200, desc: "Light bulbs & fittings — corridors" },
@@ -1344,7 +1344,7 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
         type: PettyCashType.OUT,
         amount: p.amount,
         description: p.desc,
-        propertyId: property.id,
+        propertyId: property.id, organizationId,
       })),
     ],
   });
@@ -2051,7 +2051,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         type: PettyCashType.IN,
         amount: 2000,
         description: "Monthly petty cash top-up",
-        propertyId: property.id,
+        propertyId: property.id, organizationId,
       })),
       // OUT withdrawals
       ...([
@@ -2071,7 +2071,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
         type: PettyCashType.OUT,
         amount: p.amount,
         description: p.desc,
-        propertyId: property.id,
+        propertyId: property.id, organizationId,
       })),
     ],
   });
@@ -3066,16 +3066,16 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   // ── Petty Cash ───────────────────────────────────────────────────────────────
   await prisma.pettyCash.createMany({
     data: [
-      ...MONTHS.map((month) => ({ date: wDate(WIN, month), type: PettyCashType.IN, amount: 400, description: "Monthly petty cash top-up — Belsize Court", propertyId: property.id })),
-      { date: wDate(WIN, 1,  8), type: PettyCashType.OUT, amount: 45,  description: "Lightbulbs — common area replacements",            propertyId: property.id },
-      { date: wDate(WIN, 1, 14), type: PettyCashType.OUT, amount: 65,  description: "Notice board replacement — lobby",                  propertyId: property.id },
-      { date: wDate(WIN, 1, 22), type: PettyCashType.OUT, amount: 28,  description: "Postage — legal correspondence",                    propertyId: property.id },
-      { date: wDate(WIN, 2,  5), type: PettyCashType.OUT, amount: 35,  description: "Emergency padlock — car park gate",                 propertyId: property.id },
-      { date: wDate(WIN, 2, 19), type: PettyCashType.OUT, amount: 78,  description: "Drain rods & plunger — maintenance stock",          propertyId: property.id },
-      { date: wDate(WIN, 2, 28), type: PettyCashType.OUT, amount: 40,  description: "First aid kit restock — building",                  propertyId: property.id },
-      { date: wDate(WIN, 3,  3), type: PettyCashType.OUT, amount: 24,  description: "Key cutting — unit 104 void preparation",           propertyId: property.id },
-      { date: wDate(WIN, 3, 15), type: PettyCashType.OUT, amount: 55,  description: "Garden supplies — communal planting",                propertyId: property.id },
-      { date: wDate(WIN, 3, 22), type: PettyCashType.OUT, amount: 336, description: "Deep clean — void unit 104 (paid from petty cash)", propertyId: property.id },
+      ...MONTHS.map((month) => ({ date: wDate(WIN, month), type: PettyCashType.IN, amount: 400, description: "Monthly petty cash top-up — Belsize Court", propertyId: property.id, organizationId })),
+      { date: wDate(WIN, 1,  8), type: PettyCashType.OUT, amount: 45,  description: "Lightbulbs — common area replacements",            propertyId: property.id, organizationId },
+      { date: wDate(WIN, 1, 14), type: PettyCashType.OUT, amount: 65,  description: "Notice board replacement — lobby",                  propertyId: property.id, organizationId },
+      { date: wDate(WIN, 1, 22), type: PettyCashType.OUT, amount: 28,  description: "Postage — legal correspondence",                    propertyId: property.id, organizationId },
+      { date: wDate(WIN, 2,  5), type: PettyCashType.OUT, amount: 35,  description: "Emergency padlock — car park gate",                 propertyId: property.id, organizationId },
+      { date: wDate(WIN, 2, 19), type: PettyCashType.OUT, amount: 78,  description: "Drain rods & plunger — maintenance stock",          propertyId: property.id, organizationId },
+      { date: wDate(WIN, 2, 28), type: PettyCashType.OUT, amount: 40,  description: "First aid kit restock — building",                  propertyId: property.id, organizationId },
+      { date: wDate(WIN, 3,  3), type: PettyCashType.OUT, amount: 24,  description: "Key cutting — unit 104 void preparation",           propertyId: property.id, organizationId },
+      { date: wDate(WIN, 3, 15), type: PettyCashType.OUT, amount: 55,  description: "Garden supplies — communal planting",                propertyId: property.id, organizationId },
+      { date: wDate(WIN, 3, 22), type: PettyCashType.OUT, amount: 336, description: "Deep clean — void unit 104 (paid from petty cash)", propertyId: property.id, organizationId },
     ],
   });
 

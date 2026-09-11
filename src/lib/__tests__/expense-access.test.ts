@@ -74,7 +74,11 @@ describe("orgMismatch", () => {
   it("only flags a different, non-null org on both sides", () => {
     expect(orgMismatch("a", "b")).toBe(true);
     expect(orgMismatch("a", "a")).toBe(false);
-    expect(orgMismatch(null, "a")).toBe(false);
+    // fail closed: a no-org row is not the session org's row
+    expect(orgMismatch(null, "a")).toBe(true);
+    // super-admin session (org null) passes everything
     expect(orgMismatch("a", null)).toBe(false);
+    expect(orgMismatch(null, null)).toBe(false);
+    expect(orgMismatch("a", undefined)).toBe(false);
   });
 });

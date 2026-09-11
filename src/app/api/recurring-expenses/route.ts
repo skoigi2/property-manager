@@ -37,13 +37,13 @@ export async function GET(req: Request) {
         { propertyId: { in: effectivePropertyIds } },
         { unit: { propertyId: { in: effectivePropertyIds } } },
         // PORTFOLIO templates carry no property/unit — scope them by owning org
-        // instead of returning every org's templates. Legacy null-org rows stay
-        // visible; super-admin (session org null) sees all.
+        // instead of returning every org's templates. Fail closed: a no-org row
+        // is shown to nobody but a super-admin session (org null).
         {
           AND: [
             { propertyId: null },
             { unitId: null },
-            ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+            ...(sessionOrgId ? [{ organizationId: sessionOrgId }] : []),
           ],
         },
       ],

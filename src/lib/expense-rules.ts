@@ -54,7 +54,10 @@ export function decideExpenseMutation(input: {
   return { ok: true };
 }
 
-/** Portfolio rows: another org's expense must look like it doesn't exist. */
+/** Portfolio rows: another org's expense must look like it doesn't exist.
+ *  FAIL CLOSED — a row with no org is nobody's row for an org session either
+ *  (the earlier "null org is visible to all" grandfather rule leaked one org's
+ *  rows into another's ledger); only a super-admin session (org null) passes. */
 export function orgMismatch(rowOrgId: string | null, sessionOrgId: string | null | undefined): boolean {
-  return !!rowOrgId && !!sessionOrgId && rowOrgId !== sessionOrgId;
+  return !!sessionOrgId && rowOrgId !== sessionOrgId;
 }

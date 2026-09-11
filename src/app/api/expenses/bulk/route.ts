@@ -102,7 +102,8 @@ export async function POST(req: Request) {
         {
           AND: [
             { scope: "PORTFOLIO" },
-            ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+            // Fail closed: no-org rows are never another org's to bulk-edit.
+            ...(sessionOrgId ? [{ organizationId: sessionOrgId }] : []),
           ],
         },
       ],

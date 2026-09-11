@@ -37,12 +37,13 @@ export async function GET(req: Request) {
       OR: [
         { propertyId: { in: effectiveIds } },
         // Property-less rows are org-scoped via organizationId (stamped on
-        // create; legacy null-org rows grandfathered as visible; super-admin —
-        // session org null — sees all).
+        // create). FAIL CLOSED: a row with no org is never shown to an org
+        // session — it leaked Kentmere's cheque deposits into KOKA's ledger.
+        // Only a super-admin session (org null) sees such rows.
         {
           AND: [
             { propertyId: null },
-            ...(sessionOrgId ? [{ OR: [{ organizationId: sessionOrgId }, { organizationId: null }] }] : []),
+            ...(sessionOrgId ? [{ organizationId: sessionOrgId }] : []),
           ],
         },
       ],

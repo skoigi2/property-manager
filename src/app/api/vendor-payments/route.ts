@@ -53,9 +53,9 @@ export async function GET(req: Request) {
   const payments = await prisma.vendorPayment.findMany({
     where: {
       ...(vendorId ? { vendorId } : {}),
-      // Org-scoped like other property-less financial rows: session org plus
-      // grandfathered null-org rows; super-admin (org null) sees everything.
-      ...(orgId ? { OR: [{ organizationId: orgId }, { organizationId: null }] } : {}),
+      // Org-scoped like other property-less financial rows — fail closed
+      // (a no-org row is nobody's); super-admin (org null) sees everything.
+      ...(orgId ? { organizationId: orgId } : {}),
     },
     include: PAYMENT_INCLUDE,
     orderBy: { paymentDate: "desc" },

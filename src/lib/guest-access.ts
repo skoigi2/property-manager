@@ -31,9 +31,10 @@ export async function assertGuestAccess(
 
 /**
  * Prisma `where` fragment scoping a guest list to the caller's organisation.
- * Legacy null-org guests stay visible; super-admin (null org) gets no filter.
+ * Fail closed: a no-org guest is shown to nobody; super-admin (null org) gets
+ * no filter.
  */
 export function guestOrgScope(sessionOrgId: string | null | undefined) {
   if (!sessionOrgId) return {}; // super-admin: all orgs
-  return { OR: [{ organizationId: sessionOrgId }, { organizationId: null }] };
+  return { organizationId: sessionOrgId };
 }

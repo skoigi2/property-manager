@@ -57,13 +57,14 @@ export async function POST(req: Request) {
         OR: [
           { propertyId: { in: propertyIds } },
           { unit: { propertyId: { in: propertyIds } } },
-          // PORTFOLIO templates: only the caller's own (or legacy null-org),
-          // never another org's — otherwise an upsert could overwrite them.
+          // PORTFOLIO templates: only the caller's own, never another org's
+          // (fail closed — a no-org row is nobody's) — otherwise an upsert
+          // could overwrite them.
           {
             AND: [
               { propertyId: null },
               { unitId: null },
-              ...(orgId ? [{ OR: [{ organizationId: orgId }, { organizationId: null }] }] : []),
+              ...(orgId ? [{ organizationId: orgId }] : []),
             ],
           },
         ],

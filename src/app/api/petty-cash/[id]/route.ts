@@ -4,10 +4,11 @@ import { pettyCashSchema, pettyCashApproveSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { sendNotificationEmail } from "@/lib/email";
 
-/** Property-less rows are org-scoped: another org's row must be untouchable
- *  (legacy null-org rows grandfathered; super-admin — session org null — passes). */
+/** Property-less rows are org-scoped: another org's row must be untouchable.
+ *  FAIL CLOSED — a row with no org is untouchable for every org session too;
+ *  only a super-admin session (org null) passes. */
 function orgMismatch(rowOrgId: string | null, sessionOrgId: string | null | undefined): boolean {
-  return !!rowOrgId && !!sessionOrgId && rowOrgId !== sessionOrgId;
+  return !!sessionOrgId && rowOrgId !== sessionOrgId;
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {

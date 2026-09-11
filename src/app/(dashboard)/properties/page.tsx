@@ -221,7 +221,6 @@ interface Property {
   managementFeeFlat: number | null;
   isDemo: boolean;
   serviceChargeDefault: number | null;
-  adminFeeDefault: number | null;
   leaseFeeDefault: number | null;
   currency: string | null;
   landlordEntity:    string | null;
@@ -287,10 +286,6 @@ const propertySchema = z.object({
     z.number().min(0).optional()
   ),
   serviceChargeDefault: z.preprocess(
-    (v) => (v === "" || v == null ? undefined : Number(v)),
-    z.number().min(0).optional()
-  ),
-  adminFeeDefault: z.preprocess(
     (v) => (v === "" || v == null ? undefined : Number(v)),
     z.number().min(0).optional()
   ),
@@ -544,13 +539,6 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
           type="number"
           {...register("leaseFeeDefault")}
           placeholder="2000"
-        />
-        <Input
-          label="Default Admin Fee"
-          tooltip="Once-off admin fee charged to a new tenant at move-in. Prefills the Move-in invoice preset; leave blank if you don't charge one."
-          type="number"
-          {...register("adminFeeDefault")}
-          placeholder="0"
         />
       </div>
 
@@ -1492,7 +1480,6 @@ export default function PropertiesPage() {
       managementFeeRate: p.managementFeeRate ?? undefined,
       managementFeeFlat: p.managementFeeFlat ?? undefined,
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
-      adminFeeDefault: p.adminFeeDefault ?? undefined,
       leaseFeeDefault: p.leaseFeeDefault ?? undefined,
       currency: p.currency ?? undefined,
       landlordEntity:    p.landlordEntity    ?? "",

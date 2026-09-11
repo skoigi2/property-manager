@@ -14,7 +14,6 @@ const moveIn = {
   otherCharges: 0,
   lateFeeAmount: 0,
   depositAmount: 50000,
-  adminFee: 0,
   leaseFee: 2000,
 };
 

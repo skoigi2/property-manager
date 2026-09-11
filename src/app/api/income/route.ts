@@ -141,7 +141,6 @@ export async function POST(req: Request) {
     otherCharges: true,
     lateFeeAmount: true,
     depositAmount: true,
-    adminFee: true,
     leaseFee: true,
   } as const;
   let resolvedInvoiceId = invoiceId ?? null;
@@ -149,7 +148,7 @@ export async function POST(req: Request) {
     | {
         id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null;
         rentAmount: number; serviceCharge: number; otherCharges: number; lateFeeAmount: number;
-        depositAmount: number; adminFee: number; leaseFee: number;
+        depositAmount: number; leaseFee: number;
       }
     | null = null;
   if (!resolvedInvoiceId && resolvedTenantId && rest.type === "LONGTERM_RENT") {

@@ -20,7 +20,6 @@ const updateSchema = z.object({
   serviceCharge: z.number().min(0).optional(),
   otherCharges: z.number().min(0).optional(),
   depositAmount: z.number().min(0).optional(),
-  adminFee: z.number().min(0).optional(),
   leaseFee: z.number().min(0).optional(),
   dueDate: z.string().optional(),
 });
@@ -75,10 +74,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const {
     paidAt, dueDate, rentAmount, serviceCharge, otherCharges,
-    depositAmount, adminFee, leaseFee, status, ...rest
+    depositAmount, leaseFee, status, ...rest
   } = parsed.data;
 
-  const editsLines = [rentAmount, serviceCharge, otherCharges, depositAmount, adminFee, leaseFee].some((v) => v !== undefined);
+  const editsLines = [rentAmount, serviceCharge, otherCharges, depositAmount, leaseFee].some((v) => v !== undefined);
   if (editsLines && invoice!.status === "PAID") {
     return Response.json({ error: "A paid invoice's lines can't be changed — revert it to unpaid first." }, { status: 400 });
   }
@@ -88,7 +87,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     serviceCharge: serviceCharge ?? invoice!.serviceCharge,
     otherCharges: otherCharges ?? invoice!.otherCharges,
     depositAmount: depositAmount ?? invoice!.depositAmount,
-    adminFee: adminFee ?? invoice!.adminFee,
     leaseFee: leaseFee ?? invoice!.leaseFee,
     // An applied late fee stays part of the total (managed via /late-fee).
     lateFeeAmount: invoice!.lateFeeAmount,
@@ -118,7 +116,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       serviceCharge: lines.serviceCharge,
       otherCharges: lines.otherCharges,
       depositAmount: lines.depositAmount,
-      adminFee: lines.adminFee,
       leaseFee: lines.leaseFee,
       totalAmount: newTotal,
       ...(paidAt !== undefined ? { paidAt: resolvedPaidAt } : {}),

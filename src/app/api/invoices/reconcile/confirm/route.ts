@@ -57,7 +57,7 @@ export async function POST(req: Request) {
         select: {
           id: true, invoiceNumber: true, totalAmount: true, paidAmount: true,
           rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
-          depositAmount: true, adminFee: true, leaseFee: true,
+          depositAmount: true, leaseFee: true,
           status: true, caseThreadId: true, tenantId: true,
           tenant: {
             select: {
@@ -96,7 +96,6 @@ export async function POST(req: Request) {
           otherCharges: invoice.otherCharges,
           lateFeeAmount: invoice.lateFeeAmount,
           depositAmount: invoice.depositAmount,
-          adminFee: invoice.adminFee,
           leaseFee: invoice.leaseFee,
           alreadyPaid: prevPaid,
         },

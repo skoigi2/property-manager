@@ -15,7 +15,6 @@ const createSchema = z.object({
   otherCharges: z.number().min(0).default(0),
   // Optional move-in lines (see Invoice model). Paid → typed income entries.
   depositAmount: z.number().min(0).default(0),
-  adminFee: z.number().min(0).default(0),
   leaseFee: z.number().min(0).default(0),
   dueDate: z.string().min(1),
   notes: z.string().optional(),

@@ -9,28 +9,27 @@ import { HelpTip } from "@/components/ui/HelpTip";
 
 // Tenant invoice form — create and edit. An invoice is a set of LINES:
 // rent, service charge, other charges, and the once-off move-in lines
-// (refundable deposit, admin fee, lease agreement fee). The "Invoice type"
-// control is only a preset that decides which lines start on the form; the
-// manager can add or remove any line afterwards.
+// (refundable deposit, lease agreement fee). The "Invoice type" control is
+// only a preset that decides which lines start on the form; the manager can
+// add or remove any line afterwards.
 
 export type InvoiceKind = "RENT" | "MOVE_IN" | "DEPOSIT" | "CUSTOM";
 
-type LineKey = "rentAmount" | "serviceCharge" | "otherCharges" | "depositAmount" | "adminFee" | "leaseFee";
+type LineKey = "rentAmount" | "serviceCharge" | "otherCharges" | "depositAmount" | "leaseFee";
 
 const LINE_META: Record<LineKey, { label: string; hint: string; group: "rent" | "movein" }> = {
-  rentAmount:    { label: "Rent",                       hint: "Rent for the billing period. Counted as rent income when paid.", group: "rent" },
-  serviceCharge: { label: "Service charge",             hint: "Shared building costs passed to the tenant. Paid together with rent.", group: "rent" },
-  otherCharges:  { label: "Other charges",              hint: "Any other amount billed with the rent (utilities, penalties).", group: "rent" },
+  rentAmount:    { label: "Rent",                        hint: "Rent for the billing period. Counted as rent income when paid.", group: "rent" },
+  serviceCharge: { label: "Service charge",              hint: "Shared building costs passed to the tenant. Paid together with rent.", group: "rent" },
+  otherCharges:  { label: "Other charges",               hint: "Any other amount billed with the rent (utilities, penalties).", group: "rent" },
   depositAmount: { label: "Refundable security deposit", hint: "Refundable at the end of the tenancy. When paid it is recorded as the deposit held for this tenant, never as rent income.", group: "movein" },
-  adminFee:      { label: "Admin fee",                  hint: "Once-off fee at move-in. Landlord income.", group: "movein" },
-  leaseFee:      { label: "Lease agreement fee",        hint: "Once-off fee for preparing the tenancy agreement. Landlord income.", group: "movein" },
+  leaseFee:      { label: "Lease agreement fee",         hint: "Once-off fee for preparing the tenancy agreement (clause 1.2 of the standard agreement). Landlord income.", group: "movein" },
 };
 
-const LINE_ORDER: LineKey[] = ["rentAmount", "serviceCharge", "otherCharges", "depositAmount", "adminFee", "leaseFee"];
+const LINE_ORDER: LineKey[] = ["rentAmount", "serviceCharge", "otherCharges", "depositAmount", "leaseFee"];
 
 const KIND_META: Record<InvoiceKind, { label: string; help: string }> = {
   RENT:    { label: "Monthly rent", help: "The regular rent invoice: rent plus service charge." },
-  MOVE_IN: { label: "Move-in",      help: "Matches the tenancy agreement's move-in schedule: first month's rent + refundable deposit + once-off fees, on one invoice." },
+  MOVE_IN: { label: "Move-in",      help: "Matches the tenancy agreement's move-in schedule: first month's rent + refundable deposit + lease agreement fee, on one invoice." },
   DEPOSIT: { label: "Deposit only", help: "Bills the refundable security deposit on its own. It can sit beside the month's rent invoice." },
   CUSTOM:  { label: "Custom",       help: "Start from rent and add whichever lines you need." },
 };
@@ -50,7 +49,6 @@ export interface InvoiceFormInvoice {
   serviceCharge: number;
   otherCharges: number;
   depositAmount?: number;
-  adminFee?: number;
   leaseFee?: number;
   lateFeeAmount?: number;
   dueDate: string;
@@ -74,21 +72,38 @@ interface TenantDetail {
 }
 
 interface PropertyDefaults {
-  adminFeeDefault: number | null;
   leaseFeeDefault: number | null;
 }
 
 type LineState = Partial<Record<LineKey, string>>;
 
+/** Raw numeric string ("22000", "1250.5") → number; blank / junk → 0. */
 function n(v: string | undefined): number {
   const x = parseFloat(v ?? "");
   return Number.isFinite(x) && x > 0 ? x : 0;
+}
+
+/** Keep only digits and one decimal point (max 2 dp) — the stored raw value. */
+function sanitiseAmount(input: string): string {
+  const cleaned = input.replace(/[^\d.]/g, "");
+  const [int, ...rest] = cleaned.split(".");
+  const dec = rest.join("").slice(0, 2);
+  return rest.length > 0 ? `${int}.${dec}` : int;
+}
+
+/** "22000" → "22,000", "1250.5" → "1,250.5" — thousands separators for display. */
+function formatAmountInput(raw: string | undefined): string {
+  if (!raw) return "";
+  const [int, dec] = raw.split(".");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return dec !== undefined ? `${grouped}.${dec}` : grouped;
 }
 
 export default function InvoiceForm({
   invoice,
   initialTenantId,
   initialKind,
+  propertyId,
   currency: currencyProp,
   onClose,
   onSaved,
@@ -97,6 +112,8 @@ export default function InvoiceForm({
   invoice?: InvoiceFormInvoice | null;
   initialTenantId?: string | null;
   initialKind?: InvoiceKind | null;
+  /** Header property scope — the tenant list is limited to this property (null = all properties). */
+  propertyId?: string | null;
   currency?: string;
   onClose: () => void;
   onSaved: () => void;
@@ -109,7 +126,7 @@ export default function InvoiceForm({
   const [tenantId, setTenantId] = useState(invoice?.tenantId ?? initialTenantId ?? "");
   const [detail, setDetail] = useState<TenantDetail | null>(null);
   const [defaults, setDefaults] = useState<PropertyDefaults | null>(null);
-  const [kind, setKind] = useState<InvoiceKind>(initialKind ?? (invoice && ((invoice.depositAmount ?? 0) > 0 || (invoice.adminFee ?? 0) > 0 || (invoice.leaseFee ?? 0) > 0) ? "CUSTOM" : "RENT"));
+  const [kind, setKind] = useState<InvoiceKind>(initialKind ?? (invoice && ((invoice.depositAmount ?? 0) > 0 || (invoice.leaseFee ?? 0) > 0) ? "CUSTOM" : "RENT"));
   const [periodYear, setPeriodYear] = useState(invoice?.periodYear ?? now.getFullYear());
   const [periodMonth, setPeriodMonth] = useState(invoice?.periodMonth ?? now.getMonth() + 1);
   const [dueDate, setDueDate] = useState(
@@ -130,18 +147,20 @@ export default function InvoiceForm({
   const currency = detail?.unit?.property?.currency ?? currencyProp ?? "USD";
   const fmt = (v: number) => formatCurrency(v, currency);
 
-  // Tenant list (create mode).
+  // Tenant list (create mode) — scoped to the header's selected property.
   useEffect(() => {
     if (isEdit) return;
-    fetch("/api/tenants?activeOnly=true")
+    const qs = new URLSearchParams({ activeOnly: "true" });
+    if (propertyId) qs.set("propertyId", propertyId);
+    fetch(`/api/tenants?${qs}`)
       .then((r) => r.json())
       .then((data) => setTenants(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoadingTenants(false));
-  }, [isEdit]);
+  }, [isEdit, propertyId]);
 
   // Tenant detail → rent / service charge / contractual deposit / lease start,
-  // then the property's once-off fee defaults for the Move-in preset.
+  // then the property's lease-fee default for the Move-in preset.
   useEffect(() => {
     if (!tenantId) { setDetail(null); setDefaults(null); return; }
     let cancelled = false;
@@ -150,10 +169,10 @@ export default function InvoiceForm({
       .then(async (t) => {
         if (cancelled || !t) return;
         setDetail(t);
-        const propertyId = t.unit?.property?.id;
-        if (propertyId) {
-          const p = await fetch(`/api/properties/${propertyId}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-          if (!cancelled && p) setDefaults({ adminFeeDefault: p.adminFeeDefault ?? null, leaseFeeDefault: p.leaseFeeDefault ?? null });
+        const pid = t.unit?.property?.id;
+        if (pid) {
+          const p = await fetch(`/api/properties/${pid}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+          if (!cancelled && p) setDefaults({ leaseFeeDefault: p.leaseFeeDefault ?? null });
         }
       })
       .catch(() => {});
@@ -168,10 +187,9 @@ export default function InvoiceForm({
     const sc = detail.serviceCharge > 0 ? String(detail.serviceCharge) : "";
     const dep = detail.depositAmount > 0 ? String(detail.depositAmount) : "";
     const lease = defaults?.leaseFeeDefault ? String(defaults.leaseFeeDefault) : "";
-    const admin = defaults?.adminFeeDefault ? String(defaults.adminFeeDefault) : "";
     if (kind === "RENT") setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}) });
     else if (kind === "MOVE_IN") {
-      setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), depositAmount: dep, leaseFee: lease, adminFee: admin });
+      setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), depositAmount: dep, leaseFee: lease });
       // The move-in invoice bills the lease-start month.
       const ls = detail.leaseStart ? new Date(detail.leaseStart) : null;
       if (ls && !Number.isNaN(ls.getTime())) {
@@ -210,7 +228,7 @@ export default function InvoiceForm({
   const rentConflict = existingRentInvoice && n(lines.rentAmount) > 0;
 
   function setLine(k: LineKey, v: string) {
-    setLines((prev) => ({ ...prev, [k]: v }));
+    setLines((prev) => ({ ...prev, [k]: sanitiseAmount(v) }));
   }
   function removeLine(k: LineKey) {
     setLines((prev) => { const next = { ...prev }; delete next[k]; return next; });
@@ -220,8 +238,7 @@ export default function InvoiceForm({
       k === "depositAmount" && detail ? String(detail.depositAmount || "") :
       k === "serviceCharge" && detail ? String(detail.serviceCharge || "") :
       k === "rentAmount" && detail ? String(detail.monthlyRent || "") :
-      k === "leaseFee" && defaults?.leaseFeeDefault ? String(defaults.leaseFeeDefault) :
-      k === "adminFee" && defaults?.adminFeeDefault ? String(defaults.adminFeeDefault) : "";
+      k === "leaseFee" && defaults?.leaseFeeDefault ? String(defaults.leaseFeeDefault) : "";
     setLines((prev) => ({ ...prev, [k]: preset }));
     setAddOpen(false);
   }
@@ -286,10 +303,13 @@ export default function InvoiceForm({
                   <option value="">Select tenant…</option>
                   {tenants.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} — Unit {t.unit.unitNumber} ({t.unit.property.name})
+                      {t.name} — Unit {t.unit.unitNumber}{propertyId ? "" : ` (${t.unit.property.name})`}
                     </option>
                   ))}
                 </select>
+              )}
+              {!loadingTenants && tenants.length === 0 && (
+                <p className="text-caption text-gray-400 mt-1">No active tenants on the selected property.</p>
               )}
             </div>
           )}
@@ -372,10 +392,9 @@ export default function InvoiceForm({
                     <HelpTip text={LINE_META[k].hint} />
                   </span>
                   <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={lines[k] ?? ""}
+                    type="text"
+                    inputMode="decimal"
+                    value={formatAmountInput(lines[k])}
                     onChange={(e) => setLine(k, e.target.value)}
                     placeholder="0"
                     className="w-32 border border-gray-200 rounded-lg px-2.5 py-1.5 text-body text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"

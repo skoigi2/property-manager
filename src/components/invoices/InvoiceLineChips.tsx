@@ -11,19 +11,17 @@ export interface InvoiceLinesForChips {
   serviceCharge?: number | null;
   otherCharges?: number | null;
   depositAmount?: number | null;
-  adminFee?: number | null;
   leaseFee?: number | null;
 }
 
 export function invoiceLineChips(inv: InvoiceLinesForChips, currency: string): { label: string; amount: string; tone: "rent" | "movein" }[] {
-  const hasMoveIn = (inv.depositAmount ?? 0) > 0 || (inv.adminFee ?? 0) > 0 || (inv.leaseFee ?? 0) > 0;
+  const hasMoveIn = (inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0;
   if (!hasMoveIn) return [];
   const out: { label: string; amount: string; tone: "rent" | "movein" }[] = [];
   if (inv.rentAmount > 0) out.push({ label: "Rent", amount: formatCurrency(inv.rentAmount, currency), tone: "rent" });
   if ((inv.serviceCharge ?? 0) > 0) out.push({ label: "Svc", amount: formatCurrency(inv.serviceCharge!, currency), tone: "rent" });
   if ((inv.otherCharges ?? 0) > 0) out.push({ label: "Other", amount: formatCurrency(inv.otherCharges!, currency), tone: "rent" });
   if ((inv.depositAmount ?? 0) > 0) out.push({ label: "Deposit", amount: formatCurrency(inv.depositAmount!, currency), tone: "movein" });
-  if ((inv.adminFee ?? 0) > 0) out.push({ label: "Admin fee", amount: formatCurrency(inv.adminFee!, currency), tone: "movein" });
   if ((inv.leaseFee ?? 0) > 0) out.push({ label: "Lease fee", amount: formatCurrency(inv.leaseFee!, currency), tone: "movein" });
   return out;
 }

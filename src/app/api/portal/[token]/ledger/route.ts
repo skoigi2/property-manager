@@ -6,7 +6,7 @@ import { groupReceipts, receiptLines, receiptNumberFor } from "@/lib/payment-rec
 // Income types a tenant pays and can hold a receipt for. AIRBNB stays out
 // (not a tenancy payment); owner-fee types never carry a tenantId.
 const TENANT_PAYMENT_TYPES = [
-  "LONGTERM_RENT", "DEPOSIT", "SERVICE_CHARGE", "UTILITY_RECOVERY", "OTHER", "ADMIN_FEE", "LEASE_FEE",
+  "LONGTERM_RENT", "DEPOSIT", "SERVICE_CHARGE", "UTILITY_RECOVERY", "OTHER", "LEASE_FEE",
 ] as const;
 
 type LedgerEvent =

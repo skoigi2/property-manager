@@ -74,7 +74,6 @@ export async function GET(
     serviceCharge: invoice.serviceCharge,
     otherCharges: invoice.otherCharges,
     depositAmount: invoice.depositAmount,
-    adminFee: invoice.adminFee,
     leaseFee: invoice.leaseFee,
     lateFeeAmount: invoice.lateFeeAmount,
     totalAmount: invoice.totalAmount,

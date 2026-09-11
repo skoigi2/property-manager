@@ -2,7 +2,7 @@
 //
 // An Invoice stores fixed line columns: rentAmount, serviceCharge,
 // otherCharges, lateFeeAmount (the "rent side") plus the optional move-in
-// lines depositAmount, adminFee and leaseFee. When money arrives against the
+// lines depositAmount and leaseFee. When money arrives against the
 // invoice it must be booked as TYPED income entries, otherwise a 77,000
 // move-in payment (25,000 rent + 50,000 deposit + 2,000 lease fee) reads as
 // 77,000 of rent: the deposit inflates gross income and the management-fee
@@ -11,13 +11,13 @@
 // Allocation order for a payment: rent side first (one LONGTERM_RENT entry —
 // rent + service charge + other + late fee stay lumped because the rent
 // ledger, src/lib/rent-ledger.ts, counts only LONGTERM_RENT against expected
-// rent + service charge), then DEPOSIT, then ADMIN_FEE, then LEASE_FEE. A
+// rent + service charge), then DEPOSIT, then LEASE_FEE. A
 // short payment leaves the tail lines unpaid; the next payment continues
 // from where the previous ones stopped (`alreadyPaid` walks the same order).
 //
 // Pure module — the Prisma side lives in src/lib/invoice-payment-entries.ts.
 
-export type InvoicePaymentType = "LONGTERM_RENT" | "DEPOSIT" | "ADMIN_FEE" | "LEASE_FEE";
+export type InvoicePaymentType = "LONGTERM_RENT" | "DEPOSIT" | "LEASE_FEE";
 
 export interface InvoiceLinesLike {
   rentAmount: number;
@@ -25,7 +25,6 @@ export interface InvoiceLinesLike {
   otherCharges?: number | null;
   lateFeeAmount?: number | null;
   depositAmount?: number | null;
-  adminFee?: number | null;
   leaseFee?: number | null;
 }
 
@@ -51,13 +50,13 @@ export function invoiceRentSide(inv: InvoiceLinesLike): number {
 /** Sum of every line — what Invoice.totalAmount must equal. */
 export function invoiceLinesTotal(inv: InvoiceLinesLike): number {
   return round2(
-    invoiceRentSide(inv) + (inv.depositAmount ?? 0) + (inv.adminFee ?? 0) + (inv.leaseFee ?? 0),
+    invoiceRentSide(inv) + (inv.depositAmount ?? 0) + (inv.leaseFee ?? 0),
   );
 }
 
 /** True when the invoice carries any non-rent line (deposit / fees). */
 export function invoiceHasMoveInLines(inv: InvoiceLinesLike): boolean {
-  return (inv.depositAmount ?? 0) > 0 || (inv.adminFee ?? 0) > 0 || (inv.leaseFee ?? 0) > 0;
+  return (inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0;
 }
 
 /**
@@ -70,7 +69,6 @@ export function invoicePaymentBuckets(inv: InvoiceLinesLike): PaymentAllocation[
   const rentSide = invoiceRentSide(inv);
   if (rentSide > 0) buckets.push({ type: "LONGTERM_RENT", amount: round2(rentSide) });
   if ((inv.depositAmount ?? 0) > 0) buckets.push({ type: "DEPOSIT", amount: round2(inv.depositAmount!) });
-  if ((inv.adminFee ?? 0) > 0) buckets.push({ type: "ADMIN_FEE", amount: round2(inv.adminFee!) });
   if ((inv.leaseFee ?? 0) > 0) buckets.push({ type: "LEASE_FEE", amount: round2(inv.leaseFee!) });
   return buckets;
 }
@@ -118,7 +116,6 @@ export function describeAllocation(parts: PaymentAllocation[], fmt: (n: number) 
   const label: Record<InvoicePaymentType, string> = {
     LONGTERM_RENT: "rent",
     DEPOSIT: "deposit",
-    ADMIN_FEE: "admin fee",
     LEASE_FEE: "lease fee",
   };
   return parts.map((p) => `${label[p.type]} ${fmt(p.amount)}`).join(" · ");

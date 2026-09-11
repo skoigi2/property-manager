@@ -136,7 +136,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         otherCharges: invoice.otherCharges,
         lateFeeAmount: invoice.lateFeeAmount,
         depositAmount: invoice.depositAmount,
-        adminFee: invoice.adminFee,
         leaseFee: invoice.leaseFee,
         alreadyPaid: 0,
       },

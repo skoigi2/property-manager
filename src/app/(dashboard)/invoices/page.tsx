@@ -57,7 +57,6 @@ interface Invoice {
   serviceCharge: number;
   otherCharges: number;
   depositAmount?: number;
-  adminFee?: number;
   leaseFee?: number;
   lateFeeAmount?: number;
   lateFeeAppliedAt?: string | null;
@@ -1446,6 +1445,7 @@ export default function InvoicesPage() {
         <InvoiceForm
           initialKind={createPreset.kind}
           initialTenantId={createPreset.tenantId}
+          propertyId={selectedId}
           currency={currency}
           onClose={() => setShowCreate(false)}
           onSaved={fetchInvoices}

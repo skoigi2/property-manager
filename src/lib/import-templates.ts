@@ -185,7 +185,6 @@ export function downloadInvoicesTemplate() {
     { header: "Service Charge", required: false, width: 15 },
     { header: "Other Charges",  required: false, width: 14 },
     { header: "Deposit",        required: false, width: 12 },
-    { header: "Admin Fee",      required: false, width: 12 },
     { header: "Lease Fee",      required: false, width: 12 },
     { header: "Due Date",       required: false, width: 14 },
     { header: "Invoice Number", required: false, width: 20 },
@@ -194,9 +193,9 @@ export function downloadInvoicesTemplate() {
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["Jane Smith",    "A1", 2026, 1, 25000, 2500, 0, 50000, 0, 2000, "2026-01-05", "INV-2026-001", "Riara One", "Move-in: first month + deposit + lease fee"],
-    ["Jane Smith",    "A1", 2026, 2, 25000, 2500, 0, 0,     0, 0,    "2026-02-05", "",             "Riara One", "Number auto-generated when blank"],
-    ["Apex Corp Ltd", "G1", 2026, 1, 80000, 0,    0, 0,     0, 0,    "",           "",             "Riara One", "Due date defaults to the 5th"],
+    ["Jane Smith",    "A1", 2026, 1, 25000, 2500, 0, 50000, 2000, "2026-01-05", "INV-2026-001", "Riara One", "Move-in: first month + deposit + lease fee"],
+    ["Jane Smith",    "A1", 2026, 2, 25000, 2500, 0, 0,     0,    "2026-02-05", "",             "Riara One", "Number auto-generated when blank"],
+    ["Apex Corp Ltd", "G1", 2026, 1, 80000, 0,    0, 0,     0,    "",           "",             "Riara One", "Due date defaults to the 5th"],
   ];
 
   const instructions: (string | number)[][] = [
@@ -208,7 +207,6 @@ export function downloadInvoicesTemplate() {
     ["Service Charge", "No",  "Number",     "Service charge billed (default 0)"],
     ["Other Charges",  "No",  "Number",     "Any other charges billed (default 0)"],
     ["Deposit",        "No",  "Number",     "Refundable security deposit billed on this invoice (default 0). When paid it is booked as a DEPOSIT receipt, not rent"],
-    ["Admin Fee",      "No",  "Number",     "Once-off admin fee (default 0)"],
     ["Lease Fee",      "No",  "Number",     "Once-off lease agreement / preparation fee (default 0)"],
     ["Due Date",       "No",  "YYYY-MM-DD", "Defaults to the 5th of the billing month"],
     ["Invoice Number", "No",  "Text",       "Your historic invoice number. Left blank, a HIST-… number is generated. Must be unique"],

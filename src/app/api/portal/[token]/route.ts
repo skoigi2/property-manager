@@ -24,7 +24,6 @@ export async function GET(
       serviceCharge: true,
       otherCharges: true,
       depositAmount: true,
-      adminFee: true,
       leaseFee: true,
       lateFeeAmount: true,
       totalAmount: true,

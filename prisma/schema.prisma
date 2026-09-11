@@ -333,8 +333,10 @@ enum IncomeType {
   VACANCY_FEE
   SETUP_FEE_INSTALMENT
   CONSULTANCY_FEE
-  // Once-off tenant charges raised on a tenant invoice (move-in). Landlord
-  // income: counted in gross income like OTHER, excluded from the rent ledger.
+  // Once-off tenant charge raised on a move-in invoice (lease preparation).
+  // Landlord income: counted in gross income like OTHER, excluded from the
+  // rent ledger. (ADMIN_FEE is a retired value kept only because Postgres
+  // cannot drop enum values; nothing writes it.)
   ADMIN_FEE
   LEASE_FEE
 }
@@ -718,8 +720,7 @@ model Property {
   managementFeeRate    Float?
   managementFeeFlat    Decimal? @db.Decimal(14, 2)
   serviceChargeDefault Decimal? @db.Decimal(14, 2)
-  // Defaults for the once-off lines on a move-in invoice (InvoiceForm preset).
-  adminFeeDefault      Decimal? @db.Decimal(14, 2)
+  // Default lease-agreement (preparation) fee for the move-in invoice preset.
   leaseFeeDefault      Decimal? @db.Decimal(14, 2)
   currency              String            @default("USD")
   vatRegistrationNumber String?
@@ -1336,10 +1337,9 @@ model Invoice {
   serviceCharge Decimal         @default(0) @db.Decimal(14, 2)
   otherCharges  Decimal         @default(0) @db.Decimal(14, 2)
   // Optional move-in lines. When the invoice is paid, each non-zero line
-  // becomes its own typed IncomeEntry (DEPOSIT / ADMIN_FEE / LEASE_FEE) via
+  // becomes its own typed IncomeEntry (DEPOSIT / LEASE_FEE) via
   // src/lib/invoice-payment.ts, so the deposit never counts as rent income.
   depositAmount Decimal         @default(0) @db.Decimal(14, 2)
-  adminFee      Decimal         @default(0) @db.Decimal(14, 2)
   leaseFee      Decimal         @default(0) @db.Decimal(14, 2)
   lateFeeAmount Decimal         @default(0) @db.Decimal(14, 2)
   lateFeeAppliedAt DateTime?

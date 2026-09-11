@@ -272,7 +272,7 @@ const INVOICE_STATUS_CONFIG = {
 interface Invoice {
   id: string; invoiceNumber: string; periodYear: number; periodMonth: number;
   totalAmount: number; rentAmount: number; serviceCharge: number; otherCharges: number;
-  depositAmount?: number; adminFee?: number; leaseFee?: number;
+  depositAmount?: number; leaseFee?: number;
   dueDate: string; status: keyof typeof INVOICE_STATUS_CONFIG;
   paidAt?: string | null; paidAmount?: number | null;
   /** Latest payment — receipt link for PAID rows. */

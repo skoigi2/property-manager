@@ -17,7 +17,6 @@ type Invoice = {
   serviceCharge: number;
   otherCharges: number;
   depositAmount?: number;
-  adminFee?: number;
   leaseFee?: number;
   lateFeeAmount?: number;
   totalAmount: number;
@@ -703,14 +702,13 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                               </span>
                             </div>
                           </div>
-                          {((inv.depositAmount ?? 0) > 0 || (inv.adminFee ?? 0) > 0 || (inv.leaseFee ?? 0) > 0) && (
+                          {((inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0) && (
                             <p className="text-caption text-gray-500 mb-2">
                               {[
                                 inv.rentAmount > 0 ? `Rent ${formatCurrency(inv.rentAmount, currency)}` : null,
                                 inv.serviceCharge > 0 ? `Service charge ${formatCurrency(inv.serviceCharge, currency)}` : null,
                                 inv.otherCharges > 0 ? `Other ${formatCurrency(inv.otherCharges, currency)}` : null,
                                 (inv.depositAmount ?? 0) > 0 ? `Refundable deposit ${formatCurrency(inv.depositAmount!, currency)}` : null,
-                                (inv.adminFee ?? 0) > 0 ? `Admin fee ${formatCurrency(inv.adminFee!, currency)}` : null,
                                 (inv.leaseFee ?? 0) > 0 ? `Lease agreement fee ${formatCurrency(inv.leaseFee!, currency)}` : null,
                               ].filter(Boolean).join(" · ")}
                             </p>

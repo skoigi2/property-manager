@@ -88,7 +88,6 @@ const TYPE_LABEL: Record<string, string> = {
   LONGTERM_RENT: "Rent",
   SERVICE_CHARGE: "Service charge",
   DEPOSIT: "Refundable security deposit",
-  ADMIN_FEE: "Admin fee",
   LEASE_FEE: "Lease agreement fee",
   UTILITY_RECOVERY: "Utilities",
   AIRBNB: "Stay",

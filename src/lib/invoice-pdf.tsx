@@ -85,7 +85,6 @@ export type InvoiceData = {
   otherCharges: number;
   /** Optional move-in lines — rendered only when > 0. */
   depositAmount?: number;
-  adminFee?: number;
   leaseFee?: number;
   lateFeeAmount?: number;
   totalAmount: number;
@@ -185,7 +184,6 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
     ...(data.serviceCharge > 0 ? [{ label: "Service Charge", amount: data.serviceCharge }] : []),
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
     ...(hasDeposit ? [{ label: "Refundable Security Deposit", amount: data.depositAmount! }] : []),
-    ...((data.adminFee ?? 0) > 0 ? [{ label: "Admin Fee", amount: data.adminFee! }] : []),
     ...((data.leaseFee ?? 0) > 0 ? [{ label: "Lease Agreement Fee", amount: data.leaseFee! }] : []),
     ...((data.lateFeeAmount ?? 0) > 0 ? [{ label: "Late Payment Fee", amount: data.lateFeeAmount! }] : []),
   ];

@@ -26,7 +26,6 @@ export const STATEMENT_INCOME_TYPES = [
   "SERVICE_CHARGE",
   "UTILITY_RECOVERY",
   "OTHER",
-  "ADMIN_FEE",
   "LEASE_FEE",
 ] as const;
 

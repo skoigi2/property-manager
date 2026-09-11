@@ -61,7 +61,6 @@ const INCOME_TYPE_LABELS: Record<string, { label: string; badge: "blue"|"gold"|"
   VACANCY_FEE:         { label: "Vacancy Fee",       badge: "amber" },
   SETUP_FEE_INSTALMENT:{ label: "Setup Fee",         badge: "gold" },
   CONSULTANCY_FEE:     { label: "Consultancy Fee",   badge: "gray" },
-  ADMIN_FEE:           { label: "Admin Fee",         badge: "amber" },
   LEASE_FEE:           { label: "Lease Agreement Fee", badge: "amber" },
 };
 

@@ -31,7 +31,6 @@ interface InvoiceImportRow {
   serviceCharge?: string | number;
   otherCharges?: string | number;
   depositAmount?: string | number;
-  adminFee?: string | number;
   leaseFee?: string | number;
   dueDate?: string;
   invoiceNumber?: string;
@@ -100,7 +99,6 @@ export async function POST(req: Request) {
         serviceCharge: number;
         otherCharges: number;
         depositAmount: number;
-        adminFee: number;
         leaseFee: number;
         totalAmount: number;
         dueDate: Date;
@@ -129,7 +127,6 @@ export async function POST(req: Request) {
       const serviceCharge = parseFloat(String(row.serviceCharge ?? "0")) || 0;
       const otherCharges = parseFloat(String(row.otherCharges ?? "0")) || 0;
       const depositAmount = parseFloat(String(row.depositAmount ?? "0")) || 0;
-      const adminFee = parseFloat(String(row.adminFee ?? "0")) || 0;
       const leaseFee = parseFloat(String(row.leaseFee ?? "0")) || 0;
 
       if (!tenantName || !unitNumber || isNaN(periodYear) || isNaN(periodMonth) || isNaN(rentAmount) || rentAmount <= 0) {
@@ -185,7 +182,7 @@ export async function POST(req: Request) {
       }
       numberTaken.add(invoiceNumber);
 
-      const totalAmount = rentAmount + serviceCharge + otherCharges + depositAmount + adminFee + leaseFee;
+      const totalAmount = rentAmount + serviceCharge + otherCharges + depositAmount + leaseFee;
 
       // Auto-link: exactly one unclaimed payment matching amount + period.
       const candidates = (paymentsByTenant.get(tenant.id) ?? []).filter((p) => {
@@ -213,7 +210,6 @@ export async function POST(req: Request) {
           serviceCharge,
           otherCharges,
           depositAmount,
-          adminFee,
           leaseFee,
           totalAmount,
           dueDate,

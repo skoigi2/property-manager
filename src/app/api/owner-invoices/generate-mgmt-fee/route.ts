@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
 import { getActiveTaxConfigs, matchConfig, calcTax, taxLabel } from "@/lib/tax-engine";
+import { pendingLeaseFeeRecoveries, recoveryLineItem } from "@/lib/lease-fee-recovery";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -46,7 +47,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const { from: start, to: end } = getMonthRange(periodYear, periodMonth - 1);
+  // getMonthRange takes a 1-based month (periodMonth already is): a September
+  // invoice must window September, not August.
+  const { from: start, to: end } = getMonthRange(periodYear, periodMonth);
 
   // Fetch everything needed for fee calculation in parallel
   const [property, agreement, activeTenants, feeConfigs, incomeAgg] = await Promise.all([
@@ -137,7 +140,25 @@ export async function POST(req: Request) {
 
   const mgmtFeeSubtotal = lineItems.reduce((s, i) => s + i.amount, 0);
 
-  if (mgmtFeeSubtotal <= 0) {
+  // Lease preparation fees the tenants paid into the landlord's account this
+  // period that the manager has not yet recovered from the owner. Added as
+  // pass-through lines AFTER the tax block below (a reimbursement, not a fee).
+  const [leaseFeeEntries, priorOwnerInvoices] = await Promise.all([
+    prisma.incomeEntry.findMany({
+      where: { type: "LEASE_FEE", date: { gte: start, lte: end }, unit: { propertyId } },
+      select: { id: true, date: true, grossAmount: true, unitId: true, tenantId: true, tenant: { select: { name: true } }, unit: { select: { unitNumber: true } } },
+    }),
+    prisma.ownerInvoice.findMany({
+      where: { propertyId, status: { not: "CANCELLED" } },
+      select: { id: true, invoiceNumber: true, status: true, lineItems: true },
+    }),
+  ]);
+  const recoveries = pendingLeaseFeeRecoveries(
+    leaseFeeEntries.map((e) => ({ id: e.id, date: e.date, grossAmount: e.grossAmount, unitId: e.unitId, tenantId: e.tenantId, tenantName: e.tenant?.name ?? null, unitNumber: e.unit.unitNumber })),
+    priorOwnerInvoices,
+  );
+
+  if (mgmtFeeSubtotal <= 0 && recoveries.length === 0) {
     return Response.json(
       { error: "Could not calculate management fee — check that fee configurations are set up for this property" },
       { status: 400 }
@@ -166,6 +187,14 @@ export async function POST(req: Request) {
     }
   }
 
+  // Recovery lines (no tax — pass-through of what the tenant already paid).
+  const fmtCur = (n: number) => formatCurrency(n, property.currency ?? "USD");
+  for (const e of recoveries) {
+    (lineItems as unknown[]).push(recoveryLineItem(e, fmtCur));
+  }
+  const recoveryTotal = recoveries.reduce((s, e) => s + e.grossAmount, 0);
+  const totalAmount = mgmtFeeOwing + recoveryTotal;
+
   const dueDayOfMonth = agreement?.mgmtFeeInvoiceDay ?? 7;
   const dueDate = new Date(periodYear, periodMonth - 1, dueDayOfMonth);
 
@@ -181,7 +210,7 @@ export async function POST(req: Request) {
       periodYear,
       periodMonth,
       lineItems:   lineItems as never,
-      totalAmount: mgmtFeeOwing,
+      totalAmount,
       dueDate,
       status:      "DRAFT",
     },
@@ -198,7 +227,7 @@ export async function POST(req: Request) {
     resource:   "OwnerInvoice",
     resourceId: invoice.id,
     organizationId: session!.user.organizationId,
-    after: { invoiceNumber, type: "MANAGEMENT_FEE", totalAmount: mgmtFeeOwing },
+    after: { invoiceNumber, type: "MANAGEMENT_FEE", totalAmount, leaseFeeRecoveries: recoveries.length, recoveryTotal },
   });
 
   return Response.json(invoice, { status: 201 });

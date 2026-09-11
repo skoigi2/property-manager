@@ -75,7 +75,9 @@ export async function POST(req: Request) {
     }
   }
 
-  const { from: start, to: end } = getMonthRange(periodYear, periodMonth - 1);
+  // getMonthRange takes a 1-based month (periodMonth already is): a September
+  // invoice must window September, not August.
+  const { from: start, to: end } = getMonthRange(periodYear, periodMonth);
 
   const [property, agreement, newTenants] = await Promise.all([
     prisma.property.findUnique({

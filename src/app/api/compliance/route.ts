@@ -23,7 +23,8 @@ export async function GET(req: Request) {
   const year  = yearParam  ? Number(yearParam)  : now.getFullYear();
   const month = monthParam ? Number(monthParam) : now.getMonth() + 1;
 
-  const { from: start, to: end } = getMonthRange(year, month - 1);
+  // getMonthRange takes a 1-based month (month already is 1-12).
+  const { from: start, to: end } = getMonthRange(year, month);
 
   // ── Agreement ────────────────────────────────────────────────────────────────
   const agreementPropertyId = filterPropertyId && propertyIds.includes(filterPropertyId)

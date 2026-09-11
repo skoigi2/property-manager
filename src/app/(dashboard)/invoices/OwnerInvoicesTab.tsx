@@ -20,6 +20,22 @@ interface OwnerInvoiceLineItem {
   unitId?: string | null;
   tenantId?: string | null;
   incomeType: string;
+  /** Tracking refs on generated lines (letting fee → tenant, lease-fee recovery → income entry). */
+  refTenantId?: string | null;
+  refIncomeEntryId?: string | null;
+  isRecovery?: boolean;
+  isTaxLine?: boolean;
+}
+
+interface LeaseFeeRecovery {
+  collected: number;
+  invoiced: number;
+  settled: number;
+  pending: number;
+  rows: {
+    id: string; date: string; grossAmount: number; tenantName: string | null; unitNumber: string | null;
+    propertyName: string | null; state: "PENDING" | "INVOICED" | "SETTLED"; ownerInvoiceNumber: string | null;
+  }[];
 }
 
 interface OwnerInvoice {
@@ -454,8 +470,8 @@ function EditOwnerInvoiceModal({
 
   const [dueDate, setDueDate] = useState(invoice.dueDate.slice(0, 10));
   const [notes,   setNotes]   = useState(invoice.notes ?? "");
-  const [items,   setItems]   = useState(
-    invoice.lineItems.map((li) => ({ description: li.description, amount: String(li.amount) }))
+  const [items,   setItems]   = useState<{ description: string; amount: string; base?: OwnerInvoiceLineItem }[]>(
+    invoice.lineItems.map((li) => ({ description: li.description, amount: String(li.amount), base: li }))
   );
   const [saving, setSaving] = useState(false);
 
@@ -468,20 +484,21 @@ function EditOwnerInvoiceModal({
   const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
 
   async function submit() {
+    const defaultIncomeType =
+      invoice.type === "LETTING_FEE" || invoice.type === "PERIODIC_LETTING_FEE" ? "LETTING_FEE"
+      : invoice.type === "RENEWAL_FEE"          ? "RENEWAL_FEE"
+      : invoice.type === "VACANCY_FEE"           ? "VACANCY_FEE"
+      : invoice.type === "SETUP_FEE_INSTALMENT"  ? "SETUP_FEE_INSTALMENT"
+      : invoice.type === "CONSULTANCY_FEE"       ? "CONSULTANCY_FEE"
+      : "OTHER";
+    // Generated lines keep their tracking refs (letting fee → tenant,
+    // lease-fee recovery → income entry); only description / amount change.
     const lineItems = items
       .filter((i) => i.description && parseFloat(i.amount) > 0)
       .map((i) => ({
+        ...(i.base ?? { unitId: null, tenantId: null, incomeType: defaultIncomeType }),
         description: i.description,
         amount:      parseFloat(i.amount),
-        unitId:      null,
-        tenantId:    null,
-        incomeType:
-          invoice.type === "LETTING_FEE" || invoice.type === "PERIODIC_LETTING_FEE" ? "LETTING_FEE"
-          : invoice.type === "RENEWAL_FEE"          ? "RENEWAL_FEE"
-          : invoice.type === "VACANCY_FEE"           ? "VACANCY_FEE"
-          : invoice.type === "SETUP_FEE_INSTALMENT"  ? "SETUP_FEE_INSTALMENT"
-          : invoice.type === "CONSULTANCY_FEE"       ? "CONSULTANCY_FEE"
-          : "OTHER",
       }));
 
     if (lineItems.length === 0) { toast.error("Add at least one line item"); return; }
@@ -801,6 +818,19 @@ export default function OwnerInvoicesTab() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter,   setTypeFilter]   = useState("ALL");
 
+  // Lease preparation fees paid by tenants vs recovered from the owner
+  // (auto-added to the next management-fee invoice).
+  const [recovery, setRecovery] = useState<LeaseFeeRecovery | null>(null);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const fetchRecovery = useCallback(async () => {
+    try {
+      const params = selectedId ? `?propertyId=${selectedId}` : "";
+      const res = await fetch(`/api/owner-invoices/lease-fee-recovery${params}`);
+      if (res.ok) setRecovery(await res.json());
+    } catch { /* panel is informational */ }
+  }, [selectedId]);
+  useEffect(() => { fetchRecovery(); }, [fetchRecovery]);
+
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
@@ -818,7 +848,8 @@ export default function OwnerInvoicesTab() {
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+    fetchRecovery();
+  }, [selectedId, fetchRecovery]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
@@ -953,6 +984,70 @@ export default function OwnerInvoicesTab() {
           <p className="text-h2 text-income mt-1">{formatCurrency(totalPaid, currency)}</p>
         </div>
       </div>
+
+      {/* Lease preparation fee recovery */}
+      {recovery && recovery.rows.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-6">
+          <button
+            type="button"
+            onClick={() => setRecoveryOpen((o) => !o)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+          >
+            <div className="min-w-0">
+              <p className="text-body font-semibold text-header">Lease preparation fees — recovery from the owner</p>
+              <p className="text-caption text-gray-400 mt-0.5">
+                Fees tenants paid into the landlord&apos;s account. Anything not yet recovered is added automatically to the next management-fee invoice.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <span className="text-caption text-gray-500 hidden sm:inline">
+                Collected <strong className="text-header tabular-nums">{formatCurrency(recovery.collected, currency)}</strong>
+                {" · "}Invoiced <strong className="text-header tabular-nums">{formatCurrency(recovery.invoiced, currency)}</strong>
+                {" · "}Settled <strong className="text-income tabular-nums">{formatCurrency(recovery.settled, currency)}</strong>
+              </span>
+              <span className={`text-caption font-medium px-2 py-0.5 rounded-full ${recovery.pending > 0 ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-700"}`}>
+                {recovery.pending > 0 ? `${formatCurrency(recovery.pending, currency)} to invoice` : "All recovered"}
+              </span>
+              <ChevronDown size={15} className={`text-gray-400 transition-transform ${recoveryOpen ? "rotate-180" : ""}`} />
+            </div>
+          </button>
+          {recoveryOpen && (
+            <div className="border-t border-gray-100 overflow-x-auto">
+              <table className="w-full text-body">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-4 py-2 text-label font-medium text-gray-500 uppercase">Received</th>
+                    <th className="text-left px-4 py-2 text-label font-medium text-gray-500 uppercase">Tenant</th>
+                    <th className="text-right px-4 py-2 text-label font-medium text-gray-500 uppercase">Amount</th>
+                    <th className="text-left px-4 py-2 text-label font-medium text-gray-500 uppercase">Recovery</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recovery.rows.map((r) => (
+                    <tr key={r.id} className="border-b border-gray-50">
+                      <td className="px-4 py-2 text-gray-600">{format(new Date(r.date), "d MMM yyyy")}</td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {r.tenantName ?? "—"}{r.unitNumber ? ` · Unit ${r.unitNumber}` : ""}
+                        {!selectedId && r.propertyName ? <span className="text-caption text-gray-400"> · {r.propertyName}</span> : null}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-gray-700">{formatCurrency(r.grossAmount, currency)}</td>
+                      <td className="px-4 py-2">
+                        {r.state === "PENDING" ? (
+                          <span className="text-caption font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Not yet invoiced</span>
+                        ) : r.state === "SETTLED" ? (
+                          <span className="text-caption font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">Settled · {r.ownerInvoiceNumber}</span>
+                        ) : (
+                          <span className="text-caption font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">Invoiced · {r.ownerInvoiceNumber}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap mb-4">

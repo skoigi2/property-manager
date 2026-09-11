@@ -184,6 +184,13 @@ export const ownerInvoiceLineItemSchema = z.object({
   unitId:      z.string().optional().nullable(),
   tenantId:    z.string().optional().nullable(),
   incomeType:  z.enum(INCOME_TYPE_VALUES),
+  // Tracking references carried on generated lines — must survive an edit
+  // (z.object strips unknown keys): letting fee → tenant, lease-fee recovery →
+  // the tenant's LEASE_FEE income entry (src/lib/lease-fee-recovery.ts).
+  refTenantId:      z.string().optional().nullable(),
+  refIncomeEntryId: z.string().optional().nullable(),
+  isRecovery:       z.boolean().optional(),
+  isTaxLine:        z.boolean().optional(),
 });
 
 export const ownerInvoiceCreateSchema = z.object({

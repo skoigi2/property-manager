@@ -20,11 +20,27 @@ const PASSWORD = 'guide-shots-2026';
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
+// ONLY=32,33 (comma-separated name prefixes) re-captures just those shots; the
+// script still walks every page so per-page state (login, month step) holds.
+const ONLY = (process.env.ONLY || '').split(',').map((s) => s.trim()).filter(Boolean);
+const wanted = (name) => ONLY.length === 0 || ONLY.some((p) => name.startsWith(p));
+
 async function shot(page, name, { waitFor = 'main', fullPage = false, delay = 1500 } = {}) {
+  if (!wanted(name)) return;
   if (waitFor) await page.waitForSelector(waitFor, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(delay);
   const file = path.join(OUT_DIR, `${name}.png`);
   await page.screenshot({ path: file, fullPage });
+  console.log(`✓ ${name}`);
+}
+
+// Element crop (cards / modals) — same ONLY filter.
+async function elementShot(locator, name, { delay = 1500 } = {}) {
+  if (!wanted(name)) return;
+  if (!(await locator.count())) { console.log(`⚠ ${name}: element not found, skipping`); return; }
+  await locator.first().scrollIntoViewIfNeeded().catch(() => {});
+  await locator.page().waitForTimeout(delay);
+  await locator.first().screenshot({ path: path.join(OUT_DIR, `${name}.png`) });
   console.log(`✓ ${name}`);
 }
 
@@ -111,6 +127,51 @@ async function shot(page, name, { waitFor = 'main', fullPage = false, delay = 15
   await page.goto(`${BASE_URL}/invoices`);
   await shot(page, '10-invoices');
 
+  // ── Invoice form on the Move-in preset (Charlotte Davies, Belsize Court) ──
+  // Seeded 2026-09: Belsize Court has leaseFeeDefault 250 so the lease agreement
+  // fee line prefills. The preset opens on the lease-start month (which already
+  // has a rent invoice; October holds the seeded move-in invoice) so the shot
+  // switches to November 2026 first.
+  const moveInTenant = await page.evaluate(async () => {
+    const r = await fetch('/api/tenants?activeOnly=true');
+    const list = await r.json();
+    const t = (Array.isArray(list) ? list : []).find((x) => x.name === 'Charlotte Davies') || list[0];
+    return t?.id || null;
+  });
+  if (moveInTenant) {
+    await page.goto(`${BASE_URL}/invoices?new=move-in&tenantId=${moveInTenant}`);
+    await page.waitForSelector('.fixed.inset-0 input[inputmode="decimal"]', { timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(2500);
+    const selects = page.locator('.fixed.inset-0 select');
+    await selects.nth(1).selectOption('11').catch(() => {});
+    await selects.nth(2).selectOption('2026').catch(() => {});
+    await page.fill('.fixed.inset-0 input[type="date"]', '2026-11-01').catch(() => {});
+    // The property's lease-fee default prefills a moment after the tenant loads.
+    await page.waitForFunction(() => {
+      const inputs = document.querySelectorAll('.fixed.inset-0 input[inputmode="decimal"]');
+      return inputs.length >= 4 && inputs[inputs.length - 1].value !== '';
+    }, { timeout: 20000 }).catch(() => console.log('⚠ lease fee default did not prefill'));
+    await page.click('.fixed.inset-0 h2').catch(() => {});
+    await elementShot(page.locator('.fixed.inset-0 > div'), '32-invoice-move-in', { delay: 1000 });
+    await page.keyboard.press('Escape').catch(() => {});
+  } else {
+    console.log('⚠ no tenant for the move-in form shot');
+  }
+
+  // ── Owner Invoices tab: lease preparation fee recovery panel (expanded) ──
+  // Seeded 2026-09: Charlotte's move-in lease fee recovered on the September
+  // management-fee invoice (PAID → Settled) and Daniel Walsh's lease fee paid
+  // after that invoice was generated (→ Not yet invoiced).
+  await page.goto(`${BASE_URL}/invoices?tab=owner`);
+  await page.waitForSelector('button:has-text("Lease preparation fees")', { timeout: 30000 }).catch(() => {});
+  const recoveryBtn = page.locator('button:has-text("Lease preparation fees")');
+  if (await recoveryBtn.count()) {
+    await recoveryBtn.first().click();
+    await elementShot(recoveryBtn.first().locator('..'), '33-owner-invoices-recovery', { delay: 1500 });
+  } else {
+    console.log('⚠ recovery panel not found, skipping 33-owner-invoices-recovery');
+  }
+
   await page.goto(`${BASE_URL}/arrears`);
   await shot(page, '11-arrears');
 
@@ -185,6 +246,24 @@ async function shot(page, name, { waitFor = 'main', fullPage = false, delay = 15
     await shot(page, '24-tenant-portal', { delay: 2200 });
   } else {
     console.log('⚠ No portal token found, skipping portal screenshot');
+  }
+
+  // ── Portal Balance tab: receipts on the activity timeline (Charlotte Davies) ──
+  const receiptPortal = await page.evaluate(async () => {
+    const r = await fetch('/api/tenants');
+    const data = await r.json();
+    const tenants = data?.tenants || data || [];
+    const t = tenants.find((x) => x.name === 'Charlotte Davies' && x.portalToken) || tenants.find((x) => x.portalToken);
+    return t?.portalToken || null;
+  });
+  if (receiptPortal) {
+    await page.goto(`${BASE_URL}/portal/${receiptPortal}`);
+    await page.waitForSelector('button:has-text("Balance")', { timeout: 30000 }).catch(() => {});
+    await page.click('button:has-text("Balance")').catch(() => {});
+    await page.waitForSelector('h2:has-text("Activity Timeline")', { timeout: 30000 }).catch(() => {});
+    await page.locator('h2:has-text("Activity Timeline")').scrollIntoViewIfNeeded().catch(() => {});
+    await page.mouse.wheel(0, -80).catch(() => {});
+    await shot(page, '34-portal-receipts', { waitFor: null, delay: 1500 });
   }
 
   await browser.close();

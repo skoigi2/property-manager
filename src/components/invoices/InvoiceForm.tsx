@@ -199,8 +199,17 @@ export default function InvoiceForm({
       }
     } else if (kind === "DEPOSIT") setLines({ depositAmount: dep });
     else setLines((prev) => (Object.keys(prev).length ? prev : { rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}) }));
+    // Deliberately NOT keyed on `defaults`: the property's fee default arrives
+    // a moment after the tenant detail and must only fill the lease-fee line
+    // (below), never re-apply the preset and undo a month the user changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail, defaults, kind, isEdit]);
+  }, [detail, kind, isEdit]);
+
+  // Late-arriving property default → fill an empty lease-fee line only.
+  useEffect(() => {
+    if (isEdit || kind !== "MOVE_IN" || !defaults?.leaseFeeDefault) return;
+    setLines((prev) => ("leaseFee" in prev && !prev.leaseFee ? { ...prev, leaseFee: String(defaults.leaseFeeDefault) } : prev));
+  }, [defaults, kind, isEdit]);
 
   // Duplicate-rent check: one rent invoice per tenant per month.
   useEffect(() => {

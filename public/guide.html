@@ -1238,6 +1238,10 @@
           <tr><td><strong>Custom</strong></td><td>Rent</td><td>Anything else — add whichever lines you need</td></tr>
         </tbody>
       </table>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:560px">
+        <img src="guide-screenshots/32-invoice-move-in.png" alt="New Invoice form on the Move-in preset" loading="lazy">
+        <div class="screenshot-caption">The Move-in preset: first month's rent and service charge, the refundable deposit and the lease agreement fee on one invoice</div>
+      </div>
       <ul class="feature-list" style="margin-top:12px">
         <li><strong>One rent invoice per tenant per month.</strong> The form warns you inline (and the server refuses) if a rent invoice already exists for that month — remove the rent line to raise a deposit / fee-only invoice instead. Extra invoices without a rent line are always allowed.</li>
         <li><strong>The tenant list follows the header property.</strong> Select a property in the header and only its active tenants are offered; on <em>All properties</em> every tenant is listed with their property name.</li>
@@ -1257,6 +1261,10 @@
         <li><strong>Manager buttons.</strong> Paid invoices on the Invoices page and the tenant's Invoices tab, every row on the tenant's Deposit tab, and every tenant-linked entry on the Income page offer <em>Download receipt</em> and <em>Email receipt</em>.</li>
         <li>A receipt is generated on demand from the recorded payment, so it always reflects the books; reverting a payment (<em>Revert to unpaid…</em>) removes its receipt with it.</li>
       </ul>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/34-portal-receipts.png" alt="Tenant portal Balance tab with a receipt per payment" loading="lazy">
+        <div class="screenshot-caption">What the tenant sees: every payment on the Balance timeline carries its receipt, and a move-in payment lists rent, deposit and lease fee on one receipt</div>
+      </div>
     </div>
 
     <div class="sub-section">
@@ -1335,6 +1343,10 @@
       </table>
       <h4 style="margin-top:14px">Recovering the lease preparation fee from the owner</h4>
       <p style="margin-bottom:12px">When a tenant pays the lease agreement fee on their move-in invoice, the money lands in the <em>landlord's</em> account, but the manager prepared the lease. The next monthly <strong>Generate → Management Fee</strong> invoice therefore adds a line for each such fee received that month that has not yet been recovered — "Lease preparation fee recovery — Muhidin Haji Muhumed, Unit 2.11 (received 11 Sept 2026): KES 2,000" — after the tax line, untaxed, because it is a reimbursement rather than a fee. The Owner Invoices tab shows a <strong>Lease preparation fees — recovery from the owner</strong> panel: collected from tenants, invoiced to the owner, settled (owner paid), and what is still to invoice, with the state of each fee. Nothing is billed twice: a fee is recovered once it sits on a non-cancelled owner invoice, and deleting that line from a draft (or cancelling the invoice) makes it pending again for the next month.</p>
+      <div class="screenshot-wrap" style="margin-bottom:12px">
+        <img src="guide-screenshots/33-owner-invoices-recovery.png" alt="Lease preparation fee recovery panel on the Owner Invoices tab" loading="lazy">
+        <div class="screenshot-caption">The recovery panel: one fee settled on the September management-fee invoice, one still to invoice</div>
+      </div>
       <ul class="feature-list">
         <li>Editing a generated owner invoice keeps its tracking behind the scenes — only the description and amount change.</li>
         <li>Marking an owner invoice paid books the income; the recovery amount is the manager's, not a tenant payment, so it never touches the tenant's ledger or deposit.</li>

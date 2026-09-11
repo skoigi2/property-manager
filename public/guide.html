@@ -1051,7 +1051,15 @@
         <li><strong>Payment Frequency</strong> — Monthly, Quarterly, Bi-annual, or Annual. Period payers pay in advance for the whole period; this drives the collection view, invoices, ledger, and arrears (see <a href="#income">Income &amp; Invoices</a>).</li>
         <li><strong>Escalation Rate &amp; interval</strong> — a percentage plus how often it applies. Used to project future rent in the forecast.</li>
         <li><strong>Parking Fee</strong> — a monthly parking line billed alongside rent.</li>
+        <li><strong>Show the landlord's VAT number on this tenant's invoices</strong> — a checkbox, on by default. The VAT number itself lives on the property's payment account (see <a href="#settings">Payment Accounts</a>); untick this for tenants who should not see it, and their invoice PDFs — including the copy in their portal — drop the <em>VAT No.</em> line while keeping the PIN No. and payment details. No second payment account is needed to print the number for some tenants only.</li>
       </ul>
+      <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <strong>Showing the VAT number to selected tenants only</strong>
+          Put the VAT number on the payment account once, then untick <em>Show the landlord's VAT number</em> on every tenant who should not see it. Tenants who need a VAT number on their invoices (typically businesses) keep it ticked. This only controls the printed number — it does not add VAT to the rent.
+        </div>
+      </div>
     </div>
 
     <div class="sub-section">
@@ -2082,6 +2090,7 @@
         <li><strong>Property default</strong> — pick a payment account on the property's Management Agreement page. It applies to every unit unless overridden.</li>
         <li><strong>Per-unit override</strong> — on the unit's Add / Edit form, choose a different account for just that unit.</li>
         <li><strong>Invoicing identity</strong> — an account can carry its own <em>company name, logo, address, contact details, PIN No. and VAT No.</em> When set, invoices paid to that account show that company in the header — useful when different units belong to different landlord companies.</li>
+        <li><strong>VAT No. on some tenants only</strong> — don't create a second account for this. Set the VAT number on the account and use each tenant's <em>Show the landlord's VAT number on this tenant's invoices</em> checkbox (on the tenant form) to hide it for the tenants who should not see it.</li>
         <li><strong>Invoice numbering</strong> — set the org-wide default numbering format (e.g. <code>INV-{YYYYMM}-{SEQ}</code>), and optionally give an account its own independent series with its own next-number — so each landlord company's invoices number correctly.</li>
       </ul>
     </div>

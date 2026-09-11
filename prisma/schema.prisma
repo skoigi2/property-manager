@@ -849,8 +849,8 @@ model Tenant {
   escalationIntervalYears Int?
   chargeLatePenalty Boolean         @default(false)
   isTaxExempt      Boolean         @default(false)
-  // Print the issuer's VAT No. (from the resolved payment account) on this
-  // tenant's invoices. Off for tenants who must not see it.
+  // Print the issuer's tax numbers (PIN No. / VAT No., from the resolved
+  // payment account or org) on this tenant's invoices. Off = neither line.
   showVatOnInvoice Boolean         @default(true)
   paymentFrequency PaymentFrequency?
   parkingFee       Decimal? @db.Decimal(14, 2)

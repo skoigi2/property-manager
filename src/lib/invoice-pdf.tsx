@@ -116,7 +116,7 @@ export type InvoiceData = {
     email?: string | null;
     phone?: string | null;
     poBox?: string | null;
-    /** Tenant.showVatOnInvoice — hides the issuer VAT No. line when false. */
+    /** Tenant.showVatOnInvoice — hides the issuer PIN No. and VAT No. lines when false. */
     showVatOnInvoice?: boolean | null;
     leaseStart?: Date | string | null;
     leaseEnd?: Date | string | null;
@@ -206,8 +206,11 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
                 ?? [data.tenant.unit.property.address, data.tenant.unit.property.city].filter(Boolean).join(", ")
                 ?? "";
               const brandContact = [data.issuer?.phone, data.issuer?.email].filter(Boolean).join("  ·  ");
-              const pinNo = data.issuer?.kraPin ?? org?.vatRegistrationNumber ?? null;
-              const vatNo = data.tenant.showVatOnInvoice === false ? null : data.issuer?.vatNumber ?? null;
+              // Tenant.showVatOnInvoice = "show the landlord's tax numbers": hides BOTH
+              // the PIN No. and the VAT No. lines (the KRA PIN is the tax number).
+              const showTaxIds = data.tenant.showVatOnInvoice !== false;
+              const pinNo = showTaxIds ? data.issuer?.kraPin ?? org?.vatRegistrationNumber ?? null : null;
+              const vatNo = showTaxIds ? data.issuer?.vatNumber ?? null : null;
               const taxLines = (
                 <>
                   {brandContact && <Text style={[styles.brandSub, { marginTop: 1 }]}>{brandContact}</Text>}

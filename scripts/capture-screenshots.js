@@ -116,6 +116,30 @@ async function elementShot(locator, name, { delay = 1500 } = {}) {
   if (tenantHref) {
     await page.goto(`${BASE_URL}${tenantHref.split('?')[0]}`);
     await shot(page, '07-tenant-detail', { delay: 2200 });
+
+    // ── Tenant edit form: the "show VAT number" checkbox, cropped with the
+    // lease-date fields above it for context.
+    if (wanted('35-tenant-vat-checkbox')) {
+      await page.click('button:has-text("Edit")').catch(() => {});
+      const vatBox = page.locator('input[name="showVatOnInvoice"]');
+      await vatBox.waitFor({ timeout: 15000 }).catch(() => {});
+      if (await vatBox.count()) {
+        const label = vatBox.locator('xpath=ancestor::label[1]');
+        await label.scrollIntoViewIfNeeded();
+        await page.waitForTimeout(800);
+        const box = await label.boundingBox();
+        if (box) {
+          await page.screenshot({
+            path: path.join(OUT_DIR, '35-tenant-vat-checkbox.png'),
+            clip: { x: Math.max(box.x - 28, 0), y: Math.max(box.y - 122, 0), width: box.width + 56, height: box.height + 134 },
+          });
+          console.log('✓ 35-tenant-vat-checkbox');
+        }
+      } else {
+        console.log('⚠ VAT checkbox not found, skipping 35-tenant-vat-checkbox');
+      }
+      await page.keyboard.press('Escape').catch(() => {});
+    }
   }
 
   await page.goto(`${BASE_URL}/income`);

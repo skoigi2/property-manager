@@ -125,8 +125,8 @@ export function TenantFormFields({
       <label className="flex items-start gap-2.5 cursor-pointer">
         <input type="checkbox" {...register("showVatOnInvoice")} className="mt-0.5 rounded border-gray-300 text-gold focus:ring-gold/30" />
         <span className="flex items-center gap-1.5 text-body text-gray-600">
-          <span>Show the landlord&apos;s VAT number on this tenant&apos;s invoices</span>
-          <HelpTip text="Prints the VAT No. set on the payment account in the invoice header. Untick for tenants who should not see it. The PIN No. and payment details are unaffected." />
+          <span>Show the landlord&apos;s tax numbers (PIN / VAT) on this tenant&apos;s invoices</span>
+          <HelpTip text="Prints the PIN No. and VAT No. from the payment account (or organisation) in the invoice header. Untick for tenants who should not see them. Payment details are unaffected." />
         </span>
       </label>
       <div className="flex flex-col gap-1">

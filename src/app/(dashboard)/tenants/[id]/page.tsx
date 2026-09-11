@@ -366,6 +366,7 @@ export default function TenantDetailPage() {
       escalationRate:   tenant.escalationRate ?? undefined,
       escalationIntervalYears: tenant.escalationIntervalYears ?? undefined,
       parkingFee:       tenant.parkingFee ?? undefined,
+      showVatOnInvoice: tenant.showVatOnInvoice ?? true,
       poBox:            tenant.poBox ?? "",
       additionalContacts: tenant.additionalContacts ?? [],
     });

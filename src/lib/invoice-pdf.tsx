@@ -116,6 +116,8 @@ export type InvoiceData = {
     email?: string | null;
     phone?: string | null;
     poBox?: string | null;
+    /** Tenant.showVatOnInvoice — hides the issuer VAT No. line when false. */
+    showVatOnInvoice?: boolean | null;
     leaseStart?: Date | string | null;
     leaseEnd?: Date | string | null;
     paymentFrequency?: string | null;
@@ -205,7 +207,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
                 ?? "";
               const brandContact = [data.issuer?.phone, data.issuer?.email].filter(Boolean).join("  ·  ");
               const pinNo = data.issuer?.kraPin ?? org?.vatRegistrationNumber ?? null;
-              const vatNo = data.issuer?.vatNumber ?? null;
+              const vatNo = data.tenant.showVatOnInvoice === false ? null : data.issuer?.vatNumber ?? null;
               const taxLines = (
                 <>
                   {brandContact && <Text style={[styles.brandSub, { marginTop: 1 }]}>{brandContact}</Text>}

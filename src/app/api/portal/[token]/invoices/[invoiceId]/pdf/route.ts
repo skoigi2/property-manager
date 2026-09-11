@@ -99,6 +99,7 @@ export async function GET(
       email: tenant.email,
       phone: tenant.phone,
       poBox: tenant.poBox,
+      showVatOnInvoice: tenant.showVatOnInvoice,
       leaseStart: tenant.leaseStart,
       leaseEnd: tenant.leaseEnd,
       paymentFrequency: tenant.paymentFrequency,

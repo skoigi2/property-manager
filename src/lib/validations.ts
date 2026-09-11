@@ -149,6 +149,7 @@ export const tenantSchema = z.object({
   monthlyRent:      z.coerce.number().positive("Rent must be positive"),
   serviceCharge:    z.coerce.number().min(0).default(0),
   isActive:         z.boolean().default(true),
+  showVatOnInvoice: z.boolean().default(true),
   notes:            z.string().optional(),
   paymentFrequency: z.preprocess(
     emptyToUndef,

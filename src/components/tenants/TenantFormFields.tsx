@@ -4,6 +4,7 @@ import { useFieldArray, type Control, type FieldErrors, type UseFormRegister } f
 import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { HelpTip } from "@/components/ui/HelpTip";
 import type { TenantInput } from "@/lib/validations";
 
 /**
@@ -121,6 +122,13 @@ export function TenantFormFields({
         <Input label="Lease End" tooltip="Leave blank if the end date isn't agreed yet. The tenant will show as 'Lease TBC' until a date is set." type="date" {...register("leaseEnd")} />
       </div>
       <p className="text-caption text-gray-400 ">Leave Lease End blank to mark as TBC</p>
+      <label className="flex items-start gap-2.5 cursor-pointer">
+        <input type="checkbox" {...register("showVatOnInvoice")} className="mt-0.5 rounded border-gray-300 text-gold focus:ring-gold/30" />
+        <span className="flex items-center gap-1.5 text-body text-gray-600">
+          <span>Show the landlord&apos;s VAT number on this tenant&apos;s invoices</span>
+          <HelpTip text="Prints the VAT No. set on the payment account in the invoice header. Untick for tenants who should not see it. The PIN No. and payment details are unaffected." />
+        </span>
+      </label>
       <div className="flex flex-col gap-1">
         <label className="text-body font-medium text-gray-600 ">Notes</label>
         <textarea

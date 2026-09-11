@@ -27,12 +27,17 @@ export function PaymentAccountSelect({
   onChange,
   label = "Payment account",
   inheritLabel = "— Use property default —",
+  inheritAccountId,
   tooltip,
 }: {
   value: string | null;
   onChange: (id: string | null) => void;
   label?: string;
   inheritLabel?: string;
+  /** When given (even null), the inherit option names the account that
+   *  applies by default — "Property default: KCB Collections" or
+   *  "Property default (none set)" — instead of the generic label. */
+  inheritAccountId?: string | null;
   tooltip?: string;
 }) {
   const [accounts, setAccounts] = useState<PaymentAccountOption[]>(accountCache ?? []);
@@ -89,6 +94,15 @@ export function PaymentAccountSelect({
   }
 
   const selected = accounts.find((a) => a.id === value);
+  const inherited = inheritAccountId ? accounts.find((a) => a.id === inheritAccountId) : null;
+  const inheritText =
+    inheritAccountId === undefined
+      ? inheritLabel
+      : inherited
+        ? `— Property default: ${inherited.name} —`
+        : inheritAccountId
+          ? "— Property default —"
+          : "— Property default (none set — organisation details are used) —";
 
   return (
     <div>
@@ -111,7 +125,7 @@ export function PaymentAccountSelect({
         onChange={(e) => onChange(e.target.value || null)}
         className="w-full border border-gray-200 rounded-lg text-body px-3 py-2.5 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold"
       >
-        <option value="">{inheritLabel}</option>
+        <option value="">{inheritText}</option>
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>
             {a.name}
@@ -120,6 +134,15 @@ export function PaymentAccountSelect({
         ))}
       </select>
       {loading && <p className="text-caption text-gray-400 mt-1">Loading accounts…</p>}
+      {!selected && inherited && (
+        <p className="text-caption text-gray-400 mt-1">
+          {[
+            inherited.bankName && `${inherited.bankName}${inherited.bankAccountNumber ? ` · ${inherited.bankAccountNumber}` : ""}`,
+            inherited.mpesaPaybill && `Paybill ${inherited.mpesaPaybill}`,
+            inherited.mpesaTill && `Till ${inherited.mpesaTill}`,
+          ].filter(Boolean).join("  ·  ") || "No bank or M-Pesa details captured yet"}
+        </p>
+      )}
       {selected && (
         <p className="text-caption text-gray-400 mt-1">
           {[

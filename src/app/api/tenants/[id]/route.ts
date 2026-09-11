@@ -1,6 +1,7 @@
 import { requireAuth, requireManager, requirePropertyAccess, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
+import { checkUnitPaymentAccount } from "@/lib/unit-payment-account";
 import { z } from "zod";
 
 async function loadTenantPropertyId(tenantId: string): Promise<string | null> {
@@ -25,7 +26,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       unit: {
         include: {
-          property: { select: { id: true, name: true, type: true, currency: true, manager: { select: { name: true, email: true } } } },
+          property: {
+            select: {
+              id: true, name: true, type: true, currency: true,
+              manager: { select: { name: true, email: true } },
+              agreement: { select: { paymentAccountId: true } },
+            },
+          },
           // Include all income entries for the unit (tenantId filter applied in UI)
           incomeEntries: {
             select: {
@@ -64,7 +71,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { leaseStart, leaseEnd, ...rest } = parsed.data;
+  const { leaseStart, leaseEnd, paymentAccountId, ...rest } = parsed.data;
+
+  const accountError = await checkUnitPaymentAccount(rest.unitId, paymentAccountId);
+  if (accountError) return accountError;
 
   // Keep the rent timeline complete: a direct edit that changes monthlyRent
   // appends a RentHistory row (the renewal flow already does this), so
@@ -91,6 +101,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       },
     }),
   ];
+  if (paymentAccountId !== undefined) {
+    // The form's payment-account dropdown edits the unit's override.
+    ops.push(prisma.unit.update({ where: { id: rest.unitId }, data: { paymentAccountId } }));
+  }
   if (rentChanged) {
     ops.push(
       prisma.rentHistory.create({

@@ -150,6 +150,10 @@ export const tenantSchema = z.object({
   serviceCharge:    z.coerce.number().min(0).default(0),
   isActive:         z.boolean().default(true),
   showVatOnInvoice: z.boolean().default(true),
+  // Not a Tenant column: the form's "Payment account" dropdown writes the
+  // tenant's UNIT override (Unit.paymentAccountId). null = use the property
+  // default; undefined = leave the unit untouched. Routes strip it.
+  paymentAccountId: z.string().nullable().optional(),
   notes:            z.string().optional(),
   paymentFrequency: z.preprocess(
     emptyToUndef,

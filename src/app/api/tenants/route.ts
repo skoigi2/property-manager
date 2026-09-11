@@ -2,6 +2,7 @@ import { requireSession, requireManager, getAccessiblePropertyIds } from "@/lib/
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
+import { checkUnitPaymentAccount } from "@/lib/unit-payment-account";
 import { TENANT_DIRECTORY_SELECT, tenantReadIsDirectory } from "@/lib/tenant-projection";
 
 export async function GET(req: Request) {
@@ -89,7 +90,10 @@ export async function POST(req: Request) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { leaseStart, leaseEnd, unitId, ...rest } = parsed.data;
+  const { leaseStart, leaseEnd, unitId, paymentAccountId, ...rest } = parsed.data;
+
+  const accountError = await checkUnitPaymentAccount(unitId, paymentAccountId);
+  if (accountError) return accountError;
 
   const [tenant] = await prisma.$transaction([
     prisma.tenant.create({
@@ -105,7 +109,9 @@ export async function POST(req: Request) {
     }),
     prisma.unit.update({
       where: { id: unitId },
-      data: { status: "ACTIVE" },
+      // The form's payment-account dropdown edits the unit's override;
+      // undefined (older clients) leaves it as is.
+      data: { status: "ACTIVE", ...(paymentAccountId !== undefined ? { paymentAccountId } : {}) },
     }),
   ]);
 

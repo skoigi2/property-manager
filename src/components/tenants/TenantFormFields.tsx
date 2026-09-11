@@ -1,11 +1,17 @@
 "use client";
 
-import { useFieldArray, type Control, type FieldErrors, type UseFormRegister } from "react-hook-form";
+import { useEffect } from "react";
+import { Controller, useFieldArray, useWatch, type Control, type FieldErrors, type UseFormRegister, type UseFormSetValue } from "react-hook-form";
 import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { HelpTip } from "@/components/ui/HelpTip";
+import { PaymentAccountSelect } from "@/components/ui/PaymentAccountSelect";
 import type { TenantInput } from "@/lib/validations";
+
+/** Per-unit payment-account state the form needs: the unit's own override
+ *  and the property's default (what "inherit" resolves to). */
+export type UnitAccountInfo = { override: string | null; propertyDefault: string | null };
 
 /**
  * The tenant add/edit field set, shared by the Tenants list modal and the
@@ -16,16 +22,32 @@ export function TenantFormFields({
   register,
   control,
   errors,
+  setValue,
   unitOptions,
+  unitAccounts,
   unitLabel = "Unit",
 }: {
   register: UseFormRegister<TenantInput>;
   control: Control<TenantInput>;
   errors: FieldErrors<TenantInput>;
+  setValue?: UseFormSetValue<TenantInput>;
   unitOptions: { value: string; label: string }[];
+  /** unitId → its payment-account override + property default. When
+   *  provided, the Payment account dropdown is shown and follows the unit. */
+  unitAccounts?: Record<string, UnitAccountInfo>;
   unitLabel?: string;
 }) {
   const contacts = useFieldArray({ control, name: "additionalContacts" });
+  const unitId = useWatch({ control, name: "unitId" });
+  const unitInfo = unitId && unitAccounts ? unitAccounts[unitId] : undefined;
+
+  // The dropdown edits the UNIT's override, so when the unit changes the field
+  // must show that unit's current setting — otherwise saving would silently
+  // clear an override on a unit the manager never meant to touch.
+  useEffect(() => {
+    if (!setValue || !unitInfo) return;
+    setValue("paymentAccountId", unitInfo.override);
+  }, [unitId, unitInfo, setValue]);
 
   return (
     <>
@@ -79,6 +101,26 @@ export function TenantFormFields({
         options={unitOptions}
         error={errors.unitId?.message}
       />
+      {unitAccounts && (
+        <div>
+          <Controller
+            control={control}
+            name="paymentAccountId"
+            render={({ field }) => (
+              <PaymentAccountSelect
+                label="Payment account for invoices"
+                tooltip="The bank / M-Pesa details and PIN / VAT numbers printed on this tenant's invoices. Leave on the property default unless this unit is paid into a different account. Accounts are managed in Settings → Payment Accounts."
+                value={field.value ?? null}
+                onChange={field.onChange}
+                inheritAccountId={unitInfo ? unitInfo.propertyDefault : undefined}
+              />
+            )}
+          />
+          <p className="text-caption text-gray-400 mt-1">
+            Saved on the unit (same setting as the unit's edit form and the property page), so it also applies to the next tenant of this unit.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <Input label="Monthly Rent" tooltip="The base rent amount, not including service charge. This is what's tracked in your rent roll and invoices." type="number" {...register("monthlyRent")} error={errors.monthlyRent?.message} />
         <Input label="Deposit" tooltip="Security held against potential damage or unpaid rent. Not counted as income — it's returned at lease end minus any deductions." type="number" {...register("depositAmount")} error={errors.depositAmount?.message} />

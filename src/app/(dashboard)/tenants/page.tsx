@@ -135,12 +135,23 @@ export default function TenantsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const { register, handleSubmit, reset, control, formState: { errors } } =
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } =
     useForm<TenantInput>({ resolver: formResolver(tenantSchema) });
 
   const allUnits = properties.flatMap((p: any) =>
     (p.units ?? []).map((u: any) => ({ ...u, propertyName: p.name }))
   );
+  // unitId → payment-account override + the property's default, for the
+  // form's "Payment account for invoices" dropdown.
+  const unitAccounts = useMemo(() => {
+    const map: Record<string, { override: string | null; propertyDefault: string | null }> = {};
+    for (const prop of properties) {
+      for (const u of prop.units ?? []) {
+        map[u.id] = { override: u.paymentAccountId ?? null, propertyDefault: prop.agreement?.paymentAccountId ?? null };
+      }
+    }
+    return map;
+  }, [properties]);
 
   // When adding a new tenant, only show units that are vacant or listed
   const availableUnits = editingTenant
@@ -308,6 +319,7 @@ export default function TenantsPage() {
       escalationIntervalYears: tenant.escalationIntervalYears ?? undefined,
       parkingFee:       tenant.parkingFee ?? undefined,
       showVatOnInvoice: tenant.showVatOnInvoice ?? true,
+      paymentAccountId: tenant.unit?.paymentAccountId ?? null,
       poBox:            tenant.poBox ?? "",
       additionalContacts: tenant.additionalContacts ?? [],
     });
@@ -1051,6 +1063,8 @@ export default function TenantsPage() {
               register={register}
               control={control}
               errors={errors}
+              setValue={setValue}
+              unitAccounts={unitAccounts}
               unitLabel={editingTenant ? "Unit" : "Unit (vacant/listed only)"}
               unitOptions={availableUnits.map((u: any) => ({
                 value: u.id,

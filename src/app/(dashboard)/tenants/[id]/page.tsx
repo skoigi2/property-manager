@@ -325,7 +325,7 @@ export default function TenantDetailPage() {
   // ── Edit-in-place modal (shares TenantFormFields with the Tenants list) ────
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
-  const { register: editRegister, handleSubmit: editHandleSubmit, reset: editReset, control: editControl, formState: { errors: editErrors } } =
+  const { register: editRegister, handleSubmit: editHandleSubmit, reset: editReset, control: editControl, setValue: editSetValue, formState: { errors: editErrors } } =
     useForm<TenantInput>({ resolver: formResolver(tenantSchema) });
 
   const tenantId = params.id as string;
@@ -367,6 +367,7 @@ export default function TenantDetailPage() {
       escalationIntervalYears: tenant.escalationIntervalYears ?? undefined,
       parkingFee:       tenant.parkingFee ?? undefined,
       showVatOnInvoice: tenant.showVatOnInvoice ?? true,
+      paymentAccountId: tenant.unit?.paymentAccountId ?? null,
       poBox:            tenant.poBox ?? "",
       additionalContacts: tenant.additionalContacts ?? [],
     });
@@ -1498,7 +1499,9 @@ export default function TenantDetailPage() {
             register={editRegister}
             control={editControl}
             errors={editErrors}
+            setValue={editSetValue}
             unitOptions={tenant?.unit ? [{ value: tenant.unitId, label: `${tenant.unit.unitNumber} (${tenant.unit.property?.name ?? ""})` }] : []}
+            unitAccounts={tenant?.unit ? { [tenant.unitId]: { override: tenant.unit.paymentAccountId ?? null, propertyDefault: tenant.unit.property?.agreement?.paymentAccountId ?? null } } : undefined}
           />
           <div className="flex gap-3 pt-2">
             <Button type="submit" loading={editSubmitting}>Update</Button>

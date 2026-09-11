@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -393,6 +393,21 @@ function InvoiceRow({
   const [syncing, setSyncing] = useState(false);
   const [emailing, setEmailing] = useState(false);
   const [emailingReceipt, setEmailingReceipt] = useState(false);
+  // The status menu is position:fixed (anchored to the button) so the table's
+  // overflow containers can't clip it; it opens upward near the viewport bottom.
+  const actionsBtnRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
+  function toggleActions() {
+    if (!showActions && actionsBtnRef.current) {
+      const r = actionsBtnRef.current.getBoundingClientRect();
+      const right = window.innerWidth - r.right;
+      const MENU_H = 260;
+      setMenuPos(r.bottom + MENU_H > window.innerHeight
+        ? { bottom: window.innerHeight - r.top + 4, right }
+        : { top: r.bottom + 4, right });
+    }
+    setShowActions((o) => !o);
+  }
   const receiptEntryId = invoice.status === "PAID" ? invoice.incomeEntries?.[0]?.id ?? null : null;
 
   async function emailReceipt() {
@@ -597,7 +612,8 @@ function InvoiceRow({
           {/* Status dropdown */}
           <div className="relative">
             <button
-              onClick={() => setShowActions(!showActions)}
+              ref={actionsBtnRef}
+              onClick={toggleActions}
               title="Change status"
               className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
             >
@@ -606,7 +622,10 @@ function InvoiceRow({
             {showActions && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                <div className="absolute right-0 top-8 z-20 bg-white border border-gray-100 rounded-xl shadow-lg w-44 py-1 text-body">
+                <div
+                  style={{ position: "fixed", top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right }}
+                  className="z-20 bg-white border border-gray-100 rounded-xl shadow-lg w-44 py-1 text-body"
+                >
                   {invoice.status === "PAID" ? (
                     /* A naive status flip would strand the auto-created income
                        entry and double-count when the real payment lands — the

@@ -971,7 +971,7 @@
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Click <em>Add Property</em></h4><p>Opens a form for name, type, currency, address, and city.</p></div></div>
         <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Set currency</h4><p>Choose the currency for all income and expenses on this property. Supported: KES, USD, GBP, EUR, AED, ZAR, TZS, UGX, INR, CHF, and more.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Add units</h4><p>From the property card or detail page, add units with number, type, and monthly rent. Unit types: Bedsitter, 1–4 Bed, Penthouse, Commercial, Other.</p></div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Set the defaults new tenants inherit</h4><p>On the property form, <strong>Default Service Charge</strong> prefills each new tenant's service charge, and <strong>Default Lease Agreement Fee</strong> (e.g. the 2,000 lease-preparation fee in the standard tenancy agreement) prefills the <em>Move-in</em> invoice preset. Management fee settings live on the same form — see <a href="#settings">Management fees</a>.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Set the defaults new tenants inherit, and where they pay</h4><p>On the property form, <strong>Default Service Charge</strong> prefills each new tenant's service charge, and <strong>Default Lease Agreement Fee</strong> (e.g. the 2,000 lease-preparation fee in the standard tenancy agreement) prefills the <em>Move-in</em> invoice preset. <strong>Payment account for tenant invoices</strong> picks the account whose bank / M-Pesa details and PIN / VAT numbers print on this property's rent invoices — bank details are never typed on a property; they live once in <a href="#settings">Settings → Payment Accounts</a> (you can add a new account from the dropdown). Management fee settings live on the same form — see <a href="#settings">Management fees</a>.</p></div></div>
       </div>
     </div>
 
@@ -1308,14 +1308,14 @@
       <p style="margin-bottom:12px">The "How to Pay" block (bank account, M-Pesa Paybill/Till, payment instructions) isn't typed on each invoice — it comes from a reusable <strong>Payment Account</strong>. To change what tenants see:</p>
       <div class="steps">
         <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Create or edit the account</h4><p>Go to <strong>Settings → Payment Accounts</strong>. Each account holds the bank name, account name &amp; number, branch, M-Pesa Paybill / Till, and free-text payment instructions. Editing an account updates every invoice that resolves to it from then on.</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Point the property at it</h4><p>Open the property's <strong>Management Agreement</strong> page and pick the account as the <em>property default</em> — it now applies to every unit in that property.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Point the property at it</h4><p>On the property's <strong>Edit</strong> form pick it as the <em>Payment account for tenant invoices</em> (the same setting also appears on the Management Agreement page) — it now applies to every unit in that property.</p></div></div>
         <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Override a single unit (optional)</h4><p>If one unit is paid into a different account (even a different landlord company), open that unit's <strong>Edit</strong> form and choose its own payment account. Leave it blank to inherit the property default.</p></div></div>
       </div>
       <div class="callout note">
         <span class="callout-icon">ℹ️</span>
         <div class="callout-body">
           <strong>How the details are resolved</strong>
-          Each invoice resolves its payment block top-down: <em>unit override → property default account → legacy agreement details → organisation branding</em>. Details are applied when the PDF is generated, so the next invoice you download or send reflects your change — PDFs already emailed to tenants are unchanged. See <a href="#settings">Payment Accounts</a> for invoicing identities and per-account numbering series.
+          Each invoice resolves its payment block top-down: <em>unit override → property default account → organisation branding</em> (details typed on older agreements before accounts existed still act as a fallback). The PIN / VAT numbers in the header follow the same account. Details are applied when the PDF is generated, so the next invoice you download or send reflects your change — PDFs already emailed to tenants are unchanged. See <a href="#settings">Payment Accounts</a> for invoicing identities and per-account numbering series.
         </div>
       </div>
     </div>
@@ -1354,6 +1354,8 @@
           <tr><td><strong>Airbnb periodic letting fee</strong></td><td>Bundles the month's short-let bookings at the short-term letting-fee rate</td></tr>
         </tbody>
       </table>
+      <h4 style="margin-top:14px">Where the owner is told to pay</h4>
+      <p style="margin-bottom:12px">Owner invoices print the manager's own bank / M-Pesa details and PIN / VAT numbers from the <em>Manager's account for owner invoices</em> chosen on the property's Management Agreement page — a payment account like any other, set up once under <a href="#settings">Settings → Payment Accounts</a>. Nothing is typed per property except optional free-text payment instructions.</p>
       <h4 style="margin-top:14px">Recovering the lease preparation fee from the owner</h4>
       <p style="margin-bottom:12px">When a tenant pays the lease agreement fee on their move-in invoice, the money lands in the <em>landlord's</em> account, but the manager prepared the lease. The next monthly <strong>Generate → Management Fee</strong> invoice therefore adds a line for each such fee received that month that has not yet been recovered — "Lease preparation fee recovery — Muhidin Haji Muhumed, Unit 2.11 (received 11 Sept 2026): KES 2,000" — after the tax line, untaxed, because it is a reimbursement rather than a fee. The Owner Invoices tab shows a <strong>Lease preparation fees — recovery from the owner</strong> panel: collected from tenants, invoiced to the owner, settled (owner paid), and what is still to invoice, with the state of each fee. Nothing is billed twice: a fee is recovered once it sits on a non-cancelled owner invoice, and deleting that line from a draft (or cancelling the invoice) makes it pending again for the next month.</p>
       <div class="screenshot-wrap" style="margin-bottom:12px">
@@ -2047,7 +2049,7 @@
         <tbody>
           <tr><td><strong>Management Fees</strong></td><td>How your fee is charged per property — see the precedence chain below.</td></tr>
           <tr><td><strong>Branding</strong></td><td>Company logo, name, and address printed on invoices and PDFs.</td></tr>
-          <tr><td><strong>Payment Accounts</strong></td><td>Named bank / M-Pesa destinations shown on tenant invoices, reusable across properties, with per-unit overrides, optional invoicing identity, and per-account invoice numbering series.</td></tr>
+          <tr><td><strong>Payment Accounts</strong></td><td>The <em>only</em> place bank / M-Pesa details, PIN and VAT numbers are typed. Reused everywhere: a property's default for tenant invoices, per-unit overrides, the manager's own account for owner invoices, optional invoicing identity, and per-account invoice numbering series.</td></tr>
           <tr><td><strong>Property Info</strong></td><td>Per-property currency override and logo. Property logo overrides the company logo on that property's reports.</td></tr>
           <tr><td><strong>Tax</strong></td><td>Default tax type (ADDITIVE VAT or WITHHELD) and rate. Can be overridden per property.</td></tr>
           <tr><td><strong>Calendar</strong></td><td>Personal calendar feed URLs for subscribing from Google / Outlook / Apple Calendar (see <a href="#calendar">Calendar</a>).</td></tr>
@@ -2089,7 +2091,7 @@
 
     <div class="sub-section">
       <h3>Payment Accounts</h3>
-      <p style="margin-bottom:12px">Some units are paid into different bank accounts — even different companies. <strong>Settings → Payment Accounts</strong> lets you define each account once (bank name, account number, branch, M-Pesa Paybill / Till, instructions) and reuse it everywhere. Payment details on a tenant's invoice resolve in this order: <strong>unit override → property default account → agreement (legacy) details → organisation branding</strong>.</p>
+      <p style="margin-bottom:12px">Bank details are typed in one place only. <strong>Settings → Payment Accounts</strong> holds each account once — bank name, account name &amp; number, branch, M-Pesa Paybill / Till, payment instructions, and the company's name, logo, KRA PIN and VAT number — and every form that needs "where the money goes" offers a dropdown over these accounts (with an inline <em>New account</em> shortcut) instead of blank bank fields. Payment details on a tenant's invoice resolve in this order: <strong>unit override → property default account → organisation branding</strong> (details typed on older agreements before accounts existed remain as a fallback).</p>
       <ul class="feature-list">
         <li><strong>Property default</strong> — pick the payment account on the property form (<em>Payment account for tenant invoices</em>) or on its Management Agreement page; both edit the same setting. It applies to every unit unless overridden. Bank details are never typed on a property.</li>
         <li><strong>Manager billing</strong> — on the Management Agreement page, <em>Manager's account for owner invoices</em> is also a payment account (the manager's own), so the owner invoice PDF shows where to remit fees, with that account's PIN / VAT numbers. Only free-text payment instructions are typed there.</li>

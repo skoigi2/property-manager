@@ -43,7 +43,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const account = agreement?.mgmtPaymentAccount ?? null;
   const org = orgBase ? {
     ...orgBase,
-    vatRegistrationNumber: agreement?.mgmtKraPin ?? account?.kraPin ?? orgBase.vatRegistrationNumber ?? null,
+    vatRegistrationNumber: account?.kraPin ?? agreement?.mgmtKraPin ?? orgBase.vatRegistrationNumber ?? null,
     bankName: account ? account.bankName : agreement?.mgmtBankName ?? null,
     bankAccountName: account ? account.bankAccountName : agreement?.mgmtBankAccountName ?? null,
     bankAccountNumber: account ? account.bankAccountNumber : agreement?.mgmtBankAccountNumber ?? null,

@@ -228,7 +228,7 @@ export default function AgreementPage() {
             <SectionHeader
               icon={CreditCard}
               title="Tenant Invoice Payment Details"
-              subtitle="Optional — the bank/M-Pesa details shown on rent invoices. Individual units can override this on the unit itself."
+              subtitle="Optional — the bank/M-Pesa details and PIN / VAT numbers shown on rent invoices come from the chosen payment account. Individual units can override this on the unit itself."
             />
             <div className="space-y-4">
               <PaymentAccountSelect
@@ -238,9 +238,6 @@ export default function AgreementPage() {
                 value={paymentAccountId}
                 onChange={(id) => setValue("paymentAccountId", id, { shouldDirty: true })}
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
-                <Input label="KRA PIN / VAT Registration Number" help="Printed on invoices — separate from the payment account" placeholder="e.g. P051234567X" {...register("tenantKraPin")} />
-              </div>
             </div>
           </Card>
 
@@ -259,9 +256,6 @@ export default function AgreementPage() {
                 value={mgmtPaymentAccountId}
                 onChange={(id) => setValue("mgmtPaymentAccountId", id, { shouldDirty: true })}
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 pt-4">
-                <Input label="KRA PIN / VAT Registration Number" help="Printed on owner invoices — separate from the payment account" placeholder="e.g. P051234567X" {...register("mgmtKraPin")} />
-              </div>
               <div>
                 <label className="text-body font-medium text-gray-600 ">Additional Instructions <span className="text-gray-400 ">(optional)</span></label>
                 <textarea rows={2} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold resize-none"

@@ -55,6 +55,8 @@ export async function buildInvoicePdfPayload(invoiceId: string) {
   const account = invoice.tenant.unit.paymentAccount ?? agreement?.paymentAccount ?? null;
   const org = orgBase ? {
     ...orgBase,
+    // Legacy inline PIN (no longer editable) → org registration; the payment
+    // account's PIN/VAT take precedence in the PDF via `issuer`.
     vatRegistrationNumber: agreement?.tenantKraPin ?? orgBase.vatRegistrationNumber ?? null,
     bankName: account ? account.bankName : agreement?.tenantBankName ?? null,
     bankAccountName: account ? account.bankAccountName : agreement?.tenantBankAccountName ?? null,

@@ -223,10 +223,8 @@ interface Property {
   serviceChargeDefault: number | null;
   leaseFeeDefault: number | null;
   currency: string | null;
-  landlordEntity:    string | null;
-  bankName:          string | null;
-  bankAccountName:   string | null;
-  bankAccountNumber: string | null;
+  /** Default payment account for tenant invoices (agreement-level). */
+  agreement?: { paymentAccountId: string | null } | null;
   units: Unit[];
   owner:   { id: string; name: string | null; email: string | null } | null;
   manager: { id: string; name: string | null; email: string | null } | null;
@@ -294,10 +292,7 @@ const propertySchema = z.object({
     z.number().min(0).optional()
   ),
   currency: z.preprocess(emptyToUndef, z.string().optional()),
-  landlordEntity:    z.string().optional(),
-  bankName:          z.string().optional(),
-  bankAccountName:   z.string().optional(),
-  bankAccountNumber: z.string().optional(),
+  paymentAccountId: z.string().nullable().optional(),
 });
 type PropertyForm = z.infer<typeof propertySchema>;
 
@@ -403,10 +398,12 @@ function StatusDot({ status }: { status: string }) {
 interface OwnerUser { id: string; name: string | null; email: string | null; }
 interface OrgOption  { id: string; name: string; }
 
-function PropertyFormFields({ register, errors, owners, managers, watchedCategory, orgs, showFeeFields }: {
+function PropertyFormFields({ register, errors, owners, managers, watchedCategory, orgs, showFeeFields, paymentAccountId, onPaymentAccountChange }: {
   register: any; errors: any; owners: OwnerUser[]; managers: OwnerUser[]; watchedCategory?: string; orgs: OrgOption[];
   /** Management-fee configuration is admin-only — hidden for managers. */
   showFeeFields: boolean;
+  paymentAccountId: string | null;
+  onPaymentAccountChange: (id: string | null) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -465,24 +462,14 @@ function PropertyFormFields({ register, errors, owners, managers, watchedCategor
         <Input label="City"    {...register("city")}    placeholder="City" />
       </div>
 
-      {/* Landlord & banking — per-property overrides for invoice + receipt details */}
-      <div className="rounded-xl border border-gray-100 p-3 space-y-3 bg-cream/30">
-        <p className="text-label font-semibold uppercase text-gray-500 ">Landlord & Banking</p>
-        <Input
-          label="Landlord Entity"
-          tooltip="The legal entity that owns or holds the property (e.g. Kentmere Flora Ltd). Appears on invoices and lease agreements."
-          {...register("landlordEntity")}
-          placeholder="e.g. Acme Holdings Ltd"
-        />
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="Bank Name"          {...register("bankName")}          placeholder="e.g. KCB Bank" />
-          <Input label="Bank Account Name"  {...register("bankAccountName")}   placeholder="e.g. Acme Holdings Ltd" />
-        </div>
-        <Input
-          label="Bank Account Number"
-          tooltip="Where rent should be paid. If left blank, the organisation-level account is used instead."
-          {...register("bankAccountNumber")}
-          placeholder="e.g. 1234567890"
+      {/* Where tenants pay — a Payment Account (Settings → Payment Accounts), never typed here */}
+      <div className="rounded-xl border border-gray-100 p-3 bg-cream/30">
+        <PaymentAccountSelect
+          label="Payment account for tenant invoices"
+          inheritLabel="— None (use organisation branding details) —"
+          tooltip="The bank / M-Pesa details and invoicing identity printed on this property's rent invoices. Individual units can override it on the unit form. Manage accounts in Settings → Payment Accounts."
+          value={paymentAccountId}
+          onChange={onPaymentAccountChange}
         />
       </div>
 
@@ -1461,6 +1448,7 @@ export default function PropertiesPage() {
       type: "LONGTERM",
       city: "",
       organizationId: orgs.length === 1 ? orgs[0].id : undefined,
+      paymentAccountId: null,
     });
     setPropModalOpen(true);
   };
@@ -1482,10 +1470,7 @@ export default function PropertiesPage() {
       serviceChargeDefault: p.serviceChargeDefault ?? undefined,
       leaseFeeDefault: p.leaseFeeDefault ?? undefined,
       currency: p.currency ?? undefined,
-      landlordEntity:    p.landlordEntity    ?? "",
-      bankName:          p.bankName          ?? "",
-      bankAccountName:   p.bankAccountName   ?? "",
-      bankAccountNumber: p.bankAccountNumber ?? "",
+      paymentAccountId: p.agreement?.paymentAccountId ?? null,
     });
     setPropModalOpen(true);
   };
@@ -1864,7 +1849,17 @@ export default function PropertiesPage() {
         title={editProp ? "Edit Property" : "Add Property"}
       >
         <form onSubmit={propForm.handleSubmit(onSaveProperty)} className="space-y-4">
-          <PropertyFormFields register={propForm.register} errors={propForm.formState.errors} owners={owners} managers={managers} watchedCategory={propForm.watch("category")} orgs={orgs} showFeeFields={isAdmin} />
+          <PropertyFormFields
+            register={propForm.register}
+            errors={propForm.formState.errors}
+            owners={owners}
+            managers={managers}
+            watchedCategory={propForm.watch("category")}
+            orgs={orgs}
+            showFeeFields={isAdmin}
+            paymentAccountId={propForm.watch("paymentAccountId") ?? null}
+            onPaymentAccountChange={(id) => propForm.setValue("paymentAccountId", id, { shouldDirty: true })}
+          />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setPropModalOpen(false)}>
               Cancel

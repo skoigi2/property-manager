@@ -724,10 +724,6 @@ model Property {
   leaseFeeDefault      Decimal? @db.Decimal(14, 2)
   currency              String            @default("USD")
   vatRegistrationNumber String?
-  landlordEntity        String?
-  bankName              String?
-  bankAccountName       String?
-  bankAccountNumber     String?
   units                 Unit[]
   expenses              ExpenseEntry[]
   propertyAccess        PropertyAccess[]
@@ -1781,7 +1777,13 @@ model ManagementAgreement {
   // per unit via Unit.paymentAccountId). The inline tenant* fields below are
   // the legacy storage and remain as the fallback for unmigrated agreements.
   paymentAccountId               String?
-  paymentAccount                 PaymentAccount? @relation(fields: [paymentAccountId], references: [id], onDelete: SetNull)
+  paymentAccount                 PaymentAccount? @relation("AgreementTenantAccount", fields: [paymentAccountId], references: [id], onDelete: SetNull)
+
+  // Where the OWNER pays the manager's fees (owner invoices). A payment
+  // account like any other; the inline mgmt* fields below are the legacy
+  // fallback for agreements set up before accounts existed.
+  mgmtPaymentAccountId           String?
+  mgmtPaymentAccount             PaymentAccount? @relation("AgreementMgmtAccount", fields: [mgmtPaymentAccountId], references: [id], onDelete: SetNull)
 
   // Tenant invoice payment details (where tenants send rent)
   tenantKraPin                   String?
@@ -1845,7 +1847,8 @@ model PaymentAccount {
   mpesaTill           String?
   paymentInstructions String?
   isActive            Boolean  @default(true)
-  agreements          ManagementAgreement[]
+  agreements          ManagementAgreement[] @relation("AgreementTenantAccount")
+  mgmtAgreements      ManagementAgreement[] @relation("AgreementMgmtAccount")
   units               Unit[]
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

@@ -55,6 +55,8 @@ export const agreementFormSchema = z.object({
   latePaymentInterestRate:        num({ min: 0, max: 100, label: "Late payment interest" }),
   // Default payment account for tenant invoices (null = organisation branding)
   paymentAccountId:               z.string().nullable().optional(),
+  // Where the owner pays the manager's fees (owner invoices); null = legacy inline mgmt* fields
+  mgmtPaymentAccountId:           z.string().nullable().optional(),
   // Tenant invoice payment details (all optional)
   tenantKraPin:              optionalText,
   tenantBankName:            optionalText,
@@ -90,6 +92,7 @@ export const AGREEMENT_FORM_DEFAULTS: AgreementFormValues = {
   kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
   latePaymentInterestRate: 0,
   paymentAccountId: null,
+  mgmtPaymentAccountId: null,
   tenantKraPin: "",
   tenantBankName: "", tenantBankAccountName: "", tenantBankAccountNumber: "", tenantBankBranch: "",
   tenantMpesaPaybill: "", tenantMpesaAccountNumber: "", tenantMpesaTill: "", tenantPaymentInstructions: "",
@@ -113,6 +116,7 @@ export function normalizeAgreementForForm(agr: any): AgreementFormValues {
     kpiStartDate: agr.kpiStartDate ? String(agr.kpiStartDate).slice(0, 10) : "",
     setupFeeTotal: agr.setupFeeTotal ?? "",
     paymentAccountId: agr.paymentAccountId ?? null,
+    mgmtPaymentAccountId: agr.mgmtPaymentAccountId ?? null,
     ...Object.fromEntries(TEXT_FIELDS.map((f) => [f, agr[f] ?? ""])),
   };
 }
@@ -157,6 +161,7 @@ export const agreementApiSchema = z.object({
   latePaymentInterestRate:        z.coerce.number().min(0).max(100).default(0),
   // Default payment account for tenant invoices
   paymentAccountId:               z.string().optional().nullable(),
+  mgmtPaymentAccountId:           z.string().optional().nullable(),
   // Tenant invoice payment details
   tenantKraPin:                   z.string().optional().nullable(),
   tenantBankName:                 z.string().optional().nullable(),

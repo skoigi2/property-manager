@@ -20,6 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           agreement: {
             select: {
               mgmtKraPin: true,
+              mgmtPaymentAccount: true,
               mgmtBankName: true, mgmtBankAccountName: true, mgmtBankAccountNumber: true, mgmtBankBranch: true,
               mgmtMpesaPaybill: true, mgmtMpesaAccountNumber: true, mgmtMpesaTill: true, mgmtPaymentInstructions: true,
             },
@@ -37,17 +38,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const orgBase = invoice.property.organization;
   const agreement = invoice.property.agreement;
+  // Manager billing details: the agreement's payment account wins; the inline
+  // mgmt* fields are the legacy fallback for agreements set up before accounts.
+  const account = agreement?.mgmtPaymentAccount ?? null;
   const org = orgBase ? {
     ...orgBase,
-    vatRegistrationNumber: agreement?.mgmtKraPin ?? orgBase.vatRegistrationNumber ?? null,
-    bankName: agreement?.mgmtBankName ?? null,
-    bankAccountName: agreement?.mgmtBankAccountName ?? null,
-    bankAccountNumber: agreement?.mgmtBankAccountNumber ?? null,
-    bankBranch: agreement?.mgmtBankBranch ?? null,
-    mpesaPaybill: agreement?.mgmtMpesaPaybill ?? null,
-    mpesaAccountNumber: agreement?.mgmtMpesaAccountNumber ?? null,
-    mpesaTill: agreement?.mgmtMpesaTill ?? null,
-    paymentInstructions: agreement?.mgmtPaymentInstructions ?? null,
+    vatRegistrationNumber: agreement?.mgmtKraPin ?? account?.kraPin ?? orgBase.vatRegistrationNumber ?? null,
+    bankName: account ? account.bankName : agreement?.mgmtBankName ?? null,
+    bankAccountName: account ? account.bankAccountName : agreement?.mgmtBankAccountName ?? null,
+    bankAccountNumber: account ? account.bankAccountNumber : agreement?.mgmtBankAccountNumber ?? null,
+    bankBranch: account ? account.bankBranch : agreement?.mgmtBankBranch ?? null,
+    mpesaPaybill: account ? account.mpesaPaybill : agreement?.mgmtMpesaPaybill ?? null,
+    mpesaAccountNumber: account ? account.mpesaAccountNumber : agreement?.mgmtMpesaAccountNumber ?? null,
+    mpesaTill: account ? account.mpesaTill : agreement?.mgmtMpesaTill ?? null,
+    paymentInstructions: agreement?.mgmtPaymentInstructions ?? account?.paymentInstructions ?? null,
   } : null;
   const data: OwnerInvoiceData = {
     ...invoice,

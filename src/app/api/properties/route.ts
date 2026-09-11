@@ -13,10 +13,9 @@ const createSchema = z.object({
   city: z.string().optional(),
   description: z.string().optional(),
   currency: z.string().optional(),
-  landlordEntity: z.string().optional(),
-  bankName: z.string().optional(),
-  bankAccountName: z.string().optional(),
-  bankAccountNumber: z.string().optional(),
+  // Default payment account for tenant invoices — stored on the agreement
+  // (the same field the agreement page edits), never on the property.
+  paymentAccountId: z.string().nullable().optional(),
   ownerId: z.string().optional(),
   managerId: z.string().optional(),
   managementFeeRate: z.number().optional(),
@@ -28,7 +27,7 @@ const createSchema = z.object({
 
 /** Property scalars that only the manager tier may read (fix: they leaked to every role). */
 const MANAGER_ONLY_PROPERTY_FIELDS = [
-  "bankName", "bankAccountName", "bankAccountNumber", "vatRegistrationNumber", "landlordEntity",
+  "vatRegistrationNumber",
 ] as const;
 
 export async function GET(req: Request) {
@@ -95,7 +94,7 @@ export async function GET(req: Request) {
       },
       owner:   { select: { id: true, name: true, email: true } },
       manager: { select: { id: true, name: true, email: true } },
-      agreement: { select: { latePaymentInterestRate: true } },
+      agreement: { select: { latePaymentInterestRate: true, paymentAccountId: true } },
       _count: { select: { units: true } },
     },
     orderBy: { name: "asc" },
@@ -152,11 +151,24 @@ export async function POST(req: Request) {
     ? (parsed.data.organizationId ?? null)
     : (session.user.organizationId ?? null);
 
-  const { organizationId: _orgId, ...propertyData } = parsed.data;
+  const { organizationId: _orgId, paymentAccountId, ...propertyData } = parsed.data;
+  if (paymentAccountId) {
+    const account = await prisma.paymentAccount.findUnique({ where: { id: paymentAccountId }, select: { organizationId: true } });
+    if (!account || account.organizationId !== resolvedOrgId) {
+      return Response.json({ error: "Payment account not found" }, { status: 400 });
+    }
+  }
   try {
     const property = await prisma.property.create({
       data: { ...propertyData, organizationId: resolvedOrgId },
     });
+    if (paymentAccountId) {
+      await prisma.managementAgreement.upsert({
+        where: { propertyId: property.id },
+        create: { propertyId: property.id, paymentAccountId },
+        update: { paymentAccountId },
+      });
+    }
 
     // Grant PropertyAccess to every member of the owning org so the new property
     // is visible to all managers/accountants — not just the creator. (Org-admins

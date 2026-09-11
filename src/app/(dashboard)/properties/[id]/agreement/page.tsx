@@ -54,6 +54,7 @@ export default function AgreementPage() {
     defaultValues: AGREEMENT_FORM_DEFAULTS,
   });
   const paymentAccountId = watch("paymentAccountId") ?? null;
+  const mgmtPaymentAccountId = watch("mgmtPaymentAccountId") ?? null;
 
   useEffect(() => {
     Promise.all([
@@ -248,28 +249,18 @@ export default function AgreementPage() {
             <SectionHeader
               icon={Building2}
               title="Manager Billing Details"
-              subtitle="All fields optional — shown on owner invoices so the property owner knows where to remit management fees"
+              subtitle="Shown on owner invoices so the property owner knows where to remit management fees"
             />
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-100 pb-4">
-                <Input label="KRA PIN / VAT Registration Number" placeholder="e.g. P051234567X" {...register("mgmtKraPin")} />
-              </div>
-              <div className="border-b border-gray-100 pb-4">
-                <p className="text-label font-semibold text-gray-500 uppercase mb-3">Bank Transfer</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Bank Name" placeholder="e.g. KCB Bank" {...register("mgmtBankName")} />
-                  <Input label="Account Name" placeholder="e.g. Koka Advisory Group" {...register("mgmtBankAccountName")} />
-                  <Input label="Account Number" placeholder="e.g. 9876543210" {...register("mgmtBankAccountNumber")} />
-                  <Input label="Branch (optional)" placeholder="e.g. Upper Hill" {...register("mgmtBankBranch")} />
-                </div>
-              </div>
-              <div className="border-b border-gray-100 pb-4">
-                <p className="text-label font-semibold text-gray-500 uppercase mb-3">M-Pesa</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Paybill Number" placeholder="e.g. 522522" {...register("mgmtMpesaPaybill")} />
-                  <Input label="Account No (for Paybill)" placeholder="e.g. invoice number" {...register("mgmtMpesaAccountNumber")} />
-                  <Input label="Till Number (alternative to Paybill)" placeholder="e.g. 654321" {...register("mgmtMpesaTill")} />
-                </div>
+              <PaymentAccountSelect
+                label="Manager's account for owner invoices"
+                inheritLabel="— None (use organisation branding details) —"
+                tooltip="The bank / M-Pesa details the owner pays management fees into. Set up the manager's own account under Settings → Payment Accounts and pick it here."
+                value={mgmtPaymentAccountId}
+                onChange={(id) => setValue("mgmtPaymentAccountId", id, { shouldDirty: true })}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 pt-4">
+                <Input label="KRA PIN / VAT Registration Number" help="Printed on owner invoices — separate from the payment account" placeholder="e.g. P051234567X" {...register("mgmtKraPin")} />
               </div>
               <div>
                 <label className="text-body font-medium text-gray-600 ">Additional Instructions <span className="text-gray-400 ">(optional)</span></label>

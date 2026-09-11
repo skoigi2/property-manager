@@ -44,13 +44,12 @@ export async function PUT(
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  // A payment account must belong to the property's organisation.
-  if (parsed.data.paymentAccountId) {
+  // Payment accounts (tenant collections + manager billing) must belong to
+  // the property's organisation.
+  for (const accountId of [parsed.data.paymentAccountId, parsed.data.mgmtPaymentAccountId]) {
+    if (!accountId) continue;
     const [account, property] = await Promise.all([
-      prisma.paymentAccount.findUnique({
-        where: { id: parsed.data.paymentAccountId },
-        select: { organizationId: true },
-      }),
+      prisma.paymentAccount.findUnique({ where: { id: accountId }, select: { organizationId: true } }),
       prisma.property.findUnique({ where: { id: params.id }, select: { organizationId: true } }),
     ]);
     if (!account || account.organizationId !== property?.organizationId) {

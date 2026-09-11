@@ -15,10 +15,8 @@ const updateSchema = z.object({
   address: z.string().optional(),
   city: z.string().optional(),
   description: z.string().optional(),
-  landlordEntity: z.string().nullable().optional(),
-  bankName: z.string().nullable().optional(),
-  bankAccountName: z.string().nullable().optional(),
-  bankAccountNumber: z.string().nullable().optional(),
+  // Default payment account for tenant invoices (agreement.paymentAccountId).
+  paymentAccountId: z.string().nullable().optional(),
   ownerId:   z.string().nullable().optional(),
   managerId: z.string().nullable().optional(),
   managementFeeRate: z.number().nullable().optional(),
@@ -65,8 +63,25 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   const body = await req.json();
-  const parsed = updateSchema.safeParse(body);
-  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  const parsedAll = updateSchema.safeParse(body);
+  if (!parsedAll.success) return Response.json({ error: parsedAll.error.flatten() }, { status: 400 });
+  // paymentAccountId lives on the ManagementAgreement, not the Property row.
+  const { paymentAccountId, ...propertyPatch } = parsedAll.data;
+  const parsed = { data: propertyPatch };
+  if (paymentAccountId !== undefined) {
+    const current = await prisma.property.findUnique({ where: { id: params.id }, select: { organizationId: true } });
+    if (paymentAccountId) {
+      const account = await prisma.paymentAccount.findUnique({ where: { id: paymentAccountId }, select: { organizationId: true } });
+      if (!account || account.organizationId !== current?.organizationId) {
+        return Response.json({ error: "Payment account not found" }, { status: 400 });
+      }
+    }
+    await prisma.managementAgreement.upsert({
+      where: { propertyId: params.id },
+      create: { propertyId: params.id, paymentAccountId },
+      update: { paymentAccountId },
+    });
+  }
 
   // Management-fee configuration is org revenue, not day-to-day ops — admin-only.
   if (!isAdminCaller && ("managementFeeRate" in parsed.data || "managementFeeFlat" in parsed.data)) {

@@ -28,6 +28,12 @@ export interface ReconReading {
   fuelRate: number | null;
   /** False for a vacant unit's reading — consumed, never billed. */
   hasTenant: boolean;
+  /**
+   * A SUBMITTED reading the manager has not approved yet. It is real
+   * consumption the bulk meter has already counted, so it must not read as
+   * "unaccounted" — but it is not billed and carries no money yet.
+   */
+  pending?: boolean;
 }
 
 export interface ReconCash {
@@ -48,9 +54,11 @@ export interface UtilityReconRow {
   /** Unit meters with no tenant (vacant) — consumed, not billed. */
   unitsVacant: number;
   unitsCommon: number;
+  /** Unit / common readings still awaiting approval — metered, not yet billed. */
+  unitsPending: number;
   /** Bulk supply meter; null when the property has none / it wasn't read. */
   unitsBulk: number | null;
-  /** bulk − billed − vacant − common; null without a bulk reading. */
+  /** bulk − billed − vacant − common − pending; null without a bulk reading. */
   unitsUnaccounted: number | null;
   billed: number;
   /** units × power (supply) rate — what the tariff sets aside for the supplier. */
@@ -76,7 +84,8 @@ function inMonth(d: Date, year: number, month: number): boolean {
 }
 
 function finish(row: UtilityReconRow, hasBulk: boolean): UtilityReconRow {
-  const metered = row.unitsBilled + row.unitsVacant + row.unitsCommon;
+  const metered = row.unitsBilled + row.unitsVacant + row.unitsCommon + row.unitsPending;
+  row.unitsPending = round3(row.unitsPending);
   row.unitsBilled = round3(row.unitsBilled);
   row.unitsVacant = round3(row.unitsVacant);
   row.unitsCommon = round3(row.unitsCommon);
@@ -98,7 +107,7 @@ function finish(row: UtilityReconRow, hasBulk: boolean): UtilityReconRow {
 
 const emptyRow = (year: number, month: number): UtilityReconRow => ({
   year, month,
-  unitsBilled: 0, unitsVacant: 0, unitsCommon: 0, unitsBulk: 0, unitsUnaccounted: null,
+  unitsBilled: 0, unitsVacant: 0, unitsCommon: 0, unitsPending: 0, unitsBulk: 0, unitsUnaccounted: null,
   billed: 0, supplyAllocation: 0, fuelAllocation: 0, collected: 0, supplierPaid: 0, fuelPaid: 0,
   surplus: 0, costPerUnit: null, avgRateCharged: null,
 });
@@ -128,6 +137,8 @@ export function buildUtilityReconciliation(input: {
       if (r.role === "BULK") {
         hasBulk = true;
         row.unitsBulk = (row.unitsBulk ?? 0) + r.consumption;
+      } else if (r.pending) {
+        row.unitsPending += Math.max(r.consumption, 0);
       } else if (r.role === "COMMON") {
         row.unitsCommon += r.consumption;
       } else if (!r.hasTenant) {
@@ -146,6 +157,7 @@ export function buildUtilityReconciliation(input: {
     total.unitsBilled += row.unitsBilled;
     total.unitsVacant += row.unitsVacant;
     total.unitsCommon += row.unitsCommon;
+    total.unitsPending += row.unitsPending;
     if (hasBulk) {
       anyBulk = true;
       total.unitsBulk = (total.unitsBulk ?? 0) + (row.unitsBulk ?? 0);

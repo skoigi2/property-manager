@@ -17,7 +17,7 @@ import {
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { getWorkflow, getStageByIndex, getStageByKey, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { startOfMonth, subMonths } from "date-fns";
-import { seedDemoUtilities } from "@/lib/demo-utilities";
+import { seedDemoUtilities, demoUtilitiesState, clearDemoUtilities } from "@/lib/demo-utilities";
 
 // Seeding does hundreds of inserts; on Vercel (higher per-query latency than
 // local) this can exceed 60 s. Raise to the platform max and run independent
@@ -1279,8 +1279,12 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
   // ── Property-level monthly expenses ──────────────────────────────────────────
   const monthlyPropExpenses = [
     { category: ExpenseCategory.MANAGEMENT_FEE,     amount: 48000, desc: "Monthly management fee — Kilimani Court" },
-    { category: ExpenseCategory.WATER,              amount: 18000, desc: "Nairobi Water & Sewerage — building supply" },
-    { category: ExpenseCategory.ELECTRICITY,        amount: 24000, desc: "KPLC — common areas, lift, borehole pump & security lighting" },
+    // Sub-metered building: tenants are billed for water and power from
+    // their own meters (seedDemoUtilities), so these are the SUPPLIER bills
+    // the Utilities reconciliation nets the collections against.
+    { category: ExpenseCategory.WATER,              amount: 3200,  desc: "Nairobi Water & Sewerage — council supply (the borehole covers the rest)" },
+    { category: ExpenseCategory.ELECTRICITY,        amount: 28000, desc: "KPLC — bulk supply for the whole property (tokens)" },
+    { category: ExpenseCategory.GENERATOR,          amount: 4000,  desc: "Generator diesel — standby power" },
     { category: ExpenseCategory.WIFI,               amount: 12000, desc: "Safaricom Fibre — building internet" },
     { category: ExpenseCategory.SECURITY,           amount: 45000, desc: "Lavington Security Ltd — 3 guards, 24/7 cover" },
     { category: ExpenseCategory.GARBAGE_COLLECTION, amount: 8000,  desc: "Taka Taka Solutions — weekly waste collection" },
@@ -1651,8 +1655,9 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
     ],
   });
 
-  // Water + electricity metering: meters, tariffs, two months of readings
-  // (one approved and ready to bill, one awaiting review).
+  // Water + electricity metering, shown working end to end: meters, tariffs,
+  // three months of readings billed on the rent invoices above, a paid /
+  // part-paid / unpaid mix, and two readings still awaiting review.
   await seedDemoUtilities(property.id, organizationId, now);
 
   return property;
@@ -3573,7 +3578,19 @@ export async function POST(req: Request) {
     if (existing._count.units > 0 && !force) {
       // Fully seeded — backfill access for any org members who are missing it
       await grantAccess(existing.id);
-      return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id, organizationId });
+      // A Kilimani Court seeded before utility metering existed (or with the
+      // first, readings-only version) is topped up in place — never when
+      // someone has entered readings of their own.
+      let utilitiesAdded = false;
+      if (demo.key === "kilimani-court") {
+        const state = await demoUtilitiesState(existing.id);
+        if (state === "none" || state === "demo") {
+          if (state === "demo") await clearDemoUtilities(existing.id);
+          await seedDemoUtilities(existing.id, organizationId);
+          utilitiesAdded = true;
+        }
+      }
+      return NextResponse.json({ ok: false, reason: "already_seeded", propertyId: existing.id, organizationId, utilitiesAdded });
     }
     // Either partially seeded (no units) or force re-seed requested — delete and re-seed.
     await prisma.property.delete({ where: { id: existing.id } });

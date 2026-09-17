@@ -27,8 +27,10 @@ export async function GET(req: Request) {
 
   const [readings, income, expenses, tariffs, property] = await Promise.all([
     prisma.meterReading.findMany({
-      where: { status: "APPROVED", periodYear: year, meter: { propertyId } },
+      // SUBMITTED readings ride along as "awaiting approval": metered, unpriced.
+      where: { status: { in: ["APPROVED", "SUBMITTED"] }, periodYear: year, meter: { propertyId } },
       select: {
+        status: true,
         periodYear: true, periodMonth: true, consumption: true, amount: true, supplyRate: true, fuelRate: true, tenantId: true,
         meter: { select: { utility: true, role: true } },
       },
@@ -61,6 +63,8 @@ export async function GET(req: Request) {
     supplyRate: r.supplyRate,
     fuelRate: r.fuelRate,
     hasTenant: !!r.tenantId,
+    // A bulk reading counts as purchased the moment it is read.
+    pending: r.status === "SUBMITTED" && r.meter.role !== "BULK",
   }));
   const cost = (category: string) =>
     expenses.filter((e) => e.category === category).map((e) => ({ date: e.date, amount: e.amount + (e.vatAmount ?? 0) }));

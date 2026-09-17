@@ -159,6 +159,7 @@ export function ReconciliationTab({ propertyId, currency }: { propertyId: string
                     <th className="text-right py-2 px-3">Units billed</th>
                     <th className="text-right py-2 px-3">Vacant units</th>
                     <th className="text-right py-2 px-3">Common areas</th>
+                    {data.electricity.total.unitsPending > 0 && <th className="text-right py-2 px-3">Awaiting approval</th>}
                     <th className="text-right py-2 pl-3">Unaccounted</th>
                   </tr>
                 </thead>
@@ -170,10 +171,15 @@ export function ReconciliationTab({ propertyId, currency }: { propertyId: string
                       <td className="py-2 px-3 text-right tabular-nums">{num(r.unitsBilled)}</td>
                       <td className="py-2 px-3 text-right tabular-nums text-gray-500">{num(r.unitsVacant)}</td>
                       <td className="py-2 px-3 text-right tabular-nums text-gray-500">{num(r.unitsCommon)}</td>
+                      {data.electricity.total.unitsPending > 0 && <td className="py-2 px-3 text-right tabular-nums text-amber-700">{r.unitsPending > 0 ? num(r.unitsPending) : "—"}</td>}
                       <td className={`py-2 pl-3 text-right tabular-nums ${(r.unitsUnaccounted ?? 0) < 0 ? "text-expense" : "text-gray-700"}`}>{num(r.unitsUnaccounted)}</td>
                     </tr>
                   ))}
-                  <TotalRow label="Year to date" cells={[num(data.electricity.total.unitsBulk), num(data.electricity.total.unitsBilled), num(data.electricity.total.unitsVacant), num(data.electricity.total.unitsCommon), num(data.electricity.total.unitsUnaccounted)]} />
+                  <TotalRow label="Year to date" cells={[
+                    num(data.electricity.total.unitsBulk), num(data.electricity.total.unitsBilled), num(data.electricity.total.unitsVacant), num(data.electricity.total.unitsCommon),
+                    ...(data.electricity.total.unitsPending > 0 ? [num(data.electricity.total.unitsPending)] : []),
+                    num(data.electricity.total.unitsUnaccounted),
+                  ]} />
                 </tbody>
               </table>
             </div>

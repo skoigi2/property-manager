@@ -810,7 +810,7 @@ export function exportUtilityStatement(
 
 interface UtilityReconExportRow {
   month: number;
-  unitsBilled: number; unitsVacant: number; unitsCommon: number;
+  unitsBilled: number; unitsVacant: number; unitsCommon: number; unitsPending: number;
   unitsBulk: number | null; unitsUnaccounted: number | null;
   billed: number; supplyAllocation: number; fuelAllocation: number;
   collected: number; supplierPaid: number; fuelPaid: number; surplus: number;
@@ -837,17 +837,17 @@ export function exportUtilityReconciliation(opts: {
   XLSX.utils.book_append_sheet(wb, wsWater, "Water");
 
   const elecHeaders = [
-    "Month", "KPLC bulk kWh", "Units billed kWh", "Vacant kWh", "Common kWh", "Unaccounted kWh",
+    "Month", "KPLC bulk kWh", "Units billed kWh", "Vacant kWh", "Common kWh", "Awaiting approval kWh", "Unaccounted kWh",
     `Billed${c}`, `Collected${c}`, `Set aside KPLC${c}`, `KPLC paid${c}`, `Set aside fuel${c}`, `Fuel paid${c}`,
     `Back to owner${c}`, `Cost per kWh${c}`, `Avg rate charged${c}`,
   ];
   const elecRow = (label: string, r: UtilityReconExportRow): (string | number | null)[] => [
-    label, r.unitsBulk, r.unitsBilled, r.unitsVacant, r.unitsCommon, r.unitsUnaccounted,
+    label, r.unitsBulk, r.unitsBilled, r.unitsVacant, r.unitsCommon, r.unitsPending, r.unitsUnaccounted,
     r.billed, r.collected, r.supplyAllocation, r.supplierPaid, r.fuelAllocation, r.fuelPaid,
     r.surplus, r.costPerUnit, r.avgRateCharged,
   ];
   const wsElec = buildSheet(elecHeaders, [...opts.electricity.rows.map((r) => elecRow(monthName(r.month), r)), elecRow("YEAR TO DATE", opts.electricity.total)]);
-  setColWidths(wsElec, [14, 14, 16, 12, 12, 16, 14, 14, 16, 14, 16, 14, 16, 14, 16]);
+  setColWidths(wsElec, [14, 14, 16, 12, 12, 20, 16, 14, 14, 16, 14, 16, 14, 16, 14, 16]);
   XLSX.utils.book_append_sheet(wb, wsElec, "Electricity");
 
   const safe = opts.propertyName.replace(/[^\w\- ]+/g, "").trim() || "Property";

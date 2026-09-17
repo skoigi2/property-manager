@@ -557,8 +557,8 @@ export async function buildInbox(
           title: `${b.submitted} meter reading${b.submitted === 1 ? "" : "s"} awaiting approval`,
           subtitle: "Check each number against its photo, then approve so the bills go out with the rent",
           daysOverdue: daysOld,
-          href: `/utilities?tab=review&propertyId=${b.prop.id}`,
-          actions: [{ label: "Review readings", action: `/utilities?tab=review&propertyId=${b.prop.id}` }],
+          href: `/utilities?tab=review&propertyId=${b.prop.id}&month=previous`,
+          actions: [{ label: "Review readings", action: `/utilities?tab=review&propertyId=${b.prop.id}&month=previous` }],
         });
       }
       if (b.unbilled > 0) {
@@ -571,8 +571,8 @@ export async function buildInbox(
           title: `${b.unbilled} approved reading${b.unbilled === 1 ? "" : "s"} not on an invoice yet`,
           subtitle: `${formatCurrency(b.unbilledAmount, b.prop.currency)} of water / electricity to bill`,
           daysOverdue: null,
-          href: `/utilities?tab=review&propertyId=${b.prop.id}`,
-          actions: [{ label: "Bill readings", action: `/utilities?tab=review&propertyId=${b.prop.id}` }],
+          href: `/utilities?tab=review&propertyId=${b.prop.id}&month=previous`,
+          actions: [{ label: "Bill readings", action: `/utilities?tab=review&propertyId=${b.prop.id}&month=previous` }],
         });
       }
       if (b.unread > 0) {

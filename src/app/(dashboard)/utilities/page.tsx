@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import toast from "react-hot-toast";
 import { Gauge } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MonthPicker } from "@/components/ui/MonthPicker";
@@ -36,11 +37,12 @@ export default function UtilitiesPage() {
   const isManager = superAdmin || ["ADMIN", "MANAGER", "ACCOUNTANT"].includes(orgRole ?? "");
   const canEditRates = superAdmin || ["ADMIN", "MANAGER"].includes(orgRole ?? "");
 
-  const { selectedId, setSelectedId, properties, currency, loading: propsLoading } = useProperty();
+  const { selectedId, setSelectedId, selected, properties, currency, loading: propsLoading } = useProperty();
   const [month, setMonth] = useSharedMonth();
   const [tab, setTabState] = useState<Tab>("readings");
   const [sheet, setSheet] = useState<ReadingSheet | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
 
   const year = month.getFullYear();
   const monthNumber = month.getMonth() + 1;
@@ -95,6 +97,26 @@ export default function UtilitiesPage() {
     setSheet(null);
     load();
   }, [load]);
+
+  // The Kilimani Court sample property seeded before metering existed has no
+  // meters: offer its sample meters, readings and bills in one click.
+  const canLoadSample = isManager && selected?.name === "Kilimani Court" && !!sheet && sheet.rows.length === 0;
+  async function loadSample() {
+    setLoadingSample(true);
+    try {
+      const res = await fetch("/api/demo/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ demoKey: "kilimani-court", organizationId: user?.organizationId ?? undefined }),
+      });
+      const body = await res.json().catch(() => null);
+      if (body?.utilitiesAdded) toast.success("Sample meters, readings and bills loaded");
+      else toast.error(body?.error ?? "The sample data could not be loaded for this property.");
+      await load();
+    } finally {
+      setLoadingSample(false);
+    }
+  }
 
   const tabs: [Tab, string][] = [
     ["readings", "Readings"],
@@ -155,6 +177,18 @@ export default function UtilitiesPage() {
                   </button>
                 ))}
               </div>
+            )}
+
+            {canLoadSample && (
+              <Card padding="sm" className="border border-gold/40 bg-gold/5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-body text-gray-700 flex-1 min-w-[14rem]">
+                    This sample property has no meters yet. Load sample water and electricity meters, three months of readings billed on
+                    its invoices, and the council, KPLC and generator costs — to see metering working end to end.
+                  </p>
+                  <Button size="sm" onClick={loadSample} loading={loadingSample}>Load sample meters &amp; readings</Button>
+                </div>
+              </Card>
             )}
 
             {activeTab === "statement" ? (

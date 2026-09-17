@@ -74,6 +74,22 @@ describe("electricity reconciliation", () => {
     expect(row.avgRateCharged).toBe(30);
   });
 
+  it("a reading awaiting approval is metered, not 'unaccounted' — and carries no money yet", () => {
+    const withPending = buildUtilityReconciliation({
+      utility: "ELECTRICITY",
+      months: [{ year: 2026, month: 6 }],
+      readings: [
+        e({ consumption: 100, amount: 3000 }),
+        e({ consumption: 140, amount: null, supplyRate: null, fuelRate: null, pending: true }),
+        e({ role: "BULK", consumption: 250, amount: null, supplyRate: null, fuelRate: null }),
+      ],
+      collections: [],
+      supplierCosts: [],
+    });
+    expect(withPending.rows[0]).toMatchObject({ unitsBilled: 100, unitsPending: 140, unitsUnaccounted: 10, billed: 3000 });
+    expect(withPending.total.unitsPending).toBe(140);
+  });
+
   it("falls back to everything metered when there is no bulk meter", () => {
     const noBulk = buildUtilityReconciliation({
       utility: "ELECTRICITY",

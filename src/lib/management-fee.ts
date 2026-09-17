@@ -12,6 +12,25 @@
 //   5. Nothing configured → 0. "No management fee" is a first-class state:
 //      no surface may invent a fee from hardcoded legacy constants.
 
+/**
+ * Income that never carries a management fee when the fee is a % of gross:
+ * DEPOSIT is the tenant's money held in trust, and UTILITY_RECOVERY is metered
+ * water / electricity collected to pay the council, KPLC and generator fuel —
+ * the surplus goes to the owner, but the manager does not earn a percentage
+ * of a tenant's power bill. Both still count as receipts elsewhere (utility
+ * recovery stays in gross income); only the FEE BASE excludes them.
+ */
+export const MGMT_FEE_EXCLUDED_INCOME_TYPES = ["DEPOSIT", "UTILITY_RECOVERY"] as const;
+
+export function isMgmtFeeBaseIncome(type: string): boolean {
+  return !(MGMT_FEE_EXCLUDED_INCOME_TYPES as readonly string[]).includes(type);
+}
+
+/** Σ grossAmount of the entries that carry a percentage management fee. */
+export function mgmtFeeBase(entries: { type: string; grossAmount: number }[]): number {
+  return entries.filter((e) => isMgmtFeeBaseIncome(e.type)).reduce((s, e) => s + e.grossAmount, 0);
+}
+
 export interface FeeConfigLike {
   unitId: string;
   flatAmount: number | null;

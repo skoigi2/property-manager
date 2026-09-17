@@ -94,6 +94,7 @@ export async function GET(
         id: true,
         date: true,
         type: true,
+        utilityType: true,
         grossAmount: true,
         paymentMethod: true,
         invoiceId: true,

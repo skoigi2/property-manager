@@ -18,6 +18,9 @@ export const incomeEntrySchema = z.object({
   tenantId: z.preprocess(emptyToUndef, z.string().optional()),
   invoiceId: z.preprocess(emptyToUndef, z.string().optional()),
   type: z.enum(["LONGTERM_RENT", "SERVICE_CHARGE", "DEPOSIT", "AIRBNB", "UTILITY_RECOVERY", "OTHER", "LETTING_FEE", "RENEWAL_FEE", "VACANCY_FEE", "SETUP_FEE_INSTALMENT", "CONSULTANCY_FEE", "LEASE_FEE"]),
+  // Which metered utility a UTILITY_RECOVERY entry collected (drives the
+  // water / electricity reconciliation). Only rendered for that type.
+  utilityType: z.preprocess(emptyToUndef, z.enum(["WATER", "ELECTRICITY"]).optional()),
   grossAmount: z.coerce.number().positive("Amount must be positive"),
   agentCommission: z.preprocess(emptyToUndef, z.coerce.number().min(0).default(0)),
   // Platform/agent/nightly-rate only render for AIRBNB; if the user switched

@@ -107,6 +107,24 @@ function StatementDoc({ s }: { s: OwnerStatement }) {
           </View>
         </View>
 
+        {s.utilities && (
+          <View style={{ marginTop: 12, backgroundColor: "#f9fafb", borderRadius: 4, padding: 9 }} wrap={false}>
+            <Text style={{ fontSize: 8, color: "#6b7280", marginBottom: 4 }}>WATER &amp; ELECTRICITY — already included in the figures above</Text>
+            <View style={styles.sumRow}>
+              <Text style={styles.sumLabel}>Collected from tenants</Text>
+              <Text style={styles.sumValue}>{fmt(s.utilities.waterCollected + s.utilities.electricityCollected + s.utilities.otherCollected)}</Text>
+            </View>
+            <View style={styles.sumRow}>
+              <Text style={styles.sumLabel}>Council water / KPLC / generator</Text>
+              <Text style={styles.sumValue}>− {fmt(s.utilities.waterCost + s.utilities.electricityCost + s.utilities.generatorCost)}</Text>
+            </View>
+            <View style={styles.sumRow}>
+              <Text style={styles.sumLabel}>Utility surplus to owner</Text>
+              <Text style={styles.sumValue}>{fmt(s.utilities.surplus)}</Text>
+            </View>
+          </View>
+        )}
+
         <Text style={styles.notes} hyphenationCallback={noHyphenation}>{s.notes}</Text>
 
         <View style={styles.footer} fixed>

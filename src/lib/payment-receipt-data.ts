@@ -53,10 +53,10 @@ export async function loadPaymentReceipt(entryId: string) {
   const group = entry.invoiceId
     ? await prisma.incomeEntry.findMany({
         where: { invoiceId: entry.invoiceId, date: { gte: dayStart, lte: dayEnd } },
-        select: { id: true, date: true, type: true, grossAmount: true, invoiceId: true, createdAt: true, paymentMethod: true, note: true },
+        select: { id: true, date: true, type: true, utilityType: true, grossAmount: true, invoiceId: true, createdAt: true, paymentMethod: true, note: true },
         orderBy: { createdAt: "asc" },
       })
-    : [{ id: entry.id, date: entry.date, type: entry.type, grossAmount: entry.grossAmount, invoiceId: entry.invoiceId, createdAt: entry.createdAt, paymentMethod: entry.paymentMethod, note: entry.note }];
+    : [{ id: entry.id, date: entry.date, type: entry.type, utilityType: entry.utilityType, grossAmount: entry.grossAmount, invoiceId: entry.invoiceId, createdAt: entry.createdAt, paymentMethod: entry.paymentMethod, note: entry.note }];
 
   const primary = receiptPrimary(group);
   const amount = Math.round(group.reduce((s, e) => s + e.grossAmount, 0) * 100) / 100;

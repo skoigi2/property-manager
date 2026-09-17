@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
 import { getActiveTaxConfigs, matchConfig, calcTax, taxLabel } from "@/lib/tax-engine";
+import { MGMT_FEE_EXCLUDED_INCOME_TYPES } from "@/lib/management-fee";
 import { pendingLeaseFeeRecoveries, recoveryLineItem } from "@/lib/lease-fee-recovery";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -75,7 +76,8 @@ export async function POST(req: Request) {
     prisma.incomeEntry.aggregate({
       where: {
         date: { gte: start, lte: end },
-        type: { not: "DEPOSIT" },
+        // Fee base: deposits and metered utility recovery carry no fee.
+        type: { notIn: [...MGMT_FEE_EXCLUDED_INCOME_TYPES] },
         unit: { propertyId },
       },
       _sum: { grossAmount: true },

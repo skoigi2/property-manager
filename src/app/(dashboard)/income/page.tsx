@@ -1765,6 +1765,19 @@ export default function IncomePage() {
                     </>
                   )}
 
+                  {incomeType === "UTILITY_RECOVERY" && (
+                    <Select
+                      label="Which utility?"
+                      tooltip="Water or electricity. It decides where this money shows on the Utilities reconciliation. Metered bills on an invoice are split automatically — pick one here only for a payment you are recording by hand."
+                      placeholder="Pick one"
+                      {...register("utilityType")}
+                      options={[
+                        { value: "WATER", label: "Water" },
+                        { value: "ELECTRICITY", label: "Electricity" },
+                      ]}
+                    />
+                  )}
+
                   {incomeType === "DEPOSIT" && (
                     <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-caption text-purple-700 ">
                       Deposits are held on behalf of the tenant and are <strong>not counted as P&L income</strong>. They appear separately in the summary.

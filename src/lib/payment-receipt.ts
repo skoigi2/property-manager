@@ -17,6 +17,8 @@ export type ReceiptableEntry = {
   grossAmount: number;
   invoiceId?: string | null;
   createdAt?: Date | string | null;
+  /** Set on UTILITY_RECOVERY entries: which metered utility was paid. */
+  utilityType?: string | null;
 };
 
 const MONTH_NAMES = [
@@ -94,7 +96,10 @@ const TYPE_LABEL: Record<string, string> = {
   OTHER: "Other charges",
 };
 
-export function receiptTypeLabel(type: string): string {
+const UTILITY_LABEL: Record<string, string> = { WATER: "Water", ELECTRICITY: "Electricity" };
+
+export function receiptTypeLabel(type: string, utilityType?: string | null): string {
+  if (type === "UTILITY_RECOVERY" && utilityType && UTILITY_LABEL[utilityType]) return UTILITY_LABEL[utilityType];
   return TYPE_LABEL[type] ?? "Payment";
 }
 
@@ -107,7 +112,7 @@ export function receiptLines(
   invoicePeriod?: { periodYear: number; periodMonth: number } | null,
 ): ReceiptLine[] {
   return entries.map((e) => {
-    let label = receiptTypeLabel(e.type);
+    let label = receiptTypeLabel(e.type, e.utilityType);
     if (e.type === "LONGTERM_RENT") {
       const d = new Date(e.date);
       const period = invoicePeriod

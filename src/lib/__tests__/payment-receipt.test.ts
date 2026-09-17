@@ -75,3 +75,21 @@ describe("receipt stamp", () => {
     expect(receiptStamp({ invoice: { totalAmount: 77000, paidToDate: 40000 } }).headline).toContain("PART PAYMENT");
   });
 });
+
+describe("utility recovery lines", () => {
+  it("names the utility that was paid", () => {
+    const lines = receiptLines(
+      [
+        { id: "a", date: "2026-07-04", type: "LONGTERM_RENT", grossAmount: 20000, invoiceId: "i" },
+        { id: "b", date: "2026-07-04", type: "UTILITY_RECOVERY", utilityType: "WATER", grossAmount: 750, invoiceId: "i" },
+        { id: "c", date: "2026-07-04", type: "UTILITY_RECOVERY", utilityType: "ELECTRICITY", grossAmount: 3000, invoiceId: "i" },
+      ],
+      { periodYear: 2026, periodMonth: 7 },
+    );
+    expect(lines.map((l) => l.label)).toEqual(["Rent — July 2026", "Water", "Electricity"]);
+  });
+
+  it("falls back to 'Utilities' when the entry does not say which", () => {
+    expect(receiptLines([{ id: "a", date: "2026-07-04", type: "UTILITY_RECOVERY", grossAmount: 500 }])[0].label).toBe("Utilities");
+  });
+});

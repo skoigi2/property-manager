@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcPropertyManagementFee } from "../management-fee";
+import { calcPropertyManagementFee, mgmtFeeBase, isMgmtFeeBaseIncome, MGMT_FEE_EXCLUDED_INCOME_TYPES } from "../management-fee";
 
 const base = {
   tenants: [
@@ -76,5 +76,31 @@ describe("calcPropertyManagementFee", () => {
     expect(
       calcPropertyManagementFee({ ...base, propertyRatePercent: 0, agreementRatePercent: 0 }),
     ).toBe(0);
+  });
+});
+
+describe("management-fee base", () => {
+  const entries = [
+    { type: "LONGTERM_RENT", grossAmount: 20000 },
+    { type: "SERVICE_CHARGE", grossAmount: 3000 },
+    { type: "LEASE_FEE", grossAmount: 2000 },
+    { type: "UTILITY_RECOVERY", grossAmount: 4415 },
+    { type: "DEPOSIT", grossAmount: 40000 },
+  ];
+
+  it("excludes deposits and metered utility recovery, nothing else", () => {
+    expect(mgmtFeeBase(entries)).toBe(25000);
+    expect(isMgmtFeeBaseIncome("UTILITY_RECOVERY")).toBe(false);
+    expect(isMgmtFeeBaseIncome("DEPOSIT")).toBe(false);
+    expect(isMgmtFeeBaseIncome("AIRBNB")).toBe(true);
+    expect(MGMT_FEE_EXCLUDED_INCOME_TYPES).toEqual(["DEPOSIT", "UTILITY_RECOVERY"]);
+  });
+
+  it("a tenant's water and power bill earns the manager no percentage fee", () => {
+    const withUtilities = calcPropertyManagementFee({
+      tenants: [], feeConfigs: [], propertyRatePercent: 10,
+      grossIncome: mgmtFeeBase(entries),
+    });
+    expect(withUtilities).toBe(2500);
   });
 });

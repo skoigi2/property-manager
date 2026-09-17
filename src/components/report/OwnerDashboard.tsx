@@ -43,6 +43,10 @@ interface OwnerStatement {
   netPayable: number;
   payouts: StatementPayout[];
   totalPaidOut: number;
+  utilities?: {
+    waterCollected: number; electricityCollected: number; otherCollected: number;
+    waterCost: number; electricityCost: number; generatorCost: number; surplus: number;
+  } | null;
   currency: string;
 }
 
@@ -290,6 +294,29 @@ function PropertyCard({ stmt, year, month, canManage }: { stmt: OwnerStatement; 
               <span className="tabular-nums text-expense">({fmt(e.amount)})</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Utilities memo — already inside the income and deductions above */}
+      {stmt.utilities && (
+        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+          <p className="text-label uppercase text-gray-400">Water &amp; electricity (included above)</p>
+          <div className="flex justify-between text-caption text-gray-500">
+            <span>Collected from tenants</span>
+            <span className="tabular-nums text-income">
+              {fmt(stmt.utilities.waterCollected + stmt.utilities.electricityCollected + stmt.utilities.otherCollected)}
+            </span>
+          </div>
+          <div className="flex justify-between text-caption text-gray-500">
+            <span>Council water, KPLC and generator</span>
+            <span className="tabular-nums text-expense">
+              ({fmt(stmt.utilities.waterCost + stmt.utilities.electricityCost + stmt.utilities.generatorCost)})
+            </span>
+          </div>
+          <div className="flex justify-between text-caption font-medium text-gray-700">
+            <span>Utility surplus to owner</span>
+            <span className={`tabular-nums ${stmt.utilities.surplus < 0 ? "text-expense" : ""}`}>{fmt(stmt.utilities.surplus)}</span>
+          </div>
         </div>
       )}
 

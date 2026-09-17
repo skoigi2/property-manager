@@ -21,6 +21,7 @@ import { RentHistoryTab } from "@/components/tenants/RentHistoryTab";
 import { CommunicationLogTab } from "@/components/tenants/CommunicationLogTab";
 import { PortalMessagesTab } from "@/components/tenants/PortalMessagesTab";
 import { TenantComplaintsTab } from "@/components/tenants/TenantComplaintsTab";
+import { TenantUtilitiesTab } from "@/components/tenants/TenantUtilitiesTab";
 import { TenantFormFields, cleanAdditionalContacts } from "@/components/tenants/TenantFormFields";
 import { Modal } from "@/components/ui/Modal";
 import { useForm } from "react-hook-form";
@@ -35,7 +36,7 @@ import {
   ChevronLeft, TrendingUp, AlertTriangle, CheckCircle2, Clock,
   Download, FileText, Loader2, ScrollText, FolderOpen, RefreshCw, Mail,
   ShieldCheck, Plus, X, Banknote, Link2, Link2Off, Copy, History, MessageSquare, LogOut, ClipboardCheck,
-  Pencil, Receipt,
+  Pencil, Receipt, Gauge,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -284,8 +285,8 @@ interface Invoice {
 // extracted so the money math is unit-tested and shared with the Income
 // page's arrears conventions.
 
-type Tab = "ledger" | "invoices" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages" | "complaints";
-const VALID_TABS: Tab[] = ["ledger", "invoices", "documents", "renewal", "deposit", "history", "comms", "messages", "complaints"];
+type Tab = "ledger" | "invoices" | "utilities" | "documents" | "renewal" | "deposit" | "history" | "comms" | "messages" | "complaints";
+const VALID_TABS: Tab[] = ["ledger", "invoices", "utilities", "documents", "renewal", "deposit", "history", "comms", "messages", "complaints"];
 
 export default function TenantDetailPage() {
   const canLifecycle = usePermissions().can("TENANT_LIFECYCLE");
@@ -537,6 +538,7 @@ export default function TenantDetailPage() {
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number | string }[] = [
     { id: "ledger",    label: "Ledger",       icon: <TrendingUp size={14} /> },
     { id: "invoices",  label: "Invoices",     icon: <ScrollText size={14} />, badge: invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").length || undefined },
+    { id: "utilities", label: "Utilities",    icon: <Gauge size={14} /> },
     { id: "documents", label: "Documents",    icon: <FolderOpen size={14} />, badge: documents.length || undefined },
     { id: "history",   label: "Rent History", icon: <History size={14} /> },
     { id: "renewal",   label: "Renewal",      icon: <RefreshCw size={14} /> },
@@ -1347,6 +1349,11 @@ export default function TenantDetailPage() {
                 {/* ── PORTAL MESSAGES TAB ────────────────────────────────────── */}
                 {tab === "messages" && (
                   <PortalMessagesTab tenantId={tenantId} />
+                )}
+
+                {/* ── UTILITIES TAB ──────────────────────────────────────────── */}
+                {tab === "utilities" && (
+                  <TenantUtilitiesTab tenantId={tenantId} />
                 )}
 
                 {/* ── COMPLAINTS TAB ─────────────────────────────────────────── */}

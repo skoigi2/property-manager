@@ -419,3 +419,29 @@ describe("computeTenantStatement", () => {
     expect(s.summary.position).toBe("CREDIT");
   });
 });
+
+describe("metered utilities on the statement", () => {
+  it("labels the invoice for what it carries and balances once the utilities are paid", () => {
+    const s = computeTenantStatement(
+      src({
+        invoices: [
+          inv({ periodMonth: 1, totalAmount: 50750, waterAmount: 750 }),
+          inv({ periodMonth: 2, totalAmount: 3000, electricityAmount: 3000, dueDate: d("2026-02-05"), createdAt: d("2026-02-01") }),
+          inv({ periodMonth: 3, totalAmount: 50000, dueDate: d("2026-03-05"), createdAt: d("2026-03-01") }),
+        ],
+        payments: [
+          pay({ date: d("2026-01-03"), grossAmount: 50000 }),
+          pay({ date: d("2026-01-03"), type: "UTILITY_RECOVERY", grossAmount: 750 }),
+        ],
+      }),
+      period("2026-01-01", "2026-03-31"),
+    );
+    const invoiceLines = s.lines.filter((l) => l.kind === "INVOICE").map((l) => l.description.split(" — ")[0]);
+    expect(invoiceLines).toEqual(["Rent & utilities invoice", "Water / electricity invoice", "Rent invoice"]);
+    expect(s.breakdown.invoicedUtilities).toBe(3750);
+    expect(s.breakdown.invoicedRent).toBe(100000);
+    expect(s.breakdown.paymentsByType.UTILITY_RECOVERY).toBe(750);
+    // Jan fully paid (rent + water); Feb power and Mar rent still owed.
+    expect(s.summary.closingBalance).toBe(53000);
+  });
+});

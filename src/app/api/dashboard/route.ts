@@ -5,7 +5,7 @@ import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
-import { calcPropertyManagementFee } from "@/lib/management-fee";
+import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
 import { getDaysInMonth } from "date-fns";
 
 export async function GET(req: Request) {
@@ -361,7 +361,7 @@ export async function GET(req: Request) {
         propertyRatePercent: p.managementFeeRate,
         propertyFlatAmount: p.managementFeeFlat,
         agreementRatePercent: agreements.find((a) => a.propertyId === p.id)?.managementFeeRate,
-        grossIncome: propIncome.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+        grossIncome: mgmtFeeBase(propIncome),
       });
     }, 0);
 

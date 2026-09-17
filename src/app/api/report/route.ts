@@ -4,7 +4,7 @@ import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { getMonthRange, getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
-import { calcPropertyManagementFee } from "@/lib/management-fee";
+import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { generateReportPDF } from "@/lib/pdf-generator";
@@ -453,7 +453,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
       propertyRatePercent: p.managementFeeRate,
       propertyFlatAmount: p.managementFeeFlat,
       agreementRatePercent: agreements.find((a) => a.propertyId === p.id)?.managementFeeRate,
-      grossIncome: propIncome.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+      grossIncome: mgmtFeeBase(propIncome),
     });
   }, 0);
   const mgmtPaid = expenseEntries
@@ -768,7 +768,7 @@ async function buildRangeReportData(
       propertyRatePercent: p.managementFeeRate,
       propertyFlatAmount: p.managementFeeFlat,
       agreementRatePercent: agreements.find((a) => a.propertyId === p.id)?.managementFeeRate,
-      grossIncome: propIncome.filter((e) => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+      grossIncome: mgmtFeeBase(propIncome),
       monthsMult,
     });
   }, 0);

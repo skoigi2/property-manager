@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import PaymentNotificationSheet from "@/components/portal/PaymentNotificationSheet";
 import BottomSheet from "@/components/portal/BottomSheet";
 import { StatementDownloadCard } from "@/components/portal/StatementDownloadCard";
+import { PhotoStrip } from "@/components/utilities/PhotoStrip";
 
 type Invoice = {
   id: string;
@@ -18,6 +19,8 @@ type Invoice = {
   otherCharges: number;
   depositAmount?: number;
   leaseFee?: number;
+  waterAmount?: number;
+  electricityAmount?: number;
   lateFeeAmount?: number;
   totalAmount: number;
   dueDate: string;
@@ -55,6 +58,36 @@ type PortalData = {
   depositReceipts?: { id: string; date: string; amount: number; receiptUrl: string }[];
   /** Sum of deposit receipts; null when none recorded. */
   depositReceived?: number | null;
+};
+
+/** GET /api/portal/[token]/utilities — approved meter readings only. */
+type UtilityFigures = { billed: number; paid: number; unpaid: number };
+type UtilityReading = {
+  id: string;
+  utility: "WATER" | "ELECTRICITY";
+  meterLabel: string;
+  periodYear: number;
+  periodMonth: number;
+  description: string;
+  amount: number;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+  paymentStatus: "PAID" | "PART_PAID" | "UNPAID" | "NOT_INVOICED";
+  photoUrls: string[];
+};
+type UtilitiesData = {
+  water: UtilityFigures;
+  electricity: UtilityFigures;
+  totalUnpaid: number;
+  notYetInvoiced: number;
+  readings: UtilityReading[];
+};
+
+const UTILITY_STATUS: Record<UtilityReading["paymentStatus"], { label: string; cls: string }> = {
+  PAID: { label: "Paid", cls: "bg-green-100 text-green-700" },
+  PART_PAID: { label: "Part paid", cls: "bg-amber-100 text-amber-700" },
+  UNPAID: { label: "Unpaid", cls: "bg-red-100 text-red-700" },
+  NOT_INVOICED: { label: "Not invoiced yet", cls: "bg-gray-100 text-gray-500" },
 };
 
 type Tab = "overview" | "balance" | "documents" | "messages" | "request";
@@ -254,6 +287,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [utilities, setUtilities] = useState<UtilitiesData | null>(null);
 
   // Maintenance
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
@@ -295,6 +329,15 @@ export default function PortalPage({ params }: { params: { token: string } }) {
       })
       .catch(() => setInvalid(true))
       .finally(() => setLoading(false));
+  }, [params.token]);
+
+  // Water & electricity: approved meter readings + what is still owed. A
+  // property without meters returns an empty list and nothing renders.
+  useEffect(() => {
+    fetch(`/api/portal/${params.token}/utilities`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setUtilities(d && Array.isArray(d.readings) ? d : null))
+      .catch(() => setUtilities(null));
   }, [params.token]);
 
   const loadLedger = useCallback(async () => {
@@ -621,6 +664,45 @@ export default function PortalPage({ params }: { params: { token: string } }) {
               )}
             </div>
 
+            {utilities && utilities.readings.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                <div className="px-4 py-3 flex items-center justify-between">
+                  <span className="text-body font-semibold text-gray-900">Water &amp; electricity</span>
+                  <span
+                    className={`text-caption font-medium px-2 py-0.5 rounded-full ${
+                      utilities.totalUnpaid > 0 ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {utilities.totalUnpaid > 0 ? `${formatCurrency(utilities.totalUnpaid, currency)} unpaid` : "All paid"}
+                  </span>
+                </div>
+                {(["WATER", "ELECTRICITY"] as const).map((u) => {
+                  const latest = utilities.readings.find((r) => r.utility === u);
+                  if (!latest) return null;
+                  const figures = u === "WATER" ? utilities.water : utilities.electricity;
+                  const st = UTILITY_STATUS[latest.paymentStatus];
+                  return (
+                    <div key={u} className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body text-gray-500">{u === "WATER" ? "Water" : "Electricity"}</span>
+                        <span className="text-body font-semibold text-gray-900">{formatCurrency(latest.amount, currency)}</span>
+                      </div>
+                      <p className="text-caption text-gray-500 mt-0.5">{latest.description}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className={`inline-block text-caption font-medium px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+                        {figures.unpaid > 0 && (
+                          <span className="text-caption text-red-600 font-medium">{formatCurrency(figures.unpaid, currency)} unpaid in total</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <button onClick={() => setTab("balance")} className="w-full px-4 py-2.5 text-left text-caption text-blue-600 font-medium hover:bg-gray-50">
+                  See all readings and bills →
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setTab("balance")}
@@ -674,6 +756,17 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                   </div>
                 </div>
 
+                {utilities && utilities.totalUnpaid > 0 && (
+                  <p className="text-caption text-gray-500 text-center">
+                    Outstanding includes{" "}
+                    {[
+                      utilities.water.unpaid > 0 ? `water ${formatCurrency(utilities.water.unpaid, currency)}` : null,
+                      utilities.electricity.unpaid > 0 ? `electricity ${formatCurrency(utilities.electricity.unpaid, currency)}` : null,
+                    ].filter(Boolean).join(" and ")}
+                    . Payments settle the rent first, then water, then electricity.
+                  </p>
+                )}
+
                 <h2 className="text-body font-semibold text-gray-700 mt-4">Invoices</h2>
                 {invoices.length === 0 ? (
                   <div className="bg-white rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-400 text-body">
@@ -702,16 +795,28 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                               </span>
                             </div>
                           </div>
-                          {((inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0) && (
+                          {((inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0 || (inv.waterAmount ?? 0) > 0 || (inv.electricityAmount ?? 0) > 0) && (
                             <p className="text-caption text-gray-500 mb-2">
                               {[
                                 inv.rentAmount > 0 ? `Rent ${formatCurrency(inv.rentAmount, currency)}` : null,
                                 inv.serviceCharge > 0 ? `Service charge ${formatCurrency(inv.serviceCharge, currency)}` : null,
                                 inv.otherCharges > 0 ? `Other ${formatCurrency(inv.otherCharges, currency)}` : null,
+                                (inv.waterAmount ?? 0) > 0 ? `Water ${formatCurrency(inv.waterAmount!, currency)}` : null,
+                                (inv.electricityAmount ?? 0) > 0 ? `Electricity ${formatCurrency(inv.electricityAmount!, currency)}` : null,
                                 (inv.depositAmount ?? 0) > 0 ? `Refundable deposit ${formatCurrency(inv.depositAmount!, currency)}` : null,
                                 (inv.leaseFee ?? 0) > 0 ? `Lease agreement fee ${formatCurrency(inv.leaseFee!, currency)}` : null,
                               ].filter(Boolean).join(" · ")}
                             </p>
+                          )}
+                          {utilities?.readings.some((r) => r.invoiceId === inv.id) && (
+                            <ul className="mb-2 space-y-0.5">
+                              {utilities.readings.filter((r) => r.invoiceId === inv.id).map((r) => (
+                                <li key={r.id} className="text-caption text-gray-500 flex justify-between gap-3">
+                                  <span className="min-w-0">{r.description}</span>
+                                  <span className="tabular-nums shrink-0">{formatCurrency(r.amount, currency)}</span>
+                                </li>
+                              ))}
+                            </ul>
                           )}
                           <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
                             {inv.status !== "DRAFT" && inv.status !== "CANCELLED" && (
@@ -759,6 +864,55 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                   <div className="mt-4">
                     <StatementDownloadCard token={params.token} />
                   </div>
+                )}
+
+                {utilities && utilities.readings.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between mt-6">
+                      <h2 className="text-body font-semibold text-gray-700">Water &amp; electricity</h2>
+                      <a
+                        href={`/api/portal/${params.token}/utilities?format=pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-caption text-blue-600 hover:underline font-medium"
+                      >
+                        Download statement
+                      </a>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([["Water", utilities.water], ["Electricity", utilities.electricity]] as const).map(([label, f]) => (
+                        <div key={label} className="bg-white rounded-xl border border-gray-200 p-3">
+                          <p className="text-label text-gray-400 uppercase font-medium mb-1">{label}</p>
+                          <p className="text-body text-gray-900">Billed {formatCurrency(f.billed, currency)}</p>
+                          <p className={`text-caption font-medium ${f.unpaid > 0 ? "text-red-600" : "text-green-600"}`}>
+                            {f.unpaid > 0 ? `${formatCurrency(f.unpaid, currency)} unpaid` : "All paid"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                      {utilities.readings.map((r) => {
+                        const st = UTILITY_STATUS[r.paymentStatus];
+                        return (
+                          <div key={r.id} className="px-4 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-body text-gray-900 min-w-0">{r.description}</p>
+                              <span className="text-body font-semibold text-gray-900 shrink-0">{formatCurrency(r.amount, currency)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 mt-1.5">
+                              <span className="text-caption text-gray-400">{r.invoiceNumber ? `Invoice ${r.invoiceNumber}` : "Goes on your next invoice"}</span>
+                              <span className={`inline-block text-caption font-medium px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+                            </div>
+                            {r.photoUrls.length > 0 && (
+                              <div className="mt-2">
+                                <PhotoStrip urls={r.photoUrls} size="sm" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
 
                 <h2 className="text-body font-semibold text-gray-700 mt-6">Activity Timeline</h2>

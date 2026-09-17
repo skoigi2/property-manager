@@ -59,7 +59,9 @@ export function exportIncome(entries: any[], month: Date, currency?: string, fil
 
   const rows = entries.map((e) => [
     fmtDate(e.date),
-    INCOME_TYPE_LABEL[e.type] ?? e.type,
+    e.type === "UTILITY_RECOVERY" && e.utilityType
+      ? `Utility Recovery — ${e.utilityType === "WATER" ? "Water" : "Electricity"}`
+      : INCOME_TYPE_LABEL[e.type] ?? e.type,
     e.tenant?.name ?? e.tenantName ?? "",
     e.unit?.unitNumber ?? "",
     e.property?.name ?? e.unit?.property?.name ?? "",
@@ -731,4 +733,123 @@ export function exportVendorStatement(
 
   const safeName = statement.vendor.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-");
   writeFile(wb, `Vendor-Statement-${safeName}-${rangeLabel}.xlsx`);
+}
+
+// ── Utility statement (water / electricity paid vs unpaid) ───────────────────
+
+export interface UtilityStatementExportRow {
+  unitNumber: string;
+  tenantName: string;
+  phone: string | null;
+  email: string | null;
+  isActive: boolean;
+  water: { billed: number; paid: number; unpaid: number };
+  electricity: { billed: number; paid: number; unpaid: number };
+  totalUnpaid: number;
+  unpaidInvoices: number;
+  oldestUnpaidPeriod: string | null;
+  notYetInvoiced: number;
+  lastPaymentDate: string | null;
+  invoices: {
+    invoiceNumber: string; periodYear: number; periodMonth: number; dueDate: string; status: string; overdue: boolean;
+    water: { billed: number; paid: number; unpaid: number };
+    electricity: { billed: number; paid: number; unpaid: number };
+  }[];
+}
+
+/** Two sheets: the per-tenant chase list, and every utility invoice behind it. */
+export function exportUtilityStatement(
+  rows: UtilityStatementExportRow[],
+  opts: { propertyName: string; rangeLabel: string; currency?: string },
+) {
+  const c = currLabel(opts.currency);
+  const headers = [
+    "Unit", "Tenant", "Phone", "Email", "Status",
+    `Water billed${c}`, `Water paid${c}`, `Water unpaid${c}`,
+    `Electricity billed${c}`, `Electricity paid${c}`, `Electricity unpaid${c}`,
+    `Total unpaid${c}`, "Unpaid invoices", "Oldest unpaid month", `Approved, not invoiced${c}`, "Last utility payment",
+  ];
+  const dataRows: (string | number | null)[][] = rows.map((r) => [
+    r.unitNumber, r.tenantName, r.phone ?? "", r.email ?? "", r.isActive ? "Active" : "Vacated",
+    r.water.billed, r.water.paid, r.water.unpaid,
+    r.electricity.billed, r.electricity.paid, r.electricity.unpaid,
+    r.totalUnpaid, r.unpaidInvoices, r.oldestUnpaidPeriod ?? "", r.notYetInvoiced, fmtDate(r.lastPaymentDate),
+  ]);
+  const sum = (f: (r: UtilityStatementExportRow) => number) => rows.reduce((s, r) => s + f(r), 0);
+  dataRows.push([
+    "TOTAL", `${rows.length} tenants`, "", "", "",
+    sum((r) => r.water.billed), sum((r) => r.water.paid), sum((r) => r.water.unpaid),
+    sum((r) => r.electricity.billed), sum((r) => r.electricity.paid), sum((r) => r.electricity.unpaid),
+    sum((r) => r.totalUnpaid), sum((r) => r.unpaidInvoices), "", sum((r) => r.notYetInvoiced), "",
+  ]);
+  const ws = buildSheet(headers, dataRows);
+  setColWidths(ws, [8, 24, 16, 26, 10, 14, 14, 14, 16, 16, 16, 14, 12, 16, 18, 18]);
+
+  const invHeaders = [
+    "Unit", "Tenant", "Invoice", "Invoice month", "Due date", "Status", "Overdue",
+    `Water billed${c}`, `Water unpaid${c}`, `Electricity billed${c}`, `Electricity unpaid${c}`,
+  ];
+  const invRows: (string | number | null)[][] = rows.flatMap((r) =>
+    r.invoices.map((i) => [
+      r.unitNumber, r.tenantName, i.invoiceNumber, `${i.periodYear}-${String(i.periodMonth).padStart(2, "0")}`,
+      fmtDate(i.dueDate), i.status, i.overdue ? "Yes" : "",
+      i.water.billed, i.water.unpaid, i.electricity.billed, i.electricity.unpaid,
+    ]),
+  );
+  const wsInv = buildSheet(invHeaders, invRows);
+  setColWidths(wsInv, [8, 24, 18, 14, 12, 12, 9, 14, 14, 16, 16]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Paid vs unpaid");
+  XLSX.utils.book_append_sheet(wb, wsInv, "Invoices");
+  const safe = opts.propertyName.replace(/[^\w\- ]+/g, "").trim() || "Property";
+  writeFile(wb, `Utility-Statement-${safe}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+// ── Utility reconciliation (council / KPLC / fuel vs collected) ──────────────
+
+interface UtilityReconExportRow {
+  month: number;
+  unitsBilled: number; unitsVacant: number; unitsCommon: number;
+  unitsBulk: number | null; unitsUnaccounted: number | null;
+  billed: number; supplyAllocation: number; fuelAllocation: number;
+  collected: number; supplierPaid: number; fuelPaid: number; surplus: number;
+  costPerUnit: number | null; avgRateCharged: number | null;
+}
+
+export function exportUtilityReconciliation(opts: {
+  propertyName: string;
+  year: number;
+  currency?: string;
+  water: { rows: UtilityReconExportRow[]; total: UtilityReconExportRow };
+  electricity: { rows: UtilityReconExportRow[]; total: UtilityReconExportRow };
+}) {
+  const c = currLabel(opts.currency);
+  const monthName = (m: number) => fmtMonth(new Date(opts.year, m - 1, 1));
+  const wb = XLSX.utils.book_new();
+
+  const waterHeaders = ["Month", "Units billed", "Vacant units", "Common areas", `Billed${c}`, `Collected${c}`, `Council paid${c}`, `Borehole surplus to owner${c}`, `Cost per unit${c}`, `Avg rate charged${c}`];
+  const waterRow = (label: string, r: UtilityReconExportRow): (string | number | null)[] => [
+    label, r.unitsBilled, r.unitsVacant, r.unitsCommon, r.billed, r.collected, r.supplierPaid, r.surplus, r.costPerUnit, r.avgRateCharged,
+  ];
+  const wsWater = buildSheet(waterHeaders, [...opts.water.rows.map((r) => waterRow(monthName(r.month), r)), waterRow("YEAR TO DATE", opts.water.total)]);
+  setColWidths(wsWater, [14, 12, 12, 13, 14, 14, 14, 24, 14, 16]);
+  XLSX.utils.book_append_sheet(wb, wsWater, "Water");
+
+  const elecHeaders = [
+    "Month", "KPLC bulk kWh", "Units billed kWh", "Vacant kWh", "Common kWh", "Unaccounted kWh",
+    `Billed${c}`, `Collected${c}`, `Set aside KPLC${c}`, `KPLC paid${c}`, `Set aside fuel${c}`, `Fuel paid${c}`,
+    `Back to owner${c}`, `Cost per kWh${c}`, `Avg rate charged${c}`,
+  ];
+  const elecRow = (label: string, r: UtilityReconExportRow): (string | number | null)[] => [
+    label, r.unitsBulk, r.unitsBilled, r.unitsVacant, r.unitsCommon, r.unitsUnaccounted,
+    r.billed, r.collected, r.supplyAllocation, r.supplierPaid, r.fuelAllocation, r.fuelPaid,
+    r.surplus, r.costPerUnit, r.avgRateCharged,
+  ];
+  const wsElec = buildSheet(elecHeaders, [...opts.electricity.rows.map((r) => elecRow(monthName(r.month), r)), elecRow("YEAR TO DATE", opts.electricity.total)]);
+  setColWidths(wsElec, [14, 14, 16, 12, 12, 16, 14, 14, 16, 14, 16, 14, 16, 14, 16]);
+  XLSX.utils.book_append_sheet(wb, wsElec, "Electricity");
+
+  const safe = opts.propertyName.replace(/[^\w\- ]+/g, "").trim() || "Property";
+  writeFile(wb, `Utility-Reconciliation-${safe}-${opts.year}.xlsx`);
 }

@@ -182,6 +182,8 @@ export interface TenantStatement {
   lines: StatementLine[];
   breakdown: {
     invoicedRent: number;
+    /** Metered water + electricity billed in the window (part of totalInvoiced). */
+    invoicedUtilities: number;
     lateFees: number;
     paymentsByType: Record<string, number>;
   };
@@ -237,6 +239,9 @@ export interface StatementInvoiceRow {
   lateFeeAmount: number;
   /** Refundable deposit billed on the invoice - has its own block, never a tenancy charge. */
   depositAmount?: number;
+  /** Metered utilities on the invoice - tenancy charges, paid by UTILITY_RECOVERY entries. */
+  waterAmount?: number;
+  electricityAmount?: number;
   lateFeeAppliedAt: Date | null;
   dueDate: Date;
   status: string;
@@ -287,6 +292,17 @@ export interface StatementSourceData {
 }
 
 const MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function invoiceUtilities(inv: { waterAmount?: number; electricityAmount?: number }): number {
+  return (inv.waterAmount ?? 0) + (inv.electricityAmount ?? 0);
+}
+
+/** "Rent invoice", or what it really is when metered utilities ride on it. */
+function invoiceKindLabel(inv: { waterAmount?: number; electricityAmount?: number }, baseAmount: number): string {
+  const utilities = invoiceUtilities(inv);
+  if (utilities <= 0) return "Rent invoice";
+  return baseAmount - utilities > 0.005 ? "Rent & utilities invoice" : "Water / electricity invoice";
+}
 
 /** An invoice belongs to the month it bills (no issueDate column exists). */
 function invoiceChargeDate(inv: { periodYear: number; periodMonth: number }): Date {
@@ -378,7 +394,7 @@ export function computeTenantStatement(
         description:
           c.kind === "LATE_FEE"
             ? `Late payment fee — ${c.inv.invoiceNumber}`
-            : `Rent invoice — ${periodLabel} (due ${fmtDay(c.inv.dueDate)})`,
+            : `${invoiceKindLabel(c.inv, c.amount)} — ${periodLabel} (due ${fmtDay(c.inv.dueDate)})`,
         reference: c.inv.invoiceNumber,
         charge: round2(c.amount),
         payment: null,
@@ -461,6 +477,9 @@ export function computeTenantStatement(
   const totalPaid = round2(windowPayments.reduce((s, p) => s + p.grossAmount, 0));
   const closingBalance = round2(openingBalance + totalInvoiced - totalPaid);
   const lateFees = round2(windowCharges.filter((c) => c.kind === "LATE_FEE").reduce((s, c) => s + c.amount, 0));
+  const invoicedUtilities = round2(
+    windowCharges.filter((c) => c.kind === "INVOICE").reduce((s, c) => s + invoiceUtilities(c.inv), 0),
+  );
   const paymentsByType: Record<string, number> = {};
   for (const p of windowPayments) {
     paymentsByType[p.type] = round2((paymentsByType[p.type] ?? 0) + p.grossAmount);
@@ -533,7 +552,7 @@ export function computeTenantStatement(
     recordsAsAt: new Date(endMs).toISOString(),
     openingBalance,
     lines: presentedLines,
-    breakdown: { invoicedRent: round2(totalInvoiced - lateFees), lateFees, paymentsByType },
+    breakdown: { invoicedRent: round2(totalInvoiced - lateFees - invoicedUtilities), invoicedUtilities, lateFees, paymentsByType },
     deposit: {
       contractual: src.tenant.depositAmount,
       received: depositReceived,
@@ -611,6 +630,7 @@ export async function buildTenantStatement(tenantId: string, period: StatementPe
       select: {
         id: true, invoiceNumber: true, periodYear: true, periodMonth: true,
         totalAmount: true, lateFeeAmount: true, depositAmount: true, lateFeeAppliedAt: true,
+        waterAmount: true, electricityAmount: true,
         dueDate: true, status: true, paidAmount: true, proofSubmittedAt: true, createdAt: true,
       },
     }),

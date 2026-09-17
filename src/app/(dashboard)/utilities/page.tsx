@@ -15,9 +15,11 @@ import { useSharedMonth } from "@/lib/use-shared-month";
 import { ReadingsTab } from "@/components/utilities/ReadingsTab";
 import { ReviewTab } from "@/components/utilities/ReviewTab";
 import { MetersTariffsTab } from "@/components/utilities/MetersTariffsTab";
+import { StatementTab } from "@/components/utilities/StatementTab";
+import { ReconciliationTab } from "@/components/utilities/ReconciliationTab";
 import type { ReadingSheet } from "@/components/utilities/types";
 
-type Tab = "readings" | "review" | "setup";
+type Tab = "readings" | "review" | "statement" | "reconciliation" | "setup";
 const TAB_KEY = "gw:utilitiesTab";
 
 /**
@@ -47,7 +49,7 @@ export default function UtilitiesPage() {
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem(TAB_KEY);
-      if (stored === "readings" || stored === "review" || stored === "setup") setTabState(stored);
+      if (stored === "readings" || stored === "review" || stored === "statement" || stored === "reconciliation" || stored === "setup") setTabState(stored);
     } catch { /* sessionStorage unavailable */ }
   }, []);
   const setTab = (t: Tab) => {
@@ -79,6 +81,8 @@ export default function UtilitiesPage() {
   const tabs: [Tab, string][] = [
     ["readings", "Readings"],
     ["review", "Review & bill"],
+    ["statement", "Paid & unpaid"],
+    ["reconciliation", "Reconciliation"],
     ["setup", "Meters & tariffs"],
   ];
   const awaiting = sheet?.rows.filter((r) => r.reading?.status === "SUBMITTED").length ?? 0;
@@ -86,7 +90,7 @@ export default function UtilitiesPage() {
   return (
     <div>
       <Header title="Utilities" userName={session?.user?.name ?? session?.user?.email} role={orgRole}>
-        {activeTab !== "setup" && <MonthPicker value={month} onChange={setMonth} max={new Date()} />}
+        {(activeTab === "readings" || activeTab === "review") && <MonthPicker value={month} onChange={setMonth} max={new Date()} />}
       </Header>
 
       <div className="page-container space-y-4 pb-24 lg:pb-8">
@@ -135,7 +139,11 @@ export default function UtilitiesPage() {
               </div>
             )}
 
-            {activeTab === "setup" ? (
+            {activeTab === "statement" ? (
+              <StatementTab propertyId={selectedId} currency={currency} />
+            ) : activeTab === "reconciliation" ? (
+              <ReconciliationTab propertyId={selectedId} currency={currency} />
+            ) : activeTab === "setup" ? (
               <MetersTariffsTab propertyId={selectedId} currency={currency} canEditRates={canEditRates} onChanged={load} />
             ) : loading && !sheet ? (
               <div className="flex justify-center py-12"><Spinner /></div>

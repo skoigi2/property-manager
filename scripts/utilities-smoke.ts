@@ -110,7 +110,9 @@ async function seed() {
     (await prisma.tenant.create({
       data: { name, unitId, email: null, phone: "0711000001", depositAmount: 20000, monthlyRent: 20000, leaseStart: new Date("2026-01-01"), isActive: true } as any,
     }));
-  const [t1, t2] = [await tenantFor(u1.id, "Meter Tenant One"), await tenantFor(u2.id, "Meter Tenant Two")];
+  let [t1, t2] = [await tenantFor(u1.id, "Meter Tenant One"), await tenantFor(u2.id, "Meter Tenant Two")];
+  if (!t1.portalToken) t1 = await prisma.tenant.update({ where: { id: t1.id }, data: { portalToken: `util-portal-1-${Date.now()}`, portalTokenExpiresAt: null } });
+  if (!t2.portalToken) t2 = await prisma.tenant.update({ where: { id: t2.id }, data: { portalToken: `util-portal-2-${Date.now()}`, portalTokenExpiresAt: null } });
 
   async function user(email: string, name: string, role: "ADMIN" | "CARETAKER", organizationId: string, propertyId?: string) {
     const u = await prisma.user.upsert({
@@ -144,6 +146,7 @@ async function seed() {
   await prisma.invoice.deleteMany({ where: { tenantId: { in: tenantIds } } });
   await prisma.utilityTariff.deleteMany({ where: { propertyId: property.id } });
   await prisma.utilitySetting.deleteMany({ where: { propertyId: property.id } });
+  await prisma.expenseEntry.deleteMany({ where: { propertyId: property.id, category: { in: ["WATER", "ELECTRICITY", "GENERATOR"] } } });
 
   return { property, u1, u2, u3, t1, t2 };
 }
@@ -320,6 +323,27 @@ async function main() {
   r = await mgr.json(`/api/utilities/readings/${readingWaterM1}/void`, { method: "POST", json: { reason: "testing the guard" } });
   check("void refused once a payment is on the invoice (409)", r.status === 409, r);
 
+  // Paid & unpaid statement while M1 has paid the rent only.
+  r = await mgr.json(`/api/utilities/statement?propertyId=${P}`);
+  const rowOne = r.body?.rows?.find((x: any) => x.tenantId === t1.id);
+  check("statement: M1 owes water 1,415 + electricity 3,000 after a rent-only payment",
+    r.status === 200 && rowOne?.water.unpaid === 1415 && rowOne?.electricity.unpaid === 3000 && rowOne?.totalUnpaid === 4415, rowOne);
+  check("statement totals: 2 tenants owing 7,565", r.body?.totals?.tenantsOwing === 2 && r.body.totals.totalUnpaid === 7565, r.body?.totals);
+  r = await care.json(`/api/utilities/statement?propertyId=${P}`);
+  check("caretaker cannot open the statement (403)", r.status === 403, r);
+  r = await care.json(`/api/utilities/reconciliation?propertyId=${P}`);
+  check("caretaker cannot open the reconciliation (403)", r.status === 403, r);
+  r = await mgr.json("/api/utilities/statement/remind", { method: "POST", json: { propertyId: P, tenantIds: [t1.id] } });
+  check("reminder: a tenant with no email is reported, not skipped", r.status === 200 && r.body.sent === 0 && r.body.failedDetails?.[0]?.error?.includes("email"), r);
+  const stPdf = await mgr.fetch(`/api/utilities/statement?propertyId=${P}&format=pdf`);
+  check("property statement PDF renders", stPdf.status === 200 && (stPdf.headers.get("content-type") ?? "").includes("pdf"), stPdf.status);
+
+  r = await out.json(`/api/portal/${t1.portalToken}/utilities`);
+  check("portal: tenant sees their 3 approved readings, water + hot water + power",
+    r.status === 200 && r.body.readings.length === 3 && r.body.totalUnpaid === 4415 && r.body.readings.every((x: any) => x.paymentStatus === "UNPAID"), r.body);
+  r = await out.json(`/api/portal/not-a-real-token/utilities`);
+  check("portal: a bad token is a 404", r.status === 404, r);
+
   r = await mgr.json(`/api/invoices/${inv1.id}`, { method: "PATCH", json: { status: "PAID", paidAmount: 24415, paidAt: new Date().toISOString() } });
   check("marking PAID over the part payment", r.status === 200, r);
   let entries = await prisma.incomeEntry.findMany({ where: { invoiceId: inv1.id }, orderBy: { createdAt: "asc" } });
@@ -332,11 +356,60 @@ async function main() {
   const summary2 = entries.map((e) => `${e.type}${e.utilityType ? ":" + e.utilityType : ""}=${Number(e.grossAmount)}`).sort().join(" ");
   check("…splits rent / water / electricity", summary2 === "LONGTERM_RENT=20000 UTILITY_RECOVERY:ELECTRICITY=2700 UTILITY_RECOVERY:WATER=450", summary2);
 
+  // ── 7b. After payment: statuses, reconciliation, owner statement ─────────
+  console.log("\n— statements & reconciliation");
+  r = await out.json(`/api/portal/${t1.portalToken}/utilities`);
+  check("portal: every reading flips to PAID", r.body.totalUnpaid === 0 && r.body.readings.every((x: any) => x.paymentStatus === "PAID"), r.body);
+  const portalPdf = await out.fetch(`/api/portal/${t1.portalToken}/utilities?format=pdf`);
+  check("portal: utility statement PDF renders", portalPdf.status === 200 && (portalPdf.headers.get("content-type") ?? "").includes("pdf"), portalPdf.status);
+  r = await mgr.json(`/api/tenants/${t1.id}/utilities`);
+  check("tenant page: utilities tab data", r.status === 200 && r.body.readings.length === 3 && r.body.water.billed === 1415, r.body);
+  r = await care.json(`/api/tenants/${t1.id}/utilities`);
+  check("caretaker cannot read a tenant's utility money (403)", r.status === 403, r);
+  r = await mgr.json(`/api/utilities/statement?propertyId=${P}&unpaidOnly=true`);
+  check("statement: nobody owes once both invoices are paid", r.body.rows.length === 0, r.body?.rows);
+
+  // The council bill, the KPLC bill and generator fuel, as the Expenses page records them.
+  const org = await prisma.property.findUnique({ where: { id: P }, select: { organizationId: true } });
+  const today = new Date();
+  for (const [category, amount] of [["WATER", 400], ["ELECTRICITY", 4000], ["GENERATOR", 700]] as const) {
+    await prisma.expenseEntry.create({
+      data: { date: today, propertyId: P, scope: "PROPERTY", category, amount, amountPaid: amount, description: `smoke ${category}`, organizationId: org?.organizationId ?? null } as any,
+    });
+  }
+  r = await mgr.json(`/api/utilities/reconciliation?propertyId=${P}&year=${inv.year}`);
+  check("water: collected 1,865 − council 400 = borehole surplus 1,465",
+    r.status === 200 && r.body.water.total.collected === 1865 && r.body.water.total.supplierPaid === 400 && r.body.water.total.surplus === 1465, r.body?.water?.total);
+  check("electricity: collected 5,700 − KPLC 4,000 − fuel 700 = 1,000 back to the owner",
+    r.body.electricity.total.collected === 5700 && r.body.electricity.total.supplierPaid === 4000 && r.body.electricity.total.fuelPaid === 700 && r.body.electricity.total.surplus === 1000, r.body?.electricity?.total);
+  r = await mgr.json(`/api/utilities/reconciliation?propertyId=${P}&year=${rd.year}`);
+  const et = r.body.electricity.total;
+  check("electricity meters: bulk 500 = billed 190 + common 50 + 260 unaccounted",
+    et.unitsBulk === 500 && et.unitsBilled === 190 && et.unitsCommon === 50 && et.unitsUnaccounted === 260, et);
+  check("…tariff set aside 4,750 for KPLC and 950 for fuel", et.supplyAllocation === 4750 && et.fuelAllocation === 950, et);
+  check("water: a vacant unit's 2 units are consumed, not billed", r.body.water.total.unitsVacant === 2 && r.body.water.total.unitsBilled === 9.9, r.body.water.total);
+
+  r = await mgr.json(`/api/report/owner-statement?propertyId=${P}&year=${inv.year}&month=${inv.month}`);
+  const stmt = (Array.isArray(r.body) ? r.body : r.body?.statements ?? [])[0];
+  check("owner statement: utilities memo (collected 7,565 − costs 5,100 = 2,465)",
+    stmt?.utilities?.waterCollected === 1865 && stmt.utilities.electricityCollected === 5700 && stmt.utilities.surplus === 2465, stmt?.utilities);
+  check("…and the memo is not a second deduction: net = gross − fee − expenses",
+    Math.abs(stmt.netPayable - (stmt.grossIncome - stmt.managementFee - stmt.totalExpenses)) < 0.01 && stmt.grossIncome === 47565, { gross: stmt?.grossIncome, net: stmt?.netPayable });
+
+  // Management-fee base: 10% of RENT only — utilities earn the manager nothing.
+  await prisma.property.update({ where: { id: P }, data: { managementFeeRate: 10 } });
+  r = await mgr.json(`/api/report/owner-statement?propertyId=${P}&year=${inv.year}&month=${inv.month}`);
+  const stmtFee = (Array.isArray(r.body) ? r.body : r.body?.statements ?? [])[0];
+  check("management fee is 10% of the 40,000 rent, not of the 47,565 gross", stmtFee?.managementFee === 4000, stmtFee?.managementFee);
+  await prisma.property.update({ where: { id: P }, data: { managementFeeRate: null } });
+
   // ── 8. Stragglers, cancel, void ──────────────────────────────────────────
   console.log("\n— stragglers, cancel, void");
   r = await submit(care, waterM2.id, 7, {}, inv, new Date().toISOString());
   check("this month's reading continues from last month (3 → 7)", r.status === 201 && r.body.previousReading === 3 && r.body.consumption === 4, r);
   const readingNew = r.body.id;
+  r = await out.json(`/api/portal/${t2.portalToken}/utilities`);
+  check("portal: a reading the manager has not approved is not shown", r.body.readings.every((x: any) => x.id !== readingNew) && r.body.readings.length === 2, r.body?.readings?.length);
   r = await care.json(`/api/utilities/readings/${readingWaterM2}`, { method: "PATCH", json: { currentReading: 4 } });
   check("last month's reading is locked once a later month is read", r.status === 409 || r.status === 403, r);
   await mgr.json("/api/utilities/readings/approve", { method: "POST", json: { ids: [readingNew] } });

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getMonthRange } from "@/lib/date-utils";
-import { calcPropertyManagementFee } from "@/lib/management-fee";
+import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
 import { format } from "date-fns";
@@ -13,7 +13,26 @@ export interface OwnerStatementLine {
   rentReceived:  number;
   serviceCharge: number;
   otherIncome:   number;
+  /** Metered water / electricity collected — an "of which" of otherIncome. */
+  utilities:     number;
   grossTotal:    number;
+}
+
+/**
+ * MEMO block: where the metered water / electricity money went. Every figure
+ * here is ALREADY inside grossIncome (utility recovery) or expenses (council,
+ * KPLC, generator) — it re-presents them, it is never a second deduction.
+ */
+export interface OwnerStatementUtilities {
+  waterCollected:       number;
+  electricityCollected: number;
+  /** Utility recovery recorded without saying which utility. */
+  otherCollected:       number;
+  waterCost:            number;
+  electricityCost:      number;
+  generatorCost:        number;
+  /** collected − costs: the borehole / power surplus that goes to the owner. */
+  surplus:              number;
 }
 
 export interface OwnerStatementPayout {
@@ -39,6 +58,8 @@ export interface OwnerStatement {
   /** Remittances recorded against this statement period (OwnerPayout rows). */
   payouts:       OwnerStatementPayout[];
   totalPaidOut:  number;
+  /** Null when the period has no utility recovery and no utility cost. */
+  utilities:     OwnerStatementUtilities | null;
   notes:         string;
   ownerName:     string | null;
   ownerEmail:    string | null;
@@ -127,6 +148,7 @@ export async function buildOwnerStatements(
       const rentReceived = tenantIncome.filter(e => e.type === "LONGTERM_RENT").reduce((s,e) => s + e.grossAmount, 0);
       const svcReceived  = tenantIncome.filter(e => e.type === "SERVICE_CHARGE").reduce((s,e) => s + e.grossAmount, 0);
       const otherIncome  = tenantIncome.filter(e => !["LONGTERM_RENT","SERVICE_CHARGE","DEPOSIT"].includes(e.type)).reduce((s,e) => s + e.grossAmount, 0);
+      const utilities    = tenantIncome.filter(e => e.type === "UTILITY_RECOVERY").reduce((s,e) => s + e.grossAmount, 0);
       return {
         tenantName:    tenant.isActive ? tenant.name : `${tenant.name} (vacated)`,
         unit:          tenant.unit.unitNumber,
@@ -144,6 +166,7 @@ export async function buildOwnerStatements(
         rentReceived,
         serviceCharge: svcReceived,
         otherIncome,
+        utilities,
         grossTotal:    rentReceived + svcReceived + otherIncome,
       };
     });
@@ -163,6 +186,7 @@ export async function buildOwnerStatements(
           rentReceived:  gross - commissions,
           serviceCharge: 0,
           otherIncome:   0,
+          utilities:     0,
           grossTotal:    gross - commissions,
         });
       });
@@ -189,7 +213,7 @@ export async function buildOwnerStatements(
       propertyRatePercent: property.managementFeeRate,
       propertyFlatAmount: property.managementFeeFlat,
       agreementRatePercent: agreements.find(a => a.propertyId === property.id)?.managementFeeRate,
-      grossIncome: propIncome.filter(e => e.type !== "DEPOSIT").reduce((s, e) => s + e.grossAmount, 0),
+      grossIncome: mgmtFeeBase(propIncome),
     });
 
     // Expenses (exclude management fee from P&L — already deducted above)
@@ -202,6 +226,24 @@ export async function buildOwnerStatements(
       }));
     const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
     const netPayable    = grossIncome - managementFee - totalExpenses;
+
+    // Utilities memo — re-presents figures already counted above.
+    const utilIncome = propIncome.filter(e => e.type === "UTILITY_RECOVERY");
+    const sumBy = (rows: { grossAmount: number }[]) => rows.reduce((s, e) => s + e.grossAmount, 0);
+    const costOf = (category: string) => propExpenses.filter(e => e.category === category).reduce((s, e) => s + e.amount, 0);
+    const utilCollected = sumBy(utilIncome);
+    const utilCost = costOf("WATER") + costOf("ELECTRICITY") + costOf("GENERATOR");
+    const utilities: OwnerStatementUtilities | null = utilCollected > 0 || utilCost > 0
+      ? {
+          waterCollected:       sumBy(utilIncome.filter(e => e.utilityType === "WATER")),
+          electricityCollected: sumBy(utilIncome.filter(e => e.utilityType === "ELECTRICITY")),
+          otherCollected:       sumBy(utilIncome.filter(e => !e.utilityType)),
+          waterCost:            costOf("WATER"),
+          electricityCost:      costOf("ELECTRICITY"),
+          generatorCost:        costOf("GENERATOR"),
+          surplus:              utilCollected - utilCost,
+        }
+      : null;
 
     const payouts = payoutRows
       .filter(p => p.propertyId === property.id)
@@ -228,6 +270,7 @@ export async function buildOwnerStatements(
       netPayable,
       payouts,
       totalPaidOut,
+      utilities,
       notes:      `Net payable to owner for ${periodLabel}. Management fee deducted per agreement.`,
       ownerName:  property.owner?.name  ?? null,
       ownerEmail: property.owner?.email ?? null,

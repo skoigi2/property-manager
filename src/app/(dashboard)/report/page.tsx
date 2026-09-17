@@ -1096,6 +1096,10 @@ interface StatementData {
   currency: string;
   payouts: { id: string; amount: number; paidAt: string; method: string | null; reference: string | null }[];
   totalPaidOut: number;
+  utilities?: {
+    waterCollected: number; electricityCollected: number; otherCollected: number;
+    waterCost: number; electricityCost: number; generatorCost: number; surplus: number;
+  } | null;
 }
 
 function OwnerStatementTab({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
@@ -1236,6 +1240,39 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
               </span>
             </div>
           </div>
+
+          {/* Utilities memo — already inside gross income and the deductions above */}
+          {stmt.utilities && (
+            <div className="mb-5 max-w-md rounded-lg bg-gray-50 px-3 py-2.5 space-y-1.5">
+              <p className="text-label uppercase text-gray-400">Water &amp; electricity — included above</p>
+              {stmt.utilities.waterCollected + stmt.utilities.waterCost > 0 && (
+                <div className="flex items-center justify-between text-caption text-gray-600">
+                  <span>Water: collected {formatCurrency(stmt.utilities.waterCollected, stmt.currency)} · council {formatCurrency(stmt.utilities.waterCost, stmt.currency)}</span>
+                  <span className="tabular-nums">{formatCurrency(stmt.utilities.waterCollected - stmt.utilities.waterCost, stmt.currency)}</span>
+                </div>
+              )}
+              {stmt.utilities.electricityCollected + stmt.utilities.electricityCost + stmt.utilities.generatorCost > 0 && (
+                <div className="flex items-center justify-between text-caption text-gray-600">
+                  <span>
+                    Electricity: collected {formatCurrency(stmt.utilities.electricityCollected, stmt.currency)} · KPLC {formatCurrency(stmt.utilities.electricityCost, stmt.currency)} · generator {formatCurrency(stmt.utilities.generatorCost, stmt.currency)}
+                  </span>
+                  <span className="tabular-nums">
+                    {formatCurrency(stmt.utilities.electricityCollected - stmt.utilities.electricityCost - stmt.utilities.generatorCost, stmt.currency)}
+                  </span>
+                </div>
+              )}
+              {stmt.utilities.otherCollected > 0 && (
+                <div className="flex items-center justify-between text-caption text-gray-600">
+                  <span>Utility recovery with no utility chosen</span>
+                  <span className="tabular-nums">{formatCurrency(stmt.utilities.otherCollected, stmt.currency)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-body font-medium text-header pt-1 border-t border-gray-200">
+                <span>Utility surplus to owner</span>
+                <span className={clsx("tabular-nums", stmt.utilities.surplus < 0 && "text-expense")}>{formatCurrency(stmt.utilities.surplus, stmt.currency)}</span>
+              </div>
+            </div>
+          )}
 
           {/* Remittances recorded against this period */}
           {stmt.payouts?.length > 0 && (

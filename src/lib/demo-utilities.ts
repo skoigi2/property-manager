@@ -64,15 +64,32 @@ export async function seedDemoUtilities(propertyId: string, organizationId: stri
   const units = await prisma.unit.findMany({
     where: { propertyId },
     orderBy: { unitNumber: "asc" },
-    select: { id: true, tenants: { where: { isActive: true }, select: { id: true }, take: 1 } },
+    select: { id: true, tenants: { where: { isActive: true }, select: { id: true, leaseStart: true }, take: 1 } },
   });
   if (units.length === 0) return;
 
-  // Invoice periods: two months ago, last month, this month. Each is billed
-  // the readings of the month before it.
+  // Invoice periods: the property's three most recent rent-invoice months up
+  // to this month — for a fresh seed that is two months ago, last month and
+  // this month; for a demo seeded a while back it is ITS OWN window, so the
+  // readings land on invoices that exist. Each is billed the readings of the
+  // month before it.
   const thisMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
   const lastMonth = previousPeriod(thisMonth.year, thisMonth.month);
-  const invoicePeriods = [previousPeriod(lastMonth.year, lastMonth.month), lastMonth, thisMonth];
+  let invoicePeriods = [previousPeriod(lastMonth.year, lastMonth.month), lastMonth, thisMonth];
+  const invoiced = await prisma.invoice.groupBy({
+    by: ["periodYear", "periodMonth"],
+    where: {
+      tenant: { unit: { propertyId } },
+      status: { not: "CANCELLED" },
+      rentAmount: { gt: 0 },
+      OR: [{ periodYear: { lt: thisMonth.year } }, { periodYear: thisMonth.year, periodMonth: { lte: thisMonth.month } }],
+    },
+    orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+    take: 3,
+  });
+  if (invoiced.length === 3) {
+    invoicePeriods = invoiced.map((p) => ({ year: p.periodYear, month: p.periodMonth })).reverse();
+  }
   const readingPeriods = invoicePeriods.map((p) => previousPeriod(p.year, p.month));
   const lastDay = (p: { year: number; month: number }) => new Date(Date.UTC(p.year, p.month, 0, 12));
   const openingDate = lastDay(previousPeriod(readingPeriods[0].year, readingPeriods[0].month));
@@ -123,10 +140,11 @@ export async function seedDemoUtilities(propertyId: string, organizationId: stri
   const billable = new Map<string, { id: string; utility: "WATER" | "ELECTRICITY"; amount: number }[][]>();
   const unitPower = [0, 0, 0];
 
-  function addReadings(meterId: string, utility: "WATER" | "ELECTRICITY", opening: number, use: number[], tenantId: string | null, priced: boolean) {
+  function addReadings(meterId: string, utility: "WATER" | "ELECTRICITY", opening: number, use: number[], occupants: (string | null)[], priced: boolean) {
     let previous = opening;
     for (let k = 0; k < 3; k++) {
       const p = readingPeriods[k];
+      const tenantId = occupants[k];
       const current = round1(previous + use[k]);
       const consumption = calcConsumption(previous, current);
       const pending = k === 2 && !!tenantId && awaitingReview.includes(tenantId);
@@ -161,12 +179,15 @@ export async function seedDemoUtilities(propertyId: string, organizationId: stri
 
   for (let i = 0; i < units.length; i++) {
     const u = units[i];
-    const tenantId = u.tenants[0]?.id ?? null;
+    const tenant = u.tenants[0] ?? null;
+    // Who was in the unit each reading month: a tenant whose lease started
+    // later (someone added to the demo since) was not there — the unit reads
+    // as vacant for that month and is never billed to them.
+    const occupants = readingPeriods.map((p) => (tenant && tenant.leaseStart.getTime() <= lastDay(p).getTime() ? tenant.id : null));
     // A vacant unit barely moves; the spike tenant triples last month's power.
-    const factor = tenantId ? 1 : 0.1;
-    const spike = tenantId && tenantId === spikeTenant ? 3.2 : 1;
-    const waterUse = [4 + (i % 5), 5 + ((i * 3) % 4), 4 + ((i * 2) % 5)].map((x) => round1(x * factor));
-    const powerUse = [120 + ((i * 17) % 90), 135 + ((i * 23) % 80), 128 + ((i * 13) % 85)].map((x, k) => Math.round(x * factor * (k === 2 ? spike : 1)));
+    const spike = tenant && tenant.id === spikeTenant ? 3.2 : 1;
+    const waterUse = [4 + (i % 5), 5 + ((i * 3) % 4), 4 + ((i * 2) % 5)].map((x, k) => round1(x * (occupants[k] ? 1 : 0.1)));
+    const powerUse = [120 + ((i * 17) % 90), 135 + ((i * 23) % 80), 128 + ((i * 13) % 85)].map((x, k) => Math.round(x * (occupants[k] ? 1 : 0.1) * (k === 2 ? spike : 1)));
     powerUse.forEach((x, k) => { unitPower[k] += x; });
 
     const water = await prisma.utilityMeter.create({
@@ -175,8 +196,8 @@ export async function seedDemoUtilities(propertyId: string, organizationId: stri
     const power = await prisma.utilityMeter.create({
       data: { organizationId, propertyId, unitId: u.id, utility: "ELECTRICITY", role: "UNIT", label: "Electricity", meterNumber: `E-${5000 + i}`, openingReading: 2000 + i * 311, openingReadingDate: openingDate },
     });
-    addReadings(water.id, "WATER", 100 + i * 37, waterUse, tenantId, true);
-    addReadings(power.id, "ELECTRICITY", 2000 + i * 311, powerUse, tenantId, true);
+    addReadings(water.id, "WATER", 100 + i * 37, waterUse, occupants, true);
+    addReadings(power.id, "ELECTRICITY", 2000 + i * 311, powerUse, occupants, true);
   }
 
   const commonUse = [310, 295, 302];
@@ -186,9 +207,9 @@ export async function seedDemoUtilities(propertyId: string, organizationId: stri
   const bulk = await prisma.utilityMeter.create({
     data: { organizationId, propertyId, utility: "ELECTRICITY", role: "BULK", label: "KPLC bulk meter", meterNumber: "KPLC-BULK", openingReading: 152000, openingReadingDate: openingDate },
   });
-  addReadings(common.id, "ELECTRICITY", 8400, commonUse, null, false);
+  addReadings(common.id, "ELECTRICITY", 8400, commonUse, [null, null, null], false);
   // Bulk = everything downstream + ~3% line loss.
-  addReadings(bulk.id, "ELECTRICITY", 152000, unitPower.map((x, k) => Math.round((x + commonUse[k]) * 1.03)), null, false);
+  addReadings(bulk.id, "ELECTRICITY", 152000, unitPower.map((x, k) => Math.round((x + commonUse[k]) * 1.03)), [null, null, null], false);
 
   await prisma.meterReading.createMany({ data: rows });
 

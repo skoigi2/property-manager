@@ -34,6 +34,11 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   "src/app/api/complaints/route.ts",
   "src/app/api/complaints/[id]/route.ts",
   "src/app/api/complaints/[id]/events/route.ts",
+  // Utility meters + month-end readings (units only for CARETAKER — no rates,
+  // amounts or invoice links; own SUBMITTED readings only on PATCH)
+  "src/app/api/utilities/meters/route.ts",
+  "src/app/api/utilities/readings/route.ts",
+  "src/app/api/utilities/readings/[id]/route.ts",
   // Global search — per-group scoping in src/lib/search-visibility.ts
   "src/app/api/search/route.ts",
   // Identity-scoped plumbing every signed-in user needs

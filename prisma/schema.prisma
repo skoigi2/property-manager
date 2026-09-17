@@ -745,6 +745,9 @@ model Property {
   actionableHints        ActionableHint[]
   complaints             TenantComplaint[]
   ownerPayouts           OwnerPayout[]
+  utilitySettings        UtilitySetting[]
+  utilityTariffs         UtilityTariff[]
+  utilityMeters          UtilityMeter[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 }
@@ -806,6 +809,7 @@ model Unit {
   subjectComplaints  TenantComplaint[] @relation("ComplaintSubjectUnit")
   checkouts          CheckoutProcess[]
   conditionReports   ConditionReport[]
+  utilityMeters      UtilityMeter[]
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -864,6 +868,7 @@ model Tenant {
   communicationLogs    CommunicationLog[]
   portalThreads        PortalMessageThread[]
   complaints           TenantComplaint[]
+  meterReadings        MeterReading[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -909,6 +914,9 @@ model IncomeEntry {
   taxAmount         Decimal? @db.Decimal(14, 2)
   taxType           TaxType?
   paymentMethod     PaymentMethod?
+  // Set on UTILITY_RECOVERY rows so water and electricity collections can be
+  // told apart (utility reconciliation, receipts). Null for every other type.
+  utilityType       UtilityType?
   unit              Unit         @relation(fields: [unitId], references: [id])
   tenant            Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -1340,6 +1348,12 @@ model Invoice {
   // src/lib/invoice-payment.ts, so the deposit never counts as rent income.
   depositAmount Decimal         @default(0) @db.Decimal(14, 2)
   leaseFee      Decimal         @default(0) @db.Decimal(14, 2)
+  // Metered utilities. ALWAYS equal to the sum of `amount` on the attached
+  // non-VOID MeterReading rows of that utility - never typed by hand. Booked
+  // as UTILITY_RECOVERY income (src/lib/invoice-payment.ts), outside the rent
+  // side, so the rent ledger and the management-fee base never see them.
+  waterAmount       Decimal     @default(0) @db.Decimal(14, 2)
+  electricityAmount Decimal     @default(0) @db.Decimal(14, 2)
   lateFeeAmount Decimal         @default(0) @db.Decimal(14, 2)
   lateFeeAppliedAt DateTime?
   totalAmount   Decimal @db.Decimal(14, 2)
@@ -1356,6 +1370,7 @@ model Invoice {
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   caseThread    CaseThread?   @relation("InvoiceCaseThread", fields: [caseThreadId], references: [id], onDelete: SetNull)
   incomeEntries IncomeEntry[]
+  meterReadings MeterReading[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -2390,4 +2405,130 @@ model WebhookEndpoint {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId])
+}
+
+// ─── Utility metering (water / electricity) ───────────────────────────────────
+// Post-paid only. The caretaker reads every meter at month end; a manager
+// approves; approved UNIT readings are billed on the tenant's next invoice
+// (Invoice.waterAmount / electricityAmount). BULK (supplier) and COMMON
+// (common-area) meters are never billed - they feed the reconciliation.
+
+enum UtilityType {
+  WATER
+  ELECTRICITY
+}
+
+enum MeterRole {
+  UNIT
+  COMMON
+  BULK
+}
+
+// There is deliberately no BILLED value: a reading is billed when it has an
+// invoiceId and that invoice is not CANCELLED. Deleting or cancelling the
+// invoice therefore makes the reading billable again with no extra write.
+enum MeterReadingStatus {
+  SUBMITTED
+  APPROVED
+  VOID
+}
+
+model UtilitySetting {
+  id                      String      @id @default(cuid())
+  propertyId              String
+  utility                 UtilityType
+  unitLabel               String      @default("units")
+  // Auto invoice generation waits (until the 5th) for the previous month's
+  // readings to be approved so utilities go out WITH the rent.
+  holdInvoicesForReadings Boolean     @default(true)
+  requirePhoto            Boolean     @default(false)
+  property                Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  @@unique([propertyId, utility])
+}
+
+// Time-sliced: the tariff with the latest effectiveFrom on or before the
+// reading period applies, and carries forward until a newer one is added.
+// Tenant rate per unit = supplyRate + fuelRate.
+model UtilityTariff {
+  id            String      @id @default(cuid())
+  propertyId    String
+  utility       UtilityType
+  effectiveFrom DateTime
+  supplyRate    Float
+  fuelRate      Float       @default(0)
+  notes         String?
+  createdByName String?
+  property      Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@index([propertyId, utility, effectiveFrom])
+}
+
+model UtilityMeter {
+  id                  String         @id @default(cuid())
+  organizationId      String?
+  propertyId          String
+  // Required for role UNIT, null for COMMON / BULK.
+  unitId              String?
+  utility             UtilityType
+  role                MeterRole      @default(UNIT)
+  label               String
+  meterNumber         String?
+  openingReading      Float          @default(0)
+  openingReadingDate  DateTime?
+  // Wins over the property tariff (e.g. a hot-water meter).
+  ratePerUnitOverride Float?
+  isActive            Boolean        @default(true)
+  property            Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit                Unit?          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  readings            MeterReading[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([propertyId, utility])
+  @@index([unitId])
+}
+
+model MeterReading {
+  id                     String             @id @default(cuid())
+  meterId                String
+  periodYear             Int
+  periodMonth            Int
+  readingDate            DateTime
+  previousReading        Float
+  currentReading         Float
+  consumption            Float
+  // Snapshots taken at approval; null while SUBMITTED and on COMMON / BULK.
+  supplyRate             Float?
+  fuelRate               Float?
+  ratePerUnit            Float?
+  amount                 Decimal?           @db.Decimal(14, 2)
+  status                 MeterReadingStatus @default(SUBMITTED)
+  // Occupant of the unit on readingDate. Null = vacant: never billed.
+  tenantId               String?
+  invoiceId              String?
+  readByUserId           String?
+  readByName             String?
+  approvedByUserId       String?
+  approvedByName         String?
+  approvedAt             DateTime?
+  photoPaths             String[]
+  notes                  String?
+  // Set when a manager overrides the derived previous reading (meter
+  // replaced, rollover).
+  previousOverrideReason String?
+  meter                  UtilityMeter       @relation(fields: [meterId], references: [id], onDelete: Cascade)
+  tenant                 Tenant?            @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoice                Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  // One non-VOID reading per meter per period is enforced in code, not by
+  // the database (a VOID row is reused on re-entry).
+  @@index([meterId, periodYear, periodMonth])
+  @@index([tenantId, status, invoiceId])
+  @@index([invoiceId])
 }

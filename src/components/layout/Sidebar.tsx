@@ -42,6 +42,7 @@ import {
   Bell,
   PlayCircle,
   MessageSquareWarning,
+  Gauge,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -106,6 +107,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/cases",       label: "Cases",       icon: Briefcase, roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/maintenance", label: "Maintenance", icon: Wrench,    roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning, roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
+      { href: "/utilities",   label: "Utilities",   icon: Gauge,     roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/assets",      label: "Assets",      icon: Package,   roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/vendors",     label: "Vendors",     icon: Building2, roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/insurance",   label: "Insurance",   icon: ShieldPlus,roles: ["MANAGER", "ACCOUNTANT"] },

@@ -3,6 +3,8 @@ import { format } from "date-fns";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocateInvoiceNumber } from "@/lib/invoice-numbering";
+import { invoiceLinesTotal } from "@/lib/invoice-payment";
+import { unbilledApprovedReadings } from "@/lib/utility-readings";
 
 // Shared monthly rent-invoice generation. Used by POST /api/invoices/bulk
 // (manager-clicked "Generate All") and the AUTO_INVOICE_GENERATION cron
@@ -11,6 +13,12 @@ import { allocateInvoiceNumber } from "@/lib/invoice-numbering";
 // (RentHistory), idempotent per tenant + period: at most ONE rent invoice per
 // month (a deposit-only / fees-only invoice for the same month never blocks
 // the rent invoice, and vice versa).
+//
+// Metered utilities ride along: approved, unbilled meter readings of EARLIER
+// months (June's readings -> the July invoice) are attached to the rent
+// invoice as it is created. Tenants who get no rent invoice here (already
+// invoiced, or a period payer in an off month) are picked up by
+// billApprovedReadings in src/lib/utility-readings.ts.
 
 export interface InvoicingTenant {
   id: string;
@@ -24,7 +32,7 @@ export interface InvoicingTenant {
 
 export interface GenerateInvoicesResult {
   /** Invoices actually created this call. */
-  created: { invoiceId: string; tenantId: string; tenantName: string }[];
+  created: { invoiceId: string; tenantId: string; tenantName: string; utilitiesAttached?: number }[];
   /** Tenant already had an invoice for the period. */
   skipped: { tenantId: string; tenantName: string }[];
   /** Not due this month (covered by quarterly/annual advance billing). */
@@ -62,6 +70,11 @@ export async function generateInvoicesForTenants(opts: {
     select: { tenantId: true },
   });
   const existingTenantIds = new Set(existingInvoices.map((i) => i.tenantId));
+  const utilities = await unbilledApprovedReadings({
+    tenantIds: tenants.map((t) => t.id),
+    invoiceYear: year,
+    invoiceMonth: month,
+  });
 
   const dueDate = new Date(year, month - 1, dueDayOfMonth);
   const periodStart = new Date(year, month - 1, 1);
@@ -98,7 +111,10 @@ export async function generateInvoicesForTenants(opts: {
       const invoiceNumber = await allocateInvoiceNumber(tenant.id, periodStart);
       const rentAmount = sched.amount;
       const serviceCharge = (tenant.serviceCharge ?? 0) * nMonths;
-      const totalAmount = rentAmount + serviceCharge;
+      const metered = utilities.get(tenant.id);
+      const waterAmount = metered?.waterAmount ?? 0;
+      const electricityAmount = metered?.electricityAmount ?? 0;
+      const totalAmount = invoiceLinesTotal({ rentAmount, serviceCharge, waterAmount, electricityAmount });
 
       const invoice = await prisma.invoice.create({
         data: {
@@ -109,6 +125,9 @@ export async function generateInvoicesForTenants(opts: {
           rentAmount,
           serviceCharge,
           otherCharges: 0,
+          waterAmount,
+          electricityAmount,
+          ...(metered ? { meterReadings: { connect: metered.readingIds.map((id) => ({ id })) } } : {}),
           totalAmount,
           dueDate,
           status,
@@ -122,7 +141,12 @@ export async function generateInvoicesForTenants(opts: {
         select: { id: true },
       });
 
-      result.created.push({ invoiceId: invoice.id, tenantId: tenant.id, tenantName: tenant.name });
+      result.created.push({
+        invoiceId: invoice.id,
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        ...(metered ? { utilitiesAttached: metered.readingIds.length } : {}),
+      });
     } catch (e) {
       result.errors.push({ tenantId: tenant.id, tenant: tenant.name, error: e instanceof Error ? e.message : "Unknown error" });
     }

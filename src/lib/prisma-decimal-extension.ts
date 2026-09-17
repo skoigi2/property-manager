@@ -70,6 +70,8 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
       otherCharges: { needs: { otherCharges: true }, compute: (r) => Number(r.otherCharges) },
       depositAmount: { needs: { depositAmount: true }, compute: (r) => Number(r.depositAmount) },
       leaseFee: { needs: { leaseFee: true }, compute: (r) => Number(r.leaseFee) },
+      waterAmount: { needs: { waterAmount: true }, compute: (r) => Number(r.waterAmount) },
+      electricityAmount: { needs: { electricityAmount: true }, compute: (r) => Number(r.electricityAmount) },
       lateFeeAmount: { needs: { lateFeeAmount: true }, compute: (r) => Number(r.lateFeeAmount) },
       totalAmount: { needs: { totalAmount: true }, compute: (r) => Number(r.totalAmount) },
       paidAmount: { needs: { paidAmount: true }, compute: (r) => (r.paidAmount === null ? null : Number(r.paidAmount)) },
@@ -124,6 +126,9 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
     },
     checkoutDeduction: {
       amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },
+    },
+    meterReading: {
+      amount: { needs: { amount: true }, compute: (r) => (r.amount === null ? null : Number(r.amount)) },
     },
   },
 });

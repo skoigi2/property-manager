@@ -273,6 +273,7 @@ interface Invoice {
   id: string; invoiceNumber: string; periodYear: number; periodMonth: number;
   totalAmount: number; rentAmount: number; serviceCharge: number; otherCharges: number;
   depositAmount?: number; leaseFee?: number;
+  waterAmount?: number; electricityAmount?: number;
   dueDate: string; status: keyof typeof INVOICE_STATUS_CONFIG;
   paidAt?: string | null; paidAmount?: number | null;
   /** Latest payment — receipt link for PAID rows. */

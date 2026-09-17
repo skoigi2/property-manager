@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { InvoiceData } from "@/lib/invoice-pdf";
+import { loadInvoiceUtilityContext } from "@/lib/invoice-utility-lines";
 
 /**
  * Load an invoice and assemble the full InvoiceData payload for the PDF —
@@ -68,15 +69,9 @@ export async function buildInvoicePdfPayload(invoiceId: string) {
     paymentInstructions: account ? account.paymentInstructions : agreement?.tenantPaymentInstructions ?? null,
   } : null;
 
-  // Arrears context: the tenant's OTHER invoices still awaiting payment.
-  const outstandingAgg = await prisma.invoice.aggregate({
-    where: {
-      tenantId: invoice.tenant.id,
-      id: { not: invoice.id },
-      status: { in: ["SENT", "OVERDUE", "PENDING_VERIFICATION"] },
-    },
-    _sum: { totalAmount: true },
-  });
+  // Meter-reading lines + arrears context: what is still owed on the
+  // tenant's OTHER open invoices, net of part payments, split by line.
+  const utilities = await loadInvoiceUtilityContext(invoice.id, invoice.tenant.id, invoice.tenant.unit.property.id);
 
   const data: InvoiceData = {
     ...invoice,
@@ -89,7 +84,9 @@ export async function buildInvoicePdfPayload(invoiceId: string) {
           address: account.address, phone: account.phone, email: account.email,
         }
       : null,
-    outstandingBalance: outstandingAgg._sum.totalAmount ?? 0,
+    utilityLines: utilities.utilityLines,
+    outstandingBalance: utilities.outstanding.total,
+    outstandingBreakdown: utilities.outstanding,
     tenant: {
       ...invoice.tenant,
       unit: {

@@ -51,6 +51,9 @@ export interface InvoiceFormInvoice {
   depositAmount?: number;
   leaseFee?: number;
   lateFeeAmount?: number;
+  /** Metered lines — always the sum of the attached meter readings, never typed. */
+  waterAmount?: number;
+  electricityAmount?: number;
   dueDate: string;
   notes?: string | null;
   tenant: { id: string; name: string; unit: { unitNumber: string; property: { name: string } } };
@@ -231,8 +234,12 @@ export default function InvoiceForm({
   const activeLines = LINE_ORDER.filter((k) => k in lines);
   const availableLines = LINE_ORDER.filter((k) => !(k in lines));
   const total = useMemo(
-    () => activeLines.reduce((s, k) => s + n(lines[k]), 0) + (invoice?.lateFeeAmount ?? 0),
-    [activeLines, lines, invoice?.lateFeeAmount],
+    () =>
+      activeLines.reduce((s, k) => s + n(lines[k]), 0) +
+      (invoice?.lateFeeAmount ?? 0) +
+      (invoice?.waterAmount ?? 0) +
+      (invoice?.electricityAmount ?? 0),
+    [activeLines, lines, invoice?.lateFeeAmount, invoice?.waterAmount, invoice?.electricityAmount],
   );
   const rentConflict = existingRentInvoice && n(lines.rentAmount) > 0;
 
@@ -418,6 +425,18 @@ export default function InvoiceForm({
                   </button>
                 </div>
               ))}
+              {(invoice?.waterAmount ?? 0) > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 text-caption text-blue-700">
+                  <span className="flex-1">Water (from meter readings — change it on the Utilities page)</span>
+                  <span className="tabular-nums">{fmt(invoice!.waterAmount!)}</span>
+                </div>
+              )}
+              {(invoice?.electricityAmount ?? 0) > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 text-caption text-blue-700">
+                  <span className="flex-1">Electricity (from meter readings — change it on the Utilities page)</span>
+                  <span className="tabular-nums">{fmt(invoice!.electricityAmount!)}</span>
+                </div>
+              )}
               {(invoice?.lateFeeAmount ?? 0) > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 text-caption text-amber-700">
                   <span className="flex-1">Late payment fee (managed separately)</span>

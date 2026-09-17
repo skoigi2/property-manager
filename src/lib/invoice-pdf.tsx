@@ -87,6 +87,15 @@ export type InvoiceData = {
   depositAmount?: number;
   leaseFee?: number;
   lateFeeAmount?: number;
+  /** Metered utilities — rendered only when > 0. */
+  waterAmount?: number;
+  electricityAmount?: number;
+  /**
+   * One described line per attached meter reading ("Jun 26 Water: 3 units
+   * (Prev: 176.00, Curr: 179.00) @ 175.00"). When absent the utility amount
+   * prints as a single "Water" / "Electricity" row.
+   */
+  utilityLines?: { utility: "WATER" | "ELECTRICITY"; label: string; amount: number }[];
   totalAmount: number;
   dueDate: Date | string;
   status: string;
@@ -109,8 +118,10 @@ export type InvoiceData = {
     phone?: string | null;
     email?: string | null;
   } | null;
-  /** Total of the tenant's OTHER unpaid invoices at generation time. */
+  /** What is still owed on the tenant's OTHER open invoices at generation time (net of part payments). */
   outstandingBalance?: number | null;
+  /** The same figure split by line, so unpaid water / electricity bills are visible. */
+  outstandingBreakdown?: { rent: number; water: number; electricity: number; deposit: number; leaseFee: number } | null;
   tenant: {
     name: string;
     email?: string | null;
@@ -181,10 +192,34 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
   const outstanding = data.outstandingBalance ?? 0;
 
   const hasDeposit = (data.depositAmount ?? 0) > 0;
+  const hasUtilities = (data.waterAmount ?? 0) > 0 || (data.electricityAmount ?? 0) > 0;
+  // Metered utilities: one line per reading when the readings are known,
+  // else a single row carrying the amount.
+  const utilityRows = (utility: "WATER" | "ELECTRICITY", amount: number, fallback: string) => {
+    if (amount <= 0) return [];
+    const rows = (data.utilityLines ?? []).filter((l) => l.utility === utility);
+    const rowsTotal = Math.round(rows.reduce((s, l) => s + l.amount, 0) * 100) / 100;
+    return rows.length > 0 && Math.abs(rowsTotal - amount) < 0.01
+      ? rows.map((l) => ({ label: l.label, amount: l.amount }))
+      : [{ label: fallback, amount }];
+  };
+  const breakdown = data.outstandingBreakdown;
+  const breakdownParts = breakdown
+    ? [
+        breakdown.rent > 0 ? `rent ${fmt(breakdown.rent)}` : null,
+        breakdown.water > 0 ? `water ${fmt(breakdown.water)}` : null,
+        breakdown.electricity > 0 ? `electricity ${fmt(breakdown.electricity)}` : null,
+        breakdown.deposit > 0 ? `deposit ${fmt(breakdown.deposit)}` : null,
+        breakdown.leaseFee > 0 ? `lease fee ${fmt(breakdown.leaseFee)}` : null,
+      ].filter(Boolean)
+    : [];
   const lineItems = [
-    ...(data.rentAmount > 0 || !hasDeposit ? [{ label: rentLabel, amount: data.rentAmount }] : []),
+    // A utilities-only invoice has no rent row.
+    ...(data.rentAmount > 0 || (!hasDeposit && !hasUtilities) ? [{ label: rentLabel, amount: data.rentAmount }] : []),
     ...(data.serviceCharge > 0 ? [{ label: "Service Charge", amount: data.serviceCharge }] : []),
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
+    ...utilityRows("WATER", data.waterAmount ?? 0, "Water"),
+    ...utilityRows("ELECTRICITY", data.electricityAmount ?? 0, "Electricity"),
     ...(hasDeposit ? [{ label: "Refundable Security Deposit", amount: data.depositAmount! }] : []),
     ...((data.leaseFee ?? 0) > 0 ? [{ label: "Lease Agreement Fee", amount: data.leaseFee! }] : []),
     ...((data.lateFeeAmount ?? 0) > 0 ? [{ label: "Late Payment Fee", amount: data.lateFeeAmount! }] : []),
@@ -344,6 +379,11 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
                 {"  ·  Total including this invoice: "}
                 <Text style={{ fontFamily: "Helvetica-Bold" }}>{fmt(outstanding + data.totalAmount)}</Text>
               </Text>
+              {breakdownParts.length > 1 || (breakdown && breakdown.water + breakdown.electricity > 0) ? (
+                <Text style={{ fontSize: 8, color: "#92400e", marginTop: 3 }}>
+                  Unpaid from previous invoices: {breakdownParts.join("  ·  ")}
+                </Text>
+              ) : null}
             </View>
           )}
         </View>

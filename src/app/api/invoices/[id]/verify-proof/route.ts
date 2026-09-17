@@ -121,6 +121,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
   let primaryEntryId: string | null = null;
   const orgId = invoice.tenant.unit.property.organizationId ?? session!.user.organizationId;
+  const lineAmounts = {
+    rentAmount: invoice.rentAmount,
+    serviceCharge: invoice.serviceCharge,
+    otherCharges: invoice.otherCharges,
+    lateFeeAmount: invoice.lateFeeAmount,
+    waterAmount: invoice.waterAmount,
+    electricityAmount: invoice.electricityAmount,
+    depositAmount: invoice.depositAmount,
+    leaseFee: invoice.leaseFee,
+  };
   if (!existing) {
     const { ops } = await buildInvoicePaymentOps({
       invoice: {
@@ -131,12 +141,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         propertyId: invoice.tenant.unit.property.id,
         organizationId: orgId,
         isTaxExempt: invoice.tenant.isTaxExempt,
-        rentAmount: invoice.rentAmount,
-        serviceCharge: invoice.serviceCharge,
-        otherCharges: invoice.otherCharges,
-        lateFeeAmount: invoice.lateFeeAmount,
-        depositAmount: invoice.depositAmount,
-        leaseFee: invoice.leaseFee,
+        ...lineAmounts,
         alreadyPaid: 0,
       },
       amount: finalPaidAmount,
@@ -146,11 +151,39 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     const created = (await prisma.$transaction(ops)) as { id: string }[];
     primaryEntryId = created[0]?.id ?? null;
-  } else if (paymentMethod && !existing.paymentMethod) {
-    await prisma.incomeEntry.update({
-      where: { id: existing.id },
-      data: { paymentMethod },
-    });
+  } else {
+    if (paymentMethod && !existing.paymentMethod) {
+      await prisma.incomeEntry.update({
+        where: { id: existing.id },
+        data: { paymentMethod },
+      });
+    }
+    // Earlier part payments exist: book what this proof settles on top of
+    // them, so the unpaid tail (usually the utilities) reaches the books.
+    const agg = await prisma.incomeEntry.aggregate({ where: { invoiceId: invoice.id }, _sum: { grossAmount: true } });
+    const alreadyPaid = Number(agg._sum.grossAmount ?? 0);
+    const remainder = Math.round((finalPaidAmount - alreadyPaid) * 100) / 100;
+    if (remainder > 0.005) {
+      const { ops } = await buildInvoicePaymentOps({
+        invoice: {
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          tenantId: invoice.tenantId,
+          unitId: invoice.tenant.unit.id,
+          propertyId: invoice.tenant.unit.property.id,
+          organizationId: orgId,
+          isTaxExempt: invoice.tenant.isTaxExempt,
+          ...lineAmounts,
+          alreadyPaid,
+        },
+        amount: remainder,
+        date: finalPaidAt,
+        paymentMethod: paymentMethod ?? null,
+        note: `Balance settled on invoice ${invoice.invoiceNumber} (proof verified)`,
+      });
+      const created = (await prisma.$transaction(ops)) as { id: string }[];
+      primaryEntryId = created[0]?.id ?? null;
+    }
   }
 
   // Persist a TenantDocument record so the proof shows under the tenant's "Payment Receipts".

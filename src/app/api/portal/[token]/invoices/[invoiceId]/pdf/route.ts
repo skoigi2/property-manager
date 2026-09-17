@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { validatePortalToken } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 import { generateInvoicePdf } from "@/lib/invoice-pdf";
+import { loadInvoiceUtilityContext } from "@/lib/invoice-utility-lines";
 
 export async function GET(
   _req: NextRequest,
@@ -56,15 +57,8 @@ export async function GET(
     paymentInstructions: account ? account.paymentInstructions : agreement?.tenantPaymentInstructions ?? null,
   } : null;
 
-  // Arrears context: the tenant's OTHER invoices still awaiting payment.
-  const outstandingAgg = await prisma.invoice.aggregate({
-    where: {
-      tenantId: tenant.id,
-      id: { not: invoice.id },
-      status: { in: ["SENT", "OVERDUE", "PENDING_VERIFICATION"] },
-    },
-    _sum: { totalAmount: true },
-  });
+  // Meter-reading lines + arrears context (net of part payments, by line).
+  const utilities = await loadInvoiceUtilityContext(invoice.id, tenant.id, property.id);
 
   const buffer = await generateInvoicePdf({
     invoiceNumber: invoice.invoiceNumber,
@@ -76,6 +70,9 @@ export async function GET(
     depositAmount: invoice.depositAmount,
     leaseFee: invoice.leaseFee,
     lateFeeAmount: invoice.lateFeeAmount,
+    waterAmount: invoice.waterAmount,
+    electricityAmount: invoice.electricityAmount,
+    utilityLines: utilities.utilityLines,
     totalAmount: invoice.totalAmount,
     dueDate: invoice.dueDate,
     status: invoice.status,
@@ -93,7 +90,8 @@ export async function GET(
           address: account.address, phone: account.phone, email: account.email,
         }
       : null,
-    outstandingBalance: outstandingAgg._sum.totalAmount ?? 0,
+    outstandingBalance: utilities.outstanding.total,
+    outstandingBreakdown: utilities.outstanding,
     tenant: {
       name: tenant.name,
       email: tenant.email,

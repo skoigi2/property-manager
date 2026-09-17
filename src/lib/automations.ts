@@ -7,6 +7,7 @@ import { getWorkflow, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { logAudit } from "@/lib/audit";
 import { AUTOMATION_DEFS, ensureAutomationTemplates, isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
 import { generateInvoicesForTenants } from "@/lib/invoice-generation";
+import { unitsAwaitingReadings, READINGS_HOLD_UNTIL_DAY } from "@/lib/utility-readings";
 import { emailInvoiceToTenant } from "@/lib/invoice-email";
 import { format } from "date-fns";
 
@@ -397,11 +398,20 @@ async function runAutoInvoiceGeneration(organizationId: string): Promise<Handler
     },
   });
 
+  // Metered units wait (until the 5th) for last month's readings to be
+  // approved, so water / electricity go out WITH the rent. Held tenants are
+  // NOT written to the execution ledger - they are re-evaluated tomorrow.
+  const awaitingReadings =
+    now.getDate() <= READINGS_HOLD_UNTIL_DAY
+      ? await unitsAwaitingReadings(tenants.map((t) => t.unit.id), year, month)
+      : new Set<string>();
+
   // Per-property toggle + write-once dedup ledger.
   const eligible: typeof tenants = [];
   for (const t of tenants) {
     if (!(await isAutomationEnabled(organizationId, "AUTO_INVOICE_GENERATION", t.unit.propertyId))) { skipped++; continue; }
     if (await alreadyExecuted("AUTO_INVOICE_GENERATION", `${t.id}:${periodKey}`)) { skipped++; continue; }
+    if (awaitingReadings.has(t.unit.id)) { skipped++; continue; }
     eligible.push(t);
   }
   if (eligible.length === 0) return { created: 0, skipped };

@@ -15,6 +15,7 @@ import {
   ArrowLeftRight, Mail, Sparkles, Zap, Bell, CreditCard,
   PlayCircle,
   MessageSquareWarning,
+  Gauge,
 } from "lucide-react";
 
 interface NavItem {
@@ -56,6 +57,12 @@ const caretakerPrimary: NavItem[] = [
 ];
 const caretakerDrawerSections: DrawerSection[] = [
   {
+    heading: "Operations",
+    items: [
+      { href: "/utilities", label: "Meter readings", icon: Gauge },
+    ],
+  },
+  {
     heading: "Help",
     items: [
       { href: "/help/tutorials", label: "Tutorials", icon: PlayCircle },
@@ -95,6 +102,7 @@ const mgrDrawerSections: DrawerSection[] = [
       { href: "/cases",       label: "Cases",       icon: Briefcase },
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
+      { href: "/utilities",   label: "Utilities",   icon: Gauge },
       { href: "/assets",      label: "Assets",      icon: Package },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/insurance",   label: "Insurance",   icon: ShieldPlus },
@@ -145,6 +153,7 @@ const accountantDrawerSections: DrawerSection[] = [
       { href: "/cases",       label: "Cases",       icon: Briefcase },
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
+      { href: "/utilities",   label: "Utilities",   icon: Gauge },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/compliance",  label: "Compliance",  icon: BarChart3 },
     ],

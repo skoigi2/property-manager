@@ -42,6 +42,7 @@ export async function POST(req: Request) {
     select: {
       id: true, invoiceNumber: true, status: true, totalAmount: true, paidAmount: true,
       rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
+      waterAmount: true, electricityAmount: true,
       depositAmount: true, leaseFee: true,
       caseThreadId: true, tenantId: true,
       tenant: { select: { id: true, name: true, isTaxExempt: true, unit: { select: { id: true, propertyId: true, property: { select: { organizationId: true } } } } } },
@@ -64,10 +65,26 @@ export async function POST(req: Request) {
     }
 
     try {
-      const existingIncome = await prisma.incomeEntry.findFirst({
+      const existingAgg = await prisma.incomeEntry.aggregate({
         where: { invoiceId: inv.id },
-        select: { id: true },
+        _sum: { grossAmount: true },
+        _count: true,
       });
+      const existingIncome = existingAgg._count > 0;
+      const existingPaid = Number(existingAgg._sum.grossAmount ?? 0);
+      // Part payments already booked: marking PAID settles the rest, so the
+      // unpaid tail (usually the utilities) is booked too.
+      const remainder = existingIncome ? Math.round((inv.totalAmount - existingPaid) * 100) / 100 : 0;
+      const lines = {
+        rentAmount: inv.rentAmount,
+        serviceCharge: inv.serviceCharge,
+        otherCharges: inv.otherCharges,
+        lateFeeAmount: inv.lateFeeAmount,
+        waterAmount: inv.waterAmount,
+        electricityAmount: inv.electricityAmount,
+        depositAmount: inv.depositAmount,
+        leaseFee: inv.leaseFee,
+      };
       const orgId = inv.tenant.unit.property.organizationId ?? session!.user.organizationId;
 
       // Array-form $transaction — callback form is pgBouncer-incompatible (see CLAUDE.md).
@@ -75,7 +92,11 @@ export async function POST(req: Request) {
       const ops: any[] = [
         prisma.invoice.update({
           where: { id: inv.id },
-          data: { status: "PAID", paidAt, paidAmount: inv.paidAmount ?? inv.totalAmount },
+          data: {
+            status: "PAID",
+            paidAt,
+            paidAmount: remainder > 0.005 ? inv.totalAmount : inv.paidAmount ?? inv.totalAmount,
+          },
         }),
       ];
       if (!existingIncome) {
@@ -88,17 +109,30 @@ export async function POST(req: Request) {
             propertyId: inv.tenant.unit.propertyId,
             organizationId: orgId,
             isTaxExempt: inv.tenant.isTaxExempt,
-            rentAmount: inv.rentAmount,
-            serviceCharge: inv.serviceCharge,
-            otherCharges: inv.otherCharges,
-            lateFeeAmount: inv.lateFeeAmount,
-            depositAmount: inv.depositAmount,
-            leaseFee: inv.leaseFee,
+            ...lines,
             alreadyPaid: 0,
           },
           amount: inv.paidAmount ?? inv.totalAmount,
           date: paidAt,
           note: `Auto-created from invoice ${inv.invoiceNumber}`,
+        });
+        ops.push(...entryOps);
+      } else if (remainder > 0.005) {
+        const { ops: entryOps } = await buildInvoicePaymentOps({
+          invoice: {
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            tenantId: inv.tenant.id,
+            unitId: inv.tenant.unit.id,
+            propertyId: inv.tenant.unit.propertyId,
+            organizationId: orgId,
+            isTaxExempt: inv.tenant.isTaxExempt,
+            ...lines,
+            alreadyPaid: existingPaid,
+          },
+          amount: remainder,
+          date: paidAt,
+          note: `Balance settled on invoice ${inv.invoiceNumber}`,
         });
         ops.push(...entryOps);
       }

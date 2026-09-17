@@ -6,7 +6,7 @@ import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { buildInvoicePaymentOps } from "@/lib/invoice-payment-entries";
-import { invoiceLinesTotal } from "@/lib/invoice-payment";
+import { invoiceLinesTotal, invoiceUtilitiesTotal } from "@/lib/invoice-payment";
 import { maybeAutoEmailReceipt } from "@/lib/receipt-email";
 
 export const maxDuration = 30;
@@ -82,6 +82,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json({ error: "A paid invoice's lines can't be changed — revert it to unpaid first." }, { status: 400 });
   }
 
+  // Un-cancelling is refused when the invoice carried metered utilities: a
+  // cancelled invoice releases its readings, which may since have been billed
+  // on another invoice - reviving this one would bill them twice.
+  if (invoice!.status === "CANCELLED" && status && status !== "CANCELLED" && invoiceUtilitiesTotal(invoice!) > 0) {
+    return Response.json(
+      { error: "This cancelled invoice carried water / electricity readings, which were released for re-billing. Raise a new invoice instead." },
+      { status: 400 },
+    );
+  }
+
   const lines = {
     rentAmount: rentAmount ?? invoice!.rentAmount,
     serviceCharge: serviceCharge ?? invoice!.serviceCharge,
@@ -90,6 +100,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     leaseFee: leaseFee ?? invoice!.leaseFee,
     // An applied late fee stays part of the total (managed via /late-fee).
     lateFeeAmount: invoice!.lateFeeAmount,
+    // Metered utilities are never edited here - they always equal the
+    // attached meter readings (src/lib/utility-readings.ts) - but they are
+    // part of the total and of the payment split.
+    waterAmount: invoice!.waterAmount,
+    electricityAmount: invoice!.electricityAmount,
   };
   if (editsLines && invoiceLinesTotal(lines) <= 0) {
     return Response.json({ error: "An invoice needs at least one line with an amount." }, { status: 400 });
@@ -103,9 +118,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // isolate concurrent reads either) but at least the writes are now
   // guaranteed to commit together.
   const willEnsureIncome = (status === "PAID" || invoice!.status === "PAID");
-  const existingIncome = willEnsureIncome
-    ? await prisma.incomeEntry.findFirst({ where: { invoiceId: params.id } })
+  const existingAgg = willEnsureIncome
+    ? await prisma.incomeEntry.aggregate({ where: { invoiceId: params.id }, _sum: { grossAmount: true }, _count: true })
     : null;
+  const existingIncome = (existingAgg?._count ?? 0) > 0;
+  const existingPaid = Number(existingAgg?._sum.grossAmount ?? 0);
+  // Marking PAID over earlier part payments: the remainder must be booked
+  // too, or the tail of the invoice (usually the utilities) never reaches
+  // the books.
+  const markingPaid = status === "PAID" && invoice!.status !== "PAID";
+  const settledTotal = parsed.data.paidAmount ?? newTotal;
+  const remainder = markingPaid && existingIncome ? Math.round((settledTotal - existingPaid) * 100) / 100 : 0;
 
   const invoiceUpdate = prisma.invoice.update({
     where: { id: params.id },
@@ -118,6 +141,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       depositAmount: lines.depositAmount,
       leaseFee: lines.leaseFee,
       totalAmount: newTotal,
+      ...(remainder > 0.005 && parsed.data.paidAmount == null ? { paidAmount: settledTotal } : {}),
       ...(paidAt !== undefined ? { paidAt: resolvedPaidAt } : {}),
       ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
     },
@@ -158,6 +182,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       amount: gross,
       date: payDate,
       note: `Auto-created from invoice ${invoice!.invoiceNumber}`,
+    });
+    ops.push(...entryOps);
+  } else if (remainder > 0.005) {
+    const { ops: entryOps } = await buildInvoicePaymentOps({
+      invoice: {
+        id: invoice!.id,
+        invoiceNumber: invoice!.invoiceNumber,
+        tenantId: invoice!.tenant.id,
+        unitId: invoice!.tenant.unit.id,
+        propertyId: invoice!.tenant.unit.property.id,
+        organizationId: invoice!.tenant.unit.property.organizationId ?? session!.user.organizationId,
+        isTaxExempt: invoice!.tenant.isTaxExempt,
+        ...lines,
+        alreadyPaid: existingPaid,
+      },
+      amount: remainder,
+      date: resolvedPaidAt ?? new Date(),
+      note: `Balance settled on invoice ${invoice!.invoiceNumber}`,
     });
     ops.push(...entryOps);
   }

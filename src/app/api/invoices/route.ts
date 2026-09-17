@@ -63,6 +63,16 @@ export async function GET(req: Request) {
       _count: { select: { incomeEntries: true } },
       // Latest payment - the receipt link for PAID rows (`/api/income/<id>/receipt`).
       incomeEntries: { select: { id: true }, orderBy: [{ date: "desc" }, { createdAt: "asc" }], take: 1 },
+      // The meter readings behind waterAmount / electricityAmount.
+      meterReadings: {
+        where: { status: { not: "VOID" } },
+        select: {
+          id: true, periodYear: true, periodMonth: true, previousReading: true, currentReading: true,
+          consumption: true, ratePerUnit: true, amount: true,
+          meter: { select: { label: true, utility: true } },
+        },
+        orderBy: [{ periodYear: "asc" }, { periodMonth: "asc" }],
+      },
     },
     // `id` tiebreak keeps the order stable for cursor paging.
     orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }, { id: "desc" }],

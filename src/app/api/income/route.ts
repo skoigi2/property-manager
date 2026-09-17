@@ -8,7 +8,7 @@ import { frequencyMonths } from "@/lib/rent-schedule";
 import { clearHints } from "@/lib/hints";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { tryAutoAdvance } from "@/lib/case-workflows";
-import { invoiceHasMoveInLines } from "@/lib/invoice-payment";
+import { invoiceHasNonRentLines } from "@/lib/invoice-payment";
 import { buildInvoicePaymentOps } from "@/lib/invoice-payment-entries";
 import { maybeAutoEmailReceipt } from "@/lib/receipt-email";
 
@@ -115,7 +115,8 @@ export async function POST(req: Request) {
   // deposit-held calculation (src/lib/deposit.ts); an unlinked deposit is
   // invisible to settlement.
   let resolvedTenantId = tenantId ?? null;
-  if (!resolvedTenantId && (rest.type === "LONGTERM_RENT" || rest.type === "DEPOSIT")) {
+  // UTILITY_RECOVERY too: metered water / electricity is a tenant payment.
+  if (!resolvedTenantId && (rest.type === "LONGTERM_RENT" || rest.type === "DEPOSIT" || rest.type === "UTILITY_RECOVERY")) {
     const activeTenant = await prisma.tenant.findFirst({
       where: { unitId: rest.unitId, isActive: true },
       select: { id: true },
@@ -140,6 +141,8 @@ export async function POST(req: Request) {
     serviceCharge: true,
     otherCharges: true,
     lateFeeAmount: true,
+    waterAmount: true,
+    electricityAmount: true,
     depositAmount: true,
     leaseFee: true,
   } as const;
@@ -148,10 +151,13 @@ export async function POST(req: Request) {
     | {
         id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null;
         rentAmount: number; serviceCharge: number; otherCharges: number; lateFeeAmount: number;
+        waterAmount: number; electricityAmount: number;
         depositAmount: number; leaseFee: number;
       }
     | null = null;
-  if (!resolvedInvoiceId && resolvedTenantId && rest.type === "LONGTERM_RENT") {
+  // Payments that walk an invoice's lines through the shared allocator.
+  const isInvoicePayment = rest.type === "LONGTERM_RENT" || rest.type === "UTILITY_RECOVERY";
+  if (!resolvedInvoiceId && resolvedTenantId && isInvoicePayment) {
     const entryDate = new Date(date);
     const [tenantMeta, openInvoices] = await Promise.all([
       prisma.tenant.findUnique({
@@ -167,11 +173,21 @@ export async function POST(req: Request) {
     ]);
     const n = frequencyMonths(tenantMeta?.paymentFrequency);
     const entryIndex = entryDate.getFullYear() * 12 + entryDate.getMonth();
-    matchedInvoice =
-      openInvoices.find((inv) => {
+    // A utilities-only invoice may sit beside the month's rent invoice: a
+    // rent payment prefers the rent invoice, a utility payment only ever
+    // matches an invoice that bills utilities; ties go to the oldest.
+    const covering = openInvoices
+      .filter((inv) => {
         const startIndex = inv.periodYear * 12 + (inv.periodMonth - 1);
         return entryIndex >= startIndex && entryIndex < startIndex + n;
-      }) ?? null;
+      })
+      .filter((inv) => rest.type !== "UTILITY_RECOVERY" || inv.waterAmount + inv.electricityAmount > 0)
+      .sort((a, b) => {
+        const rentFirst = Number(b.rentAmount > 0) - Number(a.rentAmount > 0);
+        if (rest.type === "LONGTERM_RENT" && rentFirst !== 0) return rentFirst;
+        return a.periodYear * 12 + a.periodMonth - (b.periodYear * 12 + b.periodMonth) || a.invoiceNumber.localeCompare(b.invoiceNumber);
+      });
+    matchedInvoice = covering[0] ?? null;
     resolvedInvoiceId = matchedInvoice?.id ?? null;
   } else if (resolvedInvoiceId) {
     matchedInvoice = await prisma.invoice.findUnique({
@@ -193,16 +209,20 @@ export async function POST(req: Request) {
     }
   }
 
-  // A rent payment against an invoice that carries deposit / fee lines is
-  // split into typed entries by the shared allocator (rent side first, then
-  // deposit, then fees) — the deposit must never be booked as rent. The
-  // manager's single amount stays the payment; the split is reported back.
+  // A payment against an invoice that carries lines outside the rent side
+  // (metered utilities, deposit, fees) is split into typed entries by the
+  // shared allocator (rent side first, then water, electricity, deposit,
+  // fees) — a deposit or a water bill must never be booked as rent, or the
+  // rent ledger and the management-fee base are over-credited. The walk order
+  // is fixed, so a payment typed as UTILITY_RECOVERY still fills unpaid rent
+  // first. The manager's single amount stays the payment; the split is
+  // reported back.
   const prevPaid = matchedInvoice?.paidAmount ?? 0;
   const splitAcrossLines =
     !!matchedInvoice &&
     matchedInvoice.status !== "PAID" &&
-    rest.type === "LONGTERM_RENT" &&
-    invoiceHasMoveInLines(matchedInvoice);
+    isInvoicePayment &&
+    invoiceHasNonRentLines(matchedInvoice);
   const includeShape = {
     unit: { include: { property: { select: { name: true } } } },
     tenant: { select: { id: true, name: true } },

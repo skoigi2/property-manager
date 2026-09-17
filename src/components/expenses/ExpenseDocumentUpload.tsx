@@ -2,6 +2,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { Upload, X, Loader2, Camera, FileText, RefreshCw, CheckCircle2 } from "lucide-react";
 import { clsx } from "clsx";
+import { maybeCompressImage } from "@/lib/image-compress";
 
 export const EXPENSE_DOCUMENT_CATEGORIES = [
   { value: "RECEIPT",  label: "Receipt" },
@@ -21,10 +22,6 @@ const ALLOWED_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
 const ALLOWED_EXTENSIONS = /\.(pdf|jpe?g|png|webp|heic|heif|docx?)$/i;
-/** Types the canvas can decode — candidates for client-side compression. */
-const COMPRESSIBLE = new Set(["image/jpeg", "image/png", "image/webp"]);
-const COMPRESS_THRESHOLD = 1_500_000; // bytes — smaller files upload as-is
-const MAX_DIMENSION = 2200; // px — plenty for a legible receipt
 
 interface QueueItem {
   id: string;
@@ -60,28 +57,6 @@ function isAllowed(file: File): boolean {
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/** Downscale + re-encode large canvas-decodable images; anything else passes through. */
-async function maybeCompress(file: File): Promise<File> {
-  if (!COMPRESSIBLE.has(file.type) || file.size < COMPRESS_THRESHOLD) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
-    if (!blob || blob.size >= file.size) return file; // keep original if no win
-    const newName = file.name.replace(/\.(png|webp|jpe?g)$/i, "") + ".jpg";
-    return new File([blob], newName, { type: "image/jpeg" });
-  } catch {
-    return file; // decode failed — upload the original
-  }
 }
 
 /** XHR (not fetch) so we get upload-progress events. */
@@ -180,7 +155,7 @@ export const ExpenseDocumentUpload = forwardRef<ExpenseDocumentUploadHandle, Pro
           continue;
         }
 
-        const file = await maybeCompress(raw);
+        const file = await maybeCompressImage(raw);
         if (file.size > MAX_MB * 1024 * 1024) {
           reject(`Too large (${formatBytes(file.size)}) — the maximum is ${MAX_MB} MB per file.`);
           continue;

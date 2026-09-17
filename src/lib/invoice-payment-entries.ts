@@ -55,6 +55,7 @@ export async function buildInvoicePaymentOps(input: InvoicePaymentInput): Promis
         tenantId: invoice.tenantId,
         invoiceId: invoice.id,
         type: p.type,
+        utilityType: p.utility ?? null,
         grossAmount: p.amount,
         agentCommission: 0,
         paymentMethod: (paymentMethod as never) ?? null,

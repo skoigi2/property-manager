@@ -399,3 +399,95 @@ export const conditionReportPatchSchema = z.object({
   signedByTenant:  z.boolean().optional(),
   signedByManager: z.boolean().optional(),
 });
+
+// ─── Utility metering ─────────────────────────────────────────────────────────
+export const UTILITY_TYPE_VALUES = ["WATER", "ELECTRICITY"] as const;
+export const METER_ROLE_VALUES = ["UNIT", "COMMON", "BULK"] as const;
+
+const meterFields = {
+  label:               z.string().trim().min(1, "Give the meter a name").max(80),
+  meterNumber:         z.string().trim().max(80).optional().nullable(),
+  openingReading:      z.number().min(0).default(0),
+  openingReadingDate:  z.string().optional().nullable(),
+  ratePerUnitOverride: z.number().min(0).optional().nullable(),
+};
+
+export const createMeterSchema = z
+  .object({
+    propertyId: z.string().min(1),
+    unitId:     z.string().optional().nullable(),
+    utility:    z.enum(UTILITY_TYPE_VALUES),
+    role:       z.enum(METER_ROLE_VALUES).default("UNIT"),
+    ...meterFields,
+  })
+  .superRefine((v, ctx) => {
+    if (v.role === "UNIT" && !v.unitId) {
+      ctx.addIssue({ code: "custom", path: ["unitId"], message: "Pick the unit this meter serves" });
+    }
+  });
+
+/** One meter per unit of the property (skips units that already have one). */
+export const bulkCreateMetersSchema = z.object({
+  propertyId: z.string().min(1),
+  utility:    z.enum(UTILITY_TYPE_VALUES),
+  label:      z.string().trim().min(1).max(80),
+});
+
+export const updateMeterSchema = z.object({
+  label:               meterFields.label.optional(),
+  meterNumber:         meterFields.meterNumber,
+  openingReading:      z.number().min(0).optional(),
+  openingReadingDate:  meterFields.openingReadingDate,
+  ratePerUnitOverride: meterFields.ratePerUnitOverride,
+  isActive:            z.boolean().optional(),
+});
+
+export const utilityTariffSchema = z.object({
+  propertyId:    z.string().min(1),
+  utility:       z.enum(UTILITY_TYPE_VALUES),
+  effectiveFrom: z.string().min(1, "Pick the month the rate starts"),
+  supplyRate:    z.number().positive("Enter the rate per unit"),
+  fuelRate:      z.number().min(0).default(0),
+  notes:         z.string().trim().max(500).optional().nullable(),
+});
+
+export const utilitySettingSchema = z.object({
+  propertyId:              z.string().min(1),
+  utility:                 z.enum(UTILITY_TYPE_VALUES),
+  unitLabel:               z.string().trim().min(1).max(20).optional(),
+  holdInvoicesForReadings: z.boolean().optional(),
+  requirePhoto:            z.boolean().optional(),
+});
+
+export const submitReadingSchema = z.object({
+  meterId:                z.string().min(1),
+  periodYear:             z.number().int().min(2000).max(2200),
+  periodMonth:            z.number().int().min(1).max(12),
+  readingDate:            z.string().min(1),
+  currentReading:         z.number().min(0, "Enter the reading on the meter"),
+  notes:                  z.string().max(1000).optional().nullable(),
+  previousOverride:       z.number().min(0).optional().nullable(),
+  previousOverrideReason: z.string().max(300).optional().nullable(),
+});
+
+export const updateReadingSchema = z.object({
+  currentReading:         z.number().min(0).optional(),
+  readingDate:            z.string().optional(),
+  notes:                  z.string().max(1000).optional().nullable(),
+  previousOverride:       z.number().min(0).optional().nullable(),
+  previousOverrideReason: z.string().max(300).optional().nullable(),
+});
+
+export const approveReadingsSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(500),
+});
+
+export const voidReadingSchema = z.object({
+  reason: z.string().trim().min(3, "Say why the reading is being voided").max(300),
+});
+
+export const billReadingsSchema = z.object({
+  propertyId: z.string().min(1),
+  year:       z.number().int().min(2000).max(2200),
+  month:      z.number().int().min(1).max(12),
+});

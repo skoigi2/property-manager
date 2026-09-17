@@ -16,7 +16,8 @@ export type InboxType =
   | "WARRANTY_EXPIRY"
   | "ARREARS_ESCALATION"
   | "CASE_NEEDS_ATTENTION"
-  | "APPROVAL_PENDING";
+  | "APPROVAL_PENDING"
+  | "METER_READINGS";
 
 export interface InboxAction {
   label: string;
@@ -116,6 +117,8 @@ export async function buildInbox(
     insurancePolicies,
     cases,
     pendingApprovals,
+    meterReadings,
+    unreadMeters,
   ] = await Promise.all([
     // 1. Overdue invoices
     prisma.invoice.findMany({
@@ -231,6 +234,42 @@ export async function buildInbox(
           include: { property: { select: { id: true, name: true, currency: true } } },
         },
       },
+    }),
+    // 10. Meter readings waiting on the manager: SUBMITTED (approve them) and
+    //     APPROVED with a charge but not on a live invoice (bill them).
+    prisma.meterReading.findMany({
+      where: {
+        meter: { propertyId: { in: propertyIds } },
+        OR: [
+          { status: "SUBMITTED" },
+          {
+            status: "APPROVED",
+            amount: { gt: 0 },
+            tenantId: { not: null },
+            OR: [{ invoiceId: null }, { invoice: { status: "CANCELLED" } }],
+          },
+        ],
+      },
+      select: {
+        status: true, amount: true, createdAt: true, approvedAt: true,
+        meter: { select: { property: { select: { id: true, name: true, currency: true } } } },
+      },
+    }),
+    // 11. Active meters (set up before this month) with no reading for LAST month.
+    prisma.utilityMeter.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        isActive: true,
+        createdAt: { lt: new Date(now.getFullYear(), now.getMonth(), 1) },
+        readings: {
+          none: {
+            status: { not: "VOID" },
+            periodYear: now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear(),
+            periodMonth: now.getMonth() === 0 ? 12 : now.getMonth(),
+          },
+        },
+      },
+      select: { property: { select: { id: true, name: true, currency: true } } },
     }),
   ]);
 
@@ -473,6 +512,83 @@ export async function buildInbox(
       actions: [
         { label: "Open case", action: `/cases/${a.caseThread.id}` },
       ],
+    });
+  }
+
+  // 10 + 11. Utility metering — one row per property and kind, never one per meter.
+  {
+    type Prop = { id: string; name: string; currency: string };
+    const byProperty = new Map<string, { prop: Prop; submitted: number; oldestSubmitted: Date | null; unbilled: number; unbilledAmount: number; unread: number }>();
+    const bucket = (prop: Prop) => {
+      let b = byProperty.get(prop.id);
+      if (!b) {
+        b = { prop, submitted: 0, oldestSubmitted: null, unbilled: 0, unbilledAmount: 0, unread: 0 };
+        byProperty.set(prop.id, b);
+      }
+      return b;
+    };
+    for (const r of meterReadings) {
+      const b = bucket(r.meter.property);
+      if (r.status === "SUBMITTED") {
+        b.submitted++;
+        if (!b.oldestSubmitted || r.createdAt < b.oldestSubmitted) b.oldestSubmitted = r.createdAt;
+      } else {
+        b.unbilled++;
+        b.unbilledAmount += r.amount ?? 0;
+      }
+    }
+    for (const m of unreadMeters) bucket(m.property).unread++;
+
+    const lastMonthLabel = new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString("en-GB", { month: "long" });
+    const base = (prop: Prop) => ({
+      propertyId: prop.id, propertyName: prop.name, propertyCurrency: prop.currency,
+      tenantId: null, unitId: null, dueDate: null,
+    });
+    byProperty.forEach((b) => {
+      if (b.submitted > 0) {
+        const daysOld = b.oldestSubmitted ? differenceInDays(now, b.oldestSubmitted) : 0;
+        items.push({
+          ...base(b.prop),
+          id: `meter-approve:${b.prop.id}`,
+          refId: b.prop.id,
+          type: "METER_READINGS",
+          // Readings hold up the month's invoices — escalate after the 5th.
+          severity: now.getDate() > 5 || daysOld >= 5 ? "URGENT" : "WARNING",
+          title: `${b.submitted} meter reading${b.submitted === 1 ? "" : "s"} awaiting approval`,
+          subtitle: "Check each number against its photo, then approve so the bills go out with the rent",
+          daysOverdue: daysOld,
+          href: `/utilities?tab=review&propertyId=${b.prop.id}`,
+          actions: [{ label: "Review readings", action: `/utilities?tab=review&propertyId=${b.prop.id}` }],
+        });
+      }
+      if (b.unbilled > 0) {
+        items.push({
+          ...base(b.prop),
+          id: `meter-bill:${b.prop.id}`,
+          refId: b.prop.id,
+          type: "METER_READINGS",
+          severity: "INFO",
+          title: `${b.unbilled} approved reading${b.unbilled === 1 ? "" : "s"} not on an invoice yet`,
+          subtitle: `${formatCurrency(b.unbilledAmount, b.prop.currency)} of water / electricity to bill`,
+          daysOverdue: null,
+          href: `/utilities?tab=review&propertyId=${b.prop.id}`,
+          actions: [{ label: "Bill readings", action: `/utilities?tab=review&propertyId=${b.prop.id}` }],
+        });
+      }
+      if (b.unread > 0) {
+        items.push({
+          ...base(b.prop),
+          id: `meter-unread:${b.prop.id}`,
+          refId: b.prop.id,
+          type: "METER_READINGS",
+          severity: now.getDate() > 5 ? "WARNING" : "INFO",
+          title: `${b.unread} meter${b.unread === 1 ? "" : "s"} not read for ${lastMonthLabel}`,
+          subtitle: "The caretaker has not submitted these month-end readings",
+          daysOverdue: now.getDate(),
+          href: `/utilities?tab=readings&propertyId=${b.prop.id}&month=previous`,
+          actions: [{ label: "Open readings", action: `/utilities?tab=readings&propertyId=${b.prop.id}&month=previous` }],
+        });
+      }
     });
   }
 

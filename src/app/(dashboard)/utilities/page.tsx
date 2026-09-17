@@ -46,11 +46,29 @@ export default function UtilitiesPage() {
   const monthNumber = month.getMonth() + 1;
   const monthLabel = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
+  // Deep links (Inbox rows): ?tab=review&propertyId=…&month=previous win
+  // over the remembered tab; otherwise restore the last tab used.
   useEffect(() => {
+    const isTab = (v: string | null): v is Tab =>
+      v === "readings" || v === "review" || v === "statement" || v === "reconciliation" || v === "setup";
     try {
+      const qs = new URLSearchParams(window.location.search);
+      const linkedProperty = qs.get("propertyId");
+      if (linkedProperty) setSelectedId(linkedProperty);
+      if (qs.get("month") === "previous") {
+        const now = new Date();
+        setMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      }
+      const linkedTab = qs.get("tab");
+      if (isTab(linkedTab)) {
+        setTabState(linkedTab);
+        return;
+      }
       const stored = sessionStorage.getItem(TAB_KEY);
-      if (stored === "readings" || stored === "review" || stored === "statement" || stored === "reconciliation" || stored === "setup") setTabState(stored);
+      if (isTab(stored)) setTabState(stored);
     } catch { /* sessionStorage unavailable */ }
+    // Run once on mount — the query string is read, never written back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const setTab = (t: Tab) => {
     setTabState(t);

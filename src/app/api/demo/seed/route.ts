@@ -17,6 +17,7 @@ import {
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { getWorkflow, getStageByIndex, getStageByKey, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { startOfMonth, subMonths } from "date-fns";
+import { seedDemoUtilities } from "@/lib/demo-utilities";
 
 // Seeding does hundreds of inserts; on Vercel (higher per-query latency than
 // local) this can exceed 60 s. Raise to the platform max and run independent
@@ -1649,6 +1650,10 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
       },
     ],
   });
+
+  // Water + electricity metering: meters, tariffs, two months of readings
+  // (one approved and ready to bill, one awaiting review).
+  await seedDemoUtilities(property.id, organizationId, now);
 
   return property;
 }

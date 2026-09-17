@@ -367,6 +367,7 @@
     <a class="toc-link" href="#expenses"><span class="num">10</span>Expenses &amp; Petty Cash</a>
     <a class="toc-link" href="#maintenance"><span class="num">11</span>Maintenance</a>
     <a class="toc-link" href="#complaints"><span class="num">12</span>Tenant Complaints</a>
+    <a class="toc-link" href="#utilities"><span class="num">12a</span>Water &amp; Electricity</a>
     <a class="toc-link" href="#reports"><span class="num">13</span>Reports</a>
     <a class="toc-link" href="#operations"><span class="num">14</span>Operations</a>
     <a class="toc-link" href="#import"><span class="num">15</span>Data Import</a>
@@ -1431,7 +1432,7 @@
           <tr><td>LONGTERM_RENT</td><td>Rent payment from long-term tenant</td><td>Auto-settles the tenant's open invoice for the covered period</td></tr>
           <tr><td>AIRBNB</td><td>Short-let booking revenue</td><td>Includes nightly rate, check-in/out dates, platform source</td></tr>
           <tr><td>SERVICE_CHARGE</td><td>Service charge or maintenance levy</td><td>Included in gross income</td></tr>
-          <tr><td>UTILITY_RECOVERY</td><td>Recovered utility costs from tenant</td><td>Included in gross income</td></tr>
+          <tr><td>UTILITY_RECOVERY</td><td>Water / electricity paid by a tenant</td><td>Booked automatically, tagged <em>Water</em> or <em>Electricity</em>, when an invoice carrying meter readings is paid. Included in gross income, but <em>excluded from the management-fee base</em> — the manager earns no percentage of a tenant's utility bill. See <a href="#utilities">Water &amp; Electricity</a></td></tr>
           <tr><td>DEPOSIT</td><td>Security deposit received</td><td><em>Excluded</em> from gross income — feeds the deposit position instead. Same receipt as <em>Verify deposits</em> on the Tenants page — record it in one place only (see <a href="#deposits">Recording a deposit</a>)</td></tr>
           <tr><td>LEASE_FEE</td><td>Lease agreement (preparation) fee paid by a tenant</td><td>Booked automatically when a move-in invoice is paid. Landlord income (included in gross income); excluded from the rent ledger. Recovered from the owner on the management-fee invoice (see <a href="#owner-invoices">Owner invoices</a>)</td></tr>
           <tr><td>OTHER</td><td>Any other income</td><td>Included in gross income</td></tr>
@@ -1768,6 +1769,69 @@
         <strong>Two email switches</strong>
         <em>New complaint alerts</em> (to the property's managers) and <em>Complaint resolved</em> (to the tenant, portal complaints only) are separate toggles on the <a href="#automations">Automations</a> page, so you can keep managers informed without emailing tenants, or the other way round.
       </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       12a. WATER & ELECTRICITY
+  ══════════════════════ -->
+  <div id="utilities" class="section">
+    <div class="section-header">
+      <div class="section-num">12a — Water &amp; Electricity</div>
+      <h2>Water &amp; Electricity Metering</h2>
+      <p class="intro">Read every meter at month end, bill each tenant for what they used together with the rent, and see where the money goes — the council bill, the KPLC bill, generator fuel, and the surplus that belongs to the owner. Everything lives at <code>/utilities</code>. Billing is post-paid: tenants are invoiced for last month's consumption.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>1 · Set up meters and rates (Meters &amp; tariffs)</h3>
+      <ul class="feature-list">
+        <li><strong>Meters</strong> — <em>One per unit</em> creates a meter for every unit in one click. A unit can carry several meters (e.g. <em>Water</em> and <em>Hot water</em>); a meter can have its <strong>own rate</strong> that wins over the property rate. Enter the <em>opening reading</em> — the first month's consumption is measured from it.</li>
+        <li><strong>Bulk and common-area meters</strong> — add the <em>bulk supply meter</em> (the KPLC meter for the whole property) and the <em>common areas</em> sub-meter. They are read every month but <strong>never billed</strong>; they feed the reconciliation.</li>
+        <li><strong>Rates</strong> — water has one rate per unit (e.g. 150). Electricity is a <em>power rate</em> (the Kenya Power domestic rate you charge) plus an optional <em>generator fuel rate</em>; tenants pay the sum. A rate applies from its start month until you add a newer one, and readings already approved keep the rate they were approved at. Admins and managers set rates.</li>
+        <li><strong>Options</strong> — require the caretaker to attach a photo; hold automatic rent invoices until the readings are approved (until the 5th of the month) so the bill goes out with the rent.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>2 · Month-end readings (Readings)</h3>
+      <p>The caretaker (or a manager) opens <em>Readings</em>, picks the month, and for each meter types the number on the dial and takes a <strong>photo</strong> with the phone camera. The previous reading is filled in by the system — it is last month's reading, never typed — and the units used are shown immediately. A caretaker sees <strong>units only</strong>: never rates, amounts or invoices. They can correct their own reading until a manager approves it.</p>
+      <div class="callout note"><div class="callout-icon">ℹ️</div><div class="callout-body"><strong>Reading lower than last month?</strong>It is flagged in red and can't be approved. Either it was mistyped, or the meter was replaced — in which case a manager edits the reading and overrides the previous reading with a reason.</div></div>
+    </div>
+
+    <div class="sub-section">
+      <h3>3 · Review, approve and bill (Review &amp; bill)</h3>
+      <ul class="feature-list">
+        <li>Each reading is listed with its <strong>photo beside the typed number</strong>, the units used, the rate and the charge it will produce. Warnings flag a reading below the previous one, no consumption on an occupied unit, and consumption more than 2.5× the recent average.</li>
+        <li><strong>Approve</strong> fixes the rate and the charge. A vacant unit's reading is approved but never billed.</li>
+        <li><strong>Billing</strong> — June's readings go on the <em>July</em> invoice. Generating July's rent invoices <em>after</em> approval picks the readings up automatically, so each tenant gets one invoice: rent + water + electricity, with a line per meter (<em>Jun 26 Water: 3 units (Prev: 176.00, Curr: 179.00) @ 175.00</em>). If the rent invoice already exists, <em>Bill approved readings</em> adds the charges to it while nothing has been paid on it (re-send it if it was already sent); otherwise a separate water / electricity invoice is raised.</li>
+        <li><strong>Unpaid bills</strong> — every invoice PDF shows what is still owed from earlier invoices, split into rent, water and electricity.</li>
+        <li><strong>Correcting</strong> — <em>Void</em> withdraws a reading; if it is already on an unpaid invoice the invoice is reduced to match. Once a payment is recorded on the invoice, revert the invoice to unpaid first.</li>
+      </ul>
+      <div class="callout note"><div class="callout-icon">ℹ️</div><div class="callout-body"><strong>How a payment is applied.</strong>Money against an invoice settles the <em>rent first, then water, then electricity</em>. A tenant who pays only the rent amount therefore shows unpaid water / electricity — which is exactly what the statement below lists.</div></div>
+    </div>
+
+    <div class="sub-section">
+      <h3>4 · Who has paid? (Paid &amp; unpaid)</h3>
+      <p>The whole property on one screen: per tenant, water and electricity <strong>billed, paid and unpaid</strong>, the month the debt started, approved readings not yet invoiced, and the last utility payment. Expand a tenant to see each invoice. Export to <strong>Excel</strong> or <strong>PDF</strong>, or tick tenants and <strong>Email reminders</strong> — the email lists each unpaid water / electricity invoice and is logged on the tenant's <em>Comms</em> tab. Each tenant's page also has a <em>Utilities</em> tab with their reading history and a downloadable utility statement.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>5 · Where the money goes (Reconciliation)</h3>
+      <table class="data-table">
+        <thead><tr><th>Utility</th><th>Formula</th><th>Where the figures come from</th></tr></thead>
+        <tbody>
+          <tr><td>Water</td><td>Collected from tenants − city-council bill = <strong>borehole surplus to the owner</strong></td><td>Collections: invoice payments tagged <em>Water</em>. Council bill: <em>Water</em> expenses on the Expenses page.</td></tr>
+          <tr><td>Electricity</td><td>Collected − KPLC bill − generator fuel = <strong>back to the owner</strong></td><td>KPLC: <em>Electricity</em> expenses. Fuel: <em>Generator</em> expenses. The table also shows what the tariff <em>set aside</em> for each (units × power rate, units × fuel rate) next to what was actually paid.</td></tr>
+          <tr><td>Meters</td><td>KPLC bulk meter − units billed − vacant units − common areas = <strong>unaccounted</strong></td><td>All four kinds of meter reading. A large unaccounted figure means line loss, an unmetered load or a wrong reading.</td></tr>
+        </tbody>
+      </table>
+      <p><em>Billed</em> follows the month the meter was read; <em>collected</em> and <em>paid</em> follow the date the money moved — so use the year-to-date row for the true position. The <strong>rate guide</strong> compares what a unit has actually cost this year with what tenants pay, and turns red when the rate is below cost.</p>
+      <p>On the owner statement the utilities appear as a memo — collected, council / KPLC / generator, surplus — re-presenting figures that are already inside gross income and expenses. Utility collections never carry a percentage management fee.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>What the tenant sees</h3>
+      <p>In the <a href="#portal">tenant portal</a>: a <em>Water &amp; electricity</em> card on the Overview (latest reading, amount, <span class="badge badge-green">Paid</span> / <span class="badge badge-amber">Part paid</span> / <span class="badge badge-red">Unpaid</span>), the reading lines on each invoice, a month-by-month history with the meter photo, and a downloadable utility statement. Tenants see only their own meters, and only readings a manager has approved.</p>
     </div>
   </div>
 

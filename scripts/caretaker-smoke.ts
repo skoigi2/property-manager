@@ -366,7 +366,9 @@ async function main() {
   await expectStatus(mgr, "GET /api/inbox → 200", "/api/inbox", 200);
   const mgrProps = await expectStatus(mgr, "GET /api/properties (full) → 200", "/api/properties", 200);
   const mgrProp = Array.isArray(mgrProps) ? mgrProps.find((p: any) => p.id === property.id) : null;
-  check("manager: properties still carry bank fields + owner", !!mgrProp && "bankAccountNumber" in mgrProp && "owner" in mgrProp);
+  // Property bank columns were dropped (bank details live on Payment Accounts);
+  // the manager's full record is recognised by the owner + agreement fields.
+  check("manager: properties still carry the full record (owner + agreement)", !!mgrProp && "owner" in mgrProp && "agreement" in mgrProp);
   const acctProps = await expectStatus(acct, "GET /api/properties → 200", "/api/properties", 200);
   const acctProp = Array.isArray(acctProps) ? acctProps.find((p: any) => p.id === property.id) : null;
   check("accountant: properties scrubbed of bank fields", !!acctProp && !("bankAccountNumber" in acctProp) && "units" in acctProp, JSON.stringify(Object.keys(acctProp ?? {})));

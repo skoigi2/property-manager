@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
-import { Camera, Check, Lock } from "lucide-react";
+import { Camera, Check, LayoutGrid, List, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -17,6 +17,9 @@ interface Draft {
   value: string;
   photos: File[];
 }
+
+type ViewMode = "cards" | "table";
+const VIEW_KEY = "gw:utilitiesReadingsView";
 
 interface Props {
   sheet: ReadingSheet;
@@ -40,6 +43,27 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
   const [saving, setSaving] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
   const [filter, setFilter] = useState<"all" | "todo">("all");
+  // Table is the desk view (type a column of numbers, Enter moves down); cards
+  // are the phone view. Phones always get cards — the toggle is desktop-only.
+  const [view, setView] = useState<ViewMode>("table");
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_KEY);
+      if (stored === "cards" || stored === "table") setView(stored);
+    } catch {
+      // storage blocked — keep the default
+    }
+  }, []);
+
+  function changeView(v: ViewMode) {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // storage blocked — the choice lasts for this visit only
+    }
+  }
 
   const groups = useMemo(() => {
     const out: { utility: UtilityType; rows: SheetRow[] }[] = [];
@@ -129,6 +153,7 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
   }
 
   const pendingRows = sheet.rows.filter((r) => canEdit(r) && (drafts[r.meterId]?.value ?? "").trim() !== "");
+  const showSaveAll = pendingRows.length > 1 || (view === "table" && pendingRows.length === 1);
 
   async function handleSaveAll() {
     setSavingAll(true);
@@ -185,9 +210,28 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
               </button>
             ))}
           </div>
-          {pendingRows.length > 1 && (
+          <div className="hidden md:inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+            {([
+              ["table", List, "Table"],
+              ["cards", LayoutGrid, "Cards"],
+            ] as const).map(([v, Icon, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => changeView(v)}
+                aria-pressed={view === v}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1 rounded-md text-caption font-medium transition-colors",
+                  view === v ? "bg-gold text-white" : "text-gray-500 hover:text-gray-800",
+                )}
+              >
+                <Icon size={14} /> {label}
+              </button>
+            ))}
+          </div>
+          {showSaveAll && (
             <Button size="sm" onClick={handleSaveAll} loading={savingAll}>
-              Save {pendingRows.length} readings
+              Save {pendingRows.length} reading{pendingRows.length === 1 ? "" : "s"}
             </Button>
           )}
         </div>
@@ -195,38 +239,86 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
 
       {groups.length === 0 && <p className="text-body text-gray-500 text-center py-8">Every meter has been read for {monthLabel}.</p>}
 
-      {groups.map((g) => (
-        <div key={g.utility} className="space-y-2">
-          <h2 className="text-h3 text-gray-900">
-            {UTILITY_LABEL[g.utility]} <span className="text-caption font-normal text-gray-400">({sheet.settings[g.utility].unitLabel})</span>
-          </h2>
+      {groups.map((g) => {
+        const rowProps = (row: SheetRow): RowProps => ({
+          row,
+          draft: drafts[row.meterId],
+          editable: canEdit(row),
+          saving: saving === row.meterId || savingAll,
+          requirePhoto: !isManager && sheet.settings[row.utility].requirePhoto,
+          onValue: (v) => setDraft(row.meterId, { value: v }),
+          onPhotos: (files) => addPhotos(row, files),
+          onRemovePhoto: (i) =>
+            setDraft(row.meterId, { photos: (drafts[row.meterId]?.photos ?? []).filter((_, idx) => idx !== i) }),
+          onSave: () => handleSave(row),
+        });
+        const cards = (
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {g.rows.map((row) => (
-              <ReadingCard
-                key={row.meterId}
-                row={row}
-                draft={drafts[row.meterId]}
-                editable={canEdit(row)}
-                saving={saving === row.meterId || savingAll}
-                requirePhoto={!isManager && sheet.settings[row.utility].requirePhoto}
-                onValue={(v) => setDraft(row.meterId, { value: v })}
-                onPhotos={(files) => addPhotos(row, files)}
-                onRemovePhoto={(i) =>
-                  setDraft(row.meterId, { photos: (drafts[row.meterId]?.photos ?? []).filter((_, idx) => idx !== i) })
-                }
-                onSave={() => handleSave(row)}
-              />
+              <ReadingCard key={row.meterId} {...rowProps(row)} />
             ))}
           </div>
+        );
+        return (
+          <div key={g.utility} className="space-y-2">
+            <h2 className="text-h3 text-gray-900">
+              {UTILITY_LABEL[g.utility]} <span className="text-caption font-normal text-gray-400">({sheet.settings[g.utility].unitLabel})</span>
+            </h2>
+            {view === "table" ? (
+              <>
+                <div className="md:hidden">{cards}</div>
+                <Card padding="none" className="hidden md:block overflow-x-auto">
+                  <table className="w-full table-fixed min-w-[56rem] text-body">
+                    <colgroup>
+                      <col className="w-[20%]" />
+                      <col className="w-[17%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[8%]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="border-b border-gray-100 text-left">
+                        <th className="px-4 py-2 text-label uppercase text-gray-400 font-medium">Meter</th>
+                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Occupant</th>
+                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium text-right">Previous</th>
+                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Current</th>
+                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium text-right">Used</th>
+                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Photos</th>
+                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Status</th>
+                        <th className="px-4 py-2" aria-label="Actions" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.rows.map((row) => (
+                        <ReadingTableRow key={row.meterId} {...rowProps(row)} />
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+              </>
+            ) : (
+              cards
+            )}
+          </div>
+        );
+      })}
+
+      {view === "table" && showSaveAll && (
+        <div className="hidden md:flex justify-end">
+          <Button onClick={handleSaveAll} loading={savingAll}>
+            <Check size={14} className="mr-1" />
+            Save {pendingRows.length} reading{pendingRows.length === 1 ? "" : "s"}
+          </Button>
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
-function ReadingCard({
-  row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave,
-}: {
+interface RowProps {
   row: SheetRow;
   draft: Draft | undefined;
   editable: boolean;
@@ -236,17 +328,154 @@ function ReadingCard({
   onPhotos: (files: FileList | null) => void;
   onRemovePhoto: (index: number) => void;
   onSave: () => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
+}
+
+/** What a row shows, whichever view draws it. */
+function rowState(row: SheetRow, draft: Draft | undefined) {
   const r = row.reading;
   const typed = draft?.value?.trim() ?? "";
   const typedNumber = typed === "" ? null : Number(typed);
+  const invalid = typedNumber != null && (!Number.isFinite(typedNumber) || typedNumber < 0);
   const previous = r?.previousReading ?? row.previousReading;
   const liveConsumption =
-    typedNumber != null && Number.isFinite(typedNumber) ? calcConsumption(previous, typedNumber) : r ? r.consumption : null;
+    typedNumber != null && !invalid ? calcConsumption(previous, typedNumber) : r ? r.consumption : null;
   const negative = liveConsumption != null && liveConsumption < 0;
   const dirty = typed !== "" || (draft?.photos.length ?? 0) > 0;
   const photoCount = (r?.photoUrls.length ?? 0) + (draft?.photos.length ?? 0);
+  return { r, previous, liveConsumption, negative, invalid, dirty, photoCount };
+}
+
+function StatusBadge({ row }: { row: SheetRow }) {
+  const r = row.reading;
+  if (row.locked) return <Badge variant="gray"><Lock size={10} className="inline mr-1" />Locked</Badge>;
+  if (r?.billed) return <Badge variant="blue">Billed</Badge>;
+  if (r?.status === "APPROVED") return <Badge variant="green">Approved</Badge>;
+  if (r) return <Badge variant="amber">Submitted</Badge>;
+  return <Badge variant="gray">Not read</Badge>;
+}
+
+/**
+ * Enter / Down moves to the next meter's input and Shift+Enter / Up to the
+ * previous one, across both utility tables, so a paper round sheet can be
+ * typed in one pass without touching the mouse.
+ */
+function moveFocus(from: HTMLInputElement, step: 1 | -1) {
+  const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("input[data-reading-input]"));
+  const next = inputs[inputs.indexOf(from) + step];
+  if (next) {
+    next.focus();
+    next.select();
+  }
+}
+
+function ReadingTableRow({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave }: RowProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { r, previous, liveConsumption, negative, invalid, dirty, photoCount } = rowState(row, draft);
+
+  return (
+    <tr className={clsx("border-b border-gray-50 last:border-0 align-middle", negative ? "bg-expense/5" : dirty && "bg-gold/5")}>
+      <td className="px-4 py-2">
+        <p className="font-medium text-gray-900 truncate" title={meterTitle(row)}>{meterTitle(row)}</p>
+        {row.meterNumber && <p className="text-caption text-gray-400 truncate">No. {row.meterNumber}</p>}
+      </td>
+      <td className="px-3 py-2 text-gray-600 truncate">
+        {row.role === "UNIT" ? row.occupantName ?? <span className="text-gray-400">Vacant</span> : METER_ROLE_LABEL[row.role]}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-gray-700">{fmtReading(previous)}</td>
+      <td className="px-3 py-2">
+        {editable ? (
+          <input
+            data-reading-input
+            aria-label={`Current reading, ${meterTitle(row)}`}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={draft?.value ?? ""}
+            placeholder={r ? fmtReading(r.currentReading) : "—"}
+            onChange={(e) => onValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === "ArrowDown") {
+                e.preventDefault();
+                moveFocus(e.currentTarget, e.key === "Enter" && e.shiftKey ? -1 : 1);
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                moveFocus(e.currentTarget, -1);
+              }
+            }}
+            className={clsx(
+              "w-full text-body tabular-nums text-right border rounded-lg px-2 py-1 bg-cream focus:outline-none focus:ring-2 focus:ring-gold/30",
+              invalid ? "border-expense" : "border-gray-200",
+            )}
+          />
+        ) : (
+          <p className="text-right tabular-nums text-gray-900">{r ? fmtReading(r.currentReading) : "—"}</p>
+        )}
+      </td>
+      <td
+        className={clsx("px-3 py-2 text-right tabular-nums font-medium whitespace-nowrap", negative ? "text-expense" : "text-gray-900")}
+        title={negative ? "Lower than the previous reading — check the number. If the meter was replaced, tell your manager." : undefined}
+      >
+        {liveConsumption == null ? "—" : `${fmtReading(liveConsumption)} ${row.unitLabel}`}
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          {(r?.photoUrls.length || draft?.photos.length) ? (
+            <PhotoStrip size="sm" urls={r?.photoUrls ?? []} files={draft?.photos ?? []} onRemoveFile={editable ? onRemovePhoto : undefined} />
+          ) : null}
+          {editable && photoCount < 3 && (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  onPhotos(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className={clsx(
+                  "h-8 w-8 flex items-center justify-center rounded-lg border hover:bg-gray-50",
+                  requirePhoto && photoCount === 0 ? "border-gold text-gold-dark" : "border-gray-200 text-gray-500",
+                )}
+                aria-label={`Add photo, ${meterTitle(row)}${requirePhoto && photoCount === 0 ? " (required)" : ""}`}
+                title={requirePhoto && photoCount === 0 ? "Photo required" : "Add photo"}
+              >
+                <Camera size={14} />
+              </button>
+            </>
+          )}
+        </div>
+      </td>
+      <td className="px-3 py-2">
+        <span title={row.locked ? "A later month has been read, so this month can no longer change." : undefined}>
+          <StatusBadge row={row} />
+        </span>
+        {r?.readByName && (
+          <p className="text-caption text-gray-400 mt-0.5">
+            {r.readByName} · {new Date(r.readingDate).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+          </p>
+        )}
+      </td>
+      <td className="px-4 py-2 text-right">
+        {editable && (
+          <Button type="button" size="sm" variant={dirty ? "primary" : "secondary"} onClick={onSave} loading={saving} disabled={!dirty || saving}>
+            {r ? "Update" : "Save"}
+          </Button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function ReadingCard({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave }: RowProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { r, previous, liveConsumption, negative, dirty, photoCount } = rowState(row, draft);
 
   return (
     <Card padding="sm" className={clsx(negative && "ring-1 ring-expense/40")}>
@@ -258,17 +487,7 @@ function ReadingCard({
             {row.meterNumber ? ` · No. ${row.meterNumber}` : ""}
           </p>
         </div>
-        {row.locked ? (
-          <Badge variant="gray"><Lock size={10} className="inline mr-1" />Locked</Badge>
-        ) : r?.billed ? (
-          <Badge variant="blue">Billed</Badge>
-        ) : r?.status === "APPROVED" ? (
-          <Badge variant="green">Approved</Badge>
-        ) : r ? (
-          <Badge variant="amber">Submitted</Badge>
-        ) : (
-          <Badge variant="gray">Not read</Badge>
-        )}
+        <StatusBadge row={row} />
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2 items-end">

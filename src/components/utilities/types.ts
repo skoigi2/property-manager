@@ -98,3 +98,21 @@ export async function readError(res: Response, fallback: string): Promise<string
   }
   return fallback;
 }
+
+const UTILITY_ORDER: Record<string, number> = { WATER: 0, ELECTRICITY: 1 };
+
+/**
+ * Door-to-door order: unit meters by unit number (101, 102 … 1001, not
+ * lexical), water before electricity within a unit, the shared meters (KPLC
+ * bulk, common areas) last. Stable, so a unit's cold/hot water keep the
+ * sheet's order.
+ */
+export function byUnitOrder<T extends { role: string; unitNumber: string | null; utility: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const shared = Number(a.role !== "UNIT") - Number(b.role !== "UNIT");
+    if (shared) return shared;
+    const unit = (a.unitNumber ?? "").localeCompare(b.unitNumber ?? "", undefined, { numeric: true, sensitivity: "base" });
+    if (unit) return unit;
+    return (UTILITY_ORDER[a.utility] ?? 9) - (UTILITY_ORDER[b.utility] ?? 9);
+  });
+}

@@ -202,6 +202,8 @@ export default function UtilitiesPage() {
             ) : !sheet ? null : activeTab === "readings" ? (
               <ReadingsTab
                 sheet={sheet}
+                propertyId={selectedId}
+                propertyName={selected?.name ?? "Property"}
                 year={year}
                 month={monthNumber}
                 monthLabel={monthLabel}

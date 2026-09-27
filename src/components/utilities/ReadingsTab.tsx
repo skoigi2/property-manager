@@ -3,15 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
-import { Camera, Check, LayoutGrid, List, Lock } from "lucide-react";
+import { Camera, Check, DoorOpen, Download, Layers, LayoutGrid, List, Lock, Upload, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { calcConsumption, METER_ROLE_LABEL, UTILITY_LABEL, type UtilityType } from "@/lib/utility-billing";
 import { maybeCompressImage } from "@/lib/image-compress";
-import { fmtReading, meterTitle, readError, type ReadingSheet, type SheetRow } from "./types";
+import { defaultReadingDate } from "@/lib/utility-readings-import";
+import { byUnitOrder, fmtReading, meterTitle, readError, type ReadingSheet, type SheetRow } from "./types";
 import { PhotoStrip } from "./PhotoStrip";
+import { ReadingsImportDialog, downloadReadingSheet } from "./ReadingsImport";
 
 interface Draft {
   value: string;
@@ -19,10 +21,38 @@ interface Draft {
 }
 
 type ViewMode = "cards" | "table";
+type Grouping = "utility" | "unit";
 const VIEW_KEY = "gw:utilitiesReadingsView";
+const GROUP_KEY = "gw:utilitiesReadingsGroup";
+
+interface Group {
+  key: string;
+  title: string;
+  subtitle: string | null;
+  rows: SheetRow[];
+}
+
+function readStored<T extends string>(key: string, allowed: readonly T[]): T | null {
+  try {
+    const v = localStorage.getItem(key);
+    return allowed.includes(v as T) ? (v as T) : null;
+  } catch {
+    return null; // storage blocked
+  }
+}
+
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // storage blocked — the choice lasts for this visit only
+  }
+}
 
 interface Props {
   sheet: ReadingSheet;
+  propertyId: string;
+  propertyName: string;
   year: number;
   month: number;
   monthLabel: string;
@@ -38,7 +68,7 @@ interface Props {
  * Used by the caretaker on a phone and by the manager at a desk. Shows units
  * only — rates and amounts live on the Review tab.
  */
-export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager, onSaved }: Props) {
+export function ReadingsTab({ sheet, propertyId, propertyName, year, month, monthLabel, userId, isManager, onSaved }: Props) {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
@@ -46,33 +76,54 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
   // Table is the desk view (type a column of numbers, Enter moves down); cards
   // are the phone view. Phones always get cards — the toggle is desktop-only.
   const [view, setView] = useState<ViewMode>("table");
+  // By unit follows the caretaker's walk: each door's water, hot water and
+  // power together, the shared KPLC / common-area meters last.
+  const [grouping, setGrouping] = useState<Grouping>("utility");
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(VIEW_KEY);
-      if (stored === "cards" || stored === "table") setView(stored);
-    } catch {
-      // storage blocked — keep the default
-    }
+    const v = readStored(VIEW_KEY, ["cards", "table"] as const);
+    if (v) setView(v);
+    const g = readStored(GROUP_KEY, ["utility", "unit"] as const);
+    if (g) setGrouping(g);
   }, []);
 
   function changeView(v: ViewMode) {
     setView(v);
-    try {
-      localStorage.setItem(VIEW_KEY, v);
-    } catch {
-      // storage blocked — the choice lasts for this visit only
-    }
+    store(VIEW_KEY, v);
   }
 
-  const groups = useMemo(() => {
-    const out: { utility: UtilityType; rows: SheetRow[] }[] = [];
-    for (const utility of ["WATER", "ELECTRICITY"] as UtilityType[]) {
-      const rows = sheet.rows.filter((r) => r.utility === utility && (filter === "all" || !r.reading));
-      if (rows.length) out.push({ utility, rows });
+  function changeGrouping(g: Grouping) {
+    setGrouping(g);
+    store(GROUP_KEY, g);
+  }
+
+  const groups = useMemo((): Group[] => {
+    const visible = sheet.rows.filter((r) => filter === "all" || !r.reading);
+    if (grouping === "utility") {
+      return (["WATER", "ELECTRICITY"] as UtilityType[])
+        .map((utility) => ({
+          key: utility,
+          title: UTILITY_LABEL[utility],
+          subtitle: `(${sheet.settings[utility].unitLabel})`,
+          rows: visible.filter((r) => r.utility === utility),
+        }))
+        .filter((g) => g.rows.length > 0);
+    }
+    const out: Group[] = [];
+    for (const row of byUnitOrder(visible)) {
+      const key = row.role === "UNIT" ? row.unitId ?? row.meterId : "shared";
+      let g = out.find((x) => x.key === key);
+      if (!g) {
+        g = row.role === "UNIT"
+          ? { key, title: `Unit ${row.unitNumber ?? "—"}`, subtitle: row.occupantName ?? "Vacant", rows: [] }
+          : { key, title: "Shared meters", subtitle: "KPLC bulk and common areas, not billed to tenants", rows: [] };
+        out.push(g);
+      }
+      g.rows.push(row);
     }
     return out;
-  }, [sheet.rows, filter]);
+  }, [sheet.rows, sheet.settings, filter, grouping]);
 
   const total = sheet.rows.length;
   const done = sheet.rows.filter((r) => r.reading).length;
@@ -124,12 +175,7 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
       fd.set("meterId", row.meterId);
       fd.set("periodYear", String(year));
       fd.set("periodMonth", String(month));
-      // Month-end reading: dated today when entering the current month, else
-      // the last day of the month being captured.
-      const now = new Date();
-      const sameMonth = now.getFullYear() === year && now.getMonth() + 1 === month;
-      const date = sameMonth ? now : new Date(Date.UTC(year, month, 0, 12));
-      fd.set("readingDate", date.toISOString());
+      fd.set("readingDate", defaultReadingDate(year, month).toISOString());
       res = await fetch("/api/utilities/readings", { method: "POST", body: fd });
     }
     if (!res.ok) return readError(res, "Could not save the reading.");
@@ -183,6 +229,40 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
     );
   }
 
+  const rowProps = (row: SheetRow): RowProps => ({
+    row,
+    draft: drafts[row.meterId],
+    editable: canEdit(row),
+    saving: saving === row.meterId || savingAll,
+    requirePhoto: !isManager && sheet.settings[row.utility].requirePhoto,
+    onValue: (v) => setDraft(row.meterId, { value: v }),
+    onPhotos: (files) => addPhotos(row, files),
+    onRemovePhoto: (i) =>
+      setDraft(row.meterId, { photos: (drafts[row.meterId]?.photos ?? []).filter((_, idx) => idx !== i) }),
+    onSave: () => handleSave(row),
+  });
+
+  const heading = (g: Group) => (
+    <h2 className="text-h3 text-gray-900">
+      {g.title} {g.subtitle && <span className="text-caption font-normal text-gray-400">{g.subtitle}</span>}
+    </h2>
+  );
+
+  const cardSections = (
+    <div className="space-y-4">
+      {groups.map((g) => (
+        <div key={g.key} className="space-y-2">
+          {heading(g)}
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {g.rows.map((row) => (
+              <ReadingCard key={row.meterId} {...rowProps(row)} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <Card padding="sm">
@@ -210,101 +290,82 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
               </button>
             ))}
           </div>
-          <div className="hidden md:inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
-            {([
-              ["table", List, "Table"],
-              ["cards", LayoutGrid, "Cards"],
-            ] as const).map(([v, Icon, label]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => changeView(v)}
-                aria-pressed={view === v}
-                className={clsx(
-                  "flex items-center gap-1.5 px-3 py-1 rounded-md text-caption font-medium transition-colors",
-                  view === v ? "bg-gold text-white" : "text-gray-500 hover:text-gray-800",
-                )}
-              >
-                <Icon size={14} /> {label}
-              </button>
-            ))}
-          </div>
-          {showSaveAll && (
-            <Button size="sm" onClick={handleSaveAll} loading={savingAll}>
-              Save {pendingRows.length} reading{pendingRows.length === 1 ? "" : "s"}
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+          <Segmented
+            label="Group readings"
+            value={grouping}
+            onChange={changeGrouping}
+            options={[
+              { value: "utility", label: "By utility", icon: Layers },
+              { value: "unit", label: "By unit", icon: DoorOpen },
+            ]}
+          />
+          <Segmented
+            label="Layout"
+            className="hidden md:inline-flex"
+            value={view}
+            onChange={changeView}
+            options={[
+              { value: "table", label: "Table", icon: List },
+              { value: "cards", label: "Cards", icon: LayoutGrid },
+            ]}
+          />
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={() => downloadReadingSheet(sheet, year, month, propertyName)}>
+              <Download size={14} className="mr-1" /> Download sheet
             </Button>
-          )}
+            {isManager && (
+              <Button size="sm" variant="secondary" onClick={() => setImportOpen(true)}>
+                <Upload size={14} className="mr-1" /> Import readings
+              </Button>
+            )}
+            {showSaveAll && (
+              <Button size="sm" onClick={handleSaveAll} loading={savingAll}>
+                Save {pendingRows.length} reading{pendingRows.length === 1 ? "" : "s"}
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
+      {isManager && (
+        <ReadingsImportDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          sheet={sheet}
+          propertyId={propertyId}
+          propertyName={propertyName}
+          year={year}
+          month={month}
+          monthLabel={monthLabel}
+          onImported={onSaved}
+        />
+      )}
+
       {groups.length === 0 && <p className="text-body text-gray-500 text-center py-8">Every meter has been read for {monthLabel}.</p>}
 
-      {groups.map((g) => {
-        const rowProps = (row: SheetRow): RowProps => ({
-          row,
-          draft: drafts[row.meterId],
-          editable: canEdit(row),
-          saving: saving === row.meterId || savingAll,
-          requirePhoto: !isManager && sheet.settings[row.utility].requirePhoto,
-          onValue: (v) => setDraft(row.meterId, { value: v }),
-          onPhotos: (files) => addPhotos(row, files),
-          onRemovePhoto: (i) =>
-            setDraft(row.meterId, { photos: (drafts[row.meterId]?.photos ?? []).filter((_, idx) => idx !== i) }),
-          onSave: () => handleSave(row),
-        });
-        const cards = (
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {g.rows.map((row) => (
-              <ReadingCard key={row.meterId} {...rowProps(row)} />
-            ))}
-          </div>
-        );
-        return (
-          <div key={g.utility} className="space-y-2">
-            <h2 className="text-h3 text-gray-900">
-              {UTILITY_LABEL[g.utility]} <span className="text-caption font-normal text-gray-400">({sheet.settings[g.utility].unitLabel})</span>
-            </h2>
-            {view === "table" ? (
-              <>
-                <div className="md:hidden">{cards}</div>
-                <Card padding="none" className="hidden md:block overflow-x-auto">
-                  <table className="w-full table-fixed min-w-[56rem] text-body">
-                    <colgroup>
-                      <col className="w-[20%]" />
-                      <col className="w-[17%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[11%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[8%]" />
-                    </colgroup>
-                    <thead>
-                      <tr className="border-b border-gray-100 text-left">
-                        <th className="px-4 py-2 text-label uppercase text-gray-400 font-medium">Meter</th>
-                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Occupant</th>
-                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium text-right">Previous</th>
-                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Current</th>
-                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium text-right">Used</th>
-                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Photos</th>
-                        <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Status</th>
-                        <th className="px-4 py-2" aria-label="Actions" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.rows.map((row) => (
-                        <ReadingTableRow key={row.meterId} {...rowProps(row)} />
-                      ))}
-                    </tbody>
-                  </table>
-                </Card>
-              </>
+      {groups.length > 0 && view === "cards" && cardSections}
+
+      {groups.length > 0 && view === "table" && (
+        <>
+          <div className="md:hidden">{cardSections}</div>
+          <div className="hidden md:block space-y-4">
+            {grouping === "unit" ? (
+              // One table, a header row per unit: Enter walks the building door to door.
+              <ReadingsTable groups={groups} byUnit rowProps={rowProps} />
             ) : (
-              cards
+              groups.map((g) => (
+                <div key={g.key} className="space-y-2">
+                  {heading(g)}
+                  <ReadingsTable groups={[g]} byUnit={false} rowProps={rowProps} />
+                </div>
+              ))
             )}
           </div>
-        );
-      })}
+        </>
+      )}
 
       {view === "table" && showSaveAll && (
         <div className="hidden md:flex justify-end">
@@ -315,6 +376,86 @@ export function ReadingsTab({ sheet, year, month, monthLabel, userId, isManager,
         </div>
       )}
     </div>
+  );
+}
+
+function Segmented<T extends string>({
+  label, value, options, onChange, className,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string; icon: LucideIcon }[];
+  onChange: (v: T) => void;
+  className?: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className={clsx("inline-flex rounded-lg border border-gray-200 bg-white p-0.5", className)}>
+      {options.map(({ value: v, label: text, icon: Icon }) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          aria-pressed={value === v}
+          className={clsx(
+            "flex items-center gap-1.5 px-3 py-1 rounded-md text-caption font-medium transition-colors",
+            value === v ? "bg-gold text-white" : "text-gray-500 hover:text-gray-800",
+          )}
+        >
+          <Icon size={14} /> {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Desktop table. Grouped by utility it is one table per utility; grouped by
+ * unit it is one table with a header row per unit, the second column shows
+ * the utility instead of the (repeated) occupant, and the meter column shows
+ * just the meter's name. Fixed column widths so separate tables line up.
+ */
+function ReadingsTable({ groups, byUnit, rowProps }: { groups: Group[]; byUnit: boolean; rowProps: (row: SheetRow) => RowProps }) {
+  return (
+    <Card padding="none" className="overflow-x-auto">
+      <table className="w-full table-fixed min-w-[56rem] text-body">
+        <colgroup>
+          <col className="w-[20%]" />
+          <col className="w-[17%]" />
+          <col className="w-[10%]" />
+          <col className="w-[12%]" />
+          <col className="w-[10%]" />
+          <col className="w-[11%]" />
+          <col className="w-[12%]" />
+          <col className="w-[8%]" />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-gray-100 text-left">
+            <th className="px-4 py-2 text-label uppercase text-gray-400 font-medium">Meter</th>
+            <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">{byUnit ? "Utility" : "Occupant"}</th>
+            <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium text-right">Previous</th>
+            <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Current</th>
+            <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium text-right">Used</th>
+            <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Photos</th>
+            <th className="px-3 py-2 text-label uppercase text-gray-400 font-medium">Status</th>
+            <th className="px-4 py-2" aria-label="Actions" />
+          </tr>
+        </thead>
+        {groups.map((g) => (
+          <tbody key={g.key}>
+            {byUnit && (
+              <tr className="bg-cream/70 border-b border-gray-100">
+                <th colSpan={8} scope="rowgroup" className="px-4 py-1.5 text-left font-medium text-gray-900">
+                  {g.title} <span className="text-caption font-normal text-gray-500">· {g.subtitle}</span>
+                </th>
+              </tr>
+            )}
+            {g.rows.map((row) => (
+              <ReadingTableRow key={row.meterId} {...rowProps(row)} byUnit={byUnit} />
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </Card>
   );
 }
 
@@ -368,18 +509,22 @@ function moveFocus(from: HTMLInputElement, step: 1 | -1) {
   }
 }
 
-function ReadingTableRow({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave }: RowProps) {
+function ReadingTableRow({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave, byUnit = false }: RowProps & { byUnit?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const { r, previous, liveConsumption, negative, invalid, dirty, photoCount } = rowState(row, draft);
 
   return (
     <tr className={clsx("border-b border-gray-50 last:border-0 align-middle", negative ? "bg-expense/5" : dirty && "bg-gold/5")}>
       <td className="px-4 py-2">
-        <p className="font-medium text-gray-900 truncate" title={meterTitle(row)}>{meterTitle(row)}</p>
+        <p className="font-medium text-gray-900 truncate" title={meterTitle(row)}>{byUnit && row.role === "UNIT" ? row.label : meterTitle(row)}</p>
         {row.meterNumber && <p className="text-caption text-gray-400 truncate">No. {row.meterNumber}</p>}
       </td>
       <td className="px-3 py-2 text-gray-600 truncate">
-        {row.role === "UNIT" ? row.occupantName ?? <span className="text-gray-400">Vacant</span> : METER_ROLE_LABEL[row.role]}
+        {byUnit
+          ? UTILITY_LABEL[row.utility]
+          : row.role === "UNIT"
+            ? row.occupantName ?? <span className="text-gray-400">Vacant</span>
+            : METER_ROLE_LABEL[row.role]}
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-gray-700">{fmtReading(previous)}</td>
       <td className="px-3 py-2">

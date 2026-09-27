@@ -494,3 +494,22 @@ export const billReadingsSchema = z.object({
   year:       z.number().int().min(2000).max(2200),
   month:      z.number().int().min(1).max(12),
 });
+
+/** POST /api/utilities/readings/import — rows already matched to meters in the browser. */
+export const importReadingsSchema = z.object({
+  propertyId:  z.string().min(1),
+  periodYear:  z.number().int().min(2000).max(2200),
+  periodMonth: z.number().int().min(1).max(12),
+  rows: z
+    .array(
+      z.object({
+        rowNumber:      z.number().int().min(1),
+        meterId:        z.string().min(1),
+        currentReading: z.number().min(0, "The current reading must be 0 or more"),
+        readingDate:    z.string().optional(),
+        notes:          z.string().max(1000).optional(),
+      }),
+    )
+    .min(1, "Nothing to import")
+    .max(500, "Import at most 500 readings at a time"),
+});

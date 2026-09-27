@@ -50,6 +50,8 @@ npm run test:watch   # Vitest watch mode
 4. `npx prisma generate` — regenerates the client
 5. Apply the same SQL in the Supabase SQL Editor for production
 
+**Every new table needs `ALTER TABLE "<Name>" ENABLE ROW LEVEL SECURITY;` in its migration** (no policies — Prisma's `postgres` role bypasses RLS; this closes the table to Supabase's PostgREST API, where `anon` / `authenticated` hold grants on every public table). `src/lib/__tests__/migrations-rls.test.ts` fails CI when a migration creates a table without it; otherwise the Supabase linter flags `rls_disabled_in_public` after the fact.
+
 Unit tests live in `src/lib/__tests__/` (Vitest, pure-function coverage of `calculations.ts`, `tax-engine.ts`, `date-utils.ts`, `subscription.ts`). GitHub Actions CI (`.github/workflows/ci.yml`) runs `prisma generate` → `tsc --noEmit` → `npm test` on every push to main. Validate changes with `npm test`, `npx tsc --noEmit`, and `npm run build`. When touching financial logic, add/extend a test.
 
 ## Architecture Overview

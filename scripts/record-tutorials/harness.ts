@@ -57,12 +57,19 @@ export class Harness {
   private context!: BrowserContext;
   page!: Page;
   private t0 = 0;
+  /** ms cut from the front of the video (login + first-compile dead time); see markStart(). */
+  private trimMs = 0;
   readonly cues: Cue[] = [];
   readonly timeline: TimelineEvent[] = [];
   readonly key: string;
+  private readonly email: string;
+  private readonly password: string;
 
-  constructor(key: string) {
+  /** `account` overrides the shared recording login (e.g. utilities records in a Kenyan org). */
+  constructor(key: string, account?: { email: string; password?: string }) {
     this.key = key;
+    this.email = account?.email ?? EMAIL;
+    this.password = account?.password ?? PASSWORD;
   }
 
   private now() {
@@ -100,11 +107,11 @@ export class Harness {
 
     // Log in (not narrated — happens before the first say()).
     await this.page.goto(`${BASE_URL}/login`);
-    await this.page.fill('input[type="email"]', EMAIL);
-    await this.page.fill('input[type="password"]', PASSWORD);
+    await this.page.fill('input[type="email"]', this.email);
+    await this.page.fill('input[type="password"]', this.password);
     await this.page.click('button[type="submit"]');
     await this.page.waitForURL((u) => !u.href.includes("/login"), { timeout: 30000 });
-    this.log("login", EMAIL);
+    this.log("login", this.email);
 
     await this.page.addStyleTag({
       content: `
@@ -245,6 +252,22 @@ export class Harness {
     this.log("upload", `${sel} ← ${path.basename(filePath)}`, Date.now() - started);
   }
 
+  /**
+   * The video starts here: everything before (login, slow first page compile
+   * in dev) is cut in postprocess and the subtitle cues shift with it. Call it
+   * once the first screen has loaded, before the first say().
+   */
+  markStart(): void {
+    this.trimMs = Math.max(0, this.now() - 300);
+    this.log("markStart", `trim ${this.trimMs}ms`);
+  }
+
+  /** Press a key in the focused element (Enter / Tab / Escape…). */
+  async press(key: string): Promise<void> {
+    await this.page.keyboard.press(key);
+    this.log("press", key);
+  }
+
   async pause(ms: number): Promise<void> {
     await this.page.waitForTimeout(ms);
     this.log("pause", `${ms}ms`);
@@ -264,7 +287,7 @@ export class Harness {
    * Stop recording; save the timeline JSON next to the video.
    * Returns { videoPath, timelinePath, durationMs }.
    */
-  async finish(): Promise<{ videoPath: string; timelinePath: string; durationMs: number }> {
+  async finish(): Promise<{ videoPath: string; timelinePath: string; durationMs: number; trimMs: number }> {
     const durationMs = this.now();
     const video = this.page.video();
     await this.context.close(); // flushes the video file
@@ -282,7 +305,7 @@ export class Harness {
     const timelinePath = path.join(dir, `${this.key}.timeline.json`);
     fs.writeFileSync(
       timelinePath,
-      JSON.stringify({ key: this.key, durationMs, cues: this.cues, events: this.timeline }, null, 2)
+      JSON.stringify({ key: this.key, durationMs, trimMs: this.trimMs, cues: this.cues, events: this.timeline }, null, 2)
     );
 
     const slow = this.timeline.filter((e) => (e.findMs ?? 0) > 3000);
@@ -291,6 +314,6 @@ export class Harness {
       for (const s of slow) console.warn(`     ${s.action} ${s.detail} (${s.findMs}ms)`);
     }
 
-    return { videoPath: finalVideo, timelinePath, durationMs };
+    return { videoPath: finalVideo, timelinePath, durationMs, trimMs: this.trimMs };
   }
 }

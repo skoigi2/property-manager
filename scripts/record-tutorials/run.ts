@@ -23,7 +23,7 @@ const ROOT = path.join(__dirname, "..", "..");
 const PUBLIC_TUTORIALS = path.join(ROOT, "public", "tutorials");
 const REGISTRY_PATH = path.join(ROOT, "src", "lib", "tutorial-videos.ts");
 
-type RecordResult = { videoPath: string; timelinePath: string; durationMs: number };
+type RecordResult = { videoPath: string; timelinePath: string; durationMs: number; trimMs?: number };
 type RecorderModule = { record: () => Promise<RecordResult> };
 
 async function assertDevServer(): Promise<void> {
@@ -61,12 +61,14 @@ async function runOne(key: TutorialKey, burn: boolean): Promise<void> {
   console.log("• recording");
   const mod = (await import(`./${key}`)) as RecorderModule;
   const result = await mod.record();
-  const bodySec = Math.round(result.durationMs / 1000);
+  const trimMs = result.trimMs ?? 0;
+  const bodySec = Math.round((result.durationMs - trimMs) / 1000);
 
   console.log("• generating WebVTT");
   const timeline = JSON.parse(fs.readFileSync(result.timelinePath, "utf8")) as { cues: Cue[] };
-  // Cues shift by the 2s title card prepended in postprocess.
-  const shifted = timeline.cues.map((c) => ({ ...c, start: c.start + 2000, end: c.end + 2000 }));
+  // Cues shift by the 2s title card prepended in postprocess, minus any lead-in cut by markStart().
+  const shift = 2000 - trimMs;
+  const shifted = timeline.cues.map((c) => ({ ...c, start: c.start + shift, end: c.end + shift }));
   const vttPath = generateVtt(key, shifted, PUBLIC_TUTORIALS);
 
   console.log("• postprocess (ffmpeg)");
@@ -80,7 +82,7 @@ async function runOne(key: TutorialKey, burn: boolean): Promise<void> {
       nextLine,
       ...(burn ? ["--burn"] : []),
     ],
-    { stdio: "inherit" }
+    { stdio: "inherit", env: { ...process.env, TRIM_START_SEC: (trimMs / 1000).toFixed(2) } }
   );
 
   const totalSec = bodySec + 4; // + title & end cards

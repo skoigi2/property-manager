@@ -18,7 +18,8 @@ export type TutorialKey =
   | "proof-of-payment"
   | "bulk-import"
   | "cases-and-approvals"
-  | "tenant-checkout";
+  | "tenant-checkout"
+  | "utilities-metering";
 
 export type TutorialVideo = {
   key: TutorialKey;
@@ -174,6 +175,26 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
     ],
     relatedDocs: [{ label: "Help & Guide", href: "/guide.html" }],
   },
+
+  "utilities-metering": {
+    key: "utilities-metering",
+    title: "Water and electricity meters",
+    durationSec: 143,
+    videoUrl: "/tutorials/utilities-metering.mp4",
+    posterUrl: "/tutorials/utilities-metering.jpg",
+    subtitleUrl: "/tutorials/utilities-metering.vtt",
+    summary:
+      "At month end every water and electricity meter is read — by the caretaker on a phone with a photo of each dial, or by a manager typing into the Readings table, where Enter jumps to the next meter. Readings on paper or in a spreadsheet can be imported: download the month's sheet, fill in the Current reading column, and import it; every row is previewed before anything is saved. A manager then approves the readings on Review & bill (unusual jumps are flagged) and bills them onto the next rent invoice. Paid & unpaid is the chase list of who owes water and electricity, and Reconciliation shows the council, KPLC and generator costs against what tenants paid, with the surplus going to the owner.",
+    steps: [
+      "Utilities → Readings, pick the month: type each meter's current reading (Enter moves down), or group By unit to follow the walk.",
+      "Or Download sheet, fill in Current reading, and Import readings — check the preview, then import.",
+      "Review & bill (previous month): check flagged readings, Select all, Approve.",
+      "Bill onto the next invoice — readings join the rent invoice, or a separate utilities invoice if that one is already paid.",
+      "Paid & unpaid: see who owes water and electricity; tick them and email reminders, or export Excel / PDF.",
+      "Reconciliation: council water vs collections (borehole surplus to the owner); KPLC bulk meter vs units billed, vacant units and common areas.",
+    ],
+    relatedDocs: [{ label: "Help & Guide — Water & Electricity", href: "/guide.html#utilities" }],
+  },
 };
 
 export const TUTORIAL_ORDER: TutorialKey[] = [
@@ -184,4 +205,5 @@ export const TUTORIAL_ORDER: TutorialKey[] = [
   "petty-cash-vs-expenses",
   "cases-and-approvals",
   "tenant-checkout",
+  "utilities-metering",
 ];

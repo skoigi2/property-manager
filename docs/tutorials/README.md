@@ -69,6 +69,18 @@ fragile selector**; prefer stable attributes (`data-testid`, `name`,
    history for the pattern).
 6. `npm run tutorials:record <key>`, check the timeline JSON, fix, re-record.
 
+## Recorder options
+
+- **Own account per tutorial** — `new Harness(key, { email, password })`. `utilities-metering` records in a
+  separate Kenyan org (`guide-utilities@groundworkpm.com`, same dev password; override with
+  `RECORD_UTILITIES_EMAIL`) so the shared guide org stays single-property in GBP. Its seed
+  (`seed-utilities.ts`) creates the account on first run and re-seeds the org's Kilimani Court demo
+  through the app's API before every recording, so each take starts from identical data.
+- **Cut the lead-in** — call `h.markStart()` once the first screen has loaded: login and the slow first
+  dev-mode compile are trimmed from the video (`TRIM_START_SEC` to `postprocess.sh`) and the subtitle
+  cues shift with it. Scripts that don't call it are unchanged.
+- `h.press("Enter")` presses a key in the focused field.
+
 ## Subtitles: generated, never hand-edited
 
 `public/tutorials/<key>.vtt` is a build artifact. To change what a tutorial

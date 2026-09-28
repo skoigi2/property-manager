@@ -16,6 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as XLSX from "xlsx";
 import type { TutorialKey } from "../../src/lib/tutorial-videos";
+import { seedUtilities } from "./seed-utilities";
 
 const RECORD_EMAIL = process.env.RECORD_EMAIL ?? "guide@groundworkpm.com";
 const BASE_URL = process.env.RECORD_BASE_URL ?? "http://localhost:3000";
@@ -449,6 +450,11 @@ async function seedCheckout(ctx: Ctx): Promise<void> {
 
 export async function seedForTutorial(key: TutorialKey): Promise<void> {
   assertSafeDatabase();
+  if (key === "utilities-metering") {
+    // Own account + org (Kenyan demo) — see seed-utilities.ts.
+    console.log(`Seeding preconditions for "${key}"`);
+    return seedUtilities(prisma, FIXTURES_DIR);
+  }
   const ctx = await loadContext();
   console.log(`Seeding preconditions for "${key}" in org ${ctx.orgId} (${ctx.property.name})`);
   switch (key) {
@@ -466,6 +472,8 @@ export async function seedForTutorial(key: TutorialKey): Promise<void> {
       return seedCases(ctx);
     case "tenant-checkout":
       return seedCheckout(ctx);
+    default:
+      return;
   }
 }
 

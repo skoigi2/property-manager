@@ -13,6 +13,7 @@ import { MonthPicker } from "@/components/ui/MonthPicker";
 import { Spinner } from "@/components/ui/Spinner";
 import { useProperty } from "@/lib/property-context";
 import { useSharedMonth } from "@/lib/use-shared-month";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { ReadingsTab } from "@/components/utilities/ReadingsTab";
 import { ReviewTab } from "@/components/utilities/ReviewTab";
 import { MetersTariffsTab } from "@/components/utilities/MetersTariffsTab";
@@ -129,9 +130,7 @@ export default function UtilitiesPage() {
 
   return (
     <div>
-      <Header title="Utilities" userName={session?.user?.name ?? session?.user?.email} role={orgRole}>
-        {(activeTab === "readings" || activeTab === "review") && <MonthPicker value={month} onChange={setMonth} max={new Date()} />}
-      </Header>
+      <Header title="Utilities" userName={session?.user?.name ?? session?.user?.email} role={orgRole} />
 
       <div className="page-container space-y-4 pb-24 lg:pb-8">
         {!selectedId ? (
@@ -176,6 +175,16 @@ export default function UtilitiesPage() {
                     )}
                   </button>
                 ))}
+                <div className="ml-auto flex items-center pl-3 shrink-0">
+                  <TutorialVideo tutorialKey="utilities-metering" variant="link" />
+                </div>
+              </div>
+            )}
+
+            {/* In the page body like every other month-scoped page — the dark header hides its label. */}
+            {(activeTab === "readings" || activeTab === "review") && (
+              <div className="flex items-center gap-3">
+                <MonthPicker value={month} onChange={setMonth} max={new Date()} />
               </div>
             )}
 

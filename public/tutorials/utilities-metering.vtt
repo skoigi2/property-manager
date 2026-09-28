@@ -1,0 +1,140 @@
+WEBVTT
+
+NOTE
+Tutorial: utilities-metering
+Generated: 2026-09-28T04:37:30.576Z
+Source of truth: docs/tutorials/utilities-metering.md — edit there and re-record.
+
+1
+00:00:02.301 --> 00:00:06.806
+At month end every water and electricity
+meter gets read. Here's this month —
+
+2
+00:00:06.806 --> 00:00:08.306
+nothing read yet.
+
+3
+00:00:09.088 --> 00:00:13.144
+Group by unit to follow the caretaker's
+walk: each door's water and power
+
+4
+00:00:13.144 --> 00:00:15.088
+together, the KPLC bulk meter last.
+
+5
+00:00:17.298 --> 00:00:21.880
+At a desk it's a table: type the reading,
+press Enter, and you're on the next meter.
+
+6
+00:00:21.880 --> 00:00:23.380
+Usage appears as you type.
+
+7
+00:00:29.686 --> 00:00:33.851
+Save them in one go. On a phone, the
+caretaker gets cards with a camera button
+
+8
+00:00:33.851 --> 00:00:35.351
+for a photo of each dial.
+
+9
+00:00:36.334 --> 00:00:40.713
+Readings on paper? Download sheet gives
+this month's meters in walking order, with
+
+10
+00:00:40.713 --> 00:00:42.213
+last month's numbers.
+
+11
+00:00:46.063 --> 00:00:50.922
+Fill in the Current reading column and
+import it. Every row is matched to its
+
+12
+00:00:50.922 --> 00:00:52.563
+meter and previewed first.
+
+13
+00:00:53.715 --> 00:00:58.215
+Imported readings arrive as Submitted,
+waiting for a manager's approval.
+
+14
+00:01:05.843 --> 00:01:10.906
+On Review & bill the manager checks last
+month's readings, and any photos, before
+
+15
+00:01:10.906 --> 00:01:12.406
+approving them.
+
+16
+00:01:12.988 --> 00:01:16.988
+Unusual jumps are flagged — worth a second
+look before you approve.
+
+17
+00:01:22.244 --> 00:01:26.244
+Approving fixes the rate and the charge
+for each reading.
+
+18
+00:01:29.790 --> 00:01:34.294
+Then bill: readings go onto next month's
+rent invoice — or a separate utilities
+
+19
+00:01:34.294 --> 00:01:36.290
+invoice if that one's already paid.
+
+20
+00:01:40.070 --> 00:01:44.644
+Paid & unpaid is the chase list: per
+tenant, water and electricity billed, paid
+
+21
+00:01:44.644 --> 00:01:46.144
+and still owing.
+
+22
+00:01:46.685 --> 00:01:51.185
+Tick who owes and email reminders — or
+export to Excel or PDF.
+
+23
+00:01:56.997 --> 00:02:01.452
+Reconciliation shows where the money goes.
+Water: what tenants paid against the
+
+24
+00:02:01.452 --> 00:02:04.497
+council bill — the borehole surplus goes
+to the owner.
+
+25
+00:02:05.646 --> 00:02:11.141
+Power: the KPLC bulk meter against units
+billed, vacant units and common areas, so
+
+26
+00:02:11.141 --> 00:02:12.641
+losses show up.
+
+27
+00:02:12.641 --> 00:02:16.770
+Tenants see their readings and what they
+owe in their portal, so nobody has to call
+
+28
+00:02:16.770 --> 00:02:18.270
+to ask.
+
+29
+00:02:18.270 --> 00:02:20.674
+That's metering: read, approve, bill,
+chase.

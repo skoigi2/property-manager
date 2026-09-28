@@ -46,8 +46,9 @@ NEXT_ESC="$(esc "$NEXT_LINE")"
 TMP="$DIR/output/$KEY/tmp"
 mkdir -p "$TMP"
 
-# 1. Main body: webm → h264 mp4.
-ffmpeg -y -loglevel error -i "$SRC" \
+# 1. Main body: webm → h264 mp4, cutting the lead-in the recorder marked
+#    with markStart() (TRIM_START_SEC, default 0).
+ffmpeg -y -loglevel error -ss "${TRIM_START_SEC:-0}" -i "$SRC" \
   -c:v libx264 -pix_fmt yuv420p -preset medium -crf 22 -r 25 -an \
   "$TMP/body.mp4"
 

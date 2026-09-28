@@ -1790,13 +1790,25 @@
         <li><strong>Rates</strong> — water has one rate per unit (e.g. 150). Electricity is a <em>power rate</em> (the Kenya Power domestic rate you charge) plus an optional <em>generator fuel rate</em>; tenants pay the sum. A rate applies from its start month until you add a newer one, and readings already approved keep the rate they were approved at. Admins and managers set rates.</li>
         <li><strong>Options</strong> — require the caretaker to attach a photo; hold automatic rent invoices until the readings are approved (until the 5th of the month) so the bill goes out with the rent.</li>
       </ul>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/36-utilities-meters.png" alt="Utilities, Meters &amp; tariffs tab" loading="lazy">
+        <div class="screenshot-caption">Meters &amp; tariffs — the water rate and its history, one meter per unit, and the photo / hold-invoices options; electricity (power rate + generator fuel) follows below</div>
+      </div>
     </div>
 
     <div class="sub-section">
       <h3>2 · Month-end readings (Readings)</h3>
       <p>The caretaker (or a manager) opens <em>Readings</em>, picks the month, and for each meter types the number on the dial and takes a <strong>photo</strong> with the phone camera. The previous reading is filled in by the system — it is last month's reading, never typed — and the units used are shown immediately. A caretaker sees <strong>units only</strong>: never rates, amounts or invoices. They can correct their own reading until a manager approves it.</p>
       <p><strong>Views.</strong> On a computer the readings show as a <strong>table</strong>: type a number and press <kbd>Enter</kbd> to jump to the next meter, then <em>Save readings</em> once. Switch to <em>Cards</em> if you prefer (phones always use cards). <strong>By unit</strong> puts each door's water, hot water and electricity together, in walking order, with the KPLC bulk and common-area meters last; <strong>By utility</strong> lists all water meters, then all electricity meters.</p>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/37-utilities-readings.png" alt="Readings table grouped by unit" loading="lazy">
+        <div class="screenshot-caption">Readings, grouped by unit — two readings typed: units used show as you type, and <em>Save 2 readings</em> saves both</div>
+      </div>
       <p><strong>Excel.</strong> <em>Download sheet</em> gives the month's meters in door-to-door order with last month's readings — print it for the caretaker's round, or type the numbers in. A manager then uses <em>Import readings</em> on the same month: each row is matched to its meter and previewed (new / update / unchanged / can't import) before anything is saved. Imported readings wait on <em>Review &amp; bill</em> for approval like any other, and re-importing an unchanged sheet changes nothing.</p>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/38-utilities-import.png" alt="Import readings preview" loading="lazy">
+        <div class="screenshot-caption">Import readings — every row of the filled-in sheet is matched to its meter and previewed; nothing is saved until you press Import</div>
+      </div>
       <div class="callout note"><div class="callout-icon">ℹ️</div><div class="callout-body"><strong>Reading lower than last month?</strong>It is flagged in red and can't be approved. Either it was mistyped, or the meter was replaced — in which case a manager edits the reading and overrides the previous reading with a reason.</div></div>
     </div>
 
@@ -1810,11 +1822,19 @@
         <li><strong>Correcting</strong> — <em>Void</em> withdraws a reading; if it is already on an unpaid invoice the invoice is reduced to match. Once a payment is recorded on the invoice, revert the invoice to unpaid first.</li>
       </ul>
       <div class="callout note"><div class="callout-icon">ℹ️</div><div class="callout-body"><strong>How a payment is applied.</strong>Money against an invoice settles the <em>rent first, then water, then electricity</em>. A tenant who pays only the rent amount therefore shows unpaid water / electricity — which is exactly what the statement below lists.</div></div>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/39-utilities-review.png" alt="Review and bill tab with readings awaiting approval" loading="lazy">
+        <div class="screenshot-caption">Review &amp; bill for August — two readings awaiting approval, one flagged as more than 2.5× the unit's recent average; billed rows show their invoice number</div>
+      </div>
     </div>
 
     <div class="sub-section">
       <h3>4 · Who has paid? (Paid &amp; unpaid)</h3>
       <p>The whole property on one screen: per tenant, water and electricity <strong>billed, paid and unpaid</strong>, the month the debt started, approved readings not yet invoiced, and the last utility payment. Expand a tenant to see each invoice. Export to <strong>Excel</strong> or <strong>PDF</strong>, or tick tenants and <strong>Email reminders</strong> — the email lists each unpaid water / electricity invoice and is logged on the tenant's <em>Comms</em> tab. Each tenant's page also has a <em>Utilities</em> tab with their reading history and a downloadable utility statement.</p>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/40-utilities-paid-unpaid.png" alt="Paid and unpaid utility statement" loading="lazy">
+        <div class="screenshot-caption">Paid &amp; unpaid — water and electricity billed and still owed per tenant, the month the debt started, and one-click email reminders</div>
+      </div>
     </div>
 
     <div class="sub-section">
@@ -1827,6 +1847,10 @@
           <tr><td>Meters</td><td>KPLC bulk meter − units billed − vacant units − common areas = <strong>unaccounted</strong></td><td>All four kinds of meter reading. A large unaccounted figure means line loss, an unmetered load or a wrong reading.</td></tr>
         </tbody>
       </table>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/41-utilities-reconciliation.png" alt="Water reconciliation for the year" loading="lazy">
+        <div class="screenshot-caption">Reconciliation — water collected against the council bill, month by month, with the borehole surplus that goes to the owner; electricity follows below</div>
+      </div>
       <p><em>Billed</em> follows the month the meter was read; <em>collected</em> and <em>paid</em> follow the date the money moved — so use the year-to-date row for the true position. The <strong>rate guide</strong> compares what a unit has actually cost this year with what tenants pay, and turns red when the rate is below cost.</p>
       <p>On the owner statement the utilities appear as a memo — collected, council / KPLC / generator, surplus — re-presenting figures that are already inside gross income and expenses. Utility collections never carry a percentage management fee.</p>
     </div>
@@ -1834,6 +1858,10 @@
     <div class="sub-section">
       <h3>What the tenant sees</h3>
       <p>In the <a href="#portal">tenant portal</a>: a <em>Water &amp; electricity</em> card on the Overview (latest reading, amount, <span class="badge badge-green">Paid</span> / <span class="badge badge-amber">Part paid</span> / <span class="badge badge-red">Unpaid</span>), the reading lines on each invoice, a month-by-month history with the meter photo, and a downloadable utility statement. Tenants see only their own meters, and only readings a manager has approved.</p>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:380px">
+        <img src="guide-screenshots/42-portal-utilities.png" alt="Water and electricity card in the tenant portal" loading="lazy">
+        <div class="screenshot-caption">The tenant portal's Water &amp; electricity card: last month's reading lines and what is still unpaid</div>
+      </div>
     </div>
   </div>
 

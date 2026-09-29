@@ -2,49 +2,40 @@
 import withPWAInit from "next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Offline caching is deliberately limited to the Utilities page, where
+// caretakers read meters with no signal. The worker is registered by that page
+// only, scoped to /utilities (src/app/(dashboard)/utilities/page.tsx); nothing
+// else in the app is served from a cache, so money figures are never stale.
+// Before widening it, weigh stale financial data and shared office PCs.
 const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
-  register: true,
+  // Registered by the Utilities page itself (next-pwa's own registration never
+  // ran under the App Router — and must not start registering at scope "/").
+  register: false,
   skipWaiting: true,
   // Files the server never hands the worker: the App Router build manifest
   // (behind the auth middleware → redirect) and source maps (not served).
   // Precaching either fails the whole install.
   buildExcludes: [/app-build-manifest\.json$/, /\.map$/],
   runtimeCaching: [
-    {
-      urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "supabase-cache",
-        expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
-      },
-    },
-    {
-      urlPattern: /\/api\/dashboard/,
-      handler: "StaleWhileRevalidate",
-      options: {
-        cacheName: "dashboard-cache",
-        expiration: { maxEntries: 10, maxAgeSeconds: 5 * 60 },
-      },
-    },
-    // Offline: the caretaker reads meters where there is no signal. Pages and
-    // their RSC payloads fall back to the last copy seen; the session and the
-    // property list outlive the 60 s api-cache so an offline app still knows
-    // who is signed in. Network always wins when there is one.
+    // The Utilities page and its RSC payloads: the last copy opens offline.
+    // The month's readings themselves come from the copy the page keeps on
+    // the phone (src/lib/offline-readings.ts), not from this cache.
     {
       urlPattern: ({ request, url, sameOrigin }) =>
         sameOrigin &&
-        !url.pathname.startsWith("/api/") &&
-        !url.pathname.startsWith("/_next/") &&
+        url.pathname.startsWith("/utilities") &&
         (request.mode === "navigate" || request.headers.get("RSC") === "1"),
       handler: "NetworkFirst",
       options: {
         cacheName: "pages-offline",
         networkTimeoutSeconds: 8,
-        expiration: { maxEntries: 40, maxAgeSeconds: 7 * 24 * 60 * 60 },
+        expiration: { maxEntries: 10, maxAgeSeconds: 7 * 24 * 60 * 60 },
       },
     },
+    // Who is signed in and which properties they see, so the page still
+    // renders offline. Network always wins when there is one.
     {
       urlPattern: /\/api\/(auth\/session|properties\?minimal=true)/,
       handler: "NetworkFirst",
@@ -52,15 +43,6 @@ const withPWA = withPWAInit({
         cacheName: "session-offline",
         networkTimeoutSeconds: 8,
         expiration: { maxEntries: 10, maxAgeSeconds: 7 * 24 * 60 * 60 },
-      },
-    },
-    {
-      urlPattern: /\/api\/.*/,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "api-cache",
-        networkTimeoutSeconds: 10,
-        expiration: { maxEntries: 50, maxAgeSeconds: 60 },
       },
     },
   ],

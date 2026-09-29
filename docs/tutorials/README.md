@@ -79,6 +79,9 @@ fragile selector**; prefer stable attributes (`data-testid`, `name`,
 - **Cut the lead-in** — call `h.markStart()` once the first screen has loaded: login and the slow first
   dev-mode compile are trimmed from the video (`TRIM_START_SEC` to `postprocess.sh`) and the subtitle
   cues shift with it. Scripts that don't call it are unchanged.
+- **Cut dead time** — wrap a slow step in `await h.offCamera("label", async () => { … })` (a cold dev page load, a
+  slow save). The stretch is dropped from the video (`CUTS_SEC` → an ffmpeg `select` filter) and later subtitle cues move
+  up to match. Never put a `say()` inside it.
 - `h.press("Enter")` presses a key in the focused field.
 
 ## Subtitles: generated, never hand-edited

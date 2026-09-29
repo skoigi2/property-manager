@@ -59,6 +59,8 @@ export class Harness {
   private t0 = 0;
   /** ms cut from the front of the video (login + first-compile dead time); see markStart(). */
   private trimMs = 0;
+  /** Stretches cut out of the video (slow dev-server loads); see offCamera(). */
+  private cuts: { from: number; to: number }[] = [];
   readonly cues: Cue[] = [];
   readonly timeline: TimelineEvent[] = [];
   readonly key: string;
@@ -262,6 +264,20 @@ export class Harness {
     this.log("markStart", `trim ${this.trimMs}ms`);
   }
 
+  /**
+   * Runs `fn` and cuts that stretch out of the video (postprocess drops it;
+   * subtitle cues after it move up). For dev-server waits a viewer should never
+   * sit through — a cold page load, a slow save. Never wrap a say() in it.
+   */
+  async offCamera<T>(label: string, fn: () => Promise<T>): Promise<T> {
+    const from = this.now();
+    const result = await fn();
+    const to = this.now();
+    if (from >= this.trimMs) this.cuts.push({ from, to });
+    this.log("offCamera", `${label} (${((to - from) / 1000).toFixed(1)}s cut)`);
+    return result;
+  }
+
   /** Press a key in the focused element (Enter / Tab / Escape…). */
   async press(key: string): Promise<void> {
     await this.page.keyboard.press(key);
@@ -287,7 +303,7 @@ export class Harness {
    * Stop recording; save the timeline JSON next to the video.
    * Returns { videoPath, timelinePath, durationMs }.
    */
-  async finish(): Promise<{ videoPath: string; timelinePath: string; durationMs: number; trimMs: number }> {
+  async finish(): Promise<{ videoPath: string; timelinePath: string; durationMs: number; trimMs: number; cuts: { from: number; to: number }[] }> {
     const durationMs = this.now();
     const video = this.page.video();
     await this.context.close(); // flushes the video file
@@ -305,7 +321,7 @@ export class Harness {
     const timelinePath = path.join(dir, `${this.key}.timeline.json`);
     fs.writeFileSync(
       timelinePath,
-      JSON.stringify({ key: this.key, durationMs, trimMs: this.trimMs, cues: this.cues, events: this.timeline }, null, 2)
+      JSON.stringify({ key: this.key, durationMs, trimMs: this.trimMs, cuts: this.cuts, cues: this.cues, events: this.timeline }, null, 2)
     );
 
     const slow = this.timeline.filter((e) => (e.findMs ?? 0) > 3000);
@@ -314,6 +330,6 @@ export class Harness {
       for (const s of slow) console.warn(`     ${s.action} ${s.detail} (${s.findMs}ms)`);
     }
 
-    return { videoPath: finalVideo, timelinePath, durationMs, trimMs: this.trimMs };
+    return { videoPath: finalVideo, timelinePath, durationMs, trimMs: this.trimMs, cuts: this.cuts };
   }
 }

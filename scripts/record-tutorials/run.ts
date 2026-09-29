@@ -23,7 +23,13 @@ const ROOT = path.join(__dirname, "..", "..");
 const PUBLIC_TUTORIALS = path.join(ROOT, "public", "tutorials");
 const REGISTRY_PATH = path.join(ROOT, "src", "lib", "tutorial-videos.ts");
 
-type RecordResult = { videoPath: string; timelinePath: string; durationMs: number; trimMs?: number };
+type RecordResult = {
+  videoPath: string;
+  timelinePath: string;
+  durationMs: number;
+  trimMs?: number;
+  cuts?: { from: number; to: number }[];
+};
 type RecorderModule = { record: () => Promise<RecordResult> };
 
 async function assertDevServer(): Promise<void> {
@@ -62,13 +68,19 @@ async function runOne(key: TutorialKey, burn: boolean): Promise<void> {
   const mod = (await import(`./${key}`)) as RecorderModule;
   const result = await mod.record();
   const trimMs = result.trimMs ?? 0;
-  const bodySec = Math.round((result.durationMs - trimMs) / 1000);
+  const cuts = result.cuts ?? [];
+  const cutMs = cuts.reduce((s, c) => s + (c.to - c.from), 0);
+  const bodySec = Math.round((result.durationMs - trimMs - cutMs) / 1000);
 
   console.log("• generating WebVTT");
   const timeline = JSON.parse(fs.readFileSync(result.timelinePath, "utf8")) as { cues: Cue[] };
-  // Cues shift by the 2s title card prepended in postprocess, minus any lead-in cut by markStart().
-  const shift = 2000 - trimMs;
-  const shifted = timeline.cues.map((c) => ({ ...c, start: c.start + shift, end: c.end + shift }));
+  // Cues shift by the 2s title card prepended in postprocess, minus the lead-in
+  // cut by markStart() and every offCamera() stretch that ended before them.
+  const cutBefore = (t: number) => cuts.filter((c) => c.to <= t).reduce((s, c) => s + (c.to - c.from), 0);
+  const shifted = timeline.cues.map((c) => {
+    const shift = 2000 - trimMs - cutBefore(c.start);
+    return { ...c, start: c.start + shift, end: c.end + shift };
+  });
   const vttPath = generateVtt(key, shifted, PUBLIC_TUTORIALS);
 
   console.log("• postprocess (ffmpeg)");
@@ -82,7 +94,15 @@ async function runOne(key: TutorialKey, burn: boolean): Promise<void> {
       nextLine,
       ...(burn ? ["--burn"] : []),
     ],
-    { stdio: "inherit", env: { ...process.env, TRIM_START_SEC: (trimMs / 1000).toFixed(2) } }
+    {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        TRIM_START_SEC: (trimMs / 1000).toFixed(2),
+        // Relative to the trimmed start, as "from-to,from-to" seconds.
+        CUTS_SEC: cuts.map((c) => `${((c.from - trimMs) / 1000).toFixed(2)}-${((c.to - trimMs) / 1000).toFixed(2)}`).join(","),
+      },
+    }
   );
 
   const totalSec = bodySec + 4; // + title & end cards

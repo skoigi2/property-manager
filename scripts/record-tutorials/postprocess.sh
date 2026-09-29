@@ -47,9 +47,19 @@ TMP="$DIR/output/$KEY/tmp"
 mkdir -p "$TMP"
 
 # 1. Main body: webm → h264 mp4, cutting the lead-in the recorder marked
-#    with markStart() (TRIM_START_SEC, default 0).
+#    with markStart() (TRIM_START_SEC, default 0) and every offCamera()
+#    stretch (CUTS_SEC="from-to,from-to", seconds after the trimmed start).
+VF="fps=25"
+if [ -n "${CUTS_SEC:-}" ]; then
+  EXPR=""
+  IFS=',' read -ra RANGES <<< "$CUTS_SEC"
+  for R in "${RANGES[@]}"; do
+    EXPR="${EXPR:+$EXPR+}between(t,${R%-*},${R#*-})"
+  done
+  VF="fps=25,select='not($EXPR)',setpts=N/(25*TB)"
+fi
 ffmpeg -y -loglevel error -ss "${TRIM_START_SEC:-0}" -i "$SRC" \
-  -c:v libx264 -pix_fmt yuv420p -preset medium -crf 22 -r 25 -an \
+  -vf "$VF" -c:v libx264 -pix_fmt yuv420p -preset medium -crf 22 -r 25 -an \
   "$TMP/body.mp4"
 
 # 2. Title card (2s, navy background, gold-on-white text).

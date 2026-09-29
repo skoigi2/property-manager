@@ -30,10 +30,20 @@ export async function record() {
     select: { id: true },
   });
   if (!property) throw new Error("Kilimani Court not found in the utilities recording org — did the seed run?");
+  // The move-out scene: unit 101's tenant — paid up, so the settlement shows a
+  // refund with the final water & electricity taken off it.
+  const leaver = await prisma.tenant.findFirst({
+    where: { isActive: true, unit: { unitNumber: "101", propertyId: property.id } },
+    select: { id: true },
+  });
+  if (!leaver) throw new Error("No active tenant in unit 101 for the move-out scene.");
 
   const h = new Harness("utilities-metering", { email: UTILITIES_RECORD_EMAIL, password: RECORD_PASSWORD });
   await h.start();
   await h.selectProperty(property.id);
+  // Off camera (before markStart): let the dev server compile the checkout
+  // page and its API so the move-out scene doesn't open on a spinner.
+  await h.goto(`/tenants/${leaver.id}/checkout`);
 
   // ── Readings: type a few ────────────────────────────────────────────────────
   await h.goto("/utilities?tab=readings");
@@ -58,7 +68,8 @@ export async function record() {
   await h.pause(600);
 
   await h.click(`button:has-text("Save ${TYPED_ON_CAMERA} readings")`);
-  await h.say("Save them in one go. On a phone, the caretaker gets cards with a camera button for a photo of each dial.", 5500);
+  await h.say("Save them in one go. On a phone, the caretaker snaps each dial — the app reads the photo and flags a number that doesn't match.", 6500);
+  await h.say("No signal in the meter room? Readings wait on the phone and send themselves once it's back.", 5000);
 
   // ── Readings: import the rest ───────────────────────────────────────────────
   await h.hover('button:has-text("Download sheet")');
@@ -73,6 +84,10 @@ export async function record() {
 
   await h.click('dialog button:has-text("Import")');
   await h.say("Imported readings arrive as Submitted, waiting for a manager's approval.", 4500);
+  // The dev server saves 19 readings slowly (a cold one compiles the route too).
+  await h.offCamera("import finishing", () =>
+    h.page.locator('dialog button:has-text("Done")').waitFor({ state: "visible", timeout: 120000 }),
+  );
   await h.click('dialog button:has-text("Done")');
   await h.pause(1200);
 
@@ -113,6 +128,24 @@ export async function record() {
   await h.say("Reconciliation shows where the money goes. Water: what tenants paid against the council bill — the borehole surplus goes to the owner.", 7500);
   await hoverIfPresent(h, 'th:has-text("KPLC bulk meter")');
   await h.say("Power: the KPLC bulk meter against units billed, vacant units and common areas, so losses show up.", 6500);
+
+  // ── Move-out ────────────────────────────────────────────────────────────────
+  await h.offCamera("checkout page load", async () => {
+    await h.goto(`/tenants/${leaver.id}/checkout`);
+    await h.page.locator('h3:has-text("Final Meter Readings")').scrollIntoViewIfNeeded();
+  });
+  await h.hover('h3:has-text("Final Meter Readings")');
+  await h.say("When a tenant moves out, the checkout takes a final reading for each of their meters.", 5000);
+  for (const label of ["Electricity", "Water"]) {
+    const input = `input[aria-label="Final reading, ${label}"]`;
+    const previous = Number((await h.page.locator(input).locator("xpath=ancestor::tr[1]").locator("td").nth(1).innerText()).replace(/,/g, ""));
+    await h.type(input, String(previous + (label === "Water" ? 3 : 55)));
+  }
+  await h.pause(600);
+  await hoverIfPresent(h, 'span:has-text("Total KSh")');
+  await h.say("The final bill — plus any reading not invoiced yet — is worked out on the spot.", 5000);
+  await hoverIfPresent(h, 'aside >> text=Water & Electricity');
+  await h.say("It comes straight off the deposit: finalise, and the last invoice is raised and paid from it.", 6000);
 
   await h.say("Tenants see their readings and what they owe in their portal, so nobody has to call to ask.", 5000);
   await h.say("That's metering: read, approve, bill, chase.", 3500);

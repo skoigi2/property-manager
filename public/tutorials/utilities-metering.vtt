@@ -2,139 +2,172 @@ WEBVTT
 
 NOTE
 Tutorial: utilities-metering
-Generated: 2026-09-28T04:37:30.576Z
+Generated: 2026-09-29T16:45:40.267Z
 Source of truth: docs/tutorials/utilities-metering.md — edit there and re-record.
 
 1
-00:00:02.301 --> 00:00:06.806
+00:00:02.300 --> 00:00:06.805
 At month end every water and electricity
 meter gets read. Here's this month —
 
 2
-00:00:06.806 --> 00:00:08.306
+00:00:06.805 --> 00:00:08.305
 nothing read yet.
 
 3
-00:00:09.088 --> 00:00:13.144
+00:00:09.097 --> 00:00:13.153
 Group by unit to follow the caretaker's
 walk: each door's water and power
 
 4
-00:00:13.144 --> 00:00:15.088
+00:00:13.153 --> 00:00:15.097
 together, the KPLC bulk meter last.
 
 5
-00:00:17.298 --> 00:00:21.880
+00:00:17.374 --> 00:00:21.956
 At a desk it's a table: type the reading,
 press Enter, and you're on the next meter.
 
 6
-00:00:21.880 --> 00:00:23.380
+00:00:21.956 --> 00:00:23.456
 Usage appears as you type.
 
 7
-00:00:29.686 --> 00:00:33.851
+00:00:29.746 --> 00:00:33.770
 Save them in one go. On a phone, the
-caretaker gets cards with a camera button
+caretaker snaps each dial — the app reads
 
 8
-00:00:33.851 --> 00:00:35.351
-for a photo of each dial.
+00:00:33.770 --> 00:00:36.246
+the photo and flags a number that doesn't
+match.
 
 9
-00:00:36.334 --> 00:00:40.713
+00:00:36.251 --> 00:00:40.973
+No signal in the meter room? Readings wait
+on the phone and send themselves once it's
+
+10
+00:00:40.973 --> 00:00:42.473
+back.
+
+11
+00:00:42.473 --> 00:00:46.775
 Readings on paper? Download sheet gives
 this month's meters in walking order, with
 
-10
-00:00:40.713 --> 00:00:42.213
+12
+00:00:46.775 --> 00:00:48.275
 last month's numbers.
 
-11
-00:00:46.063 --> 00:00:50.922
+13
+00:00:52.195 --> 00:00:57.054
 Fill in the Current reading column and
 import it. Every row is matched to its
 
-12
-00:00:50.922 --> 00:00:52.563
+14
+00:00:57.054 --> 00:00:58.695
 meter and previewed first.
 
-13
-00:00:53.715 --> 00:00:58.215
+15
+00:00:59.903 --> 00:01:04.403
 Imported readings arrive as Submitted,
 waiting for a manager's approval.
 
-14
-00:01:05.843 --> 00:01:10.906
+16
+00:01:15.126 --> 00:01:20.189
 On Review & bill the manager checks last
 month's readings, and any photos, before
 
-15
-00:01:10.906 --> 00:01:12.406
+17
+00:01:20.189 --> 00:01:21.689
 approving them.
 
-16
-00:01:12.988 --> 00:01:16.988
+18
+00:01:22.309 --> 00:01:26.309
 Unusual jumps are flagged — worth a second
 look before you approve.
 
-17
-00:01:22.244 --> 00:01:26.244
+19
+00:01:30.756 --> 00:01:34.756
 Approving fixes the rate and the charge
 for each reading.
 
-18
-00:01:29.790 --> 00:01:34.294
+20
+00:01:38.390 --> 00:01:42.894
 Then bill: readings go onto next month's
 rent invoice — or a separate utilities
 
-19
-00:01:34.294 --> 00:01:36.290
+21
+00:01:42.894 --> 00:01:44.890
 invoice if that one's already paid.
 
-20
-00:01:40.070 --> 00:01:44.644
+22
+00:01:49.751 --> 00:01:54.325
 Paid & unpaid is the chase list: per
 tenant, water and electricity billed, paid
 
-21
-00:01:44.644 --> 00:01:46.144
+23
+00:01:54.325 --> 00:01:55.825
 and still owing.
 
-22
-00:01:46.685 --> 00:01:51.185
+24
+00:01:56.398 --> 00:02:00.898
 Tick who owes and email reminders — or
 export to Excel or PDF.
 
-23
-00:01:56.997 --> 00:02:01.452
+25
+00:02:06.461 --> 00:02:10.916
 Reconciliation shows where the money goes.
 Water: what tenants paid against the
 
-24
-00:02:01.452 --> 00:02:04.497
+26
+00:02:10.916 --> 00:02:13.961
 council bill — the borehole surplus goes
 to the owner.
 
-25
-00:02:05.646 --> 00:02:11.141
+27
+00:02:15.102 --> 00:02:20.597
 Power: the KPLC bulk meter against units
 billed, vacant units and common areas, so
 
-26
-00:02:11.141 --> 00:02:12.641
+28
+00:02:20.597 --> 00:02:22.097
 losses show up.
 
-27
-00:02:12.641 --> 00:02:16.770
+29
+00:02:22.745 --> 00:02:27.328
+When a tenant moves out, the checkout
+takes a final reading for each of their
+
+30
+00:02:27.328 --> 00:02:28.828
+meters.
+
+31
+00:02:33.277 --> 00:02:38.277
+The final bill — plus any reading not
+invoiced yet — is worked out on the spot.
+
+32
+00:02:39.425 --> 00:02:44.316
+It comes straight off the deposit:
+finalise, and the last invoice is raised
+
+33
+00:02:44.316 --> 00:02:45.816
+and paid from it.
+
+34
+00:02:45.816 --> 00:02:50.051
 Tenants see their readings and what they
 owe in their portal, so nobody has to call
 
-28
-00:02:16.770 --> 00:02:18.270
+35
+00:02:50.051 --> 00:02:51.551
 to ask.
 
-29
-00:02:18.270 --> 00:02:20.674
+36
+00:02:51.551 --> 00:02:53.955
 That's metering: read, approve, bill,
 chase.

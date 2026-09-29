@@ -68,7 +68,7 @@ export async function record() {
   await h.pause(600);
 
   await h.click(`button:has-text("Save ${TYPED_ON_CAMERA} readings")`);
-  await h.say("Save them in one go. On a phone, the caretaker snaps each dial — the app reads the photo and flags a number that doesn't match.", 6500);
+  await h.say("Save them in one go. On a phone, the caretaker gets cards with a camera button for a photo of each dial.", 5500);
   await h.say("No signal in the meter room? Readings wait on the phone and send themselves once it's back.", 5000);
 
   // ── Readings: import the rest ───────────────────────────────────────────────

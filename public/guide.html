@@ -114,6 +114,7 @@
   /* ── Screenshot grid ── */
   .screenshot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 28px 0; }
   .screenshot-grid .screenshot-wrap { margin: 0; }
+  .screenshot-grid.wide-narrow { grid-template-columns: 2fr 1fr; align-items: start; }
 
   /* ── Steps ── */
   .steps { margin: 24px 0; }
@@ -307,7 +308,7 @@
     #content { padding-left: 24px; padding-right: 24px; }
     #hero h1 { font-size: 32px; }
     .section { padding-top: 44px; }
-    .screenshot-grid { grid-template-columns: 1fr; }
+    .screenshot-grid, .screenshot-grid.wide-narrow { grid-template-columns: 1fr; }
     .kanban-cols { grid-template-columns: 1fr 1fr; }
     .search-kbd { display: none; }
   }
@@ -1147,6 +1148,16 @@
         <li>Generates a signature-ready PDF of the whole checkout</li>
         <li><strong>E-sign, no printing</strong> — click <em>Request tenant sign-off</em> to send the tenant a secure link (email, WhatsApp, or SMS). They review the settlement and acknowledge by typing their name; the typed signature and timestamp then appear on the checkout PDF, and you're notified.</li>
       </ul>
+      <div class="screenshot-grid wide-narrow" style="margin-top:14px">
+        <div class="screenshot-wrap">
+          <img src="guide-screenshots/43-checkout-final-readings.png" alt="Final meter readings on the tenant checkout" loading="lazy">
+          <div class="screenshot-caption">Final meter readings — the use since the last reading, charged at the month's rate</div>
+        </div>
+        <div class="screenshot-wrap">
+          <img src="guide-screenshots/43b-checkout-settlement.png" alt="Final settlement with the water and electricity line" loading="lazy">
+          <div class="screenshot-caption">The final bill comes off the deposit</div>
+        </div>
+      </div>
       <div class="callout warn">
         <span class="callout-icon">⚠️</span>
         <div class="callout-body">
@@ -1810,8 +1821,11 @@
         <img src="guide-screenshots/38-utilities-import.png" alt="Import readings preview" loading="lazy">
         <div class="screenshot-caption">Import readings — every row of the filled-in sheet is matched to its meter and previewed; nothing is saved until you press Import</div>
       </div>
-      <p><strong>Photo check.</strong> When a reading is saved with a photo, the app reads the number off the meter photo. If it differs from what was typed by a whole unit or more, the caretaker is told straight away (they are usually still at the meter) and the reading carries a <em>Photo reads …</em> flag on Review &amp; bill. It never changes the number — the person decides. (Needs the Claude API key configured; without it readings save as normal, unchecked.)</p>
       <p><strong>No signal?</strong> A reading saved with no connection is kept on the phone — photos included — marked <em>On this phone</em>, and sent by itself when the phone is back online (or with <em>Send now</em>). Once the Readings page has been opened with signal, it opens again offline with the last copy of the month's sheet.</p>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/44-utilities-offline.png" alt="A reading kept on the phone with no signal" loading="lazy">
+        <div class="screenshot-caption">No signal — the reading is kept on the phone (<em>On this phone · Waiting to send</em>) and goes by itself once the connection is back, or with <em>Send now</em></div>
+      </div>
       <div class="callout note"><div class="callout-icon">ℹ️</div><div class="callout-body"><strong>Reading lower than last month?</strong>It is flagged in red and can't be approved. Either it was mistyped, or the meter was replaced — in which case a manager edits the reading and overrides the previous reading with a reason.</div></div>
     </div>
 

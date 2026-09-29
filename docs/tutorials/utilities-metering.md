@@ -15,7 +15,7 @@ Recorded in its **own** account and org — `guide-utilities@groundworkpm.com` /
 - **this month unread** — the Readings scene enters it;
 - the active tenant in unit **101** (paid up, so the settlement shows a refund) — the move-out scene opens their checkout (never finalised).
 
-The photo check and offline saving are described in the subtitles, not shown: the demo readings have no photos, and local dev has neither the Claude key nor Supabase storage.
+Offline saving is described in the subtitles, not shown. The meter photo check is NOT mentioned: it stays switched off until a Claude API key is added — add a line (and a demo) only once it is live.
 
 It also writes `fixtures/utilities-readings.xlsx`: this month's sheet in walking order, filled in for every meter except the first three (typed on camera).
 
@@ -26,7 +26,7 @@ It also writes `fixtures/utilities-readings.xlsx`: this month's sheet in walking
 | 0:00–0:10 | `/utilities?tab=readings` | Land on this month's Readings, nothing read yet | At month end every water and electricity meter gets read. Here's this month — nothing read yet. |
 | 0:10–0:20 | same | Click **By unit** | Group by unit to follow the caretaker's walk: each door's water and power together, the KPLC bulk meter last. |
 | 0:20–0:40 | same | Type three readings, pressing Enter after each | At a desk it's a table: type the reading, press Enter, and you're on the next meter. Usage appears as you type. |
-| 0:40–0:50 | same | Click **Save 3 readings** | Save them in one go. On a phone, the caretaker snaps each dial — the app reads the photo and flags a number that doesn't match. |
+| 0:40–0:50 | same | Click **Save 3 readings** | Save them in one go. On a phone, the caretaker gets cards with a camera button for a photo of each dial. |
 | 0:50–0:55 | same | Hold on the saved rows | No signal in the meter room? Readings wait on the phone and send themselves once it's back. |
 | 0:50–1:00 | same | Hover **Download sheet** | Readings on paper? Download sheet gives this month's meters in walking order, with last month's numbers. |
 | 1:00–1:20 | same | **Import readings**, upload the filled sheet — preview appears | Fill in the Current reading column and import it. Every row is matched to its meter and previewed first. |

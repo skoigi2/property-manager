@@ -147,6 +147,55 @@ async function main() {
     }
   }
 
+  // ── Move-out: final meter readings on unit 101's checkout (paid up, so a refund) ──
+  if (wanted("43")) {
+    const leaverId = await page.evaluate(async () => {
+      const t = await fetch("/api/tenants").then((r) => r.json());
+      const list: { id: string; isActive: boolean; unit?: { unitNumber: string } }[] = Array.isArray(t) ? t : t.tenants;
+      return list.find((x) => x.isActive && x.unit?.unitNumber === "101")?.id ?? null;
+    });
+    if (!leaverId) {
+      console.log("⚠ 43-checkout: no active tenant in unit 101, skipping");
+    } else {
+      await page.goto(`${BASE_URL}/tenants/${leaverId}/checkout`, { timeout: 90000 });
+      await settle(page);
+      for (const label of ["Electricity", "Water"]) {
+        const input = page.locator(`input[aria-label="Final reading, ${label}"]`);
+        const previous = Number((await input.locator("xpath=ancestor::tr[1]").locator("td").nth(1).innerText()).replace(/,/g, ""));
+        await input.fill(String(previous + (label === "Water" ? 3 : 55)));
+      }
+      await page.mouse.click(5, 5); // blur, so no field shows a focus ring
+      const section = page.locator('h3:has-text("Final Meter Readings")').locator("xpath=ancestor::div[contains(@class,'rounded')][1]");
+      await elementShot(section, "43-checkout-final-readings");
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await elementShot(page.locator("aside").locator("xpath=.//h3[contains(., 'Final Settlement')]/ancestor::div[contains(@class,'rounded')][1]"), "43b-checkout-settlement");
+    }
+  }
+
+  // ── No signal: a reading kept on the phone ──
+  if (wanted("44")) {
+    // Back to this month (Review & bill left the shared month on the previous one).
+    await page.evaluate(() => {
+      const d = new Date();
+      sessionStorage.setItem("gw:selectedMonth", `${d.getFullYear()}-${d.getMonth() + 1}`);
+    });
+    await page.goto(`${BASE_URL}/utilities?tab=readings`, { timeout: 90000 });
+    await settle(page);
+    await context.setOffline(true);
+    const input = page.locator("input[data-reading-input]").first();
+    const row = input.locator("xpath=ancestor::tr[1]");
+    const previous = Number((await row.locator("td").nth(2).innerText()).replace(/,/g, ""));
+    await input.fill(String(previous + 6));
+    await row.locator("td").last().locator("button").click();
+    await page.getByText("saved on this phone, waiting for signal", { exact: false }).waitFor({ timeout: 15000 });
+    await page.waitForTimeout(4500); // let the toast fade
+    await page.mouse.click(5, 5);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, "44-utilities-offline");
+    await context.setOffline(false); // the queued reading sends itself
+    await page.waitForTimeout(3000);
+  }
+
   await browser.close();
 }
 

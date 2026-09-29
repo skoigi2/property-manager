@@ -67,6 +67,10 @@ export function downloadTenantsTemplate() {
     { header: "Phone",             required: false, width: 16 },
     { header: "Payment Frequency", required: false, width: 18 },
     { header: "Escalation Rate",   required: false, width: 16 },
+    { header: "Escalation Type",   required: false, width: 16 },
+    { header: "Escalation Amount", required: false, width: 18 },
+    { header: "Escalation Every (years)", required: false, width: 22 },
+    { header: "First Review Date", required: false, width: 18 },
     { header: "Parking Fee",       required: false, width: 14 },
     { header: "Deposit Received",  required: false, width: 16 },
     { header: "Deposit Received Date", required: false, width: 20 },
@@ -74,9 +78,9 @@ export function downloadTenantsTemplate() {
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678", "MONTHLY",   5,  "",   50000, "2025-01-01", ""],
-    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432", "QUARTERLY", "", "",   "",    "",           "Pays Q1+Q2 together"],
-    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111", "MONTHLY",   10, 5000, 100000, "2025-06-01", "Parking bay 14 included"],
+    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678", "MONTHLY",   5,  "PERCENT", "",   1,  "",           "",   50000, "2025-01-01", ""],
+    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432", "QUARTERLY", "", "",        "",   "",  "",           "",   "",    "",           "Pays Q1+Q2 together"],
+    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111", "MONTHLY",   "", "FIXED",   5000, 2,  "2027-06-01", 5000, 100000, "2025-06-01", "Parking bay 14 included"],
   ];
 
   const instructions: (string | number)[][] = [
@@ -91,7 +95,11 @@ export function downloadTenantsTemplate() {
     ["Email",             "No",  "Email address","Tenant contact email"],
     ["Phone",             "No",  "Phone number", "e.g. 0712345678 or +254712345678"],
     ["Payment Frequency", "No",  "MONTHLY, QUARTERLY, BIANNUAL, ANNUAL", "Rent billing cadence — defaults to MONTHLY if blank"],
-    ["Escalation Rate",   "No",  "Number (%)",   "Annual rent escalation — e.g. 5 for 5% per year"],
+    ["Escalation Rate",   "No",  "Number (%)",   "Rent increase at each review — e.g. 5 for 5%"],
+    ["Escalation Type",   "No",  "PERCENT or FIXED", "PERCENT (default) uses Escalation Rate; FIXED adds Escalation Amount at each review"],
+    ["Escalation Amount", "No",  "Number",       "Fixed amount added to the monthly rent at each review (FIXED type)"],
+    ["Escalation Every (years)", "No", "Whole number", "How often the rent is reviewed — 1 = every year (default), 2 = every two years"],
+    ["First Review Date", "No",  "YYYY-MM-DD",   "Date of the first rent review — defaults to the lease anniversary"],
     ["Parking Fee",       "No",  "Number",       "Monthly parking line on the lease, if separate from rent"],
     ["Deposit Received",  "No",  "Number",       "Deposit cash ACTUALLY received (may be less than Deposit) — records a deposit receipt so settlements refund what was held, not the contractual figure"],
     ["Deposit Received Date", "No", "YYYY-MM-DD", "Date the deposit was received — defaults to Lease Start if blank"],

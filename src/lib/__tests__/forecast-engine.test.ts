@@ -78,13 +78,42 @@ describe("buildForecast rent schedule", () => {
     expect(res.months.every((m) => m.rentBreakdown.length === 0)).toBe(true);
   });
 
-  it("escalation applies to the projected amount", () => {
-    // 10% escalation, lease started 2 years ago → 10000 * 1.1^2 per month.
+  it("past reviews are not compounded again: today's rent is the base", () => {
+    // Lease started 2 years ago with 10% a year: monthlyRent already carries
+    // whatever increases happened, and the next review is a year away.
     const res = buildForecast({
       ...emptyInput,
       horizon: 3,
       tenants: [tenant({ escalationRate: 10 })],
     } as never);
-    expect(res.months[0].rentBreakdown[0].rent).toBeCloseTo(10000 * 1.21, 5);
+    expect(res.months.every((m) => m.rentBreakdown[0].rent === 10000)).toBe(true);
+  });
+
+  it("a review inside the window raises the rent from its month", () => {
+    const start = new Date();
+    const anchor = new Date(start.getFullYear(), start.getMonth() + 2, 1); // 2nd forecast month
+    const res = buildForecast({
+      ...emptyInput,
+      horizon: 4,
+      tenants: [tenant({ escalationRate: 10, escalationAnchorDate: anchor })],
+    } as never);
+    expect(res.months[0].rentBreakdown[0].rent).toBe(10000);
+    expect(res.months[1].rentBreakdown[0].rent).toBe(11000);
+    expect(res.months[3].rentBreakdown[0].rent).toBe(11000);
+  });
+
+  it("a scheduled increase in the history is projected from its month", () => {
+    const start = new Date();
+    const res = buildForecast({
+      ...emptyInput,
+      horizon: 3,
+      tenants: [tenant({
+        rentHistory: [
+          { monthlyRent: 10000, effectiveDate: subMonths(start, 24) },
+          { monthlyRent: 12500, effectiveDate: new Date(start.getFullYear(), start.getMonth() + 2, 1), appliedAt: null },
+        ],
+      })],
+    } as never);
+    expect(res.months.map((m) => m.rentBreakdown[0].rent)).toEqual([10000, 12500, 12500]);
   });
 });

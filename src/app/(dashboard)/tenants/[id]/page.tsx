@@ -365,8 +365,12 @@ export default function TenantDetailPage() {
       isActive:         tenant.isActive,
       notes:            tenant.notes ?? "",
       paymentFrequency: tenant.paymentFrequency ?? undefined,
+      escalationType:   tenant.escalationType ?? "PERCENT",
       escalationRate:   tenant.escalationRate ?? undefined,
+      escalationAmount: tenant.escalationAmount ?? undefined,
       escalationIntervalYears: tenant.escalationIntervalYears ?? undefined,
+      escalationAnchorDate: tenant.escalationAnchorDate?.split("T")[0] ?? "",
+      escalationNoticeDays: tenant.escalationNoticeDays ?? undefined,
       parkingFee:       tenant.parkingFee ?? undefined,
       showVatOnInvoice: tenant.showVatOnInvoice ?? true,
       paymentAccountId: tenant.unit?.paymentAccountId ?? null,
@@ -714,11 +718,14 @@ export default function TenantDetailPage() {
                     </p>
                   </div>
                 )}
-                {tenant.escalationRate != null && (
+                {(tenant.escalationType === "FIXED_AMOUNT" ? tenant.escalationAmount : tenant.escalationRate) != null && (
                   <div>
                     <p className="text-caption text-gray-400 ">Rent Escalation</p>
                     <p className="text-body text-header">
-                      {tenant.escalationRate}% every {tenant.escalationIntervalYears ?? 1} year{(tenant.escalationIntervalYears ?? 1) > 1 ? "s" : ""}
+                      {tenant.escalationType === "FIXED_AMOUNT"
+                        ? formatCurrency(tenant.escalationAmount ?? 0, currency)
+                        : `${tenant.escalationRate}%`}{" "}
+                      every {tenant.escalationIntervalYears ?? 1} year{(tenant.escalationIntervalYears ?? 1) > 1 ? "s" : ""}
                     </p>
                   </div>
                 )}
@@ -1130,6 +1137,7 @@ export default function TenantDetailPage() {
                     tenantId={tenantId}
                     currentRent={tenant.monthlyRent ?? 0}
                     currency={currency}
+                    onChanged={fetchTenant}
                   />
                 )}
 

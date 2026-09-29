@@ -21,6 +21,7 @@ const persistedRowWithNulls = {
   kpiTenantTurnoverTarget: 90, kpiDaysToLeaseTarget: 60, kpiRenewalRateTarget: 90,
   kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
   latePaymentInterestRate: 0,
+  rentIncreaseNoticeDays: 90,
   tenantKraPin: null,
   tenantBankName: null, tenantBankAccountName: null, tenantBankAccountNumber: null, tenantBankBranch: null,
   tenantMpesaPaybill: null, tenantMpesaAccountNumber: null, tenantMpesaTill: null, tenantPaymentInstructions: null,

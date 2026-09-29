@@ -257,6 +257,16 @@ export function InboxActions({ item, onActionComplete }: Props) {
     });
   }
 
+  if (item.type === "RENT_INCREASE" && item.tenantId) {
+    actions.push({
+      key: "review-increase",
+      label: "Review increase",
+      tip: "Opens the tenant's rent review: check the new rent, schedule it and send the notice.",
+      icon: TrendingUp,
+      onClick: () => { window.location.href = `/tenants/${item.tenantId}?tab=history`; },
+    });
+  }
+
   if (item.type === "ARREARS_ESCALATION") {
     actions.push({
       key: "advance-stage",

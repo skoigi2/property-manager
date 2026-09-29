@@ -4,7 +4,6 @@ import {
   startOfMonth,
   endOfMonth,
   isSameMonth,
-  differenceInYears,
   format,
 } from "date-fns";
 import type {
@@ -15,6 +14,8 @@ import type {
   ExpenseBreakdownItem,
 } from "@/types/forecast";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { resolveExpectedRent, type RentHistoryPoint } from "@/lib/rent-resolution";
+import { hasEscalationTerms, proposedRentFor, reviewDateAfter, type EscalationTerms } from "@/lib/rent-escalation";
 
 // ── Minimal shapes (only fields we need) ────────────────────────────────────
 
@@ -26,6 +27,12 @@ interface TenantInput {
   leaseStart: Date;
   leaseEnd: Date | null;
   escalationRate: number | null;
+  escalationType?: "PERCENT" | "FIXED_AMOUNT";
+  escalationAmount?: number | null;
+  escalationIntervalYears?: number | null;
+  escalationAnchorDate?: Date | null;
+  /** Includes scheduled (unapplied) increases — they are part of the projection. */
+  rentHistory?: RentHistoryPoint[];
   renewalStage: string;
   proposedRent: number | null;
   proposedLeaseEnd: Date | null;
@@ -128,11 +135,37 @@ function advanceAssetMaintenanceCursor(cursor: Date, frequency: string): Date {
   return addMonths(cursor, months);
 }
 
-function getEscalatedRent(tenant: TenantInput, monthStart: Date): number {
-  if (!tenant.escalationRate) return tenant.monthlyRent;
-  const years = differenceInYears(monthStart, tenant.leaseStart);
-  if (years <= 0) return tenant.monthlyRent;
-  return tenant.monthlyRent * Math.pow(1 + tenant.escalationRate / 100, years);
+/**
+ * Projected rent for a month: the rent the history resolves (recorded and
+ * scheduled changes), then each FUTURE rent review from the lease's terms that
+ * falls on or before that month. Reviews already past with no change recorded
+ * are not assumed to have happened — monthlyRent is taken as the truth today.
+ */
+function getEscalatedRent(tenant: TenantInput, monthStart: Date, today: Date): number {
+  const history = tenant.rentHistory ?? [];
+  let rent = resolveExpectedRent(history, tenant.monthlyRent, monthStart);
+  const terms: EscalationTerms = {
+    leaseStart: tenant.leaseStart,
+    leaseEnd: tenant.leaseEnd,
+    escalationType: tenant.escalationType ?? "PERCENT",
+    escalationRate: tenant.escalationRate,
+    escalationAmount: tenant.escalationAmount ?? null,
+    escalationIntervalYears: tenant.escalationIntervalYears ?? null,
+    escalationAnchorDate: tenant.escalationAnchorDate ?? null,
+  };
+  if (!hasEscalationTerms(terms)) return rent;
+
+  const lastChange = history.reduce(
+    (max, h) => Math.max(max, new Date(h.effectiveDate).getTime()),
+    new Date(tenant.leaseStart).getTime(),
+  );
+  const nextMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1).getTime();
+  let review = reviewDateAfter(terms, new Date(Math.max(lastChange, today.getTime())));
+  for (let guard = 0; review.getTime() < nextMonth && guard < 50; guard++) {
+    rent = proposedRentFor(terms, rent);
+    review = reviewDateAfter(terms, review);
+  }
+  return rent;
 }
 
 // ── Main engine ───────────────────────────────────────────────────────────────
@@ -175,7 +208,7 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
         ) {
           return tenant.proposedRent;
         }
-        return getEscalatedRent(tenant, m);
+        return getEscalatedRent(tenant, m, today);
       };
 
       // TERMS_AGREED: extend effective end and flag renewal-rate months

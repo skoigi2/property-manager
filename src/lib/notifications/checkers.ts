@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/currency";
 import { buildForecast } from "@/lib/forecast-engine";
 import { isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
 import { sendRentReminderToTenant } from "@/lib/rent-reminder";
+import { nextRentReview } from "@/lib/rent-escalation";
 import {
   leaseExpiryTemplate,
   invoiceOverdueTemplate,
@@ -713,7 +714,7 @@ export async function checkNegativeCashflowForecast(): Promise<{ created: number
     if (!(await isAutomationEnabled(p.organizationId, "REMINDER_NEGATIVE_CASHFLOW", p.id))) continue;
     try {
       const [tenants, recurring, insurance, agreementsRow, schedules, certs] = await Promise.all([
-        prisma.tenant.findMany({ where: { unit: { propertyId: p.id } }, include: { unit: { include: { property: { select: { name: true } } } } } }),
+        prisma.tenant.findMany({ where: { unit: { propertyId: p.id } }, include: { unit: { include: { property: { select: { name: true } } } }, rentHistory: { select: { monthlyRent: true, effectiveDate: true, appliedAt: true } } } }),
         prisma.recurringExpense.findMany({ where: { OR: [{ propertyId: p.id }, { unit: { propertyId: p.id } }] } }),
         prisma.insurancePolicy.findMany({ where: { propertyId: p.id } }),
         prisma.managementAgreement.findMany({ where: { propertyId: p.id } }),
@@ -763,6 +764,108 @@ export async function checkNegativeCashflowForecast(): Promise<{ created: number
 /** SLA breach checker. Compares (now - stageStartedAt - waitingPausedSeconds*1000) per case
  *  against the current stage's slaHours; emits an SLA_BREACH ActionableHint when exceeded.
  *  Pauses on external waitingOn (OWNER/TENANT/VENDOR) — those cases are skipped. */
+/**
+ * Leases whose rent review is coming up (within 30 days of the notice
+ * deadline), whose notice deadline has passed, or whose review passed with no
+ * increase recorded. One hint per tenant per review date (refId
+ * `tenantId:YYYY-MM-DD`); a hint the manager dismissed for that review stays
+ * dismissed. Scheduling or skipping the increase moves the next review on, so
+ * the hint clears itself here (sweep) as well as in the rent-increase route.
+ */
+export async function checkRentIncreasesDue(): Promise<{ created: number }> {
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      isActive: true,
+      unit: { property: { organizationId: { not: null } } },
+      OR: [
+        { escalationType: "PERCENT", escalationRate: { gt: 0 } },
+        { escalationType: "FIXED_AMOUNT", escalationAmount: { gt: 0 } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      unitId: true,
+      monthlyRent: true,
+      leaseStart: true,
+      leaseEnd: true,
+      escalationType: true,
+      escalationRate: true,
+      escalationAmount: true,
+      escalationIntervalYears: true,
+      escalationAnchorDate: true,
+      escalationNoticeDays: true,
+      unit: {
+        select: {
+          unitNumber: true,
+          propertyId: true,
+          property: { select: { name: true, currency: true, organizationId: true, agreement: { select: { rentIncreaseNoticeDays: true } } } },
+        },
+      },
+      rentHistory: { select: { monthlyRent: true, effectiveDate: true, appliedAt: true } },
+    },
+  });
+
+  const dismissed = new Set(
+    (
+      await prisma.actionableHint.findMany({
+        where: { hintType: "RENT_INCREASE_DUE", status: "DISMISSED" },
+        select: { refId: true },
+      })
+    ).map((h) => h.refId),
+  );
+  const ymd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  let created = 0;
+  const live: string[] = [];
+  for (const t of tenants) {
+    const prop = t.unit.property;
+    if (!prop.organizationId) continue;
+    const noticeDays = t.escalationNoticeDays ?? prop.agreement?.rentIncreaseNoticeDays ?? 90;
+    const review = nextRentReview(t, t.rentHistory, t.monthlyRent, noticeDays);
+    if (!review || review.state === "none") continue;
+    const refId = `${t.id}:${ymd(review.reviewDate)}`;
+    if (dismissed.has(refId)) {
+      live.push(refId);
+      continue;
+    }
+    if (!(await isAutomationEnabled(prop.organizationId, "REMINDER_RENT_INCREASE_DUE", t.unit.propertyId))) continue;
+    const fmt = (n: number) => formatCurrency(n, prop.currency);
+    const when =
+      review.state === "upcoming"
+        ? `send notice by ${formatDate(review.noticeDeadline)}`
+        : review.state === "notice_late"
+          ? `notice deadline ${formatDate(review.noticeDeadline)} passed`
+          : `review date passed`;
+    await upsertHint({
+      organizationId: prop.organizationId,
+      propertyId: t.unit.propertyId,
+      unitId: t.unitId,
+      tenantId: t.id,
+      hintType: "RENT_INCREASE_DUE",
+      refId,
+      severity: review.state === "upcoming" ? "WARNING" : "URGENT",
+      title: `Rent increase due — ${t.name}`,
+      subtitle: `${prop.name} · Unit ${t.unit.unitNumber} · review ${formatDate(review.reviewDate)} · ${fmt(review.baseRent)} → ${fmt(review.proposedRent)} · ${when}`,
+      suggestedAction: "Confirm the new rent and send the notice",
+      actionEndpoint: `/tenants/${t.id}?tab=history`,
+      actionMethod: "GET",
+      actionLabel: "Review increase",
+      expiresAt: review.reviewDate,
+    });
+    live.push(refId);
+    created++;
+  }
+
+  // Self-clear: scheduled, skipped, moved out, terms removed, lease ending first.
+  await prisma.actionableHint.updateMany({
+    where: { hintType: "RENT_INCREASE_DUE", status: "ACTIVE", refId: { notIn: live } },
+    data: { status: "ACTED_ON", actedAt: new Date() },
+  });
+  return { created };
+}
+
 export async function checkCaseSlaBreaches(): Promise<{ created: number }> {
   const { getWorkflow, getStageByIndex } = await import("@/lib/case-workflows");
   const cases = await prisma.caseThread.findMany({

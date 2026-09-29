@@ -162,8 +162,13 @@ export const tenantSchema = z.object({
     emptyToUndef,
     z.enum(["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"]).optional(),
   ),
+  escalationType:   z.preprocess(emptyToUndef, z.enum(["PERCENT", "FIXED_AMOUNT"]).default("PERCENT")),
   escalationRate:   z.preprocess(emptyToUndef, z.coerce.number().min(0).max(100).optional()),
+  escalationAmount: z.preprocess(emptyToUndef, z.coerce.number().min(0).optional()),
   escalationIntervalYears: z.preprocess(emptyToUndef, z.coerce.number().int().min(1).max(20).optional()),
+  // First rent review (YYYY-MM-DD); blank = lease start + one interval.
+  escalationAnchorDate: z.string().optional(),
+  escalationNoticeDays: z.preprocess(emptyToUndef, z.coerce.number().int().min(0).max(730).optional()),
   parkingFee:       z.preprocess(emptyToUndef, z.coerce.number().min(0).optional()),
   poBox:            z.string().optional(),
   // Extra reachable people beyond the primary email/phone. Blank rows are

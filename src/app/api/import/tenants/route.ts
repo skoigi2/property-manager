@@ -14,6 +14,10 @@ interface TenantRow {
   phone?: string;
   paymentFrequency?: string;
   escalationRate?: string | number;
+  escalationType?: string;
+  escalationAmount?: string | number;
+  escalationIntervalYears?: string | number;
+  escalationAnchorDate?: string;
   parkingFee?: string | number;
   depositReceived?: string | number;
   depositReceivedDate?: string;
@@ -93,6 +97,14 @@ export async function POST(req: Request) {
           : null;
         const escalationRateRaw = parseFloat(String(row.escalationRate ?? ""));
         const escalationRate = !isNaN(escalationRateRaw) && escalationRateRaw >= 0 ? escalationRateRaw : null;
+        const escalationType = /^fixed/i.test(String(row.escalationType ?? "").trim()) ? "FIXED_AMOUNT" as const : "PERCENT" as const;
+        const escalationAmountRaw = parseFloat(String(row.escalationAmount ?? "").replace(/,/g, ""));
+        const escalationAmount = !isNaN(escalationAmountRaw) && escalationAmountRaw > 0 ? escalationAmountRaw : null;
+        const intervalRaw = parseInt(String(row.escalationIntervalYears ?? ""), 10);
+        const escalationIntervalYears = !isNaN(intervalRaw) && intervalRaw >= 1 && intervalRaw <= 20 ? intervalRaw : null;
+        const anchorRaw = row.escalationAnchorDate ? new Date(row.escalationAnchorDate) : null;
+        const escalationAnchorDate = anchorRaw && !isNaN(anchorRaw.getTime()) ? anchorRaw : null;
+        const escalationFields = { escalationRate, escalationType, escalationAmount, escalationIntervalYears, escalationAnchorDate };
         const parkingFeeRaw = parseFloat(String(row.parkingFee ?? ""));
         const parkingFee = !isNaN(parkingFeeRaw) && parkingFeeRaw >= 0 ? parkingFeeRaw : null;
         // Deposit RECEIVED (cash) — mints a DEPOSIT income receipt so the
@@ -128,12 +140,18 @@ export async function POST(req: Request) {
               email: row.email?.trim() || null,
               phone: row.phone?.trim() || null,
               paymentFrequency,
-              escalationRate,
+              ...escalationFields,
               parkingFee,
               notes: row.notes?.trim() || null,
               // Don't flip isActive on an upsert — preserve whatever the manager set.
             },
           });
+          // Keep the rent timeline complete, like a manual edit does.
+          if (Math.abs(existing.monthlyRent - monthlyRent) > 0.005) {
+            await prisma.rentHistory.create({
+              data: { tenantId: existing.id, monthlyRent, effectiveDate: new Date(), reason: "Rent updated (import)" },
+            });
+          }
           // Mint the deposit receipt only when the tenant has no DEPOSIT
           // entry yet — a re-upload must not double-count the deposit.
           if (depositReceived != null) {
@@ -175,7 +193,7 @@ export async function POST(req: Request) {
               email: row.email?.trim() || null,
               phone: row.phone?.trim() || null,
               paymentFrequency,
-              escalationRate,
+              ...escalationFields,
               parkingFee,
               notes: row.notes?.trim() || null,
               isActive: true,

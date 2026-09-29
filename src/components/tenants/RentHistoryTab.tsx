@@ -8,6 +8,7 @@ import { Plus, Trash2, TrendingUp, TrendingDown, Minus, Loader2, ChevronRight, A
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
 import { resolveExpectedRent, isRentHistoryOutOfSync } from "@/lib/rent-resolution";
+import { RentReviewCard } from "./RentReviewCard";
 
 interface RentHistoryEntry {
   id: string;
@@ -15,15 +16,19 @@ interface RentHistoryEntry {
   effectiveDate: string;
   reason: string | null;
   createdAt: string;
+  /** null = scheduled; the cron applies it on the effective date. */
+  appliedAt: string | null;
 }
 
 interface RentHistoryTabProps {
   tenantId: string;
   currentRent: number;
   currency: string;
+  /** Called after an increase is scheduled / cancelled, so the page refetches the tenant. */
+  onChanged?: () => void;
 }
 
-export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryTabProps) {
+export function RentHistoryTab({ tenantId, currentRent, currency, onChanged }: RentHistoryTabProps) {
   const fmt = (n: number) => formatCurrency(n, currency);
 
   const [history, setHistory]     = useState<RentHistoryEntry[]>([]);
@@ -139,6 +144,7 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
 
   return (
     <div>
+      <RentReviewCard tenantId={tenantId} currency={currency} onChanged={() => { fetchHistory(); onChanged?.(); }} />
       <div className="flex items-center justify-between mb-5">
         <h2 className="section-header">Rent History</h2>
         <button
@@ -241,8 +247,8 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
           <p className="text-label text-gray-400 uppercase ">Current Monthly Rent</p>
           <p className="text-h3 tabular-nums text-header mt-0.5">{fmt(currentRent)}</p>
         </div>
-        {sorted.length > 0 && (() => {
-          const prev = sorted[sorted.length - 1].monthlyRent;
+        {sorted.some((e) => e.appliedAt !== null) && (() => {
+          const prev = sorted.filter((e) => e.appliedAt !== null).slice(-1)[0].monthlyRent;
           const delta = currentRent - prev;
           if (delta === 0) return null;
           return (
@@ -316,6 +322,11 @@ export function RentHistoryTab({ tenantId, currentRent, currency }: RentHistoryT
                           )}
                           {delta === null && (
                             <span className="text-caption text-gray-400 italic">Initial rent</span>
+                          )}
+                          {entry.appliedAt === null && (
+                            <span className="text-caption font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                              Scheduled
+                            </span>
                           )}
                         </div>
                         {entry.reason && (

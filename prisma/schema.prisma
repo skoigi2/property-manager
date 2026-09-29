@@ -451,6 +451,11 @@ enum ExpenseDocumentCategory {
   OTHER
 }
 
+enum EscalationType {
+  PERCENT
+  FIXED_AMOUNT
+}
+
 enum RenewalStage {
   NONE
   NOTICE_SENT
@@ -847,6 +852,14 @@ model Tenant {
   // How often the escalation applies, in years (1 = annual, 2 = every two
   // years, or any custom interval). Null = not configured.
   escalationIntervalYears Int?
+  // PERCENT uses escalationRate; FIXED_AMOUNT adds escalationAmount each review.
+  escalationType   EscalationType @default(PERCENT)
+  escalationAmount Decimal? @db.Decimal(14, 2)
+  // First rent review date; null = lease start + one interval.
+  escalationAnchorDate DateTime?
+  // Notice the lease requires before an increase; null = the property's
+  // ManagementAgreement.rentIncreaseNoticeDays.
+  escalationNoticeDays Int?
   chargeLatePenalty Boolean         @default(false)
   isTaxExempt      Boolean         @default(false)
   // Print the issuer's tax numbers (PIN No. / VAT No., from the resolved
@@ -886,10 +899,17 @@ model RentHistory {
   monthlyRent   Decimal @db.Decimal(14, 2)
   effectiveDate DateTime
   reason        String?
+  // Null = a SCHEDULED change: the cron sets Tenant.monthlyRent on the
+  // effective date and stamps this. Rows default to applied on create.
+  appliedAt     DateTime? @default(now())
+  noticeSentAt  DateTime?
+  isEscalation  Boolean  @default(false)
+  createdByName String?
   createdAt     DateTime @default(now())
 
   @@index([tenantId])
   @@index([tenantId, effectiveDate])
+  @@index([appliedAt, effectiveDate])
 }
 
 model IncomeEntry {
@@ -1787,6 +1807,9 @@ model ManagementAgreement {
   kpiEmergencyResponseHrs        Int      @default(24)
   kpiStandardResponseHrs         Int      @default(96)
   latePaymentInterestRate        Float    @default(0)   // annual %, e.g. 5.0
+  // Default notice a tenant gets before a rent increase (per-lease override
+  // on Tenant.escalationNoticeDays).
+  rentIncreaseNoticeDays         Int      @default(90)
 
   // Default payment account for tenant invoices on this property (overridable
   // per unit via Unit.paymentAccountId). The inline tenant* fields below are

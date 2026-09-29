@@ -78,12 +78,24 @@ export async function PATCH(
 
   const newRent = proposedRent ?? tenant.monthlyRent;
 
+  // The renewed rent starts when the old lease runs out (the day after its
+  // end), or today when it has already run out. A future start is SCHEDULED:
+  // monthlyRent stays until the daily cron applies it, while invoices resolve
+  // the new rent from its month through RentHistory.
+  const today = new Date();
+  const dayAfterOldEnd = tenant.leaseEnd
+    ? new Date(tenant.leaseEnd.getFullYear(), tenant.leaseEnd.getMonth(), tenant.leaseEnd.getDate() + 1)
+    : today;
+  const newRentFrom = dayAfterOldEnd.getTime() > today.getTime() ? dayAfterOldEnd : today;
+  const newRentScheduled = newRentFrom !== today;
+  const rentChanges = renewalStage === "RENEWED" && newRent !== tenant.monthlyRent;
+
   // When marking RENEWED: apply proposed values to actual lease fields
   const extraUpdates =
     renewalStage === "RENEWED"
       ? {
           leaseEnd:    proposedLeaseEnd ? new Date(proposedLeaseEnd) : tenant.leaseEnd,
-          monthlyRent: newRent,
+          ...(newRentScheduled ? {} : { monthlyRent: newRent }),
         }
       : {};
 
@@ -111,13 +123,23 @@ export async function PATCH(
   if (unitStatusSync) {
     ops.push(prisma.unit.update({ where: { id: tenant.unitId }, data: { status: unitStatusSync } }));
   }
-  if (renewalStage === "RENEWED" && newRent !== tenant.monthlyRent) {
+  if (rentChanges) {
+    // No history yet: record the old rent from lease start first, so months
+    // before the renewal keep resolving it once monthlyRent switches.
+    const hasHistory = (await prisma.rentHistory.count({ where: { tenantId: params.id } })) > 0;
+    if (!hasHistory) {
+      ops.push(prisma.rentHistory.create({
+        data: { tenantId: params.id, monthlyRent: tenant.monthlyRent, effectiveDate: tenant.leaseStart, reason: "Rent at lease start" },
+      }));
+    }
     ops.push(prisma.rentHistory.create({
       data: {
         tenantId:      params.id,
         monthlyRent:   newRent,
-        effectiveDate: proposedLeaseEnd ? new Date(proposedLeaseEnd) : new Date(),
-        reason:        rentHistoryReason ?? "Annual escalation",
+        effectiveDate: newRentFrom,
+        reason:        rentHistoryReason ?? "Lease renewal",
+        isEscalation:  true,
+        ...(newRentScheduled ? { appliedAt: null } : {}),
       },
     }));
   }

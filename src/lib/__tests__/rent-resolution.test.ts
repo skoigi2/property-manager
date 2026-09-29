@@ -106,3 +106,17 @@ describe("resolveExpectedRentForRange", () => {
     expect(resolveExpectedRentForRange([], 60000, d("2025-01-01"), 3)).toBe(180000);
   });
 });
+
+describe("scheduled (unapplied) rent changes", () => {
+  const history = [
+    { monthlyRent: 40000, effectiveDate: d("2025-01-01") },
+    { monthlyRent: 42000, effectiveDate: d("2026-03-15"), appliedAt: null },
+  ];
+  it("bill from their month even before the cron applies them", () => {
+    expect(resolveExpectedRent(history, 40000, d("2026-02-01"))).toBe(40000);
+    expect(resolveExpectedRent(history, 40000, d("2026-03-01"))).toBe(42000);
+  });
+  it("don't make the timeline look out of sync", () => {
+    expect(isRentHistoryOutOfSync(history, 40000, d("2026-03-10"))).toBe(false);
+  });
+});

@@ -53,6 +53,7 @@ export const agreementFormSchema = z.object({
   kpiEmergencyResponseHrs:        num({ min: 1, int: true, label: "Emergency response SLA" }),
   kpiStandardResponseHrs:         num({ min: 1, int: true, label: "Standard response SLA" }),
   latePaymentInterestRate:        num({ min: 0, max: 100, label: "Late payment interest" }),
+  rentIncreaseNoticeDays:         num({ min: 0, max: 730, int: true, label: "Rent increase notice" }),
   // Default payment account for tenant invoices (null = organisation branding)
   paymentAccountId:               z.string().nullable().optional(),
   // Where the owner pays the manager's fees (owner invoices); null = legacy inline mgmt* fields
@@ -91,6 +92,7 @@ export const AGREEMENT_FORM_DEFAULTS: AgreementFormValues = {
   kpiTenantTurnoverTarget: 90, kpiDaysToLeaseTarget: 60, kpiRenewalRateTarget: 90,
   kpiMaintenanceCompletionTarget: 95, kpiEmergencyResponseHrs: 24, kpiStandardResponseHrs: 96,
   latePaymentInterestRate: 0,
+  rentIncreaseNoticeDays: 90,
   paymentAccountId: null,
   mgmtPaymentAccountId: null,
   tenantKraPin: "",
@@ -159,6 +161,7 @@ export const agreementApiSchema = z.object({
   kpiEmergencyResponseHrs:        z.coerce.number().int().min(1).default(24),
   kpiStandardResponseHrs:         z.coerce.number().int().min(1).default(96),
   latePaymentInterestRate:        z.coerce.number().min(0).max(100).default(0),
+  rentIncreaseNoticeDays:         z.coerce.number().int().min(0).max(730).default(90),
   // Default payment account for tenant invoices
   paymentAccountId:               z.string().optional().nullable(),
   mgmtPaymentAccountId:           z.string().optional().nullable(),

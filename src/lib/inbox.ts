@@ -17,7 +17,8 @@ export type InboxType =
   | "ARREARS_ESCALATION"
   | "CASE_NEEDS_ATTENTION"
   | "APPROVAL_PENDING"
-  | "METER_READINGS";
+  | "METER_READINGS"
+  | "RENT_INCREASE";
 
 export interface InboxAction {
   label: string;
@@ -89,8 +90,8 @@ function mapHintToInboxType(t: string): InboxType | null {
     case "RECURRING_EXPENSE_DUE":
     case "LOW_PETTY_CASH":
     case "NEGATIVE_CASHFLOW_FORECAST":
-    case "RENT_INCREASE_DUE":
     case "INSPECTION_OVERDUE":       return "CASE_NEEDS_ATTENTION";
+    case "RENT_INCREASE_DUE":        return "RENT_INCREASE";
   }
   return null;
 }

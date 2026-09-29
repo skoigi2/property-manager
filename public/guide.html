@@ -1025,7 +1025,7 @@
           <tr><td><strong>Ledger</strong></td><td>Month-by-month rent payment ledger showing expected vs received amounts and a running balance. Receipts are allocated oldest-first (statement-style), so a tenant who pays a quarter or year up-front is not shown as unpaid for the covered months.</td></tr>
           <tr><td><strong>Invoices</strong></td><td>View, generate, send by email, and mark invoices paid. Download individual invoice PDFs; paid invoices also offer <strong>Download receipt</strong> and <strong>Email receipt</strong>. Move-in invoices show their lines (deposit, lease agreement fee) as chips.</td></tr>
           <tr><td><strong>Documents</strong></td><td>Upload and manage lease agreements, IDs, receipts, and other documents in the secure vault</td></tr>
-          <tr><td><strong>Rent History</strong></td><td>Log rent escalations and adjustments with effective dates. Warns when the timeline is out of sync with the tenant's current rent, with a one-click fix.</td></tr>
+          <tr><td><strong>Rent History</strong></td><td>The rent review (next review, proposed increase, notice — see <a href="#rent-increases">Rent increases</a>), then every rent change with its effective date. A change dated in the future is <em>Scheduled</em> and takes effect on the day. Warns when the timeline is out of sync with the tenant's current rent, with a one-click fix.</td></tr>
           <tr><td><strong>Renewal</strong></td><td>Progress the lease renewal pipeline (Notice Sent → Terms Agreed → Renewed), set proposed rent and end date</td></tr>
           <tr><td><strong>Deposit</strong></td><td>See the deposit position (contractual vs actually received), the list of deposit receipts (each downloadable / emailable), link stray deposit entries, and record settlement with itemised deductions</td></tr>
           <tr><td><strong>Comms</strong></td><td>Log outbound emails sent to the tenant, with templates for rent reminders, receipts, and renewal offers</td></tr>
@@ -1051,7 +1051,7 @@
         <li><strong>Additional contacts</strong> — click <em>Add contact</em> to record any number of extra people (spouse, accounts office, guarantor) with a label, email, and phone.</li>
         <li><strong>P.O. Box / Postal Address</strong> — the tenant's postal address for formal letters. It also prints in the "Bill To" block of invoice PDFs.</li>
         <li><strong>Payment Frequency</strong> — Monthly, Quarterly, Bi-annual, or Annual. Period payers pay in advance for the whole period; this drives the collection view, invoices, ledger, and arrears (see <a href="#income">Income &amp; Invoices</a>).</li>
-        <li><strong>Escalation Rate &amp; interval</strong> — a percentage plus how often it applies. Used to project future rent in the forecast.</li>
+        <li><strong>Rent increase terms</strong> — a percentage or a fixed amount, how often, the first review date and the notice period. Drives the rent review reminder and notice (see <a href="#rent-increases">Rent increases</a>) and the forecast.</li>
         <li><strong>Parking Fee</strong> — a monthly parking line billed alongside rent.</li>
         <li><strong>Payment account for invoices</strong> — the same dropdown you see on the property and unit forms, right under the Unit field, so you never have to leave the tenant to change where their rent is paid. The inherit option names the property's default account (or says none is set); picking an account here is saved <em>on the unit</em> — the same setting as the unit's edit form — so it also applies to the next tenant of that unit. <em>New account</em> creates one inline; full details live in <a href="#settings">Settings → Payment Accounts</a>.</li>
         <li><strong>Show the landlord's tax numbers (PIN / VAT) on this tenant's invoices</strong> — a checkbox, on by default. The numbers themselves live on the property's payment account or organisation (see <a href="#settings">Payment Accounts</a>); untick this for tenants who should not see them, and their invoice PDFs — including the copy in their portal — drop both the <em>PIN No.</em> and <em>VAT No.</em> lines while keeping the payment details. No second payment account is needed to print the numbers for some tenants only.</li>
@@ -1129,7 +1129,20 @@
           <defs><marker id="pa" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#C9A84C"/></marker></defs>
         </svg>
       </div>
-      <p>When you set the stage to <strong>RENEWED</strong>, the system automatically copies the proposed rent to the tenant's monthly rent and updates the lease end date. The Tenants page has a <em>Renewals</em> filter showing everyone currently in the pipeline — the dashboard's Renewals tile lands there too.</p>
+      <p>When you set the stage to <strong>RENEWED</strong>, the lease end date updates and the proposed rent is recorded to start the day after the old lease ends. If that day is still ahead, the new rent is scheduled: invoices from that month bill it, and the tenant's monthly rent switches on the day. The Tenants page has a <em>Renewals</em> filter showing everyone currently in the pipeline — the dashboard's Renewals tile lands there too.</p>
+    </div>
+
+    <div class="sub-section" id="rent-increases">
+      <h3>Rent increases (rent reviews)</h3>
+      <p style="margin-bottom:12px">Record a lease's increase terms on the tenant (<strong>Edit</strong> → <em>Rent Increase</em>): a percentage or a fixed amount, how often (every year, every two years…), the first review date (blank = the lease anniversary) and the notice the lease requires (blank = the property default, set on the Management Agreement page — 90 days unless you change it). From then on:</p>
+      <ul class="feature-list">
+        <li><strong>Reminder</strong> — 30 days before the notice deadline, the Inbox shows <em>Rent increase due</em> with the current and proposed rent. It turns urgent once the deadline has passed, and it appears on the Calendar as a <em>Rent Review</em>. Switch it off per property under <a href="#automations">Automations</a> → Rent increase reminder.</li>
+        <li><strong>Review card</strong> — the tenant's <em>Rent History</em> tab opens with the rent review: the proposed new rent (editable) and the effective date. If the notice deadline has already passed, the date moves to the first month that still gives full notice — an increase is never backdated.</li>
+        <li><strong>Schedule and notify</strong> — <em>Schedule increase</em> records it; then <em>Notice</em> downloads the letter (PDF) and <em>Email notice</em> sends it to the tenant with the PDF attached and logs it on the Comms tab. The app warns before you schedule with less notice than the lease requires.</li>
+        <li><strong>Applied on the day</strong> — invoices for the month of the increase already bill the new rent, and the tenant's monthly rent switches automatically on the effective date. Cancel a scheduled increase any time before then.</li>
+        <li><strong>No increase this time</strong> — records that the review happened without a rise, so the next reminder is for the following review.</li>
+      </ul>
+      <div class="callout note"><div class="callout-icon">ℹ️</div><div class="callout-body"><strong>Terms but no history?</strong> A review that passed without an increase recorded stays flagged for 90 days; after that the app looks ahead to the next review and just notes the earlier ones. If the rent was raised back then, add it with <em>Log Rent Change</em> so the history is complete.</div></div>
     </div>
 
     <div class="sub-section">

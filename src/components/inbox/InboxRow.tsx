@@ -18,6 +18,7 @@ import {
   Sparkles,
   Package,
   Gauge,
+  TrendingUp,
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { InboxItem, InboxType } from "@/lib/inbox";
@@ -35,6 +36,7 @@ const TYPE_ICON: Record<InboxType, React.ElementType> = {
   CASE_NEEDS_ATTENTION: Briefcase,
   APPROVAL_PENDING: ShieldQuestion,
   METER_READINGS: Gauge,
+  RENT_INCREASE: TrendingUp,
 };
 
 function severityStyles(severity: InboxItem["severity"]) {

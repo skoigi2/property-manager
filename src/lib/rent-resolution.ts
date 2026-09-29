@@ -16,6 +16,8 @@
 export interface RentHistoryPoint {
   monthlyRent: number;
   effectiveDate: Date | string;
+  /** null = a scheduled change the cron hasn't applied yet (see rent-increase.ts). */
+  appliedAt?: Date | string | null;
 }
 
 /**
@@ -59,8 +61,11 @@ export function isRentHistoryOutOfSync(
   currentRent: number,
   today: Date = new Date(),
 ): boolean {
-  if (!history || history.length === 0) return false;
-  return Math.abs(resolveExpectedRent(history, currentRent, today) - currentRent) > 0.01;
+  // A scheduled increase landing later this month is not a disagreement —
+  // the cron switches monthlyRent on its effective date.
+  const applied = (history ?? []).filter((h) => h.appliedAt !== null);
+  if (applied.length === 0) return false;
+  return Math.abs(resolveExpectedRent(applied, currentRent, today) - currentRent) > 0.01;
 }
 
 /**

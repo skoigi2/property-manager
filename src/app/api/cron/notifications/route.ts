@@ -16,7 +16,9 @@ import {
   checkCaseSlaBreaches,
   checkOwnerMonthlyReports,
   checkTenantRentReminders,
+  checkRentIncreasesDue,
 } from "@/lib/notifications/checkers";
+import { applyDueRentIncreases } from "@/lib/rent-increase";
 import { runAutomations } from "@/lib/automations";
 import { resetAutomationCache } from "@/lib/automation-registry";
 
@@ -41,7 +43,14 @@ export async function GET(request: Request) {
   // serves a stale enabled/disabled value from a previous invocation.
   resetAutomationCache();
 
-  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports, tenantReminders, warranties] = await Promise.allSettled([
+  // Scheduled rent increases take effect first, so the review checker below
+  // sees the new rent and moves each tenant's schedule on.
+  const rentIncreases = await applyDueRentIncreases().then(
+    (value) => ({ status: "fulfilled" as const, value }),
+    (reason) => ({ status: "rejected" as const, reason }),
+  );
+
+  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports, tenantReminders, warranties, rentReviews] = await Promise.allSettled([
     checkLeaseExpiries(),
     checkOverdueInvoices(),
     checkComplianceCertificates(),
@@ -57,6 +66,7 @@ export async function GET(request: Request) {
     checkOwnerMonthlyReports(),
     checkTenantRentReminders(),
     checkAssetWarranties(),
+    checkRentIncreasesDue(),
   ]);
 
   // Auto-expire DISMISSED hints older than 30 days
@@ -83,6 +93,8 @@ export async function GET(request: Request) {
     automations:             automations.status === "fulfilled" ? automations.value : { error: String(automations.reason) },
     ownerReports:            ownerReports.status === "fulfilled" ? ownerReports.value : { error: String(ownerReports.reason) },
     tenantRentReminders:     tenantReminders.status === "fulfilled" ? tenantReminders.value : { error: String(tenantReminders.reason) },
+    rentIncreasesApplied:    rentIncreases.status === "fulfilled" ? rentIncreases.value : { error: String(rentIncreases.reason) },
+    rentReviewsDue:          rentReviews.status === "fulfilled" ? rentReviews.value : { error: String(rentReviews.reason) },
     durationMs: Date.now() - start,
   };
 

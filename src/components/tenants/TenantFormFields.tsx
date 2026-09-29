@@ -39,6 +39,7 @@ export function TenantFormFields({
 }) {
   const contacts = useFieldArray({ control, name: "additionalContacts" });
   const unitId = useWatch({ control, name: "unitId" });
+  const escalationType = useWatch({ control, name: "escalationType" });
   const unitInfo = unitId && unitAccounts ? unitAccounts[unitId] : undefined;
 
   // The dropdown edits the UNIT's override, so when the unit changes the field
@@ -126,13 +127,41 @@ export function TenantFormFields({
         <Input label="Deposit" tooltip="Security held against potential damage or unpaid rent. Not counted as income — it's returned at lease end minus any deductions." type="number" {...register("depositAmount")} error={errors.depositAmount?.message} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Escalation Rate (%)" tooltip="Rent increase applied at each escalation, as a percentage. Used to project future rent in the forecast. Leave blank if rent is flat." type="number" step="0.1" {...register("escalationRate")} />
+        <Select
+          label="Rent Increase"
+          tooltip="How the lease's rent review raises the rent: by a percentage, or by a fixed amount each time. The app reminds you before each review and drafts the notice."
+          options={[
+            { value: "PERCENT", label: "Percentage" },
+            { value: "FIXED_AMOUNT", label: "Fixed amount" },
+          ]}
+          {...register("escalationType")}
+        />
+        {escalationType === "FIXED_AMOUNT" ? (
+          <Input label="Increase Amount" tooltip="Added to the monthly rent at each review. Leave blank if the rent is flat." type="number" min="0" {...register("escalationAmount")} error={errors.escalationAmount?.message} />
+        ) : (
+          <Input label="Escalation Rate (%)" tooltip="Rent increase at each review, as a percentage. Leave blank if the rent is flat." type="number" step="0.1" {...register("escalationRate")} />
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-4">
         <Input
-          label="Escalation Every (years)"
-          tooltip="How often the escalation applies — 1 for annual, 2 for every two years, or any custom interval."
+          label="Every (years)"
+          tooltip="How often the rent is reviewed — 1 for annual, 2 for every two years, or any custom interval."
           type="number" min="1" step="1" placeholder="1 = annual"
           {...register("escalationIntervalYears")}
           error={errors.escalationIntervalYears?.message}
+        />
+        <Input
+          label="First Review"
+          tooltip="Date of the first rent review. Leave blank to use the lease anniversary (lease start + one interval)."
+          type="date"
+          {...register("escalationAnchorDate")}
+        />
+        <Input
+          label="Notice (days)"
+          tooltip="Notice the lease requires before an increase. Leave blank to use the property default (Management Agreement, 90 days unless changed)."
+          type="number" min="0" step="1" placeholder="Default"
+          {...register("escalationNoticeDays")}
+          error={errors.escalationNoticeDays?.message}
         />
       </div>
       <div className="grid grid-cols-2 gap-4">

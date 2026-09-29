@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { differenceInDays, format, startOfDay } from "date-fns";
 import { computeCaseSlaDueDate } from "@/lib/cases";
+import { nextRentReview } from "@/lib/rent-escalation";
 
 /**
  * Shared calendar aggregator.
@@ -14,6 +15,7 @@ import { computeCaseSlaDueDate } from "@/lib/cases";
 export type EventType =
   | "LEASE_EXPIRY"
   | "LEASE_START"
+  | "RENT_REVIEW"
   | "RENT_DUE"
   | "MAINTENANCE_DUE"
   | "MAINTENANCE_VISIT"
@@ -402,6 +404,62 @@ export async function buildCalendarEvents(
         actions: [{ label: "Open tenant", href: `/tenants/${t.id}` }],
       });
     }
+  }
+
+  // ── Rent reviews ───────────────────────────────────────────────────────────
+  // The next review of each lease with increase terms (rent-escalation.ts).
+  // Overdue = the review date passed with no increase or skip recorded.
+  const reviewTenants = await prisma.tenant.findMany({
+    where: {
+      isActive: true,
+      unit: { propertyId: { in: propertyIds } },
+      OR: [
+        { escalationType: "PERCENT", escalationRate: { gt: 0 } },
+        { escalationType: "FIXED_AMOUNT", escalationAmount: { gt: 0 } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      monthlyRent: true,
+      leaseStart: true,
+      leaseEnd: true,
+      escalationType: true,
+      escalationRate: true,
+      escalationAmount: true,
+      escalationIntervalYears: true,
+      escalationAnchorDate: true,
+      escalationNoticeDays: true,
+      rentHistory: { select: { monthlyRent: true, effectiveDate: true, appliedAt: true } },
+      unit: {
+        select: {
+          unitNumber: true,
+          property: { select: { id: true, name: true, agreement: { select: { rentIncreaseNoticeDays: true } } } },
+        },
+      },
+    },
+  });
+  for (const t of reviewTenants) {
+    const noticeDays = t.escalationNoticeDays ?? t.unit.property.agreement?.rentIncreaseNoticeDays ?? 90;
+    const review = nextRentReview(t, t.rentHistory, t.monthlyRent, noticeDays, today);
+    if (!review || review.reviewDate < from || review.reviewDate > to) continue;
+    const days = daysFromToday(review.reviewDate, today);
+    events.push({
+      id: `RENT_REVIEW-${t.id}-${toDateStr(review.reviewDate)}`,
+      refId: t.id,
+      type: "RENT_REVIEW",
+      title: `${t.name} — rent review`,
+      feedSummary: `Rent review — Unit ${t.unit.unitNumber}`,
+      date: toDateStr(review.reviewDate),
+      propertyId: t.unit.property.id,
+      propertyName: t.unit.property.name,
+      unitName: t.unit.unitNumber,
+      link: `/tenants/${t.id}?tab=history`,
+      daysUntil: days,
+      urgency: review.state === "none" ? "ok" : review.state === "upcoming" ? "warning" : "critical",
+      isOverdue: review.state === "overdue",
+      actions: [{ label: "Review increase", href: `/tenants/${t.id}?tab=history` }],
+    });
   }
 
   // ── Rent due ───────────────────────────────────────────────────────────────

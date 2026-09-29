@@ -253,6 +253,16 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
   {
+    key: "REMINDER_RENT_INCREASE_DUE",
+    name: "Rent increase reminder",
+    description:
+      "Flag leases whose rent review is coming up, so the notice goes out in time. Uses each lease's escalation terms (e.g. 5% a year) and notice period.",
+    trigger: "30 days before a rent review's notice deadline",
+    actions: ["Add Inbox Item"],
+    category: "REMINDER",
+    defaultEnabled: true,
+  },
+  {
     key: "REMINDER_SLA_BREACH",
     name: "Case SLA breach reminder",
     description: "Flag open cases that have exceeded the SLA for their current stage.",

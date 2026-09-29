@@ -197,10 +197,11 @@ export default function AgreementPage() {
           {/* ── Deadlines ── */}
           <Card>
             <SectionHeader icon={Clock} title="Payment Deadlines" subtitle="Contractual dates for remittance and invoicing" />
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Input type="number" label="Rent Remittance Day" help="Day of month rent must be remitted to landlord" error={errors.rentRemittanceDay?.message} placeholder="5" {...register("rentRemittanceDay")} />
               <Input type="number" label="Mgmt Fee Invoice Day" help="Day of month management fee is invoiced" error={errors.mgmtFeeInvoiceDay?.message} placeholder="7" {...register("mgmtFeeInvoiceDay")} />
               <Input type="number" label="Landlord Payment Days" help="Days within which landlord must pay after collection" error={errors.landlordPaymentDays?.message} placeholder="2" {...register("landlordPaymentDays")} />
+              <Input type="number" label="Rent Increase Notice (days)" help="Notice tenants get before a rent increase. The app reminds you 30 days before this deadline; a lease can override it." error={errors.rentIncreaseNoticeDays?.message} placeholder="90" {...register("rentIncreaseNoticeDays")} />
             </div>
           </Card>
 

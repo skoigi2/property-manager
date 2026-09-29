@@ -71,7 +71,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { leaseStart, leaseEnd, paymentAccountId, ...rest } = parsed.data;
+  const { leaseStart, leaseEnd, paymentAccountId, escalationAnchorDate, ...rest } = parsed.data;
 
   const accountError = await checkUnitPaymentAccount(rest.unitId, paymentAccountId);
   if (accountError) return accountError;
@@ -95,6 +95,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         ...rest,
         leaseStart: new Date(leaseStart),
         leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
+        // The form sends every field: a blank escalation field clears it
+        // (zod turns "" into undefined, which Prisma would otherwise skip).
+        escalationRate: rest.escalationRate ?? null,
+        escalationAmount: rest.escalationAmount ?? null,
+        escalationIntervalYears: rest.escalationIntervalYears ?? null,
+        escalationNoticeDays: rest.escalationNoticeDays ?? null,
+        escalationAnchorDate: escalationAnchorDate ? new Date(escalationAnchorDate) : null,
       },
       include: {
         unit: { include: { property: { select: { id: true, name: true, type: true } } } },

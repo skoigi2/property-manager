@@ -59,12 +59,16 @@ export async function POST(
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
+  // A future-dated change is SCHEDULED (appliedAt null): billing resolves it
+  // from its month, and the daily cron switches monthlyRent on the day.
+  const effectiveDate = new Date(parsed.data.effectiveDate);
   const record = await prisma.rentHistory.create({
     data: {
       tenantId:     params.id,
       monthlyRent:  parsed.data.monthlyRent,
-      effectiveDate: new Date(parsed.data.effectiveDate),
+      effectiveDate,
       reason:        parsed.data.reason ?? null,
+      appliedAt:     effectiveDate.getTime() > Date.now() ? null : new Date(),
     },
   });
 

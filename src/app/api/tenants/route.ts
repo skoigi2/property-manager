@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { leaseStart, leaseEnd, unitId, paymentAccountId, ...rest } = parsed.data;
+  const { leaseStart, leaseEnd, unitId, paymentAccountId, escalationAnchorDate, ...rest } = parsed.data;
 
   const accountError = await checkUnitPaymentAccount(unitId, paymentAccountId);
   if (accountError) return accountError;
@@ -101,6 +101,7 @@ export async function POST(req: Request) {
         ...rest,
         unitId,
         leaseStart: new Date(leaseStart),
+        escalationAnchorDate: escalationAnchorDate ? new Date(escalationAnchorDate) : null,
         leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
       },
       include: {

@@ -72,6 +72,7 @@ const TYPE_CONFIG: Record<EventType, TypeConfig> = {
   RENT_DUE:          { label: "Rent Due",     plural: "rent payments due",   dot: "bg-green-600",   badge: "bg-green-100 text-green-800 border-green-300" },
   LEASE_EXPIRY:      { label: "Lease Expiry", plural: "leases expiring",     dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-800 border-amber-300" },
   LEASE_START:       { label: "Lease Start",  plural: "leases starting",     dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  RENT_REVIEW:       { label: "Rent Review",  plural: "rent reviews",        dot: "bg-lime-600",    badge: "bg-lime-100 text-lime-800 border-lime-300" },
   MAINTENANCE_VISIT: { label: "Visit",        plural: "maintenance visits",  dot: "bg-sky-500",     badge: "bg-sky-100 text-sky-800 border-sky-300" },
   MAINTENANCE_DUE:   { label: "Maintenance",  plural: "maintenance tasks",   dot: "bg-blue-500",    badge: "bg-blue-100 text-blue-800 border-blue-300" },
   INSURANCE_RENEWAL: { label: "Insurance",    plural: "policies renewing",   dot: "bg-orange-500",  badge: "bg-orange-100 text-orange-800 border-orange-300" },
@@ -92,7 +93,7 @@ const TYPE_CONFIG: Record<EventType, TypeConfig> = {
  */
 const EVENT_GROUPS: { key: string; label: string; icon: LucideIcon; types: EventType[] }[] = [
   { key: "MONEY",    label: "Money",      icon: Banknote,    types: ["RENT_DUE", "RECURRING_EXPENSE", "RENT_REMITTANCE", "MGMT_FEE_INVOICE"] },
-  { key: "TENANCY",  label: "Tenancies",  icon: Users,       types: ["LEASE_EXPIRY", "LEASE_START"] },
+  { key: "TENANCY",  label: "Tenancies",  icon: Users,       types: ["LEASE_EXPIRY", "LEASE_START", "RENT_REVIEW"] },
   { key: "BUILDING", label: "Building",   icon: Wrench,      types: ["MAINTENANCE_VISIT", "MAINTENANCE_DUE", "WARRANTY_EXPIRY"] },
   { key: "ADMIN",    label: "Compliance", icon: ShieldCheck, types: ["INSURANCE_RENEWAL", "COMPLIANCE_EXPIRY", "APPROVAL_DEADLINE", "CASE_SLA"] },
 ];

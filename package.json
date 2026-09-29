@@ -29,6 +29,7 @@
     "seed": "ts-node -P tsconfig.seed.json prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@auth/prisma-adapter": "^2.11.1",
     "@hookform/resolvers": "^5.9.1",
     "@paddle/paddle-js": "^1.6.2",

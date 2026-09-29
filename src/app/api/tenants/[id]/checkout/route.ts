@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { checkoutProcessSchema } from "@/lib/validations";
 import { calcDepositPosition } from "@/lib/deposit";
+import { loadFinalUtilities, parseFinalReadingInputs } from "@/lib/checkout-utilities";
+import { finalUtilitiesCharge } from "@/lib/final-utilities";
 
 // Contractual vs received: refunds are computed from the DEPOSIT receipt
 // trail when one exists (see src/lib/deposit.ts), never blindly from
@@ -36,7 +38,7 @@ async function loadTenant(id: string) {
   return { tenant };
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { error } = await requireManager();
   if (error) return error;
 
@@ -57,6 +59,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   );
 
   const deposit = await loadDepositPosition(tenant!.id, tenant!.depositAmount);
+
+  // Final meter readings: the unit's meters for the checkout month and the
+  // tenant's readings not yet on an invoice. A finalised checkout shows what
+  // was charged (stored), not a fresh computation.
+  // ?checkOutDate=YYYY-MM-DD: the form moved the date to another month.
+  const asked = new URL(req.url).searchParams.get("checkOutDate");
+  const askedDate = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? new Date(`${asked}T12:00:00`) : null;
+  const checkOutDate = askedDate ?? tenant!.checkoutProcess?.checkOutDate ?? new Date();
+  const finalUtilities = tenant!.checkoutProcess?.status === "COMPLETED"
+    ? null
+    : await loadFinalUtilities(tenant!.id, tenant!.unit.id, checkOutDate);
 
   return Response.json({
     tenant: {
@@ -86,6 +99,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       : null,
     outstandingBalance,
     deposit,
+    finalUtilities,
     checkout: tenant!.checkoutProcess ?? null,
   });
 }
@@ -111,11 +125,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const totalDeductions = data.deductions.reduce((s, d) => s + d.amount, 0);
   const deposit = await loadDepositPosition(tenant!.id, tenant!.depositAmount);
+  // Draft estimate of the final water / electricity bill (finalize bills it for real).
+  const finalInputs = parseFinalReadingInputs(data.finalMeterReadings ?? []);
+  const fu = await loadFinalUtilities(tenant!.id, tenant!.unit.id, new Date(data.checkOutDate));
+  const finalUtilitiesAmount = finalUtilitiesCharge(fu.meters, finalInputs, fu.unbilled).total;
   const balanceToRefund =
     deposit.held -
     (data.damageFound ? data.inventoryDamageAmount : 0) -
     data.rentBalanceOwing -
-    totalDeductions;
+    totalDeductions -
+    finalUtilitiesAmount;
 
   const baseFields = {
     unitId: tenant!.unit.id,
@@ -137,6 +156,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     refundMethod: data.refundMethod ?? null,
     refundDetails: (data.refundDetails ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
     notes: data.notes ?? null,
+    finalMeterReadings: finalInputs as unknown as Prisma.InputJsonValue,
+    finalUtilitiesAmount,
   };
 
   let checkoutId: string;

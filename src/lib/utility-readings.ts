@@ -92,6 +92,9 @@ export interface ReadingSheetRow {
     approvedByName: string | null;
     photoUrls: string[];
     billed: boolean;
+    /** What the photo check read off the photo (units only — shown to the caretaker too). */
+    photoReading: number | null;
+    photoReadingNote: string | null;
     // Manager tier only — absent from the caretaker payload altogether.
     ratePerUnit?: number | null;
     amount?: number | null;
@@ -189,6 +192,8 @@ export async function buildReadingSheet(opts: {
         approvedByName: current.approvedByName,
         photoUrls: await signPhotos(current.photoPaths),
         billed: isReadingBilled(current),
+        photoReading: current.photoReading,
+        photoReadingNote: current.photoReadingNote,
       };
       if (includeMoney) {
         const tariff = resolveTariffForPeriod(
@@ -207,6 +212,8 @@ export async function buildReadingSheet(opts: {
             consumption: current.consumption,
             occupied: m.role === "UNIT" && !!current.tenantId,
             history: earlier.map((r) => r.consumption),
+            currentReading: current.currentReading,
+            photoReading: current.photoReading,
           }),
           estimatedRate: rates?.ratePerUnit ?? null,
           estimatedAmount: rates ? calcReadingCharge(current.consumption, rates.ratePerUnit) : null,

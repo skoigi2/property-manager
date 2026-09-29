@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { checkoutProcessSchema } from "@/lib/validations";
 import { calcDepositPosition } from "@/lib/deposit";
+import { parseFinalReadingInputs, settleFinalUtilities } from "@/lib/checkout-utilities";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { session, error } = await requirePermissionWrite("TENANT_LIFECYCLE");
@@ -42,9 +43,45 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     select: { grossAmount: true },
   });
   const deposit = calcDepositPosition(tenant.depositAmount, depositReceipts);
-  const balanceToRefund =
-    deposit.held - inventoryDamage - data.rentBalanceOwing - totalDeductions;
+  const depositLeft = deposit.held - inventoryDamage - data.rentBalanceOwing - totalDeductions;
   const checkOutDate = new Date(data.checkOutDate);
+  const finalInputs = parseFinalReadingInputs(data.finalMeterReadings ?? []);
+
+  // Final water / electricity: read, approved and billed on one final invoice
+  // settled from what is left of the deposit — while the tenant is still the
+  // unit's occupant. A retry after a later failure reuses the invoice already
+  // raised instead of billing twice.
+  let finalUtilities: { total: number; invoiceId: string | null; invoiceNumber: string | null };
+  const earlierInvoiceId = tenant.checkoutProcess?.finalUtilitiesInvoiceId ?? null;
+  const earlierInvoice = earlierInvoiceId
+    ? await prisma.invoice.findUnique({ where: { id: earlierInvoiceId }, select: { id: true, invoiceNumber: true, status: true } })
+    : null;
+  if (earlierInvoice && earlierInvoice.status !== "CANCELLED") {
+    finalUtilities = {
+      total: tenant.checkoutProcess!.finalUtilitiesAmount,
+      invoiceId: earlierInvoice.id,
+      invoiceNumber: earlierInvoice.invoiceNumber,
+    };
+  } else {
+    const settled = await settleFinalUtilities({
+      tenantId: tenant.id,
+      unitId: tenant.unit.id,
+      propertyId: tenant.unit.property.id,
+      organizationId: tenant.unit.property.organizationId,
+      checkOutDate,
+      inputs: finalInputs,
+      depositLeft,
+      accessiblePropertyIds: propertyIds,
+      session: session!,
+    });
+    if (!settled.ok) return Response.json({ error: settled.error }, { status: 400 });
+    finalUtilities = {
+      total: settled.total,
+      invoiceId: settled.invoice?.id ?? null,
+      invoiceNumber: settled.invoice?.invoiceNumber ?? null,
+    };
+  }
+  const balanceToRefund = depositLeft - finalUtilities.total;
 
   // Step 1: upsert + replace deductions, then atomically finalize.
   const checkoutId = tenant.checkoutProcess?.id;
@@ -69,6 +106,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     refundMethod: data.refundMethod ?? null,
     refundDetails: (data.refundDetails ?? Prisma.JsonNull) as Prisma.InputJsonValue | typeof Prisma.JsonNull,
     notes: data.notes ?? null,
+    finalMeterReadings: finalInputs as unknown as Prisma.InputJsonValue,
+    finalUtilitiesAmount: finalUtilities.total,
+    finalUtilitiesInvoiceId: finalUtilities.invoiceId,
   };
 
   let processId: string;
@@ -135,8 +175,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     ...(inventoryDamage > 0 ? [{ reason: "Inventory damage", amount: inventoryDamage }] : []),
     ...(data.rentBalanceOwing > 0 ? [{ reason: "Rent balance", amount: data.rentBalanceOwing }] : []),
     ...data.deductions.map((d) => ({ reason: d.description, amount: d.amount })),
+    ...(finalUtilities.total > 0
+      ? [{ reason: `Water & electricity (final bill${finalUtilities.invoiceNumber ? ` ${finalUtilities.invoiceNumber}` : ""})`, amount: finalUtilities.total }]
+      : []),
   ];
-  const settlementTotalDeductions = inventoryDamage + data.rentBalanceOwing + totalDeductions;
+  const settlementTotalDeductions = inventoryDamage + data.rentBalanceOwing + totalDeductions + finalUtilities.total;
 
   const tenantBefore = {
     isActive: tenant.isActive,
@@ -207,6 +250,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       totalDeductions: settlementTotalDeductions,
       balanceToRefund,
       expenseEntryId: createdExpenseId,
+      finalUtilitiesAmount: finalUtilities.total,
+      finalUtilitiesInvoice: finalUtilities.invoiceNumber,
     },
   });
 

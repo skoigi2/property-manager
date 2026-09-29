@@ -123,6 +123,7 @@ export const decimalToNumberResultExtension = Prisma.defineExtension({
       depositReceived: { needs: { depositReceived: true }, compute: (r) => (r.depositReceived === null ? null : Number(r.depositReceived)) },
       totalDeductions: { needs: { totalDeductions: true }, compute: (r) => Number(r.totalDeductions) },
       balanceToRefund: { needs: { balanceToRefund: true }, compute: (r) => Number(r.balanceToRefund) },
+      finalUtilitiesAmount: { needs: { finalUtilitiesAmount: true }, compute: (r) => Number(r.finalUtilitiesAmount) },
     },
     checkoutDeduction: {
       amount: { needs: { amount: true }, compute: (r) => Number(r.amount) },

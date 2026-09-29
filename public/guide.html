@@ -1142,6 +1142,7 @@
       <ul class="feature-list">
         <li>Marks the tenant vacated and the unit VACANT in one atomic step</li>
         <li>Records the deposit settlement (from verified receipts where available)</li>
+        <li><strong>Final meter readings</strong> (metered units) — type each water / electricity meter's reading on the day the tenant leaves. The use since the last reading, plus any earlier reading of theirs not yet billed, goes on one final water &amp; electricity invoice, paid from whatever is left of the deposit, and appears as its own line in the settlement and the PDF. See <a href="#utilities">Water &amp; Electricity</a></li>
         <li>Optionally creates a reinstatement expense when damage costs are kept by the landlord</li>
         <li>Generates a signature-ready PDF of the whole checkout</li>
         <li><strong>E-sign, no printing</strong> — click <em>Request tenant sign-off</em> to send the tenant a secure link (email, WhatsApp, or SMS). They review the settlement and acknowledge by typing their name; the typed signature and timestamp then appear on the checkout PDF, and you're notified.</li>
@@ -1809,6 +1810,8 @@
         <img src="guide-screenshots/38-utilities-import.png" alt="Import readings preview" loading="lazy">
         <div class="screenshot-caption">Import readings — every row of the filled-in sheet is matched to its meter and previewed; nothing is saved until you press Import</div>
       </div>
+      <p><strong>Photo check.</strong> When a reading is saved with a photo, the app reads the number off the meter photo. If it differs from what was typed by a whole unit or more, the caretaker is told straight away (they are usually still at the meter) and the reading carries a <em>Photo reads …</em> flag on Review &amp; bill. It never changes the number — the person decides. (Needs the Claude API key configured; without it readings save as normal, unchecked.)</p>
+      <p><strong>No signal?</strong> A reading saved with no connection is kept on the phone — photos included — marked <em>On this phone</em>, and sent by itself when the phone is back online (or with <em>Send now</em>). Once the Readings page has been opened with signal, it opens again offline with the last copy of the month's sheet.</p>
       <div class="callout note"><div class="callout-icon">ℹ️</div><div class="callout-body"><strong>Reading lower than last month?</strong>It is flagged in red and can't be approved. Either it was mistyped, or the meter was replaced — in which case a manager edits the reading and overrides the previous reading with a reason.</div></div>
     </div>
 

@@ -2287,6 +2287,12 @@ model CheckoutProcess {
   refundMethod          RefundMethod?
   refundDetails         Json?
   notes                 String?
+  // Move-out meter readings typed on the checkout ([{ meterId, reading }]),
+  // the water / electricity charged at settlement (final reading + earlier
+  // unbilled readings) and the final utilities invoice raised at finalize.
+  finalMeterReadings      Json?
+  finalUtilitiesAmount    Decimal  @default(0) @db.Decimal(14, 2)
+  finalUtilitiesInvoiceId String?
   status                CheckoutStatus @default(IN_PROGRESS)
   finalizedAt           DateTime?
   finalizedByUserId     String?
@@ -2520,6 +2526,11 @@ model MeterReading {
   // Set when a manager overrides the derived previous reading (meter
   // replaced, rollover).
   previousOverrideReason String?
+  // What Claude read off the meter photo (null = not checked / unreadable);
+  // a mismatch with currentReading is flagged, never auto-corrected.
+  photoReading           Float?
+  photoReadingNote       String?
+  photoCheckedAt         DateTime?
   meter                  UtilityMeter       @relation(fields: [meterId], references: [id], onDelete: Cascade)
   tenant                 Tenant?            @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   invoice                Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)

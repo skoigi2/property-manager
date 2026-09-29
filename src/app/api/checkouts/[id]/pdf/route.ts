@@ -63,6 +63,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       deductions: process.deductions.map((d) => ({ description: d.description, amount: d.amount })),
       totalDeductions: process.totalDeductions,
       balanceToRefund: process.balanceToRefund,
+      finalUtilitiesAmount: process.finalUtilitiesAmount,
       depositReceived: process.depositReceived,
       keysReturned,
       utilityTransfers,

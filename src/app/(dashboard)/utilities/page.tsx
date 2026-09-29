@@ -14,6 +14,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useProperty } from "@/lib/property-context";
 import { useSharedMonth } from "@/lib/use-shared-month";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
+import { isOfflineError, loadSheetSnapshot, saveSheetSnapshot } from "@/lib/offline-readings";
 import { ReadingsTab } from "@/components/utilities/ReadingsTab";
 import { ReviewTab } from "@/components/utilities/ReviewTab";
 import { MetersTariffsTab } from "@/components/utilities/MetersTariffsTab";
@@ -44,6 +45,8 @@ export default function UtilitiesPage() {
   const [sheet, setSheet] = useState<ReadingSheet | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
+  /** Set when the sheet on screen is the copy kept on this phone (no connection). */
+  const [offlineSince, setOfflineSince] = useState<string | null>(null);
 
   const year = month.getFullYear();
   const monthNumber = month.getMonth() + 1;
@@ -73,6 +76,15 @@ export default function UtilitiesPage() {
     // Run once on mount — the query string is read, never written back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Offline opening: the service worker caches this page and its data so a
+  // caretaker can reopen it in a meter room with no signal. Scoped to
+  // /utilities only — the rest of the app keeps plain network behaviour.
+  // (next-pwa's own auto-registration never runs under the App Router.)
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js", { scope: "/utilities" }).catch(() => {});
+  }, []);
+
   const setTab = (t: Tab) => {
     setTabState(t);
     try { sessionStorage.setItem(TAB_KEY, t); } catch { /* ignore */ }
@@ -86,9 +98,23 @@ export default function UtilitiesPage() {
     try {
       const res = await fetch(`/api/utilities/readings?propertyId=${selectedId}&year=${year}&month=${monthNumber}`);
       if (!res.ok) throw new Error();
-      setSheet(await res.json());
-    } catch {
-      toast.error("Failed to load the meter readings");
+      const fresh = await res.json();
+      setSheet(fresh);
+      if (navigator.onLine === false) {
+        // Answered from the service worker's cache — still say we're offline.
+        setOfflineSince(loadSheetSnapshot(selectedId, year, monthNumber)?.savedAt ?? new Date().toISOString());
+      } else {
+        setOfflineSince(null);
+        saveSheetSnapshot(selectedId, year, monthNumber, fresh);
+      }
+    } catch (e) {
+      const kept = isOfflineError(e) ? loadSheetSnapshot<ReadingSheet>(selectedId, year, monthNumber) : null;
+      if (kept) {
+        setSheet(kept.sheet);
+        setOfflineSince(kept.savedAt);
+      } else {
+        toast.error(isOfflineError(e) ? "No connection, and this month's sheet isn't saved on this phone yet." : "Failed to load the meter readings");
+      }
     } finally {
       setLoading(false);
     }
@@ -179,6 +205,16 @@ export default function UtilitiesPage() {
                   <TutorialVideo tutorialKey="utilities-metering" variant="link" />
                 </div>
               </div>
+            )}
+
+            {offlineSince && (
+              <Card padding="sm" className="border border-amber-200 bg-amber-50/60">
+                <p className="text-body text-amber-900">
+                  You&apos;re offline — showing this month&apos;s sheet as it was at{" "}
+                  {new Date(offlineSince).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.
+                  Readings you save are kept on this phone and sent when you&apos;re back online.
+                </p>
+              </Card>
             )}
 
             {/* In the page body like every other month-scoped page — the dark header hides its label. */}

@@ -17,6 +17,8 @@ export interface SheetReading {
   approvedByName: string | null;
   photoUrls: string[];
   billed: boolean;
+  photoReading: number | null;
+  photoReadingNote: string | null;
   ratePerUnit?: number | null;
   amount?: number | null;
   invoiceId?: string | null;

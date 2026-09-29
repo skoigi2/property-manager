@@ -369,6 +369,11 @@ export const checkoutProcessSchema = z.object({
   refundMethod:          z.enum(["CHEQUE", "CASH", "MOBILE_TRANSFER", "BANK_TRANSFER"]).optional().nullable(),
   refundDetails:         refundDetailsSchema.optional(),
   notes:                 z.string().max(2000).optional().nullable(),
+  // Move-out meter readings, one per unit meter read at checkout.
+  finalMeterReadings:    z
+    .array(z.object({ meterId: z.string().min(1), reading: z.coerce.number().min(0, "A meter reading can't be negative") }))
+    .max(20)
+    .optional(),
 });
 
 export const checkoutFinalizeSchema = checkoutProcessSchema.extend({

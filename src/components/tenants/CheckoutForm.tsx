@@ -10,6 +10,23 @@ import { format } from "date-fns";
 import { Plus, Trash2, FileText, Save, Loader2, Pencil, Lock, Download } from "lucide-react";
 import toast from "react-hot-toast";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
+import {
+  finalUtilitiesCharge,
+  meterTakesFinalReading,
+  type FinalMeter,
+  type UnbilledReading,
+} from "@/lib/final-utilities";
+
+type FinalUtilitiesData = {
+  periodYear: number;
+  periodMonth: number;
+  meters: FinalMeter[];
+  unbilled: UnbilledReading[];
+};
+
+const fmtMeter = (n: number) => n.toLocaleString("en-GB", { maximumFractionDigits: 3 });
+const monthName = (y: number, m: number) =>
+  new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
 type DepositPosition = {
   contractual: number;
@@ -37,6 +54,8 @@ type CheckoutPrefill = {
   organization: { id: string; name: string } | null;
   outstandingBalance: number;
   deposit: DepositPosition;
+  /** Null once the checkout is finalised (the stored amount is shown instead). */
+  finalUtilities: FinalUtilitiesData | null;
   checkout: ExistingCheckout | null;
 };
 
@@ -63,6 +82,9 @@ type ExistingCheckout = {
   signatureRequestedAt: string | null;
   tenantSignedName: string | null;
   tenantSignedAt: string | null;
+  finalMeterReadings: { meterId: string; reading: number }[] | null;
+  finalUtilitiesAmount: number;
+  finalUtilitiesInvoiceId: string | null;
 };
 
 type DeductionCategory = "UTILITY" | "SERVICE_CHARGE" | "RENT_BALANCE" | "DAMAGE" | "OTHER";
@@ -89,6 +111,7 @@ interface DeductionRow {
   category: DeductionCategory;
 }
 
+const METERED_QUICK_ADD = new Set(["Electricity Bill", "Water Bill"]);
 const QUICK_ADD: { label: string; category: DeductionCategory }[] = [
   { label: "Electricity Bill", category: "UTILITY" },
   { label: "Water Bill",       category: "UTILITY" },
@@ -132,6 +155,10 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
   const [refundMethod, setRefundMethod] = useState<RefundMethod | "">("");
   const [refundDetails, setRefundDetails] = useState<RefundDetails>({});
   const [notes, setNotes] = useState("");
+  // Final meter readings typed per meter (move-out), and the meter list for
+  // the check-out month — reloaded when the date moves to another month.
+  const [finalReadings, setFinalReadings] = useState<Record<string, string>>({});
+  const [finalUtilities, setFinalUtilities] = useState<FinalUtilitiesData | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -178,6 +205,13 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
         const json: CheckoutPrefill = await res.json();
         if (!mounted) return;
         setData(json);
+        setFinalUtilities(json.finalUtilities);
+        const typed: Record<string, string> = {};
+        for (const m of json.finalUtilities?.meters ?? []) {
+          if (m.periodReading?.editable) typed[m.meterId] = String(m.periodReading.currentReading);
+        }
+        for (const r of json.checkout?.finalMeterReadings ?? []) typed[r.meterId] = String(r.reading);
+        setFinalReadings(typed);
 
         // Prefill from existing checkout if present
         if (json.checkout) {
@@ -219,6 +253,37 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
     };
   }, [tenantId]);
 
+  const checkoutPeriod = checkOutDate.slice(0, 7);
+  useEffect(() => {
+    if (!finalUtilities || data?.checkout?.status === "COMPLETED") return;
+    const loaded = `${finalUtilities.periodYear}-${String(finalUtilities.periodMonth).padStart(2, "0")}`;
+    if (!checkoutPeriod || loaded === checkoutPeriod) return;
+    let cancelled = false;
+    fetch(`/api/tenants/${tenantId}/checkout?checkOutDate=${checkOutDate}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: CheckoutPrefill | null) => {
+        if (!cancelled && json?.finalUtilities) setFinalUtilities(json.finalUtilities);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutPeriod]);
+
+  const finalInputs = useMemo(
+    () =>
+      Object.entries(finalReadings)
+        .filter(([, v]) => v.trim() !== "" && Number.isFinite(Number(v)))
+        .map(([meterId, v]) => ({ meterId, reading: Number(v) })),
+    [finalReadings],
+  );
+  const finalCharge = useMemo(
+    () => (finalUtilities ? finalUtilitiesCharge(finalUtilities.meters, finalInputs, finalUtilities.unbilled) : null),
+    [finalUtilities, finalInputs],
+  );
+  const hasMeters = !!finalUtilities && (finalUtilities.meters.length > 0 || finalUtilities.unbilled.length > 0);
+
   const totalDeductions = useMemo(
     () => deductions.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0),
     [deductions]
@@ -232,7 +297,10 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
   const deposit = depositPosition?.held ?? data?.tenant.depositAmount ?? 0;
   const depositUnverified = depositPosition?.verification === "UNVERIFIED";
   const depositShortfall = depositPosition?.shortfall ?? 0;
-  const balanceToRefund = deposit - inventoryDamage - rentBal - totalDeductions;
+  const finalUtilitiesTotal = data?.checkout?.status === "COMPLETED"
+    ? data.checkout.finalUtilitiesAmount
+    : finalCharge?.total ?? 0;
+  const balanceToRefund = deposit - inventoryDamage - rentBal - totalDeductions - finalUtilitiesTotal;
   const isOwed = balanceToRefund < 0;
 
   function addDeduction(label = "", category: DeductionCategory = "OTHER") {
@@ -266,6 +334,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
       refundMethod: refundMethod || null,
       refundDetails,
       notes,
+      finalMeterReadings: finalInputs,
     };
   }
 
@@ -529,7 +598,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
           <Section title="3. Itemised Deductions">
             {!isCompleted && (
               <div className="flex flex-wrap gap-2 mb-3">
-                {QUICK_ADD.map((q) => (
+                {QUICK_ADD.filter((q) => !(hasMeters && METERED_QUICK_ADD.has(q.label))).map((q) => (
                   <button
                     key={q.label}
                     type="button"
@@ -593,6 +662,37 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
             </p>
           </Section>
         </Card>
+
+        {/* 4. Final meter readings (metered units only) */}
+        {(hasMeters || (isCompleted && (data.checkout?.finalUtilitiesAmount ?? 0) > 0)) && (
+          <Card>
+            <Section title="4. Final Meter Readings">
+              {isCompleted ? (
+                <p className="text-body text-gray-600">
+                  Water &amp; electricity charged at move-out:{" "}
+                  <strong>{formatCurrency(data.checkout?.finalUtilitiesAmount ?? 0, currency)}</strong>
+                  {data.checkout?.finalUtilitiesInvoiceId && (
+                    <>
+                      {" "}—{" "}
+                      <a href={`/invoices?focus=${data.checkout.finalUtilitiesInvoiceId}`} className="text-gold-dark hover:underline">
+                        view the final invoice
+                      </a>
+                    </>
+                  )}
+                  .
+                </p>
+              ) : finalUtilities && finalCharge ? (
+                <FinalReadingsSection
+                  data={finalUtilities}
+                  charge={finalCharge}
+                  readings={finalReadings}
+                  onChange={(meterId, value) => setFinalReadings((p) => ({ ...p, [meterId]: value }))}
+                  currency={currency}
+                />
+              ) : null}
+            </Section>
+          </Card>
+        )}
 
         {/* 6. Keys */}
         <Card>
@@ -739,6 +839,9 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
           <SettleRow label="− Inventory Damage" value={formatCurrency(inventoryDamage, currency)} />
           <SettleRow label="− Rent Balance"     value={formatCurrency(rentBal, currency)} />
           <SettleRow label="− Itemised Deductions" value={formatCurrency(totalDeductions, currency)} />
+          {(hasMeters || finalUtilitiesTotal > 0) && (
+            <SettleRow label="− Water &amp; Electricity" value={formatCurrency(finalUtilitiesTotal, currency)} />
+          )}
           <hr className="my-3 border-gray-200" />
           <div
             className={`rounded-lg px-3 py-3 ${
@@ -769,6 +872,129 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
           )}
         </Card>
       </aside>
+    </div>
+  );
+}
+
+/**
+ * Move-out readings: one input per unit meter for the check-out month, the
+ * live charge at the month's rate, and the tenant's earlier readings that
+ * never reached an invoice. Finalising approves them all, puts them on one
+ * final invoice and settles it from what is left of the deposit.
+ */
+function FinalReadingsSection({
+  data,
+  charge,
+  readings,
+  onChange,
+  currency,
+}: {
+  data: FinalUtilitiesData;
+  charge: ReturnType<typeof finalUtilitiesCharge>;
+  readings: Record<string, string>;
+  onChange: (meterId: string, value: string) => void;
+  currency: string;
+}) {
+  const month = monthName(data.periodYear, data.periodMonth);
+  return (
+    <div className="space-y-4">
+      <p className="text-body text-gray-600">
+        Read each meter on the day the tenant leaves. The use since the last reading is charged at {month}&apos;s rate on a final
+        water &amp; electricity invoice, which is paid from the deposit where it covers it.
+      </p>
+
+      {data.meters.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-body">
+            <thead>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="py-2 pr-3 text-label uppercase text-gray-400 font-medium">Meter</th>
+                <th className="py-2 px-3 text-label uppercase text-gray-400 font-medium text-right">Previous</th>
+                <th className="py-2 px-3 text-label uppercase text-gray-400 font-medium w-36">Final reading</th>
+                <th className="py-2 px-3 text-label uppercase text-gray-400 font-medium text-right">Used</th>
+                <th className="py-2 pl-3 text-label uppercase text-gray-400 font-medium text-right">Charge</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.meters.map((m) => {
+                const line = charge.lines.find((l) => l.kind === "FINAL" && l.meterId === m.meterId);
+                const error = charge.errors.find((e) => e.meterId === m.meterId);
+                const takes = meterTakesFinalReading(m);
+                return (
+                  <tr key={m.meterId} className="border-b border-gray-50 last:border-0 align-top">
+                    <td className="py-2 pr-3">
+                      <p className="font-medium text-gray-900">{m.label}</p>
+                      {m.meterNumber && <p className="text-caption text-gray-400">No. {m.meterNumber}</p>}
+                      {error && <p className="text-caption text-expense mt-0.5">{error.error.replace(`${m.label}: `, "")}</p>}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums text-gray-600">{fmtMeter(m.previousReading)}</td>
+                    <td className="py-2 px-3">
+                      {takes ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          aria-label={`Final reading, ${m.label}`}
+                          value={readings[m.meterId] ?? ""}
+                          onChange={(e) => onChange(m.meterId, e.target.value)}
+                          placeholder="—"
+                          className="w-full text-right tabular-nums border border-gray-200 rounded-lg px-2 py-1 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
+                        />
+                      ) : (
+                        <span className="text-caption text-gray-400">
+                          {m.locked ? "A later month is already read" : "Already on an invoice"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums text-gray-900">
+                      {line ? `${fmtMeter(line.consumption)} ${m.unitLabel}` : "—"}
+                    </td>
+                    <td className="py-2 pl-3 text-right tabular-nums text-gray-900">
+                      {line ? formatCurrency(line.amount, currency) : "—"}
+                      {line?.ratePerUnit != null && (
+                        <p className="text-caption text-gray-400">@ {formatCurrency(line.ratePerUnit, currency)}</p>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data.unbilled.length > 0 && (
+        <div>
+          <p className="text-body font-medium text-gray-900">Earlier readings not on an invoice yet</p>
+          <ul className="mt-1 divide-y divide-gray-50">
+            {data.unbilled.map((u) => (
+              <li key={u.readingId} className="flex items-center justify-between gap-3 py-1.5 text-body">
+                <span className="text-gray-600">
+                  {monthName(u.periodYear, u.periodMonth)} · {u.label} · {fmtMeter(u.consumption)}
+                  {u.status === "SUBMITTED" && <span className="text-caption text-amber-700"> · approved when you finalise</span>}
+                  {u.warning && <span className="block text-caption text-amber-700">⚠ {u.warning} Check it on Utilities → Review &amp; bill if unsure.</span>}
+                </span>
+                <span className="tabular-nums text-gray-900">{formatCurrency(u.amount, currency)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {charge.errors
+        .filter((e) => !data.meters.some((m) => m.meterId === e.meterId && meterTakesFinalReading(m)))
+        .map((e) => (
+          <p key={e.meterId + e.error} className="text-caption text-expense">{e.error}</p>
+        ))}
+      {charge.missing.length > 0 && (
+        <p className="text-caption text-amber-700">Enter the final reading for: {charge.missing.join(", ")} — needed before you finalise.</p>
+      )}
+
+      <div className="flex items-center justify-between border-t border-gray-100 pt-3 text-body">
+        <span className="text-gray-600">
+          Water {formatCurrency(charge.water, currency)} · Electricity {formatCurrency(charge.electricity, currency)}
+        </span>
+        <span className="font-medium text-header">Total {formatCurrency(charge.total, currency)}</span>
+      </div>
     </div>
   );
 }

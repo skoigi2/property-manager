@@ -98,7 +98,7 @@ export function calcReadingCharge(consumption: number, ratePerUnit: number): num
   return round(consumption * ratePerUnit, 2);
 }
 
-export type ReadingAnomalyCode = "NEGATIVE" | "ZERO_OCCUPIED" | "HIGH";
+export type ReadingAnomalyCode = "NEGATIVE" | "ZERO_OCCUPIED" | "HIGH" | "PHOTO_MISMATCH";
 
 export interface ReadingAnomaly {
   code: ReadingAnomalyCode;
@@ -115,8 +115,17 @@ export function readingAnomalies(input: {
   consumption: number;
   occupied: boolean;
   history: number[];
+  /** The typed reading and what the photo check read (both optional). */
+  currentReading?: number;
+  photoReading?: number | null;
 }): ReadingAnomaly[] {
   const out: ReadingAnomaly[] = [];
+  if (input.currentReading !== undefined && photoReadingMismatch(input.currentReading, input.photoReading)) {
+    out.push({
+      code: "PHOTO_MISMATCH",
+      message: `The photo reads ${fmtReading(input.photoReading!)} — ${fmtReading(input.currentReading)} was typed.`,
+    });
+  }
   if (input.consumption < 0) {
     out.push({
       code: "NEGATIVE",
@@ -138,6 +147,16 @@ export function readingAnomalies(input: {
     }
   }
   return out;
+}
+
+/**
+ * The photo check disagrees with the typed reading: a whole unit or more apart.
+ * Smaller gaps are the decimal drums (typed 176, photo 176.4) — not a mistake.
+ * No photo reading (not checked / unreadable) is never a mismatch.
+ */
+export function photoReadingMismatch(typed: number, photo: number | null | undefined): boolean {
+  if (photo === null || photo === undefined || !Number.isFinite(photo)) return false;
+  return Math.abs(typed - photo) >= 1;
 }
 
 export function blocksApproval(anomalies: ReadingAnomaly[]): boolean {

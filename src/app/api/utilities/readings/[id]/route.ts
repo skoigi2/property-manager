@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { updateReadingSchema } from "@/lib/validations";
 import { updateReading } from "@/lib/utility-readings";
+import { photoReadingMismatch } from "@/lib/utility-billing";
+import { recordMeterPhotoCheck } from "@/lib/meter-photo-reader";
 import {
   MeterPhotoStorageError,
   parseReadingRequest,
@@ -27,7 +29,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     where: { id: params.id },
     select: {
       id: true, photoPaths: true, currentReading: true, previousReading: true,
-      meter: { select: { id: true, propertyId: true, label: true, property: { select: { organizationId: true } } } },
+      meter: { select: { id: true, propertyId: true, label: true, utility: true, meterNumber: true, property: { select: { organizationId: true } } } },
     },
   });
   if (!reading) return Response.json({ error: "Reading not found" }, { status: 404 });
@@ -64,6 +66,27 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const result = await updateReading(params.id, { ...parsed.data, readingDate, addPhotoPaths }, session!);
   if (!result.ok) return Response.json({ error: result.error, code: result.code }, { status: result.status });
 
+  // New photos are checked against the (possibly corrected) reading; without
+  // new photos the earlier check stands and the mismatch is re-derived.
+  let photoReading = result.reading.photoReading;
+  let photoReadingNote = result.reading.photoReadingNote;
+  if (files.length) {
+    const setting = await prisma.utilitySetting.findUnique({
+      where: { propertyId_utility: { propertyId: reading.meter.propertyId, utility: reading.meter.utility } },
+      select: { unitLabel: true },
+    });
+    const check = await recordMeterPhotoCheck(result.reading.id, files, {
+      utility: reading.meter.utility,
+      unitLabel: setting?.unitLabel ?? (reading.meter.utility === "WATER" ? "units" : "kWh"),
+      meterNumber: reading.meter.meterNumber,
+      previousReading: result.reading.previousReading,
+    });
+    if (check) {
+      photoReading = check.reading;
+      photoReadingNote = check.note;
+    }
+  }
+
   await logAudit({
     userId: session!.user.id,
     userEmail: session!.user.email,
@@ -86,5 +109,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     previousReading: result.reading.previousReading,
     currentReading: result.reading.currentReading,
     consumption: result.reading.consumption,
+    photoReading,
+    photoReadingNote,
+    photoMismatch: photoReadingMismatch(result.reading.currentReading, photoReading),
   });
 }

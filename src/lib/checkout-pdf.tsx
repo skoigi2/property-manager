@@ -85,6 +85,8 @@ export type CheckoutPdfData = {
     deductions: { description: string; amount: number }[];
     totalDeductions: number;
     balanceToRefund: number;
+    /** Move-out water / electricity charged on the final utilities invoice. */
+    finalUtilitiesAmount?: number;
     /** DEPOSIT receipts sum at finalize; null = no trail (contractual used). */
     depositReceived?: number | null;
     keysReturned?: { mainDoor?: number; bedroom?: number; gate?: number; mailbox?: number } | null;
@@ -293,6 +295,12 @@ function CheckoutPDF({ data }: { data: CheckoutPdfData }) {
           <Text style={styles.settlementLabel}>Less: Total Deductions (Item 3):</Text>
           <Text style={styles.settlementAmt}>−{fmt(checkout.totalDeductions)}</Text>
         </View>
+        {(checkout.finalUtilitiesAmount ?? 0) > 0 && (
+          <View style={styles.settlementRow}>
+            <Text style={styles.settlementLabel}>Less: Water &amp; Electricity (final meter readings):</Text>
+            <Text style={styles.settlementAmt}>−{fmt(checkout.finalUtilitiesAmount ?? 0)}</Text>
+          </View>
+        )}
         <View style={[styles.refundRow, isOwed ? styles.refundOwed : {}]}>
           <Text style={[styles.refundLabel, isOwed ? styles.refundOwedLabel : {}]}>
             {isOwed ? "BALANCE OWED BY TENANT" : "BALANCE TO REFUND"}

@@ -5,6 +5,7 @@ import {
   calcReadingCharge,
   canChangeInvoiceUtilities,
   isBillableOnInvoice,
+  photoReadingMismatch,
   previousPeriod,
   readingAnomalies,
   readingLineLabel,
@@ -187,5 +188,27 @@ describe("canChangeInvoiceUtilities", () => {
     expect(canChangeInvoiceUtilities({ status: "PAID", paidAmount: 0, incomeEntryCount: 0 })).toBe(false);
     expect(canChangeInvoiceUtilities({ status: "PENDING_VERIFICATION", incomeEntryCount: 0 })).toBe(false);
     expect(canChangeInvoiceUtilities({ status: "CANCELLED", incomeEntryCount: 0 })).toBe(false);
+  });
+});
+
+describe("photoReadingMismatch", () => {
+  it("ignores the decimal drums and missing photo reads", () => {
+    expect(photoReadingMismatch(176, 176.4)).toBe(false);
+    expect(photoReadingMismatch(176.4, 176)).toBe(false);
+    expect(photoReadingMismatch(176, null)).toBe(false);
+    expect(photoReadingMismatch(176, undefined)).toBe(false);
+  });
+
+  it("flags a whole unit or more apart (a mistyped digit)", () => {
+    expect(photoReadingMismatch(1243, 1234)).toBe(true);
+    expect(photoReadingMismatch(177, 176)).toBe(true);
+  });
+
+  it("becomes a PHOTO_MISMATCH warning, never a block", () => {
+    const a = readingAnomalies({ consumption: 9, occupied: true, history: [], currentReading: 1243, photoReading: 1234 });
+    expect(a.map((x) => x.code)).toEqual(["PHOTO_MISMATCH"]);
+    expect(a[0].message).toContain("1,234");
+    expect(blocksApproval(a)).toBe(false);
+    expect(readingAnomalies({ consumption: 9, occupied: true, history: [], currentReading: 1234, photoReading: 1234.2 })).toEqual([]);
   });
 });

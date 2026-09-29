@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
-import { Camera, Check, DoorOpen, Download, Layers, LayoutGrid, List, Lock, Upload, type LucideIcon } from "lucide-react";
+import { Camera, Check, CloudOff, DoorOpen, Download, Layers, LayoutGrid, List, Lock, Upload, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { calcConsumption, METER_ROLE_LABEL, UTILITY_LABEL, type UtilityType } from "@/lib/utility-billing";
+import { calcConsumption, METER_ROLE_LABEL, photoReadingMismatch, UTILITY_LABEL, type UtilityType } from "@/lib/utility-billing";
 import { maybeCompressImage } from "@/lib/image-compress";
 import { defaultReadingDate } from "@/lib/utility-readings-import";
+import {
+  flushQueued,
+  isOfflineError,
+  listQueued,
+  queueKey,
+  queueReading,
+  removeQueued,
+  type QueuedReading,
+} from "@/lib/offline-readings";
 import { byUnitOrder, fmtReading, meterTitle, readError, type ReadingSheet, type SheetRow } from "./types";
 import { PhotoStrip } from "./PhotoStrip";
 import { ReadingsImportDialog, downloadReadingSheet } from "./ReadingsImport";
@@ -19,6 +28,9 @@ interface Draft {
   value: string;
   photos: File[];
 }
+
+/** saveRow's answer when there is no connection and the reading was kept on the phone. */
+const QUEUED = "__queued__";
 
 type ViewMode = "cards" | "table";
 type Grouping = "utility" | "unit";
@@ -80,6 +92,39 @@ export function ReadingsTab({ sheet, propertyId, propertyName, year, month, mont
   // power together, the shared KPLC / common-area meters last.
   const [grouping, setGrouping] = useState<Grouping>("utility");
   const [importOpen, setImportOpen] = useState(false);
+  // Readings saved with no signal, waiting on this phone to be sent.
+  const [queued, setQueued] = useState<QueuedReading[]>([]);
+  const [sendingQueued, setSendingQueued] = useState(false);
+
+  const reloadQueue = useCallback(() => listQueued(propertyId).then(setQueued), [propertyId]);
+
+  const sendQueued = useCallback(
+    async (manual: boolean) => {
+      setSendingQueued(true);
+      try {
+        const r = await flushQueued(propertyId);
+        await reloadQueue();
+        if (r.sent) {
+          toast.success(`${r.sent} reading${r.sent === 1 ? "" : "s"} sent from this phone`);
+          onSaved();
+        }
+        if (r.failed.length) toast.error(r.failed.map((f) => `${f.meterTitle}: ${f.error}`).slice(0, 3).join("\n"), { duration: 10000 });
+        if (manual && r.offline) toast.error("Still no connection — the readings stay on this phone.");
+      } finally {
+        setSendingQueued(false);
+      }
+    },
+    [propertyId, reloadQueue, onSaved],
+  );
+
+  useEffect(() => {
+    void reloadQueue().then(() => {
+      if (typeof navigator === "undefined" || navigator.onLine) void sendQueued(false);
+    });
+    const onOnline = () => void sendQueued(false);
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [reloadQueue, sendQueued]);
 
   useEffect(() => {
     const v = readStored(VIEW_KEY, ["cards", "table"] as const);
@@ -167,18 +212,54 @@ export function ReadingsTab({ sheet, propertyId, propertyName, year, month, mont
     const fd = new FormData();
     if (hasValue) fd.set("currentReading", String(current));
     for (const p of draft?.photos ?? []) fd.append("photo", p);
+    const readingDate = defaultReadingDate(year, month).toISOString();
 
     let res: Response;
-    if (row.reading) {
-      res = await fetch(`/api/utilities/readings/${row.reading.id}`, { method: "PATCH", body: fd });
-    } else {
-      fd.set("meterId", row.meterId);
-      fd.set("periodYear", String(year));
-      fd.set("periodMonth", String(month));
-      fd.set("readingDate", defaultReadingDate(year, month).toISOString());
-      res = await fetch("/api/utilities/readings", { method: "POST", body: fd });
+    try {
+      if (row.reading) {
+        res = await fetch(`/api/utilities/readings/${row.reading.id}`, { method: "PATCH", body: fd });
+      } else {
+        fd.set("meterId", row.meterId);
+        fd.set("periodYear", String(year));
+        fd.set("periodMonth", String(month));
+        fd.set("readingDate", readingDate);
+        res = await fetch("/api/utilities/readings", { method: "POST", body: fd });
+      }
+    } catch (e) {
+      if (!isOfflineError(e)) return "Could not save the reading.";
+      try {
+        await queueReading({
+          key: queueKey(row.meterId, year, month),
+          propertyId,
+          meterId: row.meterId,
+          meterTitle: meterTitle(row),
+          periodYear: year,
+          periodMonth: month,
+          readingDate,
+          currentReading: hasValue ? current : null,
+          readingId: row.reading?.id ?? null,
+          photos: draft?.photos ?? [],
+          queuedAt: new Date().toISOString(),
+        });
+      } catch {
+        return "No connection, and this phone can't store the reading. Try again when you have signal.";
+      }
+      setDrafts((d) => {
+        const next = { ...d };
+        delete next[row.meterId];
+        return next;
+      });
+      await reloadQueue();
+      return QUEUED;
     }
     if (!res.ok) return readError(res, "Could not save the reading.");
+    const saved = (await res.json().catch(() => null)) as { photoMismatch?: boolean; photoReading?: number | null; currentReading?: number } | null;
+    if (saved?.photoMismatch && saved.photoReading != null && saved.currentReading != null) {
+      toast.error(
+        `${meterTitle(row)}: the photo reads ${fmtReading(saved.photoReading)}, but ${fmtReading(saved.currentReading)} was saved. Check the dial and correct it if needed.`,
+        { duration: 12000 },
+      );
+    }
     setDrafts((d) => {
       const next = { ...d };
       delete next[row.meterId];
@@ -191,7 +272,9 @@ export function ReadingsTab({ sheet, propertyId, propertyName, year, month, mont
     setSaving(row.meterId);
     const err = await saveRow(row);
     setSaving(null);
-    if (err) toast.error(err);
+    if (err === QUEUED) {
+      toast("No signal — saved on this phone. It sends by itself when you're back online.", { icon: "📶", duration: 6000 });
+    } else if (err) toast.error(err);
     else {
       toast.success(`${meterTitle(row)} saved`);
       onSaved();
@@ -204,14 +287,17 @@ export function ReadingsTab({ sheet, propertyId, propertyName, year, month, mont
   async function handleSaveAll() {
     setSavingAll(true);
     let ok = 0;
+    let kept = 0;
     const failures: string[] = [];
     for (const row of pendingRows) {
       const err = await saveRow(row);
-      if (err) failures.push(`${meterTitle(row)}: ${err}`);
+      if (err === QUEUED) kept++;
+      else if (err) failures.push(`${meterTitle(row)}: ${err}`);
       else ok++;
     }
     setSavingAll(false);
     if (ok) toast.success(`${ok} reading${ok === 1 ? "" : "s"} saved`);
+    if (kept) toast(`No signal — ${kept} reading${kept === 1 ? "" : "s"} saved on this phone, sent once you're back online.`, { icon: "📶", duration: 6000 });
     if (failures.length) toast.error(failures.slice(0, 3).join("\n"), { duration: 8000 });
     onSaved();
   }
@@ -230,6 +316,7 @@ export function ReadingsTab({ sheet, propertyId, propertyName, year, month, mont
   }
 
   const rowProps = (row: SheetRow): RowProps => ({
+    queued: queued.find((q) => q.key === queueKey(row.meterId, year, month)),
     row,
     draft: drafts[row.meterId],
     editable: canEdit(row),
@@ -329,6 +416,44 @@ export function ReadingsTab({ sheet, propertyId, propertyName, year, month, mont
           </div>
         </div>
       </Card>
+
+      {queued.length > 0 && (
+        <Card padding="sm" className="border border-amber-200 bg-amber-50/60">
+          <div className="flex flex-wrap items-center gap-3">
+            <CloudOff size={16} className="text-amber-700 shrink-0" />
+            <p className="text-body text-amber-900 flex-1 min-w-[12rem]">
+              {queued.length} reading{queued.length === 1 ? "" : "s"} saved on this phone, waiting for signal. They send by themselves once
+              you&apos;re back online.
+            </p>
+            <Button size="sm" variant="secondary" onClick={() => sendQueued(true)} loading={sendingQueued}>
+              Send now
+            </Button>
+          </div>
+          {queued.some((q) => q.lastError) && (
+            <ul className="mt-2 space-y-1">
+              {queued
+                .filter((q) => q.lastError)
+                .map((q) => (
+                  <li key={q.key} className="flex flex-wrap items-center gap-2 text-caption text-expense">
+                    <span className="flex-1 min-w-[12rem]">
+                      {q.meterTitle}: {q.lastError}
+                    </span>
+                    <button
+                      type="button"
+                      className="underline text-gray-600 hover:text-gray-900"
+                      onClick={async () => {
+                        await removeQueued(q.key);
+                        await reloadQueue();
+                      }}
+                    >
+                      Discard
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       {isManager && (
         <ReadingsImportDialog
@@ -460,6 +585,8 @@ function ReadingsTable({ groups, byUnit, rowProps }: { groups: Group[]; byUnit: 
 }
 
 interface RowProps {
+  /** A reading of this meter kept on the phone, waiting for signal. */
+  queued?: QueuedReading;
   row: SheetRow;
   draft: Draft | undefined;
   editable: boolean;
@@ -483,10 +610,42 @@ function rowState(row: SheetRow, draft: Draft | undefined) {
   const negative = liveConsumption != null && liveConsumption < 0;
   const dirty = typed !== "" || (draft?.photos.length ?? 0) > 0;
   const photoCount = (r?.photoUrls.length ?? 0) + (draft?.photos.length ?? 0);
-  return { r, previous, liveConsumption, negative, invalid, dirty, photoCount };
+  const photoCheck: "mismatch" | "match" | "unreadable" | null =
+    r?.photoReading != null
+      ? photoReadingMismatch(r.currentReading, r.photoReading) ? "mismatch" : "match"
+      : r?.photoReadingNote ? "unreadable" : null;
+  return { r, previous, liveConsumption, negative, invalid, dirty, photoCount, photoCheck };
 }
 
-function StatusBadge({ row }: { row: SheetRow }) {
+/** Under a row whose reading is kept on the phone: what will be sent. */
+function QueuedNote({ queued, unitLabel }: { queued?: QueuedReading; unitLabel: string }) {
+  if (!queued) return null;
+  const photos = queued.photos.length ? ` + ${queued.photos.length} photo${queued.photos.length === 1 ? "" : "s"}` : "";
+  return (
+    <p className="text-caption text-amber-700 mt-0.5">
+      Waiting to send{queued.currentReading !== null ? `: ${fmtReading(queued.currentReading)} ${unitLabel}` : ""}{photos}
+    </p>
+  );
+}
+
+/** One line under a saved reading: what the photo check found. */
+function PhotoCheckNote({ r, check, compact = false }: { r: SheetRow["reading"]; check: ReturnType<typeof rowState>["photoCheck"]; compact?: boolean }) {
+  if (!r || !check) return null;
+  if (check === "match") {
+    return <p className="text-caption text-income mt-0.5">✓ Matches the photo</p>;
+  }
+  if (check === "unreadable") {
+    return compact ? null : <p className="text-caption text-gray-400 mt-0.5">Photo couldn&apos;t be read automatically</p>;
+  }
+  return (
+    <p className="text-caption text-amber-700 mt-0.5" title={r.photoReadingNote ?? undefined}>
+      Photo reads {fmtReading(r.photoReading!)}{compact ? "" : " — check the number typed"}
+    </p>
+  );
+}
+
+function StatusBadge({ row, queued }: { row: SheetRow; queued?: QueuedReading }) {
+  if (queued) return <Badge variant="amber"><CloudOff size={10} className="inline mr-1" />On this phone</Badge>;
   const r = row.reading;
   if (row.locked) return <Badge variant="gray"><Lock size={10} className="inline mr-1" />Locked</Badge>;
   if (r?.billed) return <Badge variant="blue">Billed</Badge>;
@@ -509,9 +668,9 @@ function moveFocus(from: HTMLInputElement, step: 1 | -1) {
   }
 }
 
-function ReadingTableRow({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave, byUnit = false }: RowProps & { byUnit?: boolean }) {
+function ReadingTableRow({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave, queued, byUnit = false }: RowProps & { byUnit?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const { r, previous, liveConsumption, negative, invalid, dirty, photoCount } = rowState(row, draft);
+  const { r, previous, liveConsumption, negative, invalid, dirty, photoCount, photoCheck } = rowState(row, draft);
 
   return (
     <tr className={clsx("border-b border-gray-50 last:border-0 align-middle", negative ? "bg-expense/5" : dirty && "bg-gold/5")}>
@@ -599,13 +758,15 @@ function ReadingTableRow({ row, draft, editable, saving, requirePhoto, onValue, 
       </td>
       <td className="px-3 py-2">
         <span title={row.locked ? "A later month has been read, so this month can no longer change." : undefined}>
-          <StatusBadge row={row} />
+          <StatusBadge row={row} queued={queued} />
         </span>
+        <QueuedNote queued={queued} unitLabel={row.unitLabel} />
         {r?.readByName && (
           <p className="text-caption text-gray-400 mt-0.5">
             {r.readByName} · {new Date(r.readingDate).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
           </p>
         )}
+        <PhotoCheckNote r={r} check={photoCheck} compact />
       </td>
       <td className="px-4 py-2 text-right">
         {editable && (
@@ -618,9 +779,9 @@ function ReadingTableRow({ row, draft, editable, saving, requirePhoto, onValue, 
   );
 }
 
-function ReadingCard({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave }: RowProps) {
+function ReadingCard({ row, draft, editable, saving, requirePhoto, onValue, onPhotos, onRemovePhoto, onSave, queued }: RowProps) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const { r, previous, liveConsumption, negative, dirty, photoCount } = rowState(row, draft);
+  const { r, previous, liveConsumption, negative, dirty, photoCount, photoCheck } = rowState(row, draft);
 
   return (
     <Card padding="sm" className={clsx(negative && "ring-1 ring-expense/40")}>
@@ -632,7 +793,7 @@ function ReadingCard({ row, draft, editable, saving, requirePhoto, onValue, onPh
             {row.meterNumber ? ` · No. ${row.meterNumber}` : ""}
           </p>
         </div>
-        <StatusBadge row={row} />
+        <StatusBadge row={row} queued={queued} />
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2 items-end">
@@ -674,6 +835,10 @@ function ReadingCard({ row, draft, editable, saving, requirePhoto, onValue, onPh
       {row.locked && (
         <p className="mt-2 text-caption text-gray-400">A later month has been read, so this month can no longer change.</p>
       )}
+      <div className="mt-1">
+        <QueuedNote queued={queued} unitLabel={row.unitLabel} />
+        <PhotoCheckNote r={r} check={photoCheck} />
+      </div>
 
       {(r?.photoUrls.length || draft?.photos.length) ? (
         <div className="mt-3">

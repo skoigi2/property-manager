@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { submitReadingSchema, UTILITY_TYPE_VALUES } from "@/lib/validations";
 import { buildReadingSheet, canSeeUtilityMoney, submitReading } from "@/lib/utility-readings";
+import { photoReadingMismatch } from "@/lib/utility-billing";
+import { recordMeterPhotoCheck } from "@/lib/meter-photo-reader";
 import {
   MeterPhotoStorageError,
   parseReadingRequest,
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
 
   const meter = await prisma.utilityMeter.findUnique({
     where: { id: parsed.data.meterId },
-    select: { id: true, propertyId: true, utility: true, label: true, property: { select: { organizationId: true } } },
+    select: { id: true, propertyId: true, utility: true, label: true, meterNumber: true, property: { select: { organizationId: true } } },
   });
   if (!meter) return Response.json({ error: "Meter not found" }, { status: 404 });
   const access = await requirePropertyAccess(meter.propertyId);
@@ -80,11 +82,11 @@ export async function POST(req: Request) {
   const photoError = validateMeterPhotos(files.map((f) => ({ name: f.name, size: f.size, type: f.type })));
   if (photoError) return Response.json({ error: photoError }, { status: 400 });
 
+  const setting = await prisma.utilitySetting.findUnique({
+    where: { propertyId_utility: { propertyId: meter.propertyId, utility: meter.utility } },
+    select: { requirePhoto: true, unitLabel: true },
+  });
   if (files.length === 0 && !canSeeUtilityMoney(session!)) {
-    const setting = await prisma.utilitySetting.findUnique({
-      where: { propertyId_utility: { propertyId: meter.propertyId, utility: meter.utility } },
-      select: { requirePhoto: true },
-    });
     if (setting?.requirePhoto) {
       return Response.json({ error: "Take a photo of the meter — it is required for this property.", code: "PHOTO_REQUIRED" }, { status: 400 });
     }
@@ -102,6 +104,16 @@ export async function POST(req: Request) {
 
   const result = await submitReading({ ...parsed.data, readingDate, photoPaths }, session!);
   if (!result.ok) return Response.json({ error: result.error, code: result.code }, { status: result.status });
+
+  // Read the number off the photo while the caretaker is still at the meter.
+  const photoCheck = files.length
+    ? await recordMeterPhotoCheck(result.reading.id, files, {
+        utility: meter.utility,
+        unitLabel: setting?.unitLabel ?? (meter.utility === "WATER" ? "units" : "kWh"),
+        meterNumber: meter.meterNumber,
+        previousReading: result.reading.previousReading,
+      })
+    : null;
 
   await logAudit({
     userId: session!.user.id,
@@ -126,6 +138,9 @@ export async function POST(req: Request) {
       previousReading: result.reading.previousReading,
       currentReading: result.reading.currentReading,
       consumption: result.reading.consumption,
+      photoReading: photoCheck?.reading ?? null,
+      photoReadingNote: photoCheck?.note ?? null,
+      photoMismatch: photoReadingMismatch(result.reading.currentReading, photoCheck?.reading),
     },
     { status: 201 },
   );

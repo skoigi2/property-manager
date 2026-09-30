@@ -18,12 +18,20 @@ export type InboxType =
   | "CASE_NEEDS_ATTENTION"
   | "APPROVAL_PENDING"
   | "METER_READINGS"
-  | "RENT_INCREASE";
+  | "RENT_INCREASE"
+  | "VACANT_UNIT"
+  | "DEPOSIT_UNSETTLED"
+  | "RECURRING_EXPENSE"
+  | "LOW_PETTY_CASH"
+  | "CASHFLOW_RISK";
 
 export interface InboxAction {
   label: string;
+  /** Page to open (no method) or API endpoint to call (method set). */
   action: string;
   method?: "POST" | "PATCH";
+  /** JSON body for the call (hint actionBody). */
+  body?: unknown;
 }
 
 export interface InboxItem {
@@ -84,16 +92,42 @@ function mapHintToInboxType(t: string): InboxType | null {
     case "INSURANCE_EXPIRY_30D":     return "INSURANCE_EXPIRY";
     case "WARRANTY_EXPIRY_7D":
     case "WARRANTY_EXPIRY_30D":      return "WARRANTY_EXPIRY";
-    // The proactive-only hints don't have an exact computed counterpart — render them as CASE_NEEDS_ATTENTION so existing UI handles them.
-    case "VACANT_OVER_30D":
-    case "DEPOSIT_NOT_SETTLED":
-    case "RECURRING_EXPENSE_DUE":
-    case "LOW_PETTY_CASH":
-    case "NEGATIVE_CASHFLOW_FORECAST":
-    case "INSPECTION_OVERDUE":       return "CASE_NEEDS_ATTENTION";
-    case "RENT_INCREASE_DUE":        return "RENT_INCREASE";
+    // Proactive hints get their own types: their refId is a unit / tenant /
+    // recurring expense / property, never a case, so the case actions don't apply.
+    case "VACANT_OVER_30D":            return "VACANT_UNIT";
+    case "DEPOSIT_NOT_SETTLED":        return "DEPOSIT_UNSETTLED";
+    case "RECURRING_EXPENSE_DUE":      return "RECURRING_EXPENSE";
+    case "LOW_PETTY_CASH":             return "LOW_PETTY_CASH";
+    case "NEGATIVE_CASHFLOW_FORECAST": return "CASHFLOW_RISK";
+    case "RENT_INCREASE_DUE":          return "RENT_INCREASE";
+    // SLA_BREACH is the one hint whose refId is a case.
+    case "SLA_BREACH":                 return "CASE_NEEDS_ATTENTION";
+    // INSPECTION_OVERDUE is reserved — no checker emits it yet.
   }
   return null;
+}
+
+/** Where a hint row's "Open" link goes: its GET action, else the page that owns the record. */
+function hintHref(
+  h: { actionEndpoint: string | null; actionMethod: string | null; tenantId: string | null; caseThreadId: string | null; refId: string },
+  type: InboxType,
+): string {
+  if (h.actionEndpoint && h.actionMethod === "GET") return h.actionEndpoint;
+  switch (type) {
+    // Same pages the computed rows of these types open.
+    case "INVOICE_OVERDUE":    return `/invoices?focus=${h.refId}`;
+    case "LEASE_EXPIRY":       return `/tenants/${h.refId}`;
+    case "URGENT_MAINTENANCE": return `/maintenance?focus=${h.refId}`;
+    case "COMPLIANCE_EXPIRY":  return `/compliance/certificates?focus=${h.refId}`;
+    case "INSURANCE_EXPIRY":   return `/insurance?focus=${h.refId}`;
+    case "WARRANTY_EXPIRY":    return `/assets?focus=${h.refId}`;
+    case "VACANT_UNIT":       return "/properties";
+    case "DEPOSIT_UNSETTLED": return h.tenantId ? `/tenants/${h.tenantId}?tab=deposit` : "/tenants";
+    case "RECURRING_EXPENSE": return "/recurring-expenses";
+    case "RENT_INCREASE":     return h.tenantId ? `/tenants/${h.tenantId}?tab=history` : "/tenants";
+    case "CASE_NEEDS_ATTENTION": return `/cases/${h.caseThreadId ?? h.refId}`;
+    default:                  return "/inbox";
+  }
 }
 
 export async function buildInbox(
@@ -621,9 +655,13 @@ export async function buildInbox(
       unitId: h.unitId,
       dueDate: h.expiresAt?.toISOString() ?? null,
       daysOverdue: null,
-      href: h.actionEndpoint && h.actionMethod === "GET" ? h.actionEndpoint : `/inbox?hint=${h.id}`,
+      href: hintHref(h, inboxType),
       actions: h.actionLabel && h.actionEndpoint
-        ? [{ label: h.actionLabel, action: h.actionEndpoint, method: (h.actionMethod as "POST" | "PATCH") ?? "PATCH" }]
+        ? [{
+            label: h.actionLabel,
+            action: h.actionEndpoint,
+            ...(h.actionMethod === "GET" ? {} : { method: (h.actionMethod as "POST" | "PATCH") ?? "PATCH", body: h.actionBody ?? undefined }),
+          }]
         : [],
       isHint: true,
       hintId: h.id,

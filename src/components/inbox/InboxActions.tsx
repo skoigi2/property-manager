@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   CalendarCheck,
   TrendingUp,
+  UserPlus as AddTenant,
+  Play,
   ExternalLink,
   MoreVertical,
   UserPlus,
@@ -133,6 +135,23 @@ export function InboxActions({ item, onActionComplete }: Props) {
       });
       if (!r.ok) throw new Error(await r.text().catch(() => "Failed"));
       toast.success(successMsg, { id: t });
+      onActionComplete(item.id);
+    } catch (e: any) {
+      toast.error(e?.message || "Action failed", { id: t });
+    }
+  }
+
+  async function runHintAction(url: string, method: "POST" | "PATCH", body: unknown) {
+    const t = toast.loading("Saving…");
+    try {
+      const r = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body ?? {}),
+      });
+      if (!r.ok) throw new Error(await r.text().catch(() => "Failed"));
+      if (item.hintId) await fetch(`/api/hints/${item.hintId}/act`, { method: "POST" }).catch(() => {});
+      toast.success("Done", { id: t });
       onActionComplete(item.id);
     } catch (e: any) {
       toast.error(e?.message || "Action failed", { id: t });
@@ -265,6 +284,32 @@ export function InboxActions({ item, onActionComplete }: Props) {
       icon: TrendingUp,
       onClick: () => { window.location.href = `/tenants/${item.tenantId}?tab=history`; },
     });
+  }
+
+  // Hint-sourced rows carry their own action (from the cron checker): a page
+  // to open, or one call to make — after which the hint is marked acted on.
+  const HINT_TYPES = ["VACANT_UNIT", "DEPOSIT_UNSETTLED", "RECURRING_EXPENSE", "LOW_PETTY_CASH", "CASHFLOW_RISK"];
+  if (HINT_TYPES.includes(item.type)) {
+    item.actions.forEach((a, i) => {
+      actions.push({
+        key: `hint-${i}`,
+        label: a.label,
+        tip: a.method ? "Does this now and clears the reminder." : "Opens the page where you deal with this.",
+        icon: a.method ? Play : ExternalLink,
+        onClick: a.method
+          ? () => runHintAction(a.action, a.method!, a.body)
+          : () => { window.location.href = a.action; },
+      });
+    });
+    if (item.type === "VACANT_UNIT") {
+      actions.push({
+        key: "add-tenant",
+        label: "Add tenant",
+        tip: "Opens Add Tenant with the vacant units ready to pick.",
+        icon: AddTenant,
+        onClick: () => { window.location.href = "/tenants?add=1"; },
+      });
+    }
   }
 
   if (item.type === "ARREARS_ESCALATION") {

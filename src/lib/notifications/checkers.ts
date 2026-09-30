@@ -537,9 +537,11 @@ export async function checkVacantUnits(): Promise<{ created: number }> {
   });
 
   let created = 0;
+  const live: string[] = [];
   for (const u of units) {
     const orgId = u.property.organizationId;
     if (!orgId) continue;
+    live.push(u.id);
     if (!(await isAutomationEnabled(orgId, "REMINDER_VACANT_UNIT", u.propertyId))) continue;
     const days = u.vacantSince ? differenceInDays(new Date(), u.vacantSince) : 30;
     await upsertHint({
@@ -555,10 +557,15 @@ export async function checkVacantUnits(): Promise<{ created: number }> {
       actionEndpoint: `/api/units/${u.id}`,
       actionMethod: "PATCH",
       actionBody: { status: "LISTED" },
-      actionLabel: "Mark LISTED",
+      actionLabel: "Mark listed",
     });
     created++;
   }
+  // Self-clear: let, listed, or back in use.
+  await prisma.actionableHint.updateMany({
+    where: { hintType: "VACANT_OVER_30D", status: "ACTIVE", refId: { notIn: live } },
+    data: { status: "ACTED_ON", actedAt: new Date() },
+  });
   return { created };
 }
 
@@ -576,9 +583,11 @@ export async function checkDepositNotSettled(): Promise<{ created: number }> {
   });
 
   let created = 0;
+  const live: string[] = [];
   for (const t of tenants) {
     const orgId = t.unit.property.organizationId;
     if (!orgId) continue;
+    live.push(t.id);
     if (!(await isAutomationEnabled(orgId, "REMINDER_DEPOSIT_NOT_SETTLED", t.unit.propertyId))) continue;
     const days = t.vacatedDate ? differenceInDays(new Date(), t.vacatedDate) : 14;
     await upsertHint({
@@ -592,12 +601,17 @@ export async function checkDepositNotSettled(): Promise<{ created: number }> {
       title: `Deposit not settled — ${t.name}`,
       subtitle: `Vacated ${days} days ago · ${t.unit.property.name} · Unit ${t.unit.unitNumber}`,
       suggestedAction: "Settle deposit (deductions + refund)",
-      actionEndpoint: `/api/tenants/${t.id}/settle-deposit`,
-      actionMethod: "POST",
+      actionEndpoint: `/tenants/${t.id}?tab=deposit`,
+      actionMethod: "GET",
       actionLabel: "Open settlement",
     });
     created++;
   }
+  // Self-clear: settled (or a checkout finalised it).
+  await prisma.actionableHint.updateMany({
+    where: { hintType: "DEPOSIT_NOT_SETTLED", status: "ACTIVE", refId: { notIn: live } },
+    data: { status: "ACTED_ON", actedAt: new Date() },
+  });
   return { created };
 }
 

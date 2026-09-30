@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWrite } from "@/lib/auth-utils";
+import { requireAuthWrite, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,11 +9,17 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const { error } = await requireAuthWrite();
   if (error) return error;
 
+  // Same scoping as dismiss: only a hint on a property the caller can access.
+  const hint = await prisma.actionableHint.findUnique({ where: { id: params.id }, select: { propertyId: true } });
+  if (!hint) return Response.json({ error: "Not found" }, { status: 404 });
+  if (hint.propertyId) {
+    const access = await requirePropertyAccess(hint.propertyId);
+    if (!access.ok) return access.error!;
+  }
+
   const updated = await prisma.actionableHint.update({
     where: { id: params.id },
     data: { status: "ACTED_ON", actedAt: new Date() },
-  }).catch(() => null);
-
-  if (!updated) return Response.json({ error: "Not found" }, { status: 404 });
+  });
   return Response.json(updated);
 }

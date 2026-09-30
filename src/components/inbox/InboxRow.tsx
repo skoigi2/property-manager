@@ -19,6 +19,11 @@ import {
   Package,
   Gauge,
   TrendingUp,
+  DoorOpen,
+  HandCoins,
+  Repeat,
+  Wallet,
+  LineChart,
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { InboxItem, InboxType } from "@/lib/inbox";
@@ -37,6 +42,11 @@ const TYPE_ICON: Record<InboxType, React.ElementType> = {
   APPROVAL_PENDING: ShieldQuestion,
   METER_READINGS: Gauge,
   RENT_INCREASE: TrendingUp,
+  VACANT_UNIT: DoorOpen,
+  DEPOSIT_UNSETTLED: HandCoins,
+  RECURRING_EXPENSE: Repeat,
+  LOW_PETTY_CASH: Wallet,
+  CASHFLOW_RISK: LineChart,
 };
 
 function severityStyles(severity: InboxItem["severity"]) {

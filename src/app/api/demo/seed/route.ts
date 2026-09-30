@@ -1660,6 +1660,29 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
   // part-paid / unpaid mix, and two readings still awaiting review.
   await seedDemoUtilities(property.id, organizationId, now);
 
+  // This year's service charge budget for the block's shared costs (split by
+  // floor area), so Service Charge shows budget vs actual against the
+  // expenses above. Water / power / generator are metered, so not budgeted.
+  await prisma.serviceChargeBudget.create({
+    data: {
+      propertyId: property.id,
+      organizationId,
+      year: now.getFullYear(),
+      basis: "FLOOR_AREA",
+      createdByName: "Demo",
+      lines: {
+        create: [
+          { category: ExpenseCategory.SECURITY,           amount: 540000, notes: "3 guards, 24/7" },
+          { category: ExpenseCategory.CLEANER,            amount: 264000, notes: "2 cleaners, common areas" },
+          { category: ExpenseCategory.GARBAGE_COLLECTION, amount: 96000,  notes: "Weekly collection" },
+          { category: ExpenseCategory.WIFI,               amount: 144000, notes: "Building fibre" },
+          { category: ExpenseCategory.LANDSCAPING,        amount: 72000,  notes: "Gardens, monthly" },
+          { category: ExpenseCategory.MAINTENANCE,        amount: 120000, notes: "Common-area repairs, lift & generator servicing" },
+        ],
+      },
+    },
+  });
+
   return property;
 }
 

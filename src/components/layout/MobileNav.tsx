@@ -16,6 +16,7 @@ import {
   PlayCircle,
   MessageSquareWarning,
   Gauge,
+  Calculator,
 } from "lucide-react";
 
 interface NavItem {
@@ -87,6 +88,7 @@ const mgrDrawerSections: DrawerSection[] = [
       { href: "/expenses",           label: "Expenses",   icon: Receipt },
       { href: "/petty-cash",         label: "Petty Cash", icon: Wallet },
       { href: "/recurring-expenses", label: "Recurring",  icon: RepeatIcon },
+      { href: "/service-charge",     label: "Service Charge", icon: Calculator },
     ],
   },
   {
@@ -138,6 +140,7 @@ const accountantDrawerSections: DrawerSection[] = [
     heading: "Finances",
     items: [
       { href: "/expenses", label: "Expenses", icon: Receipt },
+      { href: "/service-charge", label: "Service Charge", icon: Calculator },
     ],
   },
   {

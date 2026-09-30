@@ -312,7 +312,7 @@ export async function loadRentIncreaseNotice(tenantId: string, historyId: string
     today,
     currentRent: fmt(previous),
     newRent: fmt(row.monthlyRent),
-    change: `${diff >= 0 ? "+" : "−"} ${fmt(Math.abs(diff))}, ${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
+    change: `${diff >= 0 ? "+" : "-"} ${fmt(Math.abs(diff))}, ${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
     effectiveDate: formatDate(row.effectiveDate),
     leaseTerms: ctx.hasTerms ? describeEscalation(ctx.terms, fmt) : null,
     noticeDays: Math.max(0, noticeGivenDays(new Date(row.effectiveDate))),

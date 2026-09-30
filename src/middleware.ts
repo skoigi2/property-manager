@@ -94,7 +94,7 @@ export default auth((req) => {
   // manager-only pages. Leaving the page reachable by OWNER gave them a shell
   // that could never load. An owner-facing calendar needs owner-appropriate
   // destinations first — see docs note in CLAUDE.md.
-  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/complaints", "/utilities", "/airbnb", "/forecast", "/vendors", "/cases", "/automations", "/calendar"];
+  const managerOnlyPaths = ["/inbox", "/income", "/expenses", "/petty-cash", "/tenants", "/settings", "/arrears", "/recurring-expenses", "/import", "/insurance", "/assets", "/maintenance", "/complaints", "/utilities", "/airbnb", "/forecast", "/vendors", "/cases", "/automations", "/calendar", "/service-charge"];
   if (isLoggedIn && managerOnlyPaths.some((p) => pathname.startsWith(p))) {
     if (orgRole === "OWNER") {
       return NextResponse.redirect(new URL("/report", req.url));

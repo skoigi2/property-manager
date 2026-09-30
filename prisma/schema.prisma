@@ -451,6 +451,12 @@ enum ExpenseDocumentCategory {
   OTHER
 }
 
+enum ServiceChargeBasis {
+  FLOOR_AREA
+  EQUAL
+  CURRENT_CHARGE
+}
+
 enum EscalationType {
   PERCENT
   FIXED_AMOUNT
@@ -753,6 +759,7 @@ model Property {
   utilitySettings        UtilitySetting[]
   utilityTariffs         UtilityTariff[]
   utilityMeters          UtilityMeter[]
+  serviceChargeBudgets   ServiceChargeBudget[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
 }
@@ -1383,6 +1390,10 @@ model Invoice {
   paidAmount    Decimal? @db.Decimal(14, 2)
   notes         String?
   caseThreadId  String?
+  // Set on a service charge BALANCING invoice raised from a year-end
+  // statement — marks it (never billed "on account") and stops a second one.
+  serviceChargeBudgetId String?
+  serviceChargeBudget   ServiceChargeBudget? @relation(fields: [serviceChargeBudgetId], references: [id], onDelete: SetNull)
   proofOfPaymentUrl  String?
   proofOfPaymentText String?
   proofOfPaymentType ProofOfPaymentType?
@@ -1404,6 +1415,7 @@ model Invoice {
   @@index([caseThreadId])
   @@index([dueDate])
   @@index([status, dueDate])
+  @@index([serviceChargeBudgetId])
 }
 
 model OwnerInvoice {
@@ -2565,4 +2577,43 @@ model MeterReading {
   @@index([meterId, periodYear, periodMonth])
   @@index([tenantId, status, invoiceId])
   @@index([invoiceId])
+}
+
+// ─── Service charge budgets ──────────────────────────────────────────────────
+// A block's service charge year: the budget per expense category, measured
+// against PROPERTY-scope expenses of those categories, and apportioned to
+// units (floor area by default) for the year-end statement. See
+// src/lib/service-charge.ts.
+model ServiceChargeBudget {
+  id             String             @id @default(cuid())
+  organizationId String?
+  propertyId     String
+  property       Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  // Calendar year the service charge year starts in.
+  year           Int
+  // 1–12: the month the service charge year starts.
+  startMonth     Int                @default(1)
+  basis          ServiceChargeBasis @default(FLOOR_AREA)
+  notes          String?
+  // Year-end statements visible to tenants in the portal.
+  publishedAt    DateTime?
+  createdByName  String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  lines          ServiceChargeBudgetLine[]
+  balancingInvoices Invoice[]
+
+  @@unique([propertyId, year])
+  @@index([organizationId])
+}
+
+model ServiceChargeBudgetLine {
+  id       String              @id @default(cuid())
+  budgetId String
+  budget   ServiceChargeBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category ExpenseCategory
+  amount   Decimal             @db.Decimal(14, 2)
+  notes    String?
+
+  @@unique([budgetId, category])
 }

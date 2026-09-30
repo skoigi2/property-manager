@@ -853,3 +853,45 @@ export function exportUtilityReconciliation(opts: {
   const safe = opts.propertyName.replace(/[^\w\- ]+/g, "").trim() || "Property";
   writeFile(wb, `Utility-Reconciliation-${safe}-${opts.year}.xlsx`);
 }
+
+// ── Service charge ────────────────────────────────────────────────────────────
+
+/** One workbook: budget vs actual, unit shares, and the (interim or year-end) statement. */
+export function exportServiceCharge(view: import("@/lib/service-charge-data").ServiceChargeView, categoryLabel: (c: string) => string) {
+  const wb = XLSX.utils.book_new();
+  const cur = currLabel(view.property.currency);
+  const b = view.budgetVsActual;
+
+  const bva = buildSheet(
+    ["Cost", `Budget${cur}`, `Budget to date${cur}`, `Actual${cur}`, `Variance${cur}`, "% of budget used"],
+    [
+      ...b.rows.map((r) => [categoryLabel(r.category), r.budget, r.budgetToDate, r.actual, r.variance, r.pctUsed == null ? null : Math.round(r.pctUsed * 1000) / 10]),
+      ["TOTAL", b.totals.budget, b.totals.budgetToDate, b.totals.actual, b.totals.variance, b.totals.pctUsed == null ? null : Math.round(b.totals.pctUsed * 1000) / 10],
+      [],
+      [`Service charge billed on account${cur}`, view.billedOnAccount],
+    ],
+  );
+  setColWidths(bva, [30, 16, 18, 16, 16, 16]);
+  XLSX.utils.book_append_sheet(wb, bva, "Budget vs actual");
+
+  const units = buildSheet(
+    ["Unit", "Floor area (sqm)", "Share %", `Share of budget${cur}`, `Suggested monthly${cur}`, "Tenant", `Current monthly${cur}`],
+    view.units.map((u) => [u.unitNumber, u.sizeSqm, Math.round(u.share * 10000) / 100, u.budgetShare, u.suggestedMonthly, u.tenant?.name ?? "Vacant", u.tenant?.currentCharge ?? null]),
+  );
+  setColWidths(units, [10, 16, 10, 18, 18, 28, 18]);
+  XLSX.utils.book_append_sheet(wb, units, "Units");
+
+  const s = view.statement;
+  const stmt = buildSheet(
+    ["Unit", "Tenant", "Days", "Unit share %", `Share of cost${cur}`, `Billed${cur}`, `Paid${cur}`, `Balance${cur}`, "Balancing invoice"],
+    [
+      ...s.rows.map((r) => [r.unitNumber, r.tenantName, r.days, Math.round(r.unitShare * 10000) / 100, r.share, r.billed, r.paid, r.balance, r.balancingInvoice?.invoiceNumber ?? ""]),
+      ...s.landlord.map((l) => [l.unitNumber, "Landlord (vacant)", l.vacantDays, null, l.share, null, null, null, ""]),
+      ["TOTAL", "", null, null, s.totals.share + s.totals.landlord, s.totals.billed, s.totals.paid, s.totals.charges - s.totals.credits, ""],
+    ],
+  );
+  setColWidths(stmt, [10, 28, 8, 12, 16, 16, 16, 16, 18]);
+  XLSX.utils.book_append_sheet(wb, stmt, s.yearEnded ? "Year-end statement" : "Interim statement");
+
+  writeFile(wb, `Service charge ${view.period.label} - ${view.property.name}.xlsx`.replace(/[\/:*?"<>|]/g, ""));
+}

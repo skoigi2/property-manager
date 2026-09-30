@@ -288,6 +288,9 @@ export default function PortalPage({ params }: { params: { token: string } }) {
   const [invalid, setInvalid] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
   const [utilities, setUtilities] = useState<UtilitiesData | null>(null);
+  const [scStatements, setScStatements] = useState<
+    { budgetId: string; label: string; yearEnded: boolean; share: number; billed: number; balance: number; currency: string }[]
+  >([]);
 
   // Maintenance
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
@@ -338,6 +341,14 @@ export default function PortalPage({ params }: { params: { token: string } }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setUtilities(d && Array.isArray(d.readings) ? d : null))
       .catch(() => setUtilities(null));
+  }, [params.token]);
+
+  // Service charge statements the manager has published (none = nothing renders).
+  useEffect(() => {
+    fetch(`/api/portal/${params.token}/service-charge`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setScStatements(Array.isArray(d?.statements) ? d.statements : []))
+      .catch(() => setScStatements([]));
   }, [params.token]);
 
   const loadLedger = useCallback(async () => {
@@ -864,6 +875,41 @@ export default function PortalPage({ params }: { params: { token: string } }) {
                   <div className="mt-4">
                     <StatementDownloadCard token={params.token} />
                   </div>
+                )}
+
+                {scStatements.length > 0 && (
+                  <>
+                    <h2 className="text-body font-semibold text-gray-700 mt-6 mb-2">Service charge</h2>
+                    <div className="space-y-2">
+                      {scStatements.map((s) => (
+                        <div key={s.budgetId} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-body font-medium text-gray-800">
+                              {s.label}{!s.yearEnded && <span className="text-caption text-gray-400 font-normal"> · interim</span>}
+                            </p>
+                            <p className="text-caption text-gray-500">
+                              Your share {formatCurrency(s.share, s.currency)} · billed {formatCurrency(s.billed, s.currency)} ·{" "}
+                              {s.balance > 0.005 ? (
+                                <span className="text-red-600 font-medium">{formatCurrency(s.balance, s.currency)} to pay</span>
+                              ) : s.balance < -0.005 ? (
+                                <span className="text-emerald-600 font-medium">{formatCurrency(-s.balance, s.currency)} credit</span>
+                              ) : (
+                                "settled"
+                              )}
+                            </p>
+                          </div>
+                          <a
+                            href={`/api/portal/${params.token}/service-charge?budgetId=${s.budgetId}&format=pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-caption text-blue-600 hover:underline font-medium shrink-0"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
 
                 {utilities && utilities.readings.length > 0 && (

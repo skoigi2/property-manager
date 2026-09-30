@@ -43,6 +43,7 @@ import {
   PlayCircle,
   MessageSquareWarning,
   Gauge,
+  Calculator,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -85,6 +86,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/petty-cash",         label: "Petty Cash",icon: Wallet,      roles: ["MANAGER"] },
       { href: "/recurring-expenses", label: "Recurring", icon: RepeatIcon,  roles: ["MANAGER"] },
       { href: "/forecast",           label: "Forecast",  icon: LineChart,   roles: ["MANAGER", "ACCOUNTANT"] },
+      { href: "/service-charge",     label: "Service Charge", icon: Calculator, roles: ["MANAGER", "ACCOUNTANT"] },
     ],
   },
   {

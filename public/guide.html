@@ -392,7 +392,7 @@
     <h1>Everything you need to master<br><em>GroundWorkPM</em></h1>
     <p>An end-to-end walkthrough of every feature and workflow — from signing up to running your daily inbox, collecting rent, escalating arrears, and sending owner reports.</p>
     <div class="meta">
-      <div class="meta-item"><strong>Updated</strong> &nbsp;September 2026</div>
+      <div class="meta-item"><strong>Updated</strong> &nbsp;October 2026</div>
       <div class="meta-item"><strong>Audience</strong> &nbsp;Property managers &amp; admins</div>
       <div class="meta-item"><strong>Tip</strong> &nbsp;Press Ctrl/Cmd + K to search this guide</div>
     </div>
@@ -638,7 +638,7 @@
           <div class="step-num">3</div>
           <div class="step-content">
             <h4>Done — load sample data (optional)</h4>
-            <p>Click <strong>Go to Dashboard →</strong> to start with your empty property, or pick a demo from the card picker and click <strong>Load sample property →</strong>. Demo properties come with 3 months of tenants, income, expenses, and arrears pre-loaded.</p>
+            <p>Click <strong>Go to Dashboard →</strong> to start with your empty property, or pick a demo from the card picker and click <strong>Load sample property →</strong>. Demo properties come with tenants, invoices, income, expenses and a couple of tenants in arrears, plus paid rent back to each lease start — all dated relative to the day you load them.</p>
           </div>
         </div>
       </div>
@@ -746,7 +746,7 @@
       <p>Each row is a real event the system detected — not a configurable filter or a saved view. The inbox aggregates from nine sources:</p>
       <ul class="feature-list">
         <li><strong>Overdue invoices</strong> — any invoice <code>SENT</code> or <code>OVERDUE</code> with a due date in the past</li>
-        <li><strong>Lease expiries</strong> — tenants with a lease ending in ≤30 days (urgent inside 7 days)</li>
+        <li><strong>Lease expiries</strong> — tenants with a lease ending in ≤30 days, and every tenant still in the unit after their lease has ended (urgent, "Lease expired") until you renew the lease, move the tenant out, or mark them <a href="#month-to-month">month-to-month</a></li>
         <li><strong>Urgent maintenance</strong> — jobs marked <code>URGENT</code> still <code>OPEN</code></li>
         <li><strong>Tenant portal requests</strong> — maintenance jobs submitted by tenants, not yet acknowledged</li>
         <li><strong>Compliance certificates</strong> expiring in ≤30 days</li>
@@ -759,7 +759,7 @@
 
     <div class="sub-section">
       <h3>Severity, action, dismiss, snooze</h3>
-      <p>Every row carries one of three severity dots: <span class="badge badge-red">URGENT</span> <span class="badge badge-amber">WARNING</span> <span class="badge badge-blue">INFO</span>. Rows are sorted by severity then by days-overdue. Inline actions resolve the underlying issue without leaving the inbox — "Mark paid" on an overdue invoice, "Assign vendor" on an urgent job, "Send renewal offer" on a lease expiry, and so on. Hint-sourced rows show a <strong>✨ Suggested</strong> badge plus a small ⏰ snooze (1h / 1d / 1w, per-user) and × dismiss control.</p>
+      <p>Every row carries one of three severity dots: <span class="badge badge-red">URGENT</span> <span class="badge badge-amber">WARNING</span> <span class="badge badge-blue">INFO</span>. Rows are sorted by severity then by days-overdue. Inline actions resolve the underlying issue without leaving the inbox — "Mark paid" on an overdue invoice, "Assign vendor" on an urgent job, "Send renewal offer" or "Mark month-to-month" on a lease expiry, and so on. Hint-sourced rows show a <strong>✨ Suggested</strong> badge plus a small ⏰ snooze (1h / 1d / 1w, per-user) and × dismiss control.</p>
     </div>
 
     <div class="sub-section">
@@ -983,6 +983,7 @@
       <div class="callout-body">
         <strong>Demo properties</strong>
         The empty-state on the Properties page also shows the demo property picker. You can load a demo at any time — not just during onboarding.
+        Sample data is dated from the day it was loaded, so once that month has passed the months since would read as unpaid. Admins and managers then see a banner: <strong>Refresh sample data</strong> loads the sample again with today's dates (the confirmation lists anything you added to it, which is replaced). <em>Not now</em> hides the banner until the next month.
       </div>
     </div>
   </div>
@@ -1133,6 +1134,17 @@
       <p>When you set the stage to <strong>RENEWED</strong>, the lease end date updates and the proposed rent is recorded to start the day after the old lease ends. If that day is still ahead, the new rent is scheduled: invoices from that month bill it, and the tenant's monthly rent switches on the day. The Tenants page has a <em>Renewals</em> filter showing everyone currently in the pipeline — the dashboard's Renewals tile lands there too.</p>
     </div>
 
+    <div class="sub-section" id="month-to-month">
+      <h3>Month-to-month after the lease ends</h3>
+      <p style="margin-bottom:12px">When a lease ends and the tenant stays on, the Inbox keeps an urgent <strong>Lease expired</strong> item for them until you decide what happens. If you have agreed that they continue on a rolling basis, click <strong>Mark month-to-month</strong> — on the Inbox item or next to the lease badge on the tenant's page. Then:</p>
+      <ul class="feature-list">
+        <li>The lease shows a blue <span class="badge badge-blue">Month-to-month</span> badge instead of a red "Expired", on the tenants list (with its own filter), the tenant page, the dashboard and the report</li>
+        <li>The tenant leaves the Inbox and the lease alerts — rent, invoices and arrears carry on as normal</li>
+        <li><strong>Undo month-to-month</strong> on the tenant page puts the lease back to expired</li>
+        <li>Saving a new lease end date — by renewing or editing the tenant — starts a new fixed term and clears month-to-month automatically</li>
+      </ul>
+    </div>
+
     <div class="sub-section" id="rent-increases">
       <h3>Rent increases (rent reviews)</h3>
       <p style="margin-bottom:12px">Record a lease's increase terms on the tenant (<strong>Edit</strong> → <em>Rent Increase</em>): a percentage or a fixed amount, how often (every year, every two years…), the first review date (blank = the lease anniversary) and the notice the lease requires (blank = the property default, set on the Management Agreement page — 90 days unless you change it). From then on:</p>
@@ -1219,6 +1231,7 @@
       <ul class="feature-list">
         <li>On a tenant's <strong>billing month</strong> (anchored to their lease start), the <em>Expected</em> column shows the full period amount — labelled e.g. "Quarter in advance"</li>
         <li>In the <strong>covered months</strong> in between, the tenant shows <span class="badge badge-gray">Not due</span> rather than a red "Pending", and is excluded from the progress bar and bulk selection</li>
+        <li><strong>Expected includes the service charge</strong> (shown as "incl. … svc"): an invoice payment covers rent and service charge together, so a tenant who pays rent but not the service charge shows as partly paid — on the Collection and Arrears views, the dashboard, the tenant ledger and the owner statement alike</li>
       </ul>
     </div>
 
@@ -1984,7 +1997,7 @@
         <tbody>
           <tr><td><strong>P&amp;L Preview</strong></td><td>KPI cards, rent collection table per tenant, expense category breakdown, vendor spend, petty cash reconciliation, management fee reconciliation, and an <strong>Arrears Aging</strong> section (top debtors bucketed 30/60/90+ days)</td></tr>
           <tr><td><strong>Annual Summary</strong></td><td>12-month table of income, expenses, and net profit with best-month highlighting</td></tr>
-          <tr><td><strong>Owner Statement</strong></td><td>Per-unit income breakdown, management fee deduction, net payable to landlord — downloadable as a per-property PDF</td></tr>
+          <tr><td><strong>Owner Statement</strong></td><td>Per-unit income breakdown — rent + service charge due against what was received, so a tenant who paid rent but not the service charge shows as short — management fee deduction, net payable to landlord. Downloadable as a per-property PDF</td></tr>
           <tr><td><strong>Tax Summary</strong></td><td>VAT and withholding tax breakdown from expense line items</td></tr>
           <tr><td><strong>Download PDF</strong></td><td>Generate and download a professional PDF report — usable for landlord remittances</td></tr>
           <tr><td><strong>Quarterly Report</strong></td><td>3-month aggregated view ideal for quarterly landlord meetings</td></tr>
@@ -2162,7 +2175,7 @@
 
     <div class="sub-section">
       <h3>What you can import</h3>
-      <p style="margin-bottom:12px">Tabs cover: <strong>tenants, rent history, income, invoices, expenses, recurring expenses, petty cash, units, maintenance, assets, vendors</strong>, and a full-property <strong>handover ZIP</strong> (the counterpart of the property export — moving a whole property between organisations or systems in one file).</p>
+      <p style="margin-bottom:12px">Tabs cover: <strong>tenants, rent history, income, invoices, expenses, recurring expenses, petty cash, units, maintenance, assets, vendors</strong>, and a full-property <strong>handover ZIP</strong> (the counterpart of the property export — moving a whole property between organisations or systems in one file). A handover import creates a property, so like adding one it is for admins only and counts towards your plan's property limit; the property is created in your organisation, in the currency the package carries.</p>
       <ul class="feature-list">
         <li><strong>Rows validate client-side</strong> before anything is sent — errors point at the exact row and column</li>
         <li><strong>Names resolve automatically</strong> — Property Name, Vendor Name, and Unit Number columns are matched to the right records; an unmatched name still imports, just unlinked, with a warning</li>
@@ -2582,7 +2595,7 @@
         <div style="font-size:12px;color:var(--text-muted)">Professional Property Management Software</div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);text-align:right">
-        User Guide · September 2026
+        User Guide · October 2026
       </div>
     </div>
   </div>

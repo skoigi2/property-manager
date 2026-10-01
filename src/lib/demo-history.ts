@@ -16,7 +16,11 @@ import { paidHistoryMonths, recurringMonthlyExpenses } from "@/lib/demo-history-
  * property with unit meters: there are no matching readings, so they would
  * show as a loss in the utilities reconciliation.
  */
-export async function seedPaidHistory(propertyId: string, now: Date = new Date()): Promise<{ invoices: number; expenses: number }> {
+export async function seedPaidHistory(
+  propertyId: string,
+  now: Date = new Date(),
+  opts: { dryRun?: boolean } = {},
+): Promise<{ invoices: number; expenses: number }> {
   const [property, tenants, meters] = await Promise.all([
     prisma.property.findUniqueOrThrow({ where: { id: propertyId }, select: { name: true, organizationId: true } }),
     prisma.tenant.findMany({
@@ -93,14 +97,16 @@ export async function seedPaidHistory(propertyId: string, now: Date = new Date()
     }
   }
 
+  // Re-running is a no-op: the back-filled months become the first seeded
+  // months, so the cutoffs move back to the lease start.
   const created: { id: string; invoiceNumber: string }[] = [];
-  for (let i = 0; i < invoiceRows.length; i += 200) {
+  for (let i = 0; !opts.dryRun && i < invoiceRows.length; i += 200) {
     created.push(
       ...(await prisma.invoice.createManyAndReturn({ data: invoiceRows.slice(i, i + 200), select: { id: true, invoiceNumber: true } })),
     );
   }
   const idByNumber = new Map(created.map((c) => [c.invoiceNumber, c.id]));
-  if (receipts.length) {
+  if (receipts.length && !opts.dryRun) {
     await prisma.incomeEntry.createMany({
       data: receipts.map((r) => ({
         date: r.date,
@@ -118,14 +124,15 @@ export async function seedPaidHistory(propertyId: string, now: Date = new Date()
 
   // ── Running costs for the same months ───────────────────────────────────────
   const activeStarts = tenants.filter((t) => t.isActive).map((t) => new Date(t.leaseStart.getFullYear(), t.leaseStart.getMonth(), 1).getTime());
-  if (activeStarts.length === 0) return { invoices: created.length, expenses: 0 };
+  const invoices = opts.dryRun ? invoiceRows.length : created.length;
+  if (activeStarts.length === 0) return { invoices, expenses: 0 };
   const historyStart = new Date(Math.min(...activeStarts));
 
   const samples = await prisma.expenseEntry.findMany({
     where: { propertyId, scope: ExpenseScope.PROPERTY, isSunkCost: false },
     select: { category: true, description: true, amount: true, date: true, vatAmount: true, vendorId: true, amountPaid: true, paymentMethod: true },
   });
-  if (samples.length === 0) return { invoices: created.length, expenses: 0 };
+  if (samples.length === 0) return { invoices, expenses: 0 };
   const firstSeeded = new Date(Math.min(...samples.map((s) => s.date.getTime())));
   const firstSeededMonth = new Date(firstSeeded.getFullYear(), firstSeeded.getMonth(), 1);
   const metered = meters > 0 ? new Set(["WATER", "ELECTRICITY", "GENERATOR"]) : new Set<string>();
@@ -157,6 +164,6 @@ export async function seedPaidHistory(propertyId: string, now: Date = new Date()
       });
     }
   }
-  if (expenseRows.length) await prisma.expenseEntry.createMany({ data: expenseRows });
-  return { invoices: created.length, expenses: expenseRows.length };
+  if (expenseRows.length && !opts.dryRun) await prisma.expenseEntry.createMany({ data: expenseRows });
+  return { invoices, expenses: expenseRows.length };
 }

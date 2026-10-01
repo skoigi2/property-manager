@@ -36,6 +36,9 @@ npm run db:migrate   # Apply pending migrations (uses DIRECT_URL)
 npm run db:studio    # Open Prisma Studio at localhost:5555
 npm run db:seed:bahrain  # Seed Al Seef Residences demo (Bahrain, 20 units)
 npm run demo:smoke       # Seed every demo into a throwaway org, check arrears + receipts, delete it
+npm run db:drift         # Does the DB match schema.prisma? (after running a new migration's SQL)
+npm run data:health      # Read-only integrity checks (invoice receipts, tenantless rent, unit status, orphan rows, lapsed leases)
+npm run prod -- <script.ts | command>   # Run against PRODUCTION (pulls DIRECT_URL from Vercel, never left on disk)
 # Note: additional demos (sandton-heights, belsize-court) seed via the
 # in-app onboarding picker / POST /api/demo/seed — no dedicated npm script.
 npm start                # Production server (after npm run build)
@@ -44,12 +47,15 @@ npm test             # Vitest unit tests (src/**/*.test.ts) — financial libs c
 npm run test:watch   # Vitest watch mode
 ```
 
-**Schema changes** — `prisma migrate dev` does NOT work (shadow DB incompatibility with Supabase). Instead:
+**Schema changes** — `prisma migrate dev` does NOT work (shadow DB incompatibility with Supabase; the migration history can't rebuild the schema from scratch either — early tables were `db push`ed). Instead:
 1. Edit `prisma/schema.prisma`
-2. Create `prisma/migrations/[YYYYMMDDHHmmss]_[name]/migration.sql` manually with the raw SQL (follow existing files as templates)
-3. `npx prisma db push` — syncs local dev DB
-4. `npx prisma generate` — regenerates the client
-5. Apply the same SQL in the Supabase SQL Editor for production
+2. Create `prisma/migrations/[YYYYMMDDHHmmss]_[name]/migration.sql` manually with the raw SQL (follow existing files as templates; prefer idempotent `IF NOT EXISTS` forms)
+3. `npx prisma db execute --file prisma/migrations/<dir>/migration.sql --schema prisma/schema.prisma` — runs the migration on the local DB. **Not `db push`**: it syncs the schema without proving the migration covers it, which is how production drifted (2026-10-01: missing owner-fee income types, property categories, TAX_ID and nine indexes — `20261001100000_schema_drift_repair`)
+4. `npm run db:drift` — must print "No schema drift"; anything it lists is missing from the migration
+5. `npx prisma generate` — regenerates the client
+6. Production, with the user's approval and **before pushing `main`** (push = deploy): `npm run prod -- npx prisma migrate deploy`, then `npm run prod -- npm run db:drift`. Production's `_prisma_migrations` was baselined on 2026-10-01, so `migrate deploy` applies exactly the new migrations. `KNOWN_DRIFT` in `scripts/schema-drift.ts` lists the reviewed, harmless production differences.
+
+**Production scripts**: `npm run prod -- <script.ts | command> [args]` (`scripts/with-prod.ts`) pulls the production env from Vercel into a temp folder, reads `DIRECT_URL`, deletes the file at once and runs the target with `DATABASE_URL` / `DIRECT_URL` set — credentials never stay on disk. The data scripts (`reseed-demos`, `backfill-demo-history`) are dry runs unless given `--apply`.
 
 **Every new table needs `ALTER TABLE "<Name>" ENABLE ROW LEVEL SECURITY;` in its migration** (no policies — Prisma's `postgres` role bypasses RLS; this closes the table to Supabase's PostgREST API, where `anon` / `authenticated` hold grants on every public table). `src/lib/__tests__/migrations-rls.test.ts` fails CI when a migration creates a table without it; otherwise the Supabase linter flags `rls_disabled_in_public` after the fact.
 

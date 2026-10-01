@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { validatePortalToken } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
-import { propertyManagerWhere } from "@/lib/manager-recipients";
-import { sendNotificationEmail, esc } from "@/lib/email";
+import { notifyTenantMessage } from "@/lib/portal-message-notify";
 
 const replySchema = z.object({
   body: z.string().min(1).max(5000),
@@ -82,38 +81,9 @@ export async function POST(
     }),
   ]);
 
-  // Notify managers
-  try {
-    const property = tenant.unit.property;
-    const orgId = property.organizationId;
-    if (orgId) {
-      const recipients = await prisma.user.findMany({
-        where: propertyManagerWhere(property.id, orgId),
-        select: { email: true, id: true },
-      });
-
-      const subject = `New tenant reply — ${tenant.name}: ${thread.subject}`;
-      const html = `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a2e">
-          <h2 style="margin:0 0 8px 0;font-size:20px">Tenant replied to a thread</h2>
-          <p style="color:#6b7280;font-size:13px;margin-top:0">
-            <strong>${esc(tenant.name)}</strong> · ${esc(property.name)} · Unit ${esc(tenant.unit.unitNumber)}
-          </p>
-          <p style="color:#374151;font-size:14px;margin:12px 0">
-            <strong>Subject:</strong> ${esc(thread.subject)}
-          </p>
-          <pre style="background:#f3f4f6;padding:12px;border-radius:6px;font-family:sans-serif;font-size:13px;white-space:pre-wrap;color:#1a1a2e">${esc(parsed.data.body)}</pre>
-        </div>
-      `;
-      for (const r of recipients) {
-        if (!r.email) continue;
-        try { await sendNotificationEmail(r.email, subject, html, { organizationId: orgId, userId: r.id }); }
-        catch (err) { console.error("[portal-msg-reply] email failed", err); }
-      }
-    }
-  } catch (err) {
-    console.error("[portal-msg-reply] notification block failed", err);
-  }
+  // Email the property's managers (link to the conversation; it's back in
+  // their Inbox regardless) — see src/lib/portal-message-notify.ts.
+  await notifyTenantMessage(thread.id, "reply", parsed.data.body.trim());
 
   return Response.json({ ok: true });
 }

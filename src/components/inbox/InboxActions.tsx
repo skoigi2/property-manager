@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -16,6 +17,7 @@ import {
   MoreVertical,
   UserPlus,
   Clock,
+  Reply as ReplyIcon,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { WhatsAppModal } from "@/components/whatsapp/WhatsAppModal";
@@ -96,6 +98,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
     | "whatsapp";
 
   const [modal, setModal] = useState<ModalKind>(null);
+  const router = useRouter();
   const [tenant, setTenant] = useState<TenantSnapshot | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -224,6 +227,23 @@ export function InboxActions({ item, onActionComplete }: Props) {
         onClick: () => patch(`/api/tenants/${item.refId}/month-to-month`, { monthToMonth: true }, "Marked month-to-month"),
       });
     }
+  }
+
+  if (item.type === "TENANT_MESSAGE" && item.tenantId) {
+    actions.push({
+      key: "reply",
+      label: "Reply",
+      tip: "Opens the conversation on the tenant's Portal Msgs tab. The item clears once you reply.",
+      icon: ReplyIcon,
+      onClick: () => router.push(item.href),
+    });
+    actions.push({
+      key: "resolve-message",
+      label: "Mark resolved",
+      tip: "Closes the conversation without a reply. It comes back if the tenant writes again.",
+      icon: CheckCircle2,
+      onClick: () => patch(`/api/tenants/${item.tenantId}/messages/${item.refId}`, { status: "RESOLVED" }, "Conversation resolved"),
+    });
   }
 
   if (item.type === "URGENT_MAINTENANCE" || item.type === "PORTAL_REQUEST") {

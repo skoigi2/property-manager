@@ -42,9 +42,10 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
   RESOLVED: { bg: "bg-green-100", text: "text-green-700", label: "Resolved" },
 };
 
-export function PortalMessagesTab({ tenantId }: { tenantId: string }) {
+/** `initialThreadId` opens that conversation (the Inbox / notification email deep link `?thread=`). */
+export function PortalMessagesTab({ tenantId, initialThreadId }: { tenantId: string; initialThreadId?: string | null }) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(initialThreadId ?? null);
   const [detail, setDetail] = useState<ThreadDetail | null>(null);
   const [reply, setReply] = useState("");
   const [loading, setLoading] = useState(true);

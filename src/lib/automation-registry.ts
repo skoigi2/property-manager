@@ -95,6 +95,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
 
   // ── Email notifications (email managers + Inbox hint) — on by default ────────
   {
+    key: "NOTIFY_TENANT_MESSAGE",
+    name: "Tenant portal messages",
+    description: "Email managers when a tenant sends a message or replies through the tenant portal, with a link to the conversation. The message shows in the Inbox either way.",
+    trigger: "Tenant message received",
+    actions: ["Email Manager"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_NEW_COMPLAINT",
     name: "New complaint alerts",
     description: "Email managers when a tenant complaint is logged by on-site staff or raised through the tenant portal.",

@@ -222,6 +222,7 @@ Sources covered:
 2. `Tenant.leaseEnd` within 30 days, **and every ended lease of an active tenant** until the manager renews, vacates or marks them month-to-month (severity via `getLeaseStatus`; an ended lease is URGENT "Lease expired" with a "Mark month-to-month" action). It used to drop off 7 days after the end date, after which nothing flagged it — a production tenant ran 16 months past their lease unnoticed
 3. `MaintenanceJob` with `priority=URGENT, status=OPEN`
 4. `MaintenanceJob` with `submittedViaPortal=true, status=OPEN, acknowledgedAt=null` (deduped against #3, max severity wins)
+4b. **Tenant portal messages** (`TENANT_MESSAGE`): every non-RESOLVED `PortalMessageThread` whose latest message is the tenant's — waiting from the first unanswered tenant message (`unansweredSince` in `src/lib/portal-message-inbox.ts`, tested), WARNING, URGENT after 2 days. Actions *Reply* (→ `/tenants/[id]?tab=messages&thread=`, which opens the thread) and *Mark resolved* (`PATCH /api/tenants/[id]/messages/[threadId] { status: "RESOLVED" }`). Computed, so a manager reply clears it and a tenant follow-up brings it back.
 5. `ComplianceCertificate` expiring ≤30 days
 6. `InsurancePolicy.endDate` ≤30 days
 7. `ArrearsCase` with `stage != RESOLVED` and `updatedAt < now-7d` (URGENT for `LEGAL_NOTICE`/`EVICTION`)
@@ -772,7 +773,7 @@ Token-based **self-service** portal for tenants — no login required, shareable
 - `GET /api/portal/[token]/invoices/[invoiceId]/pdf` — full invoice PDF
 - `GET /api/portal/[token]/invoices/[invoiceId]/receipt` — simplified one-page receipt PDF (`src/lib/receipt-pdf.tsx`); only valid for `status === "PAID"` invoices
 - `POST /api/portal/[token]/invoices/[invoiceId]/proof` — **hybrid proof of payment**: accepts `multipart/form-data` with optional `file` (image/PDF, ≤10 MB) and/or `text` (≤2000 chars). Sets `Invoice.status = "PENDING_VERIFICATION"`, populates `proofOfPaymentUrl` (storage path) / `proofOfPaymentText` / `proofOfPaymentType` (`FILE` | `TEXT` | `BOTH`) / `proofSubmittedAt`. Notifies managers via `sendNotificationEmail` with HTML-escaped body
-- `GET/POST /api/portal/[token]/messages`, `GET/POST /api/portal/[token]/messages/[threadId]` — two-way tenant ↔ manager threads. Categories: `LEASE_QUERY`, `PAYMENT_NOTIFICATION`, `PERMISSION_REQUEST`, `GENERAL`. Tenant POST → email to ADMIN/MANAGER recipients
+- `GET/POST /api/portal/[token]/messages`, `GET/POST /api/portal/[token]/messages/[threadId]` — two-way tenant ↔ manager threads. Categories: `LEASE_QUERY`, `PAYMENT_NOTIFICATION`, `PERMISSION_REQUEST`, `GENERAL`. Tenant POST (new thread or reply) → `notifyTenantMessage` (`src/lib/portal-message-notify.ts`): `getPropertyManagers` (org-email fallback), gated by the `NOTIFY_TENANT_MESSAGE` NOTIFICATION automation (default on) and each recipient's opt-out, with an *Open conversation* deep link; the thread also lands in the Inbox (4b above) whatever the toggle
 - `GET/POST /api/portal/[token]/maintenance` — GET returns only `submittedViaPortal: true` jobs; POST creates a job with `submittedViaPortal: true`, `priority: MEDIUM`, `status: OPEN`
 
 **Manager-side routes** (require `requireManager()` + property-access guard):

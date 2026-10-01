@@ -743,12 +743,13 @@
 
     <div class="sub-section">
       <h3>What appears in the inbox</h3>
-      <p>Each row is a real event the system detected — not a configurable filter or a saved view. The inbox aggregates from nine sources:</p>
+      <p>Each row is a real event the system detected — not a configurable filter or a saved view. The inbox aggregates from ten sources:</p>
       <ul class="feature-list">
         <li><strong>Overdue invoices</strong> — any invoice <code>SENT</code> or <code>OVERDUE</code> with a due date in the past</li>
         <li><strong>Lease expiries</strong> — tenants with a lease ending in ≤30 days, and every tenant still in the unit after their lease has ended (urgent, "Lease expired") until you renew the lease, move the tenant out, or mark them <a href="#month-to-month">month-to-month</a></li>
         <li><strong>Urgent maintenance</strong> — jobs marked <code>URGENT</code> still <code>OPEN</code></li>
         <li><strong>Tenant portal requests</strong> — maintenance jobs submitted by tenants, not yet acknowledged</li>
+        <li><strong>Tenant messages</strong> — a conversation from the tenant portal waiting for your reply (urgent after two days). <em>Reply</em> opens it on the tenant's page; <em>Mark resolved</em> closes it. It leaves the Inbox when someone replies or resolves it, and comes back if the tenant writes again</li>
         <li><strong>Compliance certificates</strong> expiring in ≤30 days</li>
         <li><strong>Insurance policies</strong> ending in ≤30 days</li>
         <li><strong>Arrears cases</strong> not resolved and untouched for &gt;7 days</li>
@@ -1032,7 +1033,7 @@
           <tr><td><strong>Renewal</strong></td><td>Progress the lease renewal pipeline (Notice Sent → Terms Agreed → Renewed), set proposed rent and end date</td></tr>
           <tr><td><strong>Deposit</strong></td><td>See the deposit position (contractual vs actually received), the list of deposit receipts (each downloadable / emailable), link stray deposit entries, and record settlement with itemised deductions</td></tr>
           <tr><td><strong>Comms</strong></td><td>Every email and WhatsApp message sent to the tenant, with templates for rent reminders, receipts, and renewal offers. WhatsApp entries carry a green <em>WhatsApp</em> badge and are recorded as <em>send attempts</em> — see <a href="#whatsapp">WhatsApp reminders</a></td></tr>
-          <tr><td><strong>Portal Msgs</strong></td><td>Read and reply to two-way message threads the tenant opens from their portal. A thread that is really a grievance has a <strong>Log as complaint</strong> button — it opens a complaint pre-filled from the thread and links the two, so the chat history and the formal record stay together.</td></tr>
+          <tr><td><strong>Portal Msgs</strong></td><td>Read and reply to two-way message threads the tenant opens from their portal. You don't have to check here: a new message or reply lands in your <a href="#inbox">Inbox</a> and is emailed to the property's managers (with a link straight to the conversation — the <em>Tenant portal messages</em> switch on the Automations page). A thread that is really a grievance has a <strong>Log as complaint</strong> button — it opens a complaint pre-filled from the thread and links the two, so the chat history and the formal record stay together.</td></tr>
           <tr><td><strong>Complaints</strong></td><td>Every complaint this tenant has raised or been the subject of, with stage, category and SLA status, plus a <em>Log complaint</em> button pre-filled with the tenant and unit. See <a href="#complaints">Tenant Complaints</a>.</td></tr>
         </tbody>
       </table>
@@ -2417,7 +2418,7 @@
           <tr><td><strong>Overview</strong></td><td>Lease dates, monthly rent, outstanding balance, the <strong>security deposit</strong> (received vs due, with a receipt link per payment), and recent invoices with status and PDF download</td></tr>
           <tr><td><strong>Balance</strong></td><td>A full statement-style ledger — every invoice issued and payment received, with a running total invoiced / paid / outstanding. Every payment (rent, deposit, fees) carries a numbered <strong>receipt PDF</strong>; a move-in payment shows its rent / deposit / fee lines on one receipt.</td></tr>
           <tr><td><strong>Files</strong></td><td>The receipts for every payment, followed by documents shared by the manager (lease agreement, notices) and any payment proofs the tenant uploaded, with secure download links</td></tr>
-          <tr><td><strong>Messages</strong></td><td>Two-way message threads with the manager — lease queries, payment notifications, permission requests, general questions</td></tr>
+          <tr><td><strong>Messages</strong></td><td>Two-way message threads with the manager — lease queries, payment notifications, permission requests, general questions. Each message shows up in the manager's Inbox until they answer it</td></tr>
           <tr><td><strong>Request</strong></td><td>A <em>Repair request / Complaint</em> toggle. Repairs take a title, description, category and emergency flag and land on your Maintenance board. Complaints take a category (noise, neighbour, security, premises, other) and land on your Complaints page. Both lists show the tenant the stage of everything they've submitted; <em>My complaints</em> also shows any notes you marked visible and the resolution note.</td></tr>
         </tbody>
       </table>

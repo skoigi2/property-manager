@@ -4,6 +4,7 @@ import { differenceInDays } from "date-fns";
 import { getLeaseStatus } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { invoiceReminderFigures } from "@/lib/rent-reminder-figures";
+import { daysWaiting, tenantMessageHref, tenantMessageSeverity, unansweredSince } from "@/lib/portal-message-inbox";
 
 export type InboxSeverity = "URGENT" | "WARNING" | "INFO";
 
@@ -12,6 +13,7 @@ export type InboxType =
   | "LEASE_EXPIRY"
   | "URGENT_MAINTENANCE"
   | "PORTAL_REQUEST"
+  | "TENANT_MESSAGE"
   | "COMPLIANCE_EXPIRY"
   | "INSURANCE_EXPIRY"
   | "WARRANTY_EXPIRY"
@@ -155,6 +157,7 @@ export async function buildInbox(
     pendingApprovals,
     meterReadings,
     unreadMeters,
+    portalThreads,
   ] = await Promise.all([
     // 1. Overdue invoices
     prisma.invoice.findMany({
@@ -311,6 +314,26 @@ export async function buildInbox(
       },
       select: { property: { select: { id: true, name: true, currency: true } } },
     }),
+    // 12. Tenant portal messages waiting on a reply (open threads; the
+    // tenant-spoke-last filter is applied below from the latest messages).
+    prisma.portalMessageThread.findMany({
+      where: {
+        status: { in: ["SENT", "READ"] },
+        tenant: { unit: { propertyId: { in: propertyIds } } },
+      },
+      select: {
+        id: true,
+        subject: true,
+        messages: { select: { sender: true, createdAt: true, body: true }, orderBy: { createdAt: "desc" }, take: 20 },
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            unit: { select: { id: true, unitNumber: true, property: { select: { id: true, name: true, currency: true } } } },
+          },
+        },
+      },
+    }),
   ]);
 
   const items: InboxItem[] = [];
@@ -426,6 +449,35 @@ export async function buildInbox(
     });
   }
   items.push(...Array.from(jobMap.values()));
+
+  // 12. Tenant portal messages the manager hasn't answered yet — one row per
+  // thread; it leaves the Inbox when a manager replies or resolves it and
+  // comes back if the tenant writes again.
+  for (const th of portalThreads) {
+    const since = unansweredSince(th.messages);
+    if (!since) continue;
+    const latest = th.messages.find((m) => m.sender === "TENANT");
+    const snippet = (latest?.body ?? "").replace(/\s+/g, " ").trim();
+    const property = th.tenant.unit.property;
+    const href = tenantMessageHref(th.tenant.id, th.id);
+    items.push({
+      id: `message:${th.id}`,
+      refId: th.id,
+      type: "TENANT_MESSAGE",
+      severity: tenantMessageSeverity(since, now),
+      title: `Tenant message — Unit ${th.tenant.unit.unitNumber}, ${th.tenant.name}`,
+      subtitle: `“${th.subject}” · ${snippet.length > 80 ? `${snippet.slice(0, 80)}…` : snippet}`,
+      propertyId: property.id,
+      propertyName: property.name,
+      propertyCurrency: property.currency,
+      tenantId: th.tenant.id,
+      unitId: th.tenant.unit.id,
+      dueDate: since.toISOString(),
+      daysOverdue: daysWaiting(since, now),
+      href,
+      actions: [{ label: "Reply", action: href }],
+    });
+  }
 
   // 5. Compliance certificates
   for (const cert of complianceCerts) {

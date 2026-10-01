@@ -1403,7 +1403,7 @@ export default function TenantDetailPage() {
 
                 {/* ── PORTAL MESSAGES TAB ────────────────────────────────────── */}
                 {tab === "messages" && (
-                  <PortalMessagesTab tenantId={tenantId} />
+                  <PortalMessagesTab tenantId={tenantId} initialThreadId={searchParams.get("thread")} />
                 )}
 
                 {/* ── UTILITIES TAB ──────────────────────────────────────────── */}

@@ -75,6 +75,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     ["Property Name",  property.name],
     ["Address",        property.address ?? ""],
     ["City",           property.city ?? ""],
+    ["Currency",       property.currency],
     ["Type",           property.type],
     ["Total Units",    property.units.length],
     ["Total Tenants",  tenants.length],
@@ -121,7 +122,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   XLSX.utils.book_append_sheet(wb, wsExpense, "Expense Ledger");
 
   // Sheet 4 — Tenant Directory
-  const tenantHeaders = ["Name", "Email", "Phone", "Unit", "Monthly Rent (KSh)", "Service Charge (KSh)", "Deposit (KSh)", "Lease Start", "Lease End", "Status", "Renewal Stage"];
+  const tenantHeaders = ["Name", "Email", "Phone", "Unit", "Monthly Rent (KSh)", "Service Charge (KSh)", "Deposit (KSh)", "Lease Start", "Lease End", "Status", "Renewal Stage", "Month-to-month"];
   const tenantRows = tenants.map((t) => [
     t.name,
     t.email ?? "",
@@ -134,9 +135,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     fmtDate(t.leaseEnd),
     t.isActive ? "Active" : "Vacated",
     t.renewalStage,
+    t.monthToMonth ? "Yes" : "",
   ]);
   const wsTenants = XLSX.utils.aoa_to_sheet([tenantHeaders, ...tenantRows]);
-  wsTenants["!cols"] = [22,25,15,10,18,18,16,14,14,10,16].map((w) => ({ wch: w }));
+  wsTenants["!cols"] = [22,25,15,10,18,18,16,14,14,10,16,14].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, wsTenants, "Tenant Directory");
 
   // Sheet 5 — Owner Invoices

@@ -169,8 +169,16 @@ export async function POST(req: Request) {
     }
   }
   try {
+    // No currency sent → the organisation's default (never the database
+    // default, which production had as KES for every customer).
+    const currency =
+      propertyData.currency ||
+      (resolvedOrgId
+        ? (await prisma.organization.findUnique({ where: { id: resolvedOrgId }, select: { defaultCurrency: true } }))?.defaultCurrency
+        : undefined) ||
+      "USD";
     const property = await prisma.property.create({
-      data: { ...propertyData, organizationId: resolvedOrgId },
+      data: { ...propertyData, currency, organizationId: resolvedOrgId },
     });
     if (paymentAccountId) {
       await prisma.managementAgreement.upsert({

@@ -1,5 +1,6 @@
 import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { canAddProperty } from "@/lib/subscription";
 import { logAudit } from "@/lib/audit";
 import { uploadToStorage } from "@/lib/supabase-storage";
 import * as XLSX from "xlsx";
@@ -70,6 +71,20 @@ const VALID_PLATFORMS = new Set(["AIRBNB","BOOKING_COM","DIRECT","AGENT"]);
 export async function POST(req: Request) {
   const { session, error } = await requireManagerWrite();
   if (error) return error;
+
+  // A handover import creates a property: the same rules as adding one
+  // (POST /api/properties) — admins only, within the plan's property limit.
+  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  if (!isSuperAdmin && session!.user.orgRole !== "ADMIN") {
+    return Response.json({ error: "Only admins can add properties, including from a handover package." }, { status: 403 });
+  }
+  const organizationId = session!.user.organizationId ?? null;
+  if (organizationId && !(await canAddProperty(organizationId))) {
+    return Response.json(
+      { error: "Property limit reached for your current plan. Upgrade to add more properties." },
+      { status: 402 },
+    );
+  }
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -155,7 +170,10 @@ export async function POST(req: Request) {
   }
 
   // Check for duplicate property name
-  const existing = await prisma.property.findFirst({ where: { name: { equals: propName, mode: "insensitive" } } });
+  // Duplicate names are checked within the importing organisation only.
+  const existing = await prisma.property.findFirst({
+    where: { name: { equals: propName, mode: "insensitive" }, organizationId },
+  });
   if (existing) {
     return Response.json(
       { error: `A property named "${propName}" already exists. Rename it in the XLSX Summary sheet before importing.` },
@@ -163,19 +181,30 @@ export async function POST(req: Request) {
     );
   }
 
-  // Create property
+  // Create property — in the importer's organisation (it used to be created
+  // with none, visible to nobody), in the package's currency, else the org's.
+  const org = organizationId
+    ? await prisma.organization.findUnique({ where: { id: organizationId }, select: { defaultCurrency: true } })
+    : null;
   const property = await prisma.property.create({
     data: {
       name:    propName,
       type:    propTypeRaw as "AIRBNB" | "LONGTERM",
       address: propAddress,
       city:    propCity,
+      organizationId,
+      currency: summaryMap["Currency"] || org?.defaultCurrency || "USD",
     },
   });
 
-  // Grant access to the importing manager
-  await prisma.propertyAccess.create({
-    data: { userId: session!.user.id, propertyId: property.id },
+  // Every member of the organisation sees it (as with POST /api/properties),
+  // and always the importer.
+  const memberIds = organizationId
+    ? (await prisma.userOrganizationMembership.findMany({ where: { organizationId }, select: { userId: true } })).map((m) => m.userId)
+    : [];
+  await prisma.propertyAccess.createMany({
+    data: Array.from(new Set([...memberIds, session!.user.id])).map((userId) => ({ userId, propertyId: property.id })),
+    skipDuplicates: true,
   });
 
   await logAudit({
@@ -269,6 +298,7 @@ export async function POST(req: Request) {
           leaseStart,
           leaseEnd,
           isActive,
+          monthToMonth:  str(row["Month-to-month"]).toLowerCase() === "yes",
         },
       });
       tenantNameMap.set(name.toLowerCase(), tenant.id);

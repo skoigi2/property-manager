@@ -70,6 +70,14 @@ export const DATA_HEALTH_CHECKS: DataHealthCheck[] = [
         where "propertyId" is null and "organizationId" is null having count(*) > 0`,
   },
   {
+    name: "Properties with no organisation",
+    why: "Every org-scoped screen filters by organisation, so a property without one is visible only to a super-admin.",
+    sql: () => `
+      select p.name as property, p.id as ref, p."createdAt"::date::text as created, p."isDemo" as sample,
+             (select count(*) from "Unit" u where u."propertyId" = p.id)::int as units
+      from "Property" p where p."organizationId" is null`,
+  },
+  {
     name: "Paid owner invoices without income",
     why: "Marking an owner invoice PAID books its fee income; without it the manager's revenue is understated.",
     sql: (demoFilter) => `

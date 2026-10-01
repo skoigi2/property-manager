@@ -26,7 +26,6 @@ const KNOWN_DRIFT: { match: string; why: string }[] = [
   { match: `"CaseEvent" ALTER COLUMN "attachmentUrls" DROP DEFAULT`, why: "client-side default" },
   { match: `"PaymentAccount" ALTER COLUMN "updatedAt" DROP DEFAULT`, why: "client-side default" },
   { match: `"UserOrganizationMembership" ALTER COLUMN "id" DROP DEFAULT`, why: "client-side default" },
-  { match: `"Property" ALTER COLUMN "city" DROP DEFAULT`, why: "prod keeps its own city / currency defaults (left as they are)" },
 ];
 
 const diff = spawnSync(

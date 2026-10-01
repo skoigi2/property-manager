@@ -384,7 +384,8 @@ PDF: `GET /api/owner-invoices/[id]/pdf` (uses `owner-invoice-pdf.tsx`).
 ### Import / Export (Handover)
 
 - `GET /api/properties/[id]/export` — exports full property data as a ZIP containing an XLSX workbook (sheets: summary, units, tenants, income, expenses, petty-cash, owner-invoices, documents)
-- `POST /api/import/handover` — imports a property from a handover ZIP; validates and upserts all sheets, creates an audit log entry on completion
+- `POST /api/import/handover` — imports a property from a handover ZIP; validates and upserts all sheets, creates an audit log entry on completion. It creates a property, so the same rules as `POST /api/properties` apply: admins only (`orgRole` ADMIN or super-admin), `canAddProperty` plan limit, created in the importer's organisation (it used to be created with none — invisible to everyone), currency from the Summary sheet's "Currency" row else `Organization.defaultCurrency`, duplicate names checked within the organisation, every org member granted access. The export carries "Currency" and the tenants' "Month-to-month" column.
+- New properties without a currency get `Organization.defaultCurrency` (`POST /api/properties`). Production's `Property` column defaults were city "Nairobi" / currency "KES" until migration `20261001140000_property_defaults` aligned them with the schema.
 
 ### Bulk row importers (`/import` page)
 

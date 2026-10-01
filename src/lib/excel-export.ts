@@ -268,12 +268,12 @@ export function exportPettyCash(
 
 // ── Tenants ───────────────────────────────────────────────────────────────────
 
-function leaseStatusLabel(leaseEnd: string | null): string {
+function leaseStatusLabel(leaseEnd: string | null, monthToMonth?: boolean): string {
   if (!leaseEnd) return "TBC";
   const d = new Date(leaseEnd);
   const today = new Date();
   const diff = Math.floor((d.getTime() - today.getTime()) / 86400000);
-  if (diff < 0) return "Expired";
+  if (diff < 0) return monthToMonth ? "Month-to-month" : "Expired";
   if (diff <= 60) return "Expiring Soon";
   return "Active";
 }
@@ -301,7 +301,7 @@ export function exportTenants(tenants: any[], currency?: string) {
     kshs(t.depositAmount),
     fmtDate(t.leaseStart),
     fmtDate(t.leaseEnd),
-    leaseStatusLabel(t.leaseEnd),
+    leaseStatusLabel(t.leaseEnd, t.monthToMonth),
     t.isActive ? "Active" : "Vacated",
     fmtDate(t.vacatedDate),
   ]);

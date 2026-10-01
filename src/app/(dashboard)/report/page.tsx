@@ -64,15 +64,6 @@ type Tab = "preview" | "annual" | "owner" | "download" | "quarterly" | "tax";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function Stat({ label, value, color, currency = "USD" }: { label: string; value: number; color: string; currency?: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-label text-gray-400 uppercase ">{label}</span>
-      <CurrencyDisplay currency={currency} amount={value} className={`font-medium ${color}`} size="md" />
-    </div>
-  );
-}
-
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3 className=" text-h3 text-header mb-3 pb-2 border-b border-gray-100 flex items-center gap-2">
@@ -96,8 +87,7 @@ function AmountCell({ value, strikethrough = false, currency = "USD" }: { value:
 // ── P&L Preview Tab ────────────────────────────────────────────────────────────
 
 function PLPreview({ year, month, selectedId }: { year: string; month: string; selectedId?: string | null }) {
-  const { selected } = useProperty();
-  const currency = useProperty().currency;
+  const { currency } = useProperty();
   const fmt = (n: number) => formatCurrency(n, currency);
   const [data, setData]       = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -810,8 +800,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
 // ── Annual Summary Tab ─────────────────────────────────────────────────────────
 
 function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string | null }) {
-  const { selected } = useProperty();
-  const currency = useProperty().currency;
+  const { currency } = useProperty();
   const fmt = (n: number) => formatCurrency(n, currency);
   const [months, setMonths]   = useState<MonthSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -921,7 +910,6 @@ function AnnualSummary({ year, selectedId }: { year: string; selectedId?: string
             </thead>
             <tbody>
               {months.map((m) => {
-                const netIncome = m.grossIncome - m.agentCommissions;
                 const margin    = m.grossIncome > 0 ? ((m.netProfit / m.grossIncome) * 100).toFixed(1) : "—";
                 const isEmpty   = m.grossIncome === 0 && m.totalExpenses === 0;
                 return (

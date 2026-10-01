@@ -9,6 +9,7 @@ import { rentSideDueForMonth } from "@/lib/rent-ledger";
 import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
+import type { Session } from "next-auth";
 import { formatCurrency } from "@/lib/currency";
 import { buildTaxSummary, expenseTaxItems } from "@/lib/tax-engine";
 import { buildAgingSnapshot } from "@/lib/arrears-aging";
@@ -278,7 +279,7 @@ async function buildRemittance(
 
 // ── Shared data builder ────────────────────────────────────────────────────────
 
-async function buildReportData(y: number, m: number, session: any, propertyIds: string[]): Promise<ReportData> {
+async function buildReportData(y: number, m: number, session: Session, propertyIds: string[]): Promise<ReportData> {
   const { from, to } = getMonthRange(y, m);
   const periodLabel = format(from, "MMMM yyyy");
 
@@ -457,8 +458,8 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   // Vendor spend
   const vendorSpendMap: Record<string, { name: string; category: string; totalSpend: number; expenseCount: number }> = {};
   for (const e of expenseEntries) {
-    if (!(e as any).vendor) continue;
-    const v = (e as any).vendor;
+    if (!e.vendor) continue;
+    const v = e.vendor;
     if (!vendorSpendMap[v.id]) {
       vendorSpendMap[v.id] = { name: v.name, category: v.category, totalSpend: 0, expenseCount: 0 };
     }
@@ -531,7 +532,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const remittance = await buildRemittance(netProfit, propertyIds, monthStart, monthEndExcl);
 
   // Tax summary
-  const allLineItems = expenseTaxItems(expenseEntries as any);
+  const allLineItems = expenseTaxItems(expenseEntries);
   const taxSummary = buildTaxSummary(incomeEntries, allLineItems);
 
   // Arrears aging (point-in-time, invoice-based)
@@ -587,7 +588,7 @@ async function buildRangeReportData(
   periodLabel: string,
   monthsMult: number,
   daysInRange: number,
-  session: any,
+  session: Session,
   propertyIds: string[],
 ): Promise<ReportData> {
   const [properties, tenants, incomeEntries, expenseEntries, pettyCash, agreements, feeConfigs] = await Promise.all([
@@ -766,8 +767,8 @@ async function buildRangeReportData(
   // Vendor spend
   const vendorSpendMap: Record<string, { name: string; category: string; totalSpend: number; expenseCount: number }> = {};
   for (const e of expenseEntries) {
-    if (!(e as any).vendor) continue;
-    const v = (e as any).vendor;
+    if (!e.vendor) continue;
+    const v = e.vendor;
     if (!vendorSpendMap[v.id]) {
       vendorSpendMap[v.id] = { name: v.name, category: v.category, totalSpend: 0, expenseCount: 0 };
     }
@@ -866,7 +867,7 @@ async function buildRangeReportData(
   const depositSummaryQ = await buildDepositSummary(tenants, periodEndQ);
   const remittanceQ = await buildRemittance(netProfit, propertyIds, from, to);
 
-  const allLineItemsQ = expenseTaxItems(expenseEntries as any);
+  const allLineItemsQ = expenseTaxItems(expenseEntries);
   const taxSummaryQ   = buildTaxSummary(incomeEntries, allLineItemsQ);
   // `to` is exclusive in the range builder — the period's last instant is just before it.
   const arrearsAgingQ = await buildReportAging(propertyIds, new Date(to.getTime() - 1));

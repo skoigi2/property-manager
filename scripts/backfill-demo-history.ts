@@ -14,17 +14,7 @@
  *
  * Uses DATABASE_URL; point it at another database by setting that env var.
  */
-import Module from "module";
-import path from "path";
-
-// The libs guard themselves with `import "server-only"`, a marker Next.js
-// resolves at build time and that isn't installed as a package. A script is
-// server-side, so resolve it to an empty module.
-const mod = Module as unknown as { _resolveFilename: (request: string, ...rest: unknown[]) => string };
-const resolve = mod._resolveFilename;
-mod._resolveFilename = function (request: string, ...rest: unknown[]) {
-  return resolve.call(this, request === "server-only" ? path.join(__dirname, "empty-module.js") : request, ...rest);
-};
+import "./server-only-shim";
 
 async function main() {
   const { prisma } = await import("@/lib/prisma");

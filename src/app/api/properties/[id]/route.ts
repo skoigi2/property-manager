@@ -4,6 +4,7 @@ export const maxDuration = 60;
 
 import { requirePropertyAccess, requireSuperAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { deletePropertyOps } from "@/lib/property-delete";
 import { auth } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -217,40 +218,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     );
   }
 
-  // Transaction: delete orphaned chains in FK-safe order, then the property itself.
-  // Note: TenantDocument/Invoice/DepositSettlement/CheckoutProcess/CommunicationLog/
-  //       PortalMessageThread cascade when Tenant is deleted.
-  //       ExpenseLineItem/ExpenseUnitAllocation/ExpenseDocument/PettyCash(linked) cascade
-  //       when ExpenseEntry is deleted; ConditionReportPhoto cascades with ConditionReport.
-  //       MaintenanceJob/OwnerInvoice/ArrearsCase/InsurancePolicy/Asset/ManagementAgreement/
-  //       BuildingConditionReport/PropertyAccess/CaseThread/TaxConfiguration/
-  //       ComplianceCertificate/OwnerPayout all have onDelete:Cascade on the Property relation.
-  // FK-Restrict blockers that MUST be cleared before units/property go:
-  //   - ConditionReport (required unit + property FKs, nothing cascades it)
-  //   - ExpenseUnitAllocation (required unit FK — cleared via deleting the
-  //     property-linked expenses BEFORE units, plus an explicit pass for
-  //     allocations that belong to portfolio/other-scope expenses)
   try {
-    await prisma.$transaction([
-      prisma.conditionReport.deleteMany({ where: { propertyId: params.id } }),
-      prisma.expenseUnitAllocation.deleteMany({ where: { unit: { propertyId: params.id } } }),
-      prisma.incomeEntry.deleteMany({ where: { unit: { propertyId: params.id } } }),
-      prisma.managementFeeConfig.deleteMany({ where: { unit: { propertyId: params.id } } }),
-      prisma.tenant.deleteMany({ where: { unit: { propertyId: params.id } } }),
-      // Before units: also removes unit-scoped rows (propertyId null, unitId set),
-      // which previously survived as orphaned property-less expenses.
-      prisma.expenseEntry.deleteMany({
-        where: { OR: [{ propertyId: params.id }, { unit: { propertyId: params.id } }] },
-      }),
-      // Unit-linked rows must go BEFORE units — the optional unit FKs SetNull on
-      // unit deletion, so a later `unit: { propertyId }` filter matches nothing.
-      prisma.recurringExpense.deleteMany({
-        where: { OR: [{ propertyId: params.id }, { unit: { propertyId: params.id } }] },
-      }),
-      prisma.unit.deleteMany({ where: { propertyId: params.id } }),
-      prisma.pettyCash.deleteMany({ where: { propertyId: params.id } }),
-      prisma.property.delete({ where: { id: params.id } }),
-    ]);
+    await prisma.$transaction(deletePropertyOps(params.id));
   } catch (err) {
     // Surface the real blocker (usually an unhandled FK) instead of an opaque 500.
     console.error("[DELETE /api/properties/[id]] failed:", err);

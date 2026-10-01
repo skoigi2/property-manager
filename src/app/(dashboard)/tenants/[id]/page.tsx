@@ -770,7 +770,7 @@ export default function TenantDetailPage() {
                 <p className="text-label text-gray-400 uppercase ">Balance</p>
                 <CurrencyDisplay currency={currency} amount={totalArrears} className={`block mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`} size="lg" />
                 <p className={`text-caption mt-1 ${totalArrears >= 0 ? "text-income" : "text-expense"}`}>
-                  {totalArrears >= 0 ? "Overpaid / Advance" : "In arrears"}
+                  {totalArrears > 0.5 ? "Overpaid / Advance" : totalArrears >= -0.5 ? "Up to date" : "In arrears"}
                 </p>
               </Card>
               <Card padding="sm">

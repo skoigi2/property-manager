@@ -18,6 +18,7 @@ import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases
 import { getWorkflow, getStageByIndex, getStageByKey, computeDefaultStageSlaHours } from "@/lib/case-workflows";
 import { startOfMonth, subMonths } from "date-fns";
 import { seedDemoUtilities, demoUtilitiesState, clearDemoUtilities } from "@/lib/demo-utilities";
+import { seedPaidHistory } from "@/lib/demo-history";
 
 // Seeding does hundreds of inserts; on Vercel (higher per-query latency than
 // local) this can exceed 60 s. Raise to the platform max and run independent
@@ -1101,6 +1102,10 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
     ],
   });
 
+  // Paid rent and running costs back to the lease start, so tenant ledgers
+  // don't count the months before the seeded window as arrears.
+  await seedPaidHistory(property.id, now);
+
   return property;
 }
 
@@ -1682,6 +1687,10 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
       },
     },
   });
+
+  // Paid rent and running costs back to the lease start, so tenant ledgers
+  // don't count the months before the seeded window as arrears.
+  await seedPaidHistory(property.id, now);
 
   return property;
 }
@@ -2661,6 +2670,10 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
     ],
   });
 
+  // Paid rent and running costs back to the lease start, so tenant ledgers
+  // don't count the months before the seeded window as arrears.
+  await seedPaidHistory(property.id, now);
+
   return property;
 }
 
@@ -3487,6 +3500,10 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
       mgmtPaymentInstructions: "Please pay via BACS quoting your property reference. Invoices settled within 7 working days of issue.",
     },
   });
+
+  // Paid rent and running costs back to the lease start, so tenant ledgers
+  // don't count the months before the seeded window as arrears.
+  await seedPaidHistory(property.id, now);
 
   return property;
 }

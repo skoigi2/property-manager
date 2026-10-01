@@ -795,6 +795,8 @@ Token-based **self-service** portal for tenants — no login required, shareable
   - `"sandton-heights"` → Sandton Heights (South Africa)
   - `"belsize-court"` → Belsize Court (UK)
 
+**Back history** (`seedPaidHistory` in `src/lib/demo-history.ts`, pure planning in `demo-history-plan.ts`, tested): demo leases start a year (or two) back but each seed only writes the last 3–4 months, and the tenant ledger / Income Arrears view count from lease start — so every demo seed ends by back-filling, per tenant, a PAID invoice + LONGTERM_RENT receipt for each billing month before its first seeded month (amounts from the same RentHistory + payment-schedule rules the ledger uses; a former tenant is filled to their move-out), plus the property's monthly running costs (PROPERTY-scope expenses seen in ≥ 2 seeded months) for the same stretch. Metered water / electricity / generator costs are skipped on a property with unit meters (no readings to match). A new demo seed must call it before returning.
+
 **pgBouncer constraint**: Supabase uses pgBouncer in transaction pooling mode. This makes the callback-form `prisma.$transaction(async (tx) => {...})` incompatible — it silently commits partial work. Always use sequential `await` calls with manual cleanup, or the array-form `prisma.$transaction([op1, op2, ...])` for atomic operations.
 
 ### Setup Progress Visibility

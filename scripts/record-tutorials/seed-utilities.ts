@@ -41,7 +41,7 @@ type SheetRowDto = {
 };
 
 /** Minimal cookie-jar client for the app's own API (NextAuth credentials login). */
-class ApiSession {
+export class ApiSession {
   private jar = new Map<string, string>();
 
   private absorb(res: Response) {

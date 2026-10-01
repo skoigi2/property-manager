@@ -5,8 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getMonthRange, getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
-import { resolveExpectedRent } from "@/lib/rent-resolution";
-import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { rentSideDueForMonth } from "@/lib/rent-ledger";
 import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
@@ -381,14 +380,9 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const rentCollection = riaraTenants.map((t) => {
     const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
-    const sched = scheduledExpectedForMonth({
-      leaseStart: t.leaseStart,
-      frequency: t.paymentFrequency,
-      month: from,
-      rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
-    });
-    const expectedRent  = sched.amount;
-    const serviceCharge = sched.due ? t.serviceCharge * frequencyMonths(t.paymentFrequency) : 0;
+    const due = rentSideDueForMonth(t, from);
+    const expectedRent  = due.rent;
+    const serviceCharge = due.serviceCharge;
     return {
       tenantName:    t.isActive ? t.name : `${t.name} (vacated)`,
       unit:          t.unit.unitNumber,
@@ -703,14 +697,9 @@ async function buildRangeReportData(
       const mStart = new Date(from.getFullYear(), from.getMonth() + i, 1);
       if (mStart.getTime() > tenancyEndMs) break;
       if (new Date(from.getFullYear(), from.getMonth() + i + 1, 0) < t.leaseStart) continue;
-      const sched = scheduledExpectedForMonth({
-        leaseStart: t.leaseStart,
-        frequency: t.paymentFrequency,
-        month: mStart,
-        rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
-      });
-      expectedRent += sched.amount;
-      if (sched.due) serviceCharge += t.serviceCharge * frequencyMonths(t.paymentFrequency);
+      const due = rentSideDueForMonth(t, mStart);
+      expectedRent += due.rent;
+      serviceCharge += due.serviceCharge;
     }
     return {
       tenantName:    t.isActive ? t.name : `${t.name} (vacated)`,

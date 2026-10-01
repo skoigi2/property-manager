@@ -1,16 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { getMonthRange } from "@/lib/date-utils";
 import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
-import { resolveExpectedRent } from "@/lib/rent-resolution";
-import { scheduledExpectedForMonth } from "@/lib/rent-schedule";
+import { rentSideDueForMonth } from "@/lib/rent-ledger";
 import { format } from "date-fns";
 
 export interface OwnerStatementLine {
   tenantName:    string;
   unit:          string;
   unitType:      string;
+  /**
+   * Rent side due in the month: rent + service charge (rentSideDueForMonth) —
+   * what `rentReceived` pays, since an invoice payment books rent and service
+   * charge as ONE LONGTERM_RENT receipt.
+   */
   rentExpected:  number;
+  /** The service charge part of `rentExpected` ("incl. X svc"). */
+  serviceChargeDue: number;
   rentReceived:  number;
+  /** Separately booked SERVICE_CHARGE receipts (rare — invoice payments book it inside rentReceived). */
   serviceCharge: number;
   otherIncome:   number;
   /** Metered water / electricity collected — an "of which" of otherIncome. */
@@ -149,20 +156,17 @@ export async function buildOwnerStatements(
       const svcReceived  = tenantIncome.filter(e => e.type === "SERVICE_CHARGE").reduce((s,e) => s + e.grossAmount, 0);
       const otherIncome  = tenantIncome.filter(e => !["LONGTERM_RENT","SERVICE_CHARGE","DEPOSIT"].includes(e.type)).reduce((s,e) => s + e.grossAmount, 0);
       const utilities    = tenantIncome.filter(e => e.type === "UTILITY_RECOVERY").reduce((s,e) => s + e.grossAmount, 0);
+      const due = rentSideDueForMonth(tenant, from);
       return {
         tenantName:    tenant.isActive ? tenant.name : `${tenant.name} (vacated)`,
         unit:          tenant.unit.unitNumber,
         unitType:      tenant.unit.type,
-        // Rent that applied in the STATEMENT month (statements are often
-        // generated for past periods), resolved from RentHistory and the
+        // Rent + service charge due in the STATEMENT month (statements are
+        // often generated for past periods), resolved from RentHistory and the
         // tenant's payment schedule — quarterly/biannual/annual payers owe
         // the full period amount on billing months and 0 in between.
-        rentExpected:  scheduledExpectedForMonth({
-          leaseStart: tenant.leaseStart,
-          frequency: tenant.paymentFrequency,
-          month: from,
-          rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent, m),
-        }).amount,
+        rentExpected:     due.amount,
+        serviceChargeDue: due.serviceCharge,
         rentReceived,
         serviceCharge: svcReceived,
         otherIncome,
@@ -183,6 +187,7 @@ export async function buildOwnerStatements(
           unit:          unit.unitNumber,
           unitType:      unit.type,
           rentExpected:  0,
+          serviceChargeDue: 0,
           rentReceived:  gross - commissions,
           serviceCharge: 0,
           otherIncome:   0,

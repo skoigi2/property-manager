@@ -1084,7 +1084,7 @@ function DownloadPDF({ year, month, setYear, setMonth, selectedId }: {
 
 interface StatementLine {
   tenantName: string; unit: string; unitType: string;
-  rentExpected: number; rentReceived: number; serviceCharge: number; otherIncome: number; grossTotal: number;
+  rentExpected: number; serviceChargeDue: number; rentReceived: number; serviceCharge: number; otherIncome: number; grossTotal: number;
 }
 interface StatementData {
   propertyId: string; propertyName: string; propertyType: string; period: string; generatedAt: string;
@@ -1196,8 +1196,13 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
                   <tr key={i} className="border-t border-gray-50 hover:bg-cream/50">
                     <td className="px-3 py-2.5 text-header whitespace-nowrap">{line.tenantName}</td>
                     <td className="px-3 py-2.5 text-gray-500">{line.unit}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-gray-400">{line.rentExpected > 0 ? formatCurrency(line.rentExpected, stmt.currency) : "—"}</td>
-                    <td className={clsx("px-3 py-2.5 tabular-nums", line.rentReceived >= line.rentExpected ? "text-income" : "text-expense")}>
+                    <td className="px-3 py-2.5 tabular-nums text-gray-400">
+                      {line.rentExpected > 0 ? formatCurrency(line.rentExpected, stmt.currency) : "—"}
+                      {line.serviceChargeDue > 0 && (
+                        <p className="text-caption">incl. {formatCurrency(line.serviceChargeDue, stmt.currency)} svc</p>
+                      )}
+                    </td>
+                    <td className={clsx("px-3 py-2.5 tabular-nums", line.rentReceived + line.serviceCharge >= line.rentExpected ? "text-income" : "text-expense")}>
                       {formatCurrency(line.rentReceived, stmt.currency)}
                     </td>
                     <td className="px-3 py-2.5 tabular-nums text-gray-500">{line.serviceCharge > 0 ? formatCurrency(line.serviceCharge, stmt.currency) : "—"}</td>

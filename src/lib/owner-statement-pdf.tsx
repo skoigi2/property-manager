@@ -60,7 +60,7 @@ function StatementDoc({ s }: { s: OwnerStatement }) {
         <View style={styles.tableHeader}>
           <Text style={[styles.th, styles.colTenant]}>Tenant</Text>
           <Text style={[styles.th, styles.colUnit]}>Unit</Text>
-          <Text style={[styles.th, styles.colNum]}>Rent due</Text>
+          <Text style={[styles.th, styles.colNum]}>Rent + svc due</Text>
           <Text style={[styles.th, styles.colNum]}>Rent received</Text>
           <Text style={[styles.th, styles.colNum]}>Service / other</Text>
           <Text style={[styles.th, styles.colNum]}>Total</Text>

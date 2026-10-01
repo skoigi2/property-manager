@@ -23,7 +23,9 @@ interface StatementLine {
   tenantName: string;
   unit: string;
   unitType: string;
+  /** Rent + service charge due. */
   rentExpected: number;
+  serviceChargeDue: number;
   rentReceived: number;
   serviceCharge: number;
   otherIncome: number;
@@ -132,9 +134,12 @@ function PropertyCard({ stmt, year, month, canManage }: { stmt: OwnerStatement; 
     : totalPaidOut > 0 ? "partial"
     : "unremitted";
   const fmt = (n: number) => formatCurrency(n, stmt.currency);
+  // Expected is the rent side (rent + service charge); a separately booked
+  // service charge receipt pays it too.
+  const paidTowardsRent = (l: StatementLine) => l.rentReceived + l.serviceCharge;
   const collectionRate = stmt.lines.reduce((s, l) => s + l.rentExpected, 0) > 0
     ? Math.round(
-        (stmt.lines.reduce((s, l) => s + l.rentReceived, 0) /
+        (stmt.lines.reduce((s, l) => s + paidTowardsRent(l), 0) /
           stmt.lines.reduce((s, l) => s + l.rentExpected, 0)) * 100
       )
     : null;
@@ -226,8 +231,8 @@ function PropertyCard({ stmt, year, month, canManage }: { stmt: OwnerStatement; 
                 </thead>
                 <tbody>
                   {stmt.lines.map((line, i) => {
-                    const isPaid = line.rentExpected > 0 && line.rentReceived >= line.rentExpected * 0.99;
-                    const isShort = line.rentExpected > 0 && line.rentReceived < line.rentExpected * 0.99;
+                    const isPaid = line.rentExpected > 0 && paidTowardsRent(line) >= line.rentExpected * 0.99;
+                    const isShort = line.rentExpected > 0 && paidTowardsRent(line) < line.rentExpected * 0.99;
                     return (
                       <tr key={i} className={clsx("border-t border-gray-50", isShort && "bg-red-50/40")}>
                         <td className="px-3 py-2.5">
@@ -236,6 +241,9 @@ function PropertyCard({ stmt, year, month, canManage }: { stmt: OwnerStatement; 
                         </td>
                         <td className="px-3 py-2.5 tabular-nums text-body text-gray-500">
                           {line.rentExpected > 0 ? fmt(line.rentExpected) : "—"}
+                          {line.serviceChargeDue > 0 && (
+                            <p className="text-caption text-gray-400">incl. {fmt(line.serviceChargeDue)} svc</p>
+                          )}
                         </td>
                         <td className={clsx("px-3 py-2.5 tabular-nums text-body font-medium", isPaid ? "text-income" : isShort ? "text-expense" : "text-gray-600")}>
                           {fmt(line.rentReceived)}

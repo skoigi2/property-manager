@@ -4,6 +4,13 @@ import { getPropertyManagers } from "@/lib/notifications/checkers";
 import { isAutomationEnabled, resetAutomationCache, wantsEmail } from "@/lib/automation-registry";
 import { tenantMessageHref } from "@/lib/portal-message-inbox";
 
+const CATEGORY_LABEL: Record<string, string> = {
+  LEASE_QUERY: "Lease query",
+  PAYMENT_NOTIFICATION: "Payment notification",
+  PERMISSION_REQUEST: "Permission request",
+  GENERAL: "General",
+};
+
 /**
  * "A tenant wrote through the portal" → the property's managers (a new thread
  * or a reply). Recipients come from getPropertyManagers — org admins +
@@ -53,7 +60,7 @@ export async function notifyTenantMessage(threadId: string, kind: "new" | "reply
           <strong>${esc(thread.tenant.name)}</strong> · ${esc(property.name)} · Unit ${esc(thread.tenant.unit.unitNumber)}
         </p>
         <p style="color:#374151;font-size:14px;margin:12px 0">
-          ${kind === "new" ? `<strong>Category:</strong> ${esc(thread.category.replace(/_/g, " ").toLowerCase())}<br/>` : ""}
+          ${kind === "new" ? `<strong>Category:</strong> ${esc(CATEGORY_LABEL[thread.category] ?? thread.category)}<br/>` : ""}
           <strong>Subject:</strong> ${esc(thread.subject)}
         </p>
         <pre style="background:#f3f4f6;padding:12px;border-radius:6px;font-family:sans-serif;font-size:13px;white-space:pre-wrap;color:#1a1a2e">${esc(body)}</pre>

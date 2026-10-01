@@ -75,6 +75,7 @@ function severityStyles(severity: InboxItem["severity"]) {
 
 function duePill(item: InboxItem): string | null {
   if (item.daysOverdue === null) return null;
+  if (item.type === "TENANT_MESSAGE") return item.daysOverdue > 0 ? `Waiting ${item.daysOverdue}d` : "New today";
   if (item.daysOverdue > 0) return `${item.daysOverdue}d overdue`;
   if (item.daysOverdue === 0) return "Due today";
   return `In ${-item.daysOverdue}d`;

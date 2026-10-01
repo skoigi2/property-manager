@@ -749,7 +749,7 @@
         <li><strong>Lease expiries</strong> — tenants with a lease ending in ≤30 days, and every tenant still in the unit after their lease has ended (urgent, "Lease expired") until you renew the lease, move the tenant out, or mark them <a href="#month-to-month">month-to-month</a></li>
         <li><strong>Urgent maintenance</strong> — jobs marked <code>URGENT</code> still <code>OPEN</code></li>
         <li><strong>Tenant portal requests</strong> — maintenance jobs submitted by tenants, not yet acknowledged</li>
-        <li><strong>Tenant messages</strong> — a conversation from the tenant portal waiting for your reply (urgent after two days). <em>Reply</em> opens it on the tenant's page; <em>Mark resolved</em> closes it. It leaves the Inbox when someone replies or resolves it, and comes back if the tenant writes again</li>
+        <li><strong>Tenant messages</strong> — a conversation from the tenant portal waiting for your reply (urgent after two days). <em>Reply</em> opens it on the tenant's page; <em>Mark resolved</em> closes it. It leaves the Inbox when someone replies or resolves it, and comes back if the tenant writes again (see <a href="#tenant-messages">Tenant messages</a>)</li>
         <li><strong>Compliance certificates</strong> expiring in ≤30 days</li>
         <li><strong>Insurance policies</strong> ending in ≤30 days</li>
         <li><strong>Arrears cases</strong> not resolved and untouched for &gt;7 days</li>
@@ -767,6 +767,28 @@
       <h3>Send reminders — real emails, in bulk</h3>
       <p>Select overdue-invoice rows and click <strong>Send reminders</strong>: each tenant receives a rent-payment reminder email quoting their invoice number, outstanding amount, and days overdue. Every send is logged to the tenant's communication trail, and tenants with no email address on file are reported back to you as failures — nothing is silently skipped.</p>
       <p style="margin-top:10px">For tenants who don't read email, click <strong>Remind on WhatsApp</strong> next to it instead: it steps through the same selection one tenant at a time — "Next: Faith — Unit 103 · 1 of 2" — and each tap opens that tenant's chat in your WhatsApp with the reminder written. Each overdue-invoice row also has its own <strong>WhatsApp</strong> action. See <a href="#whatsapp">WhatsApp reminders</a>.</p>
+    </div>
+
+    <div class="sub-section" id="tenant-messages">
+      <h3>Tenant messages</h3>
+      <p style="margin-bottom:12px">When a tenant sends you a message from their portal — or replies to one — you don't have to go looking for it:</p>
+      <ul class="feature-list">
+        <li><strong>It lands in your Inbox</strong> as a <em>Tenant message</em> row with the subject and the start of the message. It shows how long the tenant has been waiting, and turns urgent after two days without a reply</li>
+        <li><strong>The property's managers get an email</strong> with an <em>Open conversation</em> button that goes straight to it. If a property has no manager, it goes to your organisation's contact email instead. Switch these emails off — or on for some properties only — with <em>Tenant portal messages</em> on the Automations page; each person can opt out in <em>Settings → Notifications</em>. The Inbox row appears either way</li>
+        <li><strong>Reply</strong> opens the conversation on the tenant's <em>Portal Msgs</em> tab; once you answer, the row leaves the Inbox. <strong>Mark resolved</strong> closes it without a reply. If the tenant writes again, it comes back</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin:14px 0;max-width:960px">
+        <img src="guide-screenshots/54-inbox-tenant-message.png" alt="A tenant message in the Inbox" loading="lazy">
+        <div class="screenshot-caption">A tenant message in the Inbox, with <em>Reply</em> and <em>Mark resolved</em></div>
+      </div>
+      <div class="screenshot-wrap" style="margin:14px 0;max-width:600px">
+        <img src="guide-screenshots/55-tenant-message-email.png" alt="The email managers receive for a tenant message" loading="lazy">
+        <div class="screenshot-caption">The email the property's managers receive — <em>Open conversation</em> goes straight to the thread</div>
+      </div>
+      <div class="screenshot-wrap" style="margin:14px 0;max-width:960px">
+        <img src="guide-screenshots/56-tenant-message-thread.png" alt="The conversation on the tenant's Portal Msgs tab" loading="lazy">
+        <div class="screenshot-caption"><em>Reply</em> opens the conversation on the tenant's <em>Portal Msgs</em> tab, ready for your answer</div>
+      </div>
     </div>
 
     <div class="sub-section">

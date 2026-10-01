@@ -68,7 +68,11 @@ export function PortalMessagesTab({ tenantId, initialThreadId }: { tenantId: str
 
   const loadDetail = useCallback(async (threadId: string) => {
     const res = await fetch(`/api/tenants/${tenantId}/messages/${threadId}`);
-    if (res.ok) setDetail(await res.json());
+    if (!res.ok) return;
+    setDetail(await res.json());
+    // Opening a thread marks the tenant's messages read (SENT → READ) —
+    // reflect that in the list's "New" badge and unread count.
+    setThreads((list) => list.map((t) => (t.id === threadId ? { ...t, unreadCount: 0, status: t.status === "SENT" ? "READ" : t.status } : t)));
   }, [tenantId]);
 
   useEffect(() => { loadThreads(); }, [loadThreads]);

@@ -7,6 +7,7 @@ import { CalendarClock, Download, Loader2, Mail, TrendingUp, X } from "lucide-re
 import { formatCurrency } from "@/lib/currency";
 import { formatDate } from "@/lib/date-utils";
 import { describeEscalation, type EscalationTerms, type ReviewState } from "@/lib/rent-escalation";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 interface ReviewPayload {
   terms: EscalationTerms;
@@ -168,7 +169,8 @@ export function RentReviewCard({ tenantId, currency, onChanged }: { tenantId: st
         <TrendingUp size={14} className="mt-0.5 text-gray-400 shrink-0" />
         <span>
           No rent increase terms on this lease. Add them with <strong>Edit tenant</strong> (Rent Increase, Every, First Review) and
-          the app will remind you before each review, draft the notice, and switch the rent on the day.
+          the app will remind you before each review, draft the notice, and switch the rent on the day.{" "}
+          <TutorialVideo tutorialKey="rent-increases" variant="link" />
         </span>
       </div>
     );
@@ -198,12 +200,15 @@ export function RentReviewCard({ tenantId, currency, onChanged }: { tenantId: st
             {data.hasTerms ? describeEscalation(data.terms, fmt) : "No increase terms"} · {data.noticeDays} days&apos; notice
           </p>
         </div>
-        {r && stateLabel && (
-          <span className={clsx("inline-flex items-center gap-1 text-caption font-medium px-2.5 py-1 rounded-full", STATE_STYLE[r.state])}>
-            <CalendarClock size={12} />
-            {stateLabel}
-          </span>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {r && stateLabel && (
+            <span className={clsx("inline-flex items-center gap-1 text-caption font-medium px-2.5 py-1 rounded-full", STATE_STYLE[r.state])}>
+              <CalendarClock size={12} />
+              {stateLabel}
+            </span>
+          )}
+          <TutorialVideo tutorialKey="rent-increases" variant="link" />
+        </div>
       </div>
 
       {r && r.missedReviews > 0 && (

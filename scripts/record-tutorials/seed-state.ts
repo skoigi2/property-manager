@@ -18,6 +18,7 @@ import * as XLSX from "xlsx";
 import type { TutorialKey } from "../../src/lib/tutorial-videos";
 import { seedUtilities } from "./seed-utilities";
 import { seedServiceCharge } from "./seed-service-charge";
+import { seedRentIncreases } from "./seed-rent-increases";
 
 const RECORD_EMAIL = process.env.RECORD_EMAIL ?? "guide@groundworkpm.com";
 const BASE_URL = process.env.RECORD_BASE_URL ?? "http://localhost:3000";
@@ -460,6 +461,11 @@ export async function seedForTutorial(key: TutorialKey): Promise<void> {
     // Same Kenyan org and Kilimani Court demo — see seed-service-charge.ts.
     console.log(`Seeding preconditions for "${key}"`);
     return seedServiceCharge(prisma, FIXTURES_DIR);
+  }
+  if (key === "rent-increases") {
+    // Same Kenyan org and Kilimani Court demo — see seed-rent-increases.ts.
+    console.log(`Seeding preconditions for "${key}"`);
+    return seedRentIncreases(prisma, FIXTURES_DIR);
   }
   const ctx = await loadContext();
   console.log(`Seeding preconditions for "${key}" in org ${ctx.orgId} (${ctx.property.name})`);

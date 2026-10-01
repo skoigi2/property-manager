@@ -20,7 +20,8 @@ export type TutorialKey =
   | "cases-and-approvals"
   | "tenant-checkout"
   | "utilities-metering"
-  | "service-charge";
+  | "service-charge"
+  | "rent-increases";
 
 export type TutorialVideo = {
   key: TutorialKey;
@@ -218,6 +219,26 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
     ],
     relatedDocs: [{ label: "Help & Guide — Service Charge Budgets", href: "/guide.html#service-charge" }],
   },
+
+  "rent-increases": {
+    key: "rent-increases",
+    title: "Rent increases",
+    durationSec: 76,
+    videoUrl: "/tutorials/rent-increases.mp4",
+    posterUrl: "/tutorials/rent-increases.jpg",
+    subtitleUrl: "/tutorials/rent-increases.vtt",
+    summary:
+      "A lease's rent review terms — a percentage or a fixed amount, how often, the first review and the notice period — are recorded on the tenant. A month before the notice deadline, the Inbox shows Rent increase due with today's rent, the new one and the date the notice must go out. Review increase opens the tenant's rent review: the new rent is worked out from the lease and can be adjusted, and the effective date is the review date — or, if the deadline has passed, the first month that still gives full notice, never backdated. Scheduling it means invoices from that month bill the new rent and the tenant's rent switches by itself on the day. The notice letter can be downloaded or emailed with the PDF attached, and a review with no rise is recorded so the next reminder is for the following year.",
+    steps: [
+      "Record the lease's terms on the tenant: Edit → Rent Increase (percentage or fixed amount), Every (years), First Review, Notice (days).",
+      "When the Inbox shows Rent increase due, click Review increase.",
+      "On the Rent History tab, check the proposed rent and the effective date — adjust either if needed.",
+      "Schedule increase: invoices from that month bill the new rent; the tenant's rent switches on the day.",
+      "Send the notice: download the letter, or Email notice (PDF attached, logged on the Comms tab).",
+      "No rise this time? Click No increase this time — the next reminder is for the following review.",
+    ],
+    relatedDocs: [{ label: "Help & Guide — Rent increases", href: "/guide.html#rent-increases" }],
+  },
 };
 
 export const TUTORIAL_ORDER: TutorialKey[] = [
@@ -230,4 +251,5 @@ export const TUTORIAL_ORDER: TutorialKey[] = [
   "tenant-checkout",
   "utilities-metering",
   "service-charge",
+  "rent-increases",
 ];

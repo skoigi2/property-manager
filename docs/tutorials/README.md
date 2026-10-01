@@ -79,6 +79,10 @@ fragile selector**; prefer stable attributes (`data-testid`, `name`,
   `service-charge` uses the same org: `seed-service-charge.ts` runs that seed, then replaces the demo's
   budget with one for the service charge year that just ended (the 12 months to the end of last month,
   which lines up with the demo's leases) and leaves this year empty for the video to create.
+  `rent-increases` uses it too: `seed-rent-increases.ts` gives the unit 102 tenant 5% a year with a
+  review whose notice deadline is 1–30 days away and writes the Inbox reminder directly (no cron).
+  Store seeded dates at UTC midnight, like the tenant form does — a local-midnight date prefills the
+  edit form a day early.
 - **Cut the lead-in** — call `h.markStart()` once the first screen has loaded: login and the slow first
   dev-mode compile are trimmed from the video (`TRIM_START_SEC` to `postprocess.sh`) and the subtitle
   cues shift with it. Scripts that don't call it are unchanged.

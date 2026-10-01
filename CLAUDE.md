@@ -355,6 +355,7 @@ Lease terms on `Tenant` (migration `20260930090000_rent_escalation`): `escalatio
 - **Reminder**: `checkRentIncreasesDue` (REMINDER `REMINDER_RENT_INCREASE_DUE`, default on) upserts `RENT_INCREASE_DUE` hints keyed `tenantId:YYYY-MM-DD` (WARNING, URGENT once the notice deadline passed), skips a refId the manager DISMISSED, and sweeps the rest. Inbox type `RENT_INCREASE` ("Review increase" → `/tenants/[id]?tab=history`). Calendar `RENT_REVIEW` events.
 - **UI**: `RentReviewCard` at the top of the tenant's Rent History tab (terms, next review + deadline badge, editable proposal, Schedule / No increase this time, scheduled row with notice download / email / cancel). Tenant form fields Rent Increase / Increase Amount / Every / First Review / Notice (blank clears — the PUT sends `null`). Tenant importer columns Escalation Type / Amount / Every (years) / First Review Date; an upsert that changes rent now appends a RentHistory row.
 - **Forecast** projects rent from the history (incl. scheduled rows) plus each FUTURE review — past reviews are not compounded onto `monthlyRent` again.
+- **Tutorial** `rent-increases` (`scripts/record-tutorials/rent-increases.ts`, seed `seed-rent-increases.ts` in the utilities tutorial org; linked from the `RentReviewCard`). The notice is never emailed on camera — the demo tenant's address may be real.
 
 ### Email Draft Generator
 

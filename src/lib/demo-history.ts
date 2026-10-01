@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { ExpenseScope, IncomeType, InvoiceStatus, type ExpenseCategory, type PaymentMethod, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { paidHistoryMonths, recurringMonthlyExpenses } from "@/lib/demo-history-plan";
+import { demoPaymentRows } from "@/lib/demo-payments";
 
 /**
  * Back history for a demo property (run at the end of each demo seed): every
@@ -48,7 +49,7 @@ export async function seedPaidHistory(
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const invoiceRows: Prisma.InvoiceCreateManyInput[] = [];
-  const receipts: { invoiceNumber: string; unitId: string; tenantId: string; amount: number; date: Date; method: PaymentMethod | null }[] = [];
+  const receiptFor = new Map<string, { unitId: string; date: Date; method: PaymentMethod | null }>();
 
   for (const t of tenants) {
     // The first month the seed already has data for — or, for a former tenant
@@ -93,7 +94,7 @@ export async function seedPaidHistory(
         paidAt: paidOn,
         paidAmount: total,
       });
-      receipts.push({ invoiceNumber, unitId: t.unitId, tenantId: t.id, amount: total, date: paidOn, method });
+      receiptFor.set(invoiceNumber, { unitId: t.unitId, date: paidOn, method });
     }
   }
 
@@ -101,25 +102,17 @@ export async function seedPaidHistory(
   // months, so the cutoffs move back to the lease start.
   const created: { id: string; invoiceNumber: string }[] = [];
   for (let i = 0; !opts.dryRun && i < invoiceRows.length; i += 200) {
-    created.push(
-      ...(await prisma.invoice.createManyAndReturn({ data: invoiceRows.slice(i, i + 200), select: { id: true, invoiceNumber: true } })),
-    );
-  }
-  const idByNumber = new Map(created.map((c) => [c.invoiceNumber, c.id]));
-  if (receipts.length && !opts.dryRun) {
-    await prisma.incomeEntry.createMany({
-      data: receipts.map((r) => ({
-        date: r.date,
-        unitId: r.unitId,
-        tenantId: r.tenantId,
-        invoiceId: idByNumber.get(r.invoiceNumber) ?? null,
-        type: IncomeType.LONGTERM_RENT,
-        grossAmount: r.amount,
-        agentCommission: 0,
-        paymentMethod: r.method,
-        note: "Rent received",
-      })),
+    const batch = await prisma.invoice.createManyAndReturn({
+      data: invoiceRows.slice(i, i + 200),
+      select: { id: true, invoiceNumber: true, tenantId: true, rentAmount: true, serviceCharge: true, totalAmount: true, paidAmount: true },
     });
+    created.push(...batch);
+    // Receipts through the payment allocator, from the invoice as stored.
+    const rows = batch.flatMap((inv) => {
+      const r = receiptFor.get(inv.invoiceNumber)!;
+      return demoPaymentRows(inv, { unitId: r.unitId, date: r.date, paymentMethod: r.method, note: "Rent received" });
+    });
+    if (rows.length) await prisma.incomeEntry.createMany({ data: rows });
   }
 
   // ── Running costs for the same months ───────────────────────────────────────

@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { calcConsumption, calcReadingCharge, previousPeriod } from "@/lib/utility-billing";
+import { demoPaymentRows } from "@/lib/demo-payments";
 
 /**
  * Demo data that shows utility metering WORKING end to end on a demo
@@ -254,17 +255,15 @@ export async function seedDemoUtilities(propertyId: string, organizationId: stri
           },
         }),
       ];
-      for (const [utility, amount] of [["WATER", paidWater], ["ELECTRICITY", paidElectricity]] as const) {
-        if (amount <= 0) continue;
-        ops.push(
-          prisma.incomeEntry.create({
-            data: {
-              date: payDate, unitId: inv.tenant.unitId, tenantId, invoiceId: inv.id,
-              type: "UTILITY_RECOVERY", utilityType: utility, grossAmount: amount, agentCommission: 0,
-              paymentMethod, note: `Auto-created from invoice payment (${utility === "WATER" ? "water" : "electricity"})`,
-            },
-          }),
+      // The utilities part of the payment, split by the real allocator after
+      // the rent side the existing receipt already covers (water, then power).
+      const utilityPaid = round2(paidWater + paidElectricity);
+      if (utilityPaid > 0) {
+        const rows = demoPaymentRows(
+          { id: inv.id, tenantId, rentAmount: rentSide, waterAmount: water, electricityAmount: electricity, totalAmount: total },
+          { unitId: inv.tenant.unitId, date: payDate, amount: utilityPaid, alreadyPaid: rentSide, paymentMethod, note: "Auto-created from invoice payment (utilities)" },
         );
+        ops.push(prisma.incomeEntry.createMany({ data: rows }));
       }
       await prisma.$transaction(ops);
     }

@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
   PropertyType, PropertyCategory, UnitType, UnitStatus,
-  IncomeType, ExpenseCategory, ExpenseScope, PettyCashType,
+  ExpenseCategory, ExpenseScope, PettyCashType,
   InsuranceType, PremiumFrequency, AssetCategory, MaintenanceFrequency,
   RecurringFrequency, InvoiceStatus, RenewalStage,
   MaintenanceStatus, MaintenancePriority, MaintenanceCategory,
@@ -18,6 +18,7 @@ import { startOfMonth, subMonths } from "date-fns";
 import { seedDemoUtilities } from "@/lib/demo-utilities";
 import { seedPaidHistory } from "@/lib/demo-history";
 import { seedDemoServiceChargeBudget } from "@/lib/demo-service-charge";
+import { demoPaymentRows } from "@/lib/demo-payments";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 import { deletePropertyOps } from "@/lib/property-delete";
 import { SEED_GRACE_MS, type AddedSinceSeed } from "@/lib/demo-refresh";
@@ -438,10 +439,7 @@ async function seedAlSeef(organizationId: string, propertyId?: string): Promise<
   const propCode = property.id.slice(-6).toUpperCase();
 
   // Collect income entries to batch-create after all invoices are created
-  const incomeEntryData: {
-    date: Date; unitId: string; tenantId: string; invoiceId: string;
-    type: IncomeType; grossAmount: number; agentCommission: number;
-  }[] = [];
+  const incomeEntryData: Prisma.IncomeEntryCreateManyInput[] = [];
 
   for (let i = 0; i < WIN.length; i++) {
     for (const t of tenantDefs) {
@@ -472,20 +470,12 @@ async function seedAlSeef(organizationId: string, propertyId?: string): Promise<
       });
 
       if (!isArrears) {
-        incomeEntryData.push({
-          date: wDate(WIN, i),
-          unitId: unit.id,
-          tenantId: tenant.id,
-          invoiceId: invoice.id,
-          type: IncomeType.LONGTERM_RENT,
-          grossAmount,
-          agentCommission: 0,
-        });
+        incomeEntryData.push(...demoPaymentRows(invoice, { unitId: unit.id, date: wDate(WIN, i) }));
       }
     }
   }
 
-  // Batch-create all 57 income entries in one round-trip
+  // Batch-create the rent receipts in one round-trip
   await prisma.incomeEntry.createMany({ data: incomeEntryData });
 
   // ── Property-level monthly expenses (batched) ──────────────────────────────
@@ -1242,10 +1232,7 @@ async function seedKilimaniCourt(organizationId: string, propertyId?: string): P
   // Arrears: Faith Chebet (103) misses the latest 2 months (incl. current).
   const arrears: Record<string, number[]> = { "103": [1, 2] };
   let invoiceSeq = 1;
-  const incomeEntryData: {
-    date: Date; unitId: string; tenantId: string; invoiceId: string;
-    type: IncomeType; grossAmount: number; agentCommission: number; paymentMethod: "MPESA" | "BANK_TRANSFER";
-  }[] = [];
+  const incomeEntryData: Prisma.IncomeEntryCreateManyInput[] = [];
 
   for (let i = 0; i < WIN.length; i++) {
     for (const t of tenantDefs) {
@@ -1271,16 +1258,13 @@ async function seedKilimaniCourt(organizationId: string, propertyId?: string): P
       });
 
       if (!isArrears) {
-        incomeEntryData.push({
-          date: wDate(WIN, i),
-          unitId: units[t.unit].id,
-          tenantId: tenants[t.unit].id,
-          invoiceId: invoice.id,
-          type: IncomeType.LONGTERM_RENT,
-          grossAmount,
-          agentCommission: 0,
-          paymentMethod: t.unit === "G01" || t.unit === "102" ? "MPESA" : "BANK_TRANSFER",
-        });
+        incomeEntryData.push(
+          ...demoPaymentRows(invoice, {
+            unitId: units[t.unit].id,
+            date: wDate(WIN, i),
+            paymentMethod: t.unit === "G01" || t.unit === "102" ? PaymentMethod.MPESA : PaymentMethod.BANK_TRANSFER,
+          }),
+        );
       }
     }
   }
@@ -1837,10 +1821,7 @@ async function seedSandtonHeights(organizationId: string, propertyId?: string): 
   let invoiceSeq = 1;
   const propCode = property.id.slice(-6).toUpperCase();
 
-  const incomeEntryData: {
-    date: Date; unitId: string; tenantId: string; invoiceId: string;
-    type: IncomeType; grossAmount: number; agentCommission: number;
-  }[] = [];
+  const incomeEntryData: Prisma.IncomeEntryCreateManyInput[] = [];
 
   for (const month of MONTHS) {
     for (const t of tenantDefs) {
@@ -1871,15 +1852,7 @@ async function seedSandtonHeights(organizationId: string, propertyId?: string): 
       });
 
       if (!isArrears) {
-        incomeEntryData.push({
-          date: wDate(WIN, month),
-          unitId: unit.id,
-          tenantId: tenant.id,
-          invoiceId: invoice.id,
-          type: IncomeType.LONGTERM_RENT,
-          grossAmount,
-          agentCommission: 0,
-        });
+        incomeEntryData.push(...demoPaymentRows(invoice, { unitId: unit.id, date: wDate(WIN, month) }));
       }
     }
   }
@@ -2866,11 +2839,7 @@ async function seedBelsizeCourt(organizationId: string, propertyId?: string): Pr
     "302": [1, 2, 3],  // Natasha Singh — all 3 months → DEMAND_LETTER
   };
 
-  const incomeRows: {
-    date: Date; unitId: string; tenantId: string; invoiceId: string;
-    type: IncomeType; grossAmount: number; agentCommission: number;
-    taxConfigId?: string; taxRate?: number; taxAmount?: number; taxType?: TaxType;
-  }[] = [];
+  const incomeRows: Prisma.IncomeEntryCreateManyInput[] = [];
 
   // Parallel within each month — invoices for different tenants in the same month
   // are independent. Sequential across months keeps invoice numbering predictable.
@@ -2903,19 +2872,13 @@ async function seedBelsizeCourt(organizationId: string, propertyId?: string): Pr
         // included in rent shown to tenants).
         const mgmtFee = feeConfigs.find((f) => f.unit === t.unit)?.flat ?? 0;
         const taxAmount = Math.round(mgmtFee * 0.20 * 100) / 100;
-        incomeRows.push({
-          date: wDate(WIN, month, 5),
-          unitId: units[t.unit].id,
-          tenantId: tenants[t.unit].id,
-          invoiceId: inv.id,
-          type: IncomeType.LONGTERM_RENT,
-          grossAmount: t.rent + SC, // rent + service charge — one receipt, like the invoice
-          agentCommission: 0,
-          taxConfigId: vatMgmtConfig.id,
-          taxRate: 0.20,
-          taxAmount,
-          taxType: TaxType.ADDITIVE,
-        });
+        incomeRows.push(
+          ...demoPaymentRows(inv, {
+            unitId: units[t.unit].id,
+            date: wDate(WIN, month, 5),
+            rentFields: { taxConfigId: vatMgmtConfig.id, taxRate: 0.20, taxAmount, taxType: TaxType.ADDITIVE },
+          }),
+        );
       }
     }
   }

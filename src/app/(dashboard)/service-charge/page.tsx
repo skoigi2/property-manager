@@ -17,6 +17,7 @@ import type { ServiceChargeView } from "@/lib/service-charge-data";
 import { BudgetTab } from "@/components/service-charge/BudgetTab";
 import { ActualsTab } from "@/components/service-charge/ActualsTab";
 import { YearEndTab } from "@/components/service-charge/YearEndTab";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 type Tab = "budget" | "actuals" | "statement";
 const TAB_KEY = "gw:serviceChargeTab";
@@ -187,6 +188,9 @@ export default function ServiceChargePage() {
                       {text}
                     </button>
                   ))}
+                  <div className="ml-auto flex items-center pl-3 shrink-0">
+                    <TutorialVideo tutorialKey="service-charge" variant="link" />
+                  </div>
                 </div>
                 {tab === "budget" ? (
                   <BudgetTab view={view} onChanged={refresh} onDeleted={async () => { setView(null); await loadBudgets(); }} />

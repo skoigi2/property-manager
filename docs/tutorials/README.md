@@ -76,6 +76,9 @@ fragile selector**; prefer stable attributes (`data-testid`, `name`,
   `RECORD_UTILITIES_EMAIL`) so the shared guide org stays single-property in GBP. Its seed
   (`seed-utilities.ts`) creates the account on first run and re-seeds the org's Kilimani Court demo
   through the app's API before every recording, so each take starts from identical data.
+  `service-charge` uses the same org: `seed-service-charge.ts` runs that seed, then replaces the demo's
+  budget with one for the service charge year that just ended (the 12 months to the end of last month,
+  which lines up with the demo's leases) and leaves this year empty for the video to create.
 - **Cut the lead-in** — call `h.markStart()` once the first screen has loaded: login and the slow first
   dev-mode compile are trimmed from the video (`TRIM_START_SEC` to `postprocess.sh`) and the subtitle
   cues shift with it. Scripts that don't call it are unchanged.

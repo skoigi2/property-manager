@@ -19,7 +19,8 @@ export type TutorialKey =
   | "bulk-import"
   | "cases-and-approvals"
   | "tenant-checkout"
-  | "utilities-metering";
+  | "utilities-metering"
+  | "service-charge";
 
 export type TutorialVideo = {
   key: TutorialKey;
@@ -196,6 +197,27 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
     ],
     relatedDocs: [{ label: "Help & Guide — Water & Electricity", href: "/guide.html#utilities" }],
   },
+
+  "service-charge": {
+    key: "service-charge",
+    title: "Service charge budgets",
+    durationSec: 94,
+    videoUrl: "/tutorials/service-charge.mp4",
+    posterUrl: "/tutorials/service-charge.jpg",
+    subtitleUrl: "/tutorials/service-charge.vtt",
+    summary:
+      "An apartment block's service charge is set one year at a time. Start the new year's budget from last year's — the costs and the month the year starts carry over — then add what is new and save. The total is split between units by floor area, and each unit's suggested monthly charge sits next to what its tenant pays today; Apply to tenants brings everyone into line from their next invoice. Budget vs actual tracks what has been spent against the budget, cost by cost. When a year ends, the year-end statement sets each tenant's share of what was actually spent against what they were billed: shortfalls become draft balancing invoices in one click, credits are listed to refund, and days a unit stood empty are the owner's share. Publish the statement and each tenant downloads theirs from the portal.",
+    steps: [
+      "Finances → Service Charge, pick the block and the year: Start from last year's budget (or a blank one).",
+      "Budget: one line per shared cost for the year — add, change or remove lines, then Save budget.",
+      "Check each unit's share and suggested monthly charge; Apply to tenants to bill it from the next invoices.",
+      "Budget vs actual: spending so far against the budget to date, cost by cost.",
+      "After the year ends, Year-end statement: each tenant's share against what they were billed; the vacant days fall to the owner.",
+      "Tick the tenants and Raise balancing invoices (drafts — send them from Invoices); refund or offset the credits.",
+      "Publish to portal (or Email statements) so each tenant has their own statement.",
+    ],
+    relatedDocs: [{ label: "Help & Guide — Service Charge Budgets", href: "/guide.html#service-charge" }],
+  },
 };
 
 export const TUTORIAL_ORDER: TutorialKey[] = [
@@ -207,4 +229,5 @@ export const TUTORIAL_ORDER: TutorialKey[] = [
   "cases-and-approvals",
   "tenant-checkout",
   "utilities-metering",
+  "service-charge",
 ];

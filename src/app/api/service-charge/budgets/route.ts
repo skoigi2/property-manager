@@ -41,7 +41,8 @@ const lineSchema = z.object({
 const createSchema = z.object({
   propertyId: z.string().min(1),
   year: z.number().int().min(2000).max(2100),
-  startMonth: z.number().int().min(1).max(12).default(1),
+  /** Omitted: the previous budget's start month when copying, else January. */
+  startMonth: z.number().int().min(1).max(12).optional(),
   basis: z.enum(["FLOOR_AREA", "EQUAL", "CURRENT_CHARGE"]).default("FLOOR_AREA"),
   lines: z.array(lineSchema).max(40).optional(),
   /** Copy the lines of the property's previous budget (ignored when `lines` is sent). */
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
   if (error) return error;
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid budget" }, { status: 400 });
-  const { propertyId, year, startMonth, basis, copyPrevious } = parsed.data;
+  const { propertyId, year, basis, copyPrevious } = parsed.data;
   const access = await requirePropertyAccess(propertyId);
   if (!access.ok) return access.error!;
 
@@ -65,14 +66,17 @@ export async function POST(req: Request) {
   const existing = await prisma.serviceChargeBudget.findUnique({ where: { propertyId_year: { propertyId, year } }, select: { id: true } });
   if (existing) return Response.json({ error: `There is already a ${year} budget for this property.`, id: existing.id }, { status: 409 });
 
+  const prev = copyPrevious
+    ? await prisma.serviceChargeBudget.findFirst({
+        where: { propertyId, year: { lt: year } },
+        orderBy: { year: "desc" },
+        include: { lines: true },
+      })
+    : null;
+  const startMonth = parsed.data.startMonth ?? prev?.startMonth ?? 1;
   let lines = parsed.data.lines ?? [];
-  if (!parsed.data.lines && copyPrevious) {
-    const prev = await prisma.serviceChargeBudget.findFirst({
-      where: { propertyId, year: { lt: year } },
-      orderBy: { year: "desc" },
-      include: { lines: true },
-    });
-    lines = prev?.lines.map((l) => ({ category: l.category, amount: l.amount, notes: l.notes })) ?? [];
+  if (!parsed.data.lines && prev) {
+    lines = prev.lines.map((l) => ({ category: l.category, amount: l.amount, notes: l.notes }));
   }
   const seen = new Set<string>();
   lines = lines.filter((l) => (seen.has(l.category) ? false : (seen.add(l.category), true)));

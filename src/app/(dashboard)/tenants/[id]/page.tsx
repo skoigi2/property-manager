@@ -332,6 +332,7 @@ export default function TenantDetailPage() {
 
   const tenantId = params.id as string;
 
+  const [savingMonthToMonth, setSavingMonthToMonth] = useState(false);
   const fetchTenant = useCallback(() => {
     fetch(`/api/tenants/${tenantId}`)
       .then((r) => r.json())
@@ -495,7 +496,27 @@ export default function TenantDetailPage() {
     }
   }
 
-  const leaseStatus    = getLeaseStatus(tenant?.leaseEnd);
+  const leaseStatus    = getLeaseStatus(tenant?.leaseEnd, tenant?.monthToMonth);
+
+  async function setMonthToMonth(monthToMonth: boolean) {
+    if (!tenant) return;
+    setSavingMonthToMonth(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenant.id}/month-to-month`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ monthToMonth }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Couldn't update the lease");
+      setTenant((t: any) => ({ ...t, monthToMonth: data.monthToMonth }));
+      toast.success(monthToMonth ? "Marked month-to-month" : "Lease shown as expired again");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't update the lease");
+    } finally {
+      setSavingMonthToMonth(false);
+    }
+  }
   const allIncomeEntries: any[] = tenant?.unit?.incomeEntries ?? [];
   const tenantEntries  = allIncomeEntries.filter((e) => !e.tenantId || e.tenantId === tenant?.id);
   const ledger         = tenant ? buildLedger(tenant, tenantEntries) : [];
@@ -596,11 +617,27 @@ export default function TenantDetailPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {tenant.isActive ? (
                     leaseStatus === "TBC"      ? <Badge variant="gray">Lease TBC</Badge>
+                    : leaseStatus === "ROLLING"  ? <Badge variant="blue">Month-to-month</Badge>
                     : leaseStatus === "CRITICAL" ? <Badge variant="red">Lease Expired</Badge>
                     : leaseStatus === "WARNING"  ? <Badge variant="amber">Expiring Soon</Badge>
                     : <Badge variant="green">Active</Badge>
                   ) : (
                     <Badge variant="gray">Vacated</Badge>
+                  )}
+                  {tenant.isActive && (leaseStatus === "CRITICAL" || leaseStatus === "ROLLING") && (
+                    <button
+                      type="button"
+                      onClick={() => setMonthToMonth(leaseStatus === "CRITICAL")}
+                      disabled={savingMonthToMonth}
+                      title={
+                        leaseStatus === "CRITICAL"
+                          ? "The lease has ended and the tenant stays on a rolling month-to-month basis"
+                          : "Treat the lease as expired again"
+                      }
+                      className="text-caption text-gold-dark hover:underline underline-offset-2 disabled:opacity-60"
+                    >
+                      {leaseStatus === "CRITICAL" ? "Mark month-to-month" : "Undo month-to-month"}
+                    </button>
                   )}
                   {tenant.renewalStage && tenant.renewalStage !== "NONE" && (
                     <Badge variant={tenant.renewalStage === "RENEWED" ? "green" : "gold"}>

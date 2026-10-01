@@ -855,6 +855,11 @@ model Tenant {
   proposedRent     Decimal? @db.Decimal(14, 2)
   proposedLeaseEnd DateTime?
   renewalNotes     String?
+  // The lease has ended and the tenant stays on a rolling month-to-month
+  // basis, agreed by the manager: silences the "lease expired" Inbox item and
+  // shows "Month-to-month" instead of "Expired". Reset whenever leaseEnd
+  // changes (a renewal or an edited end date starts a new fixed term).
+  monthToMonth     Boolean          @default(false)
   escalationRate   Float?
   // How often the escalation applies, in years (1 = annual, 2 = every two
   // years, or any custom interval). Null = not configured.

@@ -203,6 +203,15 @@ export function InboxActions({ item, onActionComplete }: Props) {
       icon: CheckCircle2,
       onClick: () => patch(`/api/tenants/${item.refId}/renewal`, { renewalStage: "NOTICE_SENT" }, "Stage updated"),
     });
+    if ((item.daysOverdue ?? 0) > 0) {
+      actions.push({
+        key: "month-to-month",
+        label: "Mark month-to-month",
+        tip: "The tenant stays on a rolling month-to-month basis: clears this item and shows the lease as Month-to-month.",
+        icon: CalendarCheck,
+        onClick: () => patch(`/api/tenants/${item.refId}/month-to-month`, { monthToMonth: true }, "Marked month-to-month"),
+      });
+    }
   }
 
   if (item.type === "URGENT_MAINTENANCE" || item.type === "PORTAL_REQUEST") {

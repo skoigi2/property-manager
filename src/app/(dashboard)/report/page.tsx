@@ -262,7 +262,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                     <Badge variant={
                       row.status === "OK" ? "green" :
                       row.status === "WARNING" ? "amber" :
-                      row.status === "CRITICAL" ? "red" : "gray"
+                      row.status === "CRITICAL" ? "red" : row.status === "ROLLING" ? "blue" : "gray"
                     }>
                       {row.leaseEnd ?? "TBC"}
                     </Badge>
@@ -339,7 +339,7 @@ function PLPreview({ year, month, selectedId }: { year: string; month: string; s
                         <Badge variant={
                           row.status === "OK" ? "green" :
                           row.status === "WARNING" ? "amber" :
-                          row.status === "CRITICAL" ? "red" : "gray"
+                          row.status === "CRITICAL" ? "red" : row.status === "ROLLING" ? "blue" : "gray"
                         }>
                           {row.leaseEnd ?? "TBC"}
                         </Badge>

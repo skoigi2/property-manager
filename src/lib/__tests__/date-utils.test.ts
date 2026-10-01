@@ -14,6 +14,13 @@ describe("getLeaseStatus", () => {
     expect(getLeaseStatus(daysFromNow(30))).toBe("WARNING");
     expect(getLeaseStatus(daysFromNow(90))).toBe("OK");
   });
+
+  it("an ended lease the tenant rolls on month-to-month is ROLLING, not CRITICAL", () => {
+    expect(getLeaseStatus(daysFromNow(-200), true)).toBe("ROLLING");
+    // Before the lease ends the flag changes nothing.
+    expect(getLeaseStatus(daysFromNow(30), true)).toBe("WARNING");
+    expect(getLeaseStatus(null, true)).toBe("TBC");
+  });
 });
 
 describe("daysUntilExpiry", () => {

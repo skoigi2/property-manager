@@ -1,11 +1,17 @@
 import { differenceInDays, format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 
-export type LeaseStatus = "OK" | "WARNING" | "CRITICAL" | "TBC";
+/** ROLLING: the lease has ended and the tenant stays month-to-month (Tenant.monthToMonth). */
+export type LeaseStatus = "OK" | "WARNING" | "CRITICAL" | "TBC" | "ROLLING";
 
-export function getLeaseStatus(leaseEnd: Date | null | undefined): LeaseStatus {
+/**
+ * Lease status from the end date. Pass `monthToMonth` (Tenant.monthToMonth)
+ * where it's known: an ended lease the manager agreed to roll on is ROLLING,
+ * not CRITICAL.
+ */
+export function getLeaseStatus(leaseEnd: Date | null | undefined, monthToMonth = false): LeaseStatus {
   if (!leaseEnd) return "TBC";
   const daysLeft = differenceInDays(leaseEnd, new Date());
-  if (daysLeft < 0) return "CRITICAL";
+  if (daysLeft < 0) return monthToMonth ? "ROLLING" : "CRITICAL";
   if (daysLeft <= 60) return "WARNING";
   return "OK";
 }

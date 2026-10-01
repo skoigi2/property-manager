@@ -81,8 +81,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   // historical "expected rent" resolution stays accurate.
   const before = await prisma.tenant.findUnique({
     where: { id: params.id },
-    select: { monthlyRent: true },
+    select: { monthlyRent: true, leaseEnd: true },
   });
+  // A changed lease end starts a new fixed term — month-to-month no longer applies.
+  const newLeaseEnd = leaseEnd ? new Date(leaseEnd) : null;
+  const leaseEndChanged = before !== null && (before.leaseEnd?.getTime() ?? null) !== (newLeaseEnd?.getTime() ?? null);
   const rentChanged =
     typeof rest.monthlyRent === "number" &&
     before !== null &&
@@ -94,7 +97,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       data: {
         ...rest,
         leaseStart: new Date(leaseStart),
-        leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
+        leaseEnd: newLeaseEnd,
+        ...(leaseEndChanged ? { monthToMonth: false } : {}),
         // The form sends every field: a blank escalation field clears it
         // (zod turns "" into undefined, which Prisma would otherwise skip).
         escalationRate: rest.escalationRate ?? null,
@@ -168,7 +172,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(parsed.data.chargeLatePenalty !== undefined
         ? { chargeLatePenalty: parsed.data.chargeLatePenalty }
         : {}),
-      ...(leaseEndDate ? { leaseEnd: leaseEndDate } : {}),
+      ...(leaseEndDate ? { leaseEnd: leaseEndDate, monthToMonth: false } : {}),
     },
     select: { id: true, chargeLatePenalty: true, leaseEnd: true },
   });

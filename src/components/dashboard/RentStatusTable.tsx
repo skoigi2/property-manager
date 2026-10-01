@@ -28,6 +28,7 @@ interface RentStatusTableProps {
 function statusBadge(status: string) {
   if (status === "CRITICAL") return <Badge variant="red">Expired</Badge>;
   if (status === "TBC")      return <Badge variant="gray">TBC</Badge>;
+  if (status === "ROLLING")  return <Badge variant="blue">Month-to-month</Badge>;
   if (status === "WARNING")  return <Badge variant="amber">Expiring</Badge>;
   return <Badge variant="green">Active</Badge>;
 }

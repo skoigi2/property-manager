@@ -95,6 +95,7 @@ export async function PATCH(
     renewalStage === "RENEWED"
       ? {
           leaseEnd:    proposedLeaseEnd ? new Date(proposedLeaseEnd) : tenant.leaseEnd,
+          monthToMonth: false,
           ...(newRentScheduled ? {} : { monthlyRent: newRent }),
         }
       : {};

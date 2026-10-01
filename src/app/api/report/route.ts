@@ -391,7 +391,7 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
       serviceCharge,
       received,
       variance:      received - (expectedRent + serviceCharge),
-      status:        getLeaseStatus(t.leaseEnd),
+      status:        getLeaseStatus(t.leaseEnd, t.monthToMonth),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };
   });
@@ -473,11 +473,11 @@ async function buildReportData(y: number, m: number, session: any, propertyIds: 
   const alerts: string[] = [];
   const leaseAlerts = tenants.filter((t) => {
     if (!t.isActive) return false; // vacated tenants can't have lease alerts
-    const status = getLeaseStatus(t.leaseEnd);
+    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
     return status === "WARNING" || status === "CRITICAL" || status === "TBC";
   });
   leaseAlerts.forEach((t) => {
-    const status = getLeaseStatus(t.leaseEnd);
+    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
     if (status === "TBC")      alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiry TBC — action required`);
     else if (status === "CRITICAL") alerts.push(`${t.name} (${t.unit.unitNumber}): Lease EXPIRED`);
     else                       alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiring soon`);
@@ -709,7 +709,7 @@ async function buildRangeReportData(
       serviceCharge,
       received,
       variance:      received - (expectedRent + serviceCharge),
-      status:        getLeaseStatus(t.leaseEnd),
+      status:        getLeaseStatus(t.leaseEnd, t.monthToMonth),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };
   });
@@ -781,8 +781,8 @@ async function buildRangeReportData(
   // Alerts
   const alerts: string[] = [];
   // Vacated tenants can't have lease alerts.
-  tenants.filter((t) => t.isActive && ["WARNING","CRITICAL","TBC"].includes(getLeaseStatus(t.leaseEnd))).forEach((t) => {
-    const status = getLeaseStatus(t.leaseEnd);
+  tenants.filter((t) => t.isActive && ["WARNING","CRITICAL","TBC"].includes(getLeaseStatus(t.leaseEnd, t.monthToMonth))).forEach((t) => {
+    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
     if (status === "TBC")           alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiry TBC`);
     else if (status === "CRITICAL") alerts.push(`${t.name} (${t.unit.unitNumber}): Lease EXPIRED`);
     else                            alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiring soon`);

@@ -80,12 +80,12 @@ const CHECKS: Check[] = [
   },
   {
     name: "Active tenants past their lease end with no renewal",
-    why: "Not wrong data as such, but these leases have lapsed silently — renew, vacate or record a month-to-month arrangement.",
+    why: "Not wrong data as such, but these leases have lapsed — renew, vacate or mark the tenant month-to-month (Inbox / tenant page).",
     sql: `
       select o.name as org, p.name as property, u."unitNumber" as ref, t.name as tenant, t."leaseEnd"::date::text as lease_end
       from "Tenant" t join "Unit" u on u.id = t."unitId" join "Property" p on p.id = u."propertyId"
       left join "Organization" o on o.id = p."organizationId"
-      where t."isActive" and t."leaseEnd" < now() - interval '30 days' and t."renewalStage" <> 'RENEWED' ${demoFilter}`,
+      where t."isActive" and not t."monthToMonth" and t."leaseEnd" < now() - interval '30 days' and t."renewalStage" <> 'RENEWED' ${demoFilter}`,
   },
 ];
 

@@ -60,9 +60,10 @@ function DepositUnverifiedBadge() {
   );
 }
 
-function LeaseStatusBadge({ leaseEnd }: { leaseEnd: string | null }) {
-  const status = getLeaseStatus(toDate(leaseEnd));
+function LeaseStatusBadge({ leaseEnd, monthToMonth }: { leaseEnd: string | null; monthToMonth?: boolean }) {
+  const status = getLeaseStatus(toDate(leaseEnd), monthToMonth);
   if (status === "TBC")      return <Badge variant="gray">Lease TBC</Badge>;
+  if (status === "ROLLING")  return <Badge variant="blue">Month-to-month</Badge>;
   if (status === "CRITICAL") return <Badge variant="red">Expired</Badge>;
   if (status === "WARNING") {
     const days = daysUntilExpiry(toDate(leaseEnd));
@@ -216,7 +217,7 @@ export default function TenantsPage() {
 
     // Lease status
     if (leaseFilter !== "ALL") {
-      list = list.filter((t) => getLeaseStatus(toDate(t.leaseEnd)) === leaseFilter);
+      list = list.filter((t) => getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth) === leaseFilter);
     }
 
     // Renewal pipeline (mirrors the dashboard tile's definition)
@@ -410,7 +411,7 @@ export default function TenantsPage() {
 
   // Urgent lease alerts
   const urgentTenants = tenants.filter((t) => {
-    const s = getLeaseStatus(toDate(t.leaseEnd));
+    const s = getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth);
     return s === "TBC" || s === "CRITICAL" || s === "WARNING";
   });
 
@@ -441,7 +442,7 @@ export default function TenantsPage() {
             </div>
             <div className="space-y-1.5">
               {urgentTenants.map((t) => {
-                const status = getLeaseStatus(toDate(t.leaseEnd));
+                const status = getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth);
                 const isTBC = status === "TBC";
                 return (
                   <div key={t.id} className="flex items-center justify-between gap-3 flex-wrap">
@@ -619,6 +620,7 @@ export default function TenantsPage() {
               <option value="WARNING">Expiring soon</option>
               <option value="TBC">Lease TBC</option>
               <option value="CRITICAL">Expired</option>
+              <option value="ROLLING">Month-to-month</option>
             </select>
 
             {activeFilters.length > 0 && (
@@ -664,7 +666,7 @@ export default function TenantsPage() {
           // ── CARD GRID VIEW ───────────────────────────────────────────────
           <div className="grid gap-3 sm:grid-cols-2">
             {filtered.map((tenant) => {
-              const status = getLeaseStatus(toDate(tenant.leaseEnd));
+              const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth);
               const monthlyTotal = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
               return (
                 <Card
@@ -688,7 +690,7 @@ export default function TenantsPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                      <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} />
                       {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
                     </div>
                   </div>
@@ -758,7 +760,7 @@ export default function TenantsPage() {
             {/* Mobile: stacked list (no horizontal scroll) */}
             <div className="md:hidden divide-y divide-gray-50">
               {filtered.map((tenant) => {
-                const status = getLeaseStatus(toDate(tenant.leaseEnd));
+                const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth);
                 const monthlyTotal = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
                 return (
                   <div
@@ -775,7 +777,7 @@ export default function TenantsPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {tenant.isActive
-                          ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                          ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} />
                           : <Badge variant="gray">Vacated</Badge>
                         }
                         {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
@@ -892,7 +894,7 @@ export default function TenantsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((tenant, i) => {
-                    const status = getLeaseStatus(toDate(tenant.leaseEnd));
+                    const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth);
                     const monthlyTotal = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
                     return (
                       <tr
@@ -962,7 +964,7 @@ export default function TenantsPage() {
                         <td className="px-4 py-3 text-center">
                           <div className="inline-flex flex-col items-center gap-1">
                             {tenant.isActive
-                              ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} />
+                              ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} />
                               : <Badge variant="gray">Vacated</Badge>
                             }
                             {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}

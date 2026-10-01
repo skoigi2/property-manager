@@ -58,6 +58,7 @@ export async function GET(req: Request) {
           name: true,
           leaseStart: true,
           leaseEnd: true,
+          monthToMonth: true,
           monthlyRent: true,
           serviceCharge: true,
           unitId: true,
@@ -150,7 +151,7 @@ export async function GET(req: Request) {
     // Lease alerts
     const leaseAlerts = tenants
       .map((t) => {
-        const status = getLeaseStatus(t.leaseEnd);
+        const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
         const days   = daysUntilExpiry(t.leaseEnd);
         return {
           tenantId:    t.id,
@@ -162,7 +163,8 @@ export async function GET(req: Request) {
           status,
         };
       })
-      .filter((a) => a.status !== "OK");
+      // Month-to-month tenants (ROLLING) are an agreed arrangement, not an alert.
+      .filter((a) => a.status !== "OK" && a.status !== "ROLLING");
 
     // Long-term properties
     const longtermProperties = properties.filter((p) => p.type === "LONGTERM");
@@ -308,7 +310,7 @@ export async function GET(req: Request) {
         received,
         variance: received - expected,
         leaseEnd: t.leaseEnd,
-        leaseStatus: getLeaseStatus(t.leaseEnd),
+        leaseStatus: getLeaseStatus(t.leaseEnd, t.monthToMonth),
       };
     });
 

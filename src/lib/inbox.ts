@@ -178,11 +178,15 @@ export async function buildInbox(
         },
       },
     }),
-    // 2. Lease expiries within 30 days (or recently expired up to 7 days back)
+    // 2. Lease expiries within 30 days, and every ended lease of a tenant
+    // still in the unit until the manager renews, vacates or marks them
+    // month-to-month (an ended lease used to drop off after 7 days and then
+    // nothing flagged it again).
     prisma.tenant.findMany({
       where: {
         isActive: true,
-        leaseEnd: { gte: ago7, lte: in30 },
+        monthToMonth: false,
+        leaseEnd: { lte: in30 },
         unit: { propertyId: { in: propertyIds } },
       },
       select: {
@@ -344,16 +348,16 @@ export async function buildInbox(
     const severity: InboxSeverity = status === "CRITICAL" ? "URGENT" : "WARNING";
     const property = t.unit.property;
     const daysLeft = -dOver;
-    const subtitle =
-      daysLeft >= 0
-        ? `Lease ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
-        : `Lease ended ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago`;
+    const ended = daysLeft < 0;
+    const subtitle = ended
+      ? `Lease ended ${-daysLeft} day${-daysLeft === 1 ? "" : "s"} ago — renew, vacate or mark month-to-month`
+      : `Lease ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
     items.push({
       id: `lease:${t.id}`,
       refId: t.id,
       type: "LEASE_EXPIRY",
       severity,
-      title: `Lease expiring — Unit ${t.unit.unitNumber}, ${t.name}`,
+      title: `${ended ? "Lease expired" : "Lease expiring"} — Unit ${t.unit.unitNumber}, ${t.name}`,
       subtitle,
       propertyId: property.id,
       propertyName: property.name,

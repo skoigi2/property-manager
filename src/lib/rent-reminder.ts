@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendNotificationEmail, esc } from "@/lib/email";
 import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
+import { invoiceReminderFigures } from "@/lib/rent-reminder-figures";
 
 /**
  * Shared tenant rent-reminder email. Used by the Inbox "Send reminders" bulk
@@ -41,8 +42,8 @@ const MS_PER_DAY = 86_400_000;
 export function buildRentReminderEmail(inv: RentReminderInvoice, stage: ReminderStage, now = new Date()) {
   const t = inv.tenant;
   const currency = t.unit.property.currency ?? "USD";
-  const outstanding = inv.totalAmount - (inv.paidAmount ?? 0);
-  const daysOverdue = Math.max(0, Math.floor((now.getTime() - new Date(inv.dueDate).getTime()) / MS_PER_DAY));
+  // Shared with the WhatsApp reminder so the two never disagree.
+  const { outstanding, daysOverdue } = invoiceReminderFigures(inv, now);
   const daysUntilDue = Math.max(0, Math.ceil((new Date(inv.dueDate).getTime() - now.getTime()) / MS_PER_DAY));
   const periodLabel = format(new Date(inv.periodYear, inv.periodMonth - 1, 1), "MMMM yyyy");
   const propertyName = t.unit.property.name;

@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { WhatsAppIcon } from "@/components/whatsapp/WhatsAppIcon";
 import toast from "react-hot-toast";
 
 interface CommEntry {
@@ -129,8 +131,8 @@ export function CommunicationLogTab({ tenantId }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-body font-semibold text-header">Email Communications</h3>
-          <p className="text-caption text-gray-500 mt-0.5">Outbound emails sent to this tenant</p>
+          <h3 className="text-body font-semibold text-header">Communications</h3>
+          <p className="text-caption text-gray-500 mt-0.5">Emails and WhatsApp messages sent to this tenant</p>
         </div>
         <Button
           size="sm"
@@ -201,7 +203,7 @@ export function CommunicationLogTab({ tenantId }: Props) {
           <Mail size={32} className="mx-auto text-gray-300 mb-2" />
           <p className="text-body text-gray-500">No communications logged yet.</p>
           <p className="text-caption text-gray-400 mt-1">
-            Entries are created automatically when you send an email draft, or manually using the button above.
+            Entries are created automatically when you send an email draft or open a WhatsApp message, or manually using the button above.
           </p>
         </div>
       ) : (
@@ -213,9 +215,15 @@ export function CommunicationLogTab({ tenantId }: Props) {
               <div key={entry.id} className="py-3">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 flex-shrink-0">
-                    <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-caption font-medium px-2 py-0.5 rounded-full">
-                      <Mail size={10} />EMAIL
-                    </span>
+                    {entry.type === "WHATSAPP" ? (
+                      <Badge variant="green">
+                        <span className="inline-flex items-center gap-1"><WhatsAppIcon size={10} className="text-current" />WhatsApp</span>
+                      </Badge>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-caption font-medium px-2 py-0.5 rounded-full">
+                        <Mail size={10} />EMAIL
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
@@ -255,6 +263,11 @@ export function CommunicationLogTab({ tenantId }: Props) {
                         <span className="ml-1 text-gray-400">· {entry.templateUsed.replace(/_/g, " ")}</span>
                       )}
                     </p>
+                    {entry.type === "WHATSAPP" && (
+                      <p className="text-caption text-gray-400 mt-0.5">
+                        Send attempt — WhatsApp opened with this message; delivery isn&apos;t confirmed.
+                      </p>
+                    )}
 
                     {/* Expanded body */}
                     {isExpanded && entry.body && (

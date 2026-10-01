@@ -1,5 +1,6 @@
 import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { dialCodeForCurrency, normalizePhoneForWhatsApp } from "@/lib/whatsapp";
 
 interface TenantRow {
   name?: string;
@@ -11,7 +12,7 @@ interface TenantRow {
   leaseStart?: string;
   leaseEnd?: string;
   email?: string;
-  phone?: string;
+  phone?: string | number; // a number-formatted Excel cell
   paymentFrequency?: string;
   escalationRate?: string | number;
   escalationType?: string;
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
     // Load all units for accessible properties (with property name)
     const units = await prisma.unit.findMany({
       where: { propertyId: { in: propertyIds } },
-      include: { property: { select: { name: true } } },
+      include: { property: { select: { name: true, currency: true } } },
     });
 
     let imported = 0;
@@ -113,6 +114,14 @@ export async function POST(req: Request) {
         const depositReceivedRaw = parseFloat(String(row.depositReceived ?? ""));
         const depositReceived = !isNaN(depositReceivedRaw) && depositReceivedRaw > 0 ? depositReceivedRaw : null;
         const depositReceivedDate = row.depositReceivedDate ? new Date(row.depositReceivedDate) : leaseStart;
+        // A number-formatted cell arrives as a number — keep it as text.
+        const phone = row.phone != null ? String(row.phone).trim() || null : null;
+        if (phone && !normalizePhoneForWhatsApp(phone, dialCodeForCurrency(unit.property.currency))) {
+          errors.push({
+            row: rowNum,
+            reason: `Phone "${phone}" for "${name}" imported, but WhatsApp reminders can't use it — add the country code (e.g. +254712345678)`,
+          });
+        }
 
         // Existing tenant lookup — matches active OR inactive tenants on the same unit.
         const existing = await prisma.tenant.findFirst({
@@ -138,7 +147,7 @@ export async function POST(req: Request) {
               leaseStart,
               leaseEnd,
               email: row.email?.trim() || null,
-              phone: row.phone?.trim() || null,
+              phone,
               paymentFrequency,
               ...escalationFields,
               parkingFee,
@@ -191,7 +200,7 @@ export async function POST(req: Request) {
               leaseStart,
               leaseEnd,
               email: row.email?.trim() || null,
-              phone: row.phone?.trim() || null,
+              phone,
               paymentFrequency,
               ...escalationFields,
               parkingFee,

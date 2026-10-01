@@ -93,7 +93,7 @@ export function downloadTenantsTemplate() {
     ["Deposit",           "No",  "Number",       "Security deposit amount — leave blank or 0 if none"],
     ["Lease End",         "No",  "YYYY-MM-DD",   "Leave blank for open-ended / periodic tenancies"],
     ["Email",             "No",  "Email address","Tenant contact email"],
-    ["Phone",             "No",  "Phone number", "e.g. 0712345678 or +254712345678"],
+    ["Phone",             "No",  "Phone with country code", "e.g. +254712345678 — WhatsApp reminders need the country code. Type it as text so Excel keeps a leading + or 0"],
     ["Payment Frequency", "No",  "MONTHLY, QUARTERLY, BIANNUAL, ANNUAL", "Rent billing cadence — defaults to MONTHLY if blank"],
     ["Escalation Rate",   "No",  "Number (%)",   "Rent increase at each review — e.g. 5 for 5%"],
     ["Escalation Type",   "No",  "PERCENT or FIXED", "PERCENT (default) uses Escalation Rate; FIXED adds Escalation Amount at each review"],

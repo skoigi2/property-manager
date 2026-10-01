@@ -4,6 +4,8 @@ import { X, Copy, Check, Mail, ExternalLink } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import toast from "react-hot-toast";
+import { WhatsAppSendButton } from "@/components/whatsapp/WhatsAppSendButton";
+import { useWhatsAppTarget } from "@/components/whatsapp/use-whatsapp";
 
 type Template = "rent_reminder" | "payment_receipt" | "renewal_offer" | "expiry_notice";
 
@@ -129,6 +131,8 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
   const [copied, setCopied]       = useState(false);
   const [usedFired, setUsedFired] = useState(false);
   const draft = buildDraft(template, tenant, currency);
+  // Same four templates, WhatsApp versions (src/lib/whatsapp-messages.ts).
+  const whatsapp = useWhatsAppTarget(tenantId);
 
   function autoLog() {
     if (!usedFired) {
@@ -220,7 +224,7 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-wrap gap-2 pt-1">
             <button
               onClick={copyBody}
               className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 text-gray-600 text-body rounded-lg hover:bg-gray-50 transition-colors"
@@ -240,7 +244,22 @@ export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTem
                 Open in mail app
               </a>
             )}
+            {tenantId && (
+              <WhatsAppSendButton
+                target={whatsapp.data}
+                loading={whatsapp.loading}
+                template={template}
+                caseThreadId={caseThreadId}
+                onPortalCreated={(token) => whatsapp.data && whatsapp.setData({ ...whatsapp.data, portalToken: token })}
+              />
+            )}
           </div>
+          {tenantId && (
+            <p className="text-caption text-gray-400">
+              WhatsApp gets a short version of this message (with the outstanding balance and portal link for a rent
+              reminder) and is logged as a send attempt — delivery can&apos;t be confirmed.
+            </p>
+          )}
           {!tenant.email && (
             <p className="text-caption text-amber-600 ">No email on file — add tenant email to enable mailto link.</p>
           )}

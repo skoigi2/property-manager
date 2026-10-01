@@ -55,7 +55,13 @@ export function TenantFormFields({
       <Input label="Tenant Name" {...register("name")} error={errors.name?.message} />
       <div className="grid grid-cols-2 gap-4">
         <Input label="Email" type="email" placeholder="tenant@example.com" {...register("email")} error={errors.email?.message} />
-        <Input label="Phone" type="tel" placeholder="+1 555 000 0000" {...register("phone")} />
+        <Input
+          label="Phone"
+          type="tel"
+          placeholder="+254 712 345 678"
+          tooltip="Include the country code so WhatsApp reminders work. A number starting with 0 is read as the property's country."
+          {...register("phone")}
+        />
       </div>
 
       {/* Additional contacts — spouse, accounts office, guarantor… */}

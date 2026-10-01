@@ -2164,6 +2164,9 @@ model NotificationLog {
 
 enum CommunicationType {
   EMAIL
+  // A WhatsApp click-to-chat send ATTEMPT (wa.me link opened in the manager's
+  // own WhatsApp) — delivery can't be confirmed. See src/lib/whatsapp.ts.
+  WHATSAPP
 }
 
 model CommunicationLog {

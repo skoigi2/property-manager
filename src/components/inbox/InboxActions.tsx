@@ -18,6 +18,8 @@ import {
   Clock,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { WhatsAppModal } from "@/components/whatsapp/WhatsAppModal";
+import { WhatsAppIcon } from "@/components/whatsapp/WhatsAppIcon";
 import { Button } from "@/components/ui/Button";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { HelpTip } from "@/components/ui/HelpTip";
@@ -90,7 +92,8 @@ export function InboxActions({ item, onActionComplete }: Props) {
     | "email-rent-reminder"
     | "email-renewal-offer"
     | "case-reassign"
-    | "case-waiting-on";
+    | "case-waiting-on"
+    | "whatsapp";
 
   const [modal, setModal] = useState<ModalKind>(null);
   const [tenant, setTenant] = useState<TenantSnapshot | null>(null);
@@ -186,6 +189,15 @@ export function InboxActions({ item, onActionComplete }: Props) {
       icon: CheckCircle2,
       onClick: () => patch(`/api/invoices/${item.refId}`, { status: "PAID" }, "Marked paid"),
     });
+    if (item.tenantId) {
+      actions.push({
+        key: "whatsapp",
+        label: "WhatsApp",
+        tip: "Opens WhatsApp with a rent reminder for this invoice — outstanding amount, days overdue and the tenant's portal link.",
+        icon: WhatsAppIcon,
+        onClick: () => setModal("whatsapp"),
+      });
+    }
   }
 
   if (item.type === "LEASE_EXPIRY") {
@@ -404,6 +416,14 @@ export function InboxActions({ item, onActionComplete }: Props) {
       </div>
 
       {/* Modals */}
+      {modal === "whatsapp" && item.tenantId && (
+        <WhatsAppModal
+          tenantId={item.tenantId}
+          invoiceId={item.refId}
+          templates={["rent_reminder"]}
+          onClose={() => setModal(null)}
+        />
+      )}
       {modal === "vendor" && (
         <AssignVendorModal
           item={item}

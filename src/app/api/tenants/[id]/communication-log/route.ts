@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 const createSchema = z.object({
-  type:         z.enum(["EMAIL"]),
+  // WHATSAPP = a click-to-chat send attempt (the manager's own WhatsApp
+  // opened with the message); delivery can't be confirmed.
+  type:         z.enum(["EMAIL", "WHATSAPP"]),
   subject:      z.string().min(1).max(300),
   body:         z.string().max(5000).optional(),
   templateUsed: z.string().optional(),
@@ -98,12 +100,13 @@ export async function POST(
           prisma.caseEvent.create({
             data: {
               caseThreadId: validCaseThreadId,
-              kind: "EMAIL_SENT",
+              // A WhatsApp send is an attempt we can't confirm — not an email.
+              kind: type === "WHATSAPP" ? "EXTERNAL_UPDATE" : "EMAIL_SENT",
               actorUserId: session!.user.id,
               actorEmail: session!.user.email ?? null,
               actorName: session!.user.name ?? null,
               body: `${subject}\n\n${snippet}`,
-              meta: { templateUsed: templateUsed ?? null, source: "communication-log" },
+              meta: { templateUsed: templateUsed ?? null, source: "communication-log", channel: type },
             },
           }),
           prisma.caseThread.update({

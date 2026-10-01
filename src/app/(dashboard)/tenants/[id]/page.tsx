@@ -16,6 +16,8 @@ import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
 import { RenewalPipeline } from "@/components/tenants/RenewalPipeline";
 import { EmailDraftModal } from "@/components/tenants/EmailDraftModal";
+import { WhatsAppModal } from "@/components/whatsapp/WhatsAppModal";
+import { WhatsAppIcon } from "@/components/whatsapp/WhatsAppIcon";
 import { StatementModal } from "@/components/tenants/StatementModal";
 import { RentHistoryTab } from "@/components/tenants/RentHistoryTab";
 import { CommunicationLogTab } from "@/components/tenants/CommunicationLogTab";
@@ -315,6 +317,7 @@ export default function TenantDetailPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [proofInvoiceId, setProofInvoiceId] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
   const [renewalFeePrompt, setRenewalFeePrompt] = useState<{ unitId: string; tenantId: string; propertyId: string; amount: number } | null>(null);
   const [renewalFeeLogging, setRenewalFeeLogging] = useState(false);
@@ -688,6 +691,13 @@ export default function TenantDetailPage() {
                     className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-caption rounded-lg transition-colors"
                   >
                     <Mail size={13} /> Draft Email
+                  </button>
+                  {/* WhatsApp — click-to-chat from the manager's own WhatsApp */}
+                  <button
+                    onClick={() => setShowWhatsApp(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-500 hover:text-gold hover:border-gold text-caption rounded-lg transition-colors"
+                  >
+                    <WhatsAppIcon size={13} /> WhatsApp
                   </button>
                   {/* Portal link button */}
                   {!tenant.portalToken ? (
@@ -1574,6 +1584,15 @@ export default function TenantDetailPage() {
       )}
 
       {/* Email Draft Modal */}
+      {showWhatsApp && tenant && (
+        <WhatsAppModal
+          tenantId={tenant.id}
+          onClose={() => {
+            setShowWhatsApp(false);
+            fetchTenant(); // a portal link created from the modal shows straight away
+          }}
+        />
+      )}
       {showEmail && tenant && (
         <EmailDraftModal
           tenant={{

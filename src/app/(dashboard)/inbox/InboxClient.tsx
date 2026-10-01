@@ -11,6 +11,8 @@ import { InboxRowCard, InboxTableRow } from "@/components/inbox/InboxRow";
 import { AlertOctagon, CalendarClock, CalendarRange, Inbox, Mail, Wrench, X } from "lucide-react";
 import { useProperty } from "@/lib/property-context";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
+import { WhatsAppBulkModal } from "@/components/whatsapp/WhatsAppBulkModal";
+import { WhatsAppIcon } from "@/components/whatsapp/WhatsAppIcon";
 import type { InboxItem, InboxCounts } from "@/lib/inbox";
 
 interface InboxPayload {
@@ -26,7 +28,7 @@ interface Props {
 export function InboxClient({ userName, role }: Props) {
   const { selectedId } = useProperty();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkModal, setBulkModal] = useState<null | "send-reminders" | "assign-vendor">(null);
+  const [bulkModal, setBulkModal] = useState<null | "send-reminders" | "whatsapp-reminders" | "assign-vendor">(null);
 
   // SWR-from-sessionStorage — instant hydrate on repeat visits, background refresh.
   const qs = selectedId ? `?propertyId=${encodeURIComponent(selectedId)}` : "";
@@ -105,42 +107,63 @@ export function InboxClient({ userName, role }: Props) {
       {/* Bulk action bar */}
       {selectedItems.length >= 2 && (
         <div className="fixed inset-x-0 bottom-16 lg:bottom-4 z-40 flex justify-center pointer-events-none px-4">
-          <div className="pointer-events-auto flex items-center gap-3 bg-header text-white rounded-2xl shadow-2xl px-4 py-3 max-w-2xl w-full">
+          {/* Phones: count + clear on the first row, the actions wrap below. */}
+          <div className="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-2 bg-header text-white rounded-2xl shadow-2xl px-4 py-3 max-w-2xl w-full">
             <span className="text-body font-medium">
               {selectedItems.length} selected
             </span>
-            <div className="flex-1" />
-            <button
-              onClick={() => setBulkModal("send-reminders")}
-              disabled={selectedInvoices.length === 0}
-              className="flex items-center gap-1.5 text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title={selectedInvoices.length === 0 ? "Select at least one overdue invoice" : ""}
-            >
-              <Mail size={13} />
-              Send reminders ({selectedInvoices.length})
-            </button>
-            <button
-              onClick={() => setBulkModal("assign-vendor")}
-              disabled={selectedJobs.length === 0}
-              className="flex items-center gap-1.5 text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              title={selectedJobs.length === 0 ? "Select at least one maintenance job" : ""}
-            >
-              <Wrench size={13} />
-              Assign vendor ({selectedJobs.length})
-            </button>
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              className="ml-auto sm:ml-0 sm:order-last p-1.5 rounded-lg hover:bg-white/10 transition-colors"
               aria-label="Clear selection"
             >
               <X size={14} />
             </button>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:flex-1 sm:justify-end">
+              <button
+                onClick={() => setBulkModal("send-reminders")}
+                disabled={selectedInvoices.length === 0}
+                className="flex items-center gap-1.5 whitespace-nowrap text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title={selectedInvoices.length === 0 ? "Select at least one overdue invoice" : ""}
+              >
+                <Mail size={13} />
+                Send reminders ({selectedInvoices.length})
+              </button>
+              <button
+                onClick={() => setBulkModal("whatsapp-reminders")}
+                disabled={selectedInvoices.length === 0}
+                className="flex items-center gap-1.5 whitespace-nowrap text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title={selectedInvoices.length === 0 ? "Select at least one overdue invoice" : "Step through the tenants one WhatsApp chat at a time"}
+              >
+                <WhatsAppIcon size={13} className="text-white" />
+                Remind on WhatsApp ({selectedInvoices.length})
+              </button>
+              <button
+                onClick={() => setBulkModal("assign-vendor")}
+                disabled={selectedJobs.length === 0}
+                className="flex items-center gap-1.5 whitespace-nowrap text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title={selectedJobs.length === 0 ? "Select at least one maintenance job" : ""}
+              >
+                <Wrench size={13} />
+                Assign vendor ({selectedJobs.length})
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {bulkModal === "send-reminders" && (
         <BulkSendRemindersModal
+          items={selectedInvoices}
+          onClose={() => setBulkModal(null)}
+          onDone={(processedIds) => {
+            setBulkModal(null);
+            processedIds.forEach((id) => handleActionComplete(id));
+          }}
+        />
+      )}
+      {bulkModal === "whatsapp-reminders" && (
+        <WhatsAppBulkModal
           items={selectedInvoices}
           onClose={() => setBulkModal(null)}
           onDone={(processedIds) => {

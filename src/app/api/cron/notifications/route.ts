@@ -21,6 +21,7 @@ import {
 import { applyDueRentIncreases } from "@/lib/rent-increase";
 import { runAutomations } from "@/lib/automations";
 import { resetAutomationCache } from "@/lib/automation-registry";
+import { sendWeeklyDataHealthReport } from "@/lib/data-health";
 
 function authorize(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
@@ -69,6 +70,13 @@ export async function GET(request: Request) {
     checkRentIncreasesDue(),
   ]);
 
+  // Weekly (Mondays) data-health report to platform super-admins — only
+  // sent when a check finds rows. Never fails the run.
+  const dataHealth = await sendWeeklyDataHealthReport().then(
+    (value) => ({ status: "fulfilled" as const, value }),
+    (reason) => ({ status: "rejected" as const, reason }),
+  );
+
   // Auto-expire DISMISSED hints older than 30 days
   await import("@/lib/prisma").then(({ prisma }) =>
     prisma.actionableHint.updateMany({
@@ -95,6 +103,7 @@ export async function GET(request: Request) {
     tenantRentReminders:     tenantReminders.status === "fulfilled" ? tenantReminders.value : { error: String(tenantReminders.reason) },
     rentIncreasesApplied:    rentIncreases.status === "fulfilled" ? rentIncreases.value : { error: String(rentIncreases.reason) },
     rentReviewsDue:          rentReviews.status === "fulfilled" ? rentReviews.value : { error: String(rentReviews.reason) },
+    dataHealth:              dataHealth.status === "fulfilled" ? dataHealth.value : { error: String(dataHealth.reason) },
     durationMs: Date.now() - start,
   };
 

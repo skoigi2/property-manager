@@ -37,7 +37,7 @@ npm run db:studio    # Open Prisma Studio at localhost:5555
 npm run db:seed:bahrain  # Seed Al Seef Residences demo (Bahrain, 20 units)
 npm run demo:smoke       # Seed every demo into a throwaway org, check arrears + receipts, delete it
 npm run db:drift         # Does the DB match schema.prisma? (after running a new migration's SQL)
-npm run data:health      # Read-only integrity checks (invoice receipts, tenantless rent, unit status, orphan rows, lapsed leases)
+npm run data:health      # Read-only integrity checks (src/lib/data-health.ts); the cron emails super-admins the same report on Mondays when a check finds rows
 npm run prod -- <script.ts | command>   # Run against PRODUCTION (pulls DIRECT_URL from Vercel, never left on disk)
 # Note: additional demos (sandton-heights, belsize-court) seed via the
 # in-app onboarding picker / POST /api/demo/seed — no dedicated npm script.
@@ -853,7 +853,7 @@ Checks and emails ADMIN + MANAGER users with property access (falling back to th
 - An URGENT maintenance job is still OPEN after 4+ hours
 - An in-service asset's warranty ends in ≤30 days or ≤7 days (`WARRANTY_EXPIRY_30D` / `WARRANTY_EXPIRY_7D`)
 
-It also runs the smart-reminder checkers and `runAutomations()` (see the Automations section) in the same `Promise.allSettled` batch.
+It also runs the smart-reminder checkers and `runAutomations()` (see the Automations section) in the same `Promise.allSettled` batch. On Mondays (UTC) it also runs `sendWeeklyDataHealthReport()` (`src/lib/data-health.ts`): the `npm run data:health` checks across every organisation (sample properties excluded), emailed to platform super-admins only when something is found, at most once per 6 days (deduped on `EmailLog.subject`).
 
 **Gating**: every checker early-exits per item via `isAutomationEnabled(orgId, "<KEY>", propertyId)` (org toggle, with per-property override), and each per-recipient send is filtered by `wantsEmail(userId, category)` (per-user opt-out). `resetAutomationCache()` runs at the top of the handler.
 

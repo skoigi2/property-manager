@@ -5,6 +5,7 @@ import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
+import { rentSideDueForMonth } from "@/lib/rent-ledger";
 import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
 import { getDaysInMonth } from "date-fns";
 
@@ -225,12 +226,8 @@ export async function GET(req: Request) {
             // Schedule-aware: quarterly/biannual/annual payers owe the FULL
             // period amount on billing months (anchored to lease start) and
             // nothing in between — matching the collection view + invoicing.
-            expected: scheduledExpectedForMonth({
-              leaseStart: t.leaseStart,
-              frequency: t.paymentFrequency,
-              month: cursor,
-              rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent ?? 0, m),
-            }).amount,
+            // Rent + service charge, as the LONGTERM_RENT receipts book them.
+            expected: rentSideDueForMonth(t, cursor, today).amount,
             received: paid,
           });
           cursor = new Date(yr, mo + 1, 1);
@@ -293,7 +290,10 @@ export async function GET(req: Request) {
         rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
       });
       const expectedRent = sched.amount;
-      const expected = expectedRent + (sched.due ? t.serviceCharge : 0);
+      // Service charge for the whole period on a billing month (a quarterly
+      // payer owes three months of it, not one).
+      const due = rentSideDueForMonth(t, from);
+      const expected = due.amount;
       return {
         id: t.id,
         tenantName: t.name,
@@ -302,7 +302,8 @@ export async function GET(req: Request) {
         propertyName: propertyById.get(t.unit.propertyId)?.name ?? "",
         type: t.unit.type,
         expectedRent,
-        serviceCharge: t.serviceCharge,
+        // The service charge billed for this month's period (0 mid-period).
+        serviceCharge: due.serviceCharge,
         expected,
         received,
         variance: received - expected,

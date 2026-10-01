@@ -28,9 +28,8 @@ import {
   Phone, Mail, Building2, BookUser, Pencil, X,
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
-import { resolveExpectedRent } from "@/lib/rent-resolution";
-import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
-import { computeArrears, type ArrearsSummary } from "@/lib/rent-ledger";
+import { frequencyMonths } from "@/lib/rent-schedule";
+import { computeArrears, rentSideDueForMonth, type ArrearsSummary } from "@/lib/rent-ledger";
 import { GuestPanel } from "@/components/guests/GuestPanel";
 import { LinkInvoiceModal } from "@/components/income/LinkInvoiceModal";
 import Link from "next/link";
@@ -318,18 +317,13 @@ export default function IncomePage() {
           (e.tenantId === tenant.id || e.unitId === tenant.unitId),
       );
       const totalPaid = paid.reduce((s: number, e: any) => s + e.grossAmount, 0);
-      const sched = scheduledExpectedForMonth({
-        leaseStart: tenant.leaseStart,
-        frequency: tenant.paymentFrequency,
-        month,
-        // Per-month rent resolved from RentHistory (past months use the rent
-        // that applied then; a mid-period escalation is summed correctly).
-        rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
-      });
-      const expected = sched.amount;
-      const notDue = !sched.due;
+      // Rent (resolved from RentHistory — past months use the rent that
+      // applied then) + service charge, the same as the receipt books it.
+      const due = rentSideDueForMonth(tenant, month);
+      const expected = due.amount;
+      const notDue = !due.due;
       return {
-        tenant, paid, totalPaid, expected, notDue,
+        tenant, paid, totalPaid, expected, notDue, serviceChargeDue: due.serviceCharge,
         // A covered month with no receipts is fine (prepaid) — not "paid",
         // just nothing owed. Money received in a covered month still counts.
         isPaid: notDue ? totalPaid > 0 : totalPaid >= expected * 0.99,
@@ -345,6 +339,9 @@ export default function IncomePage() {
     pending:       collectionRows.filter((r) => !r.notDue && !r.isPaid).length,
     totalExpected: collectionRows.reduce((s, r) => s + r.expected, 0),
     totalReceived: collectionRows.reduce((s, r) => s + r.totalPaid, 0),
+    // Per tenant, so one tenant's overpayment never hides another's shortfall,
+    // and only rent-side receipts count (water / electricity / fees are not rent).
+    totalOutstanding: collectionRows.filter((r) => !r.notDue).reduce((s, r) => s + Math.max(0, r.expected - r.totalPaid), 0),
   }), [collectionRows]);
 
   // ── Interest rate lookup by property ID ───────────────────────────────────
@@ -578,8 +575,8 @@ export default function IncomePage() {
     }
   }
 
-  function renderCollCell(key: string, row: { tenant: any; totalPaid: number; expected: number; isPaid: boolean; notDue: boolean; paid: any[] }) {
-    const { tenant, totalPaid, expected, isPaid, notDue } = row;
+  function renderCollCell(key: string, row: { tenant: any; totalPaid: number; expected: number; isPaid: boolean; notDue: boolean; paid: any[]; serviceChargeDue: number }) {
+    const { tenant, totalPaid, expected, isPaid, notDue, serviceChargeDue } = row;
     switch (key) {
       case "unit":
         return <td key={key} className="px-4 py-3 text-body tabular-nums text-header font-medium">{tenant.unit?.unitNumber ?? "—"}</td>;
@@ -608,7 +605,7 @@ export default function IncomePage() {
                     {{ QUARTERLY: "Quarter", BIANNUAL: "Half-year", ANNUAL: "Year" }[tenant.paymentFrequency as string]} in advance
                   </p>
                 )}
-                {tenant.serviceCharge > 0 && <p className="text-caption text-gray-400 mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                {serviceChargeDue > 0 && <p className="text-caption text-gray-400 mt-0.5">incl. {fmt(serviceChargeDue)} svc</p>}
               </>
             )}
           </td>
@@ -656,15 +653,10 @@ export default function IncomePage() {
     // rate (never bare monthlyRent, which shorts quarterly/annual payers).
     let defaultAmount = amount;
     if (defaultAmount == null) {
-      const sched = scheduledExpectedForMonth({
-        leaseStart: tenant.leaseStart,
-        frequency: tenant.paymentFrequency,
-        month: targetMonth,
-        rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
-      });
-      defaultAmount = sched.due
-        ? sched.amount
-        : (tenant.monthlyRent ?? 0) * frequencyMonths(tenant.paymentFrequency);
+      const due = rentSideDueForMonth(tenant, targetMonth);
+      defaultAmount = due.due
+        ? due.amount
+        : ((tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0)) * frequencyMonths(tenant.paymentFrequency);
     }
     openFormWithDefaults(
       {
@@ -959,7 +951,7 @@ export default function IncomePage() {
         {/* ── Summary cards ──────────────────────────────────────────────── */}
         {(() => {
           const expected    = collectionSummary.totalExpected;
-          const outstanding = Math.max(0, expected - totalGross);
+          const outstanding = collectionSummary.totalOutstanding;
           const fullyCollected = expected > 0 && outstanding === 0;
           return (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1005,7 +997,7 @@ export default function IncomePage() {
                     />
                     <p className="text-caption text-gray-400 mt-0.5">
                       {expected > 0
-                        ? `${Math.round((totalGross / expected) * 100)}% collected`
+                        ? `${Math.round(((expected - outstanding) / expected) * 100)}% of rent collected`
                         : allTenants.length > 0
                           ? "no rent due this month"
                           : "no active tenants"}
@@ -1221,7 +1213,7 @@ export default function IncomePage() {
                       {/* Mobile: stacked cards */}
                       <div className="md:hidden divide-y divide-gray-50">
                         {sortedCollectionRows.map((row) => {
-                          const { tenant, totalPaid, expected, isPaid, notDue } = row;
+                          const { tenant, totalPaid, expected, isPaid, notDue, serviceChargeDue } = row;
                           const isChecked = bulkSelected.has(tenant.id);
                           return (
                             <div key={tenant.id} className={clsx("px-4 py-3 transition-colors", isChecked && "bg-gold/5")}>
@@ -1259,7 +1251,7 @@ export default function IncomePage() {
                                   ) : (
                                     <CurrencyDisplay currency={currency} amount={expected} size="sm" className="text-gray-700" />
                                   )}
-                                  {!notDue && tenant.serviceCharge > 0 && <p className="text-caption text-gray-400 mt-0.5">+ {fmt(tenant.serviceCharge)} svc</p>}
+                                  {!notDue && serviceChargeDue > 0 && <p className="text-caption text-gray-400 mt-0.5">incl. {fmt(serviceChargeDue)} svc</p>}
                                 </div>
                                 <div>
                                   <p className="text-label text-gray-400 uppercase mb-0.5">Received</p>

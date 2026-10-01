@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeArrears, buildLedger, type LedgerTenant, type LedgerEntry } from "../rent-ledger";
+import { computeArrears, buildLedger, rentSideDueForMonth, type LedgerTenant, type LedgerEntry } from "../rent-ledger";
 
 // Fixed "today" keeps every case deterministic.
 const TODAY = new Date(2026, 6, 15); // 15 Jul 2026
@@ -99,6 +99,41 @@ describe("computeArrears", () => {
     );
     expect(s.months[0].expected).toBe(10000); // Jan at the old rate
     expect(s.months[3].expected).toBe(12000); // Apr onwards escalated
+  });
+});
+
+describe("service charge on the rent side", () => {
+  // Invoice payments book rent + service charge as ONE LONGTERM_RENT receipt,
+  // so "expected" must include the service charge too.
+  const withSc = tenant({ serviceCharge: 1500 });
+
+  it("a tenant paying rent + service charge every month has no arrears", () => {
+    const paidMonthly = Array.from({ length: 7 }, (_, i) => rent(new Date(2026, i, 3), 11500));
+    const s = computeArrears(withSc, paidMonthly, 0, TODAY);
+    expect(s.hasArrears).toBe(false);
+    expect(s.totalArrears).toBe(0);
+    expect(s.months.every((m) => m.expected === 11500)).toBe(true);
+  });
+
+  it("two unpaid months are two months of rent + service charge — no credit from earlier months", () => {
+    const paid = Array.from({ length: 5 }, (_, i) => rent(new Date(2026, i, 3), 11500));
+    const s = computeArrears(withSc, paid, 0, TODAY);
+    expect(s.totalArrears).toBe(2 * 11500);
+    expect(s.unpaidMonths.map((m) => m.month)).toEqual([5, 6]);
+    // The tenant ledger agrees.
+    const ledger = buildLedger(withSc, paid, TODAY);
+    expect(ledger.reduce((t, r) => t + r.shortfall, 0)).toBe(2 * 11500);
+  });
+
+  it("paying rent only leaves the service charge owing", () => {
+    const rentOnly = Array.from({ length: 7 }, (_, i) => rent(new Date(2026, i, 3), 10000));
+    expect(computeArrears(withSc, rentOnly, 0, TODAY).totalArrears).toBe(7 * 1500);
+  });
+
+  it("a quarterly payer owes three months of service charge on the billing month", () => {
+    const q = tenant({ serviceCharge: 1500, paymentFrequency: "QUARTERLY" });
+    expect(rentSideDueForMonth(q, new Date(2026, 3, 1))).toEqual({ due: true, rent: 30000, serviceCharge: 4500, amount: 34500 });
+    expect(rentSideDueForMonth(q, new Date(2026, 4, 1))).toEqual({ due: false, rent: 0, serviceCharge: 0, amount: 0 });
   });
 });
 

@@ -56,6 +56,30 @@ export interface ArrearsSummary {
   hasArrears: boolean;
 }
 
+/**
+ * What a tenant owes for one month on the RENT SIDE: rent (RentHistory-
+ * resolved, following the payment schedule) plus service charge × the
+ * period's months — on billing months only. It is exactly what an invoice's
+ * rent side covers and what its LONGTERM_RENT receipt books (rent + service
+ * charge are one receipt, invoice-payment.ts), so every rent-vs-receipts
+ * comparison must use it. Comparing rent alone against those receipts turns
+ * each month's service charge into credit that hides real arrears.
+ */
+export function rentSideDueForMonth(
+  tenant: Pick<LedgerTenant, "leaseStart" | "monthlyRent" | "serviceCharge" | "paymentFrequency" | "rentHistory">,
+  month: Date,
+  today: Date = new Date(),
+): { due: boolean; rent: number; serviceCharge: number; amount: number } {
+  const sched = scheduledExpectedForMonth({
+    leaseStart: tenant.leaseStart ?? today,
+    frequency: tenant.paymentFrequency,
+    month,
+    rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+  });
+  const serviceCharge = sched.due ? (tenant.serviceCharge ?? 0) * frequencyMonths(tenant.paymentFrequency) : 0;
+  return { due: sched.due, rent: sched.amount, serviceCharge, amount: sched.amount + serviceCharge };
+}
+
 export function computeArrears(
   tenant: LedgerTenant,
   allEntries: LedgerEntry[],
@@ -73,8 +97,8 @@ export function computeArrears(
       (e.tenantId === tenant.id || (tenant.unitId != null && e.unitId === tenant.unitId)),
   );
 
-  // First pass: expected (RentHistory-aware, schedule-aware) + cash received
-  // per month.
+  // First pass: expected (rent + service charge, RentHistory-aware,
+  // schedule-aware) + cash received per month.
   const periodMonths = frequencyMonths(tenant.paymentFrequency);
   const rawMonths: { year: number; month: number; expected: number; received: number }[] = [];
   let cursor = new Date(start);
@@ -90,12 +114,7 @@ export function computeArrears(
     rawMonths.push({
       year: yr,
       month: mo,
-      expected: scheduledExpectedForMonth({
-        leaseStart: tenant.leaseStart ?? today,
-        frequency: tenant.paymentFrequency,
-        month: cursor,
-        rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
-      }).amount,
+      expected: rentSideDueForMonth(tenant, cursor, today).amount,
       received: paid,
     });
     cursor = new Date(yr, mo + 1, 1);
@@ -181,15 +200,7 @@ export function buildLedger<E extends LedgerEntry>(
     // Expected rent is resolved per month from the RentHistory timeline so
     // past months reflect the rent that applied THEN, following the payment
     // schedule: period payers owe rent + service charge on billing months only.
-    const sched = scheduledExpectedForMonth({
-      leaseStart: tenant.leaseStart,
-      frequency: tenant.paymentFrequency,
-      month: monthDate,
-      rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
-    });
-    const expected =
-      sched.amount +
-      (sched.due ? (tenant.serviceCharge ?? 0) * frequencyMonths(tenant.paymentFrequency) : 0);
+    const expected = rentSideDueForMonth(tenant, monthDate, today).amount;
     rows.push({ monthLabel: format(monthDate, "MMM yyyy"), monthDate, expected, received, payments });
   }
 

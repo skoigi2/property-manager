@@ -108,7 +108,7 @@ function orgSubscriptionBadge(org: OrgInfo | null): { label: string; variant: "g
 }
 
 export default function UsersPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const sessionOrgId  = (session?.user as any)?.organizationId;
   const sessionOrgRole = (session?.user as any)?.orgRole as string | undefined;
   // Super-admin: global role=ADMIN with no org
@@ -195,7 +195,16 @@ export default function UsersPage() {
     if (res.ok) setPendingInvites(await res.json());
   };
 
-  useEffect(() => { load(); loadOrgs(); loadInvites(); }, [isSuperAdmin]);
+  // Wait for the session: on a hard refresh it arrives after the first render,
+  // and loading before it hid an org admin's pending invitations (isAdmin was
+  // still false and nothing re-ran the load).
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+    load();
+    loadOrgs();
+    loadInvites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the loaders read only these flags
+  }, [sessionStatus, isSuperAdmin, isAdmin, isManager]);
 
   const closeAddModal = () => {
     setModalOpen(false);

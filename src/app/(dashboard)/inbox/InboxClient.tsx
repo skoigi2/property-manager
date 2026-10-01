@@ -32,7 +32,7 @@ export function InboxClient({ userName, role }: Props) {
   const qs = selectedId ? `?propertyId=${encodeURIComponent(selectedId)}` : "";
   const { data, loading, refresh, setData } =
     useCachedFetch<InboxPayload>(`inbox:${selectedId ?? "all"}`, `/api/inbox${qs}`);
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data]);
   const counts = data?.counts ?? { urgent: 0, today: 0, thisWeek: 0 };
 
   // Clear selections when the property filter changes (cache hook re-keys, but

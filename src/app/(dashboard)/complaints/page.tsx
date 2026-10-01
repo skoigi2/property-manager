@@ -257,7 +257,7 @@ function LogComplaintModal({ orgRole, defaultPropertyId, onClose, onCreated }: {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const props = properties ?? [];
+  const props = useMemo(() => properties ?? [], [properties]);
   const units = props.find((p) => p.id === propertyId)?.units ?? [];
 
   useEffect(() => {

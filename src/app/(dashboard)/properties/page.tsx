@@ -17,7 +17,7 @@ import { Select } from "@/components/ui/Select";
 import { HelpTip } from "@/components/ui/HelpTip";
 import Link from "next/link";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
-import { formatDate } from "@/lib/date-utils";
+import { formatDate, getLeaseStatus } from "@/lib/date-utils";
 import { formatCurrency, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { useForm } from "react-hook-form";
 import { formResolver } from "@/lib/form-resolver";
@@ -763,6 +763,7 @@ const LEASE_STATUS_BADGE: Record<string, { label: string; color: string }> = {
   WARNING:  { label: "Expiring",     color: "text-amber-600" },
   CRITICAL: { label: "Expired",      color: "text-expense" },
   TBC:      { label: "TBC",          color: "text-gray-400" },
+  ROLLING:  { label: "Month-to-month", color: "text-blue-600" },
 };
 
 function PropertySummaryPanel({ property, onClose }: { property: Property | null; onClose: () => void }) {
@@ -786,6 +787,9 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
       setTenants((Array.isArray(allTenants) ? allTenants : []).filter((t: any) => unitIds.has(t.unitId) && t.isActive));
       setLoading(false);
     }).catch(() => setLoading(false));
+    // Reload only when a different property is opened (the object itself is
+    // re-created on every list refresh); `now` is just this month.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property?.id]);
 
   const isOpen = !!property;
@@ -936,9 +940,7 @@ function PropertySummaryPanel({ property, onClose }: { property: Property | null
                       <div className="space-y-0">
                         {tenants.map((t: any) => {
                           const leaseEnd = t.leaseEnd ? new Date(t.leaseEnd) : null;
-                          const daysLeft = leaseEnd ? Math.ceil((leaseEnd.getTime() - Date.now()) / 86400000) : null;
-                          const statusKey = !leaseEnd ? "TBC" : daysLeft! < 0 ? "CRITICAL" : daysLeft! <= 60 ? "WARNING" : "OK";
-                          const ls = LEASE_STATUS_BADGE[statusKey];
+                          const ls = LEASE_STATUS_BADGE[getLeaseStatus(leaseEnd, t.monthToMonth)];
                           return (
                             <div key={t.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-gray-50 last:border-0">
                               <div className="min-w-0">

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { User, Plus, Upload, Trash2, X, Loader2, FileText, Star, ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -69,7 +69,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
   const [deletingDoc, setDeletingDoc]     = useState<string | null>(null);
 
   // ── Load guests for this booking ───────────────────────────────────────────
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/bookings/${incomeEntryId}/guests`);
@@ -77,9 +77,9 @@ export function GuestPanel({ incomeEntryId }: Props) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [incomeEntryId]);
 
-  useEffect(() => { load(); }, [incomeEntryId]);
+  useEffect(() => { load(); }, [load]);
 
   // ── Search existing guests ─────────────────────────────────────────────────
   useEffect(() => {

@@ -336,18 +336,19 @@ export default function AirbnbPage() {
   }
 
   // ── Turnovers ─────────────────────────────────────────────────────────────
-  const in14 = new Date(today.getTime() + 14 * 86400000);
-
-  const upcomingTurnovers = useMemo(() =>
-    allEntries
+  // Keyed on the day, so a page left open past midnight moves the window on.
+  const todayMs = today.getTime();
+  const upcomingTurnovers = useMemo(() => {
+    const from = new Date(todayMs);
+    const to = new Date(todayMs + 14 * 86400000);
+    return allEntries
       .filter((e: any) => {
         if (!e.checkOut) return false;
         const co = startOfDay(new Date(e.checkOut));
-        return co >= today && co <= in14;
+        return co >= from && co <= to;
       })
-      .sort((a: any, b: any) => new Date(a.checkOut).getTime() - new Date(b.checkOut).getTime()),
-    [allEntries],
-  );
+      .sort((a: any, b: any) => new Date(a.checkOut).getTime() - new Date(b.checkOut).getTime());
+  }, [allEntries, todayMs]);
 
   function hasCleaningJob(entry: any): boolean {
     if (!entry.checkOut) return false;

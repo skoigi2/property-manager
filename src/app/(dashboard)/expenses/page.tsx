@@ -574,7 +574,7 @@ export default function ExpensesPage() {
   // unit multi-select must load the full property list itself. Same cache
   // key as the Tenants page, so repeat navigations render instantly.
   const { data: fullProperties } = useCachedFetch<any[]>("properties:full", "/api/properties");
-  const properties = fullProperties ?? [];
+  const properties = useMemo(() => fullProperties ?? [], [fullProperties]);
   const [submitting, setSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
@@ -590,7 +590,7 @@ export default function ExpensesPage() {
   })();
   const { data: entriesData, loading, refresh: refreshEntries, setData: setEntriesData } =
     useCachedFetch<any[]>(`expenses:${entriesQs}`, `/api/expenses?${entriesQs}`);
-  const entries = entriesData ?? [];
+  const entries = useMemo(() => entriesData ?? [], [entriesData]);
   const [showForm, setShowForm] = useState(false);
   const [showExport, setShowExport] = useState(false);
   // Unsaved-changes guard for the slide-over: what the form looked like when
@@ -778,7 +778,7 @@ export default function ExpensesPage() {
         setPettyCashLimit(formPropertyId ? data?.limitsByProperty?.[formPropertyId] ?? null : null);
       })
       .catch(() => { setPettyCashBalance(null); setPettyCashLimit(null); });
-  }, [showForm, paidFromPettyCash, formPropertyId]);
+  }, [showForm, paidFromPettyCash, formPropertyId, isCaretaker]);
 
   // The VAT rule that applies to a single-amount vendor bill, for the
   // "Apply VAT" shortcut. Line items match per line type instead.

@@ -19,13 +19,14 @@ export function InviteBanner() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [accepting, setAccepting] = useState<string | null>(null);
 
+  const email = session?.user?.email;
   useEffect(() => {
-    if (!session?.user) return;
+    if (!email) return;
     fetch("/api/invitations/my")
       .then((r) => (r.ok ? r.json() : []))
       .then(setInvites)
       .catch(() => {});
-  }, [session?.user?.email]);
+  }, [email]);
 
   const visible = invites.filter((i) => !dismissed.has(i.id));
   if (visible.length === 0) return null;

@@ -97,8 +97,8 @@ export default function TenantsPage() {
     useCachedFetch<any[]>(`tenants:${selectedId ?? "all"}`, `/api/tenants${propParam}`);
   const { data: propertiesData, setData: setProperties, loading: propertiesLoading } =
     useCachedFetch<any[]>("properties:full", "/api/properties");
-  const tenants = tenantsData ?? [];
-  const properties = propertiesData ?? [];
+  const tenants = useMemo(() => tenantsData ?? [], [tenantsData]);
+  const properties = useMemo(() => propertiesData ?? [], [propertiesData]);
   const [loading, setLoading]       = useState(true);
 
   // Modal

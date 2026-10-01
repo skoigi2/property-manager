@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CheckCircle2, Circle, Loader2, ChevronRight, RotateCcw, TrendingUp, Trash2, Plus } from "lucide-react";
 import { clsx } from "clsx";
 import { formatDate } from "@/lib/date-utils";
@@ -82,7 +82,7 @@ export function RenewalPipeline({
   const [newEntryReason, setNewEntryReason] = useState("");
   const [addingSaving, setAddingSaving]   = useState(false);
 
-  async function fetchHistory() {
+  const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
       const res = await fetch(`/api/tenants/${tenantId}/rent-history`);
@@ -90,9 +90,9 @@ export function RenewalPipeline({
     } finally {
       setHistoryLoading(false);
     }
-  }
+  }, [tenantId]);
 
-  useEffect(() => { fetchHistory(); }, [tenantId]);
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
   async function advance(toStage: Stage) {
     setSaving(true);

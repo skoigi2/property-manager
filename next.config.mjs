@@ -61,6 +61,10 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The app never uses next/image, so the image optimiser endpoint is switched
+  // off: several Next 14 advisories (incl. a critical one) sit in it, and 14.x
+  // gets no more patches.
+  images: { unoptimized: true },
   eslint: {
     ignoreDuringBuilds: true,
   },

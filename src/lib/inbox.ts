@@ -3,6 +3,7 @@ import { hintTypeFilter } from "@/lib/hint-visibility";
 import { differenceInDays } from "date-fns";
 import { getLeaseStatus } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
+import { invoiceReminderFigures } from "@/lib/rent-reminder-figures";
 
 export type InboxSeverity = "URGENT" | "WARNING" | "INFO";
 
@@ -319,7 +320,13 @@ export async function buildInbox(
     const property = inv.tenant.unit.property;
     const dOver = daysOverdueFrom(inv.dueDate) ?? 0;
     const severity: InboxSeverity = dOver >= 7 ? "URGENT" : "WARNING";
-    const amount = formatCurrency(inv.totalAmount, property.currency);
+    // What is still unpaid — the same figure the reminder email / WhatsApp
+    // quote (a part-paid invoice used to show its full total here).
+    const { outstanding } = invoiceReminderFigures(inv);
+    const amount =
+      outstanding < inv.totalAmount - 0.005
+        ? `${formatCurrency(outstanding, property.currency)} of ${formatCurrency(inv.totalAmount, property.currency)} unpaid`
+        : formatCurrency(inv.totalAmount, property.currency);
     items.push({
       id: `invoice:${inv.id}`,
       refId: inv.id,

@@ -22,11 +22,6 @@ const KNOWN_DRIFT: { match: string; why: string }[] = [
   { match: `"ApprovalRequest_requestedByUserId_fkey"`, why: "same FK, no ON UPDATE CASCADE" },
   { match: `"UserOrganizationMembership_organizationId_fkey"`, why: "same FK, no ON UPDATE CASCADE" },
   { match: `"UserOrganizationMembership_userId_fkey"`, why: "same FK, no ON UPDATE CASCADE" },
-  // Production keeps FKs the schema doesn't declare: they delete a property's
-  // / org's automation overrides with it. Keep them.
-  { match: `"AutomationPropertyOverride_organizationId_fkey"`, why: "extra cascading FK in prod" },
-  { match: `"AutomationPropertyOverride_propertyId_fkey"`, why: "extra cascading FK in prod" },
-  { match: `"MaintenanceJob_submittedViaPortal_idx"`, why: "extra index in prod" },
   // Column defaults Prisma supplies itself on insert.
   { match: `"CaseEvent" ALTER COLUMN "attachmentUrls" DROP DEFAULT`, why: "client-side default" },
   { match: `"PaymentAccount" ALTER COLUMN "updatedAt" DROP DEFAULT`, why: "client-side default" },

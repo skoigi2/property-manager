@@ -67,6 +67,7 @@ model Organization {
   conditionReports       ConditionReport[]
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
+  automationPropertyOverrides AutomationPropertyOverride[]
 }
 
 model UserOrganizationMembership {
@@ -762,6 +763,7 @@ model Property {
   serviceChargeBudgets   ServiceChargeBudget[]
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
+  automationPropertyOverrides AutomationPropertyOverride[]
 }
 
 // Records that the net-payable for a statement period was actually remitted to
@@ -1185,6 +1187,7 @@ model MaintenanceJob {
   @@index([propertyId, status])
   @@index([status])
   @@index([caseThreadId])
+  @@index([submittedViaPortal])
 }
 
 model CaseThread {
@@ -1565,6 +1568,12 @@ model AutomationPropertyOverride {
   enabled        Boolean
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  // Overrides go with their property / organisation (production always had
+  // these FKs; declared 2026-10-01 so dev matches — migration
+  // 20261001130000_declare_prod_only_keys).
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([automationKey, propertyId])
   @@index([organizationId])

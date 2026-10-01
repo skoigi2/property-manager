@@ -20,6 +20,8 @@ interface Props {
     proposedLeaseEnd: string | null;
   };
   tenantId?: string;
+  /** Scope the rent reminder's figures to one invoice (Inbox overdue row). */
+  invoiceId?: string | null;
   currency?: string;
   /** Pre-select a template (defaults to "rent_reminder"). */
   initialTemplate?: Template;
@@ -37,7 +39,14 @@ const TEMPLATES: { value: Template; label: string }[] = [
   { value: "expiry_notice",  label: "Lease Expiry Notice" },
 ];
 
-function buildDraft(template: Template, tenant: Props["tenant"], currency: string): { subject: string; body: string } {
+/** What the tenant owes — the same figures as the reminder email / WhatsApp (src/lib/rent-reminder-figures.ts). */
+interface Owed {
+  outstanding: number;
+  daysOverdue: number;
+  periodLabel: string | null;
+}
+
+function buildDraft(template: Template, tenant: Props["tenant"], currency: string, owed?: Owed | null): { subject: string; body: string } {
   const firstName = tenant.name.split(" ")[0];
   const total     = tenant.monthlyRent + tenant.serviceCharge;
   const fmt = (n: number) => formatCurrency(n, currency);
@@ -46,6 +55,22 @@ function buildDraft(template: Template, tenant: Props["tenant"], currency: strin
 
   switch (template) {
     case "rent_reminder":
+      // Something outstanding: quote it, like every other rent reminder does.
+      if (owed && owed.outstanding > 0) {
+        return {
+          subject: `Rent Reminder — ${owed.periodLabel ?? "Outstanding balance"}`,
+          body: `Dear ${firstName},
+
+I hope this message finds you well.
+
+This is a reminder that your rent account${owed.periodLabel ? ` for ${owed.periodLabel}` : ""} shows an outstanding balance of ${fmt(owed.outstanding)}${owed.daysOverdue > 0 ? `, ${owed.daysOverdue} day${owed.daysOverdue === 1 ? "" : "s"} overdue` : ""}.
+
+Please arrange payment to the usual account at your earliest convenience. If you have already paid, please disregard this message.
+
+Kind regards,
+Property Management`,
+        };
+      }
       return {
         subject: `Rent Reminder — ${monthName}`,
         body: `Dear ${firstName},
@@ -126,13 +151,14 @@ Property Management`,
   }
 }
 
-export function EmailDraftModal({ tenant, tenantId, currency = "USD", initialTemplate, onUsed, caseThreadId, onClose }: Props) {
+export function EmailDraftModal({ tenant, tenantId, invoiceId, currency = "USD", initialTemplate, onUsed, caseThreadId, onClose }: Props) {
   const [template, setTemplate]   = useState<Template>(initialTemplate ?? "rent_reminder");
   const [copied, setCopied]       = useState(false);
   const [usedFired, setUsedFired] = useState(false);
-  const draft = buildDraft(template, tenant, currency);
-  // Same four templates, WhatsApp versions (src/lib/whatsapp-messages.ts).
-  const whatsapp = useWhatsAppTarget(tenantId);
+  // Same four templates, WhatsApp versions (src/lib/whatsapp-messages.ts);
+  // its figures also give the email's rent reminder the outstanding balance.
+  const whatsapp = useWhatsAppTarget(tenantId, invoiceId);
+  const draft = buildDraft(template, tenant, currency, whatsapp.data?.context);
 
   function autoLog() {
     if (!usedFired) {

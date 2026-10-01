@@ -9,7 +9,7 @@ import { useWhatsAppTarget, whatsAppMessageFor } from "./use-whatsapp";
 import { displayWhatsAppNumber } from "@/lib/whatsapp";
 import { WHATSAPP_TEMPLATE_LABELS, type WhatsAppTemplate } from "@/lib/whatsapp-messages";
 
-const ALL_TEMPLATES: WhatsAppTemplate[] = ["rent_reminder", "payment_receipt", "renewal_offer", "expiry_notice"];
+const ALL_TEMPLATES: WhatsAppTemplate[] = ["rent_reminder", "payment_receipt", "renewal_offer", "expiry_notice", "portal_link"];
 
 interface Props {
   tenantId: string;

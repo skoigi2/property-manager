@@ -1,6 +1,7 @@
 import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { notifyTenantOfReply } from "@/lib/portal-message-notify";
 
 const replySchema = z.object({ body: z.string().min(1).max(5000) });
 const patchSchema = z.object({ status: z.enum(["SENT", "READ", "RESOLVED"]) });
@@ -88,6 +89,9 @@ export async function POST(req: Request, { params }: { params: { id: string; thr
       data: { lastMessageAt: now, status: "READ" },
     }),
   ]);
+
+  // Let the tenant know (email + portal link) — src/lib/portal-message-notify.ts.
+  await notifyTenantOfReply(thread!.id, parsed.data.body.trim(), { email: session!.user.email, name: session!.user.name });
 
   return Response.json({ ok: true });
 }

@@ -510,6 +510,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
         <EmailDraftModal
           tenant={tenant}
           tenantId={tenant.id}
+          invoiceId={item.refId}
           currency={item.propertyCurrency}
           initialTemplate="rent_reminder"
           onClose={() => setModal(null)}

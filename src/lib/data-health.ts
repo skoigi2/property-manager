@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { esc, sendNotificationEmail } from "@/lib/email";
+import { isTenantUncontactable } from "@/lib/tenant-contact";
 
 /**
  * Data health — read-only integrity checks across every organisation. Each is
@@ -13,6 +14,8 @@ export interface DataHealthCheck {
   name: string;
   why: string;
   sql: (demoFilter: string) => string;
+  /** Optional row filter for rules SQL can't express (e.g. phone validity); `_`-prefixed columns are dropped after it. */
+  keep?: (row: Record<string, unknown>) => boolean;
 }
 
 export interface DataHealthResult {
@@ -95,6 +98,17 @@ export const DATA_HEALTH_CHECKS: DataHealthCheck[] = [
       left join "Organization" o on o.id = p."organizationId"
       where t."isActive" and not t."monthToMonth" and t."leaseEnd" < now() - interval '30 days' and t."renewalStage" <> 'RENEWED' ${demoFilter}`,
   },
+  {
+    name: "Active tenants who can't be contacted",
+    why: "No email and no phone number WhatsApp can use, so no reminder, receipt or reply ever reaches them — add one on the tenant page (Tenants list → Can't be contacted).",
+    sql: (demoFilter) => `
+      select o.name as org, p.name as property, u."unitNumber" as ref, t.name as tenant, t.phone as phone,
+             t.email as _email, p.currency as _currency
+      from "Tenant" t join "Unit" u on u.id = t."unitId" join "Property" p on p.id = u."propertyId"
+      left join "Organization" o on o.id = p."organizationId"
+      where t."isActive" ${demoFilter}`,
+    keep: (r) => isTenantUncontactable({ email: r._email as string | null, phone: r.phone as string | null }, r._currency as string | null),
+  },
 ];
 
 /** Runs every check (sample properties skipped unless `includeDemos`). */
@@ -102,7 +116,12 @@ export async function runDataHealthChecks(opts: { includeDemos?: boolean } = {})
   const demoFilter = opts.includeDemos ? "" : `and coalesce(p."isDemo", false) = false`;
   const results: DataHealthResult[] = [];
   for (const c of DATA_HEALTH_CHECKS) {
-    const rows = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(c.sql(demoFilter));
+    let rows = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(c.sql(demoFilter));
+    if (c.keep) {
+      rows = rows
+        .filter(c.keep)
+        .map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith("_"))));
+    }
     results.push({ name: c.name, why: c.why, rows });
   }
   return results;

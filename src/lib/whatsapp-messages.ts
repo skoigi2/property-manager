@@ -8,7 +8,10 @@ import { formatDate } from "@/lib/date-utils";
  * Keyed by locale so other languages can be added beside "en" (written by a
  * person, never machine-translated); a missing locale falls back to English.
  */
-export type WhatsAppTemplate = "rent_reminder" | "payment_receipt" | "renewal_offer" | "expiry_notice";
+export type WhatsAppTemplate = "rent_reminder" | "payment_receipt" | "renewal_offer" | "expiry_notice" | "portal_link";
+
+/** Templates that are pointless without the portal link — no "send without the link". */
+export const PORTAL_LINK_REQUIRED: ReadonlySet<WhatsAppTemplate> = new Set<WhatsAppTemplate>(["portal_link"]);
 export type MessageLocale = "en";
 
 export interface WhatsAppMessageContext {
@@ -39,6 +42,7 @@ export const WHATSAPP_TEMPLATE_LABELS: Record<WhatsAppTemplate, string> = {
   payment_receipt: "Payment Receipt",
   renewal_offer: "Renewal Offer",
   expiry_notice: "Lease Expiry Notice",
+  portal_link: "Share Portal Link",
 };
 
 /** Comms-log subject for a WhatsApp send attempt. */
@@ -47,6 +51,7 @@ export const WHATSAPP_LOG_SUBJECTS: Record<WhatsAppTemplate, string> = {
   payment_receipt: "Payment receipt (WhatsApp)",
   renewal_offer: "Renewal offer (WhatsApp)",
   expiry_notice: "Lease expiry notice (WhatsApp)",
+  portal_link: "Portal link (WhatsApp)",
 };
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
@@ -115,6 +120,17 @@ const EN: Record<WhatsAppTemplate, (c: WhatsAppMessageContext) => string> = {
     if (c.portalUrl) lines.push("", `Tenant portal: ${c.portalUrl}`);
     return lines.join("\n");
   },
+
+  portal_link: (c) =>
+    [
+      `Hi ${firstName(c.tenantName)},`,
+      "",
+      `${c.senderName} has set up your tenant portal for Unit ${c.unitNumber}, ${c.propertyName}. There you can see your invoices and balance, download receipts, send proof of payment, report a repair and message us.`,
+      "",
+      c.portalUrl ? `Your link: ${c.portalUrl}` : "We'll send you the link shortly.",
+      "",
+      "No password needed — please keep the link private.",
+    ].join("\n"),
 };
 
 export const WHATSAPP_TEMPLATES: Record<MessageLocale, Record<WhatsAppTemplate, (c: WhatsAppMessageContext) => string>> = {

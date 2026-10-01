@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { exportTenants } from "@/lib/excel-export";
 import { formatCurrency } from "@/lib/currency";
+import { isTenantUncontactable } from "@/lib/tenant-contact";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DepositVerifyDrawer, type UnverifiedDepositTenant } from "@/components/tenants/DepositVerifyDrawer";
 import { TbcDateFix } from "@/components/tenants/TbcDateFix";
@@ -50,6 +51,19 @@ function toDate(val: string | null | undefined): Date | null {
 /** Active tenant with a contractual deposit but no DEPOSIT receipt trail. */
 function isDepositUnverified(t: any): boolean {
   return !!t?.isActive && (t?.depositAmount ?? 0) > 0 && t?.depositReceived == null;
+}
+
+/** Active tenant with no email and no WhatsApp-usable phone — nothing the app sends reaches them. */
+function isUncontactable(t: any, fallbackCurrency: string): boolean {
+  return !!t.isActive && isTenantUncontactable(t, t.unit?.property?.currency ?? fallbackCurrency);
+}
+
+function NoContactBadge() {
+  return (
+    <span title="No email and no phone number WhatsApp can use — add one so reminders and receipts reach this tenant">
+      <Badge variant="red">No contact</Badge>
+    </span>
+  );
 }
 
 function DepositUnverifiedBadge() {
@@ -131,6 +145,7 @@ export default function TenantsPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [leaseFilter, setLeaseFilter] = useState("ALL");
   const [renewalsOnly, setRenewalsOnly] = useState(searchParams.get("filter") === "renewals");
+  const [noContactOnly, setNoContactOnly] = useState(searchParams.get("filter") === "no-contact");
 
   // Sort (table view)
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -220,6 +235,9 @@ export default function TenantsPage() {
       list = list.filter((t) => getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth) === leaseFilter);
     }
 
+    // Can't be contacted (no email, no WhatsApp-usable phone)
+    if (noContactOnly) list = list.filter((t) => isUncontactable(t, currency));
+
     // Renewal pipeline (mirrors the dashboard tile's definition)
     if (renewalsOnly) {
       list = list.filter(
@@ -244,7 +262,7 @@ export default function TenantsPage() {
     });
 
     return list;
-  }, [tenants, search, propFilter, statusFilter, leaseFilter, renewalsOnly, sortKey, sortDir]);
+  }, [tenants, search, propFilter, statusFilter, leaseFilter, renewalsOnly, noContactOnly, currency, sortKey, sortDir]);
 
   // Org-wide deposit liability: what is actually held for active tenants.
   // depositReceived (Σ DEPOSIT receipts, from the tenants API) wins; tenants
@@ -289,6 +307,7 @@ export default function TenantsPage() {
     statusFilter !== "ALL" && (statusFilter === "ACTIVE" ? "Active" : "Vacated"),
     leaseFilter !== "ALL" && ({ OK: "Active Lease", WARNING: "Expiring Soon", TBC: "Lease TBC", CRITICAL: "Expired" }[leaseFilter]),
     renewalsOnly && "Renewal pipeline",
+    noContactOnly && "Can't be contacted",
   ].filter(Boolean);
 
   function clearFilters() {
@@ -297,6 +316,7 @@ export default function TenantsPage() {
     setStatusFilter("ALL");
     setLeaseFilter("ALL");
     setRenewalsOnly(false);
+    setNoContactOnly(false);
   }
 
   // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -623,6 +643,15 @@ export default function TenantsPage() {
               <option value="ROLLING">Month-to-month</option>
             </select>
 
+            <select
+              value={noContactOnly ? "NONE" : "ALL"}
+              onChange={(e) => setNoContactOnly(e.target.value === "NONE")}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-body focus:outline-none focus:ring-2 focus:ring-gold/30 bg-white text-gray-600"
+            >
+              <option value="ALL">All contacts</option>
+              <option value="NONE">Can&apos;t be contacted</option>
+            </select>
+
             {activeFilters.length > 0 && (
               <button
                 onClick={clearFilters}
@@ -692,6 +721,7 @@ export default function TenantsPage() {
                     <div className="flex flex-col items-end gap-1">
                       <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} />
                       {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
+                      {isUncontactable(tenant, currency) && <NoContactBadge />}
                     </div>
                   </div>
 
@@ -781,6 +811,7 @@ export default function TenantsPage() {
                           : <Badge variant="gray">Vacated</Badge>
                         }
                         {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
+                      {isUncontactable(tenant, currency) && <NoContactBadge />}
                       </div>
                     </div>
                     {/* Finance + lease row */}
@@ -968,6 +999,7 @@ export default function TenantsPage() {
                               : <Badge variant="gray">Vacated</Badge>
                             }
                             {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
+                      {isUncontactable(tenant, currency) && <NoContactBadge />}
                           </div>
                         </td>
                         {/* Actions */}

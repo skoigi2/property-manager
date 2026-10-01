@@ -104,6 +104,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
   {
+    key: "NOTIFY_TENANT_PORTAL_REPLY",
+    name: "Portal reply (tenant email)",
+    description: "Email the tenant when a manager replies to their portal message, with the reply and a link back to their portal.",
+    trigger: "Manager replies to a portal message",
+    actions: ["Email Tenant"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_NEW_COMPLAINT",
     name: "New complaint alerts",
     description: "Email managers when a tenant complaint is logged by on-site staff or raised through the tenant portal.",

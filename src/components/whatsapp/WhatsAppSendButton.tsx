@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { WhatsAppIcon } from "./WhatsAppIcon";
 import { createPortalToken, openWhatsApp, reserveTab, type WhatsAppTarget } from "./use-whatsapp";
-import type { WhatsAppTemplate } from "@/lib/whatsapp-messages";
+import { PORTAL_LINK_REQUIRED, type WhatsAppTemplate } from "@/lib/whatsapp-messages";
 
 interface Props {
   target: WhatsAppTarget | null;
@@ -25,7 +25,7 @@ interface Props {
  * The one WhatsApp send control:
  * - no usable phone → disabled, with a HelpTip;
  * - no valid portal link → "Create portal link & send" (never created
- *   silently), or send without it;
+ *   silently), or send without it (not for a template that is the link);
  * - otherwise "Send via WhatsApp".
  */
 export function WhatsAppSendButton({
@@ -85,13 +85,15 @@ export function WhatsAppSendButton({
         >
           <WhatsAppIcon /> Create portal link &amp; send
         </Button>
-        <button
-          type="button"
-          onClick={() => send(null)}
-          className="text-caption text-gray-500 hover:text-header underline underline-offset-2"
-        >
-          Send without the link
-        </button>
+        {!PORTAL_LINK_REQUIRED.has(template) && (
+          <button
+            type="button"
+            onClick={() => send(null)}
+            className="text-caption text-gray-500 hover:text-header underline underline-offset-2"
+          >
+            Send without the link
+          </button>
+        )}
       </span>
     );
   }

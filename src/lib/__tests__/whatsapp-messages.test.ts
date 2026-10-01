@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWhatsAppMessage, type WhatsAppMessageContext } from "../whatsapp-messages";
+import { buildWhatsAppMessage, PORTAL_LINK_REQUIRED, type WhatsAppMessageContext } from "../whatsapp-messages";
 import { invoiceReminderFigures, tenantReminderFigures } from "../rent-reminder-figures";
 
 const ctx: WhatsAppMessageContext = {
@@ -57,6 +57,17 @@ describe("other templates", () => {
     expect(renewal).toContain("*KSh 90,000*");
     expect(renewal).toContain("31 Dec 2027");
     expect(buildWhatsAppMessage("expiry_notice", ctx)).toContain("*31 Dec 2026*");
+  });
+});
+
+describe("share portal link", () => {
+  it("welcomes the tenant with the link; never sent without one", () => {
+    const m = buildWhatsAppMessage("portal_link", ctx);
+    expect(m).toContain("Hi Faith,");
+    expect(m).toContain("tenant portal for Unit 103, Kilimani Court");
+    expect(m).toContain("Your link: https://groundworkpm.com/portal/abc");
+    expect(PORTAL_LINK_REQUIRED.has("portal_link")).toBe(true);
+    expect(PORTAL_LINK_REQUIRED.has("rent_reminder")).toBe(false);
   });
 });
 

@@ -83,3 +83,71 @@ export async function notifyTenantMessage(threadId: string, kind: "new" | "reply
     console.error("[portal-msg] notifyTenantMessage failed:", e);
   }
 }
+
+/**
+ * A manager answered a tenant's portal message → email the tenant (they
+ * otherwise only see it by reopening the portal), with the reply and a link
+ * back to their portal when the link is still valid. Tenant audience, gated by
+ * the NOTIFY_TENANT_PORTAL_REPLY automation; skipped for a tenant without an
+ * email. Logged on the tenant's Comms tab. Fire-and-forget: never throws.
+ */
+export async function notifyTenantOfReply(
+  threadId: string,
+  reply: string,
+  by: { email: string | null | undefined; name: string | null | undefined },
+): Promise<void> {
+  try {
+    const thread = await prisma.portalMessageThread.findUnique({
+      where: { id: threadId },
+      select: {
+        subject: true,
+        tenant: {
+          select: {
+            id: true, name: true, email: true, portalToken: true, portalTokenExpiresAt: true,
+            unit: { select: { property: { select: { id: true, name: true, organizationId: true, organization: { select: { name: true } } } } } },
+          },
+        },
+      },
+    });
+    const tenant = thread?.tenant;
+    if (!thread || !tenant?.email) return;
+    const property = tenant.unit.property;
+    resetAutomationCache();
+    if (!(await isAutomationEnabled(property.organizationId, "NOTIFY_TENANT_PORTAL_REPLY", property.id))) return;
+
+    const appUrl = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
+    const portalLive = !!tenant.portalToken && (!tenant.portalTokenExpiresAt || tenant.portalTokenExpiresAt > new Date());
+    const portalUrl = portalLive ? `${appUrl}/portal/${tenant.portalToken}` : null;
+    const sender = property.organization?.name ?? property.name;
+    const firstName = tenant.name.trim().split(/\s+/)[0] || tenant.name;
+    const subject = `Reply from ${sender}: ${thread.subject}`;
+    const html = `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a2e">
+        <p style="font-size:15px;margin:0 0 12px">Hi ${esc(firstName)},</p>
+        <p style="color:#374151;font-size:14px;margin:0 0 12px">${esc(sender)} replied to your message <strong>${esc(thread.subject)}</strong>:</p>
+        <pre style="background:#f3f4f6;padding:12px;border-radius:6px;font-family:sans-serif;font-size:14px;white-space:pre-wrap;color:#1a1a2e">${esc(reply)}</pre>
+        ${
+          portalUrl
+            ? `<p style="margin-top:20px"><a href="${esc(portalUrl)}" style="display:inline-block;background:#C69C4A;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">Open your tenant portal</a></p>
+               <p style="margin-top:8px;color:#6b7280;font-size:12px">Reply from the Messages tab in your portal.</p>`
+            : ""
+        }
+      </div>
+    `;
+    await sendNotificationEmail(tenant.email, subject, html, { organizationId: property.organizationId });
+    await prisma.communicationLog.create({
+      data: {
+        tenantId: tenant.id,
+        type: "EMAIL",
+        subject,
+        body: reply.slice(0, 5000),
+        templateUsed: "portal_reply",
+        loggedByEmail: by.email ?? "system",
+        loggedByName: by.name ?? null,
+        sentAt: new Date(),
+      },
+    });
+  } catch (e) {
+    console.error("[portal-msg] notifyTenantOfReply failed:", e);
+  }
+}

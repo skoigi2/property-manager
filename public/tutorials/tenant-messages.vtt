@@ -1,0 +1,62 @@
+WEBVTT
+
+NOTE
+Tutorial: tenant-messages
+Generated: 2026-10-01T17:49:10.817Z
+Source of truth: docs/tutorials/tenant-messages.md — edit there and re-record.
+
+1
+00:00:03.452 --> 00:00:08.717
+When a tenant writes from their portal, it
+lands in your Inbox — no need to check
+
+2
+00:00:08.717 --> 00:00:10.217
+each tenant's page.
+
+3
+00:00:11.099 --> 00:00:16.220
+It shows how long they've been waiting,
+and turns urgent after two days without a
+
+4
+00:00:16.220 --> 00:00:17.720
+reply.
+
+5
+00:00:17.746 --> 00:00:23.246
+The property's managers also get an email
+with a link straight to the conversation.
+
+6
+00:00:27.918 --> 00:00:31.418
+Reply opens the conversation on the
+tenant's page.
+
+7
+00:00:37.075 --> 00:00:42.365
+Answer it here. The tenant sees your reply
+in their portal, and the message leaves
+
+8
+00:00:42.365 --> 00:00:43.865
+your Inbox.
+
+9
+00:00:44.241 --> 00:00:49.241
+No reply needed? Mark resolved closes it.
+If the tenant writes again, it comes back.
+
+10
+00:00:51.197 --> 00:00:55.886
+Prefer no emails? Switch them off on the
+Automations page — the Inbox still shows
+
+11
+00:00:55.886 --> 00:00:57.386
+every message.
+
+12
+00:00:57.386 --> 00:01:00.204
+That's tenant messages: in your Inbox,
+answered in one place.

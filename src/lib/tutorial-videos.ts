@@ -22,7 +22,8 @@ export type TutorialKey =
   | "utilities-metering"
   | "service-charge"
   | "rent-increases"
-  | "whatsapp-reminders";
+  | "whatsapp-reminders"
+  | "tenant-messages";
 
 export type TutorialVideo = {
   key: TutorialKey;
@@ -261,6 +262,25 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
     ],
     relatedDocs: [{ label: "Help & Guide — WhatsApp reminders", href: "/guide.html#whatsapp" }],
   },
+
+  "tenant-messages": {
+    key: "tenant-messages",
+    title: "Tenant messages",
+    durationSec: 62,
+    videoUrl: "/tutorials/tenant-messages.mp4",
+    posterUrl: "/tutorials/tenant-messages.jpg",
+    subtitleUrl: "/tutorials/tenant-messages.vtt",
+    summary:
+      "When a tenant sends a message or replies through their portal, it lands in the Inbox as a Tenant message — with the subject, the start of the message and how long they have been waiting; it turns urgent after two days without a reply. The property's managers also get an email with a link straight to the conversation. Reply opens the conversation on the tenant's page: answer it there, the tenant sees it in their portal, and the message leaves the Inbox. Mark resolved closes one that needs no reply, and anything the tenant writes later brings it back. The emails can be switched off on the Automations page; the Inbox shows every message either way.",
+    steps: [
+      "Inbox: a Tenant message row shows who wrote, the subject and how long they've waited (urgent after 2 days).",
+      "Click Reply — the conversation opens on the tenant's Portal Msgs tab.",
+      "Type your answer and Send Reply; the tenant sees it in their portal and the row leaves the Inbox.",
+      "No reply needed? Mark resolved. If the tenant writes again, it comes back.",
+      "Managers also get an email with an Open conversation link — switch it off on Automations → Tenant portal messages, or opt out in Settings → Notifications.",
+    ],
+    relatedDocs: [{ label: "Help & Guide — Tenant messages", href: "/guide.html#tenant-messages" }],
+  },
 };
 
 export const TUTORIAL_ORDER: TutorialKey[] = [
@@ -275,4 +295,5 @@ export const TUTORIAL_ORDER: TutorialKey[] = [
   "service-charge",
   "rent-increases",
   "whatsapp-reminders",
+  "tenant-messages",
 ];

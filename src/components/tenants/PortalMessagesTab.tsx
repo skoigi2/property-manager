@@ -142,7 +142,7 @@ export function PortalMessagesTab({ tenantId, initialThreadId }: { tenantId: str
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <h2 className="section-header">Portal Messages</h2>
-          <TutorialVideo tutorialKey="proof-of-payment" variant="link" />
+          <TutorialVideo tutorialKey="tenant-messages" variant="link" />
         </div>
         <span className="text-caption text-gray-400">Tenant ↔ Manager threads from the portal</span>
       </div>

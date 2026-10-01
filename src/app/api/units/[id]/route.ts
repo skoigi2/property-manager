@@ -1,6 +1,7 @@
 import { requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { requireActiveSubscription } from "@/lib/subscription";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -28,6 +29,9 @@ async function getUnitWithAccess(id: string) {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Subscription write-gate: a locked org (trial over / unpaid) can read, not change.
+  const locked = await requireActiveSubscription(session.user.organizationId);
+  if (locked) return locked;
   // Gate on the active-org membership role, not the sticky global User.role.
   if (session.user.orgRole !== "ADMIN" && session.user.orgRole !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
 
@@ -80,6 +84,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Subscription write-gate: a locked org (trial over / unpaid) can read, not change.
+  const locked = await requireActiveSubscription(session.user.organizationId);
+  if (locked) return locked;
   // Gate on the active-org membership role, not the sticky global User.role.
   if (session.user.orgRole !== "ADMIN" && session.user.orgRole !== "MANAGER") return Response.json({ error: "Forbidden" }, { status: 403 });
 

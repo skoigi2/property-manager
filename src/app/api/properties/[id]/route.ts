@@ -6,6 +6,7 @@ import { requirePropertyAccess, requireSuperAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { deletePropertyOps } from "@/lib/property-delete";
 import { auth } from "@/lib/auth";
+import { requireActiveSubscription } from "@/lib/subscription";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -51,6 +52,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Subscription write-gate: a locked org (trial over / unpaid) can read, not change.
+  const locked = await requireActiveSubscription(session.user.organizationId);
+  if (locked) return locked;
 
   const access = await requirePropertyAccess(params.id);
   if (!access.ok) return access.error!;
@@ -194,6 +198,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Subscription write-gate: a locked org (trial over / unpaid) can read, not change.
+  const locked = await requireActiveSubscription(session.user.organizationId);
+  if (locked) return locked;
 
   const access = await requirePropertyAccess(params.id);
   if (!access.ok) return access.error!;

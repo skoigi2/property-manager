@@ -18,6 +18,9 @@ export interface PropertyOption {
    *  properties by org (null for org-less properties). */
   organizationId?: string | null;
   orgName?: string | null;
+  /** Sample (demo-seeded) property, and when it was loaded — see SampleDataBanner. */
+  isDemo?: boolean;
+  seededAt?: string | null;
 }
 
 interface PropertyContextValue {

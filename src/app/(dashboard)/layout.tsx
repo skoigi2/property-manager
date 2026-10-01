@@ -5,6 +5,7 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { PropertyProvider } from "@/lib/property-context";
 import { TrialBanner } from "@/components/layout/TrialBanner";
 import { InviteBanner } from "@/components/layout/InviteBanner";
+import { SampleDataBanner } from "@/components/layout/SampleDataBanner";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { OPS_ROLES } from "@/lib/auth-utils";
 
@@ -29,6 +30,7 @@ export default async function DashboardLayout({
         <div className="flex-1 flex flex-col min-w-0">
           {organizationId && <TrialBanner />}
           <InviteBanner />
+          <SampleDataBanner />
           <main className="flex-1 pb-20 lg:pb-0 overflow-x-hidden">
             {children}
           </main>

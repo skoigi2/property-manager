@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
-import { seedDemoProperty } from "@/lib/demo-seed";
+import { seedDemoProperty, grantOrgAccess } from "@/lib/demo-seed";
 import { deletePropertyOps } from "@/lib/property-delete";
 import { seedDemoUtilities, demoUtilitiesState, clearDemoUtilities } from "@/lib/demo-utilities";
 
@@ -100,18 +100,7 @@ export async function POST(req: Request) {
     include: { _count: { select: { units: true } } },
   });
 
-  // Helper: grant PropertyAccess to every member of the org so the property
-  // is visible to all users regardless of role, and shows as assigned in the UI
-  async function grantAccess(propertyId: string) {
-    const members = await prisma.userOrganizationMembership.findMany({
-      where:  { organizationId: organizationId! },
-      select: { userId: true },
-    });
-    await prisma.propertyAccess.createMany({
-      data:           members.map((m) => ({ userId: m.userId, propertyId })),
-      skipDuplicates: true,
-    });
-  }
+  const grantAccess = (propertyId: string) => grantOrgAccess(propertyId, organizationId!);
 
   if (existing) {
     if (existing._count.units > 0 && !force) {

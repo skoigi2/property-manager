@@ -66,10 +66,20 @@ export async function GET(req: Request) {
         // many orgs there); harmless extra for org-scoped users.
         organizationId: true,
         organization: { select: { name: true } },
+        // Sample properties: when they were loaded, for the "refresh sample
+        // data" banner (src/lib/demo-refresh.ts).
+        isDemo: true,
+        createdAt: true,
       },
       orderBy: [{ organization: { name: "asc" } }, { name: "asc" }],
     });
-    return Response.json(slim.map(({ organization, ...p }) => ({ ...p, orgName: organization?.name ?? null })));
+    return Response.json(
+      slim.map(({ organization, createdAt, ...p }) => ({
+        ...p,
+        orgName: organization?.name ?? null,
+        seededAt: p.isDemo ? createdAt : null,
+      })),
+    );
   }
 
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);

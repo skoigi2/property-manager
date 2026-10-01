@@ -18,6 +18,9 @@ import { startOfMonth, subMonths } from "date-fns";
 import { seedDemoUtilities } from "@/lib/demo-utilities";
 import { seedPaidHistory } from "@/lib/demo-history";
 import { seedDemoServiceChargeBudget } from "@/lib/demo-service-charge";
+import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
+import { deletePropertyOps } from "@/lib/property-delete";
+import { SEED_GRACE_MS, type AddedSinceSeed } from "@/lib/demo-refresh";
 
 /**
  * The demo property seeds (onboarding picker, Properties empty state, and
@@ -282,13 +285,14 @@ async function backfillMaintenanceCases(
 // Adapted from prisma/seed-bahrain.ts (no hardcoded org/users/PropertyAccess)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
+async function seedAlSeef(organizationId: string, propertyId?: string): Promise<{ id: string }> {
   const now = new Date();
   const WIN = recentMonths(3, now); // [2 months ago, last month, current month]
 
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
     data: {
+      id: propertyId,
       name: "Al Seef Residences",
       isDemo: true,
       type: PropertyType.LONGTERM,
@@ -1113,13 +1117,14 @@ async function seedAlSeef(organizationId: string): Promise<{ id: string }> {
 // Kilimani Court — Kenya demo (10 units, long-term, Jan–Mar 2026, incl. Cases)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }> {
+async function seedKilimaniCourt(organizationId: string, propertyId?: string): Promise<{ id: string }> {
   const now = new Date();
   const WIN = recentMonths(3, now); // [2 months ago, last month, current month]
 
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
     data: {
+      id: propertyId,
       name: "Kilimani Court",
       isDemo: true,
       type: PropertyType.LONGTERM,
@@ -1679,13 +1684,14 @@ async function seedKilimaniCourt(organizationId: string): Promise<{ id: string }
 // Sandton Heights — South Africa demo
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function seedSandtonHeights(organizationId: string): Promise<{ id: string }> {
+async function seedSandtonHeights(organizationId: string, propertyId?: string): Promise<{ id: string }> {
   const now = new Date();
   const WIN = recentMonths(4, now); // last 4 months incl current; MONTHS below indexes into WIN
 
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
     data: {
+      id: propertyId,
       name: "Sandton Heights",
       isDemo: true,
       type: PropertyType.LONGTERM,
@@ -2661,7 +2667,7 @@ async function seedSandtonHeights(organizationId: string): Promise<{ id: string 
 // Belsize Court — London (UK) demo
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }> {
+async function seedBelsizeCourt(organizationId: string, propertyId?: string): Promise<{ id: string }> {
   const now = new Date();
   const WIN = recentMonths(4, now); // MONTHS indexes into WIN; [1,2,3] = last 3 months incl current
   const MONTHS = [1, 2, 3];
@@ -2670,6 +2676,7 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
   // ── Property ────────────────────────────────────────────────────────────────
   const property = await prisma.property.create({
     data: {
+      id: propertyId,
       name: "Belsize Court",
       isDemo: true,
       type: PropertyType.LONGTERM,
@@ -3492,15 +3499,66 @@ async function seedBelsizeCourt(organizationId: string): Promise<{ id: string }>
 // Route handler
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SEEDS: Record<string, (organizationId: string) => Promise<{ id: string }>> = {
+const SEEDS: Record<string, (organizationId: string, propertyId?: string) => Promise<{ id: string }>> = {
   "al-seef": seedAlSeef,
   "sandton-heights": seedSandtonHeights,
   "belsize-court": seedBelsizeCourt,
   "kilimani-court": seedKilimaniCourt,
 };
 
-/** Seeds the demo `key` into the org; null when no seed exists for that key. */
-export async function seedDemoProperty(key: string, organizationId: string): Promise<{ id: string } | null> {
+/**
+ * Seeds the demo `key` into the org; null when no seed exists for that key.
+ * `propertyId` re-uses an id (a refresh keeps links and the selected property).
+ */
+export async function seedDemoProperty(key: string, organizationId: string, propertyId?: string): Promise<{ id: string } | null> {
   const seed = SEEDS[key];
-  return seed ? seed(organizationId) : null;
+  return seed ? seed(organizationId, propertyId) : null;
+}
+
+/** Every member of the org gets PropertyAccess, so the sample shows for all users. */
+export async function grantOrgAccess(propertyId: string, organizationId: string): Promise<void> {
+  const members = await prisma.userOrganizationMembership.findMany({ where: { organizationId }, select: { userId: true } });
+  await prisma.propertyAccess.createMany({
+    data: members.map((m) => ({ userId: m.userId, propertyId })),
+    skipDuplicates: true,
+  });
+}
+
+/** What the org added to a demo after it was seeded — all of it goes on a refresh. */
+export async function demoAddedSinceSeed(propertyId: string, seededAt: Date): Promise<AddedSinceSeed> {
+  const after = { gt: new Date(seededAt.getTime() + SEED_GRACE_MS) };
+  // Payments / expenses dated before the seed month are back history written
+  // by a later back-fill (scripts/backfill-demo-history.ts), not the user's.
+  const fromSeedMonth = { gte: new Date(seededAt.getFullYear(), seededAt.getMonth(), 1) };
+  const [tenants, payments, expenses, maintenanceJobs] = await Promise.all([
+    prisma.tenant.count({ where: { unit: { propertyId }, createdAt: after } }),
+    prisma.incomeEntry.count({ where: { unit: { propertyId }, createdAt: after, date: fromSeedMonth } }),
+    prisma.expenseEntry.count({ where: { OR: [{ propertyId }, { unit: { propertyId } }], createdAt: after, date: fromSeedMonth } }),
+    prisma.maintenanceJob.count({ where: { propertyId, createdAt: after } }),
+  ]);
+  return { tenants, payments, expenses, maintenanceJobs };
+}
+
+/**
+ * Deletes a demo property and seeds it again under the SAME id with today's
+ * dates, then re-grants the org's members access. Throws when the property
+ * isn't a demo with a known seed; a failed seed is cleaned up (the sample is
+ * then gone — it can be loaded again from Properties).
+ */
+export async function refreshDemoProperty(propertyId: string): Promise<{ id: string; key: string }> {
+  const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { name: true, isDemo: true, organizationId: true } });
+  const demo = property ? DEMO_PROPERTIES.find((d) => d.name === property.name) : undefined;
+  if (!property?.isDemo || !property.organizationId || !demo || !SEEDS[demo.key]) {
+    throw new Error("Not a sample property that can be refreshed.");
+  }
+  await prisma.$transaction(deletePropertyOps(propertyId));
+  try {
+    await seedDemoProperty(demo.key, property.organizationId, propertyId);
+  } catch (err) {
+    const partial = await prisma.property.findUnique({ where: { id: propertyId }, select: { id: true } });
+    if (partial) await prisma.$transaction(deletePropertyOps(propertyId)).catch(() => {});
+    throw err;
+  }
+  await grantOrgAccess(propertyId, property.organizationId);
+  return { id: propertyId, key: demo.key };
 }

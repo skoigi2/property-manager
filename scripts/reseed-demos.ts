@@ -1,7 +1,8 @@
 /**
- * Re-seeds demo properties from scratch with today's dates: deletes each one
- * (deletePropertyOps — the same FK-safe cascade as DELETE /api/properties/[id])
- * and seeds it again into the same org, granting every org member access.
+ * Re-seeds demo properties from scratch with today's dates — the same
+ * refreshDemoProperty as the in-app "Refresh sample data" banner: deletes each
+ * one (FK-safe, like DELETE /api/properties/[id]) and seeds it again under the
+ * same id, granting every org member access.
  * Anything added to a demo since it was loaded is lost — the dry run lists
  * tenants created after the seed so you can check first.
  *
@@ -17,8 +18,8 @@ import "./server-only-shim";
 async function main() {
   const { prisma } = await import("@/lib/prisma");
   const { DEMO_PROPERTIES } = await import("@/lib/demo-definitions");
-  const { seedDemoProperty } = await import("@/lib/demo-seed");
-  const { deletePropertyOps } = await import("@/lib/property-delete");
+  const { demoAddedSinceSeed, refreshDemoProperty } = await import("@/lib/demo-seed");
+  const { describeAddedSinceSeed } = await import("@/lib/demo-refresh");
 
   const apply = process.argv.includes("--apply");
   const only = process.argv.find((a) => a.startsWith("--only="))?.slice(7).split(",").filter(Boolean);
@@ -36,22 +37,15 @@ async function main() {
       console.log(`${label}: no demo definition with this name — skipped`);
       continue;
     }
-    const added = await prisma.tenant.findMany({
-      where: { unit: { propertyId: p.id }, createdAt: { gt: new Date(p.createdAt.getTime() + 10 * 60 * 1000) } },
-      select: { name: true },
-    });
-    const note = added.length ? ` — will remove tenants added since: ${added.map((t) => t.name).join(", ")}` : "";
+    const added = describeAddedSinceSeed(await demoAddedSinceSeed(p.id, p.createdAt));
+    const note = added ? ` — will remove what was added since: ${added}` : "";
     if (!apply) {
       console.log(`${label}: would re-seed "${demo.key}"${note}`);
       continue;
     }
     const started = Date.now();
-    await prisma.$transaction(deletePropertyOps(p.id));
-    const seeded = await seedDemoProperty(demo.key, p.organizationId!);
-    if (!seeded) throw new Error(`No seed for ${demo.key}`);
-    const members = await prisma.userOrganizationMembership.findMany({ where: { organizationId: p.organizationId! }, select: { userId: true } });
-    await prisma.propertyAccess.createMany({ data: members.map((m) => ({ userId: m.userId, propertyId: seeded.id })), skipDuplicates: true });
-    console.log(`${label}: re-seeded as ${seeded.id} in ${Math.round((Date.now() - started) / 1000)} s${note}`);
+    await refreshDemoProperty(p.id);
+    console.log(`${label}: re-seeded in ${Math.round((Date.now() - started) / 1000)} s${note}`);
   }
   await prisma.$disconnect();
 }

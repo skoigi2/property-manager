@@ -68,6 +68,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   // ── Build XLSX workbook ────────────────────────────────────────────────────
   const wb = XLSX.utils.book_new();
 
+  // Money columns are labelled with the property's own currency (they all
+  // said "KSh"); the handover import accepts any suffix.
+  const cur = property.currency;
+
   // Sheet 1 — Summary
   const summaryRows = [
     ["Property Handover Package"],
@@ -88,7 +92,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
 
   // Sheet 2 — Income Ledger
-  const incomeHeaders = ["Date", "Type", "Tenant", "Unit", "Gross Amount (KSh)", "Commission (KSh)", "Net Amount (KSh)", "Platform", "Check-In", "Check-Out", "Notes"];
+  const incomeHeaders = ["Date", "Type", "Tenant", "Unit", `Gross Amount (${cur})`, `Commission (${cur})`, `Net Amount (${cur})`, "Platform", "Check-In", "Check-Out", "Notes"];
   const incomeRows = incomeEntries.map((e) => [
     fmtDate(e.date),
     e.type,
@@ -107,7 +111,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   XLSX.utils.book_append_sheet(wb, wsIncome, "Income Ledger");
 
   // Sheet 3 — Expense Ledger
-  const expenseHeaders = ["Date", "Category", "Description", "Amount (KSh)", "Scope", "Unit", "Sunk Cost"];
+  const expenseHeaders = ["Date", "Category", "Description", `Amount (${cur})`, "Scope", "Unit", "Sunk Cost"];
   const expenseRows = expenseEntries.map((e) => [
     fmtDate(e.date),
     e.category,
@@ -122,7 +126,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   XLSX.utils.book_append_sheet(wb, wsExpense, "Expense Ledger");
 
   // Sheet 4 — Tenant Directory
-  const tenantHeaders = ["Name", "Email", "Phone", "Unit", "Monthly Rent (KSh)", "Service Charge (KSh)", "Deposit (KSh)", "Lease Start", "Lease End", "Status", "Renewal Stage", "Month-to-month"];
+  const tenantHeaders = ["Name", "Email", "Phone", "Unit", `Monthly Rent (${cur})`, `Service Charge (${cur})`, `Deposit (${cur})`, "Lease Start", "Lease End", "Status", "Renewal Stage", "Month-to-month"];
   const tenantRows = tenants.map((t) => [
     t.name,
     t.email ?? "",
@@ -143,7 +147,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   // Sheet 5 — Owner Invoices
   const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const invoiceHeaders = ["Invoice #", "Type", "Period", "Total Amount (KSh)", "Due Date", "Status", "Paid At", "Paid Amount (KSh)"];
+  const invoiceHeaders = ["Invoice #", "Type", "Period", `Total Amount (${cur})`, "Due Date", "Status", "Paid At", `Paid Amount (${cur})`];
   const invoiceRows = ownerInvoices.map((inv) => [
     inv.invoiceNumber,
     inv.type,
@@ -159,7 +163,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   XLSX.utils.book_append_sheet(wb, wsInvoices, "Owner Invoices");
 
   // Sheet 6 — Petty Cash
-  const pcHeaders = ["Date", "Type", "Description", "Amount (KSh)"];
+  const pcHeaders = ["Date", "Type", "Description", `Amount (${cur})`];
   const pcRows = pettyCash.map((p) => [
     fmtDate(p.date),
     p.type,

@@ -12,6 +12,16 @@ function str(v: unknown): string {
   return v == null ? "" : String(v).trim();
 }
 
+/**
+ * A money column by its label, whatever currency suffix the package carries:
+ * "Gross Amount (GBP)", the older "Gross Amount (KSh)", or plain "Gross Amount".
+ */
+function money(row: Record<string, unknown>, label: string): unknown {
+  if (label in row) return row[label];
+  const key = Object.keys(row).find((k) => k.startsWith(`${label} (`));
+  return key ? row[key] : undefined;
+}
+
 function num(v: unknown): number {
   const n = parseFloat(String(v ?? "0").replace(/[^0-9.-]/g, ""));
   return isNaN(n) ? 0 : n;
@@ -292,9 +302,9 @@ export async function POST(req: Request) {
           unitId,
           email:         str(row["Email"]) || null,
           phone:         str(row["Phone"]) || null,
-          monthlyRent:   num(row["Monthly Rent (KSh)"]),
-          serviceCharge: num(row["Service Charge (KSh)"]),
-          depositAmount: num(row["Deposit (KSh)"]),
+          monthlyRent:   num(money(row, "Monthly Rent")),
+          serviceCharge: num(money(row, "Service Charge")),
+          depositAmount: num(money(row, "Deposit")),
           leaseStart,
           leaseEnd,
           isActive,
@@ -322,7 +332,7 @@ export async function POST(req: Request) {
 
     const typeRaw = str(row["Type"]).toUpperCase().replace(/ /g, "_");
     const type = VALID_INCOME_TYPES.has(typeRaw) ? typeRaw : "OTHER";
-    const grossAmount = num(row["Gross Amount (KSh)"]);
+    const grossAmount = num(money(row, "Gross Amount"));
     if (grossAmount <= 0) { errors.push({ sheet: "Income Ledger", row: i + 2, reason: "Gross amount must be positive" }); continue; }
 
     // Duplicate check: same unitId + date (day) + type + grossAmount
@@ -346,7 +356,7 @@ export async function POST(req: Request) {
           tenantId,
           type:            type as never,
           grossAmount,
-          agentCommission: num(row["Commission (KSh)"]),
+          agentCommission: num(money(row, "Commission")),
           platform:        platform as never,
           checkIn:         parseDate(row["Check-In"]),
           checkOut:        parseDate(row["Check-Out"]),
@@ -369,7 +379,7 @@ export async function POST(req: Request) {
     const category = VALID_EXPENSE_CATS.has(catRaw) ? catRaw : "OTHER";
     const scopeRaw = str(row["Scope"]).toUpperCase();
     const scope    = VALID_EXPENSE_SCOPES.has(scopeRaw) ? scopeRaw : "PROPERTY";
-    const amount   = num(row["Amount (KSh)"]);
+    const amount   = num(money(row, "Amount"));
 
     // Duplicate check
     const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
@@ -417,7 +427,7 @@ export async function POST(req: Request) {
       continue;
     }
     const description = str(row["Description"]);
-    const amount      = num(row["Amount (KSh)"]);
+    const amount      = num(money(row, "Amount"));
 
     // Duplicate check
     const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
@@ -453,10 +463,10 @@ export async function POST(req: Request) {
     const type = VALID_OWNER_INV_TYPES.has(typeRaw) ? typeRaw : null;
     if (!type) { errors.push({ sheet: "Owner Invoices", row: i + 2, reason: `Unknown invoice type "${str(row["Type"])}"` }); continue; }
 
-    const totalAmount = num(row["Total Amount (KSh)"]);
+    const totalAmount = num(money(row, "Total Amount"));
     const dueDate     = parseDate(row["Due Date"]) ?? new Date();
     const paidAt      = parseDate(row["Paid At"]);
-    const paidAmount  = num(row["Paid Amount (KSh)"]) || null;
+    const paidAmount  = num(money(row, "Paid Amount")) || null;
     const validStatuses = new Set(["SENT","PAID","OVERDUE"]);
     const finalStatus = validStatuses.has(status) ? status : "SENT";
 

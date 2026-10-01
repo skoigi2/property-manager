@@ -247,7 +247,10 @@ export async function buildVendorStatement(
           select: { currency: true },
         })
       : null;
-    currency = fallback?.currency ?? "KES";
+    const org = !fallback && scope.orgId
+      ? await prisma.organization.findUnique({ where: { id: scope.orgId }, select: { defaultCurrency: true } })
+      : null;
+    currency = fallback?.currency ?? org?.defaultCurrency ?? "USD";
   }
 
   // Payments recorded directly on the expense (the pre-VendorPayment flow:

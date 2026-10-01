@@ -112,11 +112,12 @@ export async function GET(
   );
   let currency = derived.currency;
   if (!currency) {
-    const fallback = await prisma.property.findFirst({
-      where: vendor.organizationId ? { organizationId: vendor.organizationId } : {},
-      select: { currency: true },
-    });
-    currency = fallback?.currency ?? "KES";
+    // No priced rows yet: the organisation's default currency (it used to take
+    // ANY property's currency when the vendor had no organisation).
+    const org = vendor.organizationId
+      ? await prisma.organization.findUnique({ where: { id: vendor.organizationId }, select: { defaultCurrency: true } })
+      : null;
+    currency = org?.defaultCurrency ?? "USD";
   }
 
   return Response.json({

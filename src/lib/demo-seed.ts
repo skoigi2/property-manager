@@ -18,7 +18,7 @@ import { startOfMonth, subMonths } from "date-fns";
 import { seedDemoUtilities } from "@/lib/demo-utilities";
 import { seedPaidHistory } from "@/lib/demo-history";
 import { seedDemoServiceChargeBudget } from "@/lib/demo-service-charge";
-import { demoPaymentRows } from "@/lib/demo-payments";
+import { demoPaymentRows, type DemoPaymentOptions } from "@/lib/demo-payments";
 import { DEMO_PROPERTIES } from "@/lib/demo-definitions";
 import { deletePropertyOps } from "@/lib/property-delete";
 import { SEED_GRACE_MS, type AddedSinceSeed } from "@/lib/demo-refresh";
@@ -30,7 +30,6 @@ import { SEED_GRACE_MS, type AddedSinceSeed } from "@/lib/demo-refresh";
  */
 
 function d(dateStr: string) { return new Date(dateStr); }
-function monthStart(year: number, month: number) { return new Date(year, month, 1); }
 
 /** Run `fn` over `items` in parallel chunks — cuts wall-clock on high-latency
  *  DB connections while bounding concurrency against the connection pool. */
@@ -286,6 +285,60 @@ async function backfillMaintenanceCases(
 // Adapted from prisma/seed-bahrain.ts (no hardcoded org/users/PropertyAccess)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * A seed's rent invoices across its window: one invoice per tenant per month,
+ * PAID with its receipts booked through the payment allocator
+ * (demoPaymentRows), or OVERDUE with nothing paid when the month is in the
+ * tenant's `arrears` list. Invoices within a month are created in parallel;
+ * `seq` counts month by month, tenant by tenant.
+ */
+async function seedRentInvoices(opts: {
+  win: WMonth[];
+  /** Window indexes to bill. */
+  months: number[];
+  tenants: { unit: string; tenantId: string; unitId: string; rent: number; serviceCharge: number }[];
+  arrears: Record<string, number[]>;
+  invoiceNumber: (unit: string, month: number, seq: number) => string;
+  dueDay: number;
+  paidDay: number;
+  receiptDay: number;
+  payment?: (unit: string) => Pick<DemoPaymentOptions, "paymentMethod" | "rentFields">;
+}): Promise<void> {
+  const rows: Prisma.IncomeEntryCreateManyInput[] = [];
+  let seq = 1;
+  for (const month of opts.months) {
+    const { y, m } = opts.win[month];
+    const created = await Promise.all(
+      opts.tenants.map((t) => {
+        const isArrears = (opts.arrears[t.unit] ?? []).includes(month);
+        const total = t.rent + t.serviceCharge;
+        return prisma.invoice
+          .create({
+            data: {
+              invoiceNumber: opts.invoiceNumber(t.unit, month, seq++),
+              tenantId: t.tenantId,
+              periodYear: y,
+              periodMonth: m + 1,
+              rentAmount: t.rent,
+              serviceCharge: t.serviceCharge,
+              totalAmount: total,
+              dueDate: wDate(opts.win, month, opts.dueDay),
+              status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
+              paidAt: isArrears ? null : wDate(opts.win, month, opts.paidDay),
+              paidAmount: isArrears ? null : total,
+            },
+          })
+          .then((inv) => ({ inv, t, isArrears }));
+      }),
+    );
+    for (const { inv, t, isArrears } of created) {
+      if (isArrears) continue;
+      rows.push(...demoPaymentRows(inv, { unitId: t.unitId, date: wDate(opts.win, month, opts.receiptDay), ...opts.payment?.(t.unit) }));
+    }
+  }
+  await prisma.incomeEntry.createMany({ data: rows });
+}
+
 async function seedAlSeef(organizationId: string, propertyId?: string): Promise<{ id: string }> {
   const now = new Date();
   const WIN = recentMonths(3, now); // [2 months ago, last month, current month]
@@ -434,49 +487,18 @@ async function seedAlSeef(organizationId: string, propertyId?: string): Promise<
   // ── Income & invoices (rolling 3-month window) ───────────────────────────────
   // Arrears: unit 102 misses the latest 2 months; unit 304 misses the current month
   const arrears: Record<string, number[]> = { "102": [1, 2], "304": [2] };
-  let invoiceSeq = 1;
   // Use last 6 chars of propertyId to namespace invoice numbers globally unique
   const propCode = property.id.slice(-6).toUpperCase();
-
-  // Collect income entries to batch-create after all invoices are created
-  const incomeEntryData: Prisma.IncomeEntryCreateManyInput[] = [];
-
-  for (let i = 0; i < WIN.length; i++) {
-    for (const t of tenantDefs) {
-      const unit = units[t.unit];
-      const tenant = tenants[t.unit];
-      const serviceCharge = sc(t.unit);
-      const grossAmount = t.rent + serviceCharge;
-      const isArrears = (arrears[t.unit] ?? []).includes(i);
-
-      const invoiceNum = `ASR-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-${String(
-        invoiceSeq++
-      ).padStart(3, "0")}`;
-
-      const invoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber: invoiceNum,
-          tenantId: tenant.id,
-          periodYear: WIN[i].y,
-          periodMonth: WIN[i].m + 1,
-          rentAmount: t.rent,
-          serviceCharge,
-          totalAmount: grossAmount,
-          dueDate: wDate(WIN, i, 5),
-          status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : wDate(WIN, i, 1),
-          paidAmount: isArrears ? null : grossAmount,
-        },
-      });
-
-      if (!isArrears) {
-        incomeEntryData.push(...demoPaymentRows(invoice, { unitId: unit.id, date: wDate(WIN, i) }));
-      }
-    }
-  }
-
-  // Batch-create the rent receipts in one round-trip
-  await prisma.incomeEntry.createMany({ data: incomeEntryData });
+  await seedRentInvoices({
+    win: WIN,
+    months: WIN.map((_, i) => i),
+    arrears,
+    tenants: tenantDefs.map((t) => ({ unit: t.unit, tenantId: tenants[t.unit].id, unitId: units[t.unit].id, rent: t.rent, serviceCharge: sc(t.unit) })),
+    invoiceNumber: (_unit, i, seq) => `ASR-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-${String(seq).padStart(3, "0")}`,
+    dueDay: 5,
+    paidDay: 1,
+    receiptDay: 1,
+  });
 
   // ── Property-level monthly expenses (batched) ──────────────────────────────
   const monthlyPropExpenses = [
@@ -1231,44 +1253,23 @@ async function seedKilimaniCourt(organizationId: string, propertyId?: string): P
   // ── Income & invoices (rolling 3-month window) ───────────────────────────────
   // Arrears: Faith Chebet (103) misses the latest 2 months (incl. current).
   const arrears: Record<string, number[]> = { "103": [1, 2] };
-  let invoiceSeq = 1;
-  const incomeEntryData: Prisma.IncomeEntryCreateManyInput[] = [];
-
-  for (let i = 0; i < WIN.length; i++) {
-    for (const t of tenantDefs) {
-      const u = unitDefs.find((x) => x.number === t.unit)!;
-      const serviceCharge = scFor(u.type);
-      const grossAmount = u.rent + serviceCharge;
-      const isArrears = (arrears[t.unit] ?? []).includes(i);
-
-      const invoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber: `KMC-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-${String(invoiceSeq++).padStart(3, "0")}`,
-          tenantId: tenants[t.unit].id,
-          periodYear: WIN[i].y,
-          periodMonth: WIN[i].m + 1,
-          rentAmount: u.rent,
-          serviceCharge,
-          totalAmount: grossAmount,
-          dueDate: wDate(WIN, i, 5),
-          status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : wDate(WIN, i, 3),
-          paidAmount: isArrears ? null : grossAmount,
-        },
-      });
-
-      if (!isArrears) {
-        incomeEntryData.push(
-          ...demoPaymentRows(invoice, {
-            unitId: units[t.unit].id,
-            date: wDate(WIN, i),
-            paymentMethod: t.unit === "G01" || t.unit === "102" ? PaymentMethod.MPESA : PaymentMethod.BANK_TRANSFER,
-          }),
-        );
-      }
-    }
-  }
-  await prisma.incomeEntry.createMany({ data: incomeEntryData });
+  await seedRentInvoices({
+    win: WIN,
+    months: WIN.map((_, i) => i),
+    arrears,
+    tenants: tenantDefs.map((t) => ({
+      unit: t.unit,
+      tenantId: tenants[t.unit].id,
+      unitId: units[t.unit].id,
+      rent: unitDefs.find((x) => x.number === t.unit)!.rent,
+      serviceCharge: sc(t.unit),
+    })),
+    invoiceNumber: (_unit, i, seq) => `KMC-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-${String(seq).padStart(3, "0")}`,
+    dueDay: 5,
+    paidDay: 3,
+    receiptDay: 1,
+    payment: (unit) => ({ paymentMethod: unit === "G01" || unit === "102" ? PaymentMethod.MPESA : PaymentMethod.BANK_TRANSFER }),
+  });
 
   // ── Property-level monthly expenses ──────────────────────────────────────────
   const monthlyPropExpenses = [
@@ -1818,46 +1819,17 @@ async function seedSandtonHeights(organizationId: string, propertyId?: string): 
   const MONTHS = [0, 1, 2, 3]; // indices into WIN (oldest → current)
   // Arrears: unit 102 misses the latest 3 months; unit 302 misses the latest 2 (incl current)
   const arrears: Record<string, number[]> = { "102": [1, 2, 3], "302": [2, 3] };
-  let invoiceSeq = 1;
   const propCode = property.id.slice(-6).toUpperCase();
-
-  const incomeEntryData: Prisma.IncomeEntryCreateManyInput[] = [];
-
-  for (const month of MONTHS) {
-    for (const t of tenantDefs) {
-      const unit = units[t.unit];
-      const tenant = tenants[t.unit];
-      const serviceCharge = sc(t.unit);
-      const grossAmount = t.rent + serviceCharge;
-      const isArrears = (arrears[t.unit] ?? []).includes(month);
-
-      const invoiceNum = `SH-${propCode}-${WIN[month].y}-${String(WIN[month].m + 1).padStart(2, "0")}-${String(
-        invoiceSeq++
-      ).padStart(3, "0")}`;
-
-      const invoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber: invoiceNum,
-          tenantId: tenant.id,
-          periodYear: WIN[month].y,
-          periodMonth: WIN[month].m + 1,
-          rentAmount: t.rent,
-          serviceCharge,
-          totalAmount: grossAmount,
-          dueDate: wDate(WIN, month, 5),
-          status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : wDate(WIN, month, 1),
-          paidAmount: isArrears ? null : grossAmount,
-        },
-      });
-
-      if (!isArrears) {
-        incomeEntryData.push(...demoPaymentRows(invoice, { unitId: unit.id, date: wDate(WIN, month) }));
-      }
-    }
-  }
-
-  await prisma.incomeEntry.createMany({ data: incomeEntryData });
+  await seedRentInvoices({
+    win: WIN,
+    months: MONTHS,
+    arrears,
+    tenants: tenantDefs.map((t) => ({ unit: t.unit, tenantId: tenants[t.unit].id, unitId: units[t.unit].id, rent: t.rent, serviceCharge: sc(t.unit) })),
+    invoiceNumber: (_unit, month, seq) => `SH-${propCode}-${WIN[month].y}-${String(WIN[month].m + 1).padStart(2, "0")}-${String(seq).padStart(3, "0")}`,
+    dueDay: 5,
+    paidDay: 1,
+    receiptDay: 1,
+  });
 
   // ── Property-level monthly expenses (batched) ────────────────────────────────
   const monthlyPropExpensesDefs = [
@@ -2839,50 +2811,24 @@ async function seedBelsizeCourt(organizationId: string, propertyId?: string): Pr
     "302": [1, 2, 3],  // Natasha Singh — all 3 months → DEMAND_LETTER
   };
 
-  const incomeRows: Prisma.IncomeEntryCreateManyInput[] = [];
-
-  // Parallel within each month — invoices for different tenants in the same month
-  // are independent. Sequential across months keeps invoice numbering predictable.
-  for (const month of MONTHS) {
-    const mm = String(WIN[month].m + 1).padStart(2, "0"); // calendar month from the window
-    const monthInvoices = await Promise.all(tenantDefs.map(async (t) => {
-      const isArrears = (arrears[t.unit] ?? []).includes(month);
-      const total = t.rent + SC;
-      const inv = await prisma.invoice.create({
-        data: {
-          invoiceNumber: `BC-${propCode}-${t.unit}-${WIN[month].y}-${mm}-001`,
-          tenantId: tenants[t.unit].id,
-          periodYear: WIN[month].y,
-          periodMonth: WIN[month].m + 1,
-          rentAmount: t.rent,
-          serviceCharge: SC,
-          totalAmount: total,
-          dueDate: wDate(WIN, month, 1),
-          status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
-          paidAt: isArrears ? null : wDate(WIN, month, 5),
-          paidAmount: isArrears ? null : total,
-        },
-      });
-      return { inv, t, isArrears };
-    }));
-    for (const { inv, t, isArrears } of monthInvoices) {
-      if (!isArrears) {
-        // Wire tax to the management fee component of rent — feeds the tax UI.
-        // Computed as 20% VAT on the unit's flat management fee (additive, not
-        // included in rent shown to tenants).
-        const mgmtFee = feeConfigs.find((f) => f.unit === t.unit)?.flat ?? 0;
-        const taxAmount = Math.round(mgmtFee * 0.20 * 100) / 100;
-        incomeRows.push(
-          ...demoPaymentRows(inv, {
-            unitId: units[t.unit].id,
-            date: wDate(WIN, month, 5),
-            rentFields: { taxConfigId: vatMgmtConfig.id, taxRate: 0.20, taxAmount, taxType: TaxType.ADDITIVE },
-          }),
-        );
-      }
-    }
-  }
-  await prisma.incomeEntry.createMany({ data: incomeRows });
+  await seedRentInvoices({
+    win: WIN,
+    months: MONTHS,
+    arrears,
+    tenants: tenantDefs.map((t) => ({ unit: t.unit, tenantId: tenants[t.unit].id, unitId: units[t.unit].id, rent: t.rent, serviceCharge: SC })),
+    invoiceNumber: (unit, month) => `BC-${propCode}-${unit}-${WIN[month].y}-${String(WIN[month].m + 1).padStart(2, "0")}-001`,
+    dueDay: 1,
+    paidDay: 5,
+    receiptDay: 5,
+    // Wire tax to the management fee component of rent — feeds the tax UI:
+    // 20% VAT on the unit's flat management fee (additive, not included in
+    // the rent shown to tenants).
+    payment: (unit) => {
+      const mgmtFee = feeConfigs.find((f) => f.unit === unit)?.flat ?? 0;
+      const taxAmount = Math.round(mgmtFee * 0.20 * 100) / 100;
+      return { rentFields: { taxConfigId: vatMgmtConfig.id, taxRate: 0.20, taxAmount, taxType: TaxType.ADDITIVE } };
+    },
+  });
 
   // ── Property-level expenses — step 1: createMany ─────────────────────────────
   const propExpDefs = [

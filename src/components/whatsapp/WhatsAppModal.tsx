@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Spinner } from "@/components/ui/Spinner";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { WhatsAppSendButton } from "./WhatsAppSendButton";
 import { useWhatsAppTarget, whatsAppMessageFor } from "./use-whatsapp";
 import { displayWhatsAppNumber } from "@/lib/whatsapp";
@@ -95,6 +96,7 @@ export function WhatsAppModal({
               Opens WhatsApp with this message — you press send there. It is logged on the tenant&apos;s Comms tab as a
               send attempt: WhatsApp doesn&apos;t tell us whether it was delivered.
             </p>
+            <TutorialVideo tutorialKey="whatsapp-reminders" variant="link" />
           </>
         ) : null}
       </div>

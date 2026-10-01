@@ -38,7 +38,9 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
       ref={dialogRef}
       onClose={onClose}
       className={clsx(
-        "w-full rounded-2xl shadow-xl bg-white p-0 backdrop:bg-black/40 m-auto",
+        // text-left: a modal opened from a right-aligned cell (Inbox row
+        // actions) must not inherit that cell's alignment.
+        "w-full rounded-2xl shadow-xl bg-white p-0 backdrop:bg-black/40 m-auto text-left",
         sizes[size]
       )}
       onClick={(e) => {

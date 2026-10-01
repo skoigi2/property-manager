@@ -21,7 +21,8 @@ export type TutorialKey =
   | "tenant-checkout"
   | "utilities-metering"
   | "service-charge"
-  | "rent-increases";
+  | "rent-increases"
+  | "whatsapp-reminders";
 
 export type TutorialVideo = {
   key: TutorialKey;
@@ -239,6 +240,27 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
     ],
     relatedDocs: [{ label: "Help & Guide — Rent increases", href: "/guide.html#rent-increases" }],
   },
+
+  "whatsapp-reminders": {
+    key: "whatsapp-reminders",
+    title: "WhatsApp reminders",
+    durationSec: 70,
+    videoUrl: "/tutorials/whatsapp-reminders.mp4",
+    posterUrl: "/tutorials/whatsapp-reminders.jpg",
+    subtitleUrl: "/tutorials/whatsapp-reminders.vtt",
+    summary:
+      "Tenants who never read email can get their reminders on WhatsApp, sent from the manager's own WhatsApp — nothing to set up and no cost. Every overdue invoice in the Inbox has a WhatsApp action: the reminder is written for you with the amount outstanding, the days overdue and a link to the tenant's portal, and sending opens WhatsApp with the chat and message ready for you to press send. Select several overdue tenants and Remind on WhatsApp takes you through them one chat at a time; a tenant without a portal link can get one as you send, never without you asking. Each message is logged on the tenant's Comms tab as a send attempt, since WhatsApp can't confirm delivery. Tenants need a phone number with its country code — without one the button stays grey.",
+    steps: [
+      "Save each tenant's phone with the country code (e.g. +254 712 345 678) — a number starting with 0 is read as the property's country.",
+      "Inbox: on an overdue invoice, click WhatsApp, check the reminder and Send via WhatsApp.",
+      "WhatsApp opens with the chat and message ready — press send there.",
+      "Several tenants? Tick their overdue invoices and click Remind on WhatsApp; tap through them one chat at a time.",
+      "No portal link yet? Create portal link & send — or Send without the link.",
+      "The tenant page's WhatsApp button and Draft Email's Send via WhatsApp offer the receipt, renewal and expiry messages too.",
+      "Every send is on the tenant's Comms tab as a send attempt.",
+    ],
+    relatedDocs: [{ label: "Help & Guide — WhatsApp reminders", href: "/guide.html#whatsapp" }],
+  },
 };
 
 export const TUTORIAL_ORDER: TutorialKey[] = [
@@ -252,4 +274,5 @@ export const TUTORIAL_ORDER: TutorialKey[] = [
   "utilities-metering",
   "service-charge",
   "rent-increases",
+  "whatsapp-reminders",
 ];

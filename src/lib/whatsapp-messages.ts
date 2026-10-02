@@ -127,7 +127,8 @@ const EN: Record<WhatsAppTemplate, (c: WhatsAppMessageContext) => string> = {
       "",
       `${c.senderName} has set up your tenant portal for Unit ${c.unitNumber}, ${c.propertyName}. There you can see your invoices and balance, download receipts, send proof of payment, report a repair and message us.`,
       "",
-      c.portalUrl ? `Your link: ${c.portalUrl}` : "We'll send you the link shortly.",
+      // Never sent without the link (PORTAL_LINK_REQUIRED) — the fallback only shows in the preview.
+      `Your link: ${c.portalUrl ?? "[created when you send]"}`,
       "",
       "No password needed — please keep the link private.",
     ].join("\n"),

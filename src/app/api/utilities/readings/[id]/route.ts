@@ -21,7 +21,8 @@ export const maxDuration = 30;
  * only their own reading while it is still SUBMITTED; a manager may change any
  * reading that is not on an invoice, which sends it back for approval.
  */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
 

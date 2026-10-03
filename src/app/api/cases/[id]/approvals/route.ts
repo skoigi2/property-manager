@@ -5,7 +5,8 @@ import { createApprovalSchema } from "@/lib/validations";
 import { sendNotificationEmail } from "@/lib/email";
 import { formatCurrency } from "@/lib/currency";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

@@ -3,7 +3,8 @@ import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { generateInvoicePdf } from "@/lib/invoice-pdf";
 import { buildInvoicePdfPayload } from "@/lib/invoice-pdf-data";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 

@@ -12,7 +12,8 @@ const putSchema = z.object({
 
 // PUT /api/automations/[id]/overrides — set or clear a per-property override for
 // the automation. The [id] is the AutomationTemplate id (org-scoped).
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManager();
   if (error) return error;
   const organizationId = session!.user.organizationId;

@@ -10,14 +10,15 @@ export const maxDuration = 30;
  * paid / part-paid / unpaid status, plus billed / paid / unpaid per utility.
  * `format=pdf` returns the tenant's utility statement.
  */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireManager();
-  if (error) return error;
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+ const params = await props.params;
+ const { error } = await requireManager();
+ if (error) return error;
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: params.id }, select: { unit: { select: { propertyId: true } } } });
-  if (!tenant) return Response.json({ error: "Tenant not found" }, { status: 404 });
-  const access = await requirePropertyAccess(tenant.unit.propertyId);
-  if (!access.ok) return access.error!;
+ const tenant = await prisma.tenant.findUnique({ where: { id: params.id }, select: { unit: { select: { propertyId: true } } } });
+ if (!tenant) return Response.json({ error: "Tenant not found" }, { status: 404 });
+ const access = await requirePropertyAccess(tenant.unit.propertyId);
+ if (!access.ok) return access.error!;
 
-  return tenantUtilitiesResponse(params.id, new URL(req.url).searchParams.get("format"));
+ return tenantUtilitiesResponse(params.id, new URL(req.url).searchParams.get("format"));
 }

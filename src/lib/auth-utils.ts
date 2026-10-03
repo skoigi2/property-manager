@@ -17,9 +17,9 @@ import { MANAGER_ROLES, ESTABLISHED_ROLES, OPS_ROLES, isRoleAllowed, type OrgRol
  */
 const SUPER_ORG_FILTER_COOKIE = "gw-super-org-filter";
 
-function superAdminOrgFilter(): string | null {
+async function superAdminOrgFilter(): Promise<string | null> {
   try {
-    return cookies().get(SUPER_ORG_FILTER_COOKIE)?.value || null;
+    return (await cookies()).get(SUPER_ORG_FILTER_COOKIE)?.value || null;
   } catch {
     return null; // outside a request scope (e.g. cron) — no filter
   }
@@ -235,7 +235,7 @@ export async function getAccessiblePropertyIds(): Promise<string[] | null> {
   // Super-admin viewing scope: the header org filter narrows every listing
   // to one organisation's properties (see SUPER_ORG_FILTER_COOKIE above).
   if (isSuperAdmin(session)) {
-    const filter = superAdminOrgFilter();
+    const filter = await superAdminOrgFilter();
     if (filter) {
       const props = await prisma.property.findMany({
         where: { organizationId: filter },

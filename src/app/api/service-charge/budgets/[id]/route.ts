@@ -8,7 +8,8 @@ import { buildServiceChargeView } from "@/lib/service-charge-data";
 // One service charge budget: the full view (units + shares, budget vs actual,
 // statement), edit (lines replaced atomically), delete.
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id);
   if (auth.error) return auth.error;
   return Response.json(await buildServiceChargeView(auth.budget));
@@ -30,7 +31,8 @@ const patchSchema = z.object({
     .optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id, { write: true });
   if (auth.error) return auth.error;
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
@@ -68,7 +70,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json({ ok: true });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id, { write: true });
   if (auth.error) return auth.error;
   const balancing = await prisma.invoice.count({ where: { serviceChargeBudgetId: params.id, status: { not: "CANCELLED" } } });

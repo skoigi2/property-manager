@@ -38,7 +38,8 @@ async function loadTenant(id: string) {
   return { tenant };
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 
@@ -104,7 +105,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   });
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

@@ -7,7 +7,8 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED  = ["application/pdf","image/jpeg","image/png","image/webp",
                   "application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManager();
   if (error) return error;
 
@@ -33,7 +34,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return Response.json(withUrls);
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

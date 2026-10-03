@@ -26,7 +26,8 @@ async function getUnitWithAccess(id: string) {
   return { unit, accessError: null };
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   // Subscription write-gate: a locked org (trial over / unpaid) can read, not change.
@@ -81,7 +82,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json(updated);
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   // Subscription write-gate: a locked org (trial over / unpaid) can read, not change.

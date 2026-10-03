@@ -11,7 +11,8 @@ async function loadEntryPropertyId(entryId: string): Promise<string | null> {
   return e?.unit?.propertyId ?? null;
 }
 
-export async function GET(_req: Request, { params }: { params: { entryId: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ entryId: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 
@@ -48,7 +49,8 @@ const linkSchema = z.object({
   preferences:    z.string().optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { entryId: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ entryId: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

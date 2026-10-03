@@ -9,8 +9,9 @@ export const maxDuration = 30;
 // id may be any member of the payment event; the receipt covers the group.
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { token: string; entryId: string } },
+  props: { params: Promise<{ token: string; entryId: string }> }
 ) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) {
     return Response.json({ error: "Invalid or expired link" }, { status: 404 });

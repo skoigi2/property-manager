@@ -12,7 +12,8 @@ export const maxDuration = 30;
  * PUBLISHED on the tenant's property, and only the tenant's own row (the PDF
  * is the tenant-mode statement). The token IS the scope.
  */
-export async function GET(req: Request, { params }: { params: { token: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const limit = rateLimit(`portal-service-charge:${getClientIp(req)}`, { max: 60, windowMs: 60 * 60 * 1000 });
   if (!limit.ok) return Response.json({ error: "Too many requests. Please try again later." }, { status: 429 });
 

@@ -7,7 +7,8 @@ import { loadComplaintForSession } from "@/lib/complaints";
  * timeline. Ops staff incl. CARETAKER. `visibleToTenant` (form field or JSON
  * boolean) marks a comment the portal may show; staff notes default to hidden.
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
 

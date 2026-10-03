@@ -9,7 +9,8 @@ import { logAudit } from "@/lib/audit";
  * Admin approval of a manager-REQUESTED team-member addition: flips the row
  * to SENT, resets the 48h expiry, and emails the invitation.
  */
-export async function POST(_req: Request, { params }: { params: { token: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAdmin();
   if (error) return error;
 

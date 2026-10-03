@@ -16,7 +16,8 @@ const schema = z.object({
   paymentMethod: z.enum(["BANK_TRANSFER", "MPESA", "CASH", "CARD", "CHEQUE", "OTHER"]).nullable().optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -235,7 +236,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 // GET — fetch a fresh signed URL for the manager drawer's image/PDF preview.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 

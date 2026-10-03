@@ -9,7 +9,8 @@ import { logAudit } from "@/lib/audit";
 // page's auto-link) are DELETED so the books don't double-count when the real
 // payment is recorded later. Deleting income is why this needs the
 // FINANCIAL_DELETE permission (ACCOUNTANT is blocked, like other deletes).
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 

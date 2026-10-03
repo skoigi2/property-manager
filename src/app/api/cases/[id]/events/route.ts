@@ -7,7 +7,8 @@ import { parseCaseEventRequest, appendCaseEvent, attachmentErrorResponse } from 
  * limits (8 files, 10 MB, images + PDF), upload and timeline write live in
  * src/lib/case-events.ts, shared with the complaints route.
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

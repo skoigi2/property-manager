@@ -12,7 +12,8 @@ const patchSchema = z.object({
   preferences:    z.string().optional(),
 });
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManager();
   if (error) return error;
 
@@ -38,7 +39,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return Response.json(guest);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -61,7 +63,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json(guest);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

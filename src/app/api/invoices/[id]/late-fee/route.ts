@@ -62,7 +62,8 @@ function computeFee(invoice: {
 const CHARGEABLE_STATUSES = ["SENT", "OVERDUE", "PENDING_VERIFICATION"];
 
 // GET — preview the fee before applying.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 
@@ -89,7 +90,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // POST — apply the fee onto the invoice.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -142,7 +144,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 }
 
 // DELETE — remove a previously applied fee.
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

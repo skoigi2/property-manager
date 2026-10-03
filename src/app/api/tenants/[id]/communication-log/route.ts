@@ -15,10 +15,8 @@ const createSchema = z.object({
 });
 
 // ── GET /api/tenants/[id]/communication-log ──────────────────────────────────
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 
@@ -42,10 +40,8 @@ export async function GET(
 }
 
 // ── POST /api/tenants/[id]/communication-log ─────────────────────────────────
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } },
-) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuthWrite();
   if (error) return error;
 

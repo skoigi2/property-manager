@@ -29,10 +29,8 @@ const VENDOR_DETAIL_INCLUDE = {
   },
 };
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // Ops staff incl. CARETAKER — trimmed record only for the on-site role
   // (no spend, no recent expenses, no banking).
   const { session, error } = await requireOpsStaff();
@@ -129,10 +127,8 @@ export async function GET(
   });
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -181,10 +177,8 @@ export async function PATCH(
   return Response.json(updated);
 }
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

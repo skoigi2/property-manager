@@ -25,10 +25,8 @@ async function canManageOrg(orgId: string, session: { user: { id: string; role: 
 }
 
 // ── POST /api/organizations/[id]/logo ────────────────────────────────────────
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuth();
   if (error) return error;
 
@@ -77,10 +75,8 @@ export async function POST(
 }
 
 // ── DELETE /api/organizations/[id]/logo ──────────────────────────────────────
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuth();
   if (error) return error;
 

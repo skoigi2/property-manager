@@ -15,7 +15,8 @@ async function loadMeter(id: string) {
 }
 
 /** PATCH /api/utilities/meters/[id] — manager tier. */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -66,7 +67,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
  * DELETE /api/utilities/meters/[id] — manager tier. A meter with readings is
  * history: 409 with `readingsCount` (deactivate it instead).
  */
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

@@ -5,7 +5,8 @@ import { complaintActionSchema } from "@/lib/validations";
 import { COMPLAINT_INCLUDE, complaintToDto, applyComplaintAction, loadComplaintForSession } from "@/lib/complaints";
 import { loadCaseTimeline } from "@/lib/case-events";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireSession();
   if (error) return error;
 
@@ -17,7 +18,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 /** PATCH { action, note? } — acknowledge / investigate / await_tenant / resolve (ops staff), reopen / close (managers). */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
 
@@ -42,7 +44,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 /** DELETE — manager tier only. Removes the complaint and its case (events cascade). */
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

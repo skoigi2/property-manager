@@ -7,7 +7,8 @@ export const maxDuration = 30;
 
 // POST /api/income/[id]/receipt/email — email the payment's receipt PDF to
 // the tenant on demand (the automatic send is TENANT_PAYMENT_RECEIPTS).
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

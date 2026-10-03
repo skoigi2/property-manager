@@ -18,10 +18,8 @@ async function resolveEntry(entryId: string, accessibleIds: string[]) {
 }
 
 // ── PATCH /api/tenants/[id]/communication-log/[entryId] ──────────────────────
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string; entryId: string } },
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string; entryId: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuthWrite();
   if (error) return error;
 
@@ -50,10 +48,8 @@ export async function PATCH(
 }
 
 // ── DELETE /api/tenants/[id]/communication-log/[entryId] ─────────────────────
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string; entryId: string } },
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; entryId: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuthWrite();
   if (error) return error;
 

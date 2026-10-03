@@ -22,7 +22,8 @@ const schema = z.object({
  * attempt), and a MANAGER reply tells the tenant where to follow it. The
  * thread itself is left open — resolve it separately if the chat is done.
  */
-export async function POST(req: Request, { params }: { params: { id: string; threadId: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string; threadId: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

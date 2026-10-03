@@ -2,10 +2,8 @@ import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@
 import { prisma } from "@/lib/prisma";
 import { agreementApiSchema as agreementSchema } from "@/lib/agreement-form";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 
@@ -22,10 +20,8 @@ export async function GET(
   return Response.json(agreement ?? { propertyId: params.id });
 }
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

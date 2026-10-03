@@ -19,7 +19,8 @@ const accessSchema = z.object({
   grant: z.boolean(), // true = grant, false = revoke
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // User management is an ADMIN action — requireAdmin judges by the
   // MEMBERSHIP role for the active org (orgRole), never the global User.role
   // (which a founder of another org carries as ADMIN while being a mere
@@ -143,7 +144,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json(user);
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // Admin-only, judged by membership orgRole (see PATCH above)
   const { session: adminSession, error } = await requireAdmin();
   if (error) return error;

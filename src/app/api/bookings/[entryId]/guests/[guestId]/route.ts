@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { entryId: string; guestId: string } }
+  props: { params: Promise<{ entryId: string; guestId: string }> }
 ) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

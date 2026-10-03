@@ -12,10 +12,8 @@ function getStorageClient() {
 }
 
 // ── POST /api/properties/[id]/logo ───────────────────────────────────────────
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 
@@ -63,10 +61,8 @@ export async function POST(
 }
 
 // ── DELETE /api/properties/[id]/logo ─────────────────────────────────────────
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

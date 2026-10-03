@@ -5,7 +5,8 @@ import { generateCheckoutPdf } from "@/lib/checkout-pdf";
 
 export const maxDuration = 30;
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 

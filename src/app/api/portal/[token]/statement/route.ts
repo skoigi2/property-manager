@@ -7,7 +7,8 @@ import { parseStatementQuery } from "@/lib/tenant-statement-request";
  * statement is always the token's own tenant, so another tenant's data is
  * unreachable by construction.
  */
-export async function GET(req: Request, { params }: { params: { token: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) {
     return Response.json({ error: "Invalid or expired link" }, { status: 404 });

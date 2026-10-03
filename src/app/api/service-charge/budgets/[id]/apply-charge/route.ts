@@ -9,7 +9,8 @@ import { buildServiceChargeView } from "@/lib/service-charge-data";
 // already raised are not touched; the next ones bill the new figure.
 const bodySchema = z.object({ unitIds: z.array(z.string()).max(500).optional() });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id, { write: true });
   if (auth.error) return auth.error;
   const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));

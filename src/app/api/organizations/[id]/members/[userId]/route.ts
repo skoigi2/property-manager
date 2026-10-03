@@ -18,10 +18,8 @@ const roleSchema = z.object({
  * Access: super-admin OR org-admin (same org only, cannot assign above own
  * role, cannot demote the org's last admin).
  */
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string; userId: string } }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string; userId: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuth();
   if (error) return error;
 
@@ -96,10 +94,8 @@ export async function PATCH(
  *
  * Access: super-admin OR org-admin (same org only).
  */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string; userId: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; userId: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuth();
   if (error) return error;
 

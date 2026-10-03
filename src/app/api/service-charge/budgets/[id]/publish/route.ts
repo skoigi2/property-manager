@@ -6,7 +6,8 @@ import { authorizeBudget } from "@/lib/service-charge-access";
 // Publish (or withdraw) the year's statements to the tenant portal.
 const bodySchema = z.object({ published: z.boolean() });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id, { write: true });
   if (auth.error) return auth.error;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));

@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
  * Mark a hint as ACTED_ON (optimistic from the client after firing the
  * underlying actionEndpoint). Idempotent.
  */
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuthWrite();
   if (error) return error;
 

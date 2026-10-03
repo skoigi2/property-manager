@@ -16,7 +16,8 @@ function parseUntil(s: string): Date | null {
   return d;
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuthWrite();
   if (error) return error;
 

@@ -20,7 +20,8 @@ async function loadOwnedAccount(id: string, orgId: string | null | undefined) {
 }
 
 // ── POST /api/payment-accounts/[id]/logo ─────────────────────────────────────
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -61,7 +62,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 // ── DELETE /api/payment-accounts/[id]/logo ───────────────────────────────────
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

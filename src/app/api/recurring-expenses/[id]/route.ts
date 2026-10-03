@@ -44,7 +44,8 @@ async function assertRecurringAccess(
   return { error: null, item: { id: item.id, organizationId: item.organizationId, schedule: item.schedule } };
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -69,7 +70,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json(item);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

@@ -21,10 +21,8 @@ export const maxDuration = 30;
  * schedule and will happily replay a stale URL forever, so the server owns the
  * range rather than trusting whatever a client cached months ago.
  */
-export async function GET(
-  req: Request,
-  { params }: { params: { token: string } }
-) {
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(req);
   const limit = rateLimit(`calendar-feed:${ip}`, { max: 60, windowMs: 60 * 60 * 1000 });
   if (!limit.ok) {

@@ -28,7 +28,8 @@ async function findByToken(token: string) {
   });
 }
 
-export async function GET(_req: Request, { params }: { params: { token: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const job = await findByToken(params.token);
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -59,7 +60,8 @@ const quoteSchema = z.object({
   availableDate: z.string().optional().nullable(),
 });
 
-export async function POST(req: Request, { params }: { params: { token: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const limited = rateLimit(`vendor-link:${getClientIp(req)}`, { max: 30, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });

@@ -7,7 +7,8 @@ import { logAudit } from "@/lib/audit";
  * approved readings carry their own rate snapshot, so removing a tariff only
  * changes what future approvals resolve to.
  */
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireRolesWrite(["ADMIN", "MANAGER"]);
   if (error) return error;
 

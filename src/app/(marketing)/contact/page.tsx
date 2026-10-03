@@ -16,11 +16,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ContactPage({
-  searchParams,
-}: {
-  searchParams: { intent?: string };
-}) {
+export default async function ContactPage(
+  props: {
+    searchParams: Promise<{ intent?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const isDemo = searchParams.intent === "demo";
 
   return (

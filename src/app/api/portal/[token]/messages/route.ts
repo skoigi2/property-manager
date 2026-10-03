@@ -10,10 +10,8 @@ const createSchema = z.object({
   body: z.string().min(1).max(5000),
 });
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) return Response.json({ error: "Invalid or expired link" }, { status: 404 });
 
@@ -48,10 +46,8 @@ export async function GET(
   );
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) return Response.json({ error: "Invalid or expired link" }, { status: 404 });
 

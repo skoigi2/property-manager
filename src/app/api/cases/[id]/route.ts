@@ -6,7 +6,8 @@ import { getCaseAttachmentSignedUrl } from "@/lib/supabase-storage";
 import { getWorkflow, getStageByIndex } from "@/lib/case-workflows";
 import type { CaseTerminalReason } from "@prisma/client";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 
@@ -77,7 +78,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return Response.json({ ...thread, events, tenantContext, vendorContext });
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

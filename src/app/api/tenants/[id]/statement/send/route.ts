@@ -16,7 +16,8 @@ export const maxDuration = 30;
  * a blank statement emailed to a paying tenant reads as "we have no record
  * of your rent", which is worse than no email.
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireManagerWrite();
   if (error) return error;
 

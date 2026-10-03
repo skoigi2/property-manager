@@ -19,7 +19,8 @@ async function loadEntryPropertyId(id: string): Promise<string | null> {
 // the Deposit tab to attach an untagged unit DEPOSIT receipt), OR link the
 // entry to one of the tenant's invoices ("allocate" — used by the Income page
 // for payments recorded without picking an invoice).
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -149,7 +150,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json(entry);
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -184,7 +186,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return Response.json(entry);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 

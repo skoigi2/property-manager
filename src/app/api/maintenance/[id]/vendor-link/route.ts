@@ -13,7 +13,8 @@ const TOKEN_TTL_DAYS = 14;
  * link for a job with an assigned vendor. Emails the vendor when an address
  * exists; always returns the URL for WhatsApp/SMS sharing.
  */
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // Ops staff incl. CARETAKER — assigning the contractor they met on site.
   const { error, session } = await requireOpsStaffWrite();
   if (error) return error;

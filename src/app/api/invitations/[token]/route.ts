@@ -8,7 +8,8 @@ import { requireAdmin, requireManager } from "@/lib/auth-utils";
  * returns its details with `accepted: true` so the page can send a member who
  * re-follows the email link to the dashboard instead of an error.
  */
-export async function GET(_req: Request, { params }: { params: { token: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const invitation = await prisma.orgInvitation.findUnique({
     where: { token: params.token },
     include: {
@@ -43,7 +44,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
  * Revoke a pending invitation. Admins may revoke any in their org; a manager
  * may cancel a row they created themselves (e.g. withdraw their request).
  */
-export async function DELETE(_req: Request, { params }: { params: { token: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireManager();
   if (error) return error;
 

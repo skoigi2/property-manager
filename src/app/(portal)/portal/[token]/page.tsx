@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, use } from "react";
 import { formatCurrency } from "@/lib/currency";
 import { format, addMonths, setDate } from "date-fns";
 import toast from "react-hot-toast";
@@ -280,7 +280,8 @@ function invoiceBadge(inv: { status: Invoice["status"]; totalAmount: number; pai
   return { bg: "bg-gray-100", text: "text-gray-500", label: "Cancelled" };
 }
 
-export default function PortalPage({ params }: { params: { token: string } }) {
+export default function PortalPage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
   const [data, setData] = useState<PortalData | null>(null);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [tab, setTab] = useState<Tab>("overview");

@@ -6,8 +6,9 @@ import { deleteFromStorage } from "@/lib/supabase-storage";
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { tenantId: string; docId: string } }
+  props: { params: Promise<{ tenantId: string; docId: string }> }
 ) {
+  const params = await props.params;
   const { error } = await requireAuthWrite();
   if (error) return error;
 

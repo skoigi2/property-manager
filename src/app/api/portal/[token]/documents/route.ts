@@ -3,10 +3,8 @@ import { validatePortalToken } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 import { getSignedUrl } from "@/lib/supabase-storage";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   try {
     const tenant = await validatePortalToken(params.token);
     if (!tenant) {

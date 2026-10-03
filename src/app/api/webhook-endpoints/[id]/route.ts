@@ -12,7 +12,8 @@ async function loadOwned(id: string, orgId: string | null | undefined) {
 const patchSchema = z.object({ isActive: z.boolean() });
 
 /** PATCH /api/webhook-endpoints/[id] — enable/disable. */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireAdminWrite();
   if (error) return error;
 
@@ -31,7 +32,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 /** DELETE /api/webhook-endpoints/[id] */
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireAdminWrite();
   if (error) return error;
 

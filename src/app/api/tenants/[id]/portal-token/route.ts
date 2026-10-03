@@ -6,10 +6,8 @@ import { prisma } from "@/lib/prisma";
 // grants invoice + document access. Manager can rotate from the tenant detail page.
 const PORTAL_TOKEN_TTL_DAYS = 90;
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 
@@ -34,10 +32,8 @@ export async function POST(
   return Response.json(tenant);
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

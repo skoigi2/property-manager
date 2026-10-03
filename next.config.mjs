@@ -61,17 +61,18 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // The app never uses next/image, so the image optimiser endpoint is switched
-  // off: several Next 14 advisories (incl. a critical one) sit in it, and 14.x
-  // gets no more patches.
+  // The app never uses next/image, so the image optimiser endpoint stays off —
+  // less attack surface (several past advisories sat in it).
   images: { unoptimized: true },
   eslint: {
     ignoreDuringBuilds: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ["@react-pdf/renderer"],
-    instrumentationHook: true, // loads src/instrumentation.ts (Sentry server init)
-  },
+  // @react-pdf/renderer runs server-side only (src/lib/*-pdf.tsx) — keep it out
+  // of the server bundle.
+  serverExternalPackages: ["@react-pdf/renderer"],
+  // No dev badge: the guide screenshots and tutorial videos are captured from
+  // `next dev`. Errors still open the overlay.
+  devIndicators: false,
   async headers() {
     return [
       {
@@ -86,5 +87,5 @@ const nextConfig = {
 // and the SDK no-ops without NEXT_PUBLIC_SENTRY_DSN — safe in all environments.
 export default withSentryConfig(withPWA(nextConfig), {
   silent: true,
-  disableLogger: true,
+  webpack: { treeshake: { removeDebugLogging: true } },
 });

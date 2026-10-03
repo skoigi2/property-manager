@@ -12,7 +12,8 @@ import { buildServiceChargeView } from "@/lib/service-charge-data";
 // offsets them.
 const bodySchema = z.object({ tenantIds: z.array(z.string()).min(1).max(500) });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id, { write: true });
   if (auth.error) return auth.error;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));

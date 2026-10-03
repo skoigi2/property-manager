@@ -24,7 +24,11 @@ async function loadThreadWithAccess(tenantId: string, threadId: string) {
   return { thread, err: null };
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string; threadId: string } }) {
+export async function GET(
+  _req: Request,
+  props: { params: Promise<{ id: string; threadId: string }> }
+) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 
@@ -59,7 +63,8 @@ export async function GET(_req: Request, { params }: { params: { id: string; thr
   });
 }
 
-export async function POST(req: Request, { params }: { params: { id: string; threadId: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string; threadId: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -96,7 +101,8 @@ export async function POST(req: Request, { params }: { params: { id: string; thr
   return Response.json({ ok: true });
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string; threadId: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string; threadId: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

@@ -13,7 +13,8 @@ const settlementSchema = z.object({
   notes:           z.string().optional(),
 });
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 
@@ -34,7 +35,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return Response.json(settlement ?? null);
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requirePermissionWrite("TENANT_LIFECYCLE");
   if (error) return error;
 

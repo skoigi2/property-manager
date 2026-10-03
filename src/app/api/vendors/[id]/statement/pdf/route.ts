@@ -10,7 +10,8 @@ const fmtRange = (d: Date) =>
 
 // GET /api/vendors/[id]/statement/pdf?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Same scoping as the JSON statement route, rendered as a PDF attachment.
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManager();
   if (error) return error;
 

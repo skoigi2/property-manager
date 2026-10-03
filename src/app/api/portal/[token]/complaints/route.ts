@@ -48,7 +48,8 @@ function portalShape(c: ComplaintRow, events: { id: string; kind: string; body: 
   };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) return Response.json({ error: "Invalid or expired link" }, { status: 404 });
 
@@ -75,7 +76,8 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   return Response.json(rows.map((r) => portalShape(r, r.caseThreadId ? byThread.get(r.caseThreadId) ?? [] : [])));
 }
 
-export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(req);
   const limit = rateLimit(`portal-complaint:${ip}`, { max: 20, windowMs: 60 * 60 * 1000 });
   if (!limit.ok) return Response.json({ error: "Too many requests — please try again later." }, { status: 429 });

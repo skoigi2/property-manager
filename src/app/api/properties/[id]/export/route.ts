@@ -14,7 +14,8 @@ function slug(s: string): string {
   return s.replace(/[^a-z0-9]/gi, "_");
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManager();
   if (error) return error;
 

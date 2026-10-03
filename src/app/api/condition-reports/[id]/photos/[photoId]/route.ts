@@ -2,7 +2,8 @@ import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@
 import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 
-export async function DELETE(_req: Request, { params }: { params: { id: string; photoId: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; photoId: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

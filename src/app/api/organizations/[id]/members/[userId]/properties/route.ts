@@ -9,10 +9,8 @@ import { prisma } from "@/lib/prisma";
  *
  * Access: org-admin of this org OR super-admin.
  */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string; userId: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; userId: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuth();
   if (error) return error;
 

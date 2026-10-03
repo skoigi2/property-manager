@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 // ── GET /api/tenants/[id]/rent-history ───────────────────────────────────────
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 
@@ -37,10 +35,8 @@ const bodySchema = z.object({
   reason:        z.string().max(200).optional(),
 });
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuthWrite();
   if (error) return error;
 
@@ -78,7 +74,7 @@ export async function POST(
 // ── DELETE /api/tenants/[id]/rent-history?entryId= ───────────────────────────
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  _props: { params: Promise<{ id: string }> }
 ) {
   const { error } = await requireAuthWrite();
   if (error) return error;

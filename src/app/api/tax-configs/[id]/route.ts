@@ -14,7 +14,8 @@ const patchSchema = z.object({
 });
 
 // PATCH /api/tax-configs/[id]
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requirePermissionWrite("ORG_SETTINGS");
   if (error) return error;
 
@@ -65,7 +66,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // DELETE /api/tax-configs/[id]
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requirePermissionWrite("ORG_SETTINGS");
   if (error) return error;
 

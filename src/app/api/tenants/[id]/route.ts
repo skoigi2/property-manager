@@ -12,7 +12,8 @@ async function loadTenantPropertyId(tenantId: string): Promise<string | null> {
   return t?.unit.propertyId ?? null;
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 
@@ -56,7 +57,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return Response.json(tenant);
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 
@@ -133,7 +135,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return Response.json(tenant);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 
@@ -180,7 +183,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json(tenant);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requirePermissionWrite("TENANT_LIFECYCLE");
   if (error) return error;
 

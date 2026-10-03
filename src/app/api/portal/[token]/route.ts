@@ -2,10 +2,8 @@ import { NextRequest } from "next/server";
 import { validatePortalToken } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) {
     return Response.json({ error: "Invalid or expired link" }, { status: 404 });

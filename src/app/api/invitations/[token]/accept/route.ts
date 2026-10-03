@@ -12,7 +12,8 @@ import {
  * The invitee must be logged in. Their session email must match the invitation.
  * Creates (or upserts) the org membership with the invited role.
  */
-export async function POST(_req: Request, { params }: { params: { token: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireSession(); // any role — a caretaker may accept a second org's invite
   if (error) return error;
 

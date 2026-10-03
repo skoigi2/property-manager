@@ -8,7 +8,8 @@ import { emailInvoiceToTenant, InvoiceEmailError } from "@/lib/invoice-email";
 // ── POST /api/invoices/[id]/send ─────────────────────────────────────────────
 // Emails the invoice PDF to the tenant, marks a DRAFT invoice as SENT, and
 // logs the send in the tenant's communication trail.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

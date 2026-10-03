@@ -12,7 +12,8 @@ export const maxDuration = 60;
 // logged on their Comms tab. Tenants without an email come back as failures.
 const bodySchema = z.object({ tenantIds: z.array(z.string()).min(1).max(200) });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id, { write: true });
   if (auth.error) return auth.error;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));

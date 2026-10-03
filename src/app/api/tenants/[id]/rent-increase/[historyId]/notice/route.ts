@@ -5,7 +5,11 @@ import { generateRentIncreaseNoticePdf } from "@/lib/rent-increase-notice-pdf";
 export const maxDuration = 30;
 
 // The rent increase notice letter (PDF) for one increase.
-export async function GET(_req: Request, { params }: { params: { id: string; historyId: string } }) {
+export async function GET(
+  _req: Request,
+  props: { params: Promise<{ id: string; historyId: string }> }
+) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
   const data = await loadRentIncreaseNotice(params.id, params.historyId);

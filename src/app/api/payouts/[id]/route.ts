@@ -4,10 +4,8 @@ import { requirePermissionWrite, requirePropertyAccess } from "@/lib/auth-utils"
 import { logAudit } from "@/lib/audit";
 
 /** DELETE /api/payouts/[id] — remove a mis-recorded remittance. */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 

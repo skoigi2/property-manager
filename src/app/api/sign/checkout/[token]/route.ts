@@ -27,7 +27,8 @@ async function findByToken(token: string) {
   });
 }
 
-export async function GET(_req: Request, { params }: { params: { token: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const checkout = await findByToken(params.token);
   if (!checkout) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -55,7 +56,8 @@ const signSchema = z.object({
   name: z.string().trim().min(2).max(120),
 });
 
-export async function POST(req: Request, { params }: { params: { token: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const limited = rateLimit(`sign-checkout:${getClientIp(req)}`, { max: 20, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });

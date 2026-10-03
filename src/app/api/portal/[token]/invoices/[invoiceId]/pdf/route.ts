@@ -6,8 +6,9 @@ import { loadInvoiceUtilityContext } from "@/lib/invoice-utility-lines";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { token: string; invoiceId: string } }
+  props: { params: Promise<{ token: string; invoiceId: string }> }
 ) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) {
     return Response.json({ error: "Invalid or expired link" }, { status: 404 });

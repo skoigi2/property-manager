@@ -24,7 +24,8 @@ function parseDay(s: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
   const propertyId = await tenantPropertyId(params.id);
@@ -65,7 +66,8 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("skip"), note: z.string().max(200).optional().nullable() }),
 ]);
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireManagerWrite();
   if (error) return error;
   const propertyId = await tenantPropertyId(params.id);

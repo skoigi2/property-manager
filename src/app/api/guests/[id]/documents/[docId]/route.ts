@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { assertGuestAccess } from "@/lib/guest-access";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string; docId: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; docId: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

@@ -27,7 +27,8 @@ const EXPENSE_INCLUDE = {
 // requireExpenseMutation (src/lib/expense-access.ts). Every mutation of an
 // expense by id goes through it.
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, row: accessRow, error } = await requireExpenseMutation(params.id, "edit");
   if (error) return error;
   const organizationId = accessRow.organizationId;
@@ -263,7 +264,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return Response.json(entry);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // FINANCIAL_DELETE (ACCOUNTANT) and the CARETAKER own-row / confirmed-
   // withdrawal rules are enforced inside requireExpenseMutation.
   const { session, error } = await requireExpenseMutation(params.id, "delete");

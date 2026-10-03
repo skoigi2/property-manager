@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { generateOwnerInvoicePdf, type OwnerInvoiceData } from "@/lib/owner-invoice-pdf";
 import type { OwnerInvoiceLineItem } from "@/lib/validations";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 

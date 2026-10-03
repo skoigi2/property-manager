@@ -8,7 +8,11 @@ export const maxDuration = 30;
 
 // Email the rent increase notice to the tenant (letter in the body + PDF
 // attached), log it on the tenant's Comms tab and stamp noticeSentAt.
-export async function POST(_req: Request, { params }: { params: { id: string; historyId: string } }) {
+export async function POST(
+  _req: Request,
+  props: { params: Promise<{ id: string; historyId: string }> }
+) {
+  const params = await props.params;
   const { error, session } = await requireManagerWrite();
   if (error) return error;
   const data = await loadRentIncreaseNotice(params.id, params.historyId);

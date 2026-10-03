@@ -1,4 +1,5 @@
-// Browser-side Sentry init. No-ops entirely until NEXT_PUBLIC_SENTRY_DSN is set.
+// Browser-side Sentry init (Next 15 loads this file on the client before the
+// app starts). No-ops entirely until NEXT_PUBLIC_SENTRY_DSN is set.
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
@@ -8,3 +9,6 @@ Sentry.init({
   // Keep payloads lean — no session replay (privacy: app shows financial data).
   integrations: [],
 });
+
+// Ties client-side navigations to performance traces.
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

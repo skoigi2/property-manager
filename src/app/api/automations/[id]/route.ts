@@ -7,7 +7,8 @@ import { z } from "zod";
 const patchSchema = z.object({ enabled: z.boolean() });
 
 // PATCH /api/automations/[id] — enable / disable an automation template.
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManager();
   if (error) return error;
   const locked = await requireActiveSubscription(session!.user.organizationId);

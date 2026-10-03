@@ -21,7 +21,8 @@ async function getInvoiceWithAccess(id: string) {
   return { invoice, accessError: null };
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
 
@@ -31,7 +32,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return Response.json(invoice);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 
@@ -111,7 +113,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return Response.json(updated);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requirePermissionWrite("FINANCIAL_DELETE");
   if (error) return error;
 

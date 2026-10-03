@@ -50,10 +50,8 @@ const renewalSchema = z.object({
 
 // ── PATCH /api/tenants/[id]/renewal ──────────────────────────────────────────
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuthWrite();
   if (error) return error;
 

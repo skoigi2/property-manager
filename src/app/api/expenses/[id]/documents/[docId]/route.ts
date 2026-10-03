@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 
 // ── DELETE /api/expenses/[id]/documents/[docId] ────────────────────────────────
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string; docId: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; docId: string }> }) {
+  const params = await props.params;
   // Auth + property/org access + CARETAKER own-row rule in one place.
   const { error } = await requireExpenseMutation(params.id, "attach");
   if (error) return error;

@@ -6,10 +6,8 @@ import { DocumentCategory } from "@prisma/client";
 // ── GET /api/documents/[tenantId] ─────────────────────────────────────────────
 // Returns all documents for a tenant with short-lived signed download URLs.
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { tenantId: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ tenantId: string }> }) {
+  const params = await props.params;
   try {
     const { error } = await requireAuth();
     if (error) return error;
@@ -57,10 +55,8 @@ export async function GET(
 // ── POST /api/documents/[tenantId] ────────────────────────────────────────────
 // Accepts a multipart/form-data with: file, category, label
 
-export async function POST(
-  req: Request,
-  { params }: { params: { tenantId: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ tenantId: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuthWrite();
   if (error) return error;
 

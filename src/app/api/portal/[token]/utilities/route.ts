@@ -13,12 +13,13 @@ export const maxDuration = 30;
  * meters and any reading the manager has not approved are unreachable by
  * construction.
  */
-export async function GET(req: Request, { params }: { params: { token: string } }) {
-  const limit = rateLimit(`portal-utilities:${getClientIp(req)}`, { max: 120, windowMs: 60 * 60 * 1000 });
-  if (!limit.ok) return Response.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+ const params = await props.params;
+ const limit = rateLimit(`portal-utilities:${getClientIp(req)}`, { max: 120, windowMs: 60 * 60 * 1000 });
+ if (!limit.ok) return Response.json({ error: "Too many requests. Please try again later." }, { status: 429 });
 
-  const tenant = await validatePortalToken(params.token);
-  if (!tenant) return Response.json({ error: "Invalid or expired link" }, { status: 404 });
+ const tenant = await validatePortalToken(params.token);
+ if (!tenant) return Response.json({ error: "Invalid or expired link" }, { status: 404 });
 
-  return tenantUtilitiesResponse(tenant.id, new URL(req.url).searchParams.get("format"));
+ return tenantUtilitiesResponse(tenant.id, new URL(req.url).searchParams.get("format"));
 }

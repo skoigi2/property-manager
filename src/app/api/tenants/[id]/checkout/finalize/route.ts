@@ -6,7 +6,8 @@ import { checkoutProcessSchema } from "@/lib/validations";
 import { calcDepositPosition } from "@/lib/deposit";
 import { parseFinalReadingInputs, settleFinalUtilities } from "@/lib/checkout-utilities";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requirePermissionWrite("TENANT_LIFECYCLE");
   if (error) return error;
 

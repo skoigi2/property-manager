@@ -63,7 +63,15 @@ Unit tests live in `src/lib/__tests__/` (Vitest, pure-function coverage of `calc
 
 ## Architecture Overview
 
-Next.js 14 App Router app. All source code lives in `src/`.
+Next.js 15 (15.5) App Router app on React 19. All source code lives in `src/`.
+
+**Next 15 conventions** (upgraded from 14 on 2026-10-03):
+- `params` / `searchParams` are **Promises** in route handlers, pages and layouts: `export async function GET(req: Request, props: { params: Promise<{ id: string }> }) { const params = await props.params; … }` (an unused one is typed `_props: { params: Promise<…> }`). Client pages unwrap with React's `use(props.params)` (the portal page) or `useParams()`. `src/lib/__tests__/async-params.test.ts` fails CI on a synchronous `params: {` / `searchParams: {` type or an un-awaited `cookies()` / `headers()`.
+- `cookies()` / `headers()` from `next/headers` are async — `(await cookies()).get(…)` (only `superAdminOrgFilter` in `src/lib/auth-utils.ts` uses it).
+- Route handlers and `fetch` are uncached by default; nothing here relies on caching.
+- `next.config.mjs`: `serverExternalPackages` (was `experimental.serverComponentsExternalPackages`), `devIndicators: false` (keeps the dev badge out of guide screenshots / tutorial recordings captured from `next dev`), webpack builds (next-pwa and the Sentry plugin are webpack plugins — no `--turbopack`).
+- Sentry: browser init in `src/instrumentation-client.ts`; server / edge configs at the repo root loaded by `src/instrumentation.ts`, which also exports `onRequestError = Sentry.captureRequestError`.
+- `next lint` still runs (deprecated in 15.5, ESLint 8 kept); moving to ESLint 9 / the ESLint CLI is a separate job.
 
 ### Route groups
 - `src/app/(auth)/` — unauthenticated pages (`/login`, `/signup`, `/forgot-password`, `/reset-password`, `/select-org`)
@@ -281,7 +289,7 @@ The tenant's lease agreement fee (`LEASE_FEE` income entry) is paid into the lan
 - **Deposits — contractual vs received**: `Tenant.depositAmount` is the CONTRACTUAL deposit; what is actually held is the sum of `DEPOSIT` income entries linked to the tenant — `calcDepositPosition` in `src/lib/deposit.ts` (`POST /api/income` auto-links the active tenant for DEPOSIT entries, like rent). Checkout draft/finalize and deposit settlement refund from the receipts sum when a trail exists (snapshot in `CheckoutProcess.depositReceived`, base stored in `DepositSettlement.depositHeld`) and fall back to the contractual amount with an "unverified" warning when none is recorded. DEPOSIT entries remain excluded from gross income.
 
 ### PDF generation
-`@react-pdf/renderer` is server-only — declared in `serverComponentsExternalPackages` in `next.config.mjs`. The report route sets `export const maxDuration = 30` at the top of `src/app/api/report/route.ts` to handle slow PDF renders (`vercel.json` is otherwise empty). Four generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices), `receipt-pdf.tsx` (paid-invoice receipts surfaced via the tenant portal).
+`@react-pdf/renderer` is server-only — declared in `serverExternalPackages` in `next.config.mjs`. The report route sets `export const maxDuration = 30` at the top of `src/app/api/report/route.ts` to handle slow PDF renders (`vercel.json` is otherwise empty). Four generators exist: `pdf-generator.ts` (property reports), `invoice-pdf.tsx` (tenant rent invoices), `owner-invoice-pdf.tsx` (owner fee invoices), `receipt-pdf.tsx` (paid-invoice receipts surfaced via the tenant portal).
 
 `Tenant.showVatOnInvoice` (default true; tenant form checkbox "Show the landlord's tax numbers (PIN / VAT)"; migration `20260911180000_tenant_show_vat_on_invoice`) hides BOTH the PIN No. and VAT No. header lines on that tenant's invoice PDF when false (the KRA PIN is the tax number) — the numbers come from the resolved `PaymentAccount` (PIN falls back to the org registration number). Both PDF routes pass it through. The `OrgBranding` type in `invoice-pdf.tsx` carries payment fields (`bankName`, `bankAccountName`, `bankAccountNumber`, `bankBranch`, `mpesaPaybill`, `mpesaAccountNumber`, `mpesaTill`, `paymentInstructions`, `vatRegistrationNumber`) sourced from the `Organization` model. Both PDF routes (`/api/invoices/[id]/pdf` and `/api/portal/[token]/invoices/[invoiceId]/pdf`) must query and pass these fields. Configured in **Settings → Branding → Payment Details**.
 

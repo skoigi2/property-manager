@@ -14,7 +14,8 @@ const TOKEN_TTL_DAYS = 14;
  * an address exists. Always returns the URL so the manager can share it via
  * WhatsApp/SMS regardless. Re-requesting rotates the token (old link dies).
  */
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireManagerWrite();
   if (error) return error;
 

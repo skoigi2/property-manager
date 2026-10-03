@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { removeStoredDocumentFile } from "@/lib/entity-document-urls";
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string; docId: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; docId: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

@@ -9,10 +9,8 @@ import { prisma } from "@/lib/prisma";
  *
  * Works even when the property currently has no org (organizationId = null).
  */
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireSuperAdmin();
   if (error) return error;
 

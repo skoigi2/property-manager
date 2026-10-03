@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 
 /** DELETE /api/api-keys/[id] — revoke (soft) so the audit trail keeps the row. */
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireAdminWrite();
   if (error) return error;
   const orgId = session!.user.organizationId;

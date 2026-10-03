@@ -10,7 +10,8 @@ import { generateTenantStatementPdf } from "@/lib/tenant-statement-pdf";
 
 export const maxDuration = 30;
 
-export async function GET(req: Request, { params }: { params: { token: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) {
     return Response.json({ error: "Invalid or expired link" }, { status: 404 });

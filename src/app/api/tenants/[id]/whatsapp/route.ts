@@ -16,7 +16,8 @@ import type { WhatsAppMessageContext } from "@/lib/whatsapp-messages";
  * "Send reminders" email figures it; without, every open (SENT / OVERDUE)
  * invoice of the tenant via the same per-invoice maths.
  */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 

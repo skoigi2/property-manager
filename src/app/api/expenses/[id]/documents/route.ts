@@ -17,10 +17,8 @@ async function resolvePropertyId(expenseId: string): Promise<string | null> {
 }
 
 // ── GET /api/expenses/[id]/documents ──────────────────────────────────────────
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // Any role incl. CARETAKER — receipts on an accessible property's expense.
   const { error } = await requireSession();
   if (error) return error;
@@ -76,10 +74,8 @@ const ALLOWED_TYPES = new Set([
 // Some browsers give HEIC files an empty MIME type — fall back to the extension.
 const ALLOWED_EXTENSIONS = /\.(pdf|jpe?g|png|webp|heic|heif|docx?)$/i;
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // Auth + property/org access + CARETAKER own-row rule in one place.
   const { session, error } = await requireExpenseMutation(params.id, "attach");
   if (error) return error;

@@ -3,7 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { cancelScheduledIncrease, RentIncreaseError } from "@/lib/rent-increase";
 
 // Cancel a scheduled (not yet applied) rent increase.
-export async function DELETE(_req: Request, { params }: { params: { id: string; historyId: string } }) {
+export async function DELETE(
+  _req: Request,
+  props: { params: Promise<{ id: string; historyId: string }> }
+) {
+  const params = await props.params;
   const { error, session } = await requireManagerWrite();
   if (error) return error;
   const t = await prisma.tenant.findUnique({ where: { id: params.id }, select: { unit: { select: { propertyId: true } } } });

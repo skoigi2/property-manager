@@ -2,7 +2,8 @@ import { requireAuth, requirePropertyAccess, requireAuthWrite } from "@/lib/auth
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuthWrite();
   if (error) return error;
 

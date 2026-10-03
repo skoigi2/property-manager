@@ -16,8 +16,9 @@ function calcNextDue(lastDone: Date, frequency: string): Date {
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string; scheduleId: string } }
+  props: { params: Promise<{ id: string; scheduleId: string }> }
 ) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

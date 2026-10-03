@@ -18,10 +18,8 @@ async function canManageMembers(
 
 // ── POST /api/organizations/[id]/members ─────────────────────────────────────
 // Add an existing user to an org (upserts membership, optionally grants property access)
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: Request, props0: { params: Promise<{ id: string }> }) {
+  const params = await props0.params;
   const { error, session } = await requireAuth();
   if (error) return error;
 

@@ -4,7 +4,8 @@ import { logAudit } from "@/lib/audit";
 import { advanceCaseSchema } from "@/lib/validations";
 import { advanceCase, getStageByIndex, getStageByKey, getWorkflow } from "@/lib/case-workflows";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

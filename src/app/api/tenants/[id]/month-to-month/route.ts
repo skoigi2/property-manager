@@ -11,7 +11,8 @@ import { logAudit } from "@/lib/audit";
  */
 const schema = z.object({ monthToMonth: z.boolean() });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireManagerWrite();
   if (error) return error;
 

@@ -5,7 +5,8 @@ import { generateServiceChargePdf } from "@/lib/service-charge-statement-pdf";
 export const maxDuration = 30;
 
 // Service charge statement PDF: the whole block, or one tenant (?tenantId=).
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await authorizeBudget(params.id);
   if (auth.error) return auth.error;
   const tenantId = new URL(req.url).searchParams.get("tenantId") ?? undefined;

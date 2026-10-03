@@ -1,7 +1,8 @@
 import { requireManager } from "@/lib/auth-utils";
 import { loadStatementForManager } from "@/lib/tenant-statement-request";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireManager();
   if (error) return error;
 

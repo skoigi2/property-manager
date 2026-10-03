@@ -5,7 +5,8 @@ import { buildVendorStatement } from "@/lib/vendor-statement";
 // GET /api/vendors/[id]/statement?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Computed on the fly (never stored) — invoices + payments merged into a
 // running-balance ledger, scoped by org + accessible properties.
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManager();
   if (error) return error;
 

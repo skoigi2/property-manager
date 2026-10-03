@@ -11,7 +11,8 @@ import { tryAutoAdvance } from "@/lib/case-workflows";
  * GET — idempotent read of the approval request. Must NEVER mutate state so
  * that email link-preview scanners don't consume the token.
  */
-export async function GET(_req: Request, { params }: { params: { token: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const req = await validateApprovalToken(params.token);
   if (!req) return Response.json({ error: "Not found" }, { status: 404 });
 
@@ -37,7 +38,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
  * PENDING → APPROVED/REJECTED, or any status → DISPUTED (if previously
  * APPROVED/REJECTED).
  */
-export async function POST(req: Request, { params }: { params: { token: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(req);
   const limit = rateLimit(`approval:${ip}`, { max: 20, windowMs: 60 * 60 * 1000 });
   if (!limit.ok) {

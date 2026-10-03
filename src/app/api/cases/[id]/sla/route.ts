@@ -5,7 +5,8 @@ import { setSlaSchema } from "@/lib/validations";
 import { getStageByIndex, getWorkflow } from "@/lib/case-workflows";
 import type { Prisma } from "@prisma/client";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

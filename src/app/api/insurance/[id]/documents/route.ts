@@ -21,7 +21,8 @@ async function loadPolicy(id: string) {
 }
 
 /** GET — documents on a policy, `fileUrl` already signed (or the legacy public URL). */
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAuth();
   if (error) return error;
   const loaded = await loadPolicy(params.id);
@@ -35,7 +36,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 /** POST — multipart `file` + `category` + `label` + optional `documentDate` (YYYY-MM-DD). */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
   const loaded = await loadPolicy(params.id);

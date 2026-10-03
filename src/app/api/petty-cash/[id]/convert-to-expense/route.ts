@@ -19,7 +19,8 @@ const schema = z.object({
 // Deliberately does NOT go through POST /api/expenses: that route would mint a
 // SECOND petty-cash OUT row for a paidFromPettyCash expense and double-count
 // the float.
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

@@ -9,10 +9,8 @@ import { redactFeedToken } from "@/lib/calendar-feed-auth";
  * Soft-revoke rather than delete: `revokedAt` keeps the audit trail meaningful
  * and guarantees the token can never be reissued to someone else.
  */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { session, error } = await requireManagerWrite();
   if (error) return error;
 

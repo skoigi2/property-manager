@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -2355,9 +2355,8 @@ export default function ExpensesPage() {
                     const hasItems = e.lineItems?.length > 0;
 
                     return (
-                      <>
+                      <Fragment key={e.id}>
                         <tr
-                          key={e.id}
                           onClick={(ev) => rowClick(ev, e)}
                           onKeyDown={(ev) => { if (ev.key === "Enter" && ev.target === ev.currentTarget) openEdit(e); }}
                           tabIndex={0}
@@ -2529,7 +2528,7 @@ export default function ExpensesPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>

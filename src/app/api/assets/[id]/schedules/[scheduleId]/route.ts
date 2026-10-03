@@ -37,8 +37,9 @@ function calcNextDueFromToday(frequency: string): Date {
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string; scheduleId: string } }
+  props: { params: Promise<{ id: string; scheduleId: string }> }
 ) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 
@@ -172,8 +173,9 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string; scheduleId: string } }
+  props: { params: Promise<{ id: string; scheduleId: string }> }
 ) {
+  const params = await props.params;
   const { error } = await requireManagerWrite();
   if (error) return error;
 

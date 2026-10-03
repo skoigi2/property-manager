@@ -16,7 +16,8 @@ const transferSchema = z.object({
  * Uses sequential awaits — pgBouncer (transaction pooling) is incompatible
  * with the callback-form of prisma.$transaction.
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireBillingOwner();
   if (error) return error;
 

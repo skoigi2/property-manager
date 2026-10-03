@@ -10,8 +10,9 @@ const replySchema = z.object({
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { token: string; threadId: string } }
+  props: { params: Promise<{ token: string; threadId: string }> }
 ) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) return Response.json({ error: "Invalid or expired link" }, { status: 404 });
 
@@ -46,8 +47,9 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { token: string; threadId: string } }
+  props: { params: Promise<{ token: string; threadId: string }> }
 ) {
+  const params = await props.params;
   const tenant = await validatePortalToken(params.token);
   if (!tenant) return Response.json({ error: "Invalid or expired link" }, { status: 404 });
 

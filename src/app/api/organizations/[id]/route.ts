@@ -21,10 +21,8 @@ async function canAccessOrg(orgId: string, session: { user: { id: string; role: 
 }
 
 // ── GET /api/organizations/[id] ───────────────────────────────────────────────
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireAuth();
   if (error) return error;
 
@@ -66,10 +64,8 @@ const updateSchema = z.object({
   freeAccess:           z.boolean().optional(), // super-admin only
 });
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // NOTE: deliberately requireAuth + a manual gate, NOT require*Write —
   // organizations routes are exempt from the subscription write-gate so a
   // locked org can still edit its own details (CLAUDE.md exemption list).
@@ -135,10 +131,8 @@ export async function PATCH(
 // is exactly the shape the app reads as a platform super-admin (see
 // requireSuperAdmin) — so founders of a deleted org drop to the role of any
 // invitation still pending for them, else MANAGER.
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error, session } = await requireSuperAdmin();
   if (error) return error;
 

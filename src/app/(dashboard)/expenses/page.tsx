@@ -657,7 +657,7 @@ export default function ExpensesPage() {
     } catch { /* ignore */ }
     return DEFAULT_COL_ORDER;
   });
-  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [, setDragCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   // Fresh-form defaults: today's date, blank amount (0 was rejected but

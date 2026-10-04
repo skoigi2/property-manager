@@ -1,4 +1,4 @@
-import { requireManager, requireAuth, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { ownerInvoiceUpdateSchema, type OwnerInvoiceLineItem } from "@/lib/validations";

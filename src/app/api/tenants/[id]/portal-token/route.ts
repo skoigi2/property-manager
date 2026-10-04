@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
+import { requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 // 90-day default TTL — was 1 year, which is too long for a credential that

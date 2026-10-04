@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
@@ -80,7 +80,7 @@ type CollectionMode = "monthly" | "arrears";
 
 export default function IncomePage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
 
@@ -97,7 +97,7 @@ export default function IncomePage() {
   // Sort (shared, reset on tab change)
   const [sortCol, setSortCol]   = useState<string | null>(null);
   const [sortDir, setSortDir]   = useState<"asc" | "desc">("asc");
-  const [dragCol, setDragCol]   = useState<string | null>(null);
+  const [, setDragCol]   = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   // Column orders (persisted to localStorage)
@@ -917,10 +917,8 @@ export default function IncomePage() {
 
   // ── P&L totals ─────────────────────────────────────────────────────────────
   const plEntries      = entries.filter((e: any) => !EXCLUDED_FROM_PL.includes(e.type));
-  const depositEntries = entries.filter((e: any) => e.type === "DEPOSIT");
   const totalGross     = plEntries.reduce((s: number, e: any) => s + e.grossAmount, 0);
   const totalComm      = plEntries.reduce((s: number, e: any) => s + e.agentCommission, 0);
-  const totalDeposits  = depositEntries.reduce((s: number, e: any) => s + e.grossAmount, 0);
 
   const fmt = (n: number) => formatCurrency(n, currency);
 
@@ -1392,7 +1390,7 @@ export default function IncomePage() {
                   <Card padding="none">
                     {/* Mobile: stacked cards */}
                     <div className="md:hidden divide-y divide-gray-50">
-                      {arrearsRows.map(({ tenant, summary, annualRate }) => {
+                      {arrearsRows.map(({ tenant, summary }) => {
                         const isExpanded = expandedRows.has(tenant.id);
                         return (
                         <div
@@ -1519,10 +1517,9 @@ export default function IncomePage() {
                               ? "bg-amber-50/50 border-l-4 border-amber-300"
                               : "";
                             return (
-                              <>
+                              <Fragment key={tenant.id}>
                                 {/* Main row */}
                                 <tr
-                                  key={tenant.id}
                                   className={`border-t border-gray-50 hover:bg-cream/50 transition-colors cursor-pointer ${severity}`}
                                   onClick={() => toggleRow(tenant.id)}
                                 >
@@ -1682,7 +1679,7 @@ export default function IncomePage() {
                                     </td>
                                   </tr>
                                 )}
-                              </>
+                              </Fragment>
                             );
                           })}
                         </tbody>
@@ -1947,8 +1944,8 @@ export default function IncomePage() {
                           const isAirbnb = entry.type === "AIRBNB";
                           const isExpanded = expandedEntries.has(entry.id);
                           return (
-                            <>
-                              <tr key={entry.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", entry.type === "DEPOSIT" && "opacity-75", isExpanded && "bg-cream/50")}>
+                            <Fragment key={entry.id}>
+                              <tr className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", entry.type === "DEPOSIT" && "opacity-75", isExpanded && "bg-cream/50")}>
                                 {entriesColOrder.map((key) => renderEntriesCell(key, entry))}
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-1">
@@ -1997,7 +1994,7 @@ export default function IncomePage() {
                                   </td>
                                 </tr>
                               )}
-                            </>
+                            </Fragment>
                           );
                         })}
                       </tbody>

@@ -1,4 +1,4 @@
-import { requireAuth, requireSuperAdmin, getCurrentOrgId } from "@/lib/auth-utils";
+import { requireAuth, requireSuperAdmin } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { roleCan, PERMISSION_DENIED_MESSAGE } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";

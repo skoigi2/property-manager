@@ -131,7 +131,6 @@ function formatKsh(amount: number, currency = "USD") {
 function LineItemsTable({
   items,
   currency = "USD",
-  totalAmount,
   showTaxBreakdown = false,
 }: {
   items: OwnerInvoiceLineItem[];

@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { exportMaintenance } from "@/lib/excel-export";
 import { VendorSelect } from "@/components/ui/VendorSelect";
-import { HelpTip } from "@/components/ui/HelpTip";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { useFocusScroll } from "@/lib/use-focus-scroll";

@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Camera, ChevronLeft, ChevronRight, Loader2, FileText, CheckCircle2,
-  Plus, Trash2, X, Image as ImageIcon,
+  Plus, X,
 } from "lucide-react";
 import { seedItemsFromTemplate, type ConditionReportItem } from "@/lib/condition-report-template";
 
@@ -49,7 +49,7 @@ export function MoveInWalkthrough({ unit, defaultReportType = "MOVE_IN" }: Props
 
   const [reportId, setReportId] = useState<string | null>(null);
   const [reportType] = useState<ReportType>(defaultReportType);
-  const [reportDate, setReportDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [reportDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [items, setItems] = useState<ConditionReportItem[]>(() => seedItemsFromTemplate());
   const [overallComments, setOverallComments] = useState("");
   const [signedByTenant, setSignedByTenant] = useState(false);

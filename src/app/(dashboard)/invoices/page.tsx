@@ -37,15 +37,6 @@ import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-interface Tenant {
-  id: string;
-  name: string;
-  unit: {
-    unitNumber: string;
-    property: { name: string };
-  };
-  serviceCharge?: number | null;
-}
 
 interface Invoice {
   id: string;
@@ -874,7 +865,7 @@ function BulkGenerateModal({ onClose, onGenerated, propertyId }: { onClose: () =
 
 export default function InvoicesPage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
   useFocusScroll();

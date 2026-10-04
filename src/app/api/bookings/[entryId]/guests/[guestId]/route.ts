@@ -1,4 +1,4 @@
-import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
+import { requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function DELETE(

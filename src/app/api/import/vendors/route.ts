@@ -1,4 +1,4 @@
-import { requireManager, requireManagerWrite } from "@/lib/auth-utils";
+import { requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import type { VendorCategory } from "@prisma/client";
 

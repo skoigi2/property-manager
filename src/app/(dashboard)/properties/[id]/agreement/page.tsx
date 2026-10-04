@@ -43,7 +43,6 @@ export default function AgreementPage() {
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
   const [propertyName, setPropertyName] = useState("");
-  const [unitCount,   setUnitCount]   = useState(0);
   const [exporting,   setExporting]   = useState(false);
   const [showDelete,  setShowDelete]  = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
@@ -62,7 +61,7 @@ export default function AgreementPage() {
       fetch(`/api/properties`).then((r) => r.json()),
     ]).then(([agr, props]) => {
       const prop = (props as any[]).find((p) => p.id === params.id);
-      if (prop) { setPropertyName(prop.name); setUnitCount(prop.units?.length ?? 0); }
+      if (prop) { setPropertyName(prop.name); }
       // Only reset from the server when a PERSISTED agreement exists (it has
       // an id). For a never-saved property the endpoint returns just
       // { propertyId } — resetting with that wiped every numeric default to

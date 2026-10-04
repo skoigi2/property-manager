@@ -255,7 +255,6 @@ function TaxConfigForm({
 export function TaxConfigPanel({
   orgId,
   propertyId,
-  currency,
 }: {
   orgId: string;
   propertyId: string | null;   // null = org-level

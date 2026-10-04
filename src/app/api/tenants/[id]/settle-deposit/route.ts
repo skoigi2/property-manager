@@ -1,4 +1,4 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
+import { requireManager, getAccessiblePropertyIds, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { calcDepositPosition } from "@/lib/deposit";

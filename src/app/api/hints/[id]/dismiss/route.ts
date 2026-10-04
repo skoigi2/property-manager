@@ -1,4 +1,4 @@
-import { requireAuth, requirePropertyAccess, requireAuthWrite } from "@/lib/auth-utils";
+import { requirePropertyAccess, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { SeedProgress } from "@/components/ui/SeedProgress";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
@@ -366,7 +365,6 @@ function StepUnits({ propertyId, onNext }: { propertyId: string; onNext: () => v
 
 function StepDone({ newOrgId }: { newOrgId: string | null }) {
   const { update } = useSession();
-  const router     = useRouter();
   const [loading,      setLoading]      = useState(false);
   const [seedLoading,  setSeedLoading]  = useState(false);
   const [selectedDemo, setSelectedDemo] = useState(DEMO_PROPERTIES[0]?.key ?? "");

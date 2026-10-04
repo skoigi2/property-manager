@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { roleCan, PERMISSION_DENIED_MESSAGE } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";

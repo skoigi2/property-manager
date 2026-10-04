@@ -64,7 +64,7 @@ const now = new Date();
 
 export default function RecurringExpensesPage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const searchParams = useSearchParams();
   const currency = useProperty().currency;
   const [items, setItems]           = useState<RecurringItem[]>([]);

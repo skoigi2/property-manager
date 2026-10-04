@@ -28,7 +28,7 @@ Rules for every session:
 ```bash
 npm run dev          # Development server, Turbopack (defaults to :3000, increments if occupied) — production builds stay on webpack
 npm run build        # Production build — must pass before committing
-npm run lint         # ESLint 9 (flat config eslint.config.mjs) over src/ — CI fails on any error or more than 512 warnings
+npm run lint         # ESLint 9 (flat config eslint.config.mjs) over src/ — CI fails on any error or more than 387 warnings
 npm run db:seed      # Seed historical data (Jun–Oct 2025) — idempotent via upsert
 npm run db:seed:demo     # Seed demo property data (Mayfair Suites + read-only demo user)
 npm run db:seed:mayfair  # Seed Mayfair Suites data only
@@ -73,7 +73,7 @@ Next.js 15 (15.5) App Router app on React 19. All source code lives in `src/`.
 - Route handlers and `fetch` are uncached by default; nothing here relies on caching.
 - `next.config.mjs`: `serverExternalPackages` (was `experimental.serverComponentsExternalPackages`), `devIndicators: false` (keeps the dev badge out of guide screenshots / tutorial recordings captured from `next dev`), `next build` stays on webpack (Serwist's `@serwist/next` and the Sentry plugin are webpack plugins); **`next dev` runs Turbopack** (`--turbopack`, 2026-10-04: cold route compiles about half the time, the caretaker smoke 3 min instead of 10+). The service worker is disabled in dev, so the webpack-only plugins don't matter there.
 - Sentry: browser init in `src/instrumentation-client.ts`; server / edge configs at the repo root loaded by `src/instrumentation.ts`, which also exports `onRequestError = Sentry.captureRequestError`.
-- Lint is the ESLint 9 CLI (`eslint src`, flat config `eslint.config.mjs` extending `next/core-web-vitals` + `next/typescript` through `FlatCompat`) — `next lint` is gone in Next 16. `next build` skips lint (`eslint.ignoreDuringBuilds`); CI runs `npm run lint -- --max-warnings 512`: errors fail, and the warnings (mostly `any`) are capped at the 2026-10-04 count so they can only go down — **lower the number in `.github/workflows/ci.yml` when you clear some**, never raise it.
+- Lint is the ESLint 9 CLI (`eslint src`, flat config `eslint.config.mjs` extending `next/core-web-vitals` + `next/typescript` through `FlatCompat`) — `next lint` is gone in Next 16. `next build` skips lint (`eslint.ignoreDuringBuilds`); CI runs `npm run lint -- --max-warnings 512`: errors fail, and the warnings (mostly `any`) are capped (387 on 2026-10-04, after the unused-code cleanup) so they can only go down — **lower the number in `.github/workflows/ci.yml` when you clear some**, never raise it.
 
 ### Route groups
 - `src/app/(auth)/` — unauthenticated pages (`/login`, `/signup`, `/forgot-password`, `/reset-password`, `/select-org`)

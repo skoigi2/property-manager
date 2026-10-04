@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
+import { requireAuth, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 function computeStatus(expiryDate: Date | null): "VALID" | "EXPIRING_SOON" | "EXPIRED" | "ONGOING" {

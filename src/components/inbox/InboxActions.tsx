@@ -131,21 +131,6 @@ export function InboxActions({ item, onActionComplete }: Props) {
     }
   }
 
-  async function post(url: string, body: any, successMsg: string) {
-    const t = toast.loading("Saving…");
-    try {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error(await r.text().catch(() => "Failed"));
-      toast.success(successMsg, { id: t });
-      onActionComplete(item.id);
-    } catch (e: any) {
-      toast.error(e?.message || "Action failed", { id: t });
-    }
-  }
 
   async function runHintAction(url: string, method: "POST" | "PATCH", body: unknown) {
     const t = toast.loading("Saving…");

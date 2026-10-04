@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { Metadata } from "next";
 import { BLOG_POSTS, type BlogPost } from "@/lib/blog-posts";
 import { BlogCard } from "@/components/blog/BlogCard";
 

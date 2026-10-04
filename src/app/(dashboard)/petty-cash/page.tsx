@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { formResolver } from "@/lib/form-resolver";
@@ -28,7 +28,6 @@ import { useProperty } from "@/lib/property-context";
 import { usePermissions } from "@/lib/use-permissions";
 import { useSharedMonth } from "@/lib/use-shared-month";
 import { formatCurrency } from "@/lib/currency";
-import { HelpTip } from "@/components/ui/HelpTip";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { ExportRangeDialog, type ExportRange } from "@/components/ui/ExportRangeDialog";
 import { exportPettyCash } from "@/lib/excel-export";
@@ -38,7 +37,7 @@ import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/expense-categ
 
 export default function PettyCashPage() {
   const { data: session } = useSession();
-  const { selectedId, selected, properties } = useProperty();
+  const { selectedId, properties } = useProperty();
   const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
 
@@ -90,7 +89,7 @@ export default function PettyCashPage() {
     try { const s = localStorage.getItem("petty-cash-col-order"); if (s) return JSON.parse(s); } catch {}
     return DEFAULT_COL_ORDER;
   });
-  const [dragCol, setDragCol] = useState<string | null>(null);
+  const [, setDragCol] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   // Bulk selection
@@ -941,8 +940,8 @@ export default function PettyCashPage() {
                     return displayEntries.map((e: any) => {
                       const rowBalance = e.balance ?? 0;
                       return (
-                    <>
-                      <tr key={e.id} className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", selectedIds.has(e.id) && "bg-gold/5")}>
+                    <Fragment key={e.id}>
+                      <tr className={clsx("border-t border-gray-50 hover:bg-cream/50 transition-colors", selectedIds.has(e.id) && "bg-gold/5")}>
                         <td className="px-3 py-3">
                           <input
                             type="checkbox"
@@ -1079,7 +1078,7 @@ export default function PettyCashPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                       );
                     });
                   })()}

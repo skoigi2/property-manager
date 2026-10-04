@@ -568,7 +568,7 @@ function AgingPanel({ data, currency, bucketFilter, onBucketFilter, onCreateCase
 
 export default function ArrearsPage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const currency = useProperty().currency;
   useFocusScroll();
   const [cases, setCases]       = useState<ArrearsCase[]>([]);

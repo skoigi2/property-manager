@@ -1,4 +1,4 @@
-import { requireAuth, getAccessiblePropertyIds, requireAuthWrite } from "@/lib/auth-utils";
+import { getAccessiblePropertyIds, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 

@@ -1,7 +1,6 @@
 import { clsx } from "clsx";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Badge } from "@/components/ui/Badge";
-import { formatDate } from "@/lib/date-utils";
 
 interface RentRow {
   id: string;

@@ -1,4 +1,4 @@
-import { requireAuth, requireAuthWrite } from "@/lib/auth-utils";
+import { requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 

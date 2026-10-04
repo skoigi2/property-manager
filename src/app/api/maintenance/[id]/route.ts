@@ -1,4 +1,4 @@
-import { requireManager, requirePropertyAccess, requireManagerWrite, requireOpsStaffWrite } from "@/lib/auth-utils";
+import { requirePropertyAccess, requireManagerWrite, requireOpsStaffWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -83,7 +83,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     const hasUnit = !!job!.unitId;
     const scope   = hasUnit ? "UNIT" : "PROPERTY";
 
-    const [expense, updatedJob] = await prisma.$transaction([
+    const [expense] = await prisma.$transaction([
       // 1. Create the expense entry
       prisma.expenseEntry.create({
         data: {

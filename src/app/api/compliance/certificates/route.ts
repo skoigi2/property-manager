@@ -1,7 +1,6 @@
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 
 function computeStatus(expiryDate: Date | null): "VALID" | "EXPIRING_SOON" | "EXPIRED" | "ONGOING" {
   if (!expiryDate) return "ONGOING";

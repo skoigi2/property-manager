@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import toast from "react-hot-toast";
 import {
-  Wrench, ChevronLeft, MessageSquare, Paperclip,
+  Wrench, ChevronLeft, Paperclip,
   GitBranch, UserCheck, Send, Mail, Briefcase, ShieldQuestion,
   MessageSquareWarning,
 } from "lucide-react";

@@ -1,6 +1,6 @@
 import { requireAuth, getAccessiblePropertyIds, requireAuthWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { uploadToStorage, getSignedUrl, BUCKET } from "@/lib/supabase-storage";
+import { uploadToStorage, getSignedUrl } from "@/lib/supabase-storage";
 import { DocumentCategory } from "@prisma/client";
 
 // ── GET /api/documents/[tenantId] ─────────────────────────────────────────────

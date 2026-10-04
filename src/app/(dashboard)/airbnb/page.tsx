@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   CalendarDays, BarChart2, Wrench, RefreshCw, Loader2, Plus, CheckCircle2,
   BedDouble, X, Trash2, Pencil, Users,
@@ -78,7 +78,7 @@ function avgNightlyRate(entries: any[]): number {
 
 export default function AirbnbPage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const currency = useProperty().currency;
   const [tab, setTab]     = useState<Tab>("calendar");
   const [month, setMonth] = useSharedMonth();
@@ -226,7 +226,6 @@ export default function AirbnbPage() {
       toast.error("Please fill in unit, dates, and gross amount");
       return;
     }
-    const unit = allUnits.find((u: any) => u.id === form.unitId);
     setSubmitting(true);
     try {
       const res = await fetch("/api/income", {

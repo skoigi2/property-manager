@@ -1,4 +1,4 @@
-import { requireSession, requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireSession, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { MaintenanceFrequency } from "@prisma/client";
 

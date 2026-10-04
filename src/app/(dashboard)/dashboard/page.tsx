@@ -98,7 +98,7 @@ function ActionCard({ icon, title, severity, lines, href, items }: {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const currency = useProperty().currency;
   const [month, setMonth] = useSharedMonth();
   const [tab, setTab] = useState<string | null>(null);

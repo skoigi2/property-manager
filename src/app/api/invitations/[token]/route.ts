@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireManager } from "@/lib/auth-utils";
+import { requireManager } from "@/lib/auth-utils";
 
 /**
  * GET /api/invitations/[token]

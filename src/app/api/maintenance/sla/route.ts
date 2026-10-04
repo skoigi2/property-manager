@@ -55,7 +55,6 @@ export async function GET(req: Request) {
 
   const emergencyJobs  = jobs.filter((j) => j.isEmergency);
   const standardJobs   = jobs.filter((j) => !j.isEmergency);
-  const acknowledgedJobs = jobs.filter((j) => j.acknowledgedAt);
 
   const emergencyWithinSla = emergencyJobs.filter((j) =>
     withinHrs(j.reportedDate, j.acknowledgedAt, emergencyHrs)

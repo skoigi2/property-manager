@@ -790,7 +790,7 @@ function NewOwnerInvoiceModal({
 // ── Main Tab Component ────────────────────────────────────────────────────────
 
 export default function OwnerInvoicesTab() {
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const canDelete = usePermissions().can("FINANCIAL_DELETE");
   const currency = useProperty().currency;
 

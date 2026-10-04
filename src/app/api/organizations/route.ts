@@ -2,14 +2,6 @@ import { requireAuth, requireSuperAdmin, getCurrentOrgId } from "@/lib/auth-util
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
-const createSchema = z.object({
-  name:    z.string().min(1),
-  address: z.string().optional(),
-  phone:   z.string().optional(),
-  email:   z.string().email().optional(),
-  website: z.string().optional(),
-});
-
 // ── GET /api/organizations ────────────────────────────────────────────────────
 // Super-admin: all orgs. Org member: their own org only.
 export async function GET() {

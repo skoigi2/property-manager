@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, requirePropertyAccess, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
+import { requireAuth, requirePropertyAccess, requireManagerWrite, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
 import { checkUnitPaymentAccount } from "@/lib/unit-payment-account";

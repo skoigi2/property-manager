@@ -295,7 +295,6 @@ export default function TenantDetailPage() {
   const { data: session } = useSession();
   const params  = useParams();
   const router  = useRouter();
-  const { selected } = useProperty();
   // The page is reached via deep-link from anywhere, so the header property
   // selector is often pointing at a DIFFERENT property than this tenant's.
   // Always show amounts in the tenant's own property currency — fall back

@@ -1,4 +1,4 @@
-import { requireAuth, requireManager, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite} from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {

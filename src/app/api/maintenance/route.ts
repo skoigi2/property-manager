@@ -1,7 +1,6 @@
 import { requireSession, requireOpsStaffWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
-import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
 import { computeDefaultStageSlaHours, getWorkflow, tryAutoAdvance } from "@/lib/case-workflows";

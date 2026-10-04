@@ -1,4 +1,4 @@
-import { requireAuth, getAccessiblePropertyIds, requireSuperAdmin } from "@/lib/auth-utils";
+import { requireAuth, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { hintTypeFilter } from "@/lib/hint-visibility";
 

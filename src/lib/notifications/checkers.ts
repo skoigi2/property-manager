@@ -957,7 +957,6 @@ export async function checkOwnerMonthlyReports(): Promise<{ sent: number; skippe
 
   // Previous calendar month
   const periodStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  const periodEnd   = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
   const periodLabel = periodStart.toLocaleString("en-GB", { month: "long", year: "numeric" });
   const periodKey   = `${periodStart.getFullYear()}-${periodStart.getMonth() + 1}`;
 

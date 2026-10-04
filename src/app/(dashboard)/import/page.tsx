@@ -818,7 +818,6 @@ interface ImportSectionProps {
 }
 
 function ImportSection({
-  title,
   description,
   cols,
   validate,

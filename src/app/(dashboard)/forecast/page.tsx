@@ -8,7 +8,6 @@ import {
   Info,
   TrendingUp,
   TrendingDown,
-  DollarSign,
   FileDown,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -66,7 +65,6 @@ function MonthDetailRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const { selected } = useProperty();
   const currency = useProperty().currency;
   const net = month.netCashflow;
   return (
@@ -314,7 +312,7 @@ export default function ForecastPage() {
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const currency = useProperty().currency;
 
   useEffect(() => {

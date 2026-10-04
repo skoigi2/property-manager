@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { User, Plus, Upload, Trash2, X, Loader2, FileText, Star, ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
-import { clsx } from "clsx";
+import { User, Plus, Upload, Trash2, X, Loader2, FileText, Star, Pencil, Check } from "lucide-react";
 
 interface GuestDoc {
   id: string;

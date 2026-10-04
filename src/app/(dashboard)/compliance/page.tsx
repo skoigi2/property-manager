@@ -7,11 +7,10 @@ import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
-import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import {
-  CheckCircle2, AlertTriangle, XCircle, Clock, Target, DollarSign,
+  CheckCircle2, AlertTriangle, XCircle, Clock, Target,
   Calendar, Building2, Wrench, ChevronRight, Settings, ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
@@ -174,7 +173,7 @@ const DEADLINE_HREFS: Record<string, string> = {
 
 export default function CompliancePage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const currency = useProperty().currency;
 
   const now = new Date();

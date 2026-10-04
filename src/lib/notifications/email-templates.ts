@@ -1,7 +1,6 @@
 const APP_URL = process.env.NEXTAUTH_URL ?? "https://groundworkpm.com";
 
 const NAVY  = "#132635";
-const GOLD  = "#c9a84c";
 const GRAY  = "#6b7280";
 const LGRAY = "#9ca3af";
 const RED   = "#dc2626";

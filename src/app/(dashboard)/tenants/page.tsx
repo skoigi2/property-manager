@@ -11,8 +11,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
@@ -33,7 +31,6 @@ import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DepositVerifyDrawer, type UnverifiedDepositTenant } from "@/components/tenants/DepositVerifyDrawer";
 import { TbcDateFix } from "@/components/tenants/TbcDateFix";
 import { clsx } from "clsx";
-import { HelpTip } from "@/components/ui/HelpTip";
 import { calcLettingFee, type LettingFeeResult } from "@/lib/letting-fee";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -97,7 +94,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 
 export default function TenantsPage() {
   const { data: session } = useSession();
-  const { selectedId, selected } = useProperty();
+  const { selectedId } = useProperty();
   const router = useRouter();
   const currency = useProperty().currency;
 
@@ -109,7 +106,7 @@ export default function TenantsPage() {
   const propParam = selectedId ? `?propertyId=${selectedId}` : "";
   const { data: tenantsData, setData: setTenants, loading: tenantsLoading } =
     useCachedFetch<any[]>(`tenants:${selectedId ?? "all"}`, `/api/tenants${propParam}`);
-  const { data: propertiesData, setData: setProperties, loading: propertiesLoading } =
+  const { data: propertiesData, loading: propertiesLoading } =
     useCachedFetch<any[]>("properties:full", "/api/properties");
   const tenants = useMemo(() => tenantsData ?? [], [tenantsData]);
   const properties = useMemo(() => propertiesData ?? [], [propertiesData]);

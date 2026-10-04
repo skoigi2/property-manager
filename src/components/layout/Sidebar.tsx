@@ -48,7 +48,6 @@ import {
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 
 interface NavItem {
@@ -161,7 +160,6 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   const isSuperAdmin = role === "ADMIN" && organizationId === null;
   const pathname = usePathname();
   const { data: session, update } = useSession();
-  const router = useRouter();
   const membershipCount = (session?.user as any)?.membershipCount ?? 1;
   const isBillingOwner = (session?.user as any)?.isBillingOwner ?? false;
 

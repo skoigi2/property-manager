@@ -72,7 +72,7 @@ Next.js 15 (15.5) App Router app on React 19. All source code lives in `src/`.
 - `cookies()` / `headers()` from `next/headers` are async — `(await cookies()).get(…)` (only `superAdminOrgFilter` in `src/lib/auth-utils.ts` uses it).
 - Route handlers and `fetch` are uncached by default; nothing here relies on caching.
 - `next.config.mjs`: `serverExternalPackages` (was `experimental.serverComponentsExternalPackages`), `devIndicators: false` (keeps the dev badge out of guide screenshots / tutorial recordings captured from `next dev`), `next build` stays on webpack (Serwist's `@serwist/next` and the Sentry plugin are webpack plugins); **`next dev` runs Turbopack** (`--turbopack`, 2026-10-04: cold route compiles about half the time, the caretaker smoke 3 min instead of 10+). The service worker is disabled in dev, so the webpack-only plugins don't matter there.
-- Sentry: browser init in `src/instrumentation-client.ts`; server / edge configs at the repo root loaded by `src/instrumentation.ts`, which also exports `onRequestError = Sentry.captureRequestError`. **Live in production since 2026-10-04** (`NEXT_PUBLIC_SENTRY_DSN` is set for Vercel *Production* only, so preview deploys and local dev stay silent). It is a `NEXT_PUBLIC_` variable, inlined at build time: changing it needs a redeploy. No session replay (financial data on screen), 10 % of requests traced, no source-map upload yet (`SENTRY_AUTH_TOKEN` unset, so stack traces show minified code).
+- Sentry: browser init in `src/instrumentation-client.ts`; server / edge configs at the repo root loaded by `src/instrumentation.ts`, which also exports `onRequestError = Sentry.captureRequestError`. **Live in production since 2026-10-04** (`NEXT_PUBLIC_SENTRY_DSN` is set for Vercel *Production* only, so preview deploys and local dev stay silent). It is a `NEXT_PUBLIC_` variable, inlined at build time: changing it needs a redeploy. No session replay (financial data on screen), 10 % of requests traced, production builds upload source maps (`SENTRY_AUTH_TOKEN`, Vercel Production only, marked sensitive; org `groundwork-pm`, project `javascript-nextjs` in `next.config.mjs`) and delete them afterwards, so stack traces show real source but the maps are never served.
 - Lint is the ESLint 9 CLI (`eslint src`, flat config `eslint.config.mjs` extending `next/core-web-vitals` + `next/typescript` through `FlatCompat`) — `next lint` is gone in Next 16. `next build` skips lint (`eslint.ignoreDuringBuilds`); CI runs `npm run lint -- --max-warnings 512`: errors fail, and the warnings (mostly `any`) are capped (387 on 2026-10-04, after the unused-code cleanup) so they can only go down — **lower the number in `.github/workflows/ci.yml` when you clear some**, never raise it.
 
 ### Route groups
@@ -864,7 +864,7 @@ RESEND_FROM_EMAIL             # Optional sender address (default: "Groundwork PM
 CRON_SECRET                   # Random secret that Vercel sends as Bearer token to authenticate cron calls
 ANTHROPIC_API_KEY             # Optional — enables the meter photo check (Claude reads the meter photo). Off when absent
 NEXT_PUBLIC_SENTRY_DSN        # Sentry error monitoring (client+server). Set in Vercel Production; SDK no-ops when absent (preview, local)
-SENTRY_AUTH_TOKEN             # Optional — enables source-map upload at build time
+SENTRY_AUTH_TOKEN             # Sentry org token — source-map upload at build time (Vercel Production only; absent locally = no upload)
 ```
 
 ### Automated Notifications (Cron)

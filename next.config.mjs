@@ -69,7 +69,12 @@ const nextConfig = {
 
 // Sentry wrapping is inert without SENTRY_AUTH_TOKEN (skips source-map upload)
 // and the SDK no-ops without NEXT_PUBLIC_SENTRY_DSN — safe in all environments.
+// With the token (Vercel Production only) each build uploads its source maps to
+// Sentry and then deletes them, so they are never served publicly.
 export default withSentryConfig(withSerwist(nextConfig), {
+  org: "groundwork-pm",
+  project: "javascript-nextjs",
+  widenClientFileUpload: true,
   silent: true,
   webpack: { treeshake: { removeDebugLogging: true } },
 });

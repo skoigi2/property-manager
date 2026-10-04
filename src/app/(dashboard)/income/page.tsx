@@ -1390,8 +1390,9 @@ export default function IncomePage() {
                   <Card padding="none">
                     {/* Mobile: stacked cards */}
                     <div className="md:hidden divide-y divide-gray-50">
-                      {arrearsRows.map(({ tenant, summary }) => {
+                      {arrearsRows.map(({ tenant, summary, annualRate }) => {
                         const isExpanded = expandedRows.has(tenant.id);
+                        const showInterest = annualRate > 0 && summary.totalArrears > 0;
                         return (
                         <div
                           key={tenant.id}
@@ -1454,6 +1455,32 @@ export default function IncomePage() {
                               )}
                             </div>
                           </div>
+                          {/* Late-payment interest (mirrors the desktop Interest column) */}
+                          {showInterest && (
+                            <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                              <span className="text-caption text-gray-400">Interest</span>
+                              <CurrencyDisplay
+                                currency={currency}
+                                amount={summary.totalInterest}
+                                size="sm"
+                                className={`whitespace-nowrap ${tenant.chargeLatePenalty ? "text-expense font-semibold" : "text-gray-400"}`}
+                              />
+                              <button
+                                disabled={togglingInterest === tenant.id}
+                                onClick={() => toggleInterest(tenant.id, tenant.chargeLatePenalty)}
+                                className={`flex items-center gap-1 text-caption px-2 py-0.5 rounded-full border transition-colors whitespace-nowrap disabled:opacity-50 ${
+                                  tenant.chargeLatePenalty
+                                    ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                                    : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                                }`}
+                              >
+                                {togglingInterest === tenant.id
+                                  ? <Loader2 size={10} className="animate-spin" />
+                                  : null}
+                                {tenant.chargeLatePenalty ? "Applied" : "Apply"}
+                              </button>
+                            </div>
+                          )}
                           {/* Expanded: per-period breakdown (mirrors the desktop expand row) */}
                           {isExpanded && (
                             <div className="mt-3 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
@@ -1475,6 +1502,9 @@ export default function IncomePage() {
                                         >
                                           Record
                                         </button>
+                                      )}
+                                      {annualRate > 0 && m.interest > 0 && (
+                                        <span className="block font-normal text-expense tabular-nums">+ {fmt(m.interest)} interest</span>
                                       )}
                                     </span>
                                     <span className="w-24 text-right tabular-nums">{fmt(m.expected)}</span>

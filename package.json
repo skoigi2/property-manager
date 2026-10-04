@@ -2,8 +2,11 @@
   "name": "property-manager",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "tutorials:record": "tsx scripts/record-tutorials/run.ts",
     "demo:smoke": "tsx scripts/demo-smoke.ts",
     "prod": "tsx scripts/with-prod.ts",
@@ -69,7 +72,7 @@
     "@eslint/eslintrc": "^3.3.7",
     "@playwright/test": "^1.62.1",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
+    "@types/node": "^24.19.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^9.39.5",

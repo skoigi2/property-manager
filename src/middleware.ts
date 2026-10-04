@@ -125,6 +125,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|workbox-.*\\.js|guide\\.html|guide-screenshots).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|guide\\.html|guide-screenshots).*)",
   ],
 };

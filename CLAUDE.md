@@ -26,9 +26,9 @@ Rules for every session:
 ## Commands
 
 ```bash
-npm run dev          # Development server (defaults to :3000, increments if occupied)
+npm run dev          # Development server, Turbopack (defaults to :3000, increments if occupied) — production builds stay on webpack
 npm run build        # Production build — must pass before committing
-npm run lint         # ESLint 9 (flat config eslint.config.mjs) over src/ — CI fails on errors (--quiet), warnings advisory
+npm run lint         # ESLint 9 (flat config eslint.config.mjs) over src/ — CI fails on any error or more than 512 warnings
 npm run db:seed      # Seed historical data (Jun–Oct 2025) — idempotent via upsert
 npm run db:seed:demo     # Seed demo property data (Mayfair Suites + read-only demo user)
 npm run db:seed:mayfair  # Seed Mayfair Suites data only
@@ -59,7 +59,7 @@ npm run test:watch   # Vitest watch mode
 
 **Every new table needs `ALTER TABLE "<Name>" ENABLE ROW LEVEL SECURITY;` in its migration** (no policies — Prisma's `postgres` role bypasses RLS; this closes the table to Supabase's PostgREST API, where `anon` / `authenticated` hold grants on every public table). `src/lib/__tests__/migrations-rls.test.ts` fails CI when a migration creates a table without it; otherwise the Supabase linter flags `rls_disabled_in_public` after the fact.
 
-Unit tests live in `src/lib/__tests__/` (Vitest, pure-function coverage of `calculations.ts`, `tax-engine.ts`, `date-utils.ts`, `subscription.ts`). GitHub Actions CI (`.github/workflows/ci.yml`) runs `prisma generate` → `tsc --noEmit` → lint (errors only) → `npm test` on every push to main, plus the `demo-smoke` job. Validate changes with `npm test`, `npx tsc --noEmit`, and `npm run build`. When touching financial logic, add/extend a test.
+Unit tests live in `src/lib/__tests__/` (Vitest, pure-function coverage of `calculations.ts`, `tax-engine.ts`, `date-utils.ts`, `subscription.ts`). GitHub Actions CI (`.github/workflows/ci.yml`) runs `prisma generate` → `tsc --noEmit` → lint → `npm test` on every push to main, plus the `demo-smoke` job, on **Node 24** (`.nvmrc`; `package.json` `engines` 24.x; Vercel is set to 24.x; develop on 24 too). Validate changes with `npm test`, `npx tsc --noEmit`, and `npm run build`. When touching financial logic, add/extend a test.
 
 ## Architecture Overview
 
@@ -69,9 +69,9 @@ Next.js 15 (15.5) App Router app on React 19. All source code lives in `src/`.
 - `params` / `searchParams` are **Promises** in route handlers, pages and layouts: `export async function GET(req: Request, props: { params: Promise<{ id: string }> }) { const params = await props.params; … }` (an unused one is typed `_props: { params: Promise<…> }`). Client pages unwrap with React's `use(props.params)` (the portal page) or `useParams()`. `src/lib/__tests__/async-params.test.ts` fails CI on a synchronous `params: {` / `searchParams: {` type or an un-awaited `cookies()` / `headers()`.
 - `cookies()` / `headers()` from `next/headers` are async — `(await cookies()).get(…)` (only `superAdminOrgFilter` in `src/lib/auth-utils.ts` uses it).
 - Route handlers and `fetch` are uncached by default; nothing here relies on caching.
-- `next.config.mjs`: `serverExternalPackages` (was `experimental.serverComponentsExternalPackages`), `devIndicators: false` (keeps the dev badge out of guide screenshots / tutorial recordings captured from `next dev`), webpack builds (Serwist's `@serwist/next` and the Sentry plugin are webpack plugins — no `--turbopack`).
+- `next.config.mjs`: `serverExternalPackages` (was `experimental.serverComponentsExternalPackages`), `devIndicators: false` (keeps the dev badge out of guide screenshots / tutorial recordings captured from `next dev`), `next build` stays on webpack (Serwist's `@serwist/next` and the Sentry plugin are webpack plugins); **`next dev` runs Turbopack** (`--turbopack`, 2026-10-04: cold route compiles about half the time, the caretaker smoke 3 min instead of 10+). The service worker is disabled in dev, so the webpack-only plugins don't matter there.
 - Sentry: browser init in `src/instrumentation-client.ts`; server / edge configs at the repo root loaded by `src/instrumentation.ts`, which also exports `onRequestError = Sentry.captureRequestError`.
-- Lint is the ESLint 9 CLI (`eslint src`, flat config `eslint.config.mjs` extending `next/core-web-vitals` + `next/typescript` through `FlatCompat`) — `next lint` is gone in Next 16. `next build` skips lint (`eslint.ignoreDuringBuilds`); CI runs `npm run lint -- --quiet`, so errors fail the build and the ~500 warnings (mostly `any`) stay advisory.
+- Lint is the ESLint 9 CLI (`eslint src`, flat config `eslint.config.mjs` extending `next/core-web-vitals` + `next/typescript` through `FlatCompat`) — `next lint` is gone in Next 16. `next build` skips lint (`eslint.ignoreDuringBuilds`); CI runs `npm run lint -- --max-warnings 512`: errors fail, and the warnings (mostly `any`) are capped at the 2026-10-04 count so they can only go down — **lower the number in `.github/workflows/ci.yml` when you clear some**, never raise it.
 
 ### Route groups
 - `src/app/(auth)/` — unauthenticated pages (`/login`, `/signup`, `/forgot-password`, `/reset-password`, `/select-org`)

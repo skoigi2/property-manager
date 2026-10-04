@@ -9,11 +9,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -25,9 +25,10 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      # Fails on errors only; warnings are reported but don't block.
+      # Errors fail. Warnings are capped at today's count so they can only go
+      # down — lower the number when you clear some (see CLAUDE.md).
       - name: Lint
-        run: npm run lint -- --quiet
+        run: npm run lint -- --max-warnings 512
 
       - name: Unit tests
         run: npm test
@@ -55,11 +56,11 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/smoke
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/smoke
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies

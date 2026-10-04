@@ -124,7 +124,7 @@ export function TenantFormFields({
             )}
           />
           <p className="text-caption text-gray-400 mt-1">
-            Saved on the unit (same setting as the unit's edit form and the property page), so it also applies to the next tenant of this unit.
+            Saved on the unit (same setting as the unit&apos;s edit form and the property page), so it also applies to the next tenant of this unit.
           </p>
         </div>
       )}

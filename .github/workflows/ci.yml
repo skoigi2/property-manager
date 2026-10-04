@@ -25,6 +25,10 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      # Fails on errors only; warnings are reported but don't block.
+      - name: Lint
+        run: npm run lint -- --quiet
+
       - name: Unit tests
         run: npm test
 

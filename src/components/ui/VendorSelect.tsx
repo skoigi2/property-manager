@@ -157,7 +157,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
     }
   }
 
-  function useExisting(v: DuplicateVendor) {
+  function pickExisting(v: DuplicateVendor) {
     // The existing vendor may not be in the local list yet (cache from before
     // another user added it) — add it so the selection renders.
     setVendors((prev) => (prev.some((x) => x.id === v.id) ? prev : [...prev, { id: v.id, name: v.name, category: v.category, phone: v.phone }]));
@@ -308,7 +308,7 @@ export function VendorSelect({ value, onChange, label, error, disabled, tooltip 
                     {duplicateOf.phone ? ` (${duplicateOf.phone})` : ""} already exists — use it instead?
                   </p>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => useExisting(duplicateOf)} className="flex-1 py-1 font-medium bg-gold text-white rounded-lg hover:bg-gold-dark transition-colors">
+                    <button type="button" onClick={() => pickExisting(duplicateOf)} className="flex-1 py-1 font-medium bg-gold text-white rounded-lg hover:bg-gold-dark transition-colors">
                       Use existing
                     </button>
                     <button type="button" onClick={() => handleCreate(true)} disabled={saving} className="flex-1 py-1 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-50">

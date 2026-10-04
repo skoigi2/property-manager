@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useProperty } from "@/lib/property-context";
@@ -178,7 +179,7 @@ function CasesBanner() {
     <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-body ">
       <span className="text-header">
         💡 Each repair has a Case with a full timeline — add comments, photos (before/after shots), and quote/invoice PDFs for a permanent history.{" "}
-        <a href="/cases?caseType=MAINTENANCE" className="text-gold underline">Open the Cases view →</a>
+        <Link href="/cases?caseType=MAINTENANCE" className="text-gold underline">Open the Cases view →</Link>
       </span>
       <button
         onClick={() => {

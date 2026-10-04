@@ -79,7 +79,8 @@ export default function UtilitiesPage() {
   // Offline opening: the service worker caches this page and its data so a
   // caretaker can reopen it in a meter room with no signal. Scoped to
   // /utilities only — the rest of the app keeps plain network behaviour.
-  // (next-pwa's own auto-registration never runs under the App Router.)
+  // (Serwist's own registration is off — it would register at scope "/".
+  // Worker source: src/app/sw.ts.)
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js", { scope: "/utilities" }).catch(() => {});

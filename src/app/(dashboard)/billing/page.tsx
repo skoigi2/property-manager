@@ -261,7 +261,7 @@ function BillingInner() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/stripe/status")
+    fetch("/api/subscription/status")
       .then((r) => (r.ok ? r.json() : null))
       .then(setInfo)
       .catch(() => {});
@@ -301,7 +301,7 @@ function BillingInner() {
       if (!res.ok) { toast.error(data.error ?? "Failed to cancel."); return; }
       toast.success("Subscription cancelled. You'll keep access until your billing period ends.");
       // Refresh info
-      const updated = await fetch("/api/stripe/status").then((r) => r.json());
+      const updated = await fetch("/api/subscription/status").then((r) => r.json());
       setInfo(updated);
     } catch {
       toast.error("Something went wrong.");

@@ -46,7 +46,7 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   "src/app/api/invitations/my/route.ts",
   "src/app/api/invitations/[token]/accept/route.ts",
   "src/app/api/onboarding/create-org/route.ts",
-  "src/app/api/stripe/status/route.ts",
+  "src/app/api/subscription/status/route.ts",
 ]);
 
 const CARETAKER_HELPERS = /\b(requireSession|requireSessionWrite|requireOpsStaff|requireOpsStaffWrite|requireExpenseMutation)\s*\(/;

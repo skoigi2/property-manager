@@ -115,7 +115,7 @@ Every API route calls one of these helpers from `src/lib/auth-utils.ts`:
 - `requireAdmin()` — ADMIN only (org-admin or super-admin)
 - `requirePermissionWrite(action)` — `requireManagerWrite` **plus** the granular role map in `src/lib/permissions.ts`. ACCOUNTANT is denied `FINANCIAL_DELETE` (deleting income/expenses/petty-cash/invoices/owner-invoices, incl. the bulk delete actions), `TENANT_LIFECYCLE` (tenant delete, vacate, settle-deposit, checkout finalize), and `ORG_SETTINGS` (settings POST, tax-config create/update/delete). CARETAKER is denied `EXPENSE_EDIT_OTHERS`, `EXPENSE_BULK`, `TENANT_LIFECYCLE`, `ORG_SETTINGS`. Returns 403 with `code: "PERMISSION_DENIED"`. Use this instead of `requireManagerWrite` for new destructive/lifecycle mutations.
 - `requireExpenseMutation(id, "edit" | "delete" | "attach")` (`src/lib/expense-access.ts`) — the **only** way to mutate an `ExpenseEntry` by id (PUT, DELETE, receipt upload/delete). Does auth (`requireOpsStaffWrite`), existence, property access / org scoping, the ACCOUNTANT `FINANCIAL_DELETE` denial, and the CARETAKER rules: own rows only (`ExpenseEntry.createdByUserId === session.user.id`; `NULL` = nobody's row), and 409 `PETTY_CASH_CONFIRMED` once the linked petty-cash OUT row is APPROVED. Pure rules in `src/lib/expense-rules.ts` (`decideExpenseMutation`).
-- `requireAuthWrite()` / `requireManagerWrite()` / `requireAdminWrite()` — same auth check **plus the subscription write-gate** (`requireActiveSubscription`, 402 when the org is locked). **Use these in every mutating handler (POST/PATCH/PUT/DELETE) on org-scoped resources**; keep the base helpers for GETs so locked orgs can still read their data. `src/lib/__tests__/write-gate.test.ts` enforces it: a mutating handler without a write helper (or `requireActiveSubscription`) fails CI unless its area is exempt by prefix or it is listed in `EXEMPT_HANDLERS` with the reason (property / unit edit and delete were ungated until 2026-10-01). Exemptions (must keep working while locked): auth flows, billing/stripe, webhooks, cron, portal/approvals token routes, invitations, onboarding, demo seed, admin, organizations, and `POST /api/report` (PDF render = read in spirit).
+- `requireAuthWrite()` / `requireManagerWrite()` / `requireAdminWrite()` — same auth check **plus the subscription write-gate** (`requireActiveSubscription`, 402 when the org is locked). **Use these in every mutating handler (POST/PATCH/PUT/DELETE) on org-scoped resources**; keep the base helpers for GETs so locked orgs can still read their data. `src/lib/__tests__/write-gate.test.ts` enforces it: a mutating handler without a write helper (or `requireActiveSubscription`) fails CI unless its area is exempt by prefix or it is listed in `EXEMPT_HANDLERS` with the reason (property / unit edit and delete were ungated until 2026-10-01). Exemptions (must keep working while locked): auth flows, billing, webhooks, cron, portal/approvals token routes, invitations, onboarding, demo seed, admin, organizations, and `POST /api/report` (PDF render = read in spirit).
 - `requireSuperAdmin()` — ADMIN role **and** `organizationId === null` (platform super-admin only)
 - `requirePropertyAccess(propertyId)` — verifies current user may access a specific property; returns `{ ok: boolean, error?: Response }`
 - `getAccessiblePropertyIds()` — returns property IDs the current user may see (ADMIN = all; OWNER = their owned properties; MANAGER/ACCOUNTANT/CARETAKER and any future role = `PropertyAccess` records only — fails closed)
@@ -207,7 +207,6 @@ All database access is through the Prisma singleton at `src/lib/prisma.ts`. API 
 | `property-context.tsx` | Client context providing `useProperty()` — selected property ID persisted to `sessionStorage` |
 | `receipt-pdf.tsx` | Server-only. Simplified one-page payment receipt PDF for paid invoices. Used by `/api/portal/[token]/invoices/[invoiceId]/receipt` |
 | `setup-progress.ts` | `computeSetupProgress(propertyId)` — derives a 0–100% configuration score and per-step ✅/⚠ checklist from live DB state (units, tenants, portal tokens, recurring expenses, insurance, vendors, agreement, org branding, first entry). Items with `applicable: false` (e.g. tenants/portal for AIRBNB) are excluded from the %. Used by the dashboard `SetupChecklist` widget and the Properties-page progress badge |
-| `stripe.ts` | Lazy Stripe SDK singleton — used by `/api/stripe/status` and billing flows |
 | `supabase-storage.ts` | Lazy Supabase client. `uploadToStorage(path, buffer, contentType)`, `deleteFromStorage(path)`, `getSignedUrl(path, expiresIn=3600)`. Bucket: `tenant-documents` |
 | `subscription.ts` | Subscription / pricing-tier helpers (property cap checks, trial state) |
 | `tax-engine.ts` | Pure tax calculation helpers (VAT/WHT/GST/TDS/Tourism Levy etc.) driven by per-org / per-property `TaxConfiguration` records |
@@ -703,17 +702,16 @@ Super-admin only:
 
 Inbound replies are NOT handled — Resend Inbound (MX + webhook) is not configured. Replies sent from the composer go out via Resend; recipient replies go to whatever address is set in `Reply-To` (default `support@groundworkpm.com`).
 
-### Billing (Paddle + Stripe)
+### Billing (Paddle)
 
 `pricingTier` on `Organization` (`TRIAL → STARTER → GROWTH → PRO`, see `PricingTier` enum) drives capacity gating. Billing helpers:
 - `src/lib/paddle.ts` — price-id → tier mapping, `PROPERTY_LIMITS` + `TEAM_LIMITS` per tier
-- `src/lib/stripe.ts` — lazy Stripe SDK singleton
 - `src/lib/subscription.ts` — gating helpers (`canAddProperty`, `canAddUser`, `requireActiveSubscription`, trial state)
 
 Routes:
 - `POST /api/webhooks/paddle` — Paddle subscription events (idempotent via `paddleEventId`)
 - `POST /api/billing/cancel` — initiates cancellation
-- `GET /api/stripe/status` — returns Stripe subscription state
+- `GET /api/subscription/status` — the org's subscription / trial state (`getSubscriptionInfo`; polled by `TrialBanner` and the billing page — any signed-in role). Paddle is the only payment provider: the unused Stripe SDK and helper were removed on 2026-10-05 and this route was renamed from `/api/stripe/status`
 - Pages: `/billing`, `/upgrade`
 
 ### Pricing & gating (capacity only)

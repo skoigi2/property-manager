@@ -15,7 +15,7 @@ import { join, relative } from "node:path";
  * (Property and unit edit / delete were ungated until 2026-10-01.)
  */
 const EXEMPT_PREFIXES = [
-  "auth/", "billing/", "stripe/", "webhooks/", "cron/", "portal/", "approvals/",
+  "auth/", "billing/", "webhooks/", "cron/", "portal/", "approvals/",
   "invitations/", "onboarding/", "demo/", "admin/", "organizations/", "v1/", "calendar/feed/",
 ];
 

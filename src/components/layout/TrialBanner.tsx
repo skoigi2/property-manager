@@ -22,7 +22,7 @@ export function TrialBanner() {
   const isBillingPage = pathname === "/billing";
 
   useEffect(() => {
-    fetch("/api/stripe/status")
+    fetch("/api/subscription/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setInfo(d))
       .catch(() => {});

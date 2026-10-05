@@ -213,7 +213,7 @@ async function main() {
   await expectStatus(care, "GET /api/maintenance/schedules", `/api/maintenance/schedules?propertyId=${property.id}`, 200);
   await expectStatus(care, "GET /api/tax-configs", `/api/tax-configs?propertyId=${property.id}`, 200);
   await expectStatus(care, "GET /api/invitations/my", "/api/invitations/my", 200);
-  await expectStatus(care, "GET /api/stripe/status", "/api/stripe/status", 200);
+  await expectStatus(care, "GET /api/subscription/status", "/api/subscription/status", 200);
 
   // ── vendors ──
   const vName = `Smoke Plumbing ${stamp}`;

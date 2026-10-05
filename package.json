@@ -63,7 +63,6 @@
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.8.0",
     "resend": "^6.10.0",
-    "stripe": "^22.0.1",
     "tailwind-merge": "^3.5.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.3.6"
@@ -92,6 +91,6 @@
     "prisma@5.22.0": true,
     "@sentry/cli@2.58.6": true,
     "esbuild@0.28.2": true,
-    "unrs-resolver@1.11.1": true
+    "unrs-resolver@1.12.2": true
   }
 }

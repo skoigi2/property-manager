@@ -1,5 +1,6 @@
 import type {
   InspectionItem, InspectionKey, InspectionStatus, InspectionType, KeysState, TenantSignOff,
+  InspectionMeter, InspectionMeterReading,
 } from "@/lib/inspection-rules";
 
 /** GET /api/condition-reports/[id] — see serializeInspection in src/lib/inspections.ts. */
@@ -13,6 +14,7 @@ export interface InspectionDto {
   property: { id: string; name: string };
   tenant: {
     id: string; name: string; phone: string | null; leaseStart: string | null; nationalId: string | null;
+    emergencyContactName: string | null; emergencyContactPhone: string | null; emergencyContactRelation: string | null;
     email?: string | null; leaseEnd?: string | null;
   } | null;
   assignedTo: { id: string; name: string | null } | null;
@@ -49,6 +51,13 @@ export interface InspectionDto {
     outstanding: { rent: number; water: number; electricity: number; wifi: number; deposit: number; leaseFee: number; total: number };
     overdueInvoices: number;
   } | null;
+  /** The unit's active meters (last known reading) and the readings taken on this visit. */
+  meters: InspectionMeter[];
+  meterReadings: InspectionMeterReading[];
+  /** Maintenance jobs raised from this inspection's damage. */
+  repairJobs: { id: string; title: string; status: string }[];
+  /** The unit's open "ready to re-let" checklist, if any. */
+  openTurnover: { id: string; conditionReportId: string | null } | null;
   viewer: { isManager: boolean; userId: string };
 }
 

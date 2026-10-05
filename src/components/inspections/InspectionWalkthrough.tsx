@@ -41,6 +41,8 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
   const [tenantComments, setTenantComments] = useState(inspection.tenantComments ?? "");
   const [signatureUrl, setSignatureUrl] = useState<string | null>(inspection.tenantSignatureUrl);
   const [keys, setKeys] = useState<InspectionKey[]>(inspection.keys);
+  const [meterValues, setMeterValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(inspection.meterReadings.map((r) => [r.meterId, String(r.reading)])));
   const [photos, setPhotos] = useState<PhotoState[]>(() => {
     const owner = new Map<string, string>();
     for (const it of inspection.items) for (const pid of it.photoIds ?? []) owner.set(pid, it.id);
@@ -69,9 +71,12 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
   const first = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<Promise<unknown> | null>(null);
+  const meterReadingsPayload = () =>
+    Object.entries(meterValues).filter(([, v]) => v.trim() !== "").map(([meterId, v]) => ({ meterId, reading: v }));
   function payload() {
     return {
       items, overallComments, tenantIssues,
+      meterReadings: meterReadingsPayload(),
       tenantSignOff: signOff,
       tenantSignedName: signedName || null,
       tenantDisagrees: disagrees,
@@ -91,7 +96,7 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { void saveNow(); }, 800);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, overallComments, tenantIssues, signOff, signedName, disagrees, tenantComments]);
+  }, [items, overallComments, tenantIssues, signOff, signedName, disagrees, tenantComments, meterValues]);
 
   // ── Items ───────────────────────────────────────────────────────────────────
   const update = (itemId: string, patch: Partial<InspectionItem>) =>
@@ -200,6 +205,8 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
     tenantSignOff: signOff,
     tenantSignedName: signedName,
     tenantSignaturePath: signatureUrl,
+    meters: inspection.meters,
+    meterReadings: meterReadingsPayload().filter((r) => Number.isFinite(Number(r.reading)) && Number(r.reading) >= 0),
   });
   async function submit(accept: boolean) {
     if (uploadingCount > 0) { toast.error("Photos are still uploading"); return; }
@@ -233,6 +240,12 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
                 {t.phone && <a href={`tel:${t.phone}`} className="flex items-center gap-1 text-gold-dark"><Phone size={11} /> {t.phone}</a>}
                 {t.nationalId && <span className="flex items-center gap-1"><IdCard size={11} /> ID {t.nationalId}</span>}
                 {t.leaseStart && <span>Lease from {format(new Date(t.leaseStart), "d MMM yyyy")}</span>}
+              </p>
+            )}
+            {t && (t.emergencyContactName || t.emergencyContactPhone) && (
+              <p className="text-caption text-gray-500 mt-1">
+                Emergency: {[t.emergencyContactName, t.emergencyContactRelation ? `(${t.emergencyContactRelation})` : null].filter(Boolean).join(" ")}
+                {t.emergencyContactPhone && <> · <a href={`tel:${t.emergencyContactPhone}`} className="text-gold-dark">{t.emergencyContactPhone}</a></>}
               </p>
             )}
           </div>
@@ -314,6 +327,34 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
                 placeholder="General observations, anything not captured above…"
                 className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40" />
             </label>
+
+            {inspection.meters.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-body font-medium text-gray-700">
+                  {inspection.reportType === "MOVE_IN" ? "Opening meter readings" : inspection.reportType === "MOVE_OUT" ? "Final meter readings" : "Meter readings (optional)"}
+                </p>
+                <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+                  {inspection.meters.map((m) => {
+                    const v = meterValues[m.meterId] ?? "";
+                    const below = v.trim() !== "" && m.lastReading !== null && Number(v) < m.lastReading;
+                    return (
+                      <div key={m.meterId} className="px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body text-header min-w-0 truncate">{m.label}</span>
+                          <input type="text" inputMode="decimal" value={v} placeholder="Reading"
+                            onChange={(e) => setMeterValues((prev) => ({ ...prev, [m.meterId]: e.target.value.replace(/[^0-9.]/g, "") }))}
+                            className="w-32 text-right border border-gray-200 rounded-lg text-body px-3 py-1.5 bg-cream/50 tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/40" />
+                        </div>
+                        <p className={`text-caption mt-0.5 ${below ? "text-amber-700" : "text-gray-400"}`}>
+                          {m.lastReading !== null ? `Last reading ${m.lastReading}` : "No earlier reading"}
+                          {below ? " — this is lower; check you read the right meter" : ""}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <KeysEditor reportType={inspection.reportType} state={keysState} keys={keys} onSave={saveKeys} saving={savingKeys}
               onClearKeys={isManager ? clearKeys : undefined} clearing={clearingKeys} />

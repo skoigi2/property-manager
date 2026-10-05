@@ -747,6 +747,76 @@ async function main() {
     check("calendar: endpoint answers with the inspection source wired in", cal.status === 200);
   }
 
+  // ── Inspection follow-ups: emergency contact, meter readings, checkout pre-fill, repairs, re-let ──
+  {
+    await prisma.tenant.update({ where: { id: tenant.id }, data: { emergencyContactName: "Grace Smoke", emergencyContactPhone: "0722000000", emergencyContactRelation: "Sister" } });
+    const meter = await prisma.utilityMeter.create({
+      data: { propertyId: property.id, organizationId: property.organizationId, unitId: unit.id, utility: "WATER", role: "UNIT", label: `Smoke water ${stamp}`, openingReading: 100 },
+    });
+    const mo = await expectStatus(care, "POST move-out inspection → 201", "/api/inspections", 201, {
+      method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "MOVE_OUT", tenantId: tenant.id }),
+    });
+    const moId: string | undefined = mo?.id;
+    if (moId) created.inspections.add(moId);
+    check("caretaker sees the emergency contact", mo?.tenant?.emergencyContactName === "Grace Smoke" && mo?.tenant?.emergencyContactPhone === "0722000000");
+    check("the unit's meter is offered with its last reading", mo?.meters?.some((m: any) => m.meterId === meter.id && m.lastReading === 100));
+
+    // Fill it in: ratings (Walls POOR), photos, sign-off ABSENT, keys — but no meter reading yet.
+    const rated = (mo?.items ?? []).map((it: any) => ({ ...it, status: it.feature === "Walls" ? "POOR" : it.feature === "Ceiling" ? "FAIR" : "GOOD", notes: it.feature === "Walls" ? "Holes from picture hooks" : "" }));
+    for (const room of Array.from(new Set(rated.map((it: any) => it.room as string)))) {
+      const target = rated.find((it: any) => it.room === room);
+      for (let n = 0; n < 3; n++) {
+        const ph = await prisma.conditionReportPhoto.create({ data: { reportId: moId!, storagePath: `condition-reports/${moId}/smoke-${n}.jpg`, fileName: `smoke-${n}.jpg`, mimeType: "image/jpeg", fileSize: 1000 } });
+        target.photoIds = [...target.photoIds, ph.id];
+      }
+    }
+    await expectStatus(care, "PATCH move-out findings → 200", `/api/condition-reports/${moId}`, 200, {
+      method: "PATCH", body: JSON.stringify({ items: rated, tenantSignOff: "ABSENT", keys: [{ label: "Main door", count: 2 }, { label: "Remote / fob", count: 1 }] }),
+    });
+    const noReading = await expectStatus(care, "hand in without the meter reading → 400", `/api/condition-reports/${moId}/submit`, 400, { method: "POST" });
+    check("NOT_READY asks for the meter reading", Array.isArray(noReading?.problems) && noReading.problems.some((p: string) => p.includes(meter.label)));
+    const withReading = await expectStatus(care, "PATCH final meter reading → 200", `/api/condition-reports/${moId}`, 200, {
+      method: "PATCH", body: JSON.stringify({ meterReadings: [{ meterId: meter.id, reading: "112.5" }, { meterId: "not-this-unit", reading: 5 }] }),
+    });
+    check("reading stored for the unit's meter only, with the last reading", withReading?.meterReadings?.length === 1 && withReading.meterReadings[0].reading === 112.5 && withReading.meterReadings[0].lastReading === 100);
+    await expectStatus(care, "hand in the move-out → 200", `/api/condition-reports/${moId}/submit`, 200, { method: "POST" });
+
+    // Checkout pre-fill (manager).
+    const co = await expectStatus(mgr, "GET checkout carries the move-out inspection", `/api/tenants/${tenant.id}/checkout`, 200);
+    const pf = co?.moveOutInspection?.prefill;
+    check("pre-fill: damage described, keys mapped, other keys listed, final reading",
+      co?.moveOutInspection?.id === moId && pf?.damageFound === true && /Walls \(POOR\): Holes/.test(pf?.damageNotes ?? "")
+        && pf?.keysReturned?.mainDoor === 2 && pf?.otherKeys?.[0] === "Remote / fob × 1" && pf?.finalMeterReadings?.[0]?.reading === 112.5,
+      JSON.stringify(pf)?.slice(0, 200));
+
+    // Repair jobs from the damage.
+    const wallsId = rated.filter((it: any) => it.status === "POOR").map((it: any) => it.id);
+    await expectStatus(care, "caretaker creates repair jobs → 403", `/api/condition-reports/${moId}/repair-jobs`, 403, { method: "POST", body: JSON.stringify({ itemIds: wallsId }) });
+    const withJobs = await expectStatus(mgr, "manager creates repair jobs → 201", `/api/condition-reports/${moId}/repair-jobs`, 201, { method: "POST", body: JSON.stringify({ itemIds: wallsId }) });
+    for (const j of withJobs?.repairJobs ?? []) created.jobs.add(j.id);
+    check("one job per damaged item, linked back", withJobs?.repairJobs?.length === wallsId.length && withJobs.items.filter((i: any) => i.jobId).length === wallsId.length);
+    await expectStatus(mgr, "the same items again → 400 (never twice)", `/api/condition-reports/${moId}/repair-jobs`, 400, { method: "POST", body: JSON.stringify({ itemIds: wallsId }) });
+
+    // Re-let checklist.
+    await expectStatus(care, "caretaker starts a re-let checklist → 403", "/api/turnovers", 403, { method: "POST", body: JSON.stringify({ unitId: unit.id }) });
+    const tv = await expectStatus(mgr, "manager starts the re-let checklist → 201", "/api/turnovers", 201, {
+      method: "POST", body: JSON.stringify({ unitId: unit.id, conditionReportId: moId }),
+    });
+    check("checklist follows the repair jobs", tv?.repairs?.total === wallsId.length && tv?.repairs?.open === wallsId.length);
+    const careList = await expectStatus(care, "caretaker lists open checklists", "/api/turnovers?view=open", 200);
+    check("caretaker sees the checklist", Array.isArray(careList) && careList.some((t: any) => t.id === tv?.id));
+    await expectStatus(care, "caretaker ticks 'Unit cleaned' → 200", `/api/turnovers/${tv?.id}`, 200, { method: "PATCH", body: JSON.stringify({ key: "cleaned", done: true }) });
+    await expectStatus(care, "tick 'Repairs done' with jobs open → 409", `/api/turnovers/${tv?.id}`, 409, { method: "PATCH", body: JSON.stringify({ key: "repairs", done: true }) });
+    for (const j of withJobs?.repairJobs ?? []) await prisma.maintenanceJob.update({ where: { id: j.id }, data: { status: "DONE" } });
+    const afterJobs = await expectStatus(care, "GET checklists after the jobs are done", "/api/turnovers?view=open", 200);
+    const tvNow = afterJobs?.find?.((t: any) => t.id === tv?.id);
+    check("'Repairs done' ticks itself once the jobs are done", tvNow?.items?.find((i: any) => i.key === "repairs")?.done === true);
+    await expectStatus(care, "mark complete with items open → 409", `/api/turnovers/${tv?.id}`, 409, { method: "PATCH", body: JSON.stringify({ complete: true }) });
+    if (tv?.id) await prisma.unitTurnover.delete({ where: { id: tv.id } });
+    await prisma.utilityMeter.delete({ where: { id: meter.id } });
+    await prisma.tenant.update({ where: { id: tenant.id }, data: { emergencyContactName: null, emergencyContactPhone: null, emergencyContactRelation: null } });
+  }
+
   // ── cleanup ──
   for (const id of Array.from(created.complaints)) {
     const row = await prisma.tenantComplaint.findUnique({ where: { id }, select: { caseThreadId: true } });

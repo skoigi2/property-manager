@@ -5,6 +5,8 @@ import { logAudit } from "@/lib/audit";
 import { checkoutProcessSchema } from "@/lib/validations";
 import { calcDepositPosition } from "@/lib/deposit";
 import { parseFinalReadingInputs, settleFinalUtilities } from "@/lib/checkout-utilities";
+import { ownMoveOut } from "@/lib/inspections";
+import { startTurnover } from "@/lib/turnover-data";
 
 export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -110,6 +112,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     finalMeterReadings: finalInputs as unknown as Prisma.InputJsonValue,
     finalUtilitiesAmount: finalUtilities.total,
     finalUtilitiesInvoiceId: finalUtilities.invoiceId,
+    ...(data.conditionReportId !== undefined ? { conditionReportId: await ownMoveOut(data.conditionReportId, tenant.id) } : {}),
   };
 
   let processId: string;
@@ -258,6 +261,31 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
 
   // Suppress unused warning for ops scaffold (we kept it for clarity, but didn't need it).
   void ops;
+
+  // The unit is vacant: start its "ready to re-let" checklist, following the
+  // move-out inspection's repair jobs. Best-effort — the checkout is done.
+  try {
+    const linkedInspection = (await ownMoveOut(data.conditionReportId ?? null, tenant.id))
+      ?? (await prisma.conditionReport.findFirst({
+        where: { tenantId: tenant.id, reportType: "MOVE_OUT", status: { in: ["SUBMITTED", "ACCEPTED"] } },
+        orderBy: { submittedAt: "desc" },
+        select: { id: true },
+      }))?.id
+      ?? null;
+    const keysBack = Object.values(data.keysReturned ?? {}).some((n) => Number(n) > 0);
+    await startTurnover({
+      unitId: tenant.unit.id,
+      propertyId: tenant.unit.property.id,
+      organizationId: tenant.unit.property.organizationId,
+      tenantId: tenant.id,
+      conditionReportId: linkedInspection,
+      checkoutId: processId,
+      done: { keys: keysBack, meters: finalInputs.length > 0 },
+      byName: session!.user.name ?? session!.user.email ?? null,
+    });
+  } catch (e) {
+    console.error("[checkout] could not start the re-let checklist:", e);
+  }
 
   return Response.json({ ok: true, checkoutId: processId, balanceToRefund });
 }

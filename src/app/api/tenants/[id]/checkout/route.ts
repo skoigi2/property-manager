@@ -5,6 +5,8 @@ import { checkoutProcessSchema } from "@/lib/validations";
 import { calcDepositPosition } from "@/lib/deposit";
 import { loadFinalUtilities, parseFinalReadingInputs } from "@/lib/checkout-utilities";
 import { finalUtilitiesCharge } from "@/lib/final-utilities";
+import { checkoutPrefillFromInspection } from "@/lib/inspection-checkout";
+import { ownMoveOut } from "@/lib/inspections";
 
 // Contractual vs received: refunds are computed from the DEPOSIT receipt
 // trail when one exists (see src/lib/deposit.ts), never blindly from
@@ -72,6 +74,27 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     ? null
     : await loadFinalUtilities(tenant!.id, tenant!.unit.id, checkOutDate);
 
+  // The tenant's latest handed-in move-out inspection (caretaker or manager).
+  const inspection = await prisma.conditionReport.findFirst({
+    where: { tenantId: tenant!.id, reportType: "MOVE_OUT", status: { in: ["SUBMITTED", "ACCEPTED"] } },
+    orderBy: { submittedAt: "desc" },
+    select: {
+      id: true, status: true, submittedAt: true, submittedByName: true, items: true, keys: true, meterReadings: true,
+      tenantDisagrees: true, tenantComments: true, editRequestedAt: true,
+    },
+  });
+  const moveOutInspection = inspection
+    ? {
+        id: inspection.id,
+        status: inspection.status,
+        submittedAt: inspection.submittedAt,
+        submittedByName: inspection.submittedByName,
+        tenantDisagrees: inspection.tenantDisagrees,
+        tenantComments: inspection.tenantComments,
+        prefill: checkoutPrefillFromInspection(inspection),
+      }
+    : null;
+
   return Response.json({
     tenant: {
       id: tenant!.id,
@@ -101,6 +124,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     outstandingBalance,
     deposit,
     finalUtilities,
+    moveOutInspection,
     checkout: tenant!.checkoutProcess ?? null,
   });
 }
@@ -160,6 +184,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     notes: data.notes ?? null,
     finalMeterReadings: finalInputs as unknown as Prisma.InputJsonValue,
     finalUtilitiesAmount,
+    ...(data.conditionReportId !== undefined ? { conditionReportId: await ownMoveOut(data.conditionReportId, tenant!.id) } : {}),
   };
 
   let checkoutId: string;

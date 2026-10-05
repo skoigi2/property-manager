@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { formatCurrency } from "@/lib/currency";
 import { format } from "date-fns";
-import { Plus, Trash2, FileText, Save, Loader2, Pencil, Lock, Download } from "lucide-react";
+import { Plus, Trash2, FileText, Save, Loader2, Pencil, Lock, Download, ClipboardCheck } from "lucide-react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import {
@@ -56,6 +57,23 @@ type CheckoutPrefill = {
   deposit: DepositPosition;
   /** Null once the checkout is finalised (the stored amount is shown instead). */
   finalUtilities: FinalUtilitiesData | null;
+  /** The tenant's latest handed-in move-out inspection, and what it fills in. */
+  moveOutInspection: {
+    id: string;
+    status: "SUBMITTED" | "ACCEPTED";
+    submittedAt: string | null;
+    submittedByName: string | null;
+    tenantDisagrees: boolean;
+    tenantComments: string | null;
+    prefill: {
+      damageFound: boolean;
+      damageNotes: string;
+      damagedCount: number;
+      keysReturned: KeysReturned;
+      otherKeys: string[];
+      finalMeterReadings: { meterId: string; reading: number }[];
+    };
+  } | null;
   checkout: ExistingCheckout | null;
 };
 
@@ -85,6 +103,7 @@ type ExistingCheckout = {
   finalMeterReadings: { meterId: string; reading: number }[] | null;
   finalUtilitiesAmount: number;
   finalUtilitiesInvoiceId: string | null;
+  conditionReportId?: string | null;
 };
 
 type DeductionCategory = "UTILITY" | "SERVICE_CHARGE" | "RENT_BALANCE" | "DAMAGE" | "OTHER";
@@ -155,6 +174,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
   const [refundMethod, setRefundMethod] = useState<RefundMethod | "">("");
   const [refundDetails, setRefundDetails] = useState<RefundDetails>({});
   const [notes, setNotes] = useState("");
+  const [conditionReportId, setConditionReportId] = useState<string | null>(null);
   // Final meter readings typed per meter (move-out), and the meter list for
   // the check-out month — reloaded when the date moves to another month.
   const [finalReadings, setFinalReadings] = useState<Record<string, string>>({});
@@ -241,6 +261,7 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
           setRefundMethod(c.refundMethod ?? "");
           setRefundDetails(c.refundDetails ?? {});
           setNotes(c.notes ?? "");
+          setConditionReportId(c.conditionReportId ?? null);
         } else {
           setRentBalanceOwing(String(json.outstandingBalance.toFixed(2)));
         }
@@ -335,7 +356,35 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
       refundDetails,
       notes,
       finalMeterReadings: finalInputs,
+      conditionReportId,
     };
+  }
+
+  // Fill the condition, keys and final readings from the move-out inspection.
+  // The manager still prices the damage and decides every deduction.
+  function fillFromInspection() {
+    const insp = data?.moveOutInspection;
+    if (!insp) return;
+    const p = insp.prefill;
+    if (p.damagedCount > 0) {
+      setDamageFound(p.damageFound || damageFound);
+      // The checkout keeps at most 2,000 characters of description.
+      setInventoryDamageNotes((prev) => (prev.trim() ? `${prev.trim()}\n${p.damageNotes}` : p.damageNotes).slice(0, 2000));
+    }
+    setKeys(p.keysReturned);
+    if (p.otherKeys.length) {
+      const line = `Other keys returned: ${p.otherKeys.join(", ")}`;
+      setNotes((prev) => (prev.includes(line) ? prev : prev.trim() ? `${prev.trim()}\n${line}` : line));
+    }
+    if (p.finalMeterReadings.length) {
+      setFinalReadings((prev) => {
+        const next = { ...prev };
+        for (const r of p.finalMeterReadings) if (!next[r.meterId]) next[r.meterId] = String(r.reading);
+        return next;
+      });
+    }
+    setConditionReportId(insp.id);
+    toast.success("Filled from the move-out inspection — check the amounts before saving");
   }
 
   async function saveDraft() {
@@ -497,6 +546,31 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
         {/* 1. Condition Report */}
         <Card>
           <Section title="1. Inventory & Property Condition">
+            {data?.moveOutInspection && !isCompleted && (
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-body text-blue-900 space-y-2">
+                <p className="flex items-start gap-2">
+                  <ClipboardCheck size={16} className="mt-0.5 shrink-0" />
+                  <span>
+                    Move-out inspection {data.moveOutInspection.status === "ACCEPTED" ? "accepted" : "handed in (not yet accepted)"}
+                    {data.moveOutInspection.submittedByName ? ` — by ${data.moveOutInspection.submittedByName}` : ""}
+                    {data.moveOutInspection.submittedAt ? ` on ${format(new Date(data.moveOutInspection.submittedAt), "d MMM yyyy")}` : ""}.
+                    {" "}{data.moveOutInspection.prefill.damagedCount > 0
+                      ? `${data.moveOutInspection.prefill.damagedCount} item${data.moveOutInspection.prefill.damagedCount === 1 ? "" : "s"} in fair or poor condition.`
+                      : "No damage recorded."}
+                    {data.moveOutInspection.tenantDisagrees ? " The tenant disagrees with part of it." : ""}
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={fillFromInspection}>
+                    {conditionReportId === data.moveOutInspection.id ? "Fill again from the inspection" : "Fill from the inspection"}
+                  </Button>
+                  <Link href={`/inspections/${data.moveOutInspection.id}`} className="inline-flex">
+                    <Button size="sm" variant="ghost">Open inspection</Button>
+                  </Link>
+                </div>
+                <p className="text-caption text-blue-800">Fills the damage description, keys returned and final meter readings. You still set the amount charged.</p>
+              </div>
+            )}
             <p className="text-body text-gray-600 mb-2">Was there any damage / breakage to the inventory?</p>
             <div className="flex items-center gap-4">
               <ToggleRadio

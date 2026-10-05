@@ -379,6 +379,9 @@ export default function TenantDetailPage() {
       showVatOnInvoice: tenant.showVatOnInvoice ?? true,
       paymentAccountId: tenant.unit?.paymentAccountId ?? null,
       poBox:            tenant.poBox ?? "",
+      emergencyContactName:     tenant.emergencyContactName ?? "",
+      emergencyContactPhone:    tenant.emergencyContactPhone ?? "",
+      emergencyContactRelation: tenant.emergencyContactRelation ?? "",
       additionalContacts: tenant.additionalContacts ?? [],
     });
     setShowEditModal(true);
@@ -781,6 +784,15 @@ export default function TenantDetailPage() {
                   <div>
                     <p className="text-caption text-gray-400 ">P.O. Box / Postal</p>
                     <p className="text-body text-header">{tenant.poBox}</p>
+                  </div>
+                )}
+                {(tenant.emergencyContactName || tenant.emergencyContactPhone) && (
+                  <div>
+                    <p className="text-caption text-gray-400 ">Emergency contact</p>
+                    <p className="text-body text-header">
+                      {[tenant.emergencyContactName, tenant.emergencyContactRelation ? `(${tenant.emergencyContactRelation})` : null].filter(Boolean).join(" ")}
+                    </p>
+                    {tenant.emergencyContactPhone && <p className="text-body text-gray-600">{tenant.emergencyContactPhone}</p>}
                   </div>
                 )}
                 {Array.isArray(tenant.additionalContacts) && tenant.additionalContacts.length > 0 && (

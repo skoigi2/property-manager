@@ -14,6 +14,7 @@ import { KeysEditor } from "./KeysEditor";
 import { statusClass } from "./InspectionWalkthrough";
 import { baselineFor, readError, type InspectionDto } from "./types";
 import { TenantMoneyCard } from "./TenantMoneyCard";
+import { RepairJobsPanel } from "./RepairJobsPanel";
 
 type NoteDialog = { action: InspectionAction; title: string; label: string; required: boolean; confirm: string } | null;
 
@@ -152,6 +153,22 @@ export function InspectionReview({ inspection, onChanged }: { inspection: Inspec
               onClearKeys={isManager ? () => runAction("clear_keys", null, "Keys cleared — the caretaker has been told") : undefined}
               clearing={busy === "clear_keys"} />
           )}
+        </Card>
+      )}
+
+      <RepairJobsPanel inspection={r} onChanged={onChanged} />
+
+      {r.meterReadings.length > 0 && (
+        <Card>
+          <p className="text-body font-medium text-gray-700 mb-1">
+            {r.reportType === "MOVE_IN" ? "Opening meter readings" : r.reportType === "MOVE_OUT" ? "Final meter readings" : "Meter readings"}
+          </p>
+          {r.meterReadings.map((m) => (
+            <p key={m.meterId} className="text-body text-gray-600 tabular-nums">
+              {m.label}: {m.reading}
+              {m.lastReading !== null && <span className={m.reading < m.lastReading ? "text-amber-700" : "text-gray-400"}> (last {m.lastReading})</span>}
+            </p>
+          ))}
         </Card>
       )}
 

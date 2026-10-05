@@ -42,6 +42,8 @@ export type InspectionItem = {
   status: ItemStatus | null;
   notes?: string;
   photoIds: string[];
+  /** Maintenance job raised from this item's damage. */
+  jobId?: string;
 };
 
 export function canEditObservations(status: InspectionStatus): boolean {
@@ -95,6 +97,9 @@ export type SubmitInput = {
   tenantSignOff: TenantSignOff | null;
   tenantSignedName: string | null;
   tenantSignaturePath: string | null;
+  /** The unit's active meters and the readings taken (optional for older callers). */
+  meters?: InspectionMeter[];
+  meterReadings?: { meterId: string }[];
 };
 
 /** Everything still missing before the report can be handed in (empty = ready). */
@@ -105,6 +110,9 @@ export function submitProblems(r: SubmitInput): string[] {
     problems.push(`A ${INSPECTION_TYPE_LABEL[r.reportType].toLowerCase()} inspection needs a tenant.`);
   }
   if (r.items.length === 0) problems.push("Add at least one room.");
+  for (const m of missingMeterReadings(r.reportType, r.meters ?? [], r.meterReadings ?? [])) {
+    problems.push(`Take the ${m.label} reading.`);
+  }
   const unrated = r.items.filter((i) => !i.status).length;
   if (unrated > 0) problems.push(`${unrated} item${unrated === 1 ? "" : "s"} still need a condition.`);
   for (const { room, photos } of roomPhotoCounts(r.items, r.photoIds)) {
@@ -171,4 +179,48 @@ export function decideInspectionAction(
       if (action === "decline_edit" && !note?.trim()) return { ok: false, status: 400, error: "Say why the change is declined." };
       return { ok: true };
   }
+}
+
+// ── Meter readings taken on the visit ────────────────────────────────────────
+// Evidence on the report (opening readings at move-in, final at move-out); the
+// month-end readings still drive billing. A move-out's readings pre-fill the
+// checkout's final meter readings.
+
+export type InspectionMeter = { meterId: string; utility: "WATER" | "ELECTRICITY"; label: string; lastReading: number | null };
+export type InspectionMeterReading = { meterId: string; utility: "WATER" | "ELECTRICITY"; label: string; reading: number; lastReading: number | null };
+
+/**
+ * Keeps readings for the unit's own meters only, snapshotting each meter's
+ * utility, label and last known reading. A blank / non-numeric / negative
+ * value drops the meter's reading.
+ */
+export function normaliseMeterReadings(raw: unknown, meters: InspectionMeter[]): InspectionMeterReading[] {
+  if (!Array.isArray(raw)) return [];
+  const byId = new Map(meters.map((m) => [m.meterId, m]));
+  const out: InspectionMeterReading[] = [];
+  for (const r of raw) {
+    const meterId = String((r as { meterId?: unknown })?.meterId ?? "");
+    const m = byId.get(meterId);
+    const value = (r as { reading?: unknown })?.reading;
+    const reading = typeof value === "string" && value.trim() === "" ? NaN : Number(value);
+    if (!m || !Number.isFinite(reading) || reading < 0 || out.some((x) => x.meterId === meterId)) continue;
+    out.push({ meterId, utility: m.utility, label: m.label, reading: Math.round(reading * 1000) / 1000, lastReading: m.lastReading });
+  }
+  return out;
+}
+
+/** A reading below the meter's last known reading — usually a misread. */
+export function readingBelowLast(r: { reading: number; lastReading: number | null }): boolean {
+  return r.lastReading !== null && r.reading < r.lastReading;
+}
+
+/** Move-in and move-out need a reading for every active unit meter. */
+export function missingMeterReadings(
+  reportType: InspectionType,
+  meters: InspectionMeter[],
+  readings: { meterId: string }[],
+): InspectionMeter[] {
+  if (reportType === "MID_TERM") return [];
+  const have = new Set(readings.map((r) => r.meterId));
+  return meters.filter((m) => !have.has(m.meterId));
 }

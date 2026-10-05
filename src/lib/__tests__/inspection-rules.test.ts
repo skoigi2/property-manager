@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canEditObservations, keysState, normaliseKeys, roomPhotoCounts, submitProblems,
   decideInspectionAction, damagedItems, MIN_PHOTOS_PER_ROOM, type InspectionItem, type SubmitInput,
+  normaliseMeterReadings, readingBelowLast, missingMeterReadings,
 } from "@/lib/inspection-rules";
 
 const item = (id: string, room: string, photoIds: string[] = [], status: InspectionItem["status"] = "GOOD"): InspectionItem =>
@@ -129,5 +130,27 @@ describe("decideInspectionAction", () => {
     expect(decideInspectionAction("approve_edit", pending, mgr, null)).toEqual({ ok: true });
     expect(decideInspectionAction("decline_edit", pending, mgr, "")).toMatchObject({ status: 400 });
     expect(decideInspectionAction("approve_edit", base, mgr, null)).toMatchObject({ status: 409 });
+  });
+});
+
+describe("meter readings on the visit", () => {
+  const meters = [
+    { meterId: "w", utility: "WATER" as const, label: "Water", lastReading: 176 },
+    { meterId: "e", utility: "ELECTRICITY" as const, label: "Electricity", lastReading: null },
+  ];
+  it("keeps the unit's own meters, snapshots label and last reading, drops junk", () => {
+    expect(normaliseMeterReadings([
+      { meterId: "w", reading: "179.5" }, { meterId: "x", reading: 3 }, { meterId: "e", reading: "" },
+      { meterId: "w", reading: 1 }, { meterId: "e", reading: -2 },
+    ], meters)).toEqual([{ meterId: "w", utility: "WATER", label: "Water", reading: 179.5, lastReading: 176 }]);
+  });
+  it("flags a reading below the last one", () => {
+    expect(readingBelowLast({ reading: 170, lastReading: 176 })).toBe(true);
+    expect(readingBelowLast({ reading: 170, lastReading: null })).toBe(false);
+  });
+  it("needs every meter read at move-in and move-out, not mid-term", () => {
+    expect(missingMeterReadings("MOVE_IN", meters, [{ meterId: "w" }]).map((m) => m.meterId)).toEqual(["e"]);
+    expect(missingMeterReadings("MID_TERM", meters, [])).toEqual([]);
+    expect(submitProblems(ready({ meters, meterReadings: [{ meterId: "w" }] }))).toEqual(["Take the Electricity reading."]);
   });
 });

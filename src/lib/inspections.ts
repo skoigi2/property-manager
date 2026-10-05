@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAccessiblePropertyIds, isSuperAdminSession, MANAGER_ROLES, isRoleAllowed } from "@/lib/auth-utils";
 import { getSignedUrl } from "@/lib/supabase-storage";
 import { seedItemsFromTemplate } from "@/lib/condition-report-template";
-import { normaliseKeys, keysState, type InspectionItem, type InspectionType } from "@/lib/inspection-rules";
+import { normaliseKeys, keysState, normaliseMeterReadings, type InspectionItem, type InspectionType, type InspectionMeter } from "@/lib/inspection-rules";
 import { tenantMoneySummary, caretakersSeeMoney } from "@/lib/tenant-money";
 
 // Server side of inspection visits (condition reports run on site). Pure rules
@@ -25,6 +25,7 @@ export const INSPECTION_INCLUDE = {
   tenant: {
     select: {
       id: true, name: true, phone: true, email: true, leaseStart: true, leaseEnd: true, nationalId: true,
+      emergencyContactName: true, emergencyContactPhone: true, emergencyContactRelation: true,
     },
   },
   assignedTo: { select: { id: true, name: true, email: true } },
@@ -40,6 +41,33 @@ export async function loadInspection(id: string): Promise<{ ok: true; report: In
   const report = await prisma.conditionReport.findUnique({ where: { id }, include: INSPECTION_INCLUDE });
   if (!report || !propertyIds.includes(report.propertyId)) return fail(404, "Inspection not found");
   return { ok: true, report };
+}
+
+/**
+ * The unit's active meters with their last known reading (latest non-void
+ * month-end reading, else the meter's opening reading) — what a caretaker
+ * reads on a move-in / move-out visit.
+ */
+export async function loadUnitMeters(unitId: string): Promise<InspectionMeter[]> {
+  const meters = await prisma.utilityMeter.findMany({
+    where: { unitId, role: "UNIT", isActive: true },
+    orderBy: [{ utility: "desc" }, { label: "asc" }],
+    select: {
+      id: true, utility: true, label: true, openingReading: true,
+      readings: {
+        where: { status: { not: "VOID" } },
+        orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+        take: 1,
+        select: { currentReading: true },
+      },
+    },
+  });
+  return meters.map((m) => ({
+    meterId: m.id,
+    utility: m.utility,
+    label: m.label,
+    lastReading: m.readings[0]?.currentReading ?? m.openingReading ?? null,
+  }));
 }
 
 async function signedOrNull(path: string | null): Promise<string | null> {
@@ -87,6 +115,19 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
   const showMoney = !!report.tenantId && (manager || (await caretakersSeeMoney(report.property.organizationId)));
   const tenantMoney = showMoney ? await tenantMoneySummary(report.tenantId!) : null;
 
+  const meters = await loadUnitMeters(report.unitId);
+  const [repairJobs, turnover] = await Promise.all([
+    prisma.maintenanceJob.findMany({
+      where: { conditionReportId: report.id },
+      select: { id: true, title: true, status: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.unitTurnover.findFirst({
+      where: { unitId: report.unitId, completedAt: null },
+      select: { id: true, conditionReportId: true },
+    }),
+  ]);
+
   const t = report.tenant;
   return {
     id: report.id,
@@ -99,7 +140,11 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
     tenant: t
       ? manager
         ? t
-        : { id: t.id, name: t.name, phone: t.phone, leaseStart: t.leaseStart, nationalId: t.nationalId }
+        : {
+            id: t.id, name: t.name, phone: t.phone, leaseStart: t.leaseStart, nationalId: t.nationalId,
+            emergencyContactName: t.emergencyContactName, emergencyContactPhone: t.emergencyContactPhone,
+            emergencyContactRelation: t.emergencyContactRelation,
+          }
       : null,
     assignedTo: report.assignedTo ? { id: report.assignedTo.id, name: report.assignedTo.name ?? report.assignedTo.email } : null,
     items: (report.items as unknown as InspectionItem[]) ?? [],
@@ -125,6 +170,10 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
     photos,
     baseline,
     tenantMoney,
+    meters,
+    meterReadings: normaliseMeterReadings(report.meterReadings, meters),
+    repairJobs,
+    openTurnover: turnover,
     viewer: { isManager: manager, userId: session.user.id },
   };
 }
@@ -271,8 +320,10 @@ export async function listInspections(filter: InspectionListFilter, session: Ses
 }
 
 /** The submit-check input for a loaded inspection. */
-export function submitInputFor(report: InspectionRecord): import("@/lib/inspection-rules").SubmitInput {
+export function submitInputFor(report: InspectionRecord, meters: InspectionMeter[] = []): import("@/lib/inspection-rules").SubmitInput {
   return {
+    meters,
+    meterReadings: normaliseMeterReadings(report.meterReadings, meters),
     reportType: report.reportType,
     status: report.status,
     hasTenant: !!report.tenantId,
@@ -301,4 +352,11 @@ export async function markSubmitted(report: InspectionRecord, session: Session) 
     },
     include: INSPECTION_INCLUDE,
   });
+}
+
+/** A checkout may only point at this tenant's own move-out inspection; anything else is dropped. */
+export async function ownMoveOut(conditionReportId: string | null, tenantId: string): Promise<string | null> {
+  if (!conditionReportId) return null;
+  const r = await prisma.conditionReport.findUnique({ where: { id: conditionReportId }, select: { tenantId: true, reportType: true } });
+  return r && r.tenantId === tenantId && r.reportType === "MOVE_OUT" ? conditionReportId : null;
 }

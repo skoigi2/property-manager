@@ -344,6 +344,9 @@ export default function TenantsPage() {
       showVatOnInvoice: tenant.showVatOnInvoice ?? true,
       paymentAccountId: tenant.unit?.paymentAccountId ?? null,
       poBox:            tenant.poBox ?? "",
+      emergencyContactName:     tenant.emergencyContactName ?? "",
+      emergencyContactPhone:    tenant.emergencyContactPhone ?? "",
+      emergencyContactRelation: tenant.emergencyContactRelation ?? "",
       additionalContacts: tenant.additionalContacts ?? [],
     });
     setModalOpen(true);

@@ -197,6 +197,16 @@ export function TenantFormFields({
           {...register("poBox")}
         />
       </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Input
+          label="Emergency contact"
+          tooltip="Who to call if something happens in the unit. Caretakers see it on the inspections they run."
+          placeholder="Name"
+          {...register("emergencyContactName")}
+        />
+        <Input label="Emergency phone" placeholder="+254 7…" {...register("emergencyContactPhone")} />
+        <Input label="Relationship" placeholder="e.g. Spouse, brother" {...register("emergencyContactRelation")} />
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
         <Input label="Lease End" tooltip="Leave blank if the end date isn't agreed yet. The tenant will show as 'Lease TBC' until a date is set." type="date" {...register("leaseEnd")} />

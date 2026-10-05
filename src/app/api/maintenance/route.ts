@@ -1,10 +1,8 @@
 import { requireSession, requireOpsStaffWrite, getAccessiblePropertyIds, requirePropertyAccess } from "@/lib/auth-utils";
 import { checkVendorForProperty } from "@/lib/maintenance-vendor";
+import { createMaintenanceJob } from "@/lib/maintenance-create";
 import { prisma } from "@/lib/prisma";
-import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { z } from "zod";
-import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases";
-import { computeDefaultStageSlaHours, getWorkflow, tryAutoAdvance } from "@/lib/case-workflows";
 
 const createSchema = z.object({
   propertyId:  z.string().min(1),
@@ -92,91 +90,14 @@ export async function POST(req: Request) {
     if (vendorError) return vendorError;
   }
 
-  const job = await prisma.maintenanceJob.create({
-    data: {
+  const job = await createMaintenanceJob(
+    {
       ...rest,
       reportedDate: reportedDate ? new Date(reportedDate) : new Date(),
       scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
     },
-    include: {
-      property: { select: { id: true, name: true, organizationId: true } },
-      unit: { select: { id: true, unitNumber: true } },
-      vendor: { select: { id: true, name: true, category: true, phone: true } },
-    },
-  });
-
-  // Auto-create CaseThread for this maintenance job. Two-step (vs single
-  // transaction) because we need the job's id to set subjectId — acceptable
-  // since case creation failure is non-fatal and recoverable via backfill.
-  if (job.property.organizationId) {
-    try {
-      const now = new Date();
-      // Workflow defaults + per-stage SLA override from the management agreement
-      const wf = getWorkflow("MAINTENANCE");
-      const agreement = await prisma.managementAgreement.findUnique({
-        where: { propertyId: job.propertyId },
-        select: { kpiEmergencyResponseHrs: true, kpiStandardResponseHrs: true },
-      });
-      const stageSlaHours = computeDefaultStageSlaHours(wf, {
-        isEmergency: job.isEmergency,
-        agreement,
-      });
-
-      const [thread] = await prisma.$transaction([
-        prisma.caseThread.create({
-          data: {
-            caseType: "MAINTENANCE",
-            subjectId: job.id,
-            propertyId: job.propertyId,
-            unitId: job.unitId,
-            organizationId: job.property.organizationId,
-            title: job.title,
-            status: mapMaintenanceStatusToCase(job.status),
-            waitingOn: mapMaintenanceWaitingOn(job),
-            stage: wf.stages[0].label,
-            currentStageIndex: 0,
-            workflowKey: wf.key,
-            stageSlaHours,
-            stageStartedAt: now,
-            lastActivityAt: now,
-          },
-        }),
-      ]);
-      await prisma.$transaction([
-        prisma.maintenanceJob.update({
-          where: { id: job.id },
-          data: { caseThreadId: thread.id },
-        }),
-        prisma.caseEvent.create({
-          data: {
-            caseThreadId: thread.id,
-            kind: "COMMENT",
-            actorUserId: session!.user.id,
-            actorEmail: session!.user.email ?? null,
-            actorName: session!.user.name ?? null,
-            body: job.description ?? `Maintenance job created: ${job.title}`,
-          },
-        }),
-      ]);
-      // If the job was created with a vendor already assigned, jump past Triaged.
-      if (job.vendorId) {
-        await tryAutoAdvance(thread.id, { kind: "VENDOR_ASSIGNED" });
-      }
-    } catch {
-      // Case creation is best-effort — backfill script will reconcile.
-    }
-  }
-
-  // Public-API webhooks — fire-and-forget
-  void dispatchWebhookEvent(job.property.organizationId, "maintenance.created", {
-    jobId: job.id,
-    title: job.title,
-    priority: job.priority,
-    status: job.status,
-    propertyId: job.property.id,
-    propertyName: job.property.name,
-    submittedViaPortal: (job as { submittedViaPortal?: boolean }).submittedViaPortal ?? false,
-  });
+    { id: session!.user.id, email: session!.user.email ?? null, name: session!.user.name ?? null },
+  );
 
   return Response.json(job, { status: 201 });
 }

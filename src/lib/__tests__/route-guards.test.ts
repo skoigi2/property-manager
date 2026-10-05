@@ -51,6 +51,9 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   "src/app/api/condition-reports/[id]/submit/route.ts",
   "src/app/api/condition-reports/[id]/actions/route.ts",
   "src/app/api/condition-reports/[id]/pdf/route.ts",
+  // "Ready to re-let" checklists — read + tick (start is manager-only)
+  "src/app/api/turnovers/route.ts",
+  "src/app/api/turnovers/[id]/route.ts",
   // Global search — per-group scoping in src/lib/search-visibility.ts
   "src/app/api/search/route.ts",
   // Identity-scoped plumbing every signed-in user needs

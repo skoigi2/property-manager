@@ -4,6 +4,8 @@ import { getSignedUrl } from "@/lib/supabase-storage";
 import { normaliseKeys } from "@/lib/inspection-rules";
 import { generateConditionReportPdf, type ConditionPdfItem, type ConditionPdfPhoto } from "@/lib/move-in-report-pdf";
 
+type StoredReading = { label?: string; reading?: number; lastReading?: number | null };
+
 /**
  * Renders a condition report's PDF from the database — shared by the
  * download route, acceptance (vaulting) and the email to the tenant.
@@ -63,6 +65,9 @@ export async function buildConditionReportPdf(reportId: string): Promise<{ buffe
       signedByManager: report.signedByManager,
       inspectorName: report.submittedByName,
       keys: normaliseKeys(report.keys),
+      meterReadings: Array.isArray(report.meterReadings)
+        ? (report.meterReadings as StoredReading[]).filter((r) => r && typeof r.reading === "number").map((r) => ({ label: String(r.label ?? "Meter"), reading: r.reading!, lastReading: r.lastReading ?? null }))
+        : [],
       tenantIssues: report.tenantIssues,
       tenantSignOff: report.tenantSignOff,
       tenantSignedName: report.tenantSignedName,

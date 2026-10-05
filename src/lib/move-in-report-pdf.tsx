@@ -93,6 +93,7 @@ export type ConditionReportPdfData = {
     inspectorName?: string | null;
     /** Keys handed over (move-in) or returned (move-out). */
     keys?: { label: string; count: number }[];
+    meterReadings?: { label: string; reading: number; lastReading: number | null }[];
     tenantIssues?: string | null;
     tenantSignOff?: "SIGNED" | "ABSENT" | "REFUSED" | null;
     tenantSignedName?: string | null;
@@ -286,6 +287,22 @@ function ReportPDF({ data }: { data: ConditionReportPdfData }) {
               <View key={k.label} style={styles.fieldRow}>
                 <Text style={styles.fieldLabel}>{k.label}:</Text>
                 <Text style={styles.fieldValue}>{k.count}</Text>
+              </View>
+            ))}
+          </>
+        ) : null}
+
+        {report.meterReadings && report.meterReadings.length > 0 ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>
+                {report.reportType === "MOVE_IN" ? "Opening Meter Readings" : report.reportType === "MOVE_OUT" ? "Final Meter Readings" : "Meter Readings"}
+              </Text>
+            </View>
+            {report.meterReadings.map((m) => (
+              <View key={m.label} style={styles.fieldRow}>
+                <Text style={styles.fieldLabel}>{m.label}:</Text>
+                <Text style={styles.fieldValue}>{m.reading}{m.lastReading !== null ? `   (previous ${m.lastReading})` : ""}</Text>
               </View>
             ))}
           </>

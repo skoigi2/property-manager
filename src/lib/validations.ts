@@ -172,6 +172,10 @@ export const tenantSchema = z.object({
   escalationNoticeDays: z.preprocess(emptyToUndef, z.coerce.number().int().min(0).max(730).optional()),
   parkingFee:       z.preprocess(emptyToUndef, z.coerce.number().min(0).optional()),
   poBox:            z.string().optional(),
+  // Who to call in an emergency — shown to caretakers on inspections.
+  emergencyContactName:     z.string().max(120).optional(),
+  emergencyContactPhone:    z.string().max(40).optional(),
+  emergencyContactRelation: z.string().max(60).optional(),
   // Extra reachable people beyond the primary email/phone. Blank rows are
   // stripped client-side; each kept row needs at least one filled field.
   additionalContacts: z.array(z.object({
@@ -380,6 +384,8 @@ export const checkoutProcessSchema = z.object({
     .array(z.object({ meterId: z.string().min(1), reading: z.coerce.number().min(0, "A meter reading can't be negative") }))
     .max(20)
     .optional(),
+  // The move-out inspection the form was filled from (traceability only).
+  conditionReportId:     z.string().nullable().optional(),
 });
 
 export const checkoutFinalizeSchema = checkoutProcessSchema.extend({
@@ -395,6 +401,8 @@ export const conditionItemSchema = z.object({
   status:   z.enum(["PERFECT", "GOOD", "FAIR", "POOR"]).nullable().optional(),
   notes:    z.string().max(2000).optional().default(""),
   photoIds: z.array(z.string()).default([]),
+  // Repair job raised from this item (set by the server, kept through edits).
+  jobId:    z.string().optional(),
 });
 
 export const conditionReportCreateSchema = z.object({
@@ -422,6 +430,7 @@ export const conditionReportPatchSchema = z.object({
   tenantSignedName: z.string().max(120).nullable().optional(),
   tenantDisagrees:  z.boolean().optional(),
   tenantComments:   z.string().max(5000).nullable().optional(),
+  meterReadings:    z.array(z.object({ meterId: z.string(), reading: z.union([z.number(), z.string()]) })).max(20).optional(),
 });
 
 export const inspectionCreateSchema = z.object({

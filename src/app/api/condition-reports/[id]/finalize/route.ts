@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadToStorage } from "@/lib/supabase-storage";
 import { logAudit } from "@/lib/audit";
 import { buildConditionReportPdf } from "@/lib/condition-report-pdf-data";
-import { loadInspection, markSubmitted, serializeInspection, submitInputFor, INSPECTION_INCLUDE } from "@/lib/inspections";
+import { loadInspection, loadUnitMeters, markSubmitted, serializeInspection, submitInputFor, INSPECTION_INCLUDE } from "@/lib/inspections";
 import { submitProblems, canEditObservations } from "@/lib/inspection-rules";
 import { format } from "date-fns";
 
@@ -28,7 +28,7 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
     return Response.json({ error: "Approve or decline the requested correction first." }, { status: 409 });
   }
   if (canEditObservations(report.status)) {
-    const problems = submitProblems(submitInputFor(report));
+    const problems = submitProblems(submitInputFor(report, await loadUnitMeters(report.unitId)));
     if (problems.length) return Response.json({ error: problems[0], problems, code: "NOT_READY" }, { status: 400 });
     report = await markSubmitted(report, session!);
   }

@@ -1,6 +1,6 @@
 import { requireOpsStaffWrite } from "@/lib/auth-utils";
 import { logAudit } from "@/lib/audit";
-import { loadInspection, markSubmitted, serializeInspection, submitInputFor } from "@/lib/inspections";
+import { loadInspection, loadUnitMeters, markSubmitted, serializeInspection, submitInputFor } from "@/lib/inspections";
 import { submitProblems } from "@/lib/inspection-rules";
 import { notifyInspectionSubmitted } from "@/lib/inspection-notify";
 
@@ -12,7 +12,7 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   const loaded = await loadInspection(params.id);
   if (!loaded.ok) return Response.json({ error: loaded.error }, { status: loaded.status });
 
-  const problems = submitProblems(submitInputFor(loaded.report));
+  const problems = submitProblems(submitInputFor(loaded.report, await loadUnitMeters(loaded.report.unitId)));
   if (problems.length) {
     return Response.json({ error: problems[0], problems, code: "NOT_READY" }, { status: 400 });
   }

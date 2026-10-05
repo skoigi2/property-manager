@@ -768,6 +768,7 @@ model Property {
   assets                Asset[]
   agreement             ManagementAgreement?
   conditionReports      BuildingConditionReport[]
+  unitTurnovers         UnitTurnover[]
   ownerInvoices         OwnerInvoice[]
   checkouts             CheckoutProcess[]
   unitConditionReports  ConditionReport[]
@@ -844,6 +845,7 @@ model Unit {
   subjectComplaints  TenantComplaint[] @relation("ComplaintSubjectUnit")
   checkouts          CheckoutProcess[]
   conditionReports   ConditionReport[]
+  turnovers          UnitTurnover[]
   utilityMeters      UtilityMeter[]
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
@@ -861,6 +863,10 @@ model Tenant {
   additionalContacts Json?
   // Postal address for formal letters (rent demands, notices).
   poBox            String?
+  // Who to call in an emergency (shown to caretakers on inspections).
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
   nationalId       String?
   taxIdNumber      String?           @map("kraPinNumber")
   unitId           String
@@ -1203,6 +1209,9 @@ model MaintenanceJob {
   vendorQuoteAt       DateTime?
   caseThreadId     String?
   caseThread       CaseThread?         @relation("CaseThreadMaintenanceJobs", fields: [caseThreadId], references: [id], onDelete: SetNull)
+  // Raised from damage recorded on an inspection (re-let checklist "Repairs done").
+  conditionReportId String?
+  conditionReport   ConditionReport?   @relation(fields: [conditionReportId], references: [id], onDelete: SetNull)
   property         Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   vendor           Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
@@ -1211,6 +1220,7 @@ model MaintenanceJob {
 
   @@index([propertyId, status])
   @@index([status])
+  @@index([conditionReportId])
   @@index([caseThreadId])
   @@index([submittedViaPortal])
 }
@@ -2384,6 +2394,8 @@ model CheckoutProcess {
   tenantSignedName        String?
   tenantSignedAt          DateTime?
   expenseEntryId        String?
+  // The move-out inspection whose damage / keys / readings filled the form.
+  conditionReportId     String?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
@@ -2461,6 +2473,13 @@ model ConditionReport {
   editRequestedByUserId String?
   editRequestReason   String?
   sentToTenantAt      DateTime?
+  // Meter readings taken during the visit: [{ meterId, utility, label, reading, lastReading }].
+  // Evidence only — billing still runs on the month-end readings; a move-out's
+  // readings pre-fill the checkout's final meter readings.
+  meterReadings       Json?
+  // Re-let checklists this inspection started, repair jobs it raised.
+  turnovers           UnitTurnover[]
+  maintenanceJobs     MaintenanceJob[]
 
   assignedTo   User?                  @relation("InspectionAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
   unit         Unit                   @relation(fields: [unitId], references: [id])
@@ -2705,4 +2724,33 @@ model ServiceChargeBudgetLine {
   notes    String?
 
   @@unique([budgetId, category])
+}
+
+// "Ready to re-let" checklist for a unit between tenants. Started when a
+// checkout is finalised (or by hand from a move-out inspection); managers and
+// caretakers tick items; "Repairs done" follows the repair jobs raised from
+// the move-out inspection. One open checklist per unit. See src/lib/turnover.ts.
+model UnitTurnover {
+  id                String    @id @default(cuid())
+  unitId            String
+  propertyId        String
+  organizationId    String?
+  // The tenant who left, and the inspection / checkout that started it.
+  tenantId          String?
+  conditionReportId String?
+  checkoutId        String?
+  // [{ key, label, done, doneAt, doneByName }]
+  items             Json      @default("[]")
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+  completedByName   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  unit            Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  property        Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  conditionReport ConditionReport? @relation(fields: [conditionReportId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, completedAt])
+  @@index([unitId])
 }

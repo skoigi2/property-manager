@@ -4,8 +4,8 @@ import { Prisma } from "@prisma/client";
 import { conditionReportPatchSchema } from "@/lib/validations";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 import { logAudit } from "@/lib/audit";
-import { loadInspection, serializeInspection, checkAssignee, isInspectionManager, INSPECTION_INCLUDE } from "@/lib/inspections";
-import { canEditObservations, keysState, normaliseKeys } from "@/lib/inspection-rules";
+import { loadInspection, loadUnitMeters, serializeInspection, checkAssignee, isInspectionManager, INSPECTION_INCLUDE } from "@/lib/inspections";
+import { canEditObservations, keysState, normaliseKeys, normaliseMeterReadings } from "@/lib/inspection-rules";
 import { notifyInspectionAssigned } from "@/lib/inspection-notify";
 
 // A condition report = an inspection visit. Ops staff incl. CARETAKER read and
@@ -23,7 +23,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
 
 const OBSERVATION_FIELDS = [
   "reportDate", "items", "overallComments", "signedByTenant", "signedByManager",
-  "tenantIssues", "tenantSignOff", "tenantSignedName", "tenantDisagrees", "tenantComments",
+  "tenantIssues", "tenantSignOff", "tenantSignedName", "tenantDisagrees", "tenantComments", "meterReadings",
 ] as const;
 const PLANNING_FIELDS = ["reportType", "scheduledFor", "assignedToUserId", "tenantId"] as const;
 
@@ -68,6 +68,10 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     if (scheduledFor && Number.isNaN(scheduledFor.getTime())) return Response.json({ error: "Invalid date and time." }, { status: 400 });
   }
 
+  const meterReadings = data.meterReadings !== undefined
+    ? normaliseMeterReadings(data.meterReadings, await loadUnitMeters(report.unitId))
+    : undefined;
+
   const updated = await prisma.conditionReport.update({
     where: { id: report.id },
     data: {
@@ -83,6 +87,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       ...(data.tenantDisagrees !== undefined ? { tenantDisagrees: data.tenantDisagrees } : {}),
       ...(data.tenantComments !== undefined ? { tenantComments: data.tenantComments || null } : {}),
       ...(data.keys !== undefined ? { keys: normaliseKeys(data.keys) as unknown as Prisma.InputJsonValue } : {}),
+      ...(meterReadings !== undefined ? { meterReadings: meterReadings as unknown as Prisma.InputJsonValue } : {}),
       ...(data.reportType !== undefined ? { reportType: data.reportType } : {}),
       ...(scheduledFor !== undefined ? { scheduledFor } : {}),
       ...(data.assignedToUserId !== undefined ? { assignedToUserId: data.assignedToUserId } : {}),

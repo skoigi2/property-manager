@@ -20,6 +20,7 @@ import { useProperty } from "@/lib/property-context";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { INSPECTION_TYPE_LABEL, INSPECTION_STATUS_LABEL, type InspectionType, type InspectionStatus } from "@/lib/inspection-rules";
 import { ClipboardCheck, Plus, KeyRound, CalendarClock, User } from "lucide-react";
+import { TurnoverList } from "@/components/inspections/TurnoverList";
 
 interface InspectionRow {
   id: string;
@@ -42,11 +43,12 @@ interface PropertyOption { id: string; name: string; units?: { id: string; unitN
 interface TenantOption { id: string; name: string; isActive: boolean; unit: { id: string; unitNumber: string; propertyId: string } }
 interface Assignee { id: string; name: string; role: string | null }
 
-type View = "open" | "review" | "done";
+type View = "open" | "review" | "done" | "relet";
 const VIEWS: { key: View; label: string }[] = [
   { key: "open", label: "To do" },
   { key: "review", label: "Awaiting review" },
   { key: "done", label: "Accepted" },
+  { key: "relet", label: "Re-let" },
 ];
 
 const STATUS_BADGE: Record<InspectionStatus, "gray" | "blue" | "amber" | "green"> = {
@@ -77,13 +79,17 @@ function InspectionsInner() {
   const search = useSearchParams();
   const router = useRouter();
 
-  const [view, setView] = useState<View>(search.get("view") === "review" ? "review" : search.get("view") === "done" ? "done" : "open");
+  const [view, setView] = useState<View>(() => {
+    const v = search.get("view");
+    return v === "review" || v === "done" || v === "relet" ? v : "open";
+  });
   const [mine, setMine] = useState(false);
   const [rows, setRows] = useState<InspectionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(search.get("new") === "1");
 
   const load = useCallback(async () => {
+    if (view === "relet") return;
     setLoading(true);
     try {
       const qs = new URLSearchParams({ view });
@@ -123,14 +129,16 @@ function InspectionsInner() {
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-2 text-caption text-gray-600 ml-auto">
+            {view !== "relet" && <label className="flex items-center gap-2 text-caption text-gray-600 ml-auto">
               <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
               Assigned to me
-            </label>
+            </label>}
           </div>
         </Card>
 
-        {loading ? (
+        {view === "relet" ? (
+          <TurnoverList propertyId={selectedId} />
+        ) : loading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : rows.length === 0 ? (
           <EmptyState

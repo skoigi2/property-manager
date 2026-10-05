@@ -19,6 +19,7 @@ const updateSchema = z.object({
   rentAmount: z.number().min(0).optional(),
   serviceCharge: z.number().min(0).optional(),
   otherCharges: z.number().min(0).optional(),
+  wifiAmount: z.number().min(0).optional(),
   depositAmount: z.number().min(0).optional(),
   leaseFee: z.number().min(0).optional(),
   dueDate: z.string().optional(),
@@ -75,11 +76,11 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const {
-    paidAt, dueDate, rentAmount, serviceCharge, otherCharges,
+    paidAt, dueDate, rentAmount, serviceCharge, otherCharges, wifiAmount,
     depositAmount, leaseFee, status, ...rest
   } = parsed.data;
 
-  const editsLines = [rentAmount, serviceCharge, otherCharges, depositAmount, leaseFee].some((v) => v !== undefined);
+  const editsLines = [rentAmount, serviceCharge, otherCharges, wifiAmount, depositAmount, leaseFee].some((v) => v !== undefined);
   if (editsLines && invoice!.status === "PAID") {
     return Response.json({ error: "A paid invoice's lines can't be changed — revert it to unpaid first." }, { status: 400 });
   }
@@ -98,6 +99,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     rentAmount: rentAmount ?? invoice!.rentAmount,
     serviceCharge: serviceCharge ?? invoice!.serviceCharge,
     otherCharges: otherCharges ?? invoice!.otherCharges,
+    wifiAmount: wifiAmount ?? invoice!.wifiAmount,
     depositAmount: depositAmount ?? invoice!.depositAmount,
     leaseFee: leaseFee ?? invoice!.leaseFee,
     // An applied late fee stays part of the total (managed via /late-fee).
@@ -140,6 +142,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       rentAmount: lines.rentAmount,
       serviceCharge: lines.serviceCharge,
       otherCharges: lines.otherCharges,
+      wifiAmount: lines.wifiAmount,
       depositAmount: lines.depositAmount,
       leaseFee: lines.leaseFee,
       totalAmount: newTotal,

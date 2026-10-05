@@ -242,6 +242,8 @@ export interface StatementInvoiceRow {
   /** Metered utilities on the invoice - tenancy charges, paid by UTILITY_RECOVERY entries. */
   waterAmount?: number;
   electricityAmount?: number;
+  /** Monthly Wi-Fi charge - a tenancy charge, paid by UTILITY_RECOVERY / WIFI entries. */
+  wifiAmount?: number;
   lateFeeAppliedAt: Date | null;
   dueDate: Date;
   status: string;
@@ -293,15 +295,20 @@ export interface StatementSourceData {
 
 const MONTH_LABELS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-function invoiceUtilities(inv: { waterAmount?: number; electricityAmount?: number }): number {
-  return (inv.waterAmount ?? 0) + (inv.electricityAmount ?? 0);
+type UtilityLines = { waterAmount?: number; electricityAmount?: number; wifiAmount?: number };
+
+function invoiceUtilities(inv: UtilityLines): number {
+  return (inv.waterAmount ?? 0) + (inv.electricityAmount ?? 0) + (inv.wifiAmount ?? 0);
 }
 
-/** "Rent invoice", or what it really is when metered utilities ride on it. */
-function invoiceKindLabel(inv: { waterAmount?: number; electricityAmount?: number }, baseAmount: number): string {
+/** "Rent invoice", or what it really is when utilities (incl. Wi-Fi) ride on it. */
+function invoiceKindLabel(inv: UtilityLines, baseAmount: number): string {
   const utilities = invoiceUtilities(inv);
   if (utilities <= 0) return "Rent invoice";
-  return baseAmount - utilities > 0.005 ? "Rent & utilities invoice" : "Water / electricity invoice";
+  if (baseAmount - utilities > 0.005) return "Rent & utilities invoice";
+  const metered = (inv.waterAmount ?? 0) + (inv.electricityAmount ?? 0);
+  if (metered <= 0) return "Wi-Fi invoice";
+  return (inv.wifiAmount ?? 0) > 0 ? "Utilities invoice" : "Water / electricity invoice";
 }
 
 /** An invoice belongs to the month it bills (no issueDate column exists). */
@@ -630,7 +637,7 @@ export async function buildTenantStatement(tenantId: string, period: StatementPe
       select: {
         id: true, invoiceNumber: true, periodYear: true, periodMonth: true,
         totalAmount: true, lateFeeAmount: true, depositAmount: true, lateFeeAppliedAt: true,
-        waterAmount: true, electricityAmount: true,
+        waterAmount: true, electricityAmount: true, wifiAmount: true,
         dueDate: true, status: true, paidAmount: true, proofSubmittedAt: true, createdAt: true,
       },
     }),

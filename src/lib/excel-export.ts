@@ -60,7 +60,7 @@ export function exportIncome(entries: any[], month: Date, currency?: string, fil
   const rows = entries.map((e) => [
     fmtDate(e.date),
     e.type === "UTILITY_RECOVERY" && e.utilityType
-      ? `Utility Recovery — ${e.utilityType === "WATER" ? "Water" : "Electricity"}`
+      ? `Utility Recovery — ${e.utilityType === "WATER" ? "Water" : e.utilityType === "ELECTRICITY" ? "Electricity" : "Wi-Fi"}`
       : INCOME_TYPE_LABEL[e.type] ?? e.type,
     e.tenant?.name ?? e.tenantName ?? "",
     e.unit?.unitNumber ?? "",

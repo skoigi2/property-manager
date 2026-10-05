@@ -12,6 +12,7 @@ export interface InvoiceLinesForChips {
   otherCharges?: number | null;
   waterAmount?: number | null;
   electricityAmount?: number | null;
+  wifiAmount?: number | null;
   depositAmount?: number | null;
   leaseFee?: number | null;
 }
@@ -20,7 +21,7 @@ type ChipTone = "rent" | "utility" | "movein";
 
 export function invoiceLineChips(inv: InvoiceLinesForChips, currency: string): { label: string; amount: string; tone: ChipTone }[] {
   const hasMoveIn = (inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0;
-  const hasUtilities = (inv.waterAmount ?? 0) > 0 || (inv.electricityAmount ?? 0) > 0;
+  const hasUtilities = (inv.waterAmount ?? 0) > 0 || (inv.electricityAmount ?? 0) > 0 || (inv.wifiAmount ?? 0) > 0;
   if (!hasMoveIn && !hasUtilities) return [];
   const out: { label: string; amount: string; tone: ChipTone }[] = [];
   if (inv.rentAmount > 0) out.push({ label: "Rent", amount: formatCurrency(inv.rentAmount, currency), tone: "rent" });
@@ -28,6 +29,7 @@ export function invoiceLineChips(inv: InvoiceLinesForChips, currency: string): {
   if ((inv.otherCharges ?? 0) > 0) out.push({ label: "Other", amount: formatCurrency(inv.otherCharges!, currency), tone: "rent" });
   if ((inv.waterAmount ?? 0) > 0) out.push({ label: "Water", amount: formatCurrency(inv.waterAmount!, currency), tone: "utility" });
   if ((inv.electricityAmount ?? 0) > 0) out.push({ label: "Power", amount: formatCurrency(inv.electricityAmount!, currency), tone: "utility" });
+  if ((inv.wifiAmount ?? 0) > 0) out.push({ label: "Wi-Fi", amount: formatCurrency(inv.wifiAmount!, currency), tone: "utility" });
   if ((inv.depositAmount ?? 0) > 0) out.push({ label: "Deposit", amount: formatCurrency(inv.depositAmount!, currency), tone: "movein" });
   if ((inv.leaseFee ?? 0) > 0) out.push({ label: "Lease fee", amount: formatCurrency(inv.leaseFee!, currency), tone: "movein" });
   return out;

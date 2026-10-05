@@ -664,6 +664,20 @@ async function main() {
     if (iid) created.inspections.add(iid);
     check("caretaker's own inspection is assigned to them and scheduled", insp?.assignedTo?.id === caretaker.id && insp?.status === "SCHEDULED");
     check("caretaker view: tenant name / phone / ID, no email", insp?.tenant?.name === tenant.name && !("email" in (insp?.tenant ?? {})));
+    // Tenant money is hidden from caretakers unless the organisation allows it.
+    const orgId = property.organizationId!;
+    await prisma.organization.update({ where: { id: orgId }, data: { caretakersSeeTenantMoney: false } });
+    check("money setting off: caretaker sees no rent / balances", insp?.tenantMoney === null);
+    await expectStatus(care, "caretaker turns the money setting on → 403", `/api/organizations/${orgId}`, 403, {
+      method: "PATCH", body: JSON.stringify({ caretakersSeeTenantMoney: true }),
+    });
+    await expectStatus(mgr, "admin turns the money setting on → 200", `/api/organizations/${orgId}`, 200, {
+      method: "PATCH", body: JSON.stringify({ caretakersSeeTenantMoney: true }),
+    });
+    const withMoney = await expectStatus(care, "GET inspection with the setting on", `/api/condition-reports/${iid}`, 200);
+    check("money setting on: caretaker sees rent, Wi-Fi and the balance split",
+      typeof withMoney?.tenantMoney?.monthlyRent === "number" && "wifi" in (withMoney?.tenantMoney?.outstanding ?? {}), JSON.stringify(withMoney?.tenantMoney)?.slice(0, 160));
+    await prisma.organization.update({ where: { id: orgId }, data: { caretakersSeeTenantMoney: false } });
     await expectStatus(care, "assign inspection to the manager → 403", `/api/condition-reports/${iid}`, 403, {
       method: "PATCH", body: JSON.stringify({ assignedToUserId: manager.id }),
     });

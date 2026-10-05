@@ -9,7 +9,7 @@ import { DEFAULT_UNIT_LABEL, readingLineLabel, type UtilityType } from "@/lib/ut
  * - one described line per attached meter reading
  *   ("Jun 26 Water: 3 units (Prev: 176.00, Curr: 179.00) @ 175.00"), and
  * - what the tenant still owes on their OTHER open invoices, split into
- *   rent / water / electricity so unpaid utility bills are visible.
+ *   rent / water / electricity / Wi-Fi so unpaid utility bills are visible.
  */
 
 export interface InvoiceUtilityLine {
@@ -41,7 +41,7 @@ export async function loadInvoiceUtilityContext(invoiceId: string, tenantId: str
       where: { tenantId, id: { not: invoiceId }, status: { in: [...OPEN_STATUSES] } },
       select: {
         paidAmount: true, rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
-        waterAmount: true, electricityAmount: true, depositAmount: true, leaseFee: true,
+        waterAmount: true, electricityAmount: true, wifiAmount: true, depositAmount: true, leaseFee: true,
       },
     }),
   ]);
@@ -65,12 +65,13 @@ export async function loadInvoiceUtilityContext(invoiceId: string, tenantId: str
       }),
     }));
 
-  const outstanding: InvoiceOutstanding = { rent: 0, water: 0, electricity: 0, deposit: 0, leaseFee: 0, total: 0 };
+  const outstanding: InvoiceOutstanding = { rent: 0, water: 0, electricity: 0, wifi: 0, deposit: 0, leaseFee: 0, total: 0 };
   for (const inv of others) {
     const o = invoiceOutstandingByBucket(inv, inv.paidAmount);
     outstanding.rent += o.rent;
     outstanding.water += o.water;
     outstanding.electricity += o.electricity;
+    outstanding.wifi += o.wifi;
     outstanding.deposit += o.deposit;
     outstanding.leaseFee += o.leaseFee;
     outstanding.total += o.total;

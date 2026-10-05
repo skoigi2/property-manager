@@ -143,6 +143,7 @@ export async function POST(req: Request) {
     lateFeeAmount: true,
     waterAmount: true,
     electricityAmount: true,
+    wifiAmount: true,
     depositAmount: true,
     leaseFee: true,
   } as const;
@@ -151,7 +152,7 @@ export async function POST(req: Request) {
     | {
         id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null;
         rentAmount: number; serviceCharge: number; otherCharges: number; lateFeeAmount: number;
-        waterAmount: number; electricityAmount: number;
+        waterAmount: number; electricityAmount: number; wifiAmount: number;
         depositAmount: number; leaseFee: number;
       }
     | null = null;
@@ -181,7 +182,7 @@ export async function POST(req: Request) {
         const startIndex = inv.periodYear * 12 + (inv.periodMonth - 1);
         return entryIndex >= startIndex && entryIndex < startIndex + n;
       })
-      .filter((inv) => rest.type !== "UTILITY_RECOVERY" || inv.waterAmount + inv.electricityAmount > 0)
+      .filter((inv) => rest.type !== "UTILITY_RECOVERY" || inv.waterAmount + inv.electricityAmount + inv.wifiAmount > 0)
       .sort((a, b) => {
         const rentFirst = Number(b.rentAmount > 0) - Number(a.rentAmount > 0);
         if (rest.type === "LONGTERM_RENT" && rentFirst !== 0) return rentFirst;

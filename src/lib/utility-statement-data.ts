@@ -30,7 +30,7 @@ const INVOICE_SELECT = {
   id: true, invoiceNumber: true, tenantId: true, periodYear: true, periodMonth: true,
   dueDate: true, status: true, paidAmount: true, totalAmount: true,
   rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
-  waterAmount: true, electricityAmount: true, depositAmount: true, leaseFee: true,
+  waterAmount: true, electricityAmount: true, wifiAmount: true, depositAmount: true, leaseFee: true,
 } as const;
 
 export interface PropertyStatementResult {
@@ -79,7 +79,7 @@ export async function loadUtilityStatement(opts: {
     }),
     prisma.incomeEntry.groupBy({
       by: ["tenantId"],
-      where: { type: "UTILITY_RECOVERY", tenant: tenantWhere },
+      where: { type: "UTILITY_RECOVERY", utilityType: { in: ["WATER", "ELECTRICITY"] }, tenant: tenantWhere },
       _max: { date: true },
     }),
   ]);

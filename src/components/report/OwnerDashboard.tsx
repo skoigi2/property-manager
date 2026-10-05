@@ -46,8 +46,8 @@ interface OwnerStatement {
   payouts: StatementPayout[];
   totalPaidOut: number;
   utilities?: {
-    waterCollected: number; electricityCollected: number; otherCollected: number;
-    waterCost: number; electricityCost: number; generatorCost: number; surplus: number;
+    waterCollected: number; electricityCollected: number; otherCollected: number; wifiCollected?: number;
+    waterCost: number; electricityCost: number; generatorCost: number; wifiCost?: number; surplus: number;
   } | null;
   currency: string;
 }
@@ -308,17 +308,17 @@ function PropertyCard({ stmt, year, month, canManage }: { stmt: OwnerStatement; 
       {/* Utilities memo — already inside the income and deductions above */}
       {stmt.utilities && (
         <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
-          <p className="text-label uppercase text-gray-400">Water &amp; electricity (included above)</p>
+          <p className="text-label uppercase text-gray-400">Utilities (included above)</p>
           <div className="flex justify-between text-caption text-gray-500">
             <span>Collected from tenants</span>
             <span className="tabular-nums text-income">
-              {fmt(stmt.utilities.waterCollected + stmt.utilities.electricityCollected + stmt.utilities.otherCollected)}
+              {fmt(stmt.utilities.waterCollected + stmt.utilities.electricityCollected + (stmt.utilities.wifiCollected ?? 0) + stmt.utilities.otherCollected)}
             </span>
           </div>
           <div className="flex justify-between text-caption text-gray-500">
-            <span>Council water, KPLC and generator</span>
+            <span>Council water, KPLC, generator{(stmt.utilities.wifiCost ?? 0) > 0 ? " and Wi-Fi" : ""}</span>
             <span className="tabular-nums text-expense">
-              ({fmt(stmt.utilities.waterCost + stmt.utilities.electricityCost + stmt.utilities.generatorCost)})
+              ({fmt(stmt.utilities.waterCost + stmt.utilities.electricityCost + stmt.utilities.generatorCost + (stmt.utilities.wifiCost ?? 0))})
             </span>
           </div>
           <div className="flex justify-between text-caption font-medium text-gray-700">

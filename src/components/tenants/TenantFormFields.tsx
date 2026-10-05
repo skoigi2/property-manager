@@ -175,6 +175,9 @@ export function TenantFormFields({
         <Input label="Parking Fee" tooltip="Monthly parking line on the lease, billed alongside rent. Leave blank if not applicable." type="number" {...register("parkingFee")} />
       </div>
       <div className="grid grid-cols-2 gap-4">
+        <Input label="Wi-Fi (monthly)" tooltip="Billed on each rent invoice as its own Wi-Fi line. Paid after rent, water and electricity, and kept out of the management-fee base like the other utilities. Leave 0 if the tenant isn't charged for Wi-Fi." type="number" min="0" {...register("wifiCharge")} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <Select
           label="Payment Frequency"
           tooltip="How often the tenant pays — most common is Monthly. Quarterly / Bi-annual / Annual leases pay rent in advance for that period. Also shown on invoices."

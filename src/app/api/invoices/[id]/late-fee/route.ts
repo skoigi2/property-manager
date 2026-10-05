@@ -43,18 +43,18 @@ async function loadInvoice(id: string) {
 function computeFee(invoice: {
   totalAmount: number; paidAmount: number | null; lateFeeAmount: number;
   rentAmount: number; serviceCharge: number; otherCharges: number;
-  waterAmount: number; electricityAmount: number; depositAmount: number; leaseFee: number;
+  waterAmount: number; electricityAmount: number; wifiAmount: number; depositAmount: number; leaseFee: number;
   dueDate: Date; status: string;
   tenant: { unit: { property: { agreement: { latePaymentInterestRate: number } | null } } };
 }) {
   const rate = invoice.tenant.unit.property.agreement?.latePaymentInterestRate ?? 0;
   const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(invoice.dueDate).getTime()) / MS_PER_DAY));
   // Base = what's still owed excluding any previously-applied fee and any
-  // unpaid metered utilities: the agreement's late-payment interest is on
+  // unpaid utilities (water, electricity, Wi-Fi): the agreement's late-payment interest is on
   // rent, not on a water or electricity bill.
   const unpaid = invoiceOutstandingByBucket(invoice, invoice.paidAmount);
   const base =
-    invoice.totalAmount - invoice.lateFeeAmount - (invoice.paidAmount ?? 0) - unpaid.water - unpaid.electricity;
+    invoice.totalAmount - invoice.lateFeeAmount - (invoice.paidAmount ?? 0) - unpaid.water - unpaid.electricity - unpaid.wifi;
   const fee = Math.round(calcLateInterest(Math.max(0, base), rate, daysOverdue) * 100) / 100;
   return { rate, daysOverdue, base, fee };
 }

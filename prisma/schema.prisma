@@ -21,6 +21,9 @@ model Organization {
   email           String?
   website         String?
   isActive              Boolean                      @default(true)
+  // Caretakers may see tenants' rent, Wi-Fi, deposit and balances (on the
+  // inspections they run). Off by default; deposit / refund decisions stay manager-only.
+  caretakersSeeTenantMoney Boolean                   @default(false)
   locale                String                       @default("en-US")
   defaultCurrency       String                       @default("USD")
   vatRegistrationNumber String?
@@ -867,6 +870,10 @@ model Tenant {
   leaseEnd         DateTime?
   monthlyRent      Decimal @db.Decimal(14, 2)
   serviceCharge    Decimal         @default(0) @db.Decimal(14, 2)
+  // Monthly Wi-Fi charge billed on the rent invoice (Invoice.wifiAmount) and
+  // booked like water / electricity: UTILITY_RECOVERY tagged WIFI, outside the
+  // rent side and the management-fee base.
+  wifiCharge       Decimal         @default(0) @db.Decimal(14, 2)
   rentDueDay       Int           @default(1)
   isActive         Boolean          @default(true)
   vacatedDate      DateTime?
@@ -966,9 +973,9 @@ model IncomeEntry {
   taxAmount         Decimal? @db.Decimal(14, 2)
   taxType           TaxType?
   paymentMethod     PaymentMethod?
-  // Set on UTILITY_RECOVERY rows so water and electricity collections can be
-  // told apart (utility reconciliation, receipts). Null for every other type.
-  utilityType       UtilityType?
+  // Set on UTILITY_RECOVERY rows so water, electricity and Wi-Fi collections
+  // can be told apart (utility reconciliation, receipts). Null for every other type.
+  utilityType       UtilityRecoveryType?
   unit              Unit         @relation(fields: [unitId], references: [id])
   tenant            Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -1407,6 +1414,9 @@ model Invoice {
   // side, so the rent ledger and the management-fee base never see them.
   waterAmount       Decimal     @default(0) @db.Decimal(14, 2)
   electricityAmount Decimal     @default(0) @db.Decimal(14, 2)
+  // The tenant's Wi-Fi charge (Tenant.wifiCharge × months billed). Typed, not
+  // metered; paid after water and electricity, booked as UTILITY_RECOVERY / WIFI.
+  wifiAmount        Decimal     @default(0) @db.Decimal(14, 2)
   lateFeeAmount Decimal         @default(0) @db.Decimal(14, 2)
   lateFeeAppliedAt DateTime?
   totalAmount   Decimal @db.Decimal(14, 2)
@@ -2527,6 +2537,15 @@ model WebhookEndpoint {
 enum UtilityType {
   WATER
   ELECTRICITY
+}
+
+// What a UTILITY_RECOVERY income entry recovers: the two metered utilities
+// plus the fixed monthly Wi-Fi charge (Tenant.wifiCharge / Invoice.wifiAmount).
+// Separate from UtilityType, which is meters only.
+enum UtilityRecoveryType {
+  WATER
+  ELECTRICITY
+  WIFI
 }
 
 enum MeterRole {

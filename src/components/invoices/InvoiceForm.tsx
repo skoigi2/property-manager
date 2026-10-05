@@ -15,20 +15,21 @@ import { HelpTip } from "@/components/ui/HelpTip";
 
 export type InvoiceKind = "RENT" | "MOVE_IN" | "DEPOSIT" | "CUSTOM";
 
-type LineKey = "rentAmount" | "serviceCharge" | "otherCharges" | "depositAmount" | "leaseFee";
+type LineKey = "rentAmount" | "serviceCharge" | "otherCharges" | "wifiAmount" | "depositAmount" | "leaseFee";
 
-const LINE_META: Record<LineKey, { label: string; hint: string; group: "rent" | "movein" }> = {
+const LINE_META: Record<LineKey, { label: string; hint: string; group: "rent" | "utility" | "movein" }> = {
   rentAmount:    { label: "Rent",                        hint: "Rent for the billing period. Counted as rent income when paid.", group: "rent" },
   serviceCharge: { label: "Service charge",              hint: "Shared building costs passed to the tenant. Paid together with rent.", group: "rent" },
-  otherCharges:  { label: "Other charges",               hint: "Any other amount billed with the rent (utilities, penalties).", group: "rent" },
+  otherCharges:  { label: "Other charges",               hint: "Any other amount billed with the rent (penalties, one-off items).", group: "rent" },
+  wifiAmount:    { label: "Wi-Fi",                       hint: "The tenant's monthly Wi-Fi charge. Recorded as utility recovery when paid, like water and electricity — paid after rent, and outside the management-fee base.", group: "utility" },
   depositAmount: { label: "Refundable security deposit", hint: "Refundable at the end of the tenancy. When paid it is recorded as the deposit held for this tenant, never as rent income.", group: "movein" },
   leaseFee:      { label: "Lease agreement fee",         hint: "Once-off fee for preparing the tenancy agreement (clause 1.2 of the standard agreement). Landlord income.", group: "movein" },
 };
 
-const LINE_ORDER: LineKey[] = ["rentAmount", "serviceCharge", "otherCharges", "depositAmount", "leaseFee"];
+const LINE_ORDER: LineKey[] = ["rentAmount", "serviceCharge", "otherCharges", "wifiAmount", "depositAmount", "leaseFee"];
 
 const KIND_META: Record<InvoiceKind, { label: string; help: string }> = {
-  RENT:    { label: "Monthly rent", help: "The regular rent invoice: rent plus service charge." },
+  RENT:    { label: "Monthly rent", help: "The regular rent invoice: rent plus service charge and Wi-Fi." },
   MOVE_IN: { label: "Move-in",      help: "Matches the tenancy agreement's move-in schedule: first month's rent + refundable deposit + lease agreement fee, on one invoice." },
   DEPOSIT: { label: "Deposit only", help: "Bills the refundable security deposit on its own. It can sit beside the month's rent invoice." },
   CUSTOM:  { label: "Custom",       help: "Start from rent and add whichever lines you need." },
@@ -48,6 +49,7 @@ export interface InvoiceFormInvoice {
   rentAmount: number;
   serviceCharge: number;
   otherCharges: number;
+  wifiAmount?: number;
   depositAmount?: number;
   leaseFee?: number;
   lateFeeAmount?: number;
@@ -69,6 +71,7 @@ interface TenantDetail {
   id: string;
   monthlyRent: number;
   serviceCharge: number;
+  wifiCharge?: number;
   depositAmount: number;
   leaseStart: string;
   unit: { property: { id: string; currency: string | null } };
@@ -188,11 +191,12 @@ export default function InvoiceForm({
     if (isEdit || !detail) return;
     const rent = String(detail.monthlyRent ?? "");
     const sc = detail.serviceCharge > 0 ? String(detail.serviceCharge) : "";
+    const wifi = (detail.wifiCharge ?? 0) > 0 ? String(detail.wifiCharge) : "";
     const dep = detail.depositAmount > 0 ? String(detail.depositAmount) : "";
     const lease = defaults?.leaseFeeDefault ? String(defaults.leaseFeeDefault) : "";
-    if (kind === "RENT") setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}) });
+    if (kind === "RENT") setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}) });
     else if (kind === "MOVE_IN") {
-      setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), depositAmount: dep, leaseFee: lease });
+      setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}), depositAmount: dep, leaseFee: lease });
       // The move-in invoice bills the lease-start month.
       const ls = detail.leaseStart ? new Date(detail.leaseStart) : null;
       if (ls && !Number.isNaN(ls.getTime())) {
@@ -201,7 +205,7 @@ export default function InvoiceForm({
         setDueDate(format(ls, "yyyy-MM-dd"));
       }
     } else if (kind === "DEPOSIT") setLines({ depositAmount: dep });
-    else setLines((prev) => (Object.keys(prev).length ? prev : { rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}) }));
+    else setLines((prev) => (Object.keys(prev).length ? prev : { rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}) }));
     // Deliberately NOT keyed on `defaults`: the property's fee default arrives
     // a moment after the tenant detail and must only fill the lease-fee line
     // (below), never re-apply the preset and undo a month the user changed.
@@ -253,6 +257,7 @@ export default function InvoiceForm({
     const preset =
       k === "depositAmount" && detail ? String(detail.depositAmount || "") :
       k === "serviceCharge" && detail ? String(detail.serviceCharge || "") :
+      k === "wifiAmount" && detail ? String(detail.wifiCharge || "") :
       k === "rentAmount" && detail ? String(detail.monthlyRent || "") :
       k === "leaseFee" && defaults?.leaseFeeDefault ? String(defaults.leaseFeeDefault) : "";
     setLines((prev) => ({ ...prev, [k]: preset }));
@@ -402,7 +407,7 @@ export default function InvoiceForm({
                 <p className="text-caption text-gray-400 px-3 py-3">No lines yet — use “Add line”.</p>
               )}
               {activeLines.map((k) => (
-                <div key={k} className={`flex items-center gap-2 px-3 py-2 ${LINE_META[k].group === "movein" ? "bg-amber-50/40" : ""}`}>
+                <div key={k} className={`flex items-center gap-2 px-3 py-2 ${LINE_META[k].group === "movein" ? "bg-amber-50/40" : LINE_META[k].group === "utility" ? "bg-blue-50/40" : ""}`}>
                   <span className="flex items-center gap-1.5 flex-1 min-w-0 text-body text-gray-700">
                     <span className="truncate">{LINE_META[k].label}</span>
                     <HelpTip text={LINE_META[k].hint} />

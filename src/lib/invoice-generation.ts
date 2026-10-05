@@ -25,6 +25,7 @@ export interface InvoicingTenant {
   name: string;
   monthlyRent: number | null;
   serviceCharge: number;
+  wifiCharge?: number | null;
   leaseStart: Date;
   paymentFrequency?: string | null;
   rentHistory: { monthlyRent: number; effectiveDate: Date }[];
@@ -114,7 +115,9 @@ export async function generateInvoicesForTenants(opts: {
       const metered = utilities.get(tenant.id);
       const waterAmount = metered?.waterAmount ?? 0;
       const electricityAmount = metered?.electricityAmount ?? 0;
-      const totalAmount = invoiceLinesTotal({ rentAmount, serviceCharge, waterAmount, electricityAmount });
+      // Wi-Fi is billed like the service charge: the monthly charge × months covered.
+      const wifiAmount = (tenant.wifiCharge ?? 0) * nMonths;
+      const totalAmount = invoiceLinesTotal({ rentAmount, serviceCharge, waterAmount, electricityAmount, wifiAmount });
 
       const invoice = await prisma.invoice.create({
         data: {
@@ -127,6 +130,7 @@ export async function generateInvoicesForTenants(opts: {
           otherCharges: 0,
           waterAmount,
           electricityAmount,
+          wifiAmount,
           ...(metered ? { meterReadings: { connect: metered.readingIds.map((id) => ({ id })) } } : {}),
           totalAmount,
           dueDate,

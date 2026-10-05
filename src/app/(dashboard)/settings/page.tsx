@@ -116,6 +116,23 @@ export default function SettingsPage() {
     finally { setBrandingSaving(false); }
   }
 
+  const [caretakerMoneySaving, setCaretakerMoneySaving] = useState(false);
+  async function saveCaretakerMoney(on: boolean) {
+    if (!org) return;
+    setCaretakerMoneySaving(true);
+    try {
+      const res = await fetch(`/api/organizations/${org.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caretakersSeeTenantMoney: on }),
+      });
+      if (!res.ok) throw new Error();
+      setOrg((o: typeof org) => ({ ...o, caretakersSeeTenantMoney: on }));
+      toast.success(on ? "Caretakers can now see tenant balances" : "Tenant balances hidden from caretakers");
+    } catch { toast.error("Couldn't save the setting"); }
+    finally { setCaretakerMoneySaving(false); }
+  }
+
   async function uploadOrgLogo(file: File) {
     if (!org) return;
     setLogoUploading(true);
@@ -266,6 +283,29 @@ export default function SettingsPage() {
                         <p className="text-caption text-gray-400 ">KRA PIN and payment details are configured per-property under Properties → Agreement.</p>
                         {canEditSettings && <Button loading={brandingSaving} onClick={saveBranding}><Save size={14} /> Save details</Button>}
                       </div>
+                    </Card>
+
+                    {/* Caretaker access to tenant money */}
+                    <Card>
+                      <h3 className=" font-semibold text-header mb-2 flex items-center gap-2">
+                        <Settings size={16} className="text-gold" /> Caretakers
+                      </h3>
+                      <label className="flex items-start gap-3 text-body text-gray-700">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={!!org.caretakersSeeTenantMoney}
+                          disabled={!canEditSettings || caretakerMoneySaving}
+                          onChange={(e) => saveCaretakerMoney(e.target.checked)}
+                        />
+                        <span>
+                          Let caretakers see tenants&apos; rent, Wi-Fi, deposit and what they owe
+                          <span className="block text-caption text-gray-400 mt-0.5">
+                            Shown on the inspections they run, to tell a tenant what&apos;s outstanding.
+                            Deductions and deposit refunds stay with managers either way.
+                          </span>
+                        </span>
+                      </label>
                     </Card>
 
                     {/* Organisation logo */}

@@ -14,6 +14,7 @@ import {
 import { SignaturePad } from "./SignaturePad";
 import { KeysEditor } from "./KeysEditor";
 import { baselineFor, readError, type InspectionDto } from "./types";
+import { TenantMoneyCard } from "./TenantMoneyCard";
 
 interface PhotoState {
   localId: string;
@@ -243,6 +244,8 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
             )}
           </div>
         </div>
+
+        {inspection.tenantMoney && <TenantMoneyCard money={inspection.tenantMoney} />}
 
         {inspection.reviewNote && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-body text-amber-800">

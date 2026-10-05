@@ -1085,8 +1085,8 @@ interface StatementData {
   payouts: { id: string; amount: number; paidAt: string; method: string | null; reference: string | null }[];
   totalPaidOut: number;
   utilities?: {
-    waterCollected: number; electricityCollected: number; otherCollected: number;
-    waterCost: number; electricityCost: number; generatorCost: number; surplus: number;
+    waterCollected: number; electricityCollected: number; otherCollected: number; wifiCollected?: number;
+    waterCost: number; electricityCost: number; generatorCost: number; wifiCost?: number; surplus: number;
   } | null;
 }
 
@@ -1237,7 +1237,7 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
           {/* Utilities memo — already inside gross income and the deductions above */}
           {stmt.utilities && (
             <div className="mb-5 max-w-md rounded-lg bg-gray-50 px-3 py-2.5 space-y-1.5">
-              <p className="text-label uppercase text-gray-400">Water &amp; electricity — included above</p>
+              <p className="text-label uppercase text-gray-400">Utilities — included above</p>
               {stmt.utilities.waterCollected + stmt.utilities.waterCost > 0 && (
                 <div className="flex items-center justify-between text-caption text-gray-600">
                   <span>Water: collected {formatCurrency(stmt.utilities.waterCollected, stmt.currency)} · council {formatCurrency(stmt.utilities.waterCost, stmt.currency)}</span>
@@ -1252,6 +1252,12 @@ function OwnerStatementTab({ year, month, selectedId }: { year: string; month: s
                   <span className="tabular-nums">
                     {formatCurrency(stmt.utilities.electricityCollected - stmt.utilities.electricityCost - stmt.utilities.generatorCost, stmt.currency)}
                   </span>
+                </div>
+              )}
+              {(stmt.utilities.wifiCollected ?? 0) > 0 && (
+                <div className="flex items-center justify-between text-caption text-gray-600">
+                  <span>Wi-Fi: collected {formatCurrency(stmt.utilities.wifiCollected ?? 0, stmt.currency)} · provider {formatCurrency(stmt.utilities.wifiCost ?? 0, stmt.currency)}</span>
+                  <span className="tabular-nums">{formatCurrency((stmt.utilities.wifiCollected ?? 0) - (stmt.utilities.wifiCost ?? 0), stmt.currency)}</span>
                 </div>
               )}
               {stmt.utilities.otherCollected > 0 && (

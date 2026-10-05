@@ -443,6 +443,27 @@ async function main() {
   r = await submit(care, waterM2.id, 6, {}, inv, new Date().toISOString());
   check("the meter can be read again for the month (VOID row reused)", r.status === 201 && r.body.id === readingNew && r.body.consumption === 3, r);
 
+  // ── 9. Wi-Fi line (fixed monthly charge, booked like the utilities) ──────
+  console.log("\n— Wi-Fi");
+  r = await mgr.json(`/api/invoices/${mergedId}`, { method: "PATCH", json: { wifiAmount: 1500 } });
+  check("add a Wi-Fi line to the unpaid rent invoice", r.status === 200 && Number(r.body.totalAmount ?? r.body.invoice?.totalAmount) === 21500, r);
+  await mgr.json("/api/utilities/readings/approve", { method: "POST", json: { ids: [readingNew] } });
+  r = await mgr.json("/api/utilities/bill", { method: "POST", json: { propertyId: P, year: next.year, month: next.month } });
+  merged = await prisma.invoice.findUnique({ where: { id: mergedId } });
+  check("billing a reading onto it keeps the Wi-Fi line in the total (21,500 + water 450)",
+    r.status === 200 && Number(merged?.wifiAmount) === 1500 && Number(merged?.waterAmount) === 450 && Number(merged?.totalAmount) === 21950, merged);
+  r = await mgr.json(`/api/invoices/${mergedId}`, { method: "PATCH", json: { status: "PAID", paidAt: new Date().toISOString() } });
+  const wifiEntries = await prisma.incomeEntry.findMany({ where: { invoiceId: mergedId }, orderBy: { grossAmount: "desc" } });
+  const wifiSummary = wifiEntries.map((e) => `${e.type}${e.utilityType ? ":" + e.utilityType : ""}=${Number(e.grossAmount)}`).sort().join(" ");
+  check("paid: rent as rent, water and Wi-Fi as tagged utility recovery",
+    wifiSummary === "LONGTERM_RENT=20000 UTILITY_RECOVERY:WATER=450 UTILITY_RECOVERY:WIFI=1500", wifiSummary);
+  await prisma.tenant.update({ where: { id: t2.id }, data: { wifiCharge: 1500 } });
+  const after = next.month === 12 ? { year: next.year + 1, month: 1 } : { year: next.year, month: next.month + 1 };
+  r = await mgr.json("/api/invoices/bulk", { method: "POST", json: { year: after.year, month: after.month, propertyId: P } });
+  const genWifi = await prisma.invoice.findFirst({ where: { tenantId: t2.id, periodYear: after.year, periodMonth: after.month, rentAmount: { gt: 0 } } });
+  check("invoice generation bills the tenant's Wi-Fi charge", Number(genWifi?.wifiAmount) === 1500 && Number(genWifi?.totalAmount) === Number(genWifi?.rentAmount) + 1500 + Number(genWifi?.waterAmount) + Number(genWifi?.electricityAmount), genWifi);
+  await prisma.tenant.update({ where: { id: t2.id }, data: { wifiCharge: 0 } });
+
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
   if (failed.length) {

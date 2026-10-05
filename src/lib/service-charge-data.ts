@@ -72,7 +72,7 @@ export async function buildServiceChargeView(budget: BudgetRecord, asOf: Date = 
           select: {
             id: true, invoiceNumber: true, tenantId: true, periodYear: true, periodMonth: true, status: true,
             paidAmount: true, serviceChargeBudgetId: true, rentAmount: true, serviceCharge: true, otherCharges: true,
-            lateFeeAmount: true, waterAmount: true, electricityAmount: true, depositAmount: true, leaseFee: true,
+            lateFeeAmount: true, waterAmount: true, electricityAmount: true, wifiAmount: true, depositAmount: true, leaseFee: true,
           },
         },
       },

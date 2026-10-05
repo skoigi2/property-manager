@@ -13,6 +13,8 @@ const createSchema = z.object({
   rentAmount: z.number().min(0),
   serviceCharge: z.number().min(0).default(0),
   otherCharges: z.number().min(0).default(0),
+  // Monthly Wi-Fi charge — booked as UTILITY_RECOVERY / WIFI when paid.
+  wifiAmount: z.number().min(0).default(0),
   // Optional move-in lines (see Invoice model). Paid → typed income entries.
   depositAmount: z.number().min(0).default(0),
   leaseFee: z.number().min(0).default(0),

@@ -25,6 +25,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ token: s
       leaseFee: true,
       waterAmount: true,
       electricityAmount: true,
+      wifiAmount: true,
       lateFeeAmount: true,
       totalAmount: true,
       dueDate: true,

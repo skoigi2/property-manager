@@ -8,6 +8,7 @@ interface TenantRow {
   propertyName?: string;
   monthlyRent?: string | number;
   serviceCharge?: string | number;
+  wifiCharge?: string | number;
   depositAmount?: string | number;
   leaseStart?: string;
   leaseEnd?: string;
@@ -88,6 +89,9 @@ export async function POST(req: Request) {
       try {
         const monthlyRent = parseFloat(String(row.monthlyRent ?? 0)) || 0;
         const serviceCharge = parseFloat(String(row.serviceCharge ?? 0)) || 0;
+        // Wi-Fi column is newer than most sheets: blank means "leave as is".
+        const wifiRaw = row.wifiCharge === undefined || String(row.wifiCharge).trim() === "" ? null : parseFloat(String(row.wifiCharge));
+        const wifiCharge = wifiRaw !== null && Number.isFinite(wifiRaw) && wifiRaw >= 0 ? wifiRaw : null;
         const depositAmount = parseFloat(String(row.depositAmount ?? 0)) || 0;
         const leaseStart = row.leaseStart ? new Date(row.leaseStart) : new Date();
         const leaseEnd = row.leaseEnd ? new Date(row.leaseEnd) : null;
@@ -143,6 +147,7 @@ export async function POST(req: Request) {
             data: {
               monthlyRent,
               serviceCharge: serviceCharge || 0,
+              ...(wifiCharge !== null ? { wifiCharge } : {}),
               depositAmount: depositAmount || 0,
               leaseStart,
               leaseEnd,
@@ -196,6 +201,7 @@ export async function POST(req: Request) {
               unitId: unit.id,
               monthlyRent,
               serviceCharge: serviceCharge || 0,
+              wifiCharge: wifiCharge ?? 0,
               depositAmount: depositAmount || 0,
               leaseStart,
               leaseEnd,

@@ -74,13 +74,14 @@ export function downloadTenantsTemplate() {
     { header: "Parking Fee",       required: false, width: 14 },
     { header: "Deposit Received",  required: false, width: 16 },
     { header: "Deposit Received Date", required: false, width: 20 },
+    { header: "Wi-Fi",             required: false, width: 12 },
     { header: "Notes",             required: false, width: 40 },
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678", "MONTHLY",   5,  "PERCENT", "",   1,  "",           "",   50000, "2025-01-01", ""],
-    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432", "QUARTERLY", "", "",        "",   "",  "",           "",   "",    "",           "Pays Q1+Q2 together"],
-    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111", "MONTHLY",   "", "FIXED",   5000, 2,  "2027-06-01", 5000, 100000, "2025-06-01", "Parking bay 14 included"],
+    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678", "MONTHLY",   5,  "PERCENT", "",   1,  "",           "",   50000, "2025-01-01", 1500, ""],
+    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432", "QUARTERLY", "", "",        "",   "",  "",           "",   "",    "",           "",   "Pays Q1+Q2 together"],
+    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111", "MONTHLY",   "", "FIXED",   5000, 2,  "2027-06-01", 5000, 100000, "2025-06-01", "",   "Parking bay 14 included"],
   ];
 
   const instructions: (string | number)[][] = [
@@ -103,6 +104,7 @@ export function downloadTenantsTemplate() {
     ["Parking Fee",       "No",  "Number",       "Monthly parking line on the lease, if separate from rent"],
     ["Deposit Received",  "No",  "Number",       "Deposit cash ACTUALLY received (may be less than Deposit) — records a deposit receipt so settlements refund what was held, not the contractual figure"],
     ["Deposit Received Date", "No", "YYYY-MM-DD", "Date the deposit was received — defaults to Lease Start if blank"],
+    ["Wi-Fi",             "No",  "Number",       "Monthly Wi-Fi charge billed on each rent invoice — leave blank if none (blank keeps the current charge when updating)"],
     ["Notes",             "No",  "Text",         "Free-text notes — special clauses, status caveats, anything not captured above"],
   ];
 

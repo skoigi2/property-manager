@@ -21,6 +21,7 @@ type Invoice = {
   leaseFee?: number;
   waterAmount?: number;
   electricityAmount?: number;
+  wifiAmount?: number;
   lateFeeAmount?: number;
   totalAmount: number;
   dueDate: string;
@@ -807,7 +808,7 @@ export default function PortalPage(props: { params: Promise<{ token: string }> }
                               </span>
                             </div>
                           </div>
-                          {((inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0 || (inv.waterAmount ?? 0) > 0 || (inv.electricityAmount ?? 0) > 0) && (
+                          {((inv.depositAmount ?? 0) > 0 || (inv.leaseFee ?? 0) > 0 || (inv.waterAmount ?? 0) > 0 || (inv.electricityAmount ?? 0) > 0 || (inv.wifiAmount ?? 0) > 0) && (
                             <p className="text-caption text-gray-500 mb-2">
                               {[
                                 inv.rentAmount > 0 ? `Rent ${formatCurrency(inv.rentAmount, currency)}` : null,
@@ -815,6 +816,7 @@ export default function PortalPage(props: { params: Promise<{ token: string }> }
                                 inv.otherCharges > 0 ? `Other ${formatCurrency(inv.otherCharges, currency)}` : null,
                                 (inv.waterAmount ?? 0) > 0 ? `Water ${formatCurrency(inv.waterAmount!, currency)}` : null,
                                 (inv.electricityAmount ?? 0) > 0 ? `Electricity ${formatCurrency(inv.electricityAmount!, currency)}` : null,
+                                (inv.wifiAmount ?? 0) > 0 ? `Wi-Fi ${formatCurrency(inv.wifiAmount!, currency)}` : null,
                                 (inv.depositAmount ?? 0) > 0 ? `Refundable deposit ${formatCurrency(inv.depositAmount!, currency)}` : null,
                                 (inv.leaseFee ?? 0) > 0 ? `Lease agreement fee ${formatCurrency(inv.leaseFee!, currency)}` : null,
                               ].filter(Boolean).join(" · ")}

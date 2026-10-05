@@ -276,7 +276,7 @@ interface Invoice {
   id: string; invoiceNumber: string; periodYear: number; periodMonth: number;
   totalAmount: number; rentAmount: number; serviceCharge: number; otherCharges: number;
   depositAmount?: number; leaseFee?: number;
-  waterAmount?: number; electricityAmount?: number;
+  waterAmount?: number; electricityAmount?: number; wifiAmount?: number;
   dueDate: string; status: keyof typeof INVOICE_STATUS_CONFIG;
   paidAt?: string | null; paidAmount?: number | null;
   /** Latest payment — receipt link for PAID rows. */
@@ -365,6 +365,7 @@ export default function TenantDetailPage() {
       leaseEnd:         tenant.leaseEnd?.split("T")[0] ?? "",
       monthlyRent:      tenant.monthlyRent,
       serviceCharge:    tenant.serviceCharge,
+      wifiCharge:       tenant.wifiCharge ?? 0,
       isActive:         tenant.isActive,
       notes:            tenant.notes ?? "",
       paymentFrequency: tenant.paymentFrequency ?? undefined,
@@ -737,8 +738,9 @@ export default function TenantDetailPage() {
                 {[
                   { label: "Monthly Rent",  value: tenant.monthlyRent },
                   { label: "Service Charge", value: tenant.serviceCharge },
+                  ...((tenant.wifiCharge ?? 0) > 0 ? [{ label: "Wi-Fi", value: tenant.wifiCharge }] : []),
                   { label: "Deposit Held",   value: tenant.depositAmount },
-                  { label: "Total Monthly",  value: (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0) },
+                  { label: "Total Monthly",  value: (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0) + (tenant.wifiCharge ?? 0) },
                 ].map((item) => (
                   <div key={item.label}>
                     <p className="text-label text-gray-400 uppercase mb-1">{item.label}</p>

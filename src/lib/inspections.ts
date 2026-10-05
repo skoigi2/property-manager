@@ -6,6 +6,7 @@ import { getAccessiblePropertyIds, isSuperAdminSession, MANAGER_ROLES, isRoleAll
 import { getSignedUrl } from "@/lib/supabase-storage";
 import { seedItemsFromTemplate } from "@/lib/condition-report-template";
 import { normaliseKeys, keysState, type InspectionItem, type InspectionType } from "@/lib/inspection-rules";
+import { tenantMoneySummary, caretakersSeeMoney } from "@/lib/tenant-money";
 
 // Server side of inspection visits (condition reports run on site). Pure rules
 // live in src/lib/inspection-rules.ts.
@@ -81,6 +82,11 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
     }
   }
 
+  // Rent, Wi-Fi, deposit and balances: managers always; caretakers only when
+  // the organisation allows it (Organization.caretakersSeeTenantMoney).
+  const showMoney = !!report.tenantId && (manager || (await caretakersSeeMoney(report.property.organizationId)));
+  const tenantMoney = showMoney ? await tenantMoneySummary(report.tenantId!) : null;
+
   const t = report.tenant;
   return {
     id: report.id,
@@ -118,6 +124,7 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
     vaulted: !!report.tenantDocumentId,
     photos,
     baseline,
+    tenantMoney,
     viewer: { isManager: manager, userId: session.user.id },
   };
 }

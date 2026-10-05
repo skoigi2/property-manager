@@ -61,6 +61,8 @@ const updateSchema = z.object({
   mpesaAccountNumber:   z.string().optional().nullable(),
   mpesaTill:            z.string().optional().nullable(),
   paymentInstructions:  z.string().optional().nullable(),
+  // Caretakers may see tenants' rent, Wi-Fi, deposit and balances on inspections.
+  caretakersSeeTenantMoney: z.boolean().optional(),
   freeAccess:           z.boolean().optional(), // super-admin only
 });
 

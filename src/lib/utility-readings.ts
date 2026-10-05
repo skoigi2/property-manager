@@ -530,7 +530,7 @@ const INVOICE_LINES_SELECT = {
   id: true, invoiceNumber: true, status: true, paidAmount: true, tenantId: true,
   periodYear: true, periodMonth: true,
   rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
-  waterAmount: true, electricityAmount: true, depositAmount: true, leaseFee: true,
+  waterAmount: true, electricityAmount: true, wifiAmount: true, depositAmount: true, leaseFee: true,
   _count: { select: { incomeEntries: true } },
 } as const;
 
@@ -540,7 +540,7 @@ interface InvoiceLinesRow {
   id: string; invoiceNumber: string; status: string; paidAmount: number | null; tenantId: string;
   periodYear: number; periodMonth: number;
   rentAmount: number; serviceCharge: number; otherCharges: number; lateFeeAmount: number;
-  waterAmount: number; electricityAmount: number; depositAmount: number; leaseFee: number;
+  waterAmount: number; electricityAmount: number; wifiAmount: number; depositAmount: number; leaseFee: number;
   _count: { incomeEntries: number };
 }
 

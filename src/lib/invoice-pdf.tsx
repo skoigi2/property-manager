@@ -90,6 +90,8 @@ export type InvoiceData = {
   /** Metered utilities — rendered only when > 0. */
   waterAmount?: number;
   electricityAmount?: number;
+  /** Monthly Wi-Fi charge — rendered only when > 0. */
+  wifiAmount?: number;
   /**
    * One described line per attached meter reading ("Jun 26 Water: 3 units
    * (Prev: 176.00, Curr: 179.00) @ 175.00"). When absent the utility amount
@@ -121,7 +123,7 @@ export type InvoiceData = {
   /** What is still owed on the tenant's OTHER open invoices at generation time (net of part payments). */
   outstandingBalance?: number | null;
   /** The same figure split by line, so unpaid water / electricity bills are visible. */
-  outstandingBreakdown?: { rent: number; water: number; electricity: number; deposit: number; leaseFee: number } | null;
+  outstandingBreakdown?: { rent: number; water: number; electricity: number; wifi?: number; deposit: number; leaseFee: number } | null;
   tenant: {
     name: string;
     email?: string | null;
@@ -192,7 +194,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
   const outstanding = data.outstandingBalance ?? 0;
 
   const hasDeposit = (data.depositAmount ?? 0) > 0;
-  const hasUtilities = (data.waterAmount ?? 0) > 0 || (data.electricityAmount ?? 0) > 0;
+  const hasUtilities = (data.waterAmount ?? 0) > 0 || (data.electricityAmount ?? 0) > 0 || (data.wifiAmount ?? 0) > 0;
   // Metered utilities: one line per reading when the readings are known,
   // else a single row carrying the amount.
   const utilityRows = (utility: "WATER" | "ELECTRICITY", amount: number, fallback: string) => {
@@ -209,6 +211,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
         breakdown.rent > 0 ? `rent ${fmt(breakdown.rent)}` : null,
         breakdown.water > 0 ? `water ${fmt(breakdown.water)}` : null,
         breakdown.electricity > 0 ? `electricity ${fmt(breakdown.electricity)}` : null,
+        (breakdown.wifi ?? 0) > 0 ? `Wi-Fi ${fmt(breakdown.wifi!)}` : null,
         breakdown.deposit > 0 ? `deposit ${fmt(breakdown.deposit)}` : null,
         breakdown.leaseFee > 0 ? `lease fee ${fmt(breakdown.leaseFee)}` : null,
       ].filter(Boolean)
@@ -220,6 +223,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
     ...utilityRows("WATER", data.waterAmount ?? 0, "Water"),
     ...utilityRows("ELECTRICITY", data.electricityAmount ?? 0, "Electricity"),
+    ...((data.wifiAmount ?? 0) > 0 ? [{ label: "Wi-Fi", amount: data.wifiAmount! }] : []),
     ...(hasDeposit ? [{ label: "Refundable Security Deposit", amount: data.depositAmount! }] : []),
     ...((data.leaseFee ?? 0) > 0 ? [{ label: "Lease Agreement Fee", amount: data.leaseFee! }] : []),
     ...((data.lateFeeAmount ?? 0) > 0 ? [{ label: "Late Payment Fee", amount: data.lateFeeAmount! }] : []),
@@ -379,7 +383,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
                 {"  ·  Total including this invoice: "}
                 <Text style={{ fontFamily: "Helvetica-Bold" }}>{fmt(outstanding + data.totalAmount)}</Text>
               </Text>
-              {breakdownParts.length > 1 || (breakdown && breakdown.water + breakdown.electricity > 0) ? (
+              {breakdownParts.length > 1 || (breakdown && breakdown.water + breakdown.electricity + (breakdown.wifi ?? 0) > 0) ? (
                 <Text style={{ fontSize: 8, color: "#92400e", marginTop: 3 }}>
                   Unpaid from previous invoices: {breakdownParts.join("  ·  ")}
                 </Text>

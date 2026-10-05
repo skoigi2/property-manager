@@ -2,8 +2,8 @@
 //
 // An Invoice stores fixed line columns: rentAmount, serviceCharge,
 // otherCharges, lateFeeAmount (the "rent side") plus the metered utility lines
-// waterAmount / electricityAmount and the optional move-in lines
-// depositAmount and leaseFee. When money arrives against the
+// waterAmount / electricityAmount, the fixed monthly wifiAmount and the
+// optional move-in lines depositAmount and leaseFee. When money arrives against the
 // invoice it must be booked as TYPED income entries, otherwise a 77,000
 // move-in payment (25,000 rent + 50,000 deposit + 2,000 lease fee) reads as
 // 77,000 of rent: the deposit inflates gross income and the management-fee
@@ -12,9 +12,10 @@
 // Allocation order for a payment: rent side first (one LONGTERM_RENT entry —
 // rent + service charge + other + late fee stay lumped because the rent
 // ledger, src/lib/rent-ledger.ts, counts only LONGTERM_RENT against expected
-// rent + service charge), then water, then electricity (UTILITY_RECOVERY
-// entries tagged with the utility — never rent, so metered money stays out of
-// the rent ledger and the management-fee base), then DEPOSIT, then LEASE_FEE.
+// rent + service charge), then water, then electricity, then Wi-Fi
+// (UTILITY_RECOVERY entries tagged with the utility — never rent, so recovered
+// utility money stays out of the rent ledger and the management-fee base),
+// then DEPOSIT, then LEASE_FEE.
 // A short payment leaves the tail lines unpaid; the next payment continues
 // from where the previous ones stopped (`alreadyPaid` walks the same order).
 // Because the walk is fixed, an invoice's utility lines must not change once
@@ -23,7 +24,7 @@
 // Pure module — the Prisma side lives in src/lib/invoice-payment-entries.ts.
 
 export type InvoicePaymentType = "LONGTERM_RENT" | "UTILITY_RECOVERY" | "DEPOSIT" | "LEASE_FEE";
-export type InvoiceUtility = "WATER" | "ELECTRICITY";
+export type InvoiceUtility = "WATER" | "ELECTRICITY" | "WIFI";
 
 export interface InvoiceLinesLike {
   rentAmount: number;
@@ -32,6 +33,7 @@ export interface InvoiceLinesLike {
   lateFeeAmount?: number | null;
   waterAmount?: number | null;
   electricityAmount?: number | null;
+  wifiAmount?: number | null;
   depositAmount?: number | null;
   leaseFee?: number | null;
 }
@@ -57,9 +59,14 @@ export function invoiceRentSide(inv: InvoiceLinesLike): number {
   );
 }
 
-/** Metered utilities billed on the invoice (water + electricity). */
+/** Metered utilities billed on the invoice (water + electricity) — not Wi-Fi. */
 export function invoiceUtilitiesTotal(inv: InvoiceLinesLike): number {
   return round2((inv.waterAmount ?? 0) + (inv.electricityAmount ?? 0));
+}
+
+/** Every recovery line booked as UTILITY_RECOVERY: water + electricity + Wi-Fi. */
+export function invoiceRecoveriesTotal(inv: InvoiceLinesLike): number {
+  return round2(invoiceUtilitiesTotal(inv) + (inv.wifiAmount ?? 0));
 }
 
 /** Sum of every line — what Invoice.totalAmount must equal. */
@@ -68,6 +75,7 @@ export function invoiceLinesTotal(inv: InvoiceLinesLike): number {
     invoiceRentSide(inv) +
       (inv.waterAmount ?? 0) +
       (inv.electricityAmount ?? 0) +
+      (inv.wifiAmount ?? 0) +
       (inv.depositAmount ?? 0) +
       (inv.leaseFee ?? 0),
   );
@@ -85,7 +93,7 @@ export function invoiceHasMoveInLines(inv: InvoiceLinesLike): boolean {
  * rent ledger and the management-fee base.
  */
 export function invoiceHasNonRentLines(inv: InvoiceLinesLike): boolean {
-  return invoiceHasMoveInLines(inv) || invoiceUtilitiesTotal(inv) > 0;
+  return invoiceHasMoveInLines(inv) || invoiceRecoveriesTotal(inv) > 0;
 }
 
 /**
@@ -99,6 +107,7 @@ export function invoicePaymentBuckets(inv: InvoiceLinesLike): PaymentAllocation[
   if (rentSide > 0) buckets.push({ type: "LONGTERM_RENT", amount: round2(rentSide) });
   if ((inv.waterAmount ?? 0) > 0) buckets.push({ type: "UTILITY_RECOVERY", utility: "WATER", amount: round2(inv.waterAmount!) });
   if ((inv.electricityAmount ?? 0) > 0) buckets.push({ type: "UTILITY_RECOVERY", utility: "ELECTRICITY", amount: round2(inv.electricityAmount!) });
+  if ((inv.wifiAmount ?? 0) > 0) buckets.push({ type: "UTILITY_RECOVERY", utility: "WIFI", amount: round2(inv.wifiAmount!) });
   if ((inv.depositAmount ?? 0) > 0) buckets.push({ type: "DEPOSIT", amount: round2(inv.depositAmount!) });
   if ((inv.leaseFee ?? 0) > 0) buckets.push({ type: "LEASE_FEE", amount: round2(inv.leaseFee!) });
   return buckets;
@@ -157,6 +166,7 @@ export interface InvoiceOutstanding {
   rent: number;
   water: number;
   electricity: number;
+  wifi: number;
   deposit: number;
   leaseFee: number;
   total: number;
@@ -168,7 +178,7 @@ export interface InvoiceOutstanding {
  * unpaid tail is where unpaid water / electricity shows up.
  */
 export function invoiceOutstandingByBucket(inv: InvoiceLinesLike, paid: number | null | undefined): InvoiceOutstanding {
-  const res: InvoiceOutstanding = { rent: 0, water: 0, electricity: 0, deposit: 0, leaseFee: 0, total: 0 };
+  const res: InvoiceOutstanding = { rent: 0, water: 0, electricity: 0, wifi: 0, deposit: 0, leaseFee: 0, total: 0 };
   let consumed = Math.max(paid ?? 0, 0);
   for (const b of invoicePaymentBuckets(inv)) {
     const open = round2(Math.max(b.amount - consumed, 0));
@@ -177,11 +187,12 @@ export function invoiceOutstandingByBucket(inv: InvoiceLinesLike, paid: number |
     if (b.type === "LONGTERM_RENT") res.rent = open;
     else if (b.type === "UTILITY_RECOVERY") {
       if (b.utility === "WATER") res.water = open;
-      else res.electricity = open;
+      else if (b.utility === "ELECTRICITY") res.electricity = open;
+      else res.wifi = open;
     } else if (b.type === "DEPOSIT") res.deposit = open;
     else res.leaseFee = open;
   }
-  res.total = round2(res.rent + res.water + res.electricity + res.deposit + res.leaseFee);
+  res.total = round2(res.rent + res.water + res.electricity + res.wifi + res.deposit + res.leaseFee);
   return res;
 }
 
@@ -193,7 +204,7 @@ export function describeAllocation(parts: PaymentAllocation[], fmt: (n: number) 
     DEPOSIT: "deposit",
     LEASE_FEE: "lease fee",
   };
-  const utilityLabel: Record<InvoiceUtility, string> = { WATER: "water", ELECTRICITY: "electricity" };
+  const utilityLabel: Record<InvoiceUtility, string> = { WATER: "water", ELECTRICITY: "electricity", WIFI: "Wi-Fi" };
   return parts
     .map((p) => `${p.utility ? utilityLabel[p.utility] : label[p.type]} ${fmt(p.amount)}`)
     .join(" · ");

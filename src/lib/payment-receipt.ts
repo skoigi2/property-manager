@@ -96,7 +96,7 @@ const TYPE_LABEL: Record<string, string> = {
   OTHER: "Other charges",
 };
 
-const UTILITY_LABEL: Record<string, string> = { WATER: "Water", ELECTRICITY: "Electricity" };
+const UTILITY_LABEL: Record<string, string> = { WATER: "Water", ELECTRICITY: "Electricity", WIFI: "Wi-Fi" };
 
 export function receiptTypeLabel(type: string, utilityType?: string | null): string {
   if (type === "UTILITY_RECOVERY" && utilityType && UTILITY_LABEL[utilityType]) return UTILITY_LABEL[utilityType];

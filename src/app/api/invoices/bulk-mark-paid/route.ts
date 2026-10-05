@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     select: {
       id: true, invoiceNumber: true, status: true, totalAmount: true, paidAmount: true,
       rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
-      waterAmount: true, electricityAmount: true,
+      waterAmount: true, electricityAmount: true, wifiAmount: true,
       depositAmount: true, leaseFee: true,
       caseThreadId: true, tenantId: true,
       tenant: { select: { id: true, name: true, isTaxExempt: true, unit: { select: { id: true, propertyId: true, property: { select: { organizationId: true } } } } } },
@@ -82,6 +82,7 @@ export async function POST(req: Request) {
         lateFeeAmount: inv.lateFeeAmount,
         waterAmount: inv.waterAmount,
         electricityAmount: inv.electricityAmount,
+        wifiAmount: inv.wifiAmount,
         depositAmount: inv.depositAmount,
         leaseFee: inv.leaseFee,
       };

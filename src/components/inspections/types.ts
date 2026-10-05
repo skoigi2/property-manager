@@ -38,6 +38,17 @@ export interface InspectionDto {
   vaulted: boolean;
   photos: { id: string; fileName: string; uploadedAt: string; url: string | null }[];
   baseline: { id: string; reportDate: string; items: InspectionItem[]; photos: { id: string; url: string | null }[] } | null;
+  /** Present for managers, and for caretakers when the organisation allows it. */
+  tenantMoney: {
+    currency: string;
+    monthlyRent: number;
+    serviceCharge: number;
+    wifiCharge: number;
+    depositContractual: number;
+    depositReceived: number | null;
+    outstanding: { rent: number; water: number; electricity: number; wifi: number; deposit: number; leaseFee: number; total: number };
+    overdueInvoices: number;
+  } | null;
   viewer: { isManager: boolean; userId: string };
 }
 

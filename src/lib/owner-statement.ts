@@ -35,9 +35,12 @@ export interface OwnerStatementUtilities {
   electricityCollected: number;
   /** Utility recovery recorded without saying which utility. */
   otherCollected:       number;
+  wifiCollected:        number;
   waterCost:            number;
   electricityCost:      number;
   generatorCost:        number;
+  /** WIFI expenses — counted only when Wi-Fi was recovered from tenants this period. */
+  wifiCost:             number;
   /** collected − costs: the borehole / power surplus that goes to the owner. */
   surplus:              number;
 }
@@ -237,15 +240,19 @@ export async function buildOwnerStatements(
     const sumBy = (rows: { grossAmount: number }[]) => rows.reduce((s, e) => s + e.grossAmount, 0);
     const costOf = (category: string) => propExpenses.filter(e => e.category === category).reduce((s, e) => s + e.amount, 0);
     const utilCollected = sumBy(utilIncome);
-    const utilCost = costOf("WATER") + costOf("ELECTRICITY") + costOf("GENERATOR");
+    const wifiCollected = sumBy(utilIncome.filter(e => e.utilityType === "WIFI"));
+    const wifiCost = wifiCollected > 0 ? costOf("WIFI") : 0;
+    const utilCost = costOf("WATER") + costOf("ELECTRICITY") + costOf("GENERATOR") + wifiCost;
     const utilities: OwnerStatementUtilities | null = utilCollected > 0 || utilCost > 0
       ? {
           waterCollected:       sumBy(utilIncome.filter(e => e.utilityType === "WATER")),
           electricityCollected: sumBy(utilIncome.filter(e => e.utilityType === "ELECTRICITY")),
           otherCollected:       sumBy(utilIncome.filter(e => !e.utilityType)),
+          wifiCollected,
           waterCost:            costOf("WATER"),
           electricityCost:      costOf("ELECTRICITY"),
           generatorCost:        costOf("GENERATOR"),
+          wifiCost,
           surplus:              utilCollected - utilCost,
         }
       : null;

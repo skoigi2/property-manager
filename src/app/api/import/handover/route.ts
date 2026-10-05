@@ -304,6 +304,7 @@ export async function POST(req: Request) {
           phone:         str(row["Phone"]) || null,
           monthlyRent:   num(money(row, "Monthly Rent")),
           serviceCharge: num(money(row, "Service Charge")),
+          wifiCharge:    num(money(row, "Wi-Fi")),
           depositAmount: num(money(row, "Deposit")),
           leaseStart,
           leaseEnd,

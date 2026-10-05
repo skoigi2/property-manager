@@ -330,6 +330,7 @@ export default function TenantsPage() {
       leaseEnd:         tenant.leaseEnd?.split("T")[0] ?? "",
       monthlyRent:      tenant.monthlyRent,
       serviceCharge:    tenant.serviceCharge,
+      wifiCharge:       tenant.wifiCharge ?? 0,
       isActive:         tenant.isActive,
       notes:            tenant.notes ?? "",
       paymentFrequency: tenant.paymentFrequency ?? undefined,

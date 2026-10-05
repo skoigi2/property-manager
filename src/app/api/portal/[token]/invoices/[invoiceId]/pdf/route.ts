@@ -73,6 +73,7 @@ export async function GET(
     lateFeeAmount: invoice.lateFeeAmount,
     waterAmount: invoice.waterAmount,
     electricityAmount: invoice.electricityAmount,
+    wifiAmount: invoice.wifiAmount,
     utilityLines: utilities.utilityLines,
     totalAmount: invoice.totalAmount,
     dueDate: invoice.dueDate,

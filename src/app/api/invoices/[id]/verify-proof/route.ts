@@ -129,6 +129,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     lateFeeAmount: invoice.lateFeeAmount,
     waterAmount: invoice.waterAmount,
     electricityAmount: invoice.electricityAmount,
+    wifiAmount: invoice.wifiAmount,
     depositAmount: invoice.depositAmount,
     leaseFee: invoice.leaseFee,
   };

@@ -13,6 +13,7 @@ import { INSPECTION_TYPE_LABEL, INSPECTION_STATUS_LABEL, type InspectionKey, typ
 import { KeysEditor } from "./KeysEditor";
 import { statusClass } from "./InspectionWalkthrough";
 import { baselineFor, readError, type InspectionDto } from "./types";
+import { TenantMoneyCard } from "./TenantMoneyCard";
 
 type NoteDialog = { action: InspectionAction; title: string; label: string; required: boolean; confirm: string } | null;
 
@@ -90,6 +91,8 @@ export function InspectionReview({ inspection, onChanged }: { inspection: Inspec
             {damaged > 0 && <Badge variant="red">{damaged} damaged</Badge>}
           </div>
         </div>
+
+        {r.tenantMoney && <TenantMoneyCard money={r.tenantMoney} />}
 
         {r.editRequestedAt && (
           <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-body text-red-800">

@@ -51,6 +51,7 @@ interface Invoice {
   leaseFee?: number;
   waterAmount?: number;
   electricityAmount?: number;
+  wifiAmount?: number;
   lateFeeAmount?: number;
   lateFeeAppliedAt?: string | null;
   totalAmount: number;

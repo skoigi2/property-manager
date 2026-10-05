@@ -1787,12 +1787,13 @@ export default function IncomePage() {
                   {incomeType === "UTILITY_RECOVERY" && (
                     <Select
                       label="Which utility?"
-                      tooltip="Water or electricity. It decides where this money shows on the Utilities reconciliation. Metered bills on an invoice are split automatically — pick one here only for a payment you are recording by hand."
+                      tooltip="Water, electricity or Wi-Fi. It decides where this money shows on the Utilities reconciliation. Utility lines on an invoice are split automatically — pick one here only for a payment you are recording by hand."
                       placeholder="Pick one"
                       {...register("utilityType")}
                       options={[
                         { value: "WATER", label: "Water" },
                         { value: "ELECTRICITY", label: "Electricity" },
+                        { value: "WIFI", label: "Wi-Fi" },
                       ]}
                     />
                   )}

@@ -6,14 +6,19 @@ const LGRAY = "#9ca3af";
 const RED   = "#dc2626";
 const AMBER = "#d97706";
 
-function shell(heading: string, headingColor: string, body: string): string {
+function shell(
+  heading: string,
+  headingColor: string,
+  body: string,
+  footer = "You receive these alerts because you manage this property on GroundWorkPM.",
+): string {
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
       <h2 style="color:${headingColor};font-size:20px;margin-bottom:6px;">${heading}</h2>
       ${body}
       <hr style="border:none;border-top:1px solid #f3f4f6;margin:24px 0;" />
       <p style="color:${LGRAY};font-size:11px;margin:0;">
-        You receive these alerts because you manage this property on GroundWorkPM.
+        ${footer}
       </p>
     </div>`;
 }
@@ -380,5 +385,148 @@ export function ownerMonthlyReportTemplate(data: {
     ${note}`,
   );
 
+  return { subject, html };
+}
+
+// ─── Inspections ──────────────────────────────────────────────────────────────
+
+const STAFF_FOOTER = "You receive these alerts because you work on this property on GroundWorkPM.";
+
+type InspectionRef = {
+  inspectionId: string;
+  typeLabel: string;           // "Move-in"
+  propertyName: string;
+  unitRef: string;
+  tenantName: string | null;
+  scheduledFor: string | null; // already formatted
+};
+
+function inspectionRows(d: InspectionRef): string {
+  return `<table style="border-collapse:collapse;margin-bottom:4px;">
+      ${row("Inspection", `${escapeHtml(d.typeLabel)} inspection`)}
+      ${row("Property", escapeHtml(d.propertyName))}
+      ${row("Unit", escapeHtml(d.unitRef))}
+      ${row("Tenant", d.tenantName ? escapeHtml(d.tenantName) : "—")}
+      ${d.scheduledFor ? row("When", escapeHtml(d.scheduledFor)) : ""}
+    </table>`;
+}
+
+function quote(text: string): string {
+  return `<p style="color:#111827;font-size:13px;line-height:1.6;background:#f9fafb;padding:10px 12px;border-radius:6px;white-space:pre-wrap;">${escapeHtml(text.slice(0, 1500))}</p>`;
+}
+
+export function inspectionAssignedTemplate(d: InspectionRef & { assignedByName: string }): { subject: string; html: string } {
+  const subject = `${d.typeLabel} inspection — Unit ${d.unitRef}, ${d.propertyName}`;
+  const html = shell(
+    "An inspection was assigned to you",
+    NAVY,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      ${escapeHtml(d.assignedByName)} assigned you this inspection.
+    </p>
+    ${inspectionRows(d)}
+    ${cta("Open inspection", `${APP_URL}/inspections/${d.inspectionId}`)}`,
+    STAFF_FOOTER,
+  );
+  return { subject, html };
+}
+
+export function inspectionSubmittedTemplate(d: InspectionRef & {
+  submittedByName: string;
+  damaged: { room: string; feature: string; notes?: string }[];
+  tenantIssues: string | null;
+  tenantSignOff: "SIGNED" | "ABSENT" | "REFUSED" | null;
+  tenantDisagrees: boolean;
+  tenantComments: string | null;
+  midTermDamage: boolean;
+}): { subject: string; html: string } {
+  const subject = d.midTermDamage
+    ? `Damage found at mid-term inspection — Unit ${d.unitRef}, ${d.propertyName}`
+    : `${d.typeLabel} inspection ready for review — Unit ${d.unitRef}, ${d.propertyName}`;
+  const signOff = d.tenantSignOff === "SIGNED" ? "Signed"
+    : d.tenantSignOff === "ABSENT" ? "Tenant not present"
+    : d.tenantSignOff === "REFUSED" ? "Tenant declined to sign" : "—";
+  const damage = d.damaged.length
+    ? `<p style="color:${RED};font-size:14px;font-weight:600;margin:16px 0 6px;">Damage recorded (${d.damaged.length})</p>
+       <ul style="color:#111827;font-size:13px;line-height:1.6;padding-left:18px;margin:0;">
+         ${d.damaged.slice(0, 15).map((i) => `<li>${escapeHtml(i.room)} — ${escapeHtml(i.feature)}${i.notes ? `: ${escapeHtml(i.notes)}` : ""}</li>`).join("")}
+       </ul>`
+    : "";
+  const html = shell(
+    d.midTermDamage ? "Damage found at a mid-term inspection" : "Inspection handed in",
+    d.midTermDamage ? RED : AMBER,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      ${escapeHtml(d.submittedByName)} handed in this inspection. Review it, then accept it or send it back.
+    </p>
+    ${inspectionRows(d)}
+    <table style="border-collapse:collapse;">${row("Tenant sign-off", signOff + (d.tenantDisagrees ? " · disagrees" : ""))}</table>
+    ${damage}
+    ${d.tenantIssues ? `<p style="color:${AMBER};font-size:14px;font-weight:600;margin:16px 0 6px;">Issues the tenant raised</p>${quote(d.tenantIssues)}` : ""}
+    ${d.tenantComments ? `<p style="color:${GRAY};font-size:14px;font-weight:600;margin:16px 0 6px;">Tenant's comments</p>${quote(d.tenantComments)}` : ""}
+    ${cta("Review inspection", `${APP_URL}/inspections/${d.inspectionId}`)}`,
+  );
+  return { subject, html };
+}
+
+/** Caretaker-facing follow-ups: keys cleared, report sent back, correction decided. */
+export function inspectionUpdateTemplate(d: InspectionRef & {
+  kind: "keys_cleared" | "sent_back" | "edit_approved" | "edit_declined";
+  byName: string;
+  note: string | null;
+}): { subject: string; html: string } {
+  const copy = {
+    keys_cleared: { title: "Keys can be handed over", line: "confirmed the deposit and first rent. You can hand the keys to the tenant and record them on the inspection.", color: "#16a34a" },
+    sent_back: { title: "Inspection sent back to you", line: "sent this inspection back. Make the changes below and hand it in again.", color: AMBER },
+    edit_approved: { title: "Correction approved", line: "approved your correction. The inspection is open for editing again.", color: NAVY },
+    edit_declined: { title: "Correction declined", line: "declined your correction.", color: GRAY },
+  }[d.kind];
+  const subject = `${copy.title} — Unit ${d.unitRef}, ${d.propertyName}`;
+  const html = shell(
+    copy.title,
+    copy.color,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">${escapeHtml(d.byName)} ${copy.line}</p>
+    ${inspectionRows(d)}
+    ${d.note ? quote(d.note) : ""}
+    ${cta("Open inspection", `${APP_URL}/inspections/${d.inspectionId}`)}`,
+    STAFF_FOOTER,
+  );
+  return { subject, html };
+}
+
+export function inspectionEditRequestedTemplate(d: InspectionRef & { requestedByName: string; reason: string }): { subject: string; html: string } {
+  const subject = `Correction requested — ${d.typeLabel} inspection, Unit ${d.unitRef}`;
+  const html = shell(
+    "A correction was requested",
+    AMBER,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      ${escapeHtml(d.requestedByName)} wants to correct a handed-in inspection. Approve to reopen it, or decline.
+    </p>
+    ${inspectionRows(d)}
+    ${quote(d.reason)}
+    ${cta("Review request", `${APP_URL}/inspections/${d.inspectionId}`)}`,
+  );
+  return { subject, html };
+}
+
+/** The accepted report, sent to the tenant by a manager (PDF attached). */
+export function inspectionReportToTenantTemplate(d: {
+  tenantName: string;
+  typeLabel: string;
+  propertyName: string;
+  unitRef: string;
+  orgName: string;
+  message: string | null;
+}): { subject: string; html: string } {
+  const subject = `Your ${d.typeLabel.toLowerCase()} condition report — Unit ${d.unitRef}, ${d.propertyName}`;
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:${NAVY};font-size:20px;margin-bottom:6px;">Your condition report</h2>
+      <p style="color:#111827;font-size:14px;line-height:1.6;">Dear ${escapeHtml(d.tenantName)},</p>
+      <p style="color:#111827;font-size:14px;line-height:1.6;">
+        Attached is the ${escapeHtml(d.typeLabel.toLowerCase())} condition report for Unit ${escapeHtml(d.unitRef)}, ${escapeHtml(d.propertyName)}, with the photos taken during the inspection.
+      </p>
+      ${d.message ? quote(d.message) : ""}
+      <p style="color:#111827;font-size:14px;line-height:1.6;">If anything in it looks wrong, please reply to this email.</p>
+      <p style="color:${GRAY};font-size:13px;margin-top:20px;">${escapeHtml(d.orgName)}</p>
+    </div>`;
   return { subject, html };
 }

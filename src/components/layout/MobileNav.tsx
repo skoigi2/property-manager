@@ -17,6 +17,7 @@ import {
   MessageSquareWarning,
   Gauge,
   Calculator,
+  ClipboardCheck,
 } from "lucide-react";
 
 interface NavItem {
@@ -49,18 +50,19 @@ const ownerItems: NavItem[] = [
   { href: "/report", label: "Report", icon: FileText },
 ];
 
-// On-site CARETAKER: expenses, maintenance, vendors — nothing else.
+// On-site CARETAKER: the on-site jobs, nothing financial beyond expenses.
 const caretakerPrimary: NavItem[] = [
   { href: "/maintenance", label: "Maintenance", icon: Wrench },
+  { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
   { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
   { href: "/expenses",    label: "Expenses",    icon: Receipt },
-  { href: "/vendors",     label: "Vendors",     icon: Building2 },
 ];
 const caretakerDrawerSections: DrawerSection[] = [
   {
     heading: "Operations",
     items: [
       { href: "/utilities", label: "Meter readings", icon: Gauge },
+      { href: "/vendors",   label: "Vendors",        icon: Building2 },
     ],
   },
   {
@@ -104,6 +106,7 @@ const mgrDrawerSections: DrawerSection[] = [
       { href: "/cases",       label: "Cases",       icon: Briefcase },
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
+      { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
       { href: "/utilities",   label: "Utilities",   icon: Gauge },
       { href: "/assets",      label: "Assets",      icon: Package },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
@@ -156,6 +159,7 @@ const accountantDrawerSections: DrawerSection[] = [
       { href: "/cases",       label: "Cases",       icon: Briefcase },
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
+      { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
       { href: "/utilities",   label: "Utilities",   icon: Gauge },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/compliance",  label: "Compliance",  icon: BarChart3 },

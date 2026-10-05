@@ -1,28 +1,20 @@
-import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireOpsStaffWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { deleteFromStorage } from "@/lib/supabase-storage";
+import { loadInspection } from "@/lib/inspections";
+import { canEditObservations } from "@/lib/inspection-rules";
 
 export async function DELETE(_req: Request, props: { params: Promise<{ id: string; photoId: string }> }) {
   const params = await props.params;
-  const { error } = await requireManagerWrite();
+  const { error } = await requireOpsStaffWrite();
   if (error) return error;
-
-  const propertyIds = await getAccessiblePropertyIds();
-  if (!propertyIds) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
-  const photo = await prisma.conditionReportPhoto.findUnique({
-    where: { id: params.photoId },
-    include: { report: { select: { id: true, propertyId: true, tenantDocumentId: true } } },
-  });
-  if (!photo || photo.reportId !== params.id) {
-    return Response.json({ error: "Not found" }, { status: 404 });
+  const loaded = await loadInspection(params.id);
+  if (!loaded.ok) return Response.json({ error: loaded.error }, { status: loaded.status });
+  if (!canEditObservations(loaded.report.status)) {
+    return Response.json({ error: "This inspection has been handed in — its photos are locked." }, { status: 409 });
   }
-  if (!propertyIds.includes(photo.report.propertyId)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-  if (photo.report.tenantDocumentId) {
-    return Response.json({ error: "Report finalised — cannot delete photos" }, { status: 409 });
-  }
+  const photo = loaded.report.photos.find((p) => p.id === params.photoId);
+  if (!photo) return Response.json({ error: "Not found" }, { status: 404 });
 
   try { await deleteFromStorage(photo.storagePath); } catch { /* best-effort */ }
   await prisma.conditionReportPhoto.delete({ where: { id: photo.id } });

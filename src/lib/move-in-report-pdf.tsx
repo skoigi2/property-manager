@@ -89,6 +89,18 @@ export type ConditionReportPdfData = {
     overallComments?: string | null;
     signedByTenant: boolean;
     signedByManager: boolean;
+    /** Who ran the inspection on site (submitted it). */
+    inspectorName?: string | null;
+    /** Keys handed over (move-in) or returned (move-out). */
+    keys?: { label: string; count: number }[];
+    tenantIssues?: string | null;
+    tenantSignOff?: "SIGNED" | "ABSENT" | "REFUSED" | null;
+    tenantSignedName?: string | null;
+    tenantSignedAt?: Date | string | null;
+    /** Signed URL of the signature captured on the phone. */
+    tenantSignatureUrl?: string | null;
+    tenantDisagrees?: boolean;
+    tenantComments?: string | null;
   };
   /** Resolved (signed-URL) photos, in upload order, paired with the item that owns each. */
   photos: ConditionPdfPhoto[];
@@ -177,6 +189,12 @@ function ReportPDF({ data }: { data: ConditionReportPdfData }) {
               <Text style={styles.fieldLabel}>Report Date:</Text>
               <Text style={styles.fieldValue}>{reportDate}</Text>
             </View>
+            {report.inspectorName ? (
+              <View style={styles.fieldRow}>
+                <Text style={styles.fieldLabel}>Inspected by:</Text>
+                <Text style={styles.fieldValue}>{report.inspectorName}</Text>
+              </View>
+            ) : null}
             {property.address ? (
               <View style={styles.fieldRow}>
                 <Text style={styles.fieldLabel}>Property:</Text>
@@ -257,25 +275,96 @@ function ReportPDF({ data }: { data: ConditionReportPdfData }) {
           </>
         ) : null}
 
+        {report.keys && report.keys.length > 0 ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>
+                {report.reportType === "MOVE_OUT" ? "Keys Returned" : "Keys Handed Over"}
+              </Text>
+            </View>
+            {report.keys.map((k) => (
+              <View key={k.label} style={styles.fieldRow}>
+                <Text style={styles.fieldLabel}>{k.label}:</Text>
+                <Text style={styles.fieldValue}>{k.count}</Text>
+              </View>
+            ))}
+          </>
+        ) : null}
+
+        {report.tenantIssues ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>Issues Raised by the Tenant</Text>
+            </View>
+            <View style={styles.notesBox}>
+              <Text style={styles.body} hyphenationCallback={noHyphenation}>{report.tenantIssues}</Text>
+            </View>
+          </>
+        ) : null}
+
+        {report.tenantDisagrees || report.tenantComments ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>
+                {report.tenantDisagrees ? "Tenant Disagrees — Tenant's Comments" : "Tenant's Comments"}
+              </Text>
+            </View>
+            <View style={styles.notesBox}>
+              <Text style={styles.body} hyphenationCallback={noHyphenation}>{report.tenantComments || "—"}</Text>
+            </View>
+          </>
+        ) : null}
+
         {/* Signatures */}
-        <View style={styles.signatureBlock}>
+        <View style={styles.signatureBlock} wrap={false}>
           <View style={styles.signatureCol}>
             <Text style={styles.signatureLabel}>TENANT SIGNATURE:</Text>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureSub}>Signed{report.signedByTenant ? " — confirmed in system" : ""}</Text>
-            <View style={[styles.signatureLine, { marginTop: 14 }]} />
-            <Text style={styles.signatureSub}>Print Name</Text>
-            <View style={[styles.signatureLine, { marginTop: 14 }]} />
-            <Text style={styles.signatureSub}>Date</Text>
+            {report.tenantSignOff === "SIGNED" && report.tenantSignatureUrl ? (
+              <>
+                {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                <Image src={report.tenantSignatureUrl} style={{ height: 48, objectFit: "contain", objectPositionX: 0, marginTop: -12 }} />
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureSub}>{"Signed on the inspector's device"}</Text>
+                <Text style={[styles.body, { marginTop: 8 }]}>{report.tenantSignedName ?? ""}</Text>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureSub}>Print Name</Text>
+                <Text style={[styles.body, { marginTop: 8 }]}>
+                  {report.tenantSignedAt ? format(new Date(report.tenantSignedAt), "d MMM yyyy, HH:mm") : ""}
+                </Text>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureSub}>Date</Text>
+              </>
+            ) : report.tenantSignOff === "ABSENT" || report.tenantSignOff === "REFUSED" ? (
+              <Text style={[styles.body, { fontStyle: "italic" }]}>
+                {report.tenantSignOff === "ABSENT"
+                  ? "The tenant was not present at the inspection."
+                  : "The tenant declined to sign."}
+              </Text>
+            ) : (
+              <>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureSub}>Signed{report.signedByTenant ? " — confirmed in system" : ""}</Text>
+                <View style={[styles.signatureLine, { marginTop: 14 }]} />
+                <Text style={styles.signatureSub}>Print Name</Text>
+                <View style={[styles.signatureLine, { marginTop: 14 }]} />
+                <Text style={styles.signatureSub}>Date</Text>
+              </>
+            )}
           </View>
           <View style={styles.signatureCol}>
-            <Text style={styles.signatureLabel}>LANDLORD/AGENT SIGNATURE:</Text>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureSub}>Signed{report.signedByManager ? " — confirmed in system" : ""}</Text>
-            <View style={[styles.signatureLine, { marginTop: 14 }]} />
-            <Text style={styles.signatureSub}>Print Name</Text>
-            <View style={[styles.signatureLine, { marginTop: 14 }]} />
-            <Text style={styles.signatureSub}>Date</Text>
+            <Text style={styles.signatureLabel}>{report.inspectorName ? "INSPECTED BY:" : "LANDLORD/AGENT SIGNATURE:"}</Text>
+            {report.inspectorName ? (
+              <Text style={styles.body}>{report.inspectorName}</Text>
+            ) : (
+              <>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureSub}>Signed{report.signedByManager ? " — confirmed in system" : ""}</Text>
+                <View style={[styles.signatureLine, { marginTop: 14 }]} />
+                <Text style={styles.signatureSub}>Print Name</Text>
+                <View style={[styles.signatureLine, { marginTop: 14 }]} />
+                <Text style={styles.signatureSub}>Date</Text>
+              </>
+            )}
           </View>
         </View>
 

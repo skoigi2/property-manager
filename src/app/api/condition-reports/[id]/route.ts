@@ -1,103 +1,145 @@
-import { requireManager, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
+import { requireOpsStaff, requireOpsStaffWrite, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { conditionReportPatchSchema } from "@/lib/validations";
-import { getSignedUrl, deleteFromStorage } from "@/lib/supabase-storage";
+import { deleteFromStorage } from "@/lib/supabase-storage";
+import { logAudit } from "@/lib/audit";
+import { loadInspection, serializeInspection, checkAssignee, isInspectionManager, INSPECTION_INCLUDE } from "@/lib/inspections";
+import { canEditObservations, keysState, normaliseKeys } from "@/lib/inspection-rules";
+import { notifyInspectionAssigned } from "@/lib/inspection-notify";
 
-async function loadReport(id: string) {
-  const propertyIds = await getAccessiblePropertyIds();
-  if (!propertyIds) return { error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
-
-  const report = await prisma.conditionReport.findUnique({
-    where: { id },
-    include: {
-      unit: { select: { id: true, unitNumber: true, type: true } },
-      property: {
-        select: {
-          id: true, name: true, address: true, currency: true, logoUrl: true, organizationId: true,
-          organization: { select: { name: true, logoUrl: true, address: true } },
-        },
-      },
-      tenant: { select: { id: true, name: true, email: true, phone: true, leaseStart: true, leaseEnd: true } },
-      photos: { orderBy: { uploadedAt: "asc" } },
-    },
-  });
-  if (!report) return { error: Response.json({ error: "Not found" }, { status: 404 }) };
-  if (!propertyIds.includes(report.propertyId)) {
-    return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
-  }
-  return { report };
-}
+// A condition report = an inspection visit. Ops staff incl. CARETAKER read and
+// fill it in; what each field may do depends on the status
+// (src/lib/inspection-rules.ts). Delete stays with managers.
 
 export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireManager();
+  const { session, error } = await requireOpsStaff();
   if (error) return error;
-
-  const { report, error: notOk } = await loadReport(params.id);
-  if (notOk) return notOk;
-
-  // Hand back signed URLs for each photo so the client can show thumbnails.
-  const photosWithUrls = await Promise.all(
-    report!.photos.map(async (p) => {
-      let url: string | null = null;
-      try { url = await getSignedUrl(p.storagePath); } catch { /* keep null */ }
-      return { ...p, url };
-    })
-  );
-
-  return Response.json({ ...report, photos: photosWithUrls });
+  const loaded = await loadInspection(params.id);
+  if (!loaded.ok) return Response.json({ error: loaded.error }, { status: loaded.status });
+  return Response.json(await serializeInspection(loaded.report, session!));
 }
+
+const OBSERVATION_FIELDS = [
+  "reportDate", "items", "overallComments", "signedByTenant", "signedByManager",
+  "tenantIssues", "tenantSignOff", "tenantSignedName", "tenantDisagrees", "tenantComments",
+] as const;
+const PLANNING_FIELDS = ["reportType", "scheduledFor", "assignedToUserId", "tenantId"] as const;
 
 export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
+  const loaded = await loadInspection(params.id);
+  if (!loaded.ok) return Response.json({ error: loaded.error }, { status: loaded.status });
+  const report = loaded.report;
 
-  const { report, error: notOk } = await loadReport(params.id);
-  if (notOk) return notOk;
-
-  if (report!.tenantDocumentId) {
-    return Response.json({ error: "Report finalised — read-only" }, { status: 409 });
-  }
-
-  const body = await req.json();
-  const parsed = conditionReportPatchSchema.safeParse(body);
-  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+  const parsed = conditionReportPatchSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
   const data = parsed.data;
 
+  const touchesObservations = OBSERVATION_FIELDS.some((f) => data[f] !== undefined);
+  const touchesPlanning = PLANNING_FIELDS.some((f) => data[f] !== undefined);
+
+  if ((touchesObservations || touchesPlanning) && !canEditObservations(report.status)) {
+    return Response.json({ error: "This inspection has been handed in — its findings are locked." }, { status: 409 });
+  }
+  if (data.keys !== undefined) {
+    const ks = keysState({ reportType: report.reportType, status: report.status, keysClearedAt: report.keysClearedAt });
+    if (ks === "none") return Response.json({ error: "Mid-term inspections don't record keys." }, { status: 400 });
+    if (ks === "waiting") return Response.json({ error: "Wait for the manager to confirm the deposit and first rent before handing over keys." }, { status: 409 });
+    if (ks === "locked") return Response.json({ error: "This inspection is accepted — the keys record is locked." }, { status: 409 });
+  }
+
+  if (data.tenantId !== undefined && data.tenantId) {
+    const t = await prisma.tenant.findUnique({ where: { id: data.tenantId }, select: { unitId: true } });
+    if (!t || t.unitId !== report.unitId) return Response.json({ error: "That tenant is not on this unit." }, { status: 400 });
+  }
+  if (data.assignedToUserId) {
+    const bad = await checkAssignee(data.assignedToUserId, report.property, session!);
+    if (bad) return Response.json({ error: bad.error }, { status: bad.status });
+  } else if (data.assignedToUserId === null && !isInspectionManager(session!) && report.assignedToUserId !== session!.user.id) {
+    return Response.json({ error: "Only a manager can unassign someone else." }, { status: 403 });
+  }
+  let scheduledFor: Date | null | undefined;
+  if (data.scheduledFor !== undefined) {
+    scheduledFor = data.scheduledFor ? new Date(data.scheduledFor) : null;
+    if (scheduledFor && Number.isNaN(scheduledFor.getTime())) return Response.json({ error: "Invalid date and time." }, { status: 400 });
+  }
+
   const updated = await prisma.conditionReport.update({
-    where: { id: report!.id },
+    where: { id: report.id },
     data: {
+      ...(touchesObservations && report.status === "SCHEDULED" ? { status: "IN_PROGRESS" as const } : {}),
       ...(data.reportDate !== undefined ? { reportDate: new Date(data.reportDate) } : {}),
-      ...(data.tenantId !== undefined ? { tenantId: data.tenantId } : {}),
       ...(data.items !== undefined ? { items: data.items as unknown as Prisma.InputJsonValue } : {}),
       ...(data.overallComments !== undefined ? { overallComments: data.overallComments } : {}),
       ...(data.signedByTenant !== undefined ? { signedByTenant: data.signedByTenant } : {}),
       ...(data.signedByManager !== undefined ? { signedByManager: data.signedByManager } : {}),
+      ...(data.tenantIssues !== undefined ? { tenantIssues: data.tenantIssues || null } : {}),
+      ...(data.tenantSignOff !== undefined ? { tenantSignOff: data.tenantSignOff } : {}),
+      ...(data.tenantSignedName !== undefined ? { tenantSignedName: data.tenantSignedName || null } : {}),
+      ...(data.tenantDisagrees !== undefined ? { tenantDisagrees: data.tenantDisagrees } : {}),
+      ...(data.tenantComments !== undefined ? { tenantComments: data.tenantComments || null } : {}),
+      ...(data.keys !== undefined ? { keys: normaliseKeys(data.keys) as unknown as Prisma.InputJsonValue } : {}),
+      ...(data.reportType !== undefined ? { reportType: data.reportType } : {}),
+      ...(scheduledFor !== undefined ? { scheduledFor } : {}),
+      ...(data.assignedToUserId !== undefined ? { assignedToUserId: data.assignedToUserId } : {}),
+      ...(data.tenantId !== undefined ? { tenantId: data.tenantId } : {}),
     },
+    include: INSPECTION_INCLUDE,
   });
 
-  return Response.json(updated);
+  // Planning changes and keys are worth an audit row; autosaved findings are not.
+  const changed: Record<string, unknown> = {};
+  for (const f of PLANNING_FIELDS) if (data[f] !== undefined) changed[f] = data[f];
+  if (data.keys !== undefined) changed.keys = normaliseKeys(data.keys);
+  if (Object.keys(changed).length) {
+    await logAudit({
+      userId: session!.user.id,
+      userEmail: session!.user.email,
+      action: "UPDATE",
+      resource: "ConditionReport",
+      resourceId: report.id,
+      organizationId: report.organizationId,
+      before: Object.fromEntries(Object.keys(changed).map((k) => [k, (report as unknown as Record<string, unknown>)[k] ?? null])),
+      after: changed,
+    });
+  }
+  if (data.assignedToUserId && data.assignedToUserId !== report.assignedToUserId) {
+    await notifyInspectionAssigned(report.id, { id: session!.user.id, name: session!.user.name ?? session!.user.email ?? "A manager" });
+  }
+
+  return Response.json(await serializeInspection(updated, session!));
 }
 
 export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const { error } = await requireManagerWrite();
+  const { session, error } = await requireManagerWrite();
   if (error) return error;
+  const loaded = await loadInspection(params.id);
+  if (!loaded.ok) return Response.json({ error: loaded.error }, { status: loaded.status });
+  const report = loaded.report;
 
-  const { report, error: notOk } = await loadReport(params.id);
-  if (notOk) return notOk;
-
-  if (report!.tenantDocumentId) {
-    return Response.json({ error: "Cannot delete a finalised report" }, { status: 409 });
+  if (report.status === "ACCEPTED" || report.tenantDocumentId) {
+    return Response.json({ error: "An accepted report can't be deleted." }, { status: 409 });
   }
-
-  // Best-effort: clean up storage for any photos.
-  for (const p of report!.photos) {
-    try { await deleteFromStorage(p.storagePath); } catch { /* swallow */ }
+  for (const p of report.photos) {
+    try { await deleteFromStorage(p.storagePath); } catch { /* best-effort */ }
   }
-
-  await prisma.conditionReport.delete({ where: { id: report!.id } });
+  if (report.tenantSignaturePath) {
+    try { await deleteFromStorage(report.tenantSignaturePath); } catch { /* best-effort */ }
+  }
+  await prisma.conditionReport.delete({ where: { id: report.id } });
+  await logAudit({
+    userId: session!.user.id,
+    userEmail: session!.user.email,
+    action: "DELETE",
+    resource: "ConditionReport",
+    resourceId: report.id,
+    organizationId: report.organizationId,
+    before: { reportType: report.reportType, unitId: report.unitId, tenantId: report.tenantId, status: report.status },
+  });
   return Response.json({ ok: true });
 }

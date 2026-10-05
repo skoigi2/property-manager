@@ -113,6 +113,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
   {
+    key: "NOTIFY_INSPECTIONS",
+    name: "Inspection alerts",
+    description: "Email the caretaker when an inspection is assigned to them, their move-in keys are cleared or a report comes back to them; email managers when an inspection is handed in (with any damage or tenant issues) or a correction is requested.",
+    trigger: "Inspection assigned, handed in, sent back or corrected",
+    actions: ["Email Caretaker", "Email Manager"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_NEW_COMPLAINT",
     name: "New complaint alerts",
     description: "Email managers when a tenant complaint is logged by on-site staff or raised through the tenant portal.",

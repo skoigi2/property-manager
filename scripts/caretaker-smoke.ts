@@ -182,7 +182,7 @@ async function seed() {
 // ── main ────────────────────────────────────────────────────────────────────
 async function main() {
   const { property, unit, tenant, caretaker, manager } = await seed();
-  const created = { expenses: new Set<string>(), vendors: new Set<string>(), jobs: new Set<string>(), complaints: new Set<string>() };
+  const created = { expenses: new Set<string>(), vendors: new Set<string>(), jobs: new Set<string>(), complaints: new Set<string>(), inspections: new Set<string>() };
 
   const care = new Client("caretaker");
   const mgr  = new Client("manager");
@@ -197,7 +197,7 @@ async function main() {
   for (const p of ["/petty-cash", "/dashboard", "/tenants", "/settings", "/inbox", "/report", "/cases", "/income"]) {
     await expectRedirect(care, `page ${p} redirects to /maintenance`, p, "/maintenance");
   }
-  for (const p of ["/expenses", "/maintenance", "/vendors"]) {
+  for (const p of ["/expenses", "/maintenance", "/vendors", "/inspections"]) {
     const res = await care.fetch(p);
     check(`caretaker: page ${p} renders`, res.status === 200, `got ${res.status}`);
   }
@@ -654,6 +654,85 @@ async function main() {
     if (threadId) await prisma.portalMessageThread.deleteMany({ where: { id: threadId } });
   }
 
+  // ── Inspections (caretaker check-in / check-out) ──
+  {
+    const when = new Date(Date.now() + 86_400_000).toISOString();
+    const insp = await expectStatus(care, "POST /api/inspections (move-in) → 201", "/api/inspections", 201, {
+      method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "MOVE_IN", tenantId: tenant.id, scheduledFor: when }),
+    });
+    const iid: string | undefined = insp?.id;
+    if (iid) created.inspections.add(iid);
+    check("caretaker's own inspection is assigned to them and scheduled", insp?.assignedTo?.id === caretaker.id && insp?.status === "SCHEDULED");
+    check("caretaker view: tenant name / phone / ID, no email", insp?.tenant?.name === tenant.name && !("email" in (insp?.tenant ?? {})));
+    await expectStatus(care, "assign inspection to the manager → 403", `/api/condition-reports/${iid}`, 403, {
+      method: "PATCH", body: JSON.stringify({ assignedToUserId: manager.id }),
+    });
+    const list = await expectStatus(care, "GET /api/inspections?view=open&mine=1", "/api/inspections?view=open&mine=1", 200);
+    check("caretaker: own inspection listed", Array.isArray(list) && list.some((r: any) => r.id === iid && r.keysWaiting === true));
+
+    // Rate everything, try keys before clearance, try to hand in without photos.
+    const rated = (insp?.items ?? []).map((it: any) => ({ ...it, status: it.feature === "Walls" ? "POOR" : "GOOD", notes: it.feature === "Walls" ? "Crack by the window" : "" }));
+    const patched = await expectStatus(care, "PATCH ratings → 200", `/api/condition-reports/${iid}`, 200, {
+      method: "PATCH", body: JSON.stringify({ items: rated, tenantIssues: `Kitchen tap drips ${stamp}`, tenantSignOff: "ABSENT" }),
+    });
+    check("first findings move it to IN_PROGRESS", patched?.status === "IN_PROGRESS");
+    await expectStatus(care, "PATCH keys before the manager clears them → 409", `/api/condition-reports/${iid}`, 409, {
+      method: "PATCH", body: JSON.stringify({ keys: [{ label: "Main door", count: 2 }] }),
+    });
+    const notReady = await expectStatus(care, "submit without photos → 400 NOT_READY", `/api/condition-reports/${iid}/submit`, 400, { method: "POST" });
+    check("NOT_READY names the rooms short of photos", Array.isArray(notReady?.problems) && notReady.problems.some((p: string) => /of 3 photos/.test(p)));
+
+    // Local dev has no storage keys, so add three photo rows per room directly.
+    const rooms = Array.from(new Set(rated.map((it: any) => it.room as string)));
+    const withPhotos = [...rated];
+    for (const room of rooms) {
+      const target = withPhotos.find((it: any) => it.room === room);
+      for (let n = 0; n < 3; n++) {
+        const ph = await prisma.conditionReportPhoto.create({ data: { reportId: iid!, storagePath: `condition-reports/${iid}/smoke-${n}.jpg`, fileName: `smoke-${n}.jpg`, mimeType: "image/jpeg", fileSize: 1000 } });
+        target.photoIds = [...target.photoIds, ph.id];
+      }
+    }
+    await expectStatus(care, "PATCH photo links → 200", `/api/condition-reports/${iid}`, 200, { method: "PATCH", body: JSON.stringify({ items: withPhotos }) });
+    const sub = await expectStatus(care, "submit → 200", `/api/condition-reports/${iid}/submit`, 200, { method: "POST" });
+    check("submitted: status, inspector name", sub?.status === "SUBMITTED" && !!sub?.submittedByName);
+    await expectStatus(care, "PATCH findings after hand-in → 409", `/api/condition-reports/${iid}`, 409, {
+      method: "PATCH", body: JSON.stringify({ overallComments: "late edit" }),
+    });
+    await expectStatus(care, "POST photo after hand-in → 409", `/api/condition-reports/${iid}/photos`, 409, { method: "POST", body: new FormData() });
+
+    // Keys gate, review actions, correction request.
+    await expectStatus(care, "clear_keys → 403", `/api/condition-reports/${iid}/actions`, 403, { method: "POST", body: JSON.stringify({ action: "clear_keys" }) });
+    await expectStatus(mgr, "manager clear_keys → 200", `/api/condition-reports/${iid}/actions`, 200, { method: "POST", body: JSON.stringify({ action: "clear_keys" }) });
+    const keyed = await expectStatus(care, "PATCH keys after clearance → 200", `/api/condition-reports/${iid}`, 200, {
+      method: "PATCH", body: JSON.stringify({ keys: [{ label: "Main door", count: 2 }, { label: "Gate", count: 1 }] }),
+    });
+    check("keys recorded after hand-in", keyed?.keys?.length === 2);
+    await expectStatus(care, "accept (finalize) → 403", `/api/condition-reports/${iid}/finalize`, 403, { method: "POST" });
+    await expectStatus(care, "send to tenant → 403", `/api/condition-reports/${iid}/send`, 403, { method: "POST", body: "{}" });
+    await expectStatus(care, "DELETE inspection → 403", `/api/condition-reports/${iid}`, 403, { method: "DELETE" });
+    await expectStatus(care, "request_edit → 200", `/api/condition-reports/${iid}/actions`, 200, {
+      method: "POST", body: JSON.stringify({ action: "request_edit", note: "Wrong photo in the kitchen" }),
+    });
+    await expectStatus(mgr, "accept while a correction is pending → 409", `/api/condition-reports/${iid}/finalize`, 409, { method: "POST" });
+    await expectStatus(mgr, "decline_edit without a reason → 400", `/api/condition-reports/${iid}/actions`, 400, { method: "POST", body: JSON.stringify({ action: "decline_edit" }) });
+    await expectStatus(mgr, "decline_edit → 200", `/api/condition-reports/${iid}/actions`, 200, {
+      method: "POST", body: JSON.stringify({ action: "decline_edit", note: "The kitchen photo is fine" }),
+    });
+    const back = await expectStatus(mgr, "send_back → 200", `/api/condition-reports/${iid}/actions`, 200, {
+      method: "POST", body: JSON.stringify({ action: "send_back", note: "Add a photo of the meter" }),
+    });
+    check("sent back: IN_PROGRESS with the manager's note", back?.status === "IN_PROGRESS" && back?.reviewNote === "Add a photo of the meter");
+    await expectStatus(care, "hand in again → 200", `/api/condition-reports/${iid}/submit`, 200, { method: "POST" });
+    const pdf = await care.fetch(`/api/condition-reports/${iid}/pdf`);
+    const head = pdf.ok ? Buffer.from(await pdf.arrayBuffer()).subarray(0, 4).toString() : "";
+    check("caretaker: GET pdf → a PDF", pdf.status === 200 && head === "%PDF", `got ${pdf.status}`);
+    // Accepting vaults the PDF to storage — 503 locally (no storage keys), 200 with them.
+    const acc = await mgr.json(`/api/condition-reports/${iid}/finalize`, { method: "POST" });
+    check("manager: accept → 200 (or 503 without storage)", acc.status === 200 || acc.status === 503, `got ${acc.status}`);
+    const cal = await mgr.json(`/api/calendar?from=${today}&to=${new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)}`);
+    check("calendar: endpoint answers with the inspection source wired in", cal.status === 200);
+  }
+
   // ── cleanup ──
   for (const id of Array.from(created.complaints)) {
     const row = await prisma.tenantComplaint.findUnique({ where: { id }, select: { caseThreadId: true } });
@@ -661,6 +740,7 @@ async function main() {
     if (row?.caseThreadId) await prisma.caseThread.deleteMany({ where: { id: row.caseThreadId } });
   }
   for (const id of Array.from(created.jobs)) await prisma.maintenanceJob.deleteMany({ where: { id } });
+  for (const id of Array.from(created.inspections)) await prisma.conditionReport.deleteMany({ where: { id } });
   for (const id of Array.from(created.expenses)) await prisma.expenseEntry.deleteMany({ where: { id } });
   for (const id of Array.from(created.vendors)) await prisma.vendor.deleteMany({ where: { id } });
 

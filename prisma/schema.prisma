@@ -120,6 +120,7 @@ model User {
   caseEvents       CaseEvent[]      @relation("CaseEventActor")
   raisedComplaints TenantComplaint[] @relation("ComplaintRaisedBy")
   approvalRequests ApprovalRequest[] @relation("ApprovalRequester")
+  assignedInspections ConditionReport[] @relation("InspectionAssignee")
   accounts         Account[]
   sessions         Session[]
   notificationPreferences NotificationPreference[]
@@ -434,6 +435,23 @@ enum ConditionReportType {
   MOVE_IN
   MID_TERM
   MOVE_OUT
+}
+
+// Lifecycle of a condition report run as an inspection visit (caretaker or
+// manager): booked → being filled in → handed in (observations locked) →
+// accepted by a manager (PDF vaulted to the tenant).
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  SUBMITTED
+  ACCEPTED
+}
+
+// How the tenant took part in the inspection sign-off.
+enum TenantSignOff {
+  SIGNED
+  ABSENT
+  REFUSED
 }
 
 enum ConditionItemStatus {
@@ -2402,6 +2420,39 @@ model ConditionReport {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
+  // ── Inspection visit (see src/lib/inspection-rules.ts) ──
+  status              InspectionStatus @default(IN_PROGRESS)
+  scheduledFor        DateTime?
+  assignedToUserId    String?
+  createdByUserId     String?
+  // Issues or complaints the tenant raised during the visit — sent to the
+  // managers with the submission.
+  tenantIssues        String?
+  // Keys handed over (move-in) or returned (move-out): [{ label, count }].
+  keys                Json?
+  // Move-in: keys may only be handed over once a manager confirms the
+  // deposit and first rent are paid.
+  keysClearedAt       DateTime?
+  keysClearedByUserId String?
+  tenantSignOff       TenantSignOff?
+  tenantSignedName    String?
+  tenantSignaturePath String?
+  tenantSignedAt      DateTime?
+  tenantDisagrees     Boolean          @default(false)
+  tenantComments      String?
+  submittedAt         DateTime?
+  submittedByUserId   String?
+  submittedByName     String?
+  acceptedAt          DateTime?
+  acceptedByUserId    String?
+  // Last note from a manager sending the report back or declining an edit.
+  reviewNote          String?
+  editRequestedAt     DateTime?
+  editRequestedByUserId String?
+  editRequestReason   String?
+  sentToTenantAt      DateTime?
+
+  assignedTo   User?                  @relation("InspectionAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
   unit         Unit                   @relation(fields: [unitId], references: [id])
   property     Property               @relation(fields: [propertyId], references: [id])
   tenant       Tenant?                @relation(fields: [tenantId], references: [id], onDelete: SetNull)
@@ -2412,6 +2463,8 @@ model ConditionReport {
   @@index([tenantId])
   @@index([propertyId, reportType])
   @@index([reportType])
+  @@index([propertyId, status])
+  @@index([assignedToUserId])
 }
 
 model ConditionReportPhoto {

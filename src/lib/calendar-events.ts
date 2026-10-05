@@ -19,6 +19,7 @@ export type EventType =
   | "RENT_DUE"
   | "MAINTENANCE_DUE"
   | "MAINTENANCE_VISIT"
+  | "INSPECTION"
   | "INSURANCE_RENEWAL"
   | "WARRANTY_EXPIRY"
   | "COMPLIANCE_EXPIRY"
@@ -190,6 +191,7 @@ export async function buildCalendarEvents(
     invoices,
     maintenanceSchedules,
     maintenanceJobs,
+    inspections,
     insurancePolicies,
     assetWarranties,
     complianceCerts,
@@ -260,6 +262,21 @@ export async function buildCalendarEvents(
         vendor: { select: { name: true } },
         // A job's owner lives on its case, not the job itself.
         caseThread: { select: { assignedToUserId: true } },
+      },
+    }),
+
+    // Booked inspection visits (move-in / mid-term / move-out) not yet handed in.
+    prisma.conditionReport.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        scheduledFor: { gte: from, lte: to },
+        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+      },
+      select: {
+        id: true, reportType: true, scheduledFor: true, assignedToUserId: true,
+        property: { select: { id: true, name: true } },
+        unit: { select: { unitNumber: true } },
+        tenant: { select: { name: true } },
       },
     }),
 
@@ -557,6 +574,33 @@ export async function buildCalendarEvents(
       isOverdue: days < 0,
       actions: [{ label: "Open job", href }],
       assigneeId: j.caseThread?.assignedToUserId ?? null,
+    });
+  }
+
+  // ── Inspection visits ──────────────────────────────────────────────────────
+  for (const r of inspections) {
+    if (!r.scheduledFor) continue;
+    const when = new Date(r.scheduledFor);
+    const days = daysFromToday(when, today);
+    const kind = r.reportType === "MOVE_IN" ? "Move-in" : r.reportType === "MOVE_OUT" ? "Move-out" : "Mid-term";
+    const href = `/inspections/${r.id}`;
+    events.push({
+      id: `INSPECTION-${r.id}`,
+      refId: r.id,
+      type: "INSPECTION",
+      title: `${kind} inspection — Unit ${r.unit.unitNumber}${r.tenant ? ` (${r.tenant.name})` : ""}`,
+      feedSummary: `${kind} inspection — Unit ${r.unit.unitNumber}`,
+      date: toDateStr(when),
+      propertyId: r.property.id,
+      propertyName: r.property.name,
+      unitName: r.unit.unitNumber,
+      link: href,
+      daysUntil: days,
+      urgency: days < 0 ? "critical" : days <= 1 ? "warning" : "ok",
+      // Only booked visits not yet handed in are queried, so a past one is still open.
+      isOverdue: days < 0,
+      actions: [{ label: "Open inspection", href }],
+      assigneeId: r.assignedToUserId,
     });
   }
 

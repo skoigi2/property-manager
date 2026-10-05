@@ -655,14 +655,14 @@ export default function TenantDetailPage() {
                   >
                     <Pencil size={13} /> Edit
                   </button>
-                  {/* Move-In Report button */}
+                  {/* Book a move-in / mid-term / move-out inspection for this tenant's unit */}
                   {tenant.unit?.id && tenant.isActive && (
                     <button
-                      onClick={() => router.push(`/units/${tenant.unit.id}/condition-report/new`)}
+                      onClick={() => router.push(`/inspections?new=1&unitId=${tenant.unit.id}&tenantId=${tenant.id}`)}
                       className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 text-caption rounded-lg transition-colors"
-                      title="Walk through the unit and record its condition"
+                      title="Book an inspection of this unit — you or a caretaker records its condition"
                     >
-                      <ClipboardCheck size={13} /> Move-In Report
+                      <ClipboardCheck size={13} /> Inspection
                     </button>
                   )}
                   {/* Checkout button */}

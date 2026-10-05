@@ -39,6 +39,18 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   "src/app/api/utilities/meters/route.ts",
   "src/app/api/utilities/readings/route.ts",
   "src/app/api/utilities/readings/[id]/route.ts",
+  // Inspection visits (condition reports run on site). Findings lock on
+  // hand-in; accept / send-to-tenant / delete stay manager-only —
+  // src/lib/inspection-rules.ts
+  "src/app/api/inspections/route.ts",
+  "src/app/api/inspections/assignees/route.ts",
+  "src/app/api/condition-reports/[id]/route.ts",
+  "src/app/api/condition-reports/[id]/photos/route.ts",
+  "src/app/api/condition-reports/[id]/photos/[photoId]/route.ts",
+  "src/app/api/condition-reports/[id]/signature/route.ts",
+  "src/app/api/condition-reports/[id]/submit/route.ts",
+  "src/app/api/condition-reports/[id]/actions/route.ts",
+  "src/app/api/condition-reports/[id]/pdf/route.ts",
   // Global search — per-group scoping in src/lib/search-visibility.ts
   "src/app/api/search/route.ts",
   // Identity-scoped plumbing every signed-in user needs

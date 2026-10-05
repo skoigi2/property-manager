@@ -407,10 +407,33 @@ export const conditionReportCreateSchema = z.object({
 export const conditionReportPatchSchema = z.object({
   reportDate:      z.string().optional(),
   tenantId:        z.string().optional().nullable(),
-  items:           z.array(conditionItemSchema).optional(),
+  items:           z.array(conditionItemSchema).max(300).optional(),
   overallComments: z.string().max(5000).optional().nullable(),
   signedByTenant:  z.boolean().optional(),
   signedByManager: z.boolean().optional(),
+  // Inspection visit (see src/lib/inspection-rules.ts for who may change what)
+  reportType:       z.enum(["MOVE_IN", "MID_TERM", "MOVE_OUT"]).optional(),
+  scheduledFor:     z.string().nullable().optional(),
+  assignedToUserId: z.string().nullable().optional(),
+  tenantIssues:     z.string().max(5000).nullable().optional(),
+  keys:             z.array(z.object({ label: z.string().max(60), count: z.number().int().min(0).max(99) })).max(20).optional(),
+  tenantSignOff:    z.enum(["SIGNED", "ABSENT", "REFUSED"]).nullable().optional(),
+  tenantSignedName: z.string().max(120).nullable().optional(),
+  tenantDisagrees:  z.boolean().optional(),
+  tenantComments:   z.string().max(5000).nullable().optional(),
+});
+
+export const inspectionCreateSchema = z.object({
+  unitId:           z.string().min(1, "Pick a unit"),
+  reportType:       z.enum(["MOVE_IN", "MID_TERM", "MOVE_OUT"]),
+  scheduledFor:     z.string().nullable().optional(),
+  assignedToUserId: z.string().nullable().optional(),
+  tenantId:         z.string().nullable().optional(),
+});
+
+export const inspectionActionSchema = z.object({
+  action: z.enum(["clear_keys", "send_back", "request_edit", "approve_edit", "decline_edit"]),
+  note:   z.string().max(2000).nullable().optional(),
 });
 
 // ─── Utility metering ─────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
-import { requireSession, requireOpsStaffWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
+import { requireSession, requireOpsStaffWrite, getAccessiblePropertyIds, requirePropertyAccess } from "@/lib/auth-utils";
+import { checkVendorForProperty } from "@/lib/maintenance-vendor";
 import { prisma } from "@/lib/prisma";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
 import { z } from "zod";
@@ -75,6 +76,21 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { reportedDate, scheduledDate, ...rest } = parsed.data;
+
+  // The body names the property, unit and vendor: check each one is the
+  // caller's to use (a job, and its case, on another org's property otherwise).
+  const access = await requirePropertyAccess(rest.propertyId);
+  if (!access.ok) return access.error!;
+  if (rest.unitId) {
+    const unit = await prisma.unit.findUnique({ where: { id: rest.unitId }, select: { propertyId: true } });
+    if (!unit || unit.propertyId !== rest.propertyId) {
+      return Response.json({ error: "That unit is not in this property" }, { status: 400 });
+    }
+  }
+  if (rest.vendorId) {
+    const vendorError = await checkVendorForProperty(rest.vendorId, rest.propertyId);
+    if (vendorError) return vendorError;
+  }
 
   const job = await prisma.maintenanceJob.create({
     data: {

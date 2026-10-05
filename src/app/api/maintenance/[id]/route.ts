@@ -6,6 +6,7 @@ import { mapMaintenanceStatusToCase, mapMaintenanceWaitingOn } from "@/lib/cases
 import { auth } from "@/lib/auth";
 import { clearHints } from "@/lib/hints";
 import { tryAutoAdvance } from "@/lib/case-workflows";
+import { checkVendorForProperty } from "@/lib/maintenance-vendor";
 
 const updateSchema = z.object({
   title:            z.string().min(1).optional(),
@@ -134,6 +135,11 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { scheduledDate, completedDate, acknowledgedAt, approvedAt, ...rest } = parsed.data;
+
+  if (rest.vendorId && rest.vendorId !== job!.vendorId) {
+    const vendorError = await checkVendorForProperty(rest.vendorId, job!.propertyId);
+    if (vendorError) return vendorError;
+  }
 
   // Auto-set completedDate when marking DONE
   const autoCompletedDate =

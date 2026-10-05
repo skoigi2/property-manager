@@ -319,6 +319,29 @@ async function main() {
     method: "POST", body: JSON.stringify({ propertyId: property.id, unitId: unit.id, title: `Smoke leak ${stamp}`, category: "PLUMBING", priority: "MEDIUM", vendorId: v1?.id }),
   });
   if (job?.id) created.jobs.add(job.id);
+  // The body names the property / unit / vendor: each must be the caller's to use.
+  const foreign = await prisma.property.findFirst({
+    where: { propertyAccess: { none: { userId: caretaker.id } } },
+    select: { id: true, units: { select: { id: true }, take: 1 } },
+  });
+  if (foreign) {
+    await expectStatus(care, "POST /api/maintenance on a property without access → 403", "/api/maintenance", 403, {
+      method: "POST", body: JSON.stringify({ propertyId: foreign.id, title: `Smoke foreign ${stamp}`, category: "OTHER" }),
+    });
+    if (foreign.units[0]) {
+      await expectStatus(care, "POST /api/maintenance with another property's unit → 400", "/api/maintenance", 400, {
+        method: "POST", body: JSON.stringify({ propertyId: property.id, unitId: foreign.units[0].id, title: `Smoke foreign unit ${stamp}`, category: "OTHER" }),
+      });
+    }
+  }
+  const foreignVendor = await prisma.vendor.findFirst({
+    where: { organizationId: { not: property.organizationId } }, select: { id: true },
+  });
+  if (foreignVendor) {
+    await expectStatus(care, "POST /api/maintenance with another org's vendor → 400", "/api/maintenance", 400, {
+      method: "POST", body: JSON.stringify({ propertyId: property.id, title: `Smoke foreign vendor ${stamp}`, category: "OTHER", vendorId: foreignVendor.id }),
+    });
+  }
   await expectStatus(care, "PATCH /api/maintenance/[id] status → 200", `/api/maintenance/${job?.id}`, 200, { method: "PATCH", body: JSON.stringify({ status: "IN_PROGRESS" }) });
   await expectStatus(care, "PATCH /api/maintenance/[id] DONE + cost → 200", `/api/maintenance/${job?.id}`, 200, { method: "PATCH", body: JSON.stringify({ status: "DONE", cost: 300 }) });
   const logged = await expectStatus(care, "PATCH log_expense → 200", `/api/maintenance/${job?.id}`, 200, {

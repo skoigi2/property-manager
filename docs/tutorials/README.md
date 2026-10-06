@@ -90,6 +90,14 @@ fragile selector**; prefer stable attributes (`data-testid`, `name`,
   slow save). The stretch is dropped from the video (`CUTS_SEC` → an ffmpeg `select` filter) and later subtitle cues move
   up to match. Never put a `say()` inside it.
 - `h.press("Enter")` presses a key in the focused field.
+- **Warm-up goes before `markStart()`, unwrapped** — `markStart()` already trims everything before it; an `offCamera()` before it
+  is cut a second time and collapses the first subtitle cues to zero length.
+- **Uploads without storage** — `fakeStorage(h.page, prisma, { baseUrl, uploaderEmail })` (`fake-storage.ts`) lets inspection
+  photos, the tenant's signature and guest ID uploads work on camera: rows are written as `fixture:<file>` and
+  `fixtures/photos/` is served back. `caretaker-inspections` and `guest-stays` use it, recorded as the caretaker
+  `guide-caretaker@groundworkpm.com` (`seed-caretaker.ts`; the guest-stays seed clears the org's guests first so the
+  on-camera guest isn't matched as a returning one).
+- The app limits sign-ins to 20 per 15 minutes per address (in memory) — after many takes, restart the dev server.
 
 ## Subtitles: generated, never hand-edited
 

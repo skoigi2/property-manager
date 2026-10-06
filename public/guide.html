@@ -370,6 +370,8 @@
     <a class="toc-link" href="#complaints"><span class="num">12</span>Tenant Complaints</a>
     <a class="toc-link" href="#utilities"><span class="num">12a</span>Water &amp; Electricity</a>
     <a class="toc-link" href="#service-charge"><span class="num">12b</span>Service Charge Budgets</a>
+    <a class="toc-link" href="#inspections"><span class="num">12c</span>Inspections</a>
+    <a class="toc-link" href="#guest-stays"><span class="num">12d</span>Guest Stays</a>
     <a class="toc-link" href="#reports"><span class="num">13</span>Reports</a>
     <a class="toc-link" href="#operations"><span class="num">14</span>Operations</a>
     <a class="toc-link" href="#import"><span class="num">15</span>Data Import</a>
@@ -482,7 +484,7 @@
 
     <div class="sub-section" id="caretaker">
       <h3>The Caretaker role — on-site staff without the office view</h3>
-      <p style="margin-bottom:12px">A caretaker used to need a full Manager seat just to log a repair or a receipt, which exposed the rent roll, tenant balances and the petty-cash float. The <span class="badge badge-gray">CARETAKER</span> role gives on-site staff exactly the four pages they work from, on the properties you assign them, and nothing else. Their home page is <strong>Maintenance</strong>; any other address redirects there.</p>
+      <p style="margin-bottom:12px">A caretaker used to need a full Manager seat just to log a repair or a receipt, which exposed the rent roll, tenant balances and the petty-cash float. The <span class="badge badge-gray">CARETAKER</span> role gives on-site staff exactly the pages they work from, on the properties you assign them, and nothing else. Their home page is <strong>Maintenance</strong>; any other address redirects there.</p>
       <table class="data-table">
         <thead><tr><th>Page</th><th>A caretaker can</th><th>A caretaker cannot</th></tr></thead>
         <tbody>
@@ -490,13 +492,16 @@
           <tr><td><strong>Complaints</strong></td><td>Log, acknowledge, investigate and resolve tenant complaints, add notes and photos</td><td>Close or reopen a complaint, delete one, or see <em>Staff conduct</em> complaints at all — that category is invisible to the role end to end</td></tr>
           <tr><td><strong>Expenses</strong></td><td>Record expenses with amounts, VAT and receipts; edit, delete and attach receipts on <strong>their own entries</strong>; tick <em>Paid from petty cash</em></td><td>Touch anyone else's entries, use bulk actions or <em>Delete all</em>, view change history, record portfolio-wide costs, or see any petty-cash balance</td></tr>
           <tr><td><strong>Vendors</strong></td><td>Add a contractor with full details (phone, email, tax ID, bank details)</td><td>See more than name, category and phone on existing vendors; edit, deactivate, delete, or open statements</td></tr>
+          <tr><td><strong>Inspections</strong></td><td>Book and run move-in, mid-term and move-out inspections: rate each room, take photos, meter readings, keys and the tenant's signature, then hand it in. Tick items on the <em>Re-let</em> checklist</td><td>Change findings once handed in (they can only ask for a correction), accept a report, send it to the tenant, raise repair jobs, or see rent and balances unless your organisation allows it — see <a href="#inspections">Inspections</a></td></tr>
+          <tr><td><strong>Guest stays</strong></td><td>See short-stay arrivals, departures and the calendar; add guests and their ID; hand over and collect keys; run the post-stay check; hand keys to the cleaner</td><td>See prices, totals or agents, or hand over keys without the main guest's ID (a manager can waive it) — see <a href="#guest-stays">Guest stays</a></td></tr>
+          <tr><td><strong>Meter readings</strong></td><td>Enter month-end water and electricity readings with photos</td><td>See rates, amounts or invoices — see <a href="#utilities">Water &amp; Electricity</a></td></tr>
         </tbody>
       </table>
       <ul class="feature-list" style="margin-top:12px">
         <li><strong>Petty cash stays with the float holder</strong> — a caretaker can mark an expense as paid from petty cash, but the withdrawal is created <em>awaiting confirmation</em> and only moves the float once a manager approves it on the Petty Cash page. The caretaker sees a status badge on their row, never the balance. See <a href="#expenses">Expenses &amp; Petty Cash</a>.</li>
         <li><strong>Assigned properties only</strong> — a caretaker must be given at least one property when created or invited; there is no "all properties" default. Everything they see is filtered to those properties.</li>
         <li><strong>Separate seats</strong> — caretakers do not use your team-member seats. Every plan includes its own caretaker allowance (see <a href="#billing">Billing &amp; Plans</a>).</li>
-        <li><strong>Quiet by design</strong> — caretakers receive no manager alert emails, have no Inbox, and their search palette covers only maintenance, complaints, expenses, vendors and property names.</li>
+        <li><strong>Quiet by design</strong> — caretakers receive no manager alert emails (only emails about the inspections assigned to them), have no Inbox, and their search palette covers only maintenance, complaints, expenses, vendors and property names.</li>
       </ul>
     </div>
 
@@ -538,8 +543,8 @@
         <text x="65" y="195" text-anchor="middle" fill="white" font-size="12" font-family="DM Sans,sans-serif" font-weight="600">Caretaker</text>
         <line x1="120" y1="190" x2="155" y2="190" stroke="#4b5563" stroke-width="1.5" marker-end="url(#arr5)"/>
         <rect x="155" y="170" width="130" height="40" rx="6" fill="#e5e7eb"/>
-        <text x="220" y="186" text-anchor="middle" fill="#1f2937" font-size="10" font-family="DM Sans,sans-serif">Maintenance · Complaints</text>
-        <text x="220" y="199" text-anchor="middle" fill="#1f2937" font-size="10" font-family="DM Sans,sans-serif">Expenses · Vendors</text>
+        <text x="220" y="186" text-anchor="middle" fill="#1f2937" font-size="10" font-family="DM Sans,sans-serif">Maintenance · Inspections</text>
+        <text x="220" y="199" text-anchor="middle" fill="#1f2937" font-size="10" font-family="DM Sans,sans-serif">Guest stays · Expenses</text>
 
         <!-- Tenant portal -->
         <rect x="360" y="88" width="110" height="40" rx="6" fill="#6b7280"/>
@@ -2064,6 +2069,114 @@
       <div class="screenshot-wrap" style="margin-top:14px;max-width:380px">
         <img src="guide-screenshots/49-portal-service-charge.png" alt="Service charge statement in the tenant portal" loading="lazy">
         <div class="screenshot-caption">In the tenant portal (Balance tab): the published statement, the balance, and the PDF download</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       12c. INSPECTIONS
+  ══════════════════════ -->
+  <div id="inspections" class="section">
+    <div class="section-header">
+      <div class="section-num">12c — Inspections</div>
+      <h2>Inspections (check-in and check-out)</h2>
+      <p class="intro">Move-in, mid-term and move-out inspections run on site, usually by the caretaker on their phone, and are reviewed by a manager. Everything lives at <code>/inspections</code> (Operations → Inspections; managers, admins, accountants and caretakers). <em>Watch how this works</em> on the page plays a two-minute video.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>1 · Book it</h3>
+      <ul class="feature-list">
+        <li><strong>New inspection</strong> — pick the type, property, unit (the tenant fills in), date and time, and who does it. The person assigned gets an email and sees it under <em>To do</em>; it is on the Calendar too. A caretaker can book their own.</li>
+        <li><strong>From a tenant</strong> — the <em>Inspection</em> button on the tenant's page opens the same form for their unit.</li>
+      </ul>
+    </div>
+
+    <div class="sub-section">
+      <h3>2 · On site, room by room</h3>
+      <ul class="feature-list">
+        <li>The top shows the tenant's name, phone, ID number, lease start and emergency contact. Rent, deposit and balances appear for managers — and for caretakers only if you turn on <em>Settings → Branding → Caretakers</em>.</li>
+        <li><strong>Each room</strong>: rate every feature (Perfect / Good / Fair / Poor), add a note for anything wrong, and take <strong>at least three photos</strong>. On a move-out or mid-term, each feature shows its condition at move-in.</li>
+        <li><strong>Last step</strong>: meter readings (required at move-in and move-out when the unit has meters), the keys handed over or returned, anything the tenant raised, and the tenant's <strong>signature on the phone</strong> — or that they weren't there or wouldn't sign, and whether they disagree.</li>
+        <li><strong>Move-in keys wait for you</strong>: the caretaker is told not to hand them over until a manager confirms the deposit and first rent are paid (<em>Deposit &amp; rent paid — clear keys</em>), which emails them.</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:380px">
+        <img src="guide-screenshots/61-inspection-room.png" alt="A room on a move-out inspection" loading="lazy">
+        <div class="screenshot-caption">A room on a phone: each feature rated with its move-in condition above, a note and photos</div>
+      </div>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:380px">
+        <img src="guide-screenshots/62-inspection-signoff.png" alt="Meter readings, keys and sign-off" loading="lazy">
+        <div class="screenshot-caption">The last step: final meter readings, keys returned and the tenant's sign-off</div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>3 · Hand in and review</h3>
+      <ul class="feature-list">
+        <li><strong>Hand in for review</strong> locks the findings. The managers are emailed with the damage and anything the tenant raised; damage found at a mid-term is flagged as such.</li>
+        <li><strong>Review</strong> (managers): <em>Accept</em> files the PDF in the tenant's documents; <em>Send back</em> returns it to the caretaker with a note; <em>Send to tenant</em> emails the PDF with the photos. The manager never rewrites what the caretaker saw — a caretaker who needs a change asks for a correction, which a manager approves or declines.</li>
+        <li><strong>Repairs</strong>: tick the damaged items and create one maintenance job for each, linked back to the inspection.</li>
+        <li><strong>Move-out → checkout</strong>: the tenant's checkout page offers <em>Fill from the inspection</em> — damage notes, keys and final readings. You still set what is charged.</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/63-inspection-review.png" alt="Manager review of a handed-in inspection" loading="lazy">
+        <div class="screenshot-caption">The manager's review: accept or send back, keys, and a repair job raised from the damaged sink</div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>4 · Ready to re-let</h3>
+      <p>Finalising a checkout (or <em>Start re-let checklist</em> on a move-out inspection) opens a checklist for the unit on the <strong>Re-let</strong> tab: keys collected, final readings, repairs done, deposit settled, unit cleaned, final walk-through, listed for letting. <em>Repairs done</em> ticks itself when the repair jobs are finished and <em>Deposit settled</em> when the checkout is finalised; caretakers tick the rest.</p>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/64-relet-checklist.png" alt="Ready to re-let checklist" loading="lazy">
+        <div class="screenshot-caption">The Re-let tab: what is left before the unit can be let again</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       12d. GUEST STAYS
+  ══════════════════════ -->
+  <div id="guest-stays" class="section">
+    <div class="section-header">
+      <div class="section-num">12d — Guest Stays</div>
+      <h2>Guest Stays (short-stay check-in and check-out)</h2>
+      <p class="intro">For short-stay units: the on-site side of each booking — guest ID, keys, the post-stay check and the cleaner. Managers still enter the bookings on the <strong>Airbnb</strong> page; <code>/stays</code> (Operations → Guest stays) shows them to managers and caretakers <strong>without any prices</strong>. <em>Watch how this works</em> on the page plays a two-minute video.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>1 · Today</h3>
+      <p><strong>Today</strong> groups the stays into Arriving, Leaving today, Turnover (checked out, still to check and clean) and In house. <strong>Upcoming</strong> lists the next 30 days of arrivals and <strong>Calendar</strong> shows each short-stay unit's month. A manager's booking panel on the Airbnb page links to the stay.</p>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:380px">
+        <img src="guide-screenshots/65-stays-today.png" alt="Guest stays today" loading="lazy">
+        <div class="screenshot-caption">Today on a phone: who is arriving, leaving and in house, with the ID and keys at a glance</div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>2 · Check-in: ID, then keys</h3>
+      <ul class="feature-list">
+        <li><strong>Add the guest</strong> — name, phone, ID or passport number, nationality. The first is the main guest. A returning guest is recognised by their ID number.</li>
+        <li><strong>Photo of ID</strong> — the main guest's passport or ID, taken on the phone or chosen as a file.</li>
+        <li><strong>Keys wait for the ID</strong>: <em>Hand over keys</em> stays locked until the main guest's ID is on file. A manager can let the keys go without it by recording why (for example, ID seen but the guest refused a copy).</li>
+        <li>Record which keys the guest gets; the time and who handed them over are kept.</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:380px">
+        <img src="guide-screenshots/66-stay-detail.png" alt="A guest stay" loading="lazy">
+        <div class="screenshot-caption">A stay: the guest with their ID on file, the keys handed over, and the post-stay check to come</div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>3 · Check-out: keys back, post-stay check, cleaner</h3>
+      <ul class="feature-list">
+        <li><strong>Keys returned</strong> when the guest leaves.</li>
+        <li><strong>Post-stay check</strong> — a quick check: each room is <em>Fine</em> or <em>Damaged</em>, with one photo per room and a note and photo of any damage. <em>Last stay</em> shows how each room was left after the previous guest. A clean check is filed straight away; one with damage emails the managers, who can raise repair jobs from it.</li>
+        <li><strong>Cleaning</strong> — type the cleaning supervisor's name and record the keys going to them and coming back.</li>
+        <li>Managers can undo a step recorded by mistake.</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:380px">
+        <img src="guide-screenshots/67-post-stay-check.png" alt="Post-stay check with damage" loading="lazy">
+        <div class="screenshot-caption">The post-stay check: the bathroom marked damaged, with a note and a photo</div>
       </div>
     </div>
   </div>

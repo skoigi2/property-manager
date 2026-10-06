@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useProperty } from "@/lib/property-context";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 import { STAY_STAGE_LABEL, dayOf, type StayStage } from "@/lib/stay-rules";
 import { BedDouble, ChevronLeft, ChevronRight, IdCard, KeyRound, Sparkles, ClipboardCheck, Users } from "lucide-react";
 import { addDays, dayLabel, localDay, stageOf, PLATFORM_LABEL, type StaySummaryDto } from "@/components/stays/types";
@@ -93,6 +94,7 @@ function StaysInner() {
                 </button>
               ))}
             </div>
+            <TutorialVideo tutorialKey="guest-stays" variant="link" />
             {view === "calendar" && (
               <div className="flex items-center gap-1 ml-auto">
                 <button type="button" aria-label="Previous month" onClick={() => setMonth((m) => shiftMonth(m, -1))} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><ChevronLeft size={16} /></button>
@@ -133,7 +135,9 @@ function TodayView({ rows, today }: { rows: StaySummaryDto[]; today: string }) {
       const stage = stageOf(r, today);
       if (stage === "arriving") arriving.push(r);
       else if (stage === "in_house") (dayOf(r.checkOut) <= today ? departing : inHouse).push(r);
-      else if (stage === "turnover") turnover.push(r);
+      // A past stay nobody recorded anything on (e.g. booked before stays were
+      // tracked) drops out a day after check-out instead of lingering here.
+      else if (stage === "turnover" && (r.stay.keysReturnedAt || r.stay.cleanerKeysOutAt || r.inspection || dayOf(r.checkOut) >= addDays(today, -1))) turnover.push(r);
     }
     turnover.sort((a, b) => a.checkOut.localeCompare(b.checkOut));
     return [
@@ -165,6 +169,7 @@ function TodayView({ rows, today }: { rows: StaySummaryDto[]; today: string }) {
 function StayCard({ s, today }: { s: StaySummaryDto; today: string }) {
   const stage = stageOf(s, today);
   const st = s.stay;
+  const leavingToday = stage === "in_house" && dayOf(s.checkOut) <= today;
   return (
     <Link href={`/stays/${s.id}`} className="block">
       <Card padding="sm" className="hover:border-gold/40 transition-colors">
@@ -178,7 +183,7 @@ function StayCard({ s, today }: { s: StaySummaryDto; today: string }) {
               {s.platform ? ` · ${PLATFORM_LABEL[s.platform] ?? s.platform}` : ""}
             </p>
           </div>
-          <Badge variant={STAGE_BADGE[stage]}>{STAY_STAGE_LABEL[stage]}</Badge>
+          <Badge className="whitespace-nowrap shrink-0" variant={leavingToday ? "amber" : STAGE_BADGE[stage]}>{leavingToday ? "Leaving today" : STAY_STAGE_LABEL[stage]}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-caption">
           <span className="flex items-center gap-1 text-gray-500"><Users size={12} /> {s.guestCount || "No"} guest{s.guestCount === 1 ? "" : "s"}</span>

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 const { auth } = NextAuth(authConfig);
 
 // Pages an on-site CARETAKER may open (segment-aware prefix match).
-const CARETAKER_PATHS = ["/expenses", "/maintenance", "/complaints", "/inspections", "/stays", "/utilities", "/vendors", "/select-org", "/onboarding", "/invite", "/help/tutorials"];
+const CARETAKER_PATHS = ["/expenses", "/maintenance", "/complaints", "/inspections", "/stays", "/utilities", "/vendors", "/select-org", "/onboarding", "/invite", "/help/tutorials", "/tutorials"];
 const CARETAKER_HOME = "/maintenance";
 const underPath = (pathname: string, base: string) => pathname === base || pathname.startsWith(base + "/");
 

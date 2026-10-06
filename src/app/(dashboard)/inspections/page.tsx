@@ -21,6 +21,7 @@ import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { INSPECTION_TYPE_LABEL, INSPECTION_STATUS_LABEL, type InspectionType, type InspectionStatus } from "@/lib/inspection-rules";
 import { ClipboardCheck, Plus, KeyRound, CalendarClock, User } from "lucide-react";
 import { TurnoverList } from "@/components/inspections/TurnoverList";
+import { TutorialVideo } from "@/components/ui/TutorialVideo";
 
 interface InspectionRow {
   id: string;
@@ -129,6 +130,7 @@ function InspectionsInner() {
                 </button>
               ))}
             </div>
+            <span className={view === "relet" ? "ml-auto" : ""}><TutorialVideo tutorialKey="caretaker-inspections" variant="link" /></span>
             {view !== "relet" && <label className="flex items-center gap-2 text-caption text-gray-600 ml-auto">
               <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
               Assigned to me

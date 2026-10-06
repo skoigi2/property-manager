@@ -21,6 +21,7 @@ import { seedServiceCharge } from "./seed-service-charge";
 import { seedRentIncreases } from "./seed-rent-increases";
 import { seedWhatsAppReminders } from "./seed-whatsapp-reminders";
 import { seedTenantMessages } from "./seed-tenant-messages";
+import { seedCaretakerInspections, seedGuestStays } from "./seed-caretaker";
 
 const RECORD_EMAIL = process.env.RECORD_EMAIL ?? "guide@groundworkpm.com";
 const BASE_URL = process.env.RECORD_BASE_URL ?? "http://localhost:3000";
@@ -478,6 +479,16 @@ export async function seedForTutorial(key: TutorialKey): Promise<void> {
     // Same Kenyan org and Kilimani Court demo — see seed-tenant-messages.ts.
     console.log(`Seeding preconditions for "${key}"`);
     return seedTenantMessages(prisma, FIXTURES_DIR);
+  }
+  if (key === "caretaker-inspections") {
+    // Same Kenyan org, recorded as its caretaker — see seed-caretaker.ts.
+    console.log(`Seeding preconditions for "${key}"`);
+    return seedCaretakerInspections(prisma, FIXTURES_DIR);
+  }
+  if (key === "guest-stays") {
+    // Same Kenyan org + a short-stay block, recorded as its caretaker — see seed-caretaker.ts.
+    console.log(`Seeding preconditions for "${key}"`);
+    return seedGuestStays(prisma, FIXTURES_DIR);
   }
   const ctx = await loadContext();
   console.log(`Seeding preconditions for "${key}" in org ${ctx.orgId} (${ctx.property.name})`);

@@ -49,7 +49,8 @@ scripts/typography-shots.ts
 *.webm
 *.captioned.mp4
 scripts/record-tutorials/output/
-scripts/record-tutorials/fixtures/
+scripts/record-tutorials/fixtures/*
+!scripts/record-tutorials/fixtures/photos/
 
 .vercel
 

@@ -23,7 +23,9 @@ export type TutorialKey =
   | "service-charge"
   | "rent-increases"
   | "whatsapp-reminders"
-  | "tenant-messages";
+  | "tenant-messages"
+  | "caretaker-inspections"
+  | "guest-stays";
 
 export type TutorialVideo = {
   key: TutorialKey;
@@ -280,6 +282,48 @@ export const TUTORIAL_VIDEOS: Record<TutorialKey, TutorialVideo> = {
       "Managers also get an email with an Open conversation link — switch it off on Automations → Tenant portal messages, or opt out in Settings → Notifications.",
     ],
     relatedDocs: [{ label: "Help & Guide — Tenant messages", href: "/guide.html#tenant-messages" }],
+    next: "caretaker-inspections",
+  },
+
+  "caretaker-inspections": {
+    key: "caretaker-inspections",
+    title: "Inspections on site",
+    durationSec: 107,
+    videoUrl: "/tutorials/caretaker-inspections.mp4",
+    posterUrl: "/tutorials/caretaker-inspections.jpg",
+    subtitleUrl: "/tutorials/caretaker-inspections.vtt",
+    summary:
+      "Move-in, mid-term and move-out inspections are booked on the Inspections page and assigned to a caretaker, who gets an email and sees the visit under To do. On site the inspection shows the tenant's name, phone, ID number and emergency contact. Go room by room: rate every feature, add a note where something is wrong, and take at least three photos of each room; on a move-out each feature shows how it was at move-in. On the last step take the meter readings, record the keys and get the tenant to sign on the phone — or record that they weren't there or wouldn't sign. Hand it in: the findings lock and the manager reviews them, prices any damage and raises repair jobs.",
+    steps: [
+      "Inspections → To do: open the visit assigned to you.",
+      "Check the tenant's details at the top — phone, ID number, emergency contact.",
+      "Room by room: rate each feature, add a note for anything wrong, and take at least 3 photos per room.",
+      "On a move-out, each feature shows its condition at move-in to compare against.",
+      "Last step: meter readings, keys, and the tenant's signature (or 'not present' / 'won't sign').",
+      "Hand in for review — the findings lock; the manager accepts, sends it back or raises repair jobs.",
+    ],
+    next: "guest-stays",
+    relatedDocs: [{ label: "Help & Guide — Inspections", href: "/guide.html#inspections" }],
+  },
+
+  "guest-stays": {
+    key: "guest-stays",
+    title: "Guest stays (short-stay)",
+    durationSec: 114,
+    videoUrl: "/tutorials/guest-stays.mp4",
+    posterUrl: "/tutorials/guest-stays.jpg",
+    subtitleUrl: "/tutorials/guest-stays.vtt",
+    summary:
+      "Guest stays shows the short-stay bookings without any prices: who arrives today, who leaves, who is in, and which units need turning over. For an arriving guest, add the guest and take a photo of the main guest's ID — the keys can't be handed over until it is on file (a manager can waive it with a reason). Record which keys the guest gets. When they leave, mark the keys back and run the post-stay check: each room is fine or damaged, with a photo, and a note and photo of any damage — the manager is told about damage straight away. Then record the keys going to the cleaning supervisor and coming back.",
+    steps: [
+      "Guest stays → Today: arriving, leaving today, turnover and in house.",
+      "Arriving: add the guest, then Photo of ID — keys stay locked until the main guest's ID is on file.",
+      "Pick the keys and Hand over keys.",
+      "Leaving: Keys returned, then Start the check — fine or damaged for each room, one photo each, a note and photo of any damage.",
+      "Hand it in: a clean check is filed; damage goes to the manager.",
+      "Cleaning: type the supervisor's name and Keys to the cleaner; Keys back from the cleaner when they're done.",
+    ],
+    relatedDocs: [{ label: "Help & Guide — Guest stays", href: "/guide.html#guest-stays" }],
   },
 };
 
@@ -296,4 +340,6 @@ export const TUTORIAL_ORDER: TutorialKey[] = [
   "rent-increases",
   "whatsapp-reminders",
   "tenant-messages",
+  "caretaker-inspections",
+  "guest-stays",
 ];

@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { maybeCompressImage } from "@/lib/image-compress";
 import { KEY_PRESETS, INSPECTION_STATUS_LABEL, type InspectionKey } from "@/lib/inspection-rules";
-import { STAY_STAGE_LABEL, guestHasKeys } from "@/lib/stay-rules";
+import { STAY_STAGE_LABEL, dayOf, guestHasKeys } from "@/lib/stay-rules";
 import {
   BedDouble, Camera, ChevronLeft, ClipboardCheck, FileText, IdCard, KeyRound, Minus, Phone, Plus, Sparkles, Trash2, Undo2, UserPlus,
 } from "lucide-react";
@@ -63,6 +63,7 @@ export default function StayPage() {
 function StayDetail({ stay, onChanged }: { stay: StayDto; onChanged: (s: StayDto) => void }) {
   const today = localDay();
   const stage = stageOf(stay, today);
+  const leavingToday = stage === "in_house" && dayOf(stay.checkOut) <= today;
   const [busy, setBusy] = useState<string | null>(null);
 
   async function act(action: string, body: Record<string, unknown>, ok: string): Promise<boolean> {
@@ -91,7 +92,7 @@ function StayDetail({ stay, onChanged }: { stay: StayDto; onChanged: (s: StayDto
               {stay.platform ? ` · ${PLATFORM_LABEL[stay.platform] ?? stay.platform}` : ""}
             </p>
           </div>
-          <Badge variant={stage === "done" ? "green" : stage === "turnover" ? "amber" : stage === "in_house" ? "blue" : "gold"}>{STAY_STAGE_LABEL[stage]}</Badge>
+          <Badge className="whitespace-nowrap shrink-0" variant={stage === "done" ? "green" : stage === "turnover" || leavingToday ? "amber" : stage === "in_house" ? "blue" : "gold"}>{leavingToday ? "Leaving today" : STAY_STAGE_LABEL[stage]}</Badge>
         </div>
       </Card>
 
@@ -201,8 +202,8 @@ function GuestRow({ stayId, guest, onChanged }: { stayId: string; guest: StayGue
           </p>
         </div>
         {guest.documents.length > 0
-          ? <Badge variant="green">ID on file</Badge>
-          : <Badge variant={guest.isPrimary ? "amber" : "gray"}>No ID</Badge>}
+          ? <Badge className="whitespace-nowrap shrink-0" variant="green">ID on file</Badge>
+          : <Badge className="whitespace-nowrap shrink-0" variant={guest.isPrimary ? "amber" : "gray"}>No ID</Badge>}
       </div>
       <div className="flex items-center gap-2 mt-2 flex-wrap">
         {guest.documents.map((d) => (
@@ -385,7 +386,7 @@ function CheckCard({ stay }: { stay: StayDto }) {
             {insp.status === "SCHEDULED" || insp.status === "IN_PROGRESS" ? "Continue the check" : "View the check"}
             {insp.damaged > 0 && <span className="text-expense font-medium"> · {insp.damaged} damaged</span>}
           </span>
-          <Badge variant={insp.status === "ACCEPTED" ? "green" : insp.status === "SUBMITTED" ? "amber" : "blue"}>{INSPECTION_STATUS_LABEL[insp.status]}</Badge>
+          <Badge className="whitespace-nowrap shrink-0" variant={insp.status === "ACCEPTED" ? "green" : insp.status === "SUBMITTED" ? "amber" : "blue"}>{INSPECTION_STATUS_LABEL[insp.status]}</Badge>
         </Link>
       )}
     </Card>

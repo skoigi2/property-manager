@@ -310,6 +310,9 @@ export async function POST(req: Request) {
           leaseEnd,
           isActive,
           monthToMonth:  str(row["Month-to-month"]).toLowerCase() === "yes",
+          emergencyContactName:     str(row["Emergency Contact Name"]).slice(0, 120) || null,
+          emergencyContactPhone:    str(row["Emergency Contact Phone"]).slice(0, 40) || null,
+          emergencyContactRelation: str(row["Emergency Contact Relation"]).slice(0, 60) || null,
         },
       });
       tenantNameMap.set(name.toLowerCase(), tenant.id);

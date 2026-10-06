@@ -88,6 +88,9 @@ const TENANT_COLS = [
   "Deposit Received",
   "Deposit Received Date",
   "Wi-Fi",
+  "Emergency Contact Name",
+  "Emergency Contact Phone",
+  "Emergency Contact Relation",
   "Notes",
 ];
 
@@ -590,6 +593,9 @@ function mapTenantRowToApi(row: Record<string, string>) {
     depositReceived:  row["Deposit Received"],
     depositReceivedDate: row["Deposit Received Date"],
     wifiCharge:       row["Wi-Fi"],
+    emergencyContactName:     row["Emergency Contact Name"],
+    emergencyContactPhone:    row["Emergency Contact Phone"],
+    emergencyContactRelation: row["Emergency Contact Relation"],
     notes:            row["Notes"],
   };
 }

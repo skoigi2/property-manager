@@ -23,7 +23,27 @@ interface TenantRow {
   parkingFee?: string | number;
   depositReceived?: string | number;
   depositReceivedDate?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string | number;
+  emergencyContactRelation?: string;
   notes?: string;
+}
+
+// Emergency-contact columns are newer than most sheets: a blank cell means
+// "leave as is" on an update. Lengths match tenantSchema.
+const EMERGENCY_FIELDS = [
+  ["emergencyContactName", 120],
+  ["emergencyContactPhone", 40],
+  ["emergencyContactRelation", 60],
+] as const;
+
+function emergencyContactFields(row: TenantRow) {
+  const out: Partial<Record<(typeof EMERGENCY_FIELDS)[number][0], string>> = {};
+  for (const [key, max] of EMERGENCY_FIELDS) {
+    const value = row[key] == null ? "" : String(row[key]).trim();
+    if (value) out[key] = value.slice(0, max);
+  }
+  return out;
 }
 
 const VALID_PAYMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "BIANNUAL", "ANNUAL"] as const;
@@ -120,6 +140,7 @@ export async function POST(req: Request) {
         const depositReceivedDate = row.depositReceivedDate ? new Date(row.depositReceivedDate) : leaseStart;
         // A number-formatted cell arrives as a number — keep it as text.
         const phone = row.phone != null ? String(row.phone).trim() || null : null;
+        const emergency = emergencyContactFields(row);
         if (phone && !normalizePhoneForWhatsApp(phone, dialCodeForCurrency(unit.property.currency))) {
           errors.push({
             row: rowNum,
@@ -156,6 +177,7 @@ export async function POST(req: Request) {
               paymentFrequency,
               ...escalationFields,
               parkingFee,
+              ...emergency,
               notes: row.notes?.trim() || null,
               // Don't flip isActive on an upsert — preserve whatever the manager set.
             },
@@ -210,6 +232,7 @@ export async function POST(req: Request) {
               paymentFrequency,
               ...escalationFields,
               parkingFee,
+              ...emergency,
               notes: row.notes?.trim() || null,
               isActive: true,
             },

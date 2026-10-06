@@ -122,6 +122,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
   {
+    key: "NOTIFY_QUOTES",
+    name: "Quote alerts",
+    description: "Email the property's managers, and whoever requested it, when a vendor sends a quote through their quote link.",
+    trigger: "A vendor submits a quote",
+    actions: ["Email Manager", "Email Caretaker"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_NEW_COMPLAINT",
     name: "New complaint alerts",
     description: "Email managers when a tenant complaint is logged by on-site staff or raised through the tenant portal.",

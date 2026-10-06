@@ -24,6 +24,7 @@ const EXEMPT_HANDLERS = new Set([
   "POST contact/route.ts", // public contact form
   "POST sign/checkout/[token]/route.ts", // tenant signs a checkout by token link
   "POST vendor/[token]/route.ts", // vendor submits a quote by token link
+  "POST vendor/[token]/document/route.ts", // vendor attaches their quote document by token link
   "POST report/route.ts", // renders the report PDF — a read in spirit
   "POST invoices/reconcile/route.ts", // preview only; /confirm writes and is gated
   "PATCH users/[id]/route.ts", // team management stays open so a locked org can fix seats

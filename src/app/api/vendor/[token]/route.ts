@@ -7,9 +7,13 @@ import { logAudit } from "@/lib/audit";
 import { redactToken } from "@/lib/approval-auth";
 import { advanceCase, getWorkflow, getStageByKey } from "@/lib/case-workflows";
 import { formatCurrency } from "@/lib/currency";
+import { findQuoteByToken, quoteLinkView, submitQuoteByLink } from "@/lib/vendor-quote-link";
 
 // Public vendor magic-link routes — the token IS the auth, mirroring
 // /api/approvals/[token]. GET stays idempotent (link scanners consume nothing).
+// Two kinds of token: a quote's own link (MaintenanceQuote.linkToken — several
+// vendors per job, src/lib/vendor-quote-link.ts) and the job's older single
+// vendor link (MaintenanceJob.vendorLinkToken), handled below.
 
 function isExpired(d: Date | null): boolean {
   return !!d && d.getTime() < Date.now();
@@ -30,6 +34,8 @@ async function findByToken(token: string) {
 
 export async function GET(_req: Request, props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
+  const quote = await findQuoteByToken(params.token);
+  if (quote) return NextResponse.json(quoteLinkView(quote));
   const job = await findByToken(params.token);
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -65,6 +71,20 @@ export async function POST(req: Request, props: { params: Promise<{ token: strin
   const limited = rateLimit(`vendor-link:${getClientIp(req)}`, { max: 30, windowMs: 60 * 60 * 1000 });
   if (!limited.ok) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+  }
+
+  const quote = await findQuoteByToken(params.token);
+  if (quote) {
+    const parsedQuote = quoteSchema.safeParse(await req.json().catch(() => null));
+    if (!parsedQuote.success) return NextResponse.json({ error: "Enter a valid quote amount." }, { status: 400 });
+    const { amount, note, availableDate } = parsedQuote.data;
+    const res = await submitQuoteByLink(quote, params.token, {
+      amount: Math.round(amount * 100) / 100,
+      note: note?.trim() || null,
+      availableDate: availableDate && !isNaN(Date.parse(availableDate)) ? new Date(availableDate) : null,
+    });
+    if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
+    return NextResponse.json({ ok: true, updated: res.updated });
   }
 
   const job = await findByToken(params.token);

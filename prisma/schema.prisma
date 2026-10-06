@@ -1219,6 +1219,8 @@ model MaintenanceJob {
   property         Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   vendor           Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  // Quotes requested from several vendors (one per vendor); a manager accepts one.
+  quotes           MaintenanceQuote[]
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
@@ -1227,6 +1229,51 @@ model MaintenanceJob {
   @@index([conditionReportId])
   @@index([caseThreadId])
   @@index([submittedViaPortal])
+}
+
+enum MaintenanceQuoteStatus {
+  REQUESTED // link sent, nothing back yet
+  RECEIVED  // amount in — from the vendor's link or typed in by staff
+  ACCEPTED  // a manager chose it: the vendor is assigned to the job
+  DECLINED
+}
+
+// One vendor's quote for a maintenance job. Each has its own magic link
+// (/vendor/[token], no login) so several vendors can quote the same job.
+// Staff (caretakers incl.) request quotes and type in ones received by phone;
+// only a manager accepts or declines (owner decision 2026-10-06).
+model MaintenanceQuote {
+  id                String                 @id @default(cuid())
+  jobId             String
+  job               MaintenanceJob         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  vendorId          String
+  vendor            Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  status            MaintenanceQuoteStatus @default(REQUESTED)
+  linkToken         String?                @unique
+  linkExpiresAt     DateTime?
+  amount            Decimal?               @db.Decimal(14, 2)
+  note              String?
+  availableDate     DateTime?
+  // A quote document (PDF / photo) from the vendor's link or staff; private bucket path.
+  documentPath      String?
+  documentName      String?
+  documentMime      String?
+  requestedByUserId String?
+  requestedByName   String?
+  requestedAt       DateTime               @default(now())
+  receivedAt        DateTime?
+  // "Vendor" when it came through the link, else the staff member who typed it in.
+  receivedVia       String?
+  decidedAt         DateTime?
+  decidedByName     String?
+  declineReason     String?
+  // Declined because another quote was accepted — restored if that is undone.
+  autoDeclined      Boolean                @default(false)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@unique([jobId, vendorId])
+  @@index([vendorId])
 }
 
 model CaseThread {
@@ -2067,6 +2114,7 @@ model Vendor {
   isActive       Boolean        @default(true)
   expenses        ExpenseEntry[]
   maintenanceJobs MaintenanceJob[]
+  maintenanceQuotes MaintenanceQuote[]
   assetLogs       AssetMaintenanceLog[]
   recurringExpenses RecurringExpense[]
   assets          Asset[]

@@ -488,7 +488,7 @@
       <table class="data-table">
         <thead><tr><th>Page</th><th>A caretaker can</th><th>A caretaker cannot</th></tr></thead>
         <tbody>
-          <tr><td><strong>Maintenance</strong></td><td>Log jobs, move them through stages, set priority, assign a vendor, request quotes, and <em>Log as Expense</em> when done</td><td>Delete jobs, edit recurring schedules, or open the linked case (the <em>Open case →</em> link is hidden)</td></tr>
+          <tr><td><strong>Maintenance</strong></td><td>Log jobs, move them through stages, set priority, assign a vendor, ask vendors for quotes and type in quotes received by phone, and <em>Log as Expense</em> when done</td><td>Accept or decline a quote, delete jobs, edit recurring schedules, or open the linked case (the <em>Open case →</em> link is hidden)</td></tr>
           <tr><td><strong>Complaints</strong></td><td>Log, acknowledge, investigate and resolve tenant complaints, add notes and photos</td><td>Close or reopen a complaint, delete one, or see <em>Staff conduct</em> complaints at all — that category is invisible to the role end to end</td></tr>
           <tr><td><strong>Expenses</strong></td><td>Record expenses with amounts, VAT and receipts; edit, delete and attach receipts on <strong>their own entries</strong>; tick <em>Paid from petty cash</em></td><td>Touch anyone else's entries, use bulk actions or <em>Delete all</em>, view change history, record portfolio-wide costs, or see any petty-cash balance</td></tr>
           <tr><td><strong>Vendors</strong></td><td>Add a contractor with full details (phone, email, tax ID, bank details)</td><td>See more than name, category and phone on existing vendors; edit, deactivate, delete, or open statements</td></tr>
@@ -1806,12 +1806,15 @@
     </div>
 
     <div class="sub-section">
-      <h3>Vendor quote links — no vendor account needed</h3>
-      <p style="margin-bottom:12px">Once a job has a vendor assigned, click <strong>Request quote</strong> on the job card. The vendor receives a secure link (emailed automatically, or copied for WhatsApp/SMS) where they submit their quote without logging in:</p>
+      <h3>Quotes — ask several vendors, accept one</h3>
+      <p style="margin-bottom:12px">Click <strong>Get quotes</strong> on a job card (managers and caretakers). Tick the vendors to ask — a plumber, an electrician, a painter — add a message if you like, and send. Each vendor gets their <strong>own secure link</strong>, emailed when they have an address; for the others, copy the link or send it on WhatsApp straight from the list. No vendor account is needed.</p>
       <ul class="feature-list">
-        <li>The vendor sees the job brief and enters their <strong>price, earliest available date, and notes</strong> — resubmitting updates the quote while the link is valid</li>
-        <li>The quote lands on the job card and the case timeline, the visit date becomes the job's scheduled date, and the case auto-advances to <em>Quote received</em></li>
-        <li>You're emailed the moment the quote arrives — no more chasing quotes over the phone</li>
+        <li><strong>The vendor's link</strong> shows the job brief; they enter their <strong>price, earliest available date and notes</strong>, and can attach their quote as a PDF or photo. Resubmitting updates it while the link is open (14 days).</li>
+        <li><strong>Quoted by phone or WhatsApp?</strong> <em>Type in quote</em> records the amount yourself, with a photo of a paper quote.</li>
+        <li><strong>Compare</strong> — the job card shows how many quotes are in and the lowest; <em>Quotes</em> lists them side by side, the cheapest in green. A quote above the property's repair authority limit is flagged so the owner approves it first.</li>
+        <li><strong>Accept</strong> (managers only) assigns that vendor to the job, records the price, emails the vendor that their quote was accepted, and declines the other quotes (those vendors are not emailed; their link says a decision has been made). <em>Undo acceptance</em> puts everything back. <em>Decline</em> turns one quote down, with an optional reason.</li>
+        <li>Every request, quote and decision is on the job's case timeline, and the case moves to <em>Quote requested</em>, <em>Quote received</em> and <em>Approved</em> as they happen. You're emailed when a vendor sends a quote (Automations → <em>Quote alerts</em>).</li>
+        <li><strong>After a move-out</strong> — repair jobs raised from an inspection's damage show their quotes on the inspection, and the checkout's <em>Fill from the inspection</em> puts the accepted quotes into the damage amount when it is empty. You still decide what the tenant is charged.</li>
       </ul>
     </div>
 
@@ -1819,7 +1822,7 @@
       <span class="callout-icon">ℹ️</span>
       <div class="callout-body">
         <strong>Built for on-site staff</strong>
-        Maintenance is the home page for the <a href="#caretaker">Caretaker</a> role. A caretaker can log jobs, move them through the stages, assign vendors, request quotes and log the expense when done — everything on this page except deleting a job, editing recurring schedules, and opening the case view. Expenses they log from a job are theirs to edit until a petty-cash withdrawal on them is confirmed.
+        Maintenance is the home page for the <a href="#caretaker">Caretaker</a> role. A caretaker can log jobs, move them through the stages, assign vendors, ask vendors for quotes (a manager accepts one) and log the expense when done — everything on this page except deleting a job, editing recurring schedules, and opening the case view. Expenses they log from a job are theirs to edit until a petty-cash withdrawal on them is confirmed.
       </div>
     </div>
 

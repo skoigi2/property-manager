@@ -131,7 +131,7 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
   const [repairJobs, turnover] = await Promise.all([
     prisma.maintenanceJob.findMany({
       where: { conditionReportId: report.id },
-      select: { id: true, title: true, status: true },
+      select: { id: true, title: true, status: true, quotes: { select: { status: true, amount: true } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.unitTurnover.findFirst({

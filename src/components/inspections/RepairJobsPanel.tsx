@@ -86,7 +86,16 @@ export function RepairJobsPanel({ inspection, onChanged }: { inspection: Inspect
                   {i.notes && <span className="block text-caption text-gray-500">{i.notes}</span>}
                 </span>
                 {job ? (
-                  <Link href={`/maintenance?focus=${job.id}`} className="text-caption text-gold-dark whitespace-nowrap">Job: {JOB_STATUS[job.status] ?? job.status}</Link>
+                  <Link href={`/maintenance?focus=${job.id}`} className="text-caption text-gold-dark whitespace-nowrap text-right">
+                    Job: {JOB_STATUS[job.status] ?? job.status}
+                    {job.quotes.length > 0 && (
+                      <span className="block text-gray-500">
+                        {job.quotes.some((q) => q.status === "ACCEPTED")
+                          ? "Quote accepted"
+                          : `${job.quotes.filter((q) => q.status === "RECEIVED").length} of ${job.quotes.length} quotes in`}
+                      </span>
+                    )}
+                  </Link>
                 ) : i.jobId ? (
                   <span className="text-caption text-gray-400 whitespace-nowrap">Job removed</span>
                 ) : null}

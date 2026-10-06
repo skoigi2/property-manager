@@ -938,6 +938,72 @@ async function main() {
     }
   }
 
+  // ── Quotes: several vendors per job, one link each; only a manager accepts ──
+  {
+    const orgId = property.organizationId!;
+    const v1 = await prisma.vendor.create({ data: { name: `Smoke Painter ${stamp}`, category: "CONTRACTOR", organizationId: orgId, isActive: true } });
+    const v2 = await prisma.vendor.create({ data: { name: `Smoke Plumber ${stamp}`, category: "CONTRACTOR", organizationId: orgId, isActive: true, phone: "+254700000002" } });
+    const otherOrg = await prisma.organization.create({ data: { name: `Smoke Other Org ${stamp}` } });
+    const foreign = await prisma.vendor.create({ data: { name: `Foreign Vendor ${stamp}`, category: "CONTRACTOR", organizationId: otherOrg.id, isActive: true } });
+    const job = await prisma.maintenanceJob.create({ data: { propertyId: property.id, unitId: unit.id, title: `Smoke repaint ${stamp}`, category: "OTHER" } });
+    const pub = async (path: string, init: RequestInit = {}) => {
+      const res = await fetch(BASE + path, { ...init, headers: init.body && !(init.body instanceof FormData) ? { "content-type": "application/json" } : undefined });
+      let body: any = null; try { body = await res.json(); } catch { /* non-JSON */ }
+      return { status: res.status, body };
+    };
+    try {
+      await expectStatus(care, "ask a vendor from another organisation → 400", `/api/maintenance/${job.id}/quotes`, 400, {
+        method: "POST", body: JSON.stringify({ vendorIds: [foreign.id] }),
+      });
+      const asked = await expectStatus(care, "caretaker asks two vendors for quotes → 201", `/api/maintenance/${job.id}/quotes`, 201, {
+        method: "POST", body: JSON.stringify({ vendorIds: [v1.id, v2.id], message: "Repaint the living room" }),
+      });
+      check("one quote and one link per vendor", asked?.quotes?.length === 2 && asked.quotes.every((x: any) => x.status === "REQUESTED" && x.linkUrl));
+      const qOf = (body: any, v: { id: string }) => body?.quotes?.find((x: any) => x.vendor.id === v.id);
+      const token1 = String(qOf(asked, v1)?.linkUrl ?? "").split("/vendor/")[1];
+
+      const view = await pub(`/api/vendor/${token1}`);
+      check("vendor link opens without a login", view.status === 200 && view.body?.kind === "quote" && view.body?.title === job.title && view.body?.canAttach === true);
+      const sent = await pub(`/api/vendor/${token1}`, { method: "POST", body: JSON.stringify({ amount: 9000, note: "Two coats", availableDate: today }) });
+      check("vendor submits a price through the link", sent.status === 200);
+      const att = await pub(`/api/vendor/${token1}/document`, { method: "POST", body: (() => { const f = new FormData(); f.append("file", new File([new Uint8Array([37, 80, 68, 70])], "quote.pdf", { type: "application/pdf" })); return f; })() });
+      check("vendor attaches a quote document → 201 (or 503 without storage)", att.status === 201 || att.status === 503, `got ${att.status}`);
+
+      const q2 = qOf(asked, v2);
+      await expectStatus(care, "caretaker types in a quote received by phone → 200", `/api/maintenance/${job.id}/quotes/${q2.id}`, 200, {
+        method: "POST", body: JSON.stringify({ action: "record", amount: "7,000".replace(/,/g, ""), note: "Phoned in" }),
+      });
+      const list = await expectStatus(care, "GET quotes", `/api/maintenance/${job.id}/quotes`, 200);
+      check("both quotes received; the link one marked as from the vendor",
+        qOf(list, v1)?.status === "RECEIVED" && qOf(list, v1)?.amount === 9000 && qOf(list, v1)?.receivedVia === "Vendor" && qOf(list, v2)?.receivedVia === "Smoke Caretaker");
+      await expectStatus(care, "caretaker accepts a quote → 403", `/api/maintenance/${job.id}/quotes/${q2.id}`, 403, { method: "POST", body: JSON.stringify({ action: "accept" }) });
+      await expectStatus(mgr, "manager accepts the cheaper quote → 200", `/api/maintenance/${job.id}/quotes/${q2.id}`, 200, { method: "POST", body: JSON.stringify({ action: "accept" }) });
+      const after = await prisma.maintenanceQuote.findMany({ where: { jobId: job.id } });
+      const jobAfter = await prisma.maintenanceJob.findUnique({ where: { id: job.id }, select: { vendorId: true, vendorQuoteAmount: true } });
+      check("accepting assigns the vendor and declines the other quote",
+        jobAfter?.vendorId === v2.id && Number(jobAfter?.vendorQuoteAmount) === 7000 && after.find((x) => x.vendorId === v1.id)?.status === "DECLINED" && after.find((x) => x.vendorId === v1.id)?.autoDeclined === true);
+      const declinedView = await pub(`/api/vendor/${token1}`);
+      check("the declined vendor's link shows the decision", declinedView.body?.decided === "DECLINED");
+      const late = await pub(`/api/vendor/${token1}`, { method: "POST", body: JSON.stringify({ amount: 8000 }) });
+      check("a decided quote can't be changed through the link → 410", late.status === 410);
+      await expectStatus(mgr, "a second acceptance → 409", `/api/maintenance/${job.id}/quotes/${qOf(list, v1).id}`, 409, { method: "POST", body: JSON.stringify({ action: "accept" }) });
+      await expectStatus(mgr, "manager undoes the acceptance → 200", `/api/maintenance/${job.id}/quotes/${q2.id}`, 200, { method: "POST", body: JSON.stringify({ action: "unaccept" }) });
+      const restored = await prisma.maintenanceQuote.findMany({ where: { jobId: job.id } });
+      check("undo restores the auto-declined quote", restored.every((x) => x.status === "RECEIVED"));
+      const resent = await expectStatus(care, "re-send a vendor's link → 200", `/api/maintenance/${job.id}/quotes/${qOf(list, v1).id}`, 200, { method: "POST", body: JSON.stringify({ action: "resend" }) });
+      const oldLink = await pub(`/api/vendor/${token1}`);
+      check("re-sending replaces the old link", oldLink.status === 404 && typeof resent?.url === "string" && !resent.url.endsWith(token1));
+      await expectStatus(mgr, "manager declines with a reason → 200", `/api/maintenance/${job.id}/quotes/${qOf(list, v1).id}`, 200, { method: "POST", body: JSON.stringify({ action: "decline", reason: "Too dear" }) });
+      const jobs = await expectStatus(care, "maintenance list carries the quote summary", `/api/maintenance?propertyId=${property.id}`, 200);
+      const row = (Array.isArray(jobs) ? jobs : jobs?.jobs ?? []).find((j: any) => j.id === job.id);
+      check("job card summary: two quotes", row?.quotes?.length === 2);
+    } finally {
+      await prisma.maintenanceJob.delete({ where: { id: job.id } }).catch(() => {});
+      await prisma.vendor.deleteMany({ where: { id: { in: [v1.id, v2.id, foreign.id] } } });
+      await prisma.organization.delete({ where: { id: otherOrg.id } }).catch(() => {});
+    }
+  }
+
   // ── cleanup ──
   for (const id of Array.from(created.complaints)) {
     const row = await prisma.tenantComplaint.findUnique({ where: { id }, select: { caseThreadId: true } });

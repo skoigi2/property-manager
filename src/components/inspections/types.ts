@@ -57,7 +57,7 @@ export interface InspectionDto {
   meters: InspectionMeter[];
   meterReadings: InspectionMeterReading[];
   /** Maintenance jobs raised from this inspection's damage. */
-  repairJobs: { id: string; title: string; status: string }[];
+  repairJobs: { id: string; title: string; status: string; quotes: { status: "REQUESTED" | "RECEIVED" | "ACCEPTED" | "DECLINED"; amount: number | null }[] }[];
   /** The unit's open "ready to re-let" checklist, if any. */
   openTurnover: { id: string; conditionReportId: string | null } | null;
   viewer: { isManager: boolean; userId: string };

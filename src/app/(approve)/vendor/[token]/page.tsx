@@ -19,6 +19,10 @@ interface VendorView {
   currency: string;
   existingQuote: { amount: number; note: string | null; at: string } | null;
   scheduledDate: string | null;
+  /** Per-quote links (several vendors per job): a document can be attached, and the manager's decision is shown. */
+  canAttach?: boolean;
+  documentName?: string | null;
+  decided?: "ACCEPTED" | "DECLINED" | null;
 }
 
 export default function VendorLinkPage() {
@@ -31,7 +35,8 @@ export default function VendorLinkPage() {
   const [note, setNote] = useState("");
   const [availableDate, setAvailableDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState<null | { updated: boolean }>(null);
+  const [done, setDone] = useState<null | { updated: boolean; attached: string | null; attachError: string | null }>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,7 +66,18 @@ export default function VendorLinkPage() {
       });
       const json = await res.json();
       if (!res.ok) { setError(json.error ?? "Could not submit your quote"); return; }
-      setDone({ updated: json.updated });
+      // The document goes up after the price, so a failed upload never loses the quote.
+      let attached: string | null = null;
+      let attachError: string | null = null;
+      if (file && data?.canAttach) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const up = await fetch(`/api/vendor/${token}/document`, { method: "POST", body: fd });
+        const upJson = await up.json().catch(() => ({}));
+        if (up.ok) attached = upJson.documentName ?? file.name;
+        else attachError = upJson.error ?? "The document couldn't be attached";
+      }
+      setDone({ updated: json.updated, attached, attachError });
     } catch {
       setError("Network error — please try again");
     } finally {
@@ -88,10 +104,24 @@ export default function VendorLinkPage() {
           {data.orgName} has been notified. They&apos;ll come back to you on this quote — you can
           reopen this link to update it while it remains valid.
         </p>
+        {done.attached && <p className="text-caption text-gray-500 mt-2">Attached: {done.attached}</p>}
+        {done.attachError && <p className="text-caption text-expense mt-2">{done.attachError} — your price was saved; you can try attaching again from this link.</p>}
       </Centered>
     );
   }
 
+  if (data.decided) {
+    return (
+      <Centered>
+        <h1 className="text-h1 mb-2">{data.decided === "ACCEPTED" ? "Quote accepted" : "Quote closed"}</h1>
+        <p className="text-gray-500">
+          {data.decided === "ACCEPTED"
+            ? `${data.orgName} has accepted your quote and will be in touch to arrange access.`
+            : `${data.orgName} has made a decision on this job. Thank you for quoting.`}
+        </p>
+      </Centered>
+    );
+  }
   if (data.closed) {
     return (
       <Centered>
@@ -162,6 +192,17 @@ export default function VendorLinkPage() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-body focus:outline-none focus:border-gold resize-none"
               />
             </div>
+            {data.canAttach && (
+              <div>
+                <label className="text-label uppercase text-gray-500 block mb-1">Attach your quote <span className="normal-case">(optional — PDF or photo)</span></label>
+                <input
+                  type="file" accept="application/pdf,image/*"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-body text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-cream file:px-3 file:py-2 file:text-body"
+                />
+                {data.documentName && !file && <p className="text-caption text-gray-400 mt-1">Already attached: {data.documentName}</p>}
+              </div>
+            )}
           </div>
 
           {error && <p className="text-caption text-expense mt-3">{error}</p>}

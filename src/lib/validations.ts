@@ -451,6 +451,19 @@ export const stayActionSchema = z.object({
   step:        z.string().max(20).nullable().optional(),
 });
 
+export const quoteRequestSchema = z.object({
+  vendorIds: z.array(z.string().min(1)).min(1, "Pick at least one vendor").max(10),
+  message:   z.string().max(1000).nullable().optional(),
+});
+
+export const quoteActionSchema = z.object({
+  action:        z.enum(["record", "accept", "decline", "unaccept", "resend"]),
+  amount:        z.union([z.number(), z.string()]).optional(),
+  note:          z.string().max(2000).nullable().optional(),
+  availableDate: z.string().nullable().optional(),
+  reason:        z.string().max(500).nullable().optional(),
+});
+
 export const stayGuestSchema = z.object({
   name:        z.string().trim().min(1, "Type the guest's name").max(120),
   phone:       z.string().trim().max(40).optional().nullable(),

@@ -21,6 +21,10 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   "src/app/api/maintenance/route.ts",
   "src/app/api/maintenance/[id]/route.ts",
   "src/app/api/maintenance/[id]/vendor-link/route.ts",
+  // Quotes: request / type in / attach (accept and decline are manager-only — src/lib/quote-rules.ts)
+  "src/app/api/maintenance/[id]/quotes/route.ts",
+  "src/app/api/maintenance/[id]/quotes/[quoteId]/route.ts",
+  "src/app/api/maintenance/[id]/quotes/[quoteId]/document/route.ts",
   "src/app/api/maintenance/schedules/route.ts",
   "src/app/api/maintenance/sla/route.ts",
   // Vendors (trimmed read, full create, no edit/delete)

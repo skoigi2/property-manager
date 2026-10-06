@@ -65,6 +65,9 @@ type CheckoutPrefill = {
     submittedByName: string | null;
     tenantDisagrees: boolean;
     tenantComments: string | null;
+    /** Accepted vendor quotes on the repair jobs raised from this inspection. */
+    acceptedRepairQuotes: { title: string; vendorName: string; amount: number }[];
+    acceptedRepairTotal: number;
     prefill: {
       damageFound: boolean;
       damageNotes: string;
@@ -371,6 +374,14 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
       // The checkout keeps at most 2,000 characters of description.
       setInventoryDamageNotes((prev) => (prev.trim() ? `${prev.trim()}\n${p.damageNotes}` : p.damageNotes).slice(0, 2000));
     }
+    // Accepted repair quotes give the damage amount a starting figure — only into an empty field.
+    if (insp.acceptedRepairTotal > 0) {
+      setDamageFound(true);
+      setInventoryDamageAmount((prev) => (prev.trim() && parseFloat(prev) > 0 ? prev : String(insp.acceptedRepairTotal)));
+      const lines = insp.acceptedRepairQuotes.map((q) => `${q.title} — ${q.vendorName}: ${formatCurrency(q.amount, currency)}`);
+      const block = `Repair quotes accepted:\n${lines.join("\n")}`;
+      setInventoryDamageNotes((prev) => (prev.includes("Repair quotes accepted:") ? prev : (prev.trim() ? `${prev.trim()}\n${block}` : block)).slice(0, 2000));
+    }
     setKeys(p.keysReturned);
     if (p.otherKeys.length) {
       const line = `Other keys returned: ${p.otherKeys.join(", ")}`;
@@ -568,7 +579,12 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                     <Button size="sm" variant="ghost">Open inspection</Button>
                   </Link>
                 </div>
-                <p className="text-caption text-blue-800">Fills the damage description, keys returned and final meter readings. You still set the amount charged.</p>
+                <p className="text-caption text-blue-800">
+                  Fills the damage description, keys returned and final meter readings.
+                  {data.moveOutInspection.acceptedRepairTotal > 0
+                    ? ` The accepted repair quotes (${formatCurrency(data.moveOutInspection.acceptedRepairTotal, currency)}) go into the damage amount if it's empty — change it as you see fit.`
+                    : " You still set the amount charged."}
+                </p>
               </div>
             )}
             <p className="text-body text-gray-600 mb-2">Was there any damage / breakage to the inventory?</p>

@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { exportMaintenance } from "@/lib/excel-export";
 import { VendorSelect } from "@/components/ui/VendorSelect";
+import { QuotesModal } from "@/components/maintenance/QuotesModal";
+import { lowestQuote, type QuoteStatus } from "@/lib/quote-rules";
 import { formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
 import { useFocusScroll } from "@/lib/use-focus-scroll";
@@ -58,6 +60,7 @@ interface Job {
   vendor?:             { id: string; name: string } | null;
   vendorQuoteAmount?:  number | null;
   vendorQuoteAt?:      string | null;
+  quotes?:             { status: QuoteStatus; amount: number | null }[];
   property:      { id: string; name: string };
   unit?:         { id: string; unitNumber: string } | null;
 }
@@ -393,8 +396,9 @@ function LogExpenseModal({ job, onClose, onLogged }: {
 
 // ─── Job Card ─────────────────────────────────────────────────────────────────
 
-function JobCard({ job, isManager, canDelete = true, showCaseLink = true, currency, onEdit, onDelete, onAdvance, onLogExpense, advancing }: {
+function JobCard({ job, isManager, canDelete = true, showCaseLink = true, currency, onEdit, onDelete, onAdvance, onLogExpense, onQuotesChanged, advancing }: {
   job:          Job;
+  onQuotesChanged: () => void;
   isManager:    boolean;
   canDelete?:   boolean;
   showCaseLink?: boolean;
@@ -410,6 +414,12 @@ function JobCard({ job, isManager, canDelete = true, showCaseLink = true, curren
   const isDone    = job.status === "DONE";
   const hasCost   = job.cost != null && job.cost > 0;
   const expensed  = !!job.expenseId;
+  const [quotesOpen, setQuotesOpen] = useState(false);
+  const quotes    = job.quotes ?? [];
+  const accepted  = quotes.find((q) => q.status === "ACCEPTED");
+  const lowest    = lowestQuote(quotes);
+  const received  = quotes.filter((q) => q.status === "RECEIVED" || q.status === "ACCEPTED").length;
+  const jobOpen   = job.status !== "DONE" && job.status !== "CANCELLED";
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2 hover:shadow-md transition-shadow">
@@ -465,7 +475,15 @@ function JobCard({ job, isManager, canDelete = true, showCaseLink = true, curren
             <span>{formatCurrency(job.cost!, currency)}</span>
           </div>
         )}
-        {job.vendorQuoteAmount != null && (
+        {quotes.length > 0 ? (
+          <div className="flex items-center gap-1 text-gold-dark font-medium">
+            <span>
+              {accepted
+                ? `Accepted ${formatCurrency(accepted.amount ?? 0, currency)}${job.vendor ? ` — ${job.vendor.name}` : ""}`
+                : `${received} of ${quotes.length} quote${quotes.length === 1 ? "" : "s"} in${lowest?.amount != null ? ` · lowest ${formatCurrency(lowest.amount, currency)}` : ""}`}
+            </span>
+          </div>
+        ) : job.vendorQuoteAmount != null && (
           <div className="flex items-center gap-1 text-gold-dark font-medium">
             <span>Quoted {formatCurrency(job.vendorQuoteAmount, currency)}{job.vendor ? ` — ${job.vendor.name}` : ""}</span>
           </div>
@@ -514,30 +532,15 @@ function JobCard({ job, isManager, canDelete = true, showCaseLink = true, curren
       {/* Actions footer */}
       {isManager && (
         <div className="flex items-center gap-1.5 pt-1 border-t border-gray-50 flex-wrap">
-          {/* Vendor quote link — only useful while the job is open */}
-          {job.vendorId && !isDone && job.status !== "CANCELLED" && (
+          {/* Quotes — several vendors, one link each; a manager accepts one */}
+          {(jobOpen || quotes.length > 0) && (
             <button
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/maintenance/${job.id}/vendor-link`, { method: "POST" });
-                  const json = await res.json();
-                  if (!res.ok) throw new Error(json.error ?? "Failed to create link");
-                  try { await navigator.clipboard.writeText(json.url); } catch {}
-                  toast.success(
-                    json.emailed
-                      ? "Quote link emailed to the vendor (and copied)"
-                      : "Quote link copied — share it with the vendor",
-                    { duration: 6000 },
-                  );
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed to create link");
-                }
-              }}
+              onClick={() => setQuotesOpen(true)}
               className="flex items-center gap-1 text-caption font-medium text-gray-500 hover:text-gold transition-colors"
-              title="Send the vendor a link to submit their quote — no account needed"
+              title="Ask vendors for quotes, type in quotes you received, compare them"
             >
               <ExternalLink size={11} />
-              {job.vendorQuoteAmount != null ? "Re-send quote link" : "Request quote"}
+              {quotes.length ? `Quotes (${quotes.length})` : "Get quotes"}
             </button>
           )}
 
@@ -587,6 +590,9 @@ function JobCard({ job, isManager, canDelete = true, showCaseLink = true, curren
             )}
           </div>
         </div>
+      )}
+      {quotesOpen && (
+        <QuotesModal jobId={job.id} onClose={(changed) => { setQuotesOpen(false); if (changed) onQuotesChanged(); }} />
       )}
     </div>
   );
@@ -1103,6 +1109,7 @@ export default function MaintenancePage() {
                                 onDelete={setDeleteTarget}
                                 onAdvance={handleAdvance}
                                 onLogExpense={setLogExpenseTarget}
+                                onQuotesChanged={load}
                                 advancing={advancing === job.id}
                               />
                             </div>

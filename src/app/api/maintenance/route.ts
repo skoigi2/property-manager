@@ -52,6 +52,7 @@ export async function GET(req: Request) {
       property: { select: { id: true, name: true } },
       unit: { select: { id: true, unitNumber: true } },
       vendor: { select: { id: true, name: true, category: true, phone: true } },
+      quotes: { select: { status: true, amount: true } },
     },
     orderBy: [
       { status: "asc" },

@@ -83,8 +83,19 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       tenantDisagrees: true, tenantComments: true, editRequestedAt: true,
     },
   });
+  // Accepted repair quotes on the jobs raised from that inspection's damage —
+  // a starting figure for the damage charge (the manager still decides).
+  const repairJobs = inspection
+    ? await prisma.maintenanceJob.findMany({
+        where: { conditionReportId: inspection.id, status: { not: "CANCELLED" } },
+        select: { title: true, quotes: { where: { status: "ACCEPTED" }, select: { amount: true, vendor: { select: { name: true } } } } },
+      })
+    : [];
+  const acceptedRepairQuotes = repairJobs.flatMap((j) => j.quotes.map((q) => ({ title: j.title, vendorName: q.vendor.name, amount: q.amount ?? 0 })));
   const moveOutInspection = inspection
     ? {
+        acceptedRepairQuotes,
+        acceptedRepairTotal: Math.round(acceptedRepairQuotes.reduce((s, q) => s + q.amount, 0) * 100) / 100,
         id: inspection.id,
         status: inspection.status,
         submittedAt: inspection.submittedAt,

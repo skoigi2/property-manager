@@ -772,6 +772,11 @@ export default function AirbnbPage() {
                             <GuestPanel incomeEntryId={selectedEntry.id} />
                           </div>
                         )}
+                        {selectedEntry.checkIn && selectedEntry.checkOut && (
+                          <a href={`/stays/${selectedEntry.id}`} className="mt-3 flex items-center gap-2 text-body font-medium text-gold-dark hover:underline">
+                            <BedDouble size={14} /> On-site record — guest ID, keys, post-stay check, cleaning
+                          </a>
+                        )}
                       </div>
                     )}
                   </Card>

@@ -18,6 +18,8 @@ export interface InspectionDto {
     email?: string | null; leaseEnd?: string | null;
   } | null;
   assignedTo: { id: string; name: string | null } | null;
+  /** POST_STAY: the booking the check followed (no money). */
+  booking: { id: string; checkIn: string; checkOut: string; guestName: string | null; guestCount: number } | null;
   items: InspectionItem[];
   overallComments: string | null;
   tenantIssues: string | null;
@@ -61,7 +63,12 @@ export interface InspectionDto {
   viewer: { isManager: boolean; userId: string };
 }
 
-/** The move-in condition of the same room + feature, for comparison. */
+/** What the baseline is: the move-in for long-term visits, the previous stay's check for a post-stay. */
+export function baselineLabel(type: InspectionType): string {
+  return type === "POST_STAY" ? "Last stay" : "At move-in";
+}
+
+/** The baseline condition of the same room + feature, for comparison. */
 export function baselineFor(baseline: InspectionDto["baseline"], room: string, feature: string): InspectionItem | null {
   if (!baseline) return null;
   const r = room.trim().toLowerCase(), f = feature.trim().toLowerCase();

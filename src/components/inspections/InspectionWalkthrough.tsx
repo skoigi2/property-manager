@@ -8,12 +8,12 @@ import { Camera, ChevronLeft, ChevronRight, Loader2, CheckCircle2, Plus, X, Send
 import { maybeCompressImage } from "@/lib/image-compress";
 import { seedItemsFromTemplate } from "@/lib/condition-report-template";
 import {
-  INSPECTION_TYPE_LABEL, MIN_PHOTOS_PER_ROOM, roomPhotoCounts, submitProblems,
-  type InspectionItem, type InspectionKey, type ItemStatus, type TenantSignOff,
+  INSPECTION_TYPE_LABEL, POST_STAY_FEATURE, minPhotosPerRoom, ratingOptions, itemStatusLabel, roomPhotoCounts, submitProblems,
+  type InspectionItem, type InspectionKey, type InspectionType, type ItemStatus, type TenantSignOff,
 } from "@/lib/inspection-rules";
 import { SignaturePad } from "./SignaturePad";
 import { KeysEditor } from "./KeysEditor";
-import { baselineFor, readError, type InspectionDto } from "./types";
+import { baselineFor, baselineLabel, readError, type InspectionDto } from "./types";
 import { TenantMoneyCard } from "./TenantMoneyCard";
 
 interface PhotoState {
@@ -25,11 +25,12 @@ interface PhotoState {
   itemId: string;
 }
 
-const STATUSES: ItemStatus[] = ["PERFECT", "GOOD", "FAIR", "POOR"];
-
 export function InspectionWalkthrough({ inspection, onChanged }: { inspection: InspectionDto; onChanged: (next: InspectionDto) => void }) {
   const id = inspection.id;
   const isManager = inspection.viewer.isManager;
+  const type = inspection.reportType;
+  const postStay = type === "POST_STAY";
+  const minPhotos = minPhotosPerRoom(type);
 
   const [items, setItems] = useState<InspectionItem[]>(() =>
     inspection.items.length ? inspection.items : (seedItemsFromTemplate() as InspectionItem[]));
@@ -107,7 +108,7 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
   }
   function addRoom(name: string) {
     if (!name.trim() || rooms.includes(name.trim())) return;
-    setItems((prev) => [...prev, { id: randomId(), room: name.trim(), feature: "Walls", status: null, notes: "", photoIds: [] }]);
+    setItems((prev) => [...prev, { id: randomId(), room: name.trim(), feature: postStay ? POST_STAY_FEATURE : "Walls", status: null, notes: "", photoIds: [] }]);
     setTimeout(() => setStep(rooms.length), 0);
   }
   function removeRoom(room: string) {
@@ -216,8 +217,12 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
       const res = await fetch(`/api/condition-reports/${id}/${accept ? "finalize" : "submit"}`, { method: "POST" });
       if (!res.ok) { toast.error(await readError(res, "Couldn't hand in the inspection")); return; }
       const body = await res.json();
-      toast.success(accept ? "Inspection accepted and saved to the tenant's documents" : "Inspection handed in — the manager has been told");
-      onChanged(accept ? body.inspection : body);
+      const next: InspectionDto = accept ? body.inspection : body;
+      toast.success(
+        accept ? (inspection.tenant ? "Inspection accepted and saved to the tenant's documents" : "Inspection accepted")
+        : next.status === "ACCEPTED" ? "Handed in — no damage, so it's filed"
+        : "Inspection handed in — the manager has been told");
+      onChanged(next);
     } finally {
       setSubmitting(false);
     }
@@ -234,6 +239,13 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
               {inspection.property.name}
               {inspection.scheduledFor ? ` · ${format(new Date(inspection.scheduledFor), "EEE d MMM, HH:mm")}` : ""}
             </p>
+            {inspection.booking && (
+              <p className="text-caption text-gray-500 mt-1">
+                Stay {format(new Date(inspection.booking.checkIn), "d MMM")} – {format(new Date(inspection.booking.checkOut), "d MMM")}
+                {inspection.booking.guestName ? ` · ${inspection.booking.guestName}` : ""}
+                {" · "}<a href={`/stays/${inspection.booking.id}`} className="text-gold-dark">Back to the stay</a>
+              </p>
+            )}
             {t && (
               <p className="text-caption text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
                 <span className="font-medium text-gray-700">{t.name}</span>
@@ -274,7 +286,7 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
             const roomItems = items.filter((it) => it.room === r);
             const rated = roomItems.every((it) => it.status);
             const n = photoCounts.get(r) ?? 0;
-            const done = rated && n >= MIN_PHOTOS_PER_ROOM;
+            const done = rated && n >= minPhotos;
             return (
               <button key={r} type="button" onClick={() => setStep(idx)}
                 className={`shrink-0 px-3 py-1.5 text-caption rounded-lg border transition-colors ${
@@ -282,14 +294,14 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
                   : done ? "border-green-200 bg-green-50/50 text-green-700"
                   : "border-gray-200 text-gray-500 hover:border-gold/50"}`}>
                 {done && <CheckCircle2 size={11} className="inline mr-1" />}
-                {r} <span className="tabular-nums opacity-70">· {Math.min(n, 99)}/{MIN_PHOTOS_PER_ROOM}</span>
+                {r} <span className="tabular-nums opacity-70">· {Math.min(n, 99)}/{minPhotos}</span>
               </button>
             );
           })}
           <button type="button" onClick={() => setStep(rooms.length)}
             className={`shrink-0 px-3 py-1.5 text-caption rounded-lg border transition-colors ${
               step === rooms.length ? "border-gold bg-gold/10 text-gold-dark" : "border-gray-200 text-gray-500 hover:border-gold/50"}`}>
-            Sign-off
+            {inspection.tenant ? "Sign-off" : "Finish"}
           </button>
         </div>
       </Card>
@@ -300,6 +312,8 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
           items={items.filter((it) => it.room === currentRoom)}
           photos={photos}
           photoCount={photoCounts.get(currentRoom) ?? 0}
+          minPhotos={minPhotos}
+          type={type}
           baseline={inspection.baseline}
           onUpdate={update}
           onRemoveItem={(itemId) => setItems((prev) => prev.filter((i) => i.id !== itemId))}
@@ -310,14 +324,14 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
         />
       ) : (
         <Card>
-          <h3 className="text-h3 text-header mb-3">Sign-off</h3>
+          <h3 className="text-h3 text-header mb-3">{inspection.tenant ? "Sign-off" : "Finish"}</h3>
           <div className="space-y-5">
             <AddRoom onAdd={addRoom} />
 
             <label className="block">
-              <span className="text-body font-medium text-gray-700 block mb-1">Issues or complaints the tenant raised</span>
+              <span className="text-body font-medium text-gray-700 block mb-1">{inspection.tenant ? "Issues or complaints the tenant raised" : "Issues to report"}</span>
               <textarea rows={3} value={tenantIssues} onChange={(e) => setTenantIssues(e.target.value)}
-                placeholder="Anything the tenant reported about the unit — the manager gets these by email."
+                placeholder={inspection.tenant ? "Anything the tenant reported about the unit — the manager gets these by email." : "Anything missing, broken or reported by the guest — the manager gets these by email."}
                 className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40" />
             </label>
 
@@ -328,7 +342,7 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
                 className="w-full border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40" />
             </label>
 
-            {inspection.meters.length > 0 && (
+            {inspection.meters.length > 0 && !postStay && (
               <div className="space-y-2">
                 <p className="text-body font-medium text-gray-700">
                   {inspection.reportType === "MOVE_IN" ? "Opening meter readings" : inspection.reportType === "MOVE_OUT" ? "Final meter readings" : "Meter readings (optional)"}
@@ -443,11 +457,13 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
   );
 }
 
-function RoomStep({ room, items, photos, photoCount, baseline, onUpdate, onRemoveItem, onRemoveRoom, onCapture, onDeletePhoto, onAddFeature }: {
+function RoomStep({ room, items, photos, photoCount, minPhotos, type, baseline, onUpdate, onRemoveItem, onRemoveRoom, onCapture, onDeletePhoto, onAddFeature }: {
   room: string;
   items: InspectionItem[];
   photos: PhotoState[];
   photoCount: number;
+  minPhotos: number;
+  type: InspectionType;
   baseline: InspectionDto["baseline"];
   onUpdate: (itemId: string, patch: Partial<InspectionItem>) => void;
   onRemoveItem: (itemId: string) => void;
@@ -463,8 +479,9 @@ function RoomStep({ room, items, photos, photoCount, baseline, onUpdate, onRemov
         <h3 className="text-h3 text-header">{room}</h3>
         <button type="button" onClick={onRemoveRoom} className="text-caption text-gray-400 hover:text-red-500">Remove room</button>
       </div>
-      <p className={`text-caption mb-4 ${photoCount >= MIN_PHOTOS_PER_ROOM ? "text-green-700" : "text-amber-700"}`}>
-        {photoCount} of {MIN_PHOTOS_PER_ROOM} photos for this room
+      <p className={`text-caption mb-4 ${photoCount >= minPhotos ? "text-green-700" : "text-amber-700"}`}>
+        {photoCount} of {minPhotos} photo{minPhotos === 1 ? "" : "s"} for this room
+        {type === "POST_STAY" ? " — and a photo of anything damaged" : ""}
       </p>
       <div className="space-y-4">
         {items.map((item) => {
@@ -480,18 +497,18 @@ function RoomStep({ room, items, photos, photoCount, baseline, onUpdate, onRemov
               </div>
               {before && (
                 <p className="text-caption text-gray-500 mt-0.5">
-                  At move-in: <span className="font-medium">{before.status ?? "not rated"}</span>{before.notes ? ` — ${before.notes}` : ""}
+                  {baselineLabel(type)}: <span className="font-medium">{itemStatusLabel(type, before.status)}</span>{before.notes ? ` — ${before.notes}` : ""}
                 </p>
               )}
-              <div className="grid grid-cols-4 gap-1.5 mt-2">
-                {STATUSES.map((s) => (
+              <div className={`grid ${type === "POST_STAY" ? "grid-cols-2" : "grid-cols-4"} gap-1.5 mt-2`}>
+                {ratingOptions(type).map(({ value: s, label }) => (
                   <button key={s} type="button" onClick={() => onUpdate(item.id, { status: s })}
                     className={`text-caption px-2 py-1.5 rounded-lg border transition-colors ${item.status === s ? statusClass(s) : "border-gray-200 text-gray-400 hover:border-gray-300"}`}>
-                    {s}
+                    {label}
                   </button>
                 ))}
               </div>
-              <input type="text" placeholder="Notes (optional)" value={item.notes ?? ""} onChange={(e) => onUpdate(item.id, { notes: e.target.value })}
+              <input type="text" placeholder={type === "POST_STAY" && item.status === "POOR" ? "What is damaged? (required)" : "Notes (optional)"} value={item.notes ?? ""} onChange={(e) => onUpdate(item.id, { notes: e.target.value })}
                 className="w-full mt-2 border border-gray-200 rounded-lg text-body px-3 py-2 bg-cream/50 focus:outline-none focus:ring-2 focus:ring-gold/40" />
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <PhotoButton onCapture={(f) => onCapture(item.id, f)} />

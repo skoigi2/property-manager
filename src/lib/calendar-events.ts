@@ -582,7 +582,7 @@ export async function buildCalendarEvents(
     if (!r.scheduledFor) continue;
     const when = new Date(r.scheduledFor);
     const days = daysFromToday(when, today);
-    const kind = r.reportType === "MOVE_IN" ? "Move-in" : r.reportType === "MOVE_OUT" ? "Move-out" : "Mid-term";
+    const kind = r.reportType === "MOVE_IN" ? "Move-in" : r.reportType === "MOVE_OUT" ? "Move-out" : r.reportType === "POST_STAY" ? "Post-stay" : "Mid-term";
     const href = `/inspections/${r.id}`;
     events.push({
       id: `INSPECTION-${r.id}`,

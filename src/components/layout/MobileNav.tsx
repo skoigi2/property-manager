@@ -18,6 +18,7 @@ import {
   Gauge,
   Calculator,
   ClipboardCheck,
+  BedDouble,
 } from "lucide-react";
 
 interface NavItem {
@@ -61,6 +62,7 @@ const caretakerDrawerSections: DrawerSection[] = [
   {
     heading: "Operations",
     items: [
+      { href: "/stays",     label: "Guest stays",    icon: BedDouble },
       { href: "/utilities", label: "Meter readings", icon: Gauge },
       { href: "/vendors",   label: "Vendors",        icon: Building2 },
     ],
@@ -107,6 +109,7 @@ const mgrDrawerSections: DrawerSection[] = [
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
       { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
+      { href: "/stays",       label: "Guest stays", icon: BedDouble },
       { href: "/utilities",   label: "Utilities",   icon: Gauge },
       { href: "/assets",      label: "Assets",      icon: Package },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
@@ -160,6 +163,7 @@ const accountantDrawerSections: DrawerSection[] = [
       { href: "/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning },
       { href: "/inspections", label: "Inspections", icon: ClipboardCheck },
+      { href: "/stays",       label: "Guest stays", icon: BedDouble },
       { href: "/utilities",   label: "Utilities",   icon: Gauge },
       { href: "/vendors",     label: "Vendors",     icon: Building2 },
       { href: "/compliance",  label: "Compliance",  icon: BarChart3 },

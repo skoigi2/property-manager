@@ -9,10 +9,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CheckCircle2, Undo2, Mail, FileDown, PencilLine, Trash2, AlertTriangle } from "lucide-react";
-import { INSPECTION_TYPE_LABEL, INSPECTION_STATUS_LABEL, type InspectionKey, type InspectionAction } from "@/lib/inspection-rules";
+import { INSPECTION_TYPE_LABEL, INSPECTION_STATUS_LABEL, itemStatusLabel, type InspectionKey, type InspectionAction } from "@/lib/inspection-rules";
 import { KeysEditor } from "./KeysEditor";
 import { statusClass } from "./InspectionWalkthrough";
-import { baselineFor, readError, type InspectionDto } from "./types";
+import { baselineFor, baselineLabel, readError, type InspectionDto } from "./types";
 import { TenantMoneyCard } from "./TenantMoneyCard";
 import { RepairJobsPanel } from "./RepairJobsPanel";
 
@@ -81,6 +81,13 @@ export function InspectionReview({ inspection, onChanged }: { inspection: Inspec
           <div className="min-w-0">
             <h2 className="text-h3 text-header">{INSPECTION_TYPE_LABEL[r.reportType]} inspection · Unit {r.unit.unitNumber}</h2>
             <p className="text-body text-gray-500">{r.property.name}{r.tenant ? ` · ${r.tenant.name}` : ""}</p>
+            {r.booking && (
+              <p className="text-caption text-gray-500 mt-1">
+                Stay {format(new Date(r.booking.checkIn), "d MMM")} – {format(new Date(r.booking.checkOut), "d MMM")}
+                {r.booking.guestName ? ` · ${r.booking.guestName}` : ""}
+                {" · "}<a href={`/stays/${r.booking.id}`} className="text-gold-dark">Open the stay</a>
+              </p>
+            )}
             <p className="text-caption text-gray-400 mt-1">
               {r.submittedAt ? `Handed in by ${r.submittedByName ?? "—"} on ${format(new Date(r.submittedAt), "d MMM yyyy, HH:mm")}` : ""}
               {r.acceptedAt ? ` · Accepted ${format(new Date(r.acceptedAt), "d MMM yyyy")}` : ""}
@@ -113,7 +120,7 @@ export function InspectionReview({ inspection, onChanged }: { inspection: Inspec
         <div className="flex flex-wrap gap-2 mt-4">
           {isManager && r.status === "SUBMITTED" && !r.editRequestedAt && (
             <>
-              <Button size="sm" onClick={() => post("finalize", {}, "accept", "Accepted and saved to the tenant's documents")} loading={busy === "accept"}>
+              <Button size="sm" onClick={() => post("finalize", {}, "accept", r.tenant ? "Accepted and saved to the tenant's documents" : "Accepted")} loading={busy === "accept"}>
                 <CheckCircle2 size={14} /> Accept
               </Button>
               <Button size="sm" variant="ghost" onClick={() => { setNote(""); setDialog({ action: "send_back", title: "Send back to the caretaker", label: "What needs to change?", required: true, confirm: "Send back" }); }}>
@@ -177,7 +184,7 @@ export function InspectionReview({ inspection, onChanged }: { inspection: Inspec
           <div className="space-y-3">
             {r.tenantIssues && (
               <div>
-                <p className="text-body font-medium text-amber-700 flex items-center gap-1.5"><AlertTriangle size={14} /> Issues the tenant raised</p>
+                <p className="text-body font-medium text-amber-700 flex items-center gap-1.5"><AlertTriangle size={14} /> {r.tenant ? "Issues the tenant raised" : "Issues reported"}</p>
                 <p className="text-body text-gray-700 whitespace-pre-wrap mt-1">{r.tenantIssues}</p>
               </div>
             )}
@@ -220,11 +227,11 @@ export function InspectionReview({ inspection, onChanged }: { inspection: Inspec
                 <div key={it.id} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-body font-medium text-header">{it.feature}</p>
-                    {it.status && <span className={`text-caption px-2 py-0.5 rounded-lg border ${statusClass(it.status)}`}>{it.status}</span>}
+                    {it.status && <span className={`text-caption px-2 py-0.5 rounded-lg border ${statusClass(it.status)}`}>{itemStatusLabel(r.reportType, it.status)}</span>}
                   </div>
                   {before && (
                     <p className={`text-caption mt-0.5 ${changed ? "text-amber-700" : "text-gray-400"}`}>
-                      At move-in: {before.status ?? "not rated"}{before.notes ? ` — ${before.notes}` : ""}
+                      {baselineLabel(r.reportType)}: {itemStatusLabel(r.reportType, before.status)}{before.notes ? ` — ${before.notes}` : ""}
                     </p>
                   )}
                   {it.notes && <p className="text-body text-gray-600 mt-1">{it.notes}</p>}

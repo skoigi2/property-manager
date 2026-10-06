@@ -45,6 +45,7 @@ import {
   Gauge,
   Calculator,
   ClipboardCheck,
+  BedDouble,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -110,6 +111,7 @@ const sidebarEntries: SidebarEntry[] = [
       { href: "/maintenance", label: "Maintenance", icon: Wrench,    roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/complaints",  label: "Complaints",  icon: MessageSquareWarning, roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/inspections", label: "Inspections", icon: ClipboardCheck, roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
+      { href: "/stays",       label: "Guest stays", icon: BedDouble, roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/utilities",   label: "Utilities",   icon: Gauge,     roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },
       { href: "/assets",      label: "Assets",      icon: Package,   roles: ["MANAGER", "ACCOUNTANT"] },
       { href: "/vendors",     label: "Vendors",     icon: Building2, roles: ["MANAGER", "ACCOUNTANT", "CARETAKER"] },

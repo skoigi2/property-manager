@@ -28,7 +28,9 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
 
   const result = await createInspection(parsed.data, session!);
-  if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+  if (!result.ok) {
+    return Response.json({ error: result.error, ...("existingId" in result ? { existingId: result.existingId } : {}) }, { status: result.status });
+  }
   const report = result.report;
 
   await logAudit({

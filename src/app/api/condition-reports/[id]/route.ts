@@ -52,6 +52,10 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     if (ks === "locked") return Response.json({ error: "This inspection is accepted — the keys record is locked." }, { status: 409 });
   }
 
+  // A post-stay check stays tied to its booking: no tenant, no other type.
+  if (report.reportType === "POST_STAY" && (data.reportType !== undefined || data.tenantId)) {
+    return Response.json({ error: "A post-stay check belongs to its booking — it can't take a tenant or change type." }, { status: 400 });
+  }
   if (data.tenantId !== undefined && data.tenantId) {
     const t = await prisma.tenant.findUnique({ where: { id: data.tenantId }, select: { unitId: true } });
     if (!t || t.unitId !== report.unitId) return Response.json({ error: "That tenant is not on this unit." }, { status: 400 });

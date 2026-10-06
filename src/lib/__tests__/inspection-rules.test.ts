@@ -3,6 +3,7 @@ import {
   canEditObservations, keysState, normaliseKeys, roomPhotoCounts, submitProblems,
   decideInspectionAction, damagedItems, MIN_PHOTOS_PER_ROOM, type InspectionItem, type SubmitInput,
   normaliseMeterReadings, readingBelowLast, missingMeterReadings,
+  minPhotosPerRoom, ratingOptions, itemStatusLabel, postStayItems, isCleanPostStay,
 } from "@/lib/inspection-rules";
 
 const item = (id: string, room: string, photoIds: string[] = [], status: InspectionItem["status"] = "GOOD"): InspectionItem =>
@@ -152,5 +153,61 @@ describe("meter readings on the visit", () => {
     expect(missingMeterReadings("MOVE_IN", meters, [{ meterId: "w" }]).map((m) => m.meterId)).toEqual(["e"]);
     expect(missingMeterReadings("MID_TERM", meters, [])).toEqual([]);
     expect(submitProblems(ready({ meters, meterReadings: [{ meterId: "w" }] }))).toEqual(["Take the Electricity reading."]);
+  });
+});
+
+describe("post-stay checks", () => {
+  const stay = (over: Partial<SubmitInput> = {}): SubmitInput => ready({
+    reportType: "POST_STAY",
+    hasTenant: false,
+    tenantSignOff: null,
+    tenantSignedName: null,
+    tenantSignaturePath: null,
+    items: [item("1", "Living Room", ["p1"]), item("2", "Bathroom", ["p2"])],
+    photoIds: new Set(["p1", "p2"]),
+    ...over,
+  });
+
+  it("needs one photo per room, no tenant, no sign-off and no meter readings", () => {
+    expect(minPhotosPerRoom("POST_STAY")).toBe(1);
+    expect(minPhotosPerRoom("MOVE_OUT")).toBe(MIN_PHOTOS_PER_ROOM);
+    const meters = [{ meterId: "w", utility: "WATER" as const, label: "Water", lastReading: 10 }];
+    expect(submitProblems(stay({ meters }))).toEqual([]);
+    expect(submitProblems(stay({ items: [item("1", "Living Room", []), item("2", "Bathroom", ["p2"])] }))).toEqual(["Living Room: 0 of 1 photo."]);
+  });
+
+  it("wants a note and a photo of its own for anything damaged", () => {
+    const damaged = { ...item("1", "Living Room", ["p1"], "POOR"), notes: "" };
+    const dmgPhotoElsewhere = stay({ items: [damaged, item("2", "Bathroom", ["p2"])] });
+    expect(submitProblems(dmgPhotoElsewhere)).toEqual(["Living Room: say what is damaged."]);
+    const noPhoto = stay({ items: [{ ...damaged, notes: "Cracked mirror", photoIds: [] }, item("3", "Living Room", ["p1"]), item("2", "Bathroom", ["p2"])] });
+    expect(submitProblems(noPhoto)).toEqual(["Living Room: photograph the damage."]);
+  });
+
+  it("rates fine / damaged and labels them that way", () => {
+    expect(ratingOptions("POST_STAY")).toEqual([{ value: "GOOD", label: "Fine" }, { value: "POOR", label: "Damaged" }]);
+    expect(ratingOptions("MOVE_IN").map((o) => o.value)).toEqual(["PERFECT", "GOOD", "FAIR", "POOR"]);
+    expect(itemStatusLabel("POST_STAY", "POOR")).toBe("Damaged");
+    expect(itemStatusLabel("POST_STAY", "GOOD")).toBe("Fine");
+    expect(itemStatusLabel("MOVE_IN", "FAIR")).toBe("FAIR");
+    expect(itemStatusLabel("POST_STAY", null)).toBe("not rated");
+  });
+
+  it("seeds one Overall item per room, without duplicates", () => {
+    let n = 0;
+    const items = postStayItems(["Living Room", " Bathroom ", "Living Room", ""], () => `id${++n}`);
+    expect(items.map((i) => [i.room, i.feature, i.status])).toEqual([["Living Room", "Overall", null], ["Bathroom", "Overall", null]]);
+  });
+
+  it("has no keys step (the guest's keys are on the stay)", () => {
+    expect(keysState({ reportType: "POST_STAY", status: "IN_PROGRESS", keysClearedAt: null })).toBe("none");
+  });
+
+  it("is clean only with no damage and nothing reported", () => {
+    const fine = [item("1", "Living Room", ["p1"])];
+    expect(isCleanPostStay({ reportType: "POST_STAY", items: fine, tenantIssues: null })).toBe(true);
+    expect(isCleanPostStay({ reportType: "POST_STAY", items: fine, tenantIssues: "Remote missing" })).toBe(false);
+    expect(isCleanPostStay({ reportType: "POST_STAY", items: [item("1", "Living Room", ["p1"], "POOR")], tenantIssues: null })).toBe(false);
+    expect(isCleanPostStay({ reportType: "MID_TERM", items: fine, tenantIssues: null })).toBe(false);
   });
 });

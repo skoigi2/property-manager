@@ -4,8 +4,8 @@ import type { Session } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { getAccessiblePropertyIds, isSuperAdminSession, MANAGER_ROLES, isRoleAllowed } from "@/lib/auth-utils";
 import { getSignedUrl } from "@/lib/supabase-storage";
-import { seedItemsFromTemplate } from "@/lib/condition-report-template";
-import { normaliseKeys, keysState, normaliseMeterReadings, type InspectionItem, type InspectionType, type InspectionMeter } from "@/lib/inspection-rules";
+import { seedItemsFromTemplate, DEFAULT_ROOMS } from "@/lib/condition-report-template";
+import { normaliseKeys, keysState, normaliseMeterReadings, postStayItems, type InspectionItem, type InspectionType, type InspectionMeter } from "@/lib/inspection-rules";
 import { tenantMoneySummary, caretakersSeeMoney } from "@/lib/tenant-money";
 
 // Server side of inspection visits (condition reports run on site). Pure rules
@@ -30,6 +30,14 @@ export const INSPECTION_INCLUDE = {
   },
   assignedTo: { select: { id: true, name: true, email: true } },
   photos: { orderBy: { uploadedAt: "asc" as const } },
+  // POST_STAY: the booking it followed — dates and the main guest only, never money.
+  incomeEntry: {
+    select: {
+      id: true, checkIn: true, checkOut: true,
+      bookingGuests: { orderBy: [{ isPrimary: "desc" as const }, { createdAt: "asc" as const }], take: 1, select: { guest: { select: { name: true } } } },
+      _count: { select: { bookingGuests: true } },
+    },
+  },
 } satisfies Prisma.ConditionReportInclude;
 
 export type InspectionRecord = Prisma.ConditionReportGetPayload<{ include: typeof INSPECTION_INCLUDE }>;
@@ -89,14 +97,18 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
 
   let baseline: { id: string; reportDate: Date; items: InspectionItem[]; photos: { id: string; url: string | null }[] } | null = null;
   if (report.reportType !== "MOVE_IN") {
+    // A post-stay check compares with the unit's previous one (was it already
+    // damaged before this guest?); long-term visits with the accepted move-in.
     const base = await prisma.conditionReport.findFirst({
-      where: {
-        id: { not: report.id },
-        unitId: report.unitId,
-        reportType: "MOVE_IN",
-        status: "ACCEPTED",
-        ...(report.tenantId ? { tenantId: report.tenantId } : {}),
-      },
+      where: report.reportType === "POST_STAY"
+        ? { id: { not: report.id }, unitId: report.unitId, reportType: "POST_STAY", status: { in: ["SUBMITTED", "ACCEPTED"] }, createdAt: { lt: report.createdAt } }
+        : {
+            id: { not: report.id },
+            unitId: report.unitId,
+            reportType: "MOVE_IN",
+            status: "ACCEPTED",
+            ...(report.tenantId ? { tenantId: report.tenantId } : {}),
+          },
       orderBy: { reportDate: "desc" },
       include: { photos: { orderBy: { uploadedAt: "asc" } } },
     });
@@ -147,6 +159,15 @@ export async function serializeInspection(report: InspectionRecord, session: Ses
           }
       : null,
     assignedTo: report.assignedTo ? { id: report.assignedTo.id, name: report.assignedTo.name ?? report.assignedTo.email } : null,
+    booking: report.incomeEntry && report.incomeEntry.checkIn && report.incomeEntry.checkOut
+      ? {
+          id: report.incomeEntry.id,
+          checkIn: report.incomeEntry.checkIn,
+          checkOut: report.incomeEntry.checkOut,
+          guestName: report.incomeEntry.bookingGuests[0]?.guest.name ?? null,
+          guestCount: report.incomeEntry._count.bookingGuests,
+        }
+      : null,
     items: (report.items as unknown as InspectionItem[]) ?? [],
     overallComments: report.overallComments,
     tenantIssues: report.tenantIssues,
@@ -225,6 +246,8 @@ export type CreateInspectionInput = {
   scheduledFor?: string | null;
   assignedToUserId?: string | null;
   tenantId?: string | null;
+  /** POST_STAY: the AIRBNB booking on this unit the check follows. */
+  incomeEntryId?: string | null;
 };
 
 export async function createInspection(input: CreateInspectionInput, session: Session) {
@@ -240,9 +263,20 @@ export async function createInspection(input: CreateInspectionInput, session: Se
   });
   if (!unit || !propertyIds.includes(unit.propertyId)) return fail(404, "Unit not found");
 
+  // A post-stay check belongs to a booking on this unit, never a tenant; one per booking.
+  let incomeEntryId: string | null = null;
+  if (input.reportType === "POST_STAY") {
+    if (!input.incomeEntryId) return fail(400, "A post-stay check needs the booking.");
+    const entry = await prisma.incomeEntry.findUnique({ where: { id: input.incomeEntryId }, select: { unitId: true, type: true, checkIn: true } });
+    if (!entry || entry.unitId !== unit.id || entry.type !== "AIRBNB" || !entry.checkIn) return fail(400, "That booking is not on this unit.");
+    const existing = await prisma.conditionReport.findFirst({ where: { incomeEntryId: input.incomeEntryId, reportType: "POST_STAY" }, select: { id: true } });
+    if (existing) return { ok: false as const, status: 409, error: "This stay already has a post-stay check.", existingId: existing.id };
+    incomeEntryId = input.incomeEntryId;
+  }
+
   // Default to the unit's current tenant (a mid-term on a vacant unit has none).
-  const tenantId: string | null = input.tenantId ?? unit.tenants[0]?.id ?? null;
-  if (input.tenantId) {
+  const tenantId: string | null = input.reportType === "POST_STAY" ? null : input.tenantId ?? unit.tenants[0]?.id ?? null;
+  if (input.tenantId && input.reportType !== "POST_STAY") {
     const t = await prisma.tenant.findUnique({ where: { id: input.tenantId }, select: { unitId: true } });
     if (!t || t.unitId !== unit.id) return fail(400, "That tenant is not on this unit.");
   }
@@ -262,8 +296,13 @@ export async function createInspection(input: CreateInspectionInput, session: Se
   const scheduledFor = input.scheduledFor ? new Date(input.scheduledFor) : null;
   if (scheduledFor && Number.isNaN(scheduledFor.getTime())) return fail(400, "Invalid date and time.");
 
+  const items = input.reportType === "POST_STAY"
+    ? postStayItems((await lastPostStayRooms(unit.id)) ?? DEFAULT_ROOMS.map((r) => r.room), () => crypto.randomUUID())
+    : seedItemsFromTemplate();
+
   const report = await prisma.conditionReport.create({
     data: {
+      incomeEntryId,
       unitId: unit.id,
       propertyId: unit.propertyId,
       organizationId: unit.property.organizationId,
@@ -274,7 +313,7 @@ export async function createInspection(input: CreateInspectionInput, session: Se
       status: "SCHEDULED",
       assignedToUserId: assignee,
       createdByUserId: session.user.id,
-      items: seedItemsFromTemplate() as unknown as Prisma.InputJsonValue,
+      items: items as unknown as Prisma.InputJsonValue,
     },
     include: INSPECTION_INCLUDE,
   });
@@ -359,4 +398,16 @@ export async function ownMoveOut(conditionReportId: string | null, tenantId: str
   if (!conditionReportId) return null;
   const r = await prisma.conditionReport.findUnique({ where: { id: conditionReportId }, select: { tenantId: true, reportType: true } });
   return r && r.tenantId === tenantId && r.reportType === "MOVE_OUT" ? conditionReportId : null;
+}
+
+/** The rooms of the unit's latest post-stay check, so a studio isn't offered a second bedroom every time. */
+export async function lastPostStayRooms(unitId: string): Promise<string[] | null> {
+  const last = await prisma.conditionReport.findFirst({
+    where: { unitId, reportType: "POST_STAY" },
+    orderBy: { createdAt: "desc" },
+    select: { items: true },
+  });
+  const items = (last?.items as unknown as InspectionItem[] | null) ?? [];
+  const rooms = Array.from(new Set(items.map((i) => i.room).filter(Boolean)));
+  return rooms.length ? rooms : null;
 }

@@ -54,6 +54,15 @@ const CARETAKER_ROUTE_ALLOWLIST = new Set([
   // "Ready to re-let" checklists — read + tick (start is manager-only)
   "src/app/api/turnovers/route.ts",
   "src/app/api/turnovers/[id]/route.ts",
+  // Short-stay guests on site: bookings without money, guest ID uploads,
+  // keys to the guest and the cleaner (ID override / undo manager-only) —
+  // src/lib/stay-rules.ts
+  "src/app/api/stays/route.ts",
+  "src/app/api/stays/[id]/route.ts",
+  "src/app/api/stays/[id]/actions/route.ts",
+  "src/app/api/stays/[id]/guests/route.ts",
+  "src/app/api/stays/[id]/guests/[guestId]/documents/route.ts",
+  "src/app/api/stays/[id]/guests/[guestId]/documents/[docId]/route.ts",
   // Global search — per-group scoping in src/lib/search-visibility.ts
   "src/app/api/search/route.ts",
   // Identity-scoped plumbing every signed-in user needs

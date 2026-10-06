@@ -10,19 +10,63 @@
 //  - Keys are a handover log, not an observation: they may still be recorded
 //    after submission (the manager often clears a move-in's keys later).
 
-export type InspectionType = "MOVE_IN" | "MID_TERM" | "MOVE_OUT";
+export type InspectionType = "MOVE_IN" | "MID_TERM" | "MOVE_OUT" | "POST_STAY";
 export type InspectionStatus = "SCHEDULED" | "IN_PROGRESS" | "SUBMITTED" | "ACCEPTED";
 export type TenantSignOff = "SIGNED" | "ABSENT" | "REFUSED";
 export type ItemStatus = "PERFECT" | "GOOD" | "FAIR" | "POOR";
 
-/** Photos each room needs before the report can be handed in. */
+/** Photos each room needs before a long-term report can be handed in. */
 export const MIN_PHOTOS_PER_ROOM = 3;
 
 export const INSPECTION_TYPE_LABEL: Record<InspectionType, string> = {
   MOVE_IN: "Move-in",
   MID_TERM: "Mid-term",
   MOVE_OUT: "Move-out",
+  POST_STAY: "Post-stay",
 };
+
+// ── Post-stay checks (short-stay guests) ─────────────────────────────────────
+// A quick check after each stay (owner decision 2026-10-06): one rating per
+// room — fine or damaged — with at least one photo per room, and a note and a
+// photo of anything damaged. Rated GOOD / POOR so the damage rules
+// (damagedItems, repair jobs) work unchanged.
+
+export const POST_STAY_FEATURE = "Overall";
+
+/** Photos each room needs before the report can be handed in. */
+export function minPhotosPerRoom(type: InspectionType): number {
+  return type === "POST_STAY" ? 1 : MIN_PHOTOS_PER_ROOM;
+}
+
+/** The condition buttons offered for an item, with their labels. */
+export function ratingOptions(type: InspectionType): { value: ItemStatus; label: string }[] {
+  if (type === "POST_STAY") return [{ value: "GOOD", label: "Fine" }, { value: "POOR", label: "Damaged" }];
+  return (["PERFECT", "GOOD", "FAIR", "POOR"] as ItemStatus[]).map((value) => ({ value, label: value }));
+}
+
+export function itemStatusLabel(type: InspectionType, status: ItemStatus | null): string {
+  if (!status) return "not rated";
+  if (type === "POST_STAY") return status === "POOR" || status === "FAIR" ? "Damaged" : "Fine";
+  return status;
+}
+
+/** One "Overall" item per room, in order. */
+export function postStayItems(rooms: string[], newId: () => string): InspectionItem[] {
+  const seen = new Set<string>();
+  const out: InspectionItem[] = [];
+  for (const raw of rooms) {
+    const room = raw.trim();
+    if (!room || seen.has(room)) continue;
+    seen.add(room);
+    out.push({ id: newId(), room, feature: POST_STAY_FEATURE, status: null, notes: "", photoIds: [] });
+  }
+  return out;
+}
+
+/** A handed-in post-stay check with nothing to review: no damage, no issues raised. */
+export function isCleanPostStay(r: { reportType: InspectionType; items: InspectionItem[]; tenantIssues: string | null }): boolean {
+  return r.reportType === "POST_STAY" && damagedItems(r.items).length === 0 && !r.tenantIssues?.trim();
+}
 
 export const INSPECTION_STATUS_LABEL: Record<InspectionStatus, string> = {
   SCHEDULED: "Scheduled",
@@ -57,7 +101,8 @@ export type InspectionActor = { isManager: boolean };
 export type KeysState = "none" | "waiting" | "open" | "locked";
 
 export function keysState(r: { reportType: InspectionType; status: InspectionStatus; keysClearedAt: Date | string | null }): KeysState {
-  if (r.reportType === "MID_TERM") return "none";
+  // A guest's keys are on the stay record (GuestStay), not the inspection.
+  if (r.reportType === "MID_TERM" || r.reportType === "POST_STAY") return "none";
   if (r.status === "ACCEPTED") return "locked";
   if (r.reportType === "MOVE_IN" && !r.keysClearedAt) return "waiting";
   return "open";
@@ -115,9 +160,16 @@ export function submitProblems(r: SubmitInput): string[] {
   }
   const unrated = r.items.filter((i) => !i.status).length;
   if (unrated > 0) problems.push(`${unrated} item${unrated === 1 ? "" : "s"} still need a condition.`);
+  const minPhotos = minPhotosPerRoom(r.reportType);
   for (const { room, photos } of roomPhotoCounts(r.items, r.photoIds)) {
-    if (photos < MIN_PHOTOS_PER_ROOM) {
-      problems.push(`${room}: ${photos} of ${MIN_PHOTOS_PER_ROOM} photos.`);
+    if (photos < minPhotos) {
+      problems.push(`${room}: ${photos} of ${minPhotos} photo${minPhotos === 1 ? "" : "s"}.`);
+    }
+  }
+  if (r.reportType === "POST_STAY") {
+    for (const it of damagedItems(r.items)) {
+      if (!it.notes?.trim()) problems.push(`${it.room}: say what is damaged.`);
+      if (!(it.photoIds ?? []).some((id) => r.photoIds.has(id))) problems.push(`${it.room}: photograph the damage.`);
     }
   }
   // No tenant (a mid-term on a vacant unit) means no sign-off to record.
@@ -220,7 +272,7 @@ export function missingMeterReadings(
   meters: InspectionMeter[],
   readings: { meterId: string }[],
 ): InspectionMeter[] {
-  if (reportType === "MID_TERM") return [];
+  if (reportType !== "MOVE_IN" && reportType !== "MOVE_OUT") return [];
   const have = new Set(readings.map((r) => r.meterId));
   return meters.filter((m) => !have.has(m.meterId));
 }

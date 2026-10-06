@@ -438,6 +438,7 @@ enum ConditionReportType {
   MOVE_IN
   MID_TERM
   MOVE_OUT
+  POST_STAY
 }
 
 // Lifecycle of a condition report run as an inspection visit (caretaker or
@@ -987,6 +988,9 @@ model IncomeEntry {
   invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   ownerInvoice      OwnerInvoice? @relation(fields: [ownerInvoiceId], references: [id], onDelete: SetNull)
   bookingGuests     BookingGuest[]
+  // AIRBNB bookings: the caretaker's stay record and post-stay checks.
+  guestStay         GuestStay?
+  conditionReports  ConditionReport[]
   createdAt         DateTime   @default(now())
 
   @@index([date])
@@ -2024,6 +2028,8 @@ model GuestDocument {
   fileSize    Int?
   mimeType    String?
   uploadedAt  DateTime    @default(now())
+  // Who uploaded it — a caretaker may delete only their own uploads.
+  uploadedByUserId String?
   guest       AirbnbGuest @relation(fields: [guestId], references: [id], onDelete: Cascade)
 
   @@index([guestId])
@@ -2480,6 +2486,9 @@ model ConditionReport {
   // Re-let checklists this inspection started, repair jobs it raised.
   turnovers           UnitTurnover[]
   maintenanceJobs     MaintenanceJob[]
+  // POST_STAY only: the short-stay booking (an AIRBNB IncomeEntry) this check followed.
+  incomeEntryId       String?
+  incomeEntry         IncomeEntry?           @relation(fields: [incomeEntryId], references: [id], onDelete: SetNull)
 
   assignedTo   User?                  @relation("InspectionAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
   unit         Unit                   @relation(fields: [unitId], references: [id])
@@ -2494,6 +2503,33 @@ model ConditionReport {
   @@index([reportType])
   @@index([propertyId, status])
   @@index([assignedToUserId])
+  @@index([incomeEntryId])
+}
+
+// The on-site side of a short-stay booking (an AIRBNB IncomeEntry), run by
+// caretakers: guest ID, keys to the guest and back, keys to the cleaner and
+// back. Created on the first action. Money stays on the IncomeEntry.
+model GuestStay {
+  id                    String      @id @default(cuid())
+  incomeEntryId         String      @unique
+  incomeEntry           IncomeEntry @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
+  // Keys handed over without the main guest's ID on file (manager only).
+  idOverrideReason      String?
+  idOverrideAt          DateTime?
+  idOverrideByName      String?
+  // [{ label, count }] — what the guest was given.
+  keysHanded            Json?
+  keysHandedAt          DateTime?
+  keysHandedByName      String?
+  keysReturnedAt        DateTime?
+  keysReturnedByName    String?
+  cleanerName           String?
+  cleanerKeysOutAt      DateTime?
+  cleanerKeysOutByName  String?
+  cleanerKeysBackAt     DateTime?
+  cleanerKeysBackByName String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 }
 
 model ConditionReportPhoto {

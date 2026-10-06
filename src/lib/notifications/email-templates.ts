@@ -437,10 +437,12 @@ export function inspectionSubmittedTemplate(d: InspectionRef & {
   tenantSignOff: "SIGNED" | "ABSENT" | "REFUSED" | null;
   tenantDisagrees: boolean;
   tenantComments: string | null;
-  midTermDamage: boolean;
+  /** Mid-term or post-stay check that found damage — red, "Damage found" subject. */
+  damageAlert: boolean;
 }): { subject: string; html: string } {
-  const subject = d.midTermDamage
-    ? `Damage found at mid-term inspection — Unit ${d.unitRef}, ${d.propertyName}`
+  const where = `${d.typeLabel.toLowerCase()} inspection`;
+  const subject = d.damageAlert
+    ? `Damage found at ${where} — Unit ${d.unitRef}, ${d.propertyName}`
     : `${d.typeLabel} inspection ready for review — Unit ${d.unitRef}, ${d.propertyName}`;
   const signOff = d.tenantSignOff === "SIGNED" ? "Signed"
     : d.tenantSignOff === "ABSENT" ? "Tenant not present"
@@ -452,15 +454,15 @@ export function inspectionSubmittedTemplate(d: InspectionRef & {
        </ul>`
     : "";
   const html = shell(
-    d.midTermDamage ? "Damage found at a mid-term inspection" : "Inspection handed in",
-    d.midTermDamage ? RED : AMBER,
+    d.damageAlert ? `Damage found at a ${where}` : "Inspection handed in",
+    d.damageAlert ? RED : AMBER,
     `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
       ${escapeHtml(d.submittedByName)} handed in this inspection. Review it, then accept it or send it back.
     </p>
     ${inspectionRows(d)}
-    <table style="border-collapse:collapse;">${row("Tenant sign-off", signOff + (d.tenantDisagrees ? " · disagrees" : ""))}</table>
+    ${d.tenantName ? `<table style="border-collapse:collapse;">${row("Tenant sign-off", signOff + (d.tenantDisagrees ? " · disagrees" : ""))}</table>` : ""}
     ${damage}
-    ${d.tenantIssues ? `<p style="color:${AMBER};font-size:14px;font-weight:600;margin:16px 0 6px;">Issues the tenant raised</p>${quote(d.tenantIssues)}` : ""}
+    ${d.tenantIssues ? `<p style="color:${AMBER};font-size:14px;font-weight:600;margin:16px 0 6px;">${d.tenantName ? "Issues the tenant raised" : "Issues reported"}</p>${quote(d.tenantIssues)}` : ""}
     ${d.tenantComments ? `<p style="color:${GRAY};font-size:14px;font-weight:600;margin:16px 0 6px;">Tenant's comments</p>${quote(d.tenantComments)}` : ""}
     ${cta("Review inspection", `${APP_URL}/inspections/${d.inspectionId}`)}`,
   );

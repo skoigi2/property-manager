@@ -24,6 +24,12 @@ export async function buildConditionReportPdf(reportId: string): Promise<{ buffe
       },
       tenant: { select: { name: true, phone: true, email: true, leaseStart: true, leaseEnd: true } },
       photos: { orderBy: { uploadedAt: "asc" } },
+      incomeEntry: {
+        select: {
+          checkIn: true, checkOut: true,
+          bookingGuests: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }], take: 1, select: { guest: { select: { name: true } } } },
+        },
+      },
     },
   });
   if (!report) return null;
@@ -75,6 +81,9 @@ export async function buildConditionReportPdf(reportId: string): Promise<{ buffe
       tenantSignatureUrl: signatureUrl,
       tenantDisagrees: report.tenantDisagrees,
       tenantComments: report.tenantComments,
+      stay: report.incomeEntry?.checkIn && report.incomeEntry.checkOut
+        ? { checkIn: report.incomeEntry.checkIn, checkOut: report.incomeEntry.checkOut, guestName: report.incomeEntry.bookingGuests[0]?.guest.name ?? null }
+        : null,
     },
     photos: pdfPhotos,
   });

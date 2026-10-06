@@ -85,7 +85,7 @@ export async function notifyInspectionSubmitted(reportId: string, actorId: strin
       tenantSignOff: r.tenantSignOff,
       tenantDisagrees: r.tenantDisagrees,
       tenantComments: r.tenantComments,
-      midTermDamage: r.reportType === "MID_TERM" && damaged.length > 0,
+      damageAlert: (r.reportType === "MID_TERM" || r.reportType === "POST_STAY") && damaged.length > 0,
     });
     await emailManagers(r.propertyId, loaded.orgId, subject, html, actorId);
   } catch (e) {

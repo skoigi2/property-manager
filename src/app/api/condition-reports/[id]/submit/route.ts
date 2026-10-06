@@ -1,10 +1,13 @@
 import { requireOpsStaffWrite } from "@/lib/auth-utils";
+import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { loadInspection, loadUnitMeters, markSubmitted, serializeInspection, submitInputFor } from "@/lib/inspections";
-import { submitProblems } from "@/lib/inspection-rules";
+import { loadInspection, loadUnitMeters, markSubmitted, serializeInspection, submitInputFor, INSPECTION_INCLUDE } from "@/lib/inspections";
+import { isCleanPostStay, submitProblems, type InspectionItem } from "@/lib/inspection-rules";
 import { notifyInspectionSubmitted } from "@/lib/inspection-notify";
 
-// Hand the inspection in: findings lock and the managers are emailed.
+// Hand the inspection in: findings lock and the managers are emailed. A clean
+// post-stay check (no damage, nothing raised) is filed as accepted straight
+// away — nothing for a manager to review after every stay.
 export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { session, error } = await requireOpsStaffWrite();
@@ -16,7 +19,19 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   if (problems.length) {
     return Response.json({ error: problems[0], problems, code: "NOT_READY" }, { status: 400 });
   }
-  const updated = await markSubmitted(loaded.report, session!);
+  let updated = await markSubmitted(loaded.report, session!);
+  const clean = isCleanPostStay({
+    reportType: updated.reportType,
+    items: (updated.items as unknown as InspectionItem[]) ?? [],
+    tenantIssues: updated.tenantIssues,
+  });
+  if (clean) {
+    updated = await prisma.conditionReport.update({
+      where: { id: updated.id },
+      data: { status: "ACCEPTED", acceptedAt: new Date() },
+      include: INSPECTION_INCLUDE,
+    });
+  }
 
   await logAudit({
     userId: session!.user.id,
@@ -26,9 +41,9 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
     resourceId: updated.id,
     organizationId: updated.organizationId,
     before: { status: loaded.report.status },
-    after: { status: "SUBMITTED", photos: updated.photos.length, tenantSignOff: updated.tenantSignOff },
+    after: { status: updated.status, photos: updated.photos.length, tenantSignOff: updated.tenantSignOff, ...(clean ? { autoAccepted: "clean post-stay check" } : {}) },
   });
-  await notifyInspectionSubmitted(updated.id, session!.user.id);
+  if (!clean) await notifyInspectionSubmitted(updated.id, session!.user.id);
 
   return Response.json(await serializeInspection(updated, session!));
 }

@@ -817,6 +817,127 @@ async function main() {
     await prisma.tenant.update({ where: { id: tenant.id }, data: { emergencyContactName: null, emergencyContactPhone: null, emergencyContactRelation: null } });
   }
 
+  // ── Short-stay guests: bookings without money, ID before keys, cleaner keys, post-stay checks ──
+  {
+    const day = (n: number) => new Date(new Date(`${today}T00:00:00.000Z`).getTime() + n * 86_400_000);
+    const bookingData = (n: number) => ({
+      date: day(n), checkIn: day(n), checkOut: day(n + 2), unitId: unit.id, type: "AIRBNB" as const,
+      grossAmount: 12345, nightlyRate: 6172.5, platform: "AIRBNB" as const, agentName: "SECRET AGENT", note: "SECRET RATE NOTE",
+    });
+    const booking = await prisma.incomeEntry.create({ data: bookingData(0) });
+    const booking2 = await prisma.incomeEntry.create({ data: bookingData(-3) });
+    const guestIds = new Set<string>();
+    const money = /12345|6172|SECRET|grossAmount|nightlyRate|agentName|agentCommission/;
+    try {
+      const list = await expectStatus(care, "GET /api/stays", `/api/stays?from=${today}&to=${today}`, 200);
+      check("caretaker sees the booking in the stays list", Array.isArray(list) && list.some((r: any) => r.id === booking.id));
+      check("stays list carries no rates, totals, agent or note", !money.test(JSON.stringify(list)));
+      await expectStatus(care, "GET /api/stays without dates → 400", "/api/stays", 400);
+      await expectStatus(care, "GET /api/income (bookings with money) → 403", "/api/income?type=AIRBNB", [401, 403]);
+      const detail = await expectStatus(care, "GET one stay", `/api/stays/${booking.id}`, 200);
+      check("stay detail carries no money", !!detail && !money.test(JSON.stringify(detail)));
+      const rentEntry = await prisma.incomeEntry.findFirst({ where: { unitId: unit.id, type: { not: "AIRBNB" } }, select: { id: true } });
+      if (rentEntry) await expectStatus(care, "a rent receipt is not a stay → 404", `/api/stays/${rentEntry.id}`, 404);
+
+      const act = (c: Client, id: string, body: object, want: number | number[], name: string) =>
+        expectStatus(c, name, `/api/stays/${id}/actions`, want, { method: "POST", body: JSON.stringify(body) });
+      const keys = [{ label: "Main door", count: 2 }];
+
+      await act(care, booking.id, { action: "hand_keys", keys }, 409, "hand over keys with no guest ID → 409");
+      const withGuest = await expectStatus(care, "add the main guest → 201", `/api/stays/${booking.id}/guests`, 201, {
+        method: "POST", body: JSON.stringify({ name: "Smoke Guest", phone: "+254700000001", idNumber: `SMK${stamp}` }),
+      });
+      const gid: string | undefined = withGuest?.guests?.[0]?.id;
+      if (gid) guestIds.add(gid);
+      check("the first guest is the main guest", withGuest?.guests?.[0]?.isPrimary === true && withGuest?.idState === "missing");
+      await expectStatus(care, "the same ID number again → 409", `/api/stays/${booking.id}/guests`, 409, {
+        method: "POST", body: JSON.stringify({ name: "Smoke Guest", idNumber: `smk${stamp}` }),
+      });
+      await act(care, booking.id, { action: "hand_keys", keys }, 409, "still no ID uploaded → 409");
+
+      // Upload the ID — local dev has no storage keys (503), so file the row directly then.
+      const fd = new FormData();
+      fd.append("file", new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "id.jpg", { type: "image/jpeg" }));
+      const up = await care.json(`/api/stays/${booking.id}/guests/${gid}/documents`, { method: "POST", body: fd });
+      check("caretaker: upload the guest's ID → 201 (or 503 without storage)", up.status === 201 || up.status === 503, `got ${up.status}`);
+      let docId: string | undefined = up.body?.guests?.[0]?.documents?.[0]?.id;
+      if (up.status === 503 && gid) {
+        docId = (await prisma.guestDocument.create({
+          data: { guestId: gid, label: "ID document", fileName: "id.jpg", storagePath: `guests/${gid}/smoke-${stamp}.jpg`, mimeType: "image/jpeg", uploadedByUserId: caretaker.id },
+        })).id;
+      }
+      const handed = await act(care, booking.id, { action: "hand_keys", keys }, 200, "hand over keys once the ID is on file → 200");
+      check("keys recorded with who handed them over", handed?.stay?.keysHanded?.[0]?.count === 2 && handed?.stay?.keysHandedByName === "Smoke Caretaker" && handed?.idState === "ok");
+      await act(care, booking.id, { action: "cleaner_out", cleanerName: "Mary" }, 409, "keys to the cleaner while the guest has them → 409");
+      await act(care, booking.id, { action: "undo", step: "keys_out" }, 403, "caretaker undoes a step → 403");
+      await act(care, booking.id, { action: "override_id", reason: "x" }, 403, "caretaker waives the ID → 403");
+      await act(care, booking.id, { action: "return_keys" }, 200, "keys back from the guest → 200");
+
+      // Post-stay check (quick check), linked to the booking.
+      await expectStatus(care, "post-stay check without the booking → 400", "/api/inspections", 400, {
+        method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "POST_STAY" }),
+      });
+      const ps = await expectStatus(care, "start the post-stay check → 201", "/api/inspections", 201, {
+        method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "POST_STAY", incomeEntryId: booking.id }),
+      });
+      if (ps?.id) created.inspections.add(ps.id);
+      check("post-stay check: one Overall item per room, no tenant, linked to the booking",
+        ps?.items?.length > 0 && ps.items.every((i: any) => i.feature === "Overall") && ps.tenant === null && ps.booking?.id === booking.id && ps.keysState === "none");
+      const again = await expectStatus(care, "a second check for the same stay → 409", "/api/inspections", 409, {
+        method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "POST_STAY", incomeEntryId: booking.id }),
+      });
+      check("the 409 points at the existing check", again?.existingId === ps?.id);
+      await expectStatus(care, "give a post-stay check a tenant → 400", `/api/condition-reports/${ps?.id}`, 400, {
+        method: "PATCH", body: JSON.stringify({ tenantId: tenant.id }),
+      });
+      const withPhotos = async (reportId: string, items: any[]) => {
+        for (const it of items) {
+          const ph = await prisma.conditionReportPhoto.create({ data: { reportId, storagePath: `condition-reports/${reportId}/smoke-${it.id}.jpg`, fileName: "smoke.jpg", mimeType: "image/jpeg", fileSize: 1000 } });
+          it.photoIds = [ph.id];
+        }
+        return items;
+      };
+      const fine = await withPhotos(ps.id, ps.items.map((it: any) => ({ ...it, status: "GOOD" })));
+      await expectStatus(care, "PATCH the check: every room fine, one photo each → 200", `/api/condition-reports/${ps.id}`, 200, { method: "PATCH", body: JSON.stringify({ items: fine }) });
+      const filed = await expectStatus(care, "hand in a clean check → 200", `/api/condition-reports/${ps.id}/submit`, 200, { method: "POST" });
+      check("a clean post-stay check is filed as accepted", filed?.status === "ACCEPTED");
+
+      await act(care, booking.id, { action: "cleaner_out", cleanerName: "Mary" }, 200, "keys to the cleaner → 200");
+      const back = await act(care, booking.id, { action: "cleaner_back" }, 200, "keys back from the cleaner → 200");
+      check("the cleaner's name and both times are recorded", back?.stay?.cleanerName === "Mary" && !!back?.stay?.cleanerKeysOutAt && !!back?.stay?.cleanerKeysBackAt);
+      await act(mgr, booking.id, { action: "undo", step: "keys_back" }, 409, "undo keys back after the cleaner had them → 409");
+      await act(mgr, booking.id, { action: "undo", step: "cleaner_back" }, 200, "manager undoes the cleaner's return → 200");
+      if (docId) {
+        await expectStatus(care, "caretaker deletes their own ID upload → 200", `/api/stays/${booking.id}/guests/${gid}/documents/${docId}`, 200, { method: "DELETE" });
+      }
+
+      // Damage path on a second stay; the manager waives the ID there.
+      await act(mgr, booking2.id, { action: "override_id", reason: "" }, 400, "waive the ID without a reason → 400");
+      await act(mgr, booking2.id, { action: "override_id", reason: "Passport seen, copy refused" }, 200, "manager waives the ID with a reason → 200");
+      const waived = await act(care, booking2.id, { action: "hand_keys", keys }, 200, "keys go on a waived ID → 200");
+      check("waived ID shows as overridden", waived?.idState === "overridden");
+      const ps2 = await expectStatus(care, "start a check on the second stay → 201", "/api/inspections", 201, {
+        method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "POST_STAY", incomeEntryId: booking2.id }),
+      });
+      if (ps2?.id) created.inspections.add(ps2.id);
+      check("the next check offers the rooms of the last one, and compares with it", ps2?.items?.length === ps?.items?.length && ps2?.baseline?.id === ps?.id);
+      const dmg = await withPhotos(ps2.id, ps2.items.map((it: any, i: number) => ({ ...it, status: i === 0 ? "POOR" : "GOOD", notes: "" })));
+      await expectStatus(care, "PATCH: one room damaged, no note", `/api/condition-reports/${ps2.id}`, 200, { method: "PATCH", body: JSON.stringify({ items: dmg }) });
+      const notReady = await expectStatus(care, "hand in damage without a note → 400", `/api/condition-reports/${ps2.id}/submit`, 400, { method: "POST" });
+      check("NOT_READY asks what is damaged", Array.isArray(notReady?.problems) && notReady.problems.some((p: string) => p.includes("say what is damaged")));
+      dmg[0].notes = "Cracked bathroom mirror";
+      await expectStatus(care, "PATCH: add the damage note", `/api/condition-reports/${ps2.id}`, 200, { method: "PATCH", body: JSON.stringify({ items: dmg }) });
+      const dmgFiled = await expectStatus(care, "hand in a check with damage → 200", `/api/condition-reports/${ps2.id}/submit`, 200, { method: "POST" });
+      check("a check with damage waits for the manager", dmgFiled?.status === "SUBMITTED");
+      const stay2 = await expectStatus(mgr, "manager GET the second stay", `/api/stays/${booking2.id}`, 200);
+      check("the stay shows the damage from its check", stay2?.inspections?.[0]?.damaged === 1);
+    } finally {
+      for (const id of Array.from(created.inspections)) await prisma.conditionReport.deleteMany({ where: { id, reportType: "POST_STAY" } });
+      await prisma.incomeEntry.deleteMany({ where: { id: { in: [booking.id, booking2.id] } } });
+      for (const id of Array.from(guestIds)) await prisma.airbnbGuest.deleteMany({ where: { id } });
+    }
+  }
+
   // ── cleanup ──
   for (const id of Array.from(created.complaints)) {
     const row = await prisma.tenantComplaint.findUnique({ where: { id }, select: { caseThreadId: true } });

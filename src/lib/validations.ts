@@ -435,10 +435,28 @@ export const conditionReportPatchSchema = z.object({
 
 export const inspectionCreateSchema = z.object({
   unitId:           z.string().min(1, "Pick a unit"),
-  reportType:       z.enum(["MOVE_IN", "MID_TERM", "MOVE_OUT"]),
+  reportType:       z.enum(["MOVE_IN", "MID_TERM", "MOVE_OUT", "POST_STAY"]),
   scheduledFor:     z.string().nullable().optional(),
   assignedToUserId: z.string().nullable().optional(),
   tenantId:         z.string().nullable().optional(),
+  // POST_STAY: the short-stay booking (AIRBNB income entry) on this unit.
+  incomeEntryId:    z.string().nullable().optional(),
+});
+
+export const stayActionSchema = z.object({
+  action:      z.enum(["hand_keys", "return_keys", "cleaner_out", "cleaner_back", "override_id", "undo"]),
+  keys:        z.array(z.object({ label: z.string().max(60), count: z.number().int().min(0).max(99) })).max(20).optional(),
+  cleanerName: z.string().max(120).nullable().optional(),
+  reason:      z.string().max(500).nullable().optional(),
+  step:        z.string().max(20).nullable().optional(),
+});
+
+export const stayGuestSchema = z.object({
+  name:        z.string().trim().min(1, "Type the guest's name").max(120),
+  phone:       z.string().trim().max(40).optional().nullable(),
+  nationality: z.string().trim().max(60).optional().nullable(),
+  idNumber:    z.string().trim().max(60).optional().nullable(),
+  isPrimary:   z.boolean().optional(),
 });
 
 export const inspectionActionSchema = z.object({

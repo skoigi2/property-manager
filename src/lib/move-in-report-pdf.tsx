@@ -83,7 +83,7 @@ export type ConditionReportPdfData = {
     leaseEnd?: Date | string | null;
   } | null;
   report: {
-    reportType: "MOVE_IN" | "MID_TERM" | "MOVE_OUT";
+    reportType: "MOVE_IN" | "MID_TERM" | "MOVE_OUT" | "POST_STAY";
     reportDate: Date | string;
     items: ConditionPdfItem[];
     overallComments?: string | null;
@@ -102,6 +102,8 @@ export type ConditionReportPdfData = {
     tenantSignatureUrl?: string | null;
     tenantDisagrees?: boolean;
     tenantComments?: string | null;
+    /** POST_STAY: the booking the check followed. */
+    stay?: { checkIn: Date | string; checkOut: Date | string; guestName: string | null } | null;
   };
   /** Resolved (signed-URL) photos, in upload order, paired with the item that owns each. */
   photos: ConditionPdfPhoto[];
@@ -123,7 +125,7 @@ export type ConditionPdfPhoto = {
   note?: string | null;
 };
 
-function StatusPill({ status }: { status: ConditionPdfItem["status"] }) {
+function StatusPill({ status, label }: { status: ConditionPdfItem["status"]; label?: string }) {
   if (!status) {
     return (
       <View style={[styles.statusPill, { backgroundColor: "#e5e7eb" }]}>
@@ -134,14 +136,15 @@ function StatusPill({ status }: { status: ConditionPdfItem["status"] }) {
   const c = STATUS_COLORS[status];
   return (
     <View style={[styles.statusPill, { backgroundColor: c.bg }]}>
-      <Text style={[styles.statusText, { color: c.fg }]}>{status}</Text>
+      <Text style={[styles.statusText, { color: c.fg }]}>{label ?? status}</Text>
     </View>
   );
 }
 
-function reportTitle(t: "MOVE_IN" | "MID_TERM" | "MOVE_OUT") {
+function reportTitle(t: "MOVE_IN" | "MID_TERM" | "MOVE_OUT" | "POST_STAY") {
   return t === "MOVE_IN" ? "MOVE-IN BASELINE REPORT"
     : t === "MOVE_OUT" ? "MOVE-OUT REPORT"
+    : t === "POST_STAY" ? "POST-STAY INSPECTION"
     : "MID-TERM INSPECTION";
 }
 
@@ -204,7 +207,20 @@ function ReportPDF({ data }: { data: ConditionReportPdfData }) {
             ) : null}
           </View>
           <View style={styles.col}>
-            {tenant ? (
+            {report.stay ? (
+              <>
+                <View style={styles.fieldRow}>
+                  <Text style={styles.fieldLabel}>Stay:</Text>
+                  <Text style={styles.fieldValue}>{format(new Date(report.stay.checkIn), "d MMM")} – {format(new Date(report.stay.checkOut), "d MMM yyyy")}</Text>
+                </View>
+                {report.stay.guestName ? (
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Guest:</Text>
+                    <Text style={styles.fieldValue}>{report.stay.guestName}</Text>
+                  </View>
+                ) : null}
+              </>
+            ) : tenant ? (
               <>
                 <View style={styles.fieldRow}>
                   <Text style={styles.fieldLabel}>Tenant:</Text>
@@ -254,7 +270,7 @@ function ReportPDF({ data }: { data: ConditionReportPdfData }) {
                   <View key={item.id} style={styles.tableRow}>
                     <Text style={styles.colFeature} hyphenationCallback={noHyphenation}>{item.feature}</Text>
                     <View style={styles.colStatus}>
-                      <StatusPill status={item.status} />
+                      <StatusPill status={item.status} label={report.reportType === "POST_STAY" ? (item.status === "POOR" || item.status === "FAIR" ? "DAMAGED" : "FINE") : undefined} />
                     </View>
                     <Text style={styles.colNotes} hyphenationCallback={noHyphenation}>{item.notes ?? ""}</Text>
                   </View>

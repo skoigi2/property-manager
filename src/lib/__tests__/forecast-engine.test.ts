@@ -40,6 +40,22 @@ describe("buildForecast rent schedule", () => {
     }
   });
 
+  it("counts the Wi-Fi charge as income but keeps it out of the management fee", () => {
+    const res = buildForecast({
+      ...emptyInput,
+      agreements: [{ propertyId: "p1", managementFeeRate: 10 }],
+      horizon: 3,
+      tenants: [tenant({ wifiCharge: 1500 })],
+    } as never);
+    const m = res.months[0];
+    expect(m.rentBreakdown[0].wifi).toBe(1500);
+    expect(m.forecastedRent).toBe(10000 + 500 + 1500);
+    const fee = m.expenseBreakdown.find((e) => e.type === "MANAGEMENT_FEE");
+    expect(fee?.amount).toBe(1050); // 10 % of rent + service charge only
+    const quarterly = buildForecast({ ...emptyInput, horizon: 3, tenants: [tenant({ wifiCharge: 1500, paymentFrequency: "QUARTERLY" })] } as never);
+    expect(quarterly.months.find((x) => x.rentBreakdown.length)?.rentBreakdown[0].wifi).toBe(4500);
+  });
+
   it("annual payers contribute one full-period inflow on the billing month only", () => {
     const res = buildForecast({
       ...emptyInput,

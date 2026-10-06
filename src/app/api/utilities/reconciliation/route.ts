@@ -1,6 +1,6 @@
 import { requireManager, requirePropertyAccess } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { buildUtilityReconciliation, monthsOfYear, type ReconReading } from "@/lib/utility-reconciliation";
+import { buildUtilityReconciliation, buildWifiReconciliation, monthsOfYear, type ReconReading } from "@/lib/utility-reconciliation";
 import { resolveTariffForPeriod } from "@/lib/utility-billing";
 
 /**
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const from = new Date(year, 0, 1);
   const to = new Date(year + 1, 0, 1);
 
-  const [readings, income, expenses, tariffs, property] = await Promise.all([
+  const [readings, income, expenses, tariffs, property, wifiInvoices] = await Promise.all([
     prisma.meterReading.findMany({
       // SUBMITTED readings ride along as "awaiting approval": metered, unpriced.
       where: { status: { in: ["APPROVED", "SUBMITTED"] }, periodYear: year, meter: { propertyId } },
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     }),
     prisma.expenseEntry.findMany({
       where: {
-        category: { in: ["WATER", "ELECTRICITY", "GENERATOR"] },
+        category: { in: ["WATER", "ELECTRICITY", "GENERATOR", "WIFI"] },
         isSunkCost: false,
         date: { gte: from, lt: to },
         OR: [{ propertyId }, { unit: { propertyId } }],
@@ -50,6 +50,10 @@ export async function GET(req: Request) {
     }),
     prisma.utilityTariff.findMany({ where: { propertyId } }),
     prisma.property.findUnique({ where: { id: propertyId }, select: { name: true, currency: true } }),
+    prisma.invoice.findMany({
+      where: { periodYear: year, wifiAmount: { gt: 0 }, status: { not: "CANCELLED" }, tenant: { unit: { propertyId } } },
+      select: { periodYear: true, periodMonth: true, wifiAmount: true },
+    }),
   ]);
   if (!property) return Response.json({ error: "Property not found" }, { status: 404 });
 
@@ -68,7 +72,7 @@ export async function GET(req: Request) {
   }));
   const cost = (category: string) =>
     expenses.filter((e) => e.category === category).map((e) => ({ date: e.date, amount: e.amount + (e.vatAmount ?? 0) }));
-  const collected = (utility: "WATER" | "ELECTRICITY") =>
+  const collected = (utility: "WATER" | "ELECTRICITY" | "WIFI") =>
     income.filter((i) => i.utilityType === utility).map((i) => ({ date: i.date, amount: i.grossAmount }));
   const months = monthsOfYear(year);
   const now = new Date();
@@ -92,6 +96,17 @@ export async function GET(req: Request) {
       }),
       tariff: currentTariff("ELECTRICITY"),
     },
+    // Only when the property bills Wi-Fi: many buildings fund it through the
+    // service charge instead, and a WIFI expense alone is not a recovery.
+    wifi: (() => {
+      const block = buildWifiReconciliation({
+        months,
+        invoices: wifiInvoices.map((i) => ({ periodYear: i.periodYear, periodMonth: i.periodMonth, amount: i.wifiAmount ?? 0 })),
+        collections: collected("WIFI"),
+        costs: cost("WIFI"),
+      });
+      return block.total.billed > 0 || block.total.collected > 0 ? block : null;
+    })(),
     // Utility receipts recorded by hand without saying which utility.
     untaggedCollected: Math.round(income.filter((i) => !i.utilityType).reduce((s, i) => s + i.grossAmount, 0) * 100) / 100,
   });

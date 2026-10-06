@@ -296,7 +296,8 @@ async function seedRentInvoices(opts: {
   win: WMonth[];
   /** Window indexes to bill. */
   months: number[];
-  tenants: { unit: string; tenantId: string; unitId: string; rent: number; serviceCharge: number }[];
+  /** `wifi`: the monthly Wi-Fi line, billed on the invoice and paid through the allocator. */
+  tenants: { unit: string; tenantId: string; unitId: string; rent: number; serviceCharge: number; wifi?: number }[];
   arrears: Record<string, number[]>;
   invoiceNumber: (unit: string, month: number, seq: number) => string;
   dueDay: number;
@@ -311,7 +312,7 @@ async function seedRentInvoices(opts: {
     const created = await Promise.all(
       opts.tenants.map((t) => {
         const isArrears = (opts.arrears[t.unit] ?? []).includes(month);
-        const total = t.rent + t.serviceCharge;
+        const total = t.rent + t.serviceCharge + (t.wifi ?? 0);
         return prisma.invoice
           .create({
             data: {
@@ -321,6 +322,7 @@ async function seedRentInvoices(opts: {
               periodMonth: m + 1,
               rentAmount: t.rent,
               serviceCharge: t.serviceCharge,
+              wifiAmount: t.wifi ?? 0,
               totalAmount: total,
               dueDate: wDate(opts.win, month, opts.dueDay),
               status: isArrears ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID,
@@ -446,12 +448,17 @@ async function seedAlSeef(organizationId: string, propertyId?: string): Promise<
     { unit: "405", name: "Faisal Al-Noaimi",        rent: 750, leaseEnd: "2027-12-31", phone: "+973 3900 4405", email: "faisal.alnoaimi@gmail.com",    nationalId: "BH-19680123" },
   ];
 
+  // Building fibre resold to the apartments: BHD 15 a month on the rent
+  // invoice (a Wi-Fi line), except three tenants with their own connection.
+  const wifi = (unit: string) => (["101", "201", "301"].includes(unit) ? 0 : 15);
+
   const tenants: Record<string, { id: string }> = {};
   for (const t of tenantDefs) {
     tenants[t.unit] = await prisma.tenant.create({
       data: {
         name: t.name,
         unitId: units[t.unit].id,
+        wifiCharge: wifi(t.unit),
         depositAmount: t.rent * 2,
         depositPaidDate: wDate(WIN, 0),
         leaseStart: subY(now, 1),
@@ -493,7 +500,7 @@ async function seedAlSeef(organizationId: string, propertyId?: string): Promise<
     win: WIN,
     months: WIN.map((_, i) => i),
     arrears,
-    tenants: tenantDefs.map((t) => ({ unit: t.unit, tenantId: tenants[t.unit].id, unitId: units[t.unit].id, rent: t.rent, serviceCharge: sc(t.unit) })),
+    tenants: tenantDefs.map((t) => ({ unit: t.unit, tenantId: tenants[t.unit].id, unitId: units[t.unit].id, rent: t.rent, serviceCharge: sc(t.unit), wifi: wifi(t.unit) })),
     invoiceNumber: (_unit, i, seq) => `ASR-${propCode}-${WIN[i].y}-${String(WIN[i].m + 1).padStart(2, "0")}-${String(seq).padStart(3, "0")}`,
     dueDay: 5,
     paidDay: 1,

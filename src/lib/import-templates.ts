@@ -202,6 +202,7 @@ export function downloadInvoicesTemplate() {
     { header: "Other Charges",  required: false, width: 14 },
     { header: "Deposit",        required: false, width: 12 },
     { header: "Lease Fee",      required: false, width: 12 },
+    { header: "Wi-Fi",          required: false, width: 10 },
     { header: "Due Date",       required: false, width: 14 },
     { header: "Invoice Number", required: false, width: 20 },
     { header: "Property Name",  required: false, width: 20 },
@@ -209,9 +210,9 @@ export function downloadInvoicesTemplate() {
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["Jane Smith",    "A1", 2026, 1, 25000, 2500, 0, 50000, 2000, "2026-01-05", "INV-2026-001", "Riara One", "Move-in: first month + deposit + lease fee"],
-    ["Jane Smith",    "A1", 2026, 2, 25000, 2500, 0, 0,     0,    "2026-02-05", "",             "Riara One", "Number auto-generated when blank"],
-    ["Apex Corp Ltd", "G1", 2026, 1, 80000, 0,    0, 0,     0,    "",           "",             "Riara One", "Due date defaults to the 5th"],
+    ["Jane Smith",    "A1", 2026, 1, 25000, 2500, 0, 50000, 2000, 1500, "2026-01-05", "INV-2026-001", "Riara One", "Move-in: first month + deposit + lease fee"],
+    ["Jane Smith",    "A1", 2026, 2, 25000, 2500, 0, 0,     0,    1500, "2026-02-05", "",             "Riara One", "Number auto-generated when blank"],
+    ["Apex Corp Ltd", "G1", 2026, 1, 80000, 0,    0, 0,     0,    0,    "",           "",             "Riara One", "Due date defaults to the 5th"],
   ];
 
   const instructions: (string | number)[][] = [
@@ -224,6 +225,7 @@ export function downloadInvoicesTemplate() {
     ["Other Charges",  "No",  "Number",     "Any other charges billed (default 0)"],
     ["Deposit",        "No",  "Number",     "Refundable security deposit billed on this invoice (default 0). When paid it is booked as a DEPOSIT receipt, not rent"],
     ["Lease Fee",      "No",  "Number",     "Once-off lease agreement / preparation fee (default 0)"],
+    ["Wi-Fi",          "No",  "Number",     "Wi-Fi charge billed on this invoice (default 0). When paid it is booked as a Wi-Fi utility recovery, not rent"],
     ["Due Date",       "No",  "YYYY-MM-DD", "Defaults to the 5th of the billing month"],
     ["Invoice Number", "No",  "Text",       "Your historic invoice number. Left blank, a HIST-… number is generated. Must be unique"],
     ["Property Name",  "No",  "Text",       "Disambiguates unit across properties"],

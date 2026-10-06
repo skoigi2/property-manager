@@ -128,7 +128,7 @@ function MonthDetailRow({
                         {item.isRenewalProjection && " (renewal est.)"}
                       </span>
                       <span className="text-caption tabular-nums text-income shrink-0">
-                        {formatCurrency(item.rent + item.serviceCharge, currency)}
+                        {formatCurrency(item.rent + item.serviceCharge + (item.wifi ?? 0), currency)}
                       </span>
                     </div>
                   ))}

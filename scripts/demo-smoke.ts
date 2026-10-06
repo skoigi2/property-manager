@@ -89,6 +89,15 @@ async function main() {
           (mismatched.length ? ` — ${mismatched.length} don't, e.g. ${mismatched.slice(0, 3).map((i) => i.invoiceNumber).join(", ")}` : ""),
       );
 
+      // ── Al Seef: Wi-Fi billed on the invoice, booked as a Wi-Fi recovery ──
+      if (key === "al-seef") {
+        const [wifiReceipts, rentReceiptsWithWifi] = await Promise.all([
+          prisma.incomeEntry.count({ where: { unit: { propertyId: seeded.id }, type: "UTILITY_RECOVERY", utilityType: "WIFI" } }),
+          prisma.invoice.count({ where: { tenant: { unit: { propertyId: seeded.id } }, wifiAmount: { gt: 0 } } }),
+        ]);
+        check(wifiReceipts > 0 && rentReceiptsWithWifi > 0, `${rentReceiptsWithWifi} invoices with Wi-Fi, ${wifiReceipts} Wi-Fi receipts`);
+      }
+
       // ── Kilimani extras ──────────────────────────────────────────────────
       if (key === "kilimani-court") {
         const [meters, approved, budget] = await Promise.all([

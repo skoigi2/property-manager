@@ -32,6 +32,7 @@ interface InvoiceImportRow {
   otherCharges?: string | number;
   depositAmount?: string | number;
   leaseFee?: string | number;
+  wifiAmount?: string | number;
   dueDate?: string;
   invoiceNumber?: string;
   notes?: string;
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
         otherCharges: number;
         depositAmount: number;
         leaseFee: number;
+        wifiAmount: number;
         totalAmount: number;
         dueDate: Date;
         status: "PAID" | "SENT" | "OVERDUE";
@@ -128,6 +130,8 @@ export async function POST(req: Request) {
       const otherCharges = parseFloat(String(row.otherCharges ?? "0")) || 0;
       const depositAmount = parseFloat(String(row.depositAmount ?? "0")) || 0;
       const leaseFee = parseFloat(String(row.leaseFee ?? "0")) || 0;
+      // Wi-Fi line — paid after water and electricity, booked as UTILITY_RECOVERY / WIFI.
+      const wifiAmount = Math.max(0, parseFloat(String(row.wifiAmount ?? "0")) || 0);
 
       if (!tenantName || !unitNumber || isNaN(periodYear) || isNaN(periodMonth) || isNaN(rentAmount) || rentAmount <= 0) {
         errors.push({ row: rowNum, reason: "Tenant Name, Unit Number, Period Year, Period Month and positive Rent Amount are required" });
@@ -182,7 +186,7 @@ export async function POST(req: Request) {
       }
       numberTaken.add(invoiceNumber);
 
-      const totalAmount = rentAmount + serviceCharge + otherCharges + depositAmount + leaseFee;
+      const totalAmount = rentAmount + serviceCharge + otherCharges + depositAmount + leaseFee + wifiAmount;
 
       // Auto-link: exactly one unclaimed payment matching amount + period.
       const candidates = (paymentsByTenant.get(tenant.id) ?? []).filter((p) => {
@@ -211,6 +215,7 @@ export async function POST(req: Request) {
           otherCharges,
           depositAmount,
           leaseFee,
+          wifiAmount,
           totalAmount,
           dueDate,
           status: matched ? "PAID" : dueDate < now ? "OVERDUE" : "SENT",

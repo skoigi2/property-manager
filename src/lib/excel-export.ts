@@ -823,6 +823,7 @@ export function exportUtilityReconciliation(opts: {
   currency?: string;
   water: { rows: UtilityReconExportRow[]; total: UtilityReconExportRow };
   electricity: { rows: UtilityReconExportRow[]; total: UtilityReconExportRow };
+  wifi?: { rows: { month: number; billed: number; collected: number; paid: number; surplus: number }[]; total: { billed: number; collected: number; paid: number; surplus: number } } | null;
 }) {
   const c = currLabel(opts.currency);
   const monthName = (m: number) => fmtMonth(new Date(opts.year, m - 1, 1));
@@ -849,6 +850,14 @@ export function exportUtilityReconciliation(opts: {
   const wsElec = buildSheet(elecHeaders, [...opts.electricity.rows.map((r) => elecRow(monthName(r.month), r)), elecRow("YEAR TO DATE", opts.electricity.total)]);
   setColWidths(wsElec, [14, 14, 16, 12, 12, 20, 16, 14, 14, 16, 14, 16, 14, 16, 14, 16]);
   XLSX.utils.book_append_sheet(wb, wsElec, "Electricity");
+
+  if (opts.wifi) {
+    const wifiHeaders = ["Month", `Billed${c}`, `Collected${c}`, `Provider paid${c}`, `Back to owner${c}`];
+    const wifiRow = (label: string, r: { billed: number; collected: number; paid: number; surplus: number }) => [label, r.billed, r.collected, r.paid, r.surplus];
+    const wsWifi = buildSheet(wifiHeaders, [...opts.wifi.rows.map((r) => wifiRow(monthName(r.month), r)), wifiRow("YEAR TO DATE", opts.wifi.total)]);
+    setColWidths(wsWifi, [14, 14, 14, 16, 16]);
+    XLSX.utils.book_append_sheet(wb, wsWifi, "Wi-Fi");
+  }
 
   const safe = opts.propertyName.replace(/[^\w\- ]+/g, "").trim() || "Property";
   writeFile(wb, `Utility-Reconciliation-${safe}-${opts.year}.xlsx`);

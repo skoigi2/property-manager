@@ -10,7 +10,7 @@ import { HelpTip } from "@/components/ui/HelpTip";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatCurrency } from "@/lib/currency";
 import { exportUtilityReconciliation } from "@/lib/excel-export";
-import type { UtilityReconRow } from "@/lib/utility-reconciliation";
+import type { UtilityReconRow, WifiReconRow } from "@/lib/utility-reconciliation";
 import { readError } from "./types";
 
 interface ReconBlock {
@@ -23,6 +23,8 @@ interface ReconResponse {
   year: number;
   water: ReconBlock;
   electricity: ReconBlock;
+  /** Null when the property bills no Wi-Fi this year. */
+  wifi: { rows: WifiReconRow[]; total: WifiReconRow } | null;
   untaggedCollected: number;
 }
 
@@ -75,7 +77,7 @@ export function ReconciliationTab({ propertyId, currency }: { propertyId: string
             size="sm"
             variant="secondary"
             disabled={!data}
-            onClick={() => data && exportUtilityReconciliation({ propertyName: data.property.name, year: data.year, currency: cur, water: data.water, electricity: data.electricity })}
+            onClick={() => data && exportUtilityReconciliation({ propertyName: data.property.name, year: data.year, currency: cur, water: data.water, electricity: data.electricity, wifi: data.wifi })}
           >
             <Download size={14} className="mr-1" /> Excel
           </Button>
@@ -221,9 +223,51 @@ export function ReconciliationTab({ propertyId, currency }: { propertyId: string
             <RateGuide block={data.electricity} unit="kWh" currency={cur} />
           </Card>
 
+          {data.wifi && (
+            <Card>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-h2 text-gray-900">Wi-Fi</h2>
+                  <p className="text-body text-gray-600 mt-1">
+                    Billed on tenants&apos; invoices and collected, less the Wi-Fi provider&apos;s bills (Wi-Fi expenses) in the months Wi-Fi was charged. What is left goes back to the owner.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-label uppercase text-gray-400">Back to owner · {year}</p>
+                  <p className={`text-h1 tabular-nums ${data.wifi.total.surplus < 0 ? "text-expense" : "text-income"}`}>{fmt(data.wifi.total.surplus)}</p>
+                </div>
+              </div>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-body">
+                  <thead className="text-label uppercase text-gray-400">
+                    <tr>
+                      <th className="text-left py-2 pr-3">Month</th>
+                      <th className="text-right py-2 px-3">Billed</th>
+                      <th className="text-right py-2 px-3">Collected</th>
+                      <th className="text-right py-2 px-3">Provider paid</th>
+                      <th className="text-right py-2 pl-3">Back to owner</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {data.wifi.rows.map((r) => (
+                      <tr key={r.month}>
+                        <td className="py-2 pr-3 text-gray-700">{MONTHS[r.month - 1]}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{fmt(r.billed)}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">{fmt(r.collected)}</td>
+                        <td className="py-2 px-3 text-right tabular-nums text-expense">{fmt(r.paid)}</td>
+                        <td className={`py-2 pl-3 text-right tabular-nums font-medium ${r.surplus < 0 ? "text-expense" : "text-gray-900"}`}>{fmt(r.surplus)}</td>
+                      </tr>
+                    ))}
+                    <TotalRow label="Year to date" cells={[fmt(data.wifi.total.billed), fmt(data.wifi.total.collected), fmt(data.wifi.total.paid), fmt(data.wifi.total.surplus)]} />
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
           {data.untaggedCollected > 0 && (
             <p className="text-caption text-amber-700">
-              {fmt(data.untaggedCollected)} of utility recovery income this year does not say whether it was water or electricity, so it is
+              {fmt(data.untaggedCollected)} of utility recovery income this year does not say whether it was water, electricity or Wi-Fi, so it is
               not counted above. Edit those entries on the Income page and pick the utility.
             </p>
           )}

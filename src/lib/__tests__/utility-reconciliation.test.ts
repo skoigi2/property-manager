@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildUtilityReconciliation, monthsOfYear, type ReconReading } from "../utility-reconciliation";
+import { buildUtilityReconciliation, buildWifiReconciliation, monthsOfYear, type ReconReading } from "../utility-reconciliation";
 
 const d = (s: string) => new Date(`${s}T12:00:00`);
 const months = [{ year: 2026, month: 6 }, { year: 2026, month: 7 }];
@@ -110,5 +110,25 @@ describe("monthsOfYear", () => {
     expect(monthsOfYear(2026, now)).toHaveLength(9);
     expect(monthsOfYear(2025, now)).toHaveLength(12);
     expect(monthsOfYear(2027, now)).toHaveLength(0);
+  });
+});
+
+describe("wi-fi reconciliation", () => {
+  it("billed by invoice period, collected and paid by cash date, surplus to the owner", () => {
+    const res = buildWifiReconciliation({
+      months: [{ year: 2025, month: 12 }, { year: 2026, month: 1 }, { year: 2026, month: 2 }],
+      invoices: [
+        { periodYear: 2026, periodMonth: 1, amount: 1500 },
+        { periodYear: 2026, periodMonth: 1, amount: 1500 },
+        { periodYear: 2026, periodMonth: 2, amount: 1500 },
+      ],
+      collections: [{ date: new Date(2026, 0, 5), amount: 1500 }, { date: new Date(2026, 1, 3), amount: 3000 }],
+      costs: [{ date: new Date(2025, 11, 20), amount: 2320 }, { date: new Date(2026, 0, 20), amount: 2320 }],
+    });
+    // December: the provider was paid but no Wi-Fi was recharged — not counted.
+    expect(res.rows[0]).toMatchObject({ billed: 0, collected: 0, paid: 0, surplus: 0 });
+    expect(res.rows[1]).toMatchObject({ billed: 3000, collected: 1500, paid: 2320, surplus: -820 });
+    expect(res.rows[2]).toMatchObject({ billed: 1500, collected: 3000, paid: 0, surplus: 3000 });
+    expect(res.total).toMatchObject({ billed: 4500, collected: 4500, paid: 2320, surplus: 2180 });
   });
 });

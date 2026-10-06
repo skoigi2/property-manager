@@ -22,6 +22,8 @@ export interface RentBreakdownItem {
   propertyName: string;
   rent: number;
   serviceCharge: number;
+  /** Wi-Fi charge billed with the rent (× months covered); outside the management-fee base. */
+  wifi: number;
   /** true if this is the last month the lease is active */
   isLastMonth: boolean;
   /** true if using proposedRent/proposedLeaseEnd from a TERMS_AGREED renewal */

@@ -38,6 +38,7 @@ export async function GET(req: Request) {
           name: true,
           monthlyRent: true,
           serviceCharge: true,
+          wifiCharge: true,
           leaseStart: true,
           leaseEnd: true,
           escalationRate: true,

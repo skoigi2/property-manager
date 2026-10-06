@@ -24,6 +24,8 @@ interface TenantInput {
   name: string;
   monthlyRent: number;
   serviceCharge: number;
+  /** Monthly Wi-Fi charge billed on the rent invoice. */
+  wifiCharge?: number | null;
   leaseStart: Date;
   leaseEnd: Date | null;
   escalationRate: number | null;
@@ -246,6 +248,7 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
         propertyName: tenant.unit.property.name,
         rent: sched.amount,
         serviceCharge: tenant.serviceCharge * frequencyMonths(tenant.paymentFrequency),
+        wifi: (tenant.wifiCharge ?? 0) * frequencyMonths(tenant.paymentFrequency),
         isLastMonth,
         isRenewalProjection,
       });
@@ -338,6 +341,7 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
     for (const item of rentBreakdown) {
       const propId = tenants.find((t) => t.id === item.tenantId)?.unit.property.id ?? "";
       const existing = revenueByProperty.get(propId);
+      // Wi-Fi is a utility recovery — outside the management-fee base (mgmtFeeBase).
       const amount = item.rent + item.serviceCharge;
       if (existing) {
         existing.total += amount;
@@ -361,7 +365,7 @@ export function buildForecast(input: ForecastInput): ForecastResponse {
 
     // ── TOTALS ──────────────────────────────────────────────────────────────
     const forecastedRent = rentBreakdown.reduce(
-      (sum, item) => sum + item.rent + item.serviceCharge,
+      (sum, item) => sum + item.rent + item.serviceCharge + item.wifi,
       0
     );
     const projectedExpenses = expenseBreakdown.reduce(

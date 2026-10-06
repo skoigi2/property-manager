@@ -174,6 +174,54 @@ export function buildUtilityReconciliation(input: {
   return { rows, total: finish(total, anyBulk) };
 }
 
+// ── Wi-Fi ─────────────────────────────────────────────────────────────────────
+// Not metered: billed is the Wi-Fi line on the month's invoices (by billing
+// period), collected the WIFI utility receipts and paid the WIFI expenses (VAT
+// included) — both by cash date. Surplus = collected − paid, the owner's.
+// Like the owner statement's Wi-Fi memo, a month's Wi-Fi bill counts only when
+// tenants were billed or paid Wi-Fi that month: before the building recharged
+// it, the provider was funded some other way (often the service charge).
+
+export interface WifiReconRow {
+  year: number;
+  month: number;
+  billed: number;
+  collected: number;
+  paid: number;
+  surplus: number;
+}
+
+export function buildWifiReconciliation(input: {
+  months: ReconMonthInput[];
+  /** Invoice Wi-Fi lines, by the invoice's billing period. */
+  invoices: { periodYear: number; periodMonth: number; amount: number }[];
+  collections: ReconCash[];
+  costs: ReconCash[];
+}): { rows: WifiReconRow[]; total: WifiReconRow } {
+  const total: WifiReconRow = { year: 0, month: 0, billed: 0, collected: 0, paid: 0, surplus: 0 };
+  const rows = input.months.map(({ year, month }) => {
+    const row: WifiReconRow = { year, month, billed: 0, collected: 0, paid: 0, surplus: 0 };
+    for (const i of input.invoices) if (i.periodYear === year && i.periodMonth === month) row.billed += i.amount;
+    for (const c of input.collections) if (inMonth(c.date, year, month)) row.collected += c.amount;
+    if (row.billed > 0 || row.collected > 0) {
+      for (const c of input.costs) if (inMonth(c.date, year, month)) row.paid += c.amount;
+    }
+    row.billed = round2(row.billed);
+    row.collected = round2(row.collected);
+    row.paid = round2(row.paid);
+    row.surplus = round2(row.collected - row.paid);
+    total.billed += row.billed;
+    total.collected += row.collected;
+    total.paid += row.paid;
+    return row;
+  });
+  total.billed = round2(total.billed);
+  total.collected = round2(total.collected);
+  total.paid = round2(total.paid);
+  total.surplus = round2(total.collected - total.paid);
+  return { rows, total };
+}
+
 /** Jan … the given month of a year (or all 12 for a past year). */
 export function monthsOfYear(year: number, now = new Date()): ReconMonthInput[] {
   const last = year < now.getFullYear() ? 12 : year > now.getFullYear() ? 0 : now.getMonth() + 1;

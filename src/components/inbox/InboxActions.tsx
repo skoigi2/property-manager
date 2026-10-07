@@ -314,7 +314,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
 
   // Hint-sourced rows carry their own action (from the cron checker): a page
   // to open, or one call to make — after which the hint is marked acted on.
-  const HINT_TYPES = ["VACANT_UNIT", "DEPOSIT_UNSETTLED", "RECURRING_EXPENSE", "LOW_PETTY_CASH", "CASHFLOW_RISK"];
+  const HINT_TYPES = ["VACANT_UNIT", "DEPOSIT_UNSETTLED", "RECURRING_EXPENSE", "LOW_PETTY_CASH", "CASHFLOW_RISK", "STAY_KEYS"];
   if (HINT_TYPES.includes(item.type)) {
     item.actions.forEach((a, i) => {
       actions.push({

@@ -1371,6 +1371,8 @@ enum HintType {
   SLA_BREACH
   WARRANTY_EXPIRY_30D
   WARRANTY_EXPIRY_7D
+  // Short stays: the guest's or the cleaner's keys aren't back (stay-rules.overdueStayKeys).
+  STAY_KEYS_NOT_BACK
 }
 
 enum HintSeverity {
@@ -2246,6 +2248,7 @@ enum NotificationType {
   MAINTENANCE_URGENT_OPEN
   OWNER_MONTHLY_REPORT
   TENANT_RENT_REMINDER
+  STAY_KEYS_NOT_BACK
 }
 
 model NotificationLog {

@@ -24,6 +24,7 @@ import {
   Repeat,
   Wallet,
   LineChart,
+  KeyRound,
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { InboxItem, InboxType } from "@/lib/inbox";
@@ -48,6 +49,7 @@ const TYPE_ICON: Record<InboxType, React.ElementType> = {
   RECURRING_EXPENSE: Repeat,
   LOW_PETTY_CASH: Wallet,
   CASHFLOW_RISK: LineChart,
+  STAY_KEYS: KeyRound,
 };
 
 function severityStyles(severity: InboxItem["severity"]) {

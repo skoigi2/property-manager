@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decideStayAction, stayIdState, stayStage, guestHasKeys, EMPTY_STAY, type StayRecord } from "@/lib/stay-rules";
+import { decideStayAction, stayIdState, stayStage, guestHasKeys, overdueStayKeys, EMPTY_STAY, type StayRecord } from "@/lib/stay-rules";
 
 const T = "2026-10-06T08:00:00.000Z";
 const rec = (over: Partial<StayRecord> = {}): StayRecord => ({ ...EMPTY_STAY, ...over });
@@ -97,5 +97,26 @@ describe("stayStage", () => {
     expect(guestHasKeys(rec({ keysHandedAt: T }))).toBe(true);
     expect(guestHasKeys(rec({ keysHandedAt: T, keysReturnedAt: T }))).toBe(false);
     expect(guestHasKeys(rec())).toBe(false);
+  });
+});
+
+describe("overdueStayKeys", () => {
+  const out = "2026-10-05T10:00:00.000Z"; // check-out 5 Oct
+  it("chases the guest's keys from the day after check-out, not on the day", () => {
+    const s = rec({ keysHandedAt: T });
+    expect(overdueStayKeys(s, out, new Date("2026-10-05T20:00:00.000Z"))).toEqual([]);
+    expect(overdueStayKeys(s, out, new Date("2026-10-06T07:00:00.000Z"))).toEqual([{ holder: "guest", since: new Date("2026-10-06T00:00:00.000Z") }]);
+    expect(overdueStayKeys(rec({ keysHandedAt: T, keysReturnedAt: T }), out, new Date("2026-10-08T07:00:00.000Z"))).toEqual([]);
+  });
+  it("chases the cleaner's keys after 24 hours", () => {
+    const s = rec({ keysHandedAt: T, keysReturnedAt: T, cleanerKeysOutAt: "2026-10-05T12:00:00.000Z" });
+    expect(overdueStayKeys(s, out, new Date("2026-10-06T11:00:00.000Z"))).toEqual([]);
+    expect(overdueStayKeys(s, out, new Date("2026-10-06T12:00:00.000Z"))).toEqual([{ holder: "cleaner", since: new Date("2026-10-06T12:00:00.000Z") }]);
+    expect(overdueStayKeys({ ...s, cleanerKeysBackAt: "2026-10-05T15:00:00.000Z" }, out, new Date("2026-10-08T07:00:00.000Z"))).toEqual([]);
+  });
+  it("can chase both at once (a keybox stay never has guest keys)", () => {
+    const both = rec({ keysHandedAt: T, cleanerKeysOutAt: "2026-10-04T08:00:00.000Z" });
+    expect(overdueStayKeys(both, out, new Date("2026-10-06T07:00:00.000Z")).map((k) => k.holder)).toEqual(["guest", "cleaner"]);
+    expect(overdueStayKeys(rec(), out, new Date("2026-10-09T07:00:00.000Z"))).toEqual([]);
   });
 });

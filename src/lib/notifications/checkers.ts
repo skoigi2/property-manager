@@ -6,6 +6,8 @@ import type { CaseType } from "@prisma/client";
 import { sendNotificationEmail } from "@/lib/email";
 import { formatDate } from "@/lib/date-utils";
 import { upsertHint } from "@/lib/hints";
+import { overdueStayKeys } from "@/lib/stay-rules";
+import { esc } from "@/lib/email";
 import { formatCurrency } from "@/lib/currency";
 import { buildForecast } from "@/lib/forecast-engine";
 import { isAutomationEnabled, wantsEmail } from "@/lib/automation-registry";
@@ -19,6 +21,7 @@ import {
   warrantyExpiryTemplate,
   urgentMaintenanceTemplate,
   ownerMonthlyReportTemplate,
+  stayKeysNotBackTemplate,
 } from "./email-templates";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -455,6 +458,106 @@ export async function checkAssetWarranties(): Promise<{ sent: number; skipped: n
   }
 
   return { sent, skipped };
+}
+
+// ─── Short stays: keys not back ───────────────────────────────────────────────
+
+/**
+ * A guest's keys not back after the check-out day, or the cleaner's after
+ * 24 hours (overdueStayKeys): one email to the property's managers per stay
+ * and holder, and an Inbox item (URGENT after 3 days) that clears itself once
+ * the keys are recorded back. A dismissed item stays dismissed. Stays whose
+ * check-out is more than 180 days back are ignored.
+ */
+export async function checkStayKeysNotBack(): Promise<{ sent: number; skipped: number; active: number }> {
+  const now = new Date();
+  let sent = 0, skipped = 0;
+  const stays = await prisma.guestStay.findMany({
+    where: {
+      OR: [
+        { keysHandedAt: { not: null }, keysReturnedAt: null },
+        { cleanerKeysOutAt: { not: null }, cleanerKeysBackAt: null },
+      ],
+      incomeEntry: { type: "AIRBNB", checkOut: { not: null, gte: subDays(now, 180) } },
+    },
+    include: {
+      incomeEntry: {
+        select: {
+          id: true, checkIn: true, checkOut: true, unitId: true,
+          unit: { select: { unitNumber: true, propertyId: true, property: { select: { name: true, organizationId: true } } } },
+          bookingGuests: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }], take: 1, select: { guest: { select: { name: true } } } },
+        },
+      },
+    },
+  });
+  const dismissed = new Set(
+    (await prisma.actionableHint.findMany({ where: { hintType: "STAY_KEYS_NOT_BACK", status: "DISMISSED" }, select: { refId: true } }))
+      .map((h) => h.refId),
+  );
+  const live: string[] = [];
+
+  for (const stay of stays) {
+    const e = stay.incomeEntry;
+    const orgId = e.unit.property.organizationId;
+    if (!orgId || !e.checkIn || !e.checkOut) continue;
+    if (!(await isAutomationEnabled(orgId, "NOTIFY_STAY_KEYS", e.unit.propertyId))) { skipped++; continue; }
+
+    for (const late of overdueStayKeys(stay, e.checkOut, now)) {
+      const refId = `${e.id}:${late.holder}`;
+      if (dismissed.has(refId)) continue;
+      live.push(refId);
+      const holderName = late.holder === "guest" ? e.bookingGuests[0]?.guest.name ?? null : stay.cleanerName;
+      const keys = late.holder === "guest" ? describeKeys(stay.keysHanded) : null;
+      const daysLate = Math.max(0, differenceInDays(now, late.since));
+      const stayDates = `${formatDate(e.checkIn)} – ${formatDate(e.checkOut)}`;
+
+      await upsertHint({
+        organizationId: orgId,
+        propertyId: e.unit.propertyId,
+        unitId: e.unitId,
+        caseThreadId: null,
+        hintType: "STAY_KEYS_NOT_BACK",
+        refId,
+        severity: daysLate >= 3 ? "URGENT" : "WARNING",
+        title: `Keys not back from the ${late.holder} — Unit ${e.unit.unitNumber}`,
+        subtitle: `${e.unit.property.name} · stay ${stayDates}${holderName ? ` · ${holderName}` : ""}`,
+        suggestedAction: late.holder === "guest" ? "Chase the guest for the keys" : "Chase the cleaner for the keys",
+        actionEndpoint: `/stays/${e.id}`,
+        actionMethod: "GET",
+      });
+
+      // One email per stay and holder.
+      if (await wasRecentlySent("STAY_KEYS_NOT_BACK", refId, 3650)) { skipped++; continue; }
+      const managers = await getPropertyManagers(e.unit.propertyId, orgId);
+      if (managers.length === 0) { skipped++; continue; }
+      const { subject, html } = stayKeysNotBackTemplate({
+        holder: late.holder,
+        holderName: holderName ? esc(holderName) : null,
+        propertyName: esc(e.unit.property.name),
+        unitNumber: esc(e.unit.unitNumber),
+        stayDates,
+        since: formatDate(late.since),
+        keys: keys ? esc(keys) : null,
+        stayId: e.id,
+      });
+      await sendToManagers(managers, subject, html, orgId, "STAY_KEYS_NOT_BACK", refId, "GuestStay", null);
+      sent += managers.length;
+    }
+  }
+
+  // Keys recorded back (or the alert switched off): the Inbox item goes.
+  await prisma.actionableHint.updateMany({
+    where: { hintType: "STAY_KEYS_NOT_BACK", status: "ACTIVE", refId: { notIn: live } },
+    data: { status: "ACTED_ON" },
+  });
+  return { sent, skipped, active: live.length };
+}
+
+/** "Main door × 2, Gate × 1" from GuestStay.keysHanded. */
+function describeKeys(raw: unknown): string | null {
+  const keys = Array.isArray(raw) ? (raw as { label?: string; count?: number }[]) : [];
+  const parts = keys.filter((k) => k?.label).map((k) => `${k.label} × ${k.count ?? 1}`);
+  return parts.length ? parts.join(", ") : null;
 }
 
 // ─── Urgent maintenance checker ───────────────────────────────────────────────

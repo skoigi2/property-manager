@@ -7,6 +7,7 @@ import {
   checkComplianceCertificates,
   checkInsuranceRenewals,
   checkAssetWarranties,
+  checkStayKeysNotBack,
   checkUrgentMaintenance,
   checkVacantUnits,
   checkDepositNotSettled,
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
     (reason) => ({ status: "rejected" as const, reason }),
   );
 
-  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports, tenantReminders, warranties, rentReviews] = await Promise.allSettled([
+  const [leases, invoices, compliance, insurance, maintenance, vacant, deposit, recurring, pettyCash, forecast, slaBreaches, automations, ownerReports, tenantReminders, warranties, rentReviews, stayKeys] = await Promise.allSettled([
     checkLeaseExpiries(),
     checkOverdueInvoices(),
     checkComplianceCertificates(),
@@ -68,6 +69,7 @@ export async function GET(request: Request) {
     checkTenantRentReminders(),
     checkAssetWarranties(),
     checkRentIncreasesDue(),
+    checkStayKeysNotBack(),
   ]);
 
   // Weekly (Mondays) data-health report to platform super-admins — only
@@ -103,6 +105,7 @@ export async function GET(request: Request) {
     tenantRentReminders:     tenantReminders.status === "fulfilled" ? tenantReminders.value : { error: String(tenantReminders.reason) },
     rentIncreasesApplied:    rentIncreases.status === "fulfilled" ? rentIncreases.value : { error: String(rentIncreases.reason) },
     rentReviewsDue:          rentReviews.status === "fulfilled" ? rentReviews.value : { error: String(rentReviews.reason) },
+    stayKeysNotBack:         stayKeys.status === "fulfilled" ? stayKeys.value : { error: String(stayKeys.reason) },
     dataHealth:              dataHealth.status === "fulfilled" ? dataHealth.value : { error: String(dataHealth.reason) },
     durationMs: Date.now() - start,
   };

@@ -26,7 +26,8 @@ export type InboxType =
   | "DEPOSIT_UNSETTLED"
   | "RECURRING_EXPENSE"
   | "LOW_PETTY_CASH"
-  | "CASHFLOW_RISK";
+  | "CASHFLOW_RISK"
+  | "STAY_KEYS";
 
 export interface InboxAction {
   label: string;
@@ -103,6 +104,8 @@ function mapHintToInboxType(t: string): InboxType | null {
     case "LOW_PETTY_CASH":             return "LOW_PETTY_CASH";
     case "NEGATIVE_CASHFLOW_FORECAST": return "CASHFLOW_RISK";
     case "RENT_INCREASE_DUE":          return "RENT_INCREASE";
+    // refId = "<booking id>:guest|cleaner"; the hint's GET action opens the stay.
+    case "STAY_KEYS_NOT_BACK":         return "STAY_KEYS";
     // SLA_BREACH is the one hint whose refId is a case.
     case "SLA_BREACH":                 return "CASE_NEEDS_ATTENTION";
     // INSPECTION_OVERDUE is reserved — no checker emits it yet.
@@ -129,6 +132,7 @@ function hintHref(
     case "RECURRING_EXPENSE": return "/recurring-expenses";
     case "RENT_INCREASE":     return h.tenantId ? `/tenants/${h.tenantId}?tab=history` : "/tenants";
     case "CASE_NEEDS_ATTENTION": return `/cases/${h.caseThreadId ?? h.refId}`;
+    case "STAY_KEYS":         return `/stays/${h.refId.split(":")[0]}`;
     default:                  return "/inbox";
   }
 }

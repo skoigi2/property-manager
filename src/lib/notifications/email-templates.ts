@@ -222,6 +222,42 @@ export function warrantyExpiryTemplate(data: {
   return { subject, html };
 }
 
+// ─── Short stays: keys not back ──────────────────────────────────────────────
+
+export function stayKeysNotBackTemplate(data: {
+  holder: "guest" | "cleaner";
+  /** Already HTML-escaped by the caller (typed on site). */
+  holderName: string | null;
+  propertyName: string;
+  unitNumber: string;
+  stayDates: string;
+  since: string;
+  keys: string | null;
+  stayId: string;
+}): { subject: string; html: string } {
+  const who = data.holder === "guest" ? "guest" : "cleaner";
+  const subject = `Keys not back from the ${who} — ${data.propertyName}, Unit ${data.unitNumber}`;
+  const lead = data.holder === "guest"
+    ? `The guest has checked out of <strong>Unit ${data.unitNumber}</strong> at <strong>${data.propertyName}</strong>, but their keys aren't recorded as returned.`
+    : `The keys for <strong>Unit ${data.unitNumber}</strong> at <strong>${data.propertyName}</strong> went to the cleaner for the after-stay clean and aren't recorded as back.`;
+  const html = shell(
+    `Keys not back from the ${who}`,
+    AMBER,
+    `<p style="color:${GRAY};font-size:14px;line-height:1.6;margin-bottom:16px;">
+      ${lead} Chase them before the next guest arrives — or, if they are back, have the caretaker record it on the stay.
+    </p>
+    <table style="border-collapse:collapse;margin-bottom:4px;">
+      ${row("Property", `${data.propertyName} · Unit ${data.unitNumber}`)}
+      ${row("Stay", data.stayDates)}
+      ${row(data.holder === "guest" ? "Main guest" : "Cleaner", data.holderName ?? "—")}
+      ${data.keys ? row("Keys", data.keys) : ""}
+      ${row("Late since", data.since)}
+    </table>
+    ${cta("Open the stay", `${APP_URL}/stays/${data.stayId}`)}`,
+  );
+  return { subject, html };
+}
+
 // ─── Urgent maintenance stale ────────────────────────────────────────────────
 
 export function pettyCashPendingTemplate(data: {

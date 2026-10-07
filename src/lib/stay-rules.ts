@@ -141,6 +141,30 @@ export function dayOf(d: Date | string): string {
   return (typeof d === "string" ? d : d.toISOString()).slice(0, 10);
 }
 
+/** Hours the cleaner may hold the keys before it's chased. */
+export const CLEANER_KEYS_GRACE_HOURS = 24;
+
+export type OverdueStayKeys = { holder: "guest" | "cleaner"; since: Date };
+
+/**
+ * Keys that should be back by now (the daily alert, checkStayKeysNotBack):
+ * the guest's once the check-out day has passed, the cleaner's once they've
+ * had them CLEANER_KEYS_GRACE_HOURS. `since` is when the keys became late.
+ */
+export function overdueStayKeys(s: StayRecord, checkOut: Date | string, now: Date): OverdueStayKeys[] {
+  const out: OverdueStayKeys[] = [];
+  const today = dayOf(now);
+  if (guestHasKeys(s) && today > dayOf(checkOut)) {
+    const end = new Date(`${dayOf(checkOut)}T00:00:00.000Z`);
+    out.push({ holder: "guest", since: new Date(end.getTime() + 86_400_000) });
+  }
+  if (s.cleanerKeysOutAt && !s.cleanerKeysBackAt) {
+    const late = new Date(new Date(s.cleanerKeysOutAt).getTime() + CLEANER_KEYS_GRACE_HOURS * 3_600_000);
+    if (now >= late) out.push({ holder: "cleaner", since: late });
+  }
+  return out;
+}
+
 export function stayStage(
   s: StayRecord & { checkIn: Date | string; checkOut: Date | string; inspectionHandedIn: boolean },
   today: string,

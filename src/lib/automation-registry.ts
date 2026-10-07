@@ -122,6 +122,15 @@ export const AUTOMATION_DEFS: AutomationDef[] = [
     defaultEnabled: true,
   },
   {
+    key: "NOTIFY_STAY_KEYS",
+    name: "Guest stay key alerts",
+    description: "Email managers when a short-stay guest's keys aren't back the day after check-out, or the cleaner has had the keys for more than a day — and add it to the Inbox until the keys are recorded back.",
+    trigger: "Keys still out after check-out / with the cleaner for 24 h",
+    actions: ["Email Manager", "Add Inbox Item"],
+    category: "NOTIFICATION",
+    defaultEnabled: true,
+  },
+  {
     key: "NOTIFY_QUOTES",
     name: "Quote alerts",
     description: "Email the property's managers, and whoever requested it, when a vendor sends a quote through their quote link.",

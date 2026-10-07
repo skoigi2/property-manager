@@ -969,6 +969,37 @@ async function main() {
       await act(mgr, booking2.id, { action: "override_id", reason: "Passport seen, copy refused" }, 200, "manager waives the ID with a reason → 200");
       const waived = await act(care, booking2.id, { action: "hand_keys", keys }, 200, "keys go on a waived ID → 200");
       check("waived ID shows as overridden", waived?.idState === "overridden");
+      {
+        // The second stay checked out yesterday and the guest still has the keys:
+        // the daily alert raises an Inbox item and emails the managers once.
+        await import("./server-only-shim");
+        const { checkStayKeysNotBack } = await import("../src/lib/notifications/checkers");
+        const refId = `${booking2.id}:guest`;
+        // Local dev has no email key: a send is attempted (EmailLog) but fails, and a
+        // failed send isn't recorded, so it is retried next run — as in production.
+        const attempts = () => prisma.emailLog.count({ where: { subject: { startsWith: "Keys not back from the guest" }, bodyHtml: { contains: booking2.id } } });
+        const before = await attempts();
+        await checkStayKeysNotBack();
+        const hint = await prisma.actionableHint.findUnique({ where: { hintType_refId: { hintType: "STAY_KEYS_NOT_BACK", refId } } });
+        const tried = (await attempts()) - before;
+        check("keys not back after check-out: an Inbox item opening the stay, and the managers emailed",
+          hint?.status === "ACTIVE" && hint.actionEndpoint === `/stays/${booking2.id}` && tried > 0, `${hint?.status} emails=${tried}`);
+        const inbox = await expectStatus(mgr, "manager Inbox", "/api/inbox", 200);
+        check("the Inbox shows it as a stay-keys item", (inbox?.items ?? []).some((i: any) => i.type === "STAY_KEYS" && i.href === `/stays/${booking2.id}`));
+        // Once a send is recorded, a later run doesn't email again.
+        await prisma.notificationLog.create({ data: { organizationId: property.organizationId!, type: "STAY_KEYS_NOT_BACK", resourceId: refId, resourceType: "GuestStay", recipientEmail: "smoke@groundworkpm.test", subject: "smoke" } });
+        const beforeSecond = await attempts();
+        await checkStayKeysNotBack();
+        check("a second run emails nobody again", (await attempts()) === beforeSecond);
+        check("the booking that hasn't checked out raises nothing",
+          !(await prisma.actionableHint.findFirst({ where: { hintType: "STAY_KEYS_NOT_BACK", refId: { startsWith: booking.id } } })));
+        await act(care, booking2.id, { action: "return_keys" }, 200, "keys back from the late guest → 200");
+        await checkStayKeysNotBack();
+        const cleared = await prisma.actionableHint.findUnique({ where: { hintType_refId: { hintType: "STAY_KEYS_NOT_BACK", refId } } });
+        check("recording the keys back clears the Inbox item", cleared?.status === "ACTED_ON", cleared?.status);
+        await prisma.notificationLog.deleteMany({ where: { type: "STAY_KEYS_NOT_BACK", resourceId: { startsWith: booking2.id } } });
+        await prisma.actionableHint.deleteMany({ where: { hintType: "STAY_KEYS_NOT_BACK", refId: { startsWith: booking2.id } } });
+      }
       const ps2 = await expectStatus(care, "start a check on the second stay → 201", "/api/inspections", 201, {
         method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "POST_STAY", incomeEntryId: booking2.id }),
       });

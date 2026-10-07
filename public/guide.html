@@ -364,6 +364,7 @@
     <a class="toc-link" href="#calendar"><span class="num">06</span>Calendar</a>
     <a class="toc-link" href="#properties"><span class="num">07</span>Properties &amp; Units</a>
     <a class="toc-link" href="#tenants"><span class="num">08</span>Tenant Management</a>
+    <a class="toc-link" href="#unit-owners"><span class="num">08a</span>Unit Owners</a>
     <a class="toc-link" href="#income"><span class="num">09</span>Income, Invoices &amp; Arrears</a>
     <a class="toc-link" href="#expenses"><span class="num">10</span>Expenses &amp; Petty Cash</a>
     <a class="toc-link" href="#maintenance"><span class="num">11</span>Maintenance</a>
@@ -1302,6 +1303,64 @@
     <div class="sub-section">
       <h3>Generating a Portal Link</h3>
       <p>From the tenant detail page header, click <strong>Generate Portal Link</strong>. Share the unique URL with the tenant — they can view invoices and balance, download PDFs and receipts, message you, submit payment proof, and raise maintenance requests without creating an account. See <a href="#portal">Tenant Portal</a>.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════
+       08a. UNIT OWNERS
+  ══════════════════════ -->
+  <div id="unit-owners" class="section">
+    <div class="section-header">
+      <div class="section-num">08a — Unit Owners</div>
+      <h2>Unit Owners (Service Charge Only)</h2>
+      <p class="intro">When you manage a whole development, some apartments belong to their owners — they live there or let the unit out themselves, and pay you only the <strong>service charge</strong>. Add each of them as a <strong>unit owner</strong>: they are billed and chased like tenants, but never for rent.</p>
+    </div>
+
+    <div class="sub-section">
+      <h3>1 · Adding an owner</h3>
+      <ul class="feature-list">
+        <li><strong>Tenants → Add Tenant → Account type: Unit owner.</strong> Enter the owner's name, email, phone and unit, their <strong>monthly service charge</strong> (plus Wi-Fi if they get it), how often they pay, and <strong>Billing starts</strong> — the first month you bill them.</li>
+        <li>Rent, deposit, lease end and rent increases disappear from the form: an owner has none of them.</li>
+        <li><strong>Many owners at once</strong> — on the Data Import page, the tenants sheet has an <strong>Account Type</strong> column. Write <em>Unit owner</em> and leave Monthly Rent blank.</li>
+        <li><strong>From the service charge budget</strong> — on the <a href="#service-charge">Service Charge</a> page, <em>Apply to tenants</em> sets each owner's monthly service charge from their unit's share of the year's budget, exactly as it does for tenants.</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:520px">
+        <img src="guide-screenshots/68-owner-form.png" alt="Adding a unit owner" loading="lazy">
+        <div class="screenshot-caption">Account type <em>Unit owner</em> — the form asks for the service charge only</div>
+      </div>
+      <div class="callout warn"><div class="callout-icon">⚠️</div><div class="callout-body"><strong>A tenant who buys their unit?</strong> Check the tenant out and add a new owner account. Switching an existing tenant to owner removes their rent and rent history, and the form asks you to confirm first.</div></div>
+    </div>
+
+    <div class="sub-section">
+      <h3>2 · Billing and payments</h3>
+      <ul class="feature-list">
+        <li><strong>Invoices</strong> — each month the owner gets one service charge invoice: no rent line, never two for the same month. Water, electricity and Wi-Fi are added when the unit has them. An owner whose service charge isn't set yet is skipped (and named) until it is.</li>
+        <li><strong>Payments are service charge, never rent</strong> — whether you record the payment as rent or service charge, the app books it as service charge. It counts towards what the owner owes on the ledger, the Arrears page, the dashboard and reports, and appears as <em>service charge</em> (not rent) on the owner statement.</li>
+        <li><strong>Management fee</strong> — service charge collected stays in gross income, so your percentage fee includes it. A per-unit percentage fee is charged on the owner's service charge.</li>
+        <li><strong>No rent features</strong> — no lease-expiry alerts, rent reviews, renewals, deposit or letting fee.</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/69-owner-page.png" alt="A unit owner's page" loading="lazy">
+        <div class="screenshot-caption">An owner's page: the service charge (and Wi-Fi), billing start, and a ledger of what's due and paid — two months paid, two outstanding</div>
+      </div>
+      <div class="screenshot-wrap" style="margin-top:14px">
+        <img src="guide-screenshots/70-owner-invoice.png" alt="An owner's invoice on the Invoices page" loading="lazy">
+        <div class="screenshot-caption">On the Invoices page the owner's invoice carries service charge and Wi-Fi only — no rent line</div>
+      </div>
+    </div>
+
+    <div class="sub-section">
+      <h3>3 · Reminders, letters and the portal</h3>
+      <ul class="feature-list">
+        <li>Owners appear on the Tenants list with a <strong>Unit owner</strong> badge in place of a lease date.</li>
+        <li>Invoice emails, payment reminders, WhatsApp messages, receipts and calendar entries all say <strong>service charge</strong>.</li>
+        <li><strong>Arrears letters</strong> (formal notice, demand, notice to remedy) are worded as service charge arrears and refer to the owner's obligations, not a tenancy. A <em>notice to vacate</em> is never offered for an owner.</li>
+        <li>The <a href="#portal">tenant portal</a> works the same for owners: invoices, balance, receipts, messages and repair requests — with no rent row.</li>
+      </ul>
+      <div class="screenshot-wrap" style="margin-top:14px;max-width:480px">
+        <img src="guide-screenshots/71-owner-card.png" alt="A unit owner on the Tenants list" loading="lazy">
+        <div class="screenshot-caption">On the Tenants list: the <em>Unit owner</em> badge, no rent and no lease end</div>
+      </div>
     </div>
   </div>
 
@@ -2399,6 +2458,7 @@
         <li><strong>Update-existing mode</strong> — tenants, rent history, expenses, petty cash, recurring expenses, and assets support an "Update existing records" toggle so re-importing edits rows in place instead of duplicating them</li>
         <li><strong>Edit-and-resync (expenses, assets)</strong> — click <em>Export existing</em> to download your current records pre-filled into the template with their IDs; edit any field and re-upload, and each row updates in place</li>
         <li>The tenants importer can carry <strong>Deposit Received + date</strong> columns, minting the linked deposit receipt so your deposit position is verified from day one</li>
+        <li>Its <strong>Account Type</strong> column marks <a href="#unit-owners">unit owners</a> who pay only the service charge — write <em>Unit owner</em> and leave Monthly Rent blank</li>
       </ul>
     </div>
 

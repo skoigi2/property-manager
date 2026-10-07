@@ -50,6 +50,12 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
 
   const file  = formData.get("file") as File | null;
   const label = (formData.get("label") as string | null) || null;
+  // Uploaded from a booking's guest panel: the scan belongs to that stay.
+  const incomeEntryId = (formData.get("incomeEntryId") as string | null) || null;
+  if (incomeEntryId) {
+    const link = await prisma.bookingGuest.findFirst({ where: { guestId: params.id, incomeEntryId }, select: { id: true } });
+    if (!link) return Response.json({ error: "That guest is not on this booking" }, { status: 400 });
+  }
 
   if (!file) return Response.json({ error: "No file provided" }, { status: 400 });
   if (file.size > MAX_SIZE) return Response.json({ error: "File exceeds 10 MB limit" }, { status: 400 });
@@ -70,6 +76,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
       storagePath,
       fileSize:    file.size,
       mimeType:    file.type,
+      incomeEntryId,
     },
   });
 

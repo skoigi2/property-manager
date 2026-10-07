@@ -95,6 +95,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
   const moveOutInspection = inspection
     ? {
         acceptedRepairQuotes,
+        repairJobCount: repairJobs.length,
         acceptedRepairTotal: Math.round(acceptedRepairQuotes.reduce((s, q) => s + q.amount, 0) * 100) / 100,
         id: inspection.id,
         status: inspection.status,

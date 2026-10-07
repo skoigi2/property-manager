@@ -19,11 +19,16 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   if (problems.length) {
     return Response.json({ error: problems[0], problems, code: "NOT_READY" }, { status: 400 });
   }
+  // Handed in before, then sent back or reopened for a correction? Those clear
+  // submittedAt but keep who handed it in.
+  const resubmission = !!loaded.report.submittedByUserId;
   let updated = await markSubmitted(loaded.report, session!);
   const clean = isCleanPostStay({
     reportType: updated.reportType,
     items: (updated.items as unknown as InspectionItem[]) ?? [],
     tenantIssues: updated.tenantIssues,
+    overallComments: updated.overallComments,
+    resubmission,
   });
   if (clean) {
     updated = await prisma.conditionReport.update({

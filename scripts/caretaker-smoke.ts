@@ -796,6 +796,18 @@ async function main() {
     for (const j of withJobs?.repairJobs ?? []) created.jobs.add(j.id);
     check("one job per damaged item, linked back", withJobs?.repairJobs?.length === wallsId.length && withJobs.items.filter((i: any) => i.jobId).length === wallsId.length);
     await expectStatus(mgr, "the same items again → 400 (never twice)", `/api/condition-reports/${moId}/repair-jobs`, 400, { method: "POST", body: JSON.stringify({ itemIds: wallsId }) });
+    {
+      // Two clicks at once on the Ceiling items: one job each, never two.
+      const ceilingId = rated.filter((it: any) => it.feature === "Ceiling").map((it: any) => it.id);
+      const before = await prisma.maintenanceJob.count({ where: { conditionReportId: moId } });
+      const [a, b] = await Promise.all([1, 2].map(() => mgr.json(`/api/condition-reports/${moId}/repair-jobs`, { method: "POST", body: JSON.stringify({ itemIds: ceilingId }) })));
+      const made = await prisma.maintenanceJob.findMany({ where: { conditionReportId: moId }, select: { id: true, title: true } });
+      check("two simultaneous repair-job requests make one job", made.length === before + ceilingId.length && [[201, 400], [201, 409]].some((w) => w.join() === [a.status, b.status].sort().join()), `${a.status}/${b.status}, ${made.length - before} made`);
+      // Put the Ceiling back to "no job" so the re-let checklist below sees unraised damage.
+      for (const j of made) if (j.title.includes("Ceiling")) await prisma.maintenanceJob.delete({ where: { id: j.id } });
+      const rep = await prisma.conditionReport.findUnique({ where: { id: moId! }, select: { items: true } });
+      await prisma.conditionReport.update({ where: { id: moId! }, data: { items: ((rep?.items as any[]) ?? []).map((i) => (ceilingId.includes(i.id) ? { ...i, jobId: undefined } : i)) } });
+    }
 
     // Re-let checklist.
     await expectStatus(care, "caretaker starts a re-let checklist → 403", "/api/turnovers", 403, { method: "POST", body: JSON.stringify({ unitId: unit.id }) });
@@ -810,7 +822,10 @@ async function main() {
     for (const j of withJobs?.repairJobs ?? []) await prisma.maintenanceJob.update({ where: { id: j.id }, data: { status: "DONE" } });
     const afterJobs = await expectStatus(care, "GET checklists after the jobs are done", "/api/turnovers?view=open", 200);
     const tvNow = afterJobs?.find?.((t: any) => t.id === tv?.id);
-    check("'Repairs done' ticks itself once the jobs are done", tvNow?.items?.find((i: any) => i.key === "repairs")?.done === true);
+    // The Ceilings (FAIR) have no repair job: not automatic, and only a manager may tick it.
+    check("'Repairs done' waits while damage has no repair job", tvNow?.repairs?.unraised === rated.filter((it: any) => it.feature === "Ceiling").length && tvNow?.items?.find((i: any) => i.key === "repairs")?.done === false, JSON.stringify(tvNow?.repairs));
+    await expectStatus(care, "caretaker ticks repairs with damage unraised → 409", `/api/turnovers/${tv?.id}`, 409, { method: "PATCH", body: JSON.stringify({ key: "repairs", done: true }) });
+    await expectStatus(mgr, "manager ticks repairs (fair wear, no repair needed) → 200", `/api/turnovers/${tv?.id}`, 200, { method: "PATCH", body: JSON.stringify({ key: "repairs", done: true }) });
     await expectStatus(care, "mark complete with items open → 409", `/api/turnovers/${tv?.id}`, 409, { method: "PATCH", body: JSON.stringify({ complete: true }) });
     if (tv?.id) await prisma.unitTurnover.delete({ where: { id: tv.id } });
     await prisma.utilityMeter.delete({ where: { id: meter.id } });
@@ -844,6 +859,7 @@ async function main() {
       const keys = [{ label: "Main door", count: 2 }];
 
       await act(care, booking.id, { action: "hand_keys", keys }, 409, "hand over keys with no guest ID → 409");
+      await act(care, booking.id, { action: "cleaner_out", cleanerName: "Mary" }, 409, "keys to the cleaner before the guest has even arrived → 409");
       const withGuest = await expectStatus(care, "add the main guest → 201", `/api/stays/${booking.id}/guests`, 201, {
         method: "POST", body: JSON.stringify({ name: "Smoke Guest", phone: "+254700000001", idNumber: `SMK${stamp}` }),
       });
@@ -869,6 +885,32 @@ async function main() {
       const handed = await act(care, booking.id, { action: "hand_keys", keys }, 200, "hand over keys once the ID is on file → 200");
       check("keys recorded with who handed them over", handed?.stay?.keysHanded?.[0]?.count === 2 && handed?.stay?.keysHandedByName === "Smoke Caretaker" && handed?.idState === "ok");
       await act(care, booking.id, { action: "cleaner_out", cleanerName: "Mary" }, 409, "keys to the cleaner while the guest has them → 409");
+      {
+        // A guest from another stay, with an ID scan on file.
+        const priv = await prisma.airbnbGuest.create({ data: { name: "Private Guest", passportNumber: `PRIV${stamp}`, organizationId: property.organizationId } });
+        guestIds.add(priv.id);
+        await prisma.guestDocument.create({ data: { guestId: priv.id, label: "Passport", fileName: "p.jpg", storagePath: `guests/${priv.id}/old.jpg`, mimeType: "image/jpeg" } });
+        const typed = await expectStatus(care, "caretaker types another guest's ID number → 201", `/api/stays/${booking.id}/guests`, 201, {
+          method: "POST", body: JSON.stringify({ name: "Private Guest", idNumber: `priv${stamp}` }),
+        });
+        const row = typed?.guests?.find((g: any) => g.name === "Private Guest");
+        if (row?.id) guestIds.add(row.id);
+        check("a caretaker's entry is a new guest record — never linked to the existing one", !!row && row.id !== priv.id && (row.documents ?? []).length === 0);
+        const matched = await expectStatus(mgr, "manager adds the same guest (name + ID) to the second stay → 201", `/api/stays/${booking2.id}/guests`, 201, {
+          method: "POST", body: JSON.stringify({ name: "private guest", idNumber: `PRIV${stamp}` }),
+        });
+        const mrow = matched?.guests?.find((g: any) => g.id === priv.id);
+        check("a manager's entry matches the returning guest, but their old ID scan doesn't count for this stay",
+          !!mrow && (mrow.documents ?? []).length === 0 && matched?.idState === "missing");
+        check("guest payloads carry no other stay's scan", !JSON.stringify(matched).includes("old.jpg") && !JSON.stringify(typed).includes("old.jpg"));
+        // A scan uploaded later, but for a different stay of the same guest.
+        const elsewhere = await prisma.guestDocument.create({ data: { guestId: priv.id, incomeEntryId: booking.id, label: "Passport", fileName: "x.jpg", storagePath: `guests/${priv.id}/other-stay.jpg`, mimeType: "image/jpeg" } });
+        const s2 = await expectStatus(mgr, "GET the second stay", `/api/stays/${booking2.id}`, 200);
+        check("a scan uploaded for another stay doesn't show or count here",
+          !JSON.stringify(s2).includes("other-stay.jpg") && (s2?.guests?.find((g: any) => g.id === priv.id)?.documents ?? []).length === 0 && s2?.idState === "missing");
+        await expectStatus(mgr, "delete another stay's scan through this stay → 404", `/api/stays/${booking2.id}/guests/${priv.id}/documents/${elsewhere.id}`, 404, { method: "DELETE" });
+        await prisma.guestDocument.delete({ where: { id: elsewhere.id } });
+      }
       await act(care, booking.id, { action: "undo", step: "keys_out" }, 403, "caretaker undoes a step → 403");
       await act(care, booking.id, { action: "override_id", reason: "x" }, 403, "caretaker waives the ID → 403");
       await act(care, booking.id, { action: "return_keys" }, 200, "keys back from the guest → 200");
@@ -887,6 +929,17 @@ async function main() {
         method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "POST_STAY", incomeEntryId: booking.id }),
       });
       check("the 409 points at the existing check", again?.existingId === ps?.id);
+      {
+        const booking3 = await prisma.incomeEntry.create({ data: bookingData(-6) });
+        try {
+          const both = await Promise.all([1, 2].map(() => care.json("/api/inspections", { method: "POST", body: JSON.stringify({ unitId: unit.id, reportType: "POST_STAY", incomeEntryId: booking3.id }) })));
+          const n = await prisma.conditionReport.count({ where: { incomeEntryId: booking3.id, reportType: "POST_STAY" } });
+          check("two phones starting the same post-stay check at once: one check", n === 1 && both.map((b) => b.status).sort().join() === "201,409", `${both.map((b) => b.status)} → ${n}`);
+        } finally {
+          await prisma.conditionReport.deleteMany({ where: { incomeEntryId: booking3.id } });
+          await prisma.incomeEntry.delete({ where: { id: booking3.id } });
+        }
+      }
       await expectStatus(care, "give a post-stay check a tenant → 400", `/api/condition-reports/${ps?.id}`, 400, {
         method: "PATCH", body: JSON.stringify({ tenantId: tenant.id }),
       });
@@ -931,6 +984,17 @@ async function main() {
       check("a check with damage waits for the manager", dmgFiled?.status === "SUBMITTED");
       const stay2 = await expectStatus(mgr, "manager GET the second stay", `/api/stays/${booking2.id}`, 200);
       check("the stay shows the damage from its check", stay2?.inspections?.[0]?.damaged === 1);
+      await expectStatus(mgr, "manager sends the damaged check back → 200", `/api/condition-reports/${ps2.id}/actions`, 200, {
+        method: "POST", body: JSON.stringify({ action: "send_back", note: "Look again — was that mirror already cracked?" }),
+      });
+      await expectStatus(care, "rate a post-stay room FAIR → 400", `/api/condition-reports/${ps2.id}`, 400, {
+        method: "PATCH", body: JSON.stringify({ items: dmg.map((it: any, i: number) => (i === 0 ? { ...it, status: "FAIR" } : it)) }),
+      });
+      await expectStatus(care, "PATCH: everything fine now", `/api/condition-reports/${ps2.id}`, 200, {
+        method: "PATCH", body: JSON.stringify({ items: dmg.map((it: any) => ({ ...it, status: "GOOD", notes: "" })) }),
+      });
+      const reFiled = await expectStatus(care, "hand the check in again → 200", `/api/condition-reports/${ps2.id}/submit`, 200, { method: "POST" });
+      check("a check handed in again goes back to the manager, never auto-accepted", reFiled?.status === "SUBMITTED");
     } finally {
       for (const id of Array.from(created.inspections)) await prisma.conditionReport.deleteMany({ where: { id, reportType: "POST_STAY" } });
       await prisma.incomeEntry.deleteMany({ where: { id: { in: [booking.id, booking2.id] } } });
@@ -977,7 +1041,9 @@ async function main() {
       check("both quotes received; the link one marked as from the vendor",
         qOf(list, v1)?.status === "RECEIVED" && qOf(list, v1)?.amount === 9000 && qOf(list, v1)?.receivedVia === "Vendor" && qOf(list, v2)?.receivedVia === "Smoke Caretaker");
       await expectStatus(care, "caretaker accepts a quote → 403", `/api/maintenance/${job.id}/quotes/${q2.id}`, 403, { method: "POST", body: JSON.stringify({ action: "accept" }) });
-      await expectStatus(mgr, "manager accepts the cheaper quote → 200", `/api/maintenance/${job.id}/quotes/${q2.id}`, 200, { method: "POST", body: JSON.stringify({ action: "accept" }) });
+      const changed = await expectStatus(mgr, "accept at a price the vendor has since changed → 409", `/api/maintenance/${job.id}/quotes/${q2.id}`, 409, { method: "POST", body: JSON.stringify({ action: "accept", expectedAmount: 6500 }) });
+      check("…says the price changed", changed?.code === "PRICE_CHANGED");
+      await expectStatus(mgr, "manager accepts the cheaper quote → 200", `/api/maintenance/${job.id}/quotes/${q2.id}`, 200, { method: "POST", body: JSON.stringify({ action: "accept", expectedAmount: 7000 }) });
       const after = await prisma.maintenanceQuote.findMany({ where: { jobId: job.id } });
       const jobAfter = await prisma.maintenanceJob.findUnique({ where: { id: job.id }, select: { vendorId: true, vendorQuoteAmount: true } });
       check("accepting assigns the vendor and declines the other quote",
@@ -990,10 +1056,33 @@ async function main() {
       await expectStatus(mgr, "manager undoes the acceptance → 200", `/api/maintenance/${job.id}/quotes/${q2.id}`, 200, { method: "POST", body: JSON.stringify({ action: "unaccept" }) });
       const restored = await prisma.maintenanceQuote.findMany({ where: { jobId: job.id } });
       check("undo restores the auto-declined quote", restored.every((x) => x.status === "RECEIVED"));
+      const jobUndone = await prisma.maintenanceJob.findUnique({ where: { id: job.id }, select: { vendorId: true, vendorQuoteAmount: true } });
+      check("undo takes the vendor back off the job", jobUndone?.vendorId === null && jobUndone?.vendorQuoteAmount === null, JSON.stringify(jobUndone));
+      await expectStatus(mgr, "undo twice → 409", `/api/maintenance/${job.id}/quotes/${q2.id}`, 409, { method: "POST", body: JSON.stringify({ action: "unaccept" }) });
+      // The job's older single vendor link no longer takes a price once quotes exist.
+      const legacyToken = `legacy${stamp}${"x".repeat(20)}`;
+      await prisma.maintenanceJob.update({ where: { id: job.id }, data: { vendorLinkToken: legacyToken, vendorLinkExpiresAt: new Date(Date.now() + 86_400_000) } });
+      const legacy = await pub(`/api/vendor/${legacyToken}`, { method: "POST", body: JSON.stringify({ amount: 1 }) });
+      check("the old single vendor link is refused once a job has quotes → 410", legacy.status === 410, `got ${legacy.status}`);
+      await prisma.maintenanceJob.update({ where: { id: job.id }, data: { vendorLinkToken: null, vendorLinkExpiresAt: null } });
       const resent = await expectStatus(care, "re-send a vendor's link → 200", `/api/maintenance/${job.id}/quotes/${qOf(list, v1).id}`, 200, { method: "POST", body: JSON.stringify({ action: "resend" }) });
       const oldLink = await pub(`/api/vendor/${token1}`);
       check("re-sending replaces the old link", oldLink.status === 404 && typeof resent?.url === "string" && !resent.url.endsWith(token1));
       await expectStatus(mgr, "manager declines with a reason → 200", `/api/maintenance/${job.id}/quotes/${qOf(list, v1).id}`, 200, { method: "POST", body: JSON.stringify({ action: "decline", reason: "Too dear" }) });
+      {
+        const job2 = await prisma.maintenanceJob.create({ data: { propertyId: property.id, unitId: unit.id, title: `Smoke leak ${stamp}`, category: "OTHER", vendorId: v2.id } });
+        try {
+          const asked2 = await expectStatus(mgr, "ask the already-assigned plumber for a quote → 201", `/api/maintenance/${job2.id}/quotes`, 201, { method: "POST", body: JSON.stringify({ vendorIds: [v2.id] }) });
+          const qq = asked2?.quotes?.[0];
+          await expectStatus(mgr, "record it", `/api/maintenance/${job2.id}/quotes/${qq?.id}`, 200, { method: "POST", body: JSON.stringify({ action: "record", amount: 5000 }) });
+          await expectStatus(mgr, "accept it", `/api/maintenance/${job2.id}/quotes/${qq?.id}`, 200, { method: "POST", body: JSON.stringify({ action: "accept", expectedAmount: 5000 }) });
+          await expectStatus(mgr, "undo it", `/api/maintenance/${job2.id}/quotes/${qq?.id}`, 200, { method: "POST", body: JSON.stringify({ action: "unaccept" }) });
+          const j2 = await prisma.maintenanceJob.findUnique({ where: { id: job2.id }, select: { vendorId: true, vendorQuoteAmount: true } });
+          check("undo puts the job back as it was: the plumber stays assigned, no accepted price", j2?.vendorId === v2.id && j2?.vendorQuoteAmount === null, JSON.stringify(j2));
+        } finally {
+          await prisma.maintenanceJob.delete({ where: { id: job2.id } }).catch(() => {});
+        }
+      }
       const jobs = await expectStatus(care, "maintenance list carries the quote summary", `/api/maintenance?propertyId=${property.id}`, 200);
       const row = (Array.isArray(jobs) ? jobs : jobs?.jobs ?? []).find((j: any) => j.id === job.id);
       check("job card summary: two quotes", row?.quotes?.length === 2);

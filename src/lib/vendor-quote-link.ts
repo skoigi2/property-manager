@@ -70,10 +70,13 @@ export async function submitQuoteByLink(
   if (state === "decided") return { ok: false, status: 410, error: "A decision has already been made on this quote." };
 
   const isUpdate = q.amount !== null;
-  const updated = await prisma.maintenanceQuote.update({
-    where: { id: q.id },
+  // Only while still undecided — a manager may have accepted another quote a
+  // moment ago, which auto-declined this one.
+  const res = await prisma.maintenanceQuote.updateMany({
+    where: { id: q.id, status: { in: ["REQUESTED", "RECEIVED"] } },
     data: { status: "RECEIVED", amount: input.amount, note: input.note, availableDate: input.availableDate, receivedAt: new Date(), receivedVia: "Vendor" },
   });
+  if (res.count === 0) return { ok: false, status: 410, error: "A decision has already been made on this quote." };
   await logAudit({
     userId: "system",
     userEmail: "vendor-link",
@@ -87,7 +90,7 @@ export async function submitQuoteByLink(
   if (job) {
     const quote = job.quotes.find((x) => x.id === q.id)!;
     await caseNote(job, q.vendor.name,
-      `${isUpdate ? "Updated quote" : "Quote"} from ${q.vendor.name} via their link: ${formatCurrency(input.amount, job.property.currency ?? "KES")}${updated.availableDate ? ` — available ${updated.availableDate.toLocaleDateString("en-GB")}` : ""}.`,
+      `${isUpdate ? "Updated quote" : "Quote"} from ${q.vendor.name} via their link: ${formatCurrency(input.amount, job.property.currency ?? "KES")}${input.availableDate ? ` — available ${input.availableDate.toLocaleDateString("en-GB")}` : ""}.`,
       "quote_received");
     await notifyQuoteReceived(job, quote, input.amount, isUpdate);
   }

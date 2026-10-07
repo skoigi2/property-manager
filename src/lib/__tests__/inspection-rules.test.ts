@@ -3,7 +3,7 @@ import {
   canEditObservations, keysState, normaliseKeys, roomPhotoCounts, submitProblems,
   decideInspectionAction, damagedItems, MIN_PHOTOS_PER_ROOM, type InspectionItem, type SubmitInput,
   normaliseMeterReadings, readingBelowLast, missingMeterReadings,
-  minPhotosPerRoom, ratingOptions, itemStatusLabel, postStayItems, isCleanPostStay,
+  minPhotosPerRoom, ratingOptions, itemStatusLabel, postStayItems, isCleanPostStay, invalidPostStayRatings, hasRepairJob, REPAIR_CLAIM_TTL_MS,
 } from "@/lib/inspection-rules";
 
 const item = (id: string, room: string, photoIds: string[] = [], status: InspectionItem["status"] = "GOOD"): InspectionItem =>
@@ -209,5 +209,29 @@ describe("post-stay checks", () => {
     expect(isCleanPostStay({ reportType: "POST_STAY", items: fine, tenantIssues: "Remote missing" })).toBe(false);
     expect(isCleanPostStay({ reportType: "POST_STAY", items: [item("1", "Living Room", ["p1"], "POOR")], tenantIssues: null })).toBe(false);
     expect(isCleanPostStay({ reportType: "MID_TERM", items: fine, tenantIssues: null })).toBe(false);
+  });
+
+  it("goes to a manager when re-handed in, rated FAIR, or with damage only in the comments", () => {
+    const fine = [item("1", "Living Room", ["p1"])];
+    expect(isCleanPostStay({ reportType: "POST_STAY", items: fine, tenantIssues: null, resubmission: true })).toBe(false);
+    expect(isCleanPostStay({ reportType: "POST_STAY", items: [item("1", "Living Room", ["p1"], "FAIR")], tenantIssues: null })).toBe(false);
+    expect(isCleanPostStay({ reportType: "POST_STAY", items: fine, tenantIssues: null, overallComments: "Sofa stained" })).toBe(false);
+    expect(isCleanPostStay({ reportType: "POST_STAY", items: fine, tenantIssues: " ", overallComments: "  " })).toBe(true);
+  });
+
+  it("accepts only Fine / Damaged ratings on a post-stay check", () => {
+    expect(invalidPostStayRatings([{ status: "GOOD" }, { status: "POOR" }, { status: null }, {}])).toBe(false);
+    expect(invalidPostStayRatings([{ status: "GOOD" }, { status: "FAIR" }])).toBe(true);
+  });
+});
+
+describe("hasRepairJob", () => {
+  it("counts a job, and a fresh claim, but not a stale claim", () => {
+    const now = Date.parse("2026-10-07T10:00:00.000Z");
+    expect(hasRepairJob({}, now)).toBe(false);
+    expect(hasRepairJob({ jobId: "job1" }, now)).toBe(true);
+    expect(hasRepairJob({ jobId: "pending", pendingAt: new Date(now - 60_000).toISOString() }, now)).toBe(true);
+    expect(hasRepairJob({ jobId: "pending", pendingAt: new Date(now - REPAIR_CLAIM_TTL_MS - 1).toISOString() }, now)).toBe(false);
+    expect(hasRepairJob({ jobId: "pending" }, now)).toBe(false);
   });
 });

@@ -3,7 +3,8 @@ import { listStays } from "@/lib/stays";
 
 // Short-stay bookings for on-site staff — ops staff incl. CARETAKER. Dates,
 // units, guests and the on-site record only: never rates, totals or agents.
-// GET ?from=yyyy-mm-dd&to=yyyy-mm-dd&propertyId= (window ≤ 62 days)
+// GET ?from=yyyy-mm-dd&to=yyyy-mm-dd&propertyId=&open=1 (window ≤ 62 days;
+// open=1 adds older stays whose keys are still out)
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -19,5 +20,5 @@ export async function GET(req: Request) {
   if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > 62) {
     return Response.json({ error: "Ask for 62 days or fewer" }, { status: 400 });
   }
-  return Response.json(await listStays({ from, to, propertyId: url.searchParams.get("propertyId") }));
+  return Response.json(await listStays({ from, to, propertyId: url.searchParams.get("propertyId"), open: url.searchParams.get("open") === "1" }));
 }

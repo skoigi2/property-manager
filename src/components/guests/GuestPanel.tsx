@@ -160,6 +160,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("label", file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "));
+      fd.append("incomeEntryId", incomeEntryId);
       const res = await fetch(`/api/guests/${guestId}/documents`, { method: "POST", body: fd });
       if (res.ok) {
         setUploadFile((prev) => ({ ...prev, [guestId]: null }));

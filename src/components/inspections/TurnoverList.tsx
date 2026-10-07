@@ -22,13 +22,13 @@ interface TurnoverDto {
   completedByName: string | null;
   items: { key: string; label: string; done: boolean; doneAt: string | null; doneByName: string | null }[];
   progress: { done: number; total: number; complete: boolean };
-  repairs: { total: number; open: number };
+  repairs: { total: number; open: number; unraised?: number };
   depositSettled: boolean;
   jobs: { id: string; title: string; status: string }[];
 }
 
 /** "Ready to re-let" checklists — managers and caretakers tick items on site. */
-export function TurnoverList({ propertyId }: { propertyId: string | null }) {
+export function TurnoverList({ propertyId, isManager = false }: { propertyId: string | null; isManager?: boolean }) {
   const [view, setView] = useState<"open" | "done">("open");
   const [rows, setRows] = useState<TurnoverDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,14 +101,18 @@ export function TurnoverList({ propertyId }: { propertyId: string | null }) {
             </div>
             <div className="mt-3 space-y-1.5">
               {t.items.map((i) => {
-                const auto = (i.key === "repairs" && t.repairs.total > 0) || (i.key === "deposit" && t.depositSettled);
-                const locked = !!t.completedAt || auto || busy === `${t.id}:${i.key}`;
+                const auto = (i.key === "repairs" && (t.repairs.open > 0 || (t.repairs.total > 0 && !t.repairs.unraised))) || (i.key === "deposit" && t.depositSettled);
+                const managerOnly = i.key === "repairs" && !i.done && !!t.repairs.unraised && !isManager;
+                const locked = !!t.completedAt || auto || managerOnly || busy === `${t.id}:${i.key}`;
                 return (
                   <label key={i.key} className={`flex items-start gap-2 text-body ${i.done ? "text-gray-500" : "text-gray-800"}`}>
                     <input type="checkbox" className="mt-1" checked={i.done} disabled={locked}
                       onChange={(e) => patch(t, { key: i.key, done: e.target.checked }, `${t.id}:${i.key}`)} />
                     <span className="flex-1 min-w-0">
                       <span className={i.done ? "line-through" : ""}>{i.label}</span>
+                      {i.key === "repairs" && !!t.repairs.unraised && (
+                        <span className="ml-2 text-caption text-amber-700">{t.repairs.unraised} damaged item{t.repairs.unraised === 1 ? "" : "s"} without a repair job</span>
+                      )}
                       {i.key === "repairs" && t.repairs.total > 0 && (
                         <span className="ml-2 text-caption text-gray-500">{t.repairs.total - t.repairs.open} of {t.repairs.total} jobs done</span>
                       )}

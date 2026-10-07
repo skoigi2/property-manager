@@ -988,6 +988,7 @@ model IncomeEntry {
   invoice           Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   ownerInvoice      OwnerInvoice? @relation(fields: [ownerInvoiceId], references: [id], onDelete: SetNull)
   bookingGuests     BookingGuest[]
+  guestDocuments    GuestDocument[]
   // AIRBNB bookings: the caretaker's stay record and post-stay checks.
   guestStay         GuestStay?
   conditionReports  ConditionReport[]
@@ -2077,9 +2078,15 @@ model GuestDocument {
   uploadedAt  DateTime    @default(now())
   // Who uploaded it — a caretaker may delete only their own uploads.
   uploadedByUserId String?
+  // The stay (AIRBNB booking) it was uploaded for — it counts as that stay's ID
+  // only, and goes when the booking is deleted. Null on older rows and profile
+  // uploads (then: uploaded after the guest joined the stay counts).
+  incomeEntryId String?
   guest       AirbnbGuest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  incomeEntry IncomeEntry? @relation(fields: [incomeEntryId], references: [id], onDelete: Cascade)
 
   @@index([guestId])
+  @@index([incomeEntryId])
 }
 
 model Agent {

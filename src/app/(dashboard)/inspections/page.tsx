@@ -139,7 +139,7 @@ function InspectionsInner() {
         </Card>
 
         {view === "relet" ? (
-          <TurnoverList propertyId={selectedId} />
+          <TurnoverList propertyId={selectedId} isManager={isManager} />
         ) : loading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : rows.length === 0 ? (

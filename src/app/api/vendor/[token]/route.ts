@@ -38,10 +38,12 @@ export async function GET(_req: Request, props: { params: Promise<{ token: strin
   if (quote) return NextResponse.json(quoteLinkView(quote));
   const job = await findByToken(params.token);
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Replaced by per-vendor quote links once the job has any: shown as closed.
+  const superseded = (await prisma.maintenanceQuote.count({ where: { jobId: job.id } })) > 0;
 
   return NextResponse.json({
     expired: isExpired(job.vendorLinkExpiresAt),
-    closed: job.status === "DONE" || job.status === "CANCELLED",
+    closed: job.status === "DONE" || job.status === "CANCELLED" || superseded,
     vendorName: job.vendor?.name ?? "Contractor",
     orgName: job.property.organization?.name ?? job.property.name,
     title: job.title,
@@ -89,6 +91,10 @@ export async function POST(req: Request, props: { params: Promise<{ token: strin
 
   const job = await findByToken(params.token);
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Superseded by per-vendor quote links: the old single link no longer takes a price.
+  if (await prisma.maintenanceQuote.count({ where: { jobId: job.id } })) {
+    return NextResponse.json({ error: "This link has been replaced — please use the latest quote link you were sent." }, { status: 410 });
+  }
   if (isExpired(job.vendorLinkExpiresAt)) {
     return NextResponse.json({ error: "This link has expired — ask for a new one." }, { status: 410 });
   }

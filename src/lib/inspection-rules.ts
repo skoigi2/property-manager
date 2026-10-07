@@ -63,9 +63,29 @@ export function postStayItems(rooms: string[], newId: () => string): InspectionI
   return out;
 }
 
-/** A handed-in post-stay check with nothing to review: no damage, no issues raised. */
-export function isCleanPostStay(r: { reportType: InspectionType; items: InspectionItem[]; tenantIssues: string | null }): boolean {
-  return r.reportType === "POST_STAY" && damagedItems(r.items).length === 0 && !r.tenantIssues?.trim();
+/**
+ * A post-stay check with nothing to review, filed without a manager: a FIRST
+ * hand-in (a resubmission after "send back" / a correction always goes to the
+ * manager), every room Fine (no POOR or FAIR), and nothing written in the
+ * issues or comments boxes.
+ */
+export function isCleanPostStay(r: {
+  reportType: InspectionType;
+  items: InspectionItem[];
+  tenantIssues: string | null;
+  overallComments?: string | null;
+  resubmission?: boolean;
+}): boolean {
+  return r.reportType === "POST_STAY"
+    && !r.resubmission
+    && r.items.every((i) => i.status !== "POOR" && i.status !== "FAIR")
+    && !r.tenantIssues?.trim()
+    && !r.overallComments?.trim();
+}
+
+/** Post-stay ratings are Fine / Damaged only (stored GOOD / POOR). */
+export function invalidPostStayRatings(items: { status?: ItemStatus | null }[]): boolean {
+  return items.some((i) => i.status != null && i.status !== "GOOD" && i.status !== "POOR");
 }
 
 export const INSPECTION_STATUS_LABEL: Record<InspectionStatus, string> = {
@@ -86,9 +106,22 @@ export type InspectionItem = {
   status: ItemStatus | null;
   notes?: string;
   photoIds: string[];
-  /** Maintenance job raised from this item's damage. */
+  /** Maintenance job raised from this item's damage ("pending" while it is being raised). */
   jobId?: string;
+  /** When the "pending" claim was made — a claim older than REPAIR_CLAIM_TTL_MS is void. */
+  pendingAt?: string;
 };
+
+export const REPAIR_CLAIM = "pending";
+export const REPAIR_CLAIM_TTL_MS = 10 * 60_000;
+
+/** The item has a repair job (or one is being raised right now). A stale claim — the request died — doesn't count. */
+export function hasRepairJob(i: { jobId?: string | null; pendingAt?: string | null }, now = Date.now()): boolean {
+  if (!i.jobId) return false;
+  if (i.jobId !== REPAIR_CLAIM) return true;
+  const at = i.pendingAt ? Date.parse(i.pendingAt) : NaN;
+  return Number.isFinite(at) && now - at < REPAIR_CLAIM_TTL_MS;
+}
 
 export function canEditObservations(status: InspectionStatus): boolean {
   return status === "SCHEDULED" || status === "IN_PROGRESS";

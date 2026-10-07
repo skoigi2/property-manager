@@ -5,7 +5,7 @@ import { conditionReportPatchSchema } from "@/lib/validations";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 import { logAudit } from "@/lib/audit";
 import { loadInspection, loadUnitMeters, serializeInspection, checkAssignee, isInspectionManager, INSPECTION_INCLUDE } from "@/lib/inspections";
-import { canEditObservations, keysState, normaliseKeys, normaliseMeterReadings } from "@/lib/inspection-rules";
+import { canEditObservations, invalidPostStayRatings, keysState, normaliseKeys, normaliseMeterReadings } from "@/lib/inspection-rules";
 import { notifyInspectionAssigned } from "@/lib/inspection-notify";
 
 // A condition report = an inspection visit. Ops staff incl. CARETAKER read and
@@ -52,6 +52,9 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     if (ks === "locked") return Response.json({ error: "This inspection is accepted — the keys record is locked." }, { status: 409 });
   }
 
+  if (report.reportType === "POST_STAY" && data.items && invalidPostStayRatings(data.items)) {
+    return Response.json({ error: "A post-stay check rates each room Fine or Damaged." }, { status: 400 });
+  }
   // A post-stay check stays tied to its booking: no tenant, no other type.
   if (report.reportType === "POST_STAY" && (data.reportType !== undefined || data.tenantId)) {
     return Response.json({ error: "A post-stay check belongs to its booking — it can't take a tenant or change type." }, { status: 400 });
@@ -81,7 +84,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     data: {
       ...(touchesObservations && report.status === "SCHEDULED" ? { status: "IN_PROGRESS" as const } : {}),
       ...(data.reportDate !== undefined ? { reportDate: new Date(data.reportDate) } : {}),
-      ...(data.items !== undefined ? { items: data.items as unknown as Prisma.InputJsonValue } : {}),
+      ...(data.items !== undefined ? { items: withStoredJobIds(data.items, report.items) as unknown as Prisma.InputJsonValue } : {}),
       ...(data.overallComments !== undefined ? { overallComments: data.overallComments } : {}),
       ...(data.signedByTenant !== undefined ? { signedByTenant: data.signedByTenant } : {}),
       ...(data.signedByManager !== undefined ? { signedByManager: data.signedByManager } : {}),
@@ -151,4 +154,15 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
     before: { reportType: report.reportType, unitId: report.unitId, tenantId: report.tenantId, status: report.status },
   });
   return Response.json({ ok: true });
+}
+
+/** Repair-job links are set by the server only (repair-jobs route) — never taken from the client. */
+function withStoredJobIds(items: unknown[], stored: unknown): unknown[] {
+  type Link = { id?: string; jobId?: string; pendingAt?: string };
+  const linkOf = new Map(((stored as Link[] | null) ?? []).filter((i) => i?.id).map((i) => [i.id!, i]));
+  return items.map((raw) => {
+    const { jobId: _client, pendingAt: _clientAt, ...item } = raw as Link;
+    const s = item.id ? linkOf.get(item.id) : undefined;
+    return s?.jobId ? { ...item, jobId: s.jobId, ...(s.pendingAt ? { pendingAt: s.pendingAt } : {}) } : item;
+  });
 }

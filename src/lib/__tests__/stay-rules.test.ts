@@ -46,6 +46,19 @@ describe("decideStayAction", () => {
     expect(decideStayAction("cleaner_back", rec(), "ok", staff, {})).toMatchObject({ ok: false, status: 409 });
     expect(decideStayAction("cleaner_back", rec({ cleanerKeysOutAt: T }), "ok", staff, {})).toEqual({ ok: true });
   });
+  it("refuses a keybox clean recorded well before check-out (it would block the real one)", () => {
+    const dates = (today: string) => ({ checkOut: "2026-10-10T10:00:00.000Z", today });
+    expect(decideStayAction("cleaner_out", rec(), "ok", staff, { cleanerName: "Mary" }, dates("2026-10-05"))).toMatchObject({ ok: false, status: 409 });
+    // From the day before check-out it's the after-stay clean.
+    expect(decideStayAction("cleaner_out", rec(), "ok", staff, { cleanerName: "Mary" }, dates("2026-10-09")).ok).toBe(true);
+    expect(decideStayAction("cleaner_out", rec(), "ok", staff, { cleanerName: "Mary" }, dates("2026-10-12")).ok).toBe(true);
+    // Keys were handed and returned: an early departure, no date check.
+    expect(decideStayAction("cleaner_out", rec({ keysHandedAt: T, keysReturnedAt: T }), "ok", staff, { cleanerName: "Mary" }, dates("2026-10-05")).ok).toBe(true);
+  });
+  it("won't hand the guest keys the cleaner still holds", () => {
+    expect(decideStayAction("hand_keys", rec({ cleanerKeysOutAt: T }), "ok", staff, { keys: [{ label: "Main door", count: 1 }] })).toMatchObject({ ok: false, status: 409 });
+    expect(decideStayAction("hand_keys", rec({ cleanerKeysOutAt: T, cleanerKeysBackAt: T }), "ok", staff, { keys: [{ label: "Main door", count: 1 }] }).ok).toBe(true);
+  });
   it("lets only a manager override the ID, with a reason, before the keys go", () => {
     expect(decideStayAction("override_id", rec(), "missing", staff, { reason: "x" })).toMatchObject({ ok: false, status: 403 });
     expect(decideStayAction("override_id", rec(), "missing", manager, { reason: "" })).toMatchObject({ ok: false, status: 400 });

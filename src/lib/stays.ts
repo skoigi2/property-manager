@@ -13,7 +13,7 @@ import { stayIdState, EMPTY_STAY, type StayDecision, type StayAction } from "@/l
 // Nothing here ever returns grossAmount, nightlyRate, commission, agent or
 // note — caretakers read this.
 
-const DOC_SELECT = { id: true, label: true, fileName: true, storagePath: true, mimeType: true, uploadedAt: true, uploadedByUserId: true } as const;
+const DOC_SELECT = { id: true, label: true, fileName: true, storagePath: true, mimeType: true, uploadedAt: true, uploadedByUserId: true, incomeEntryId: true } as const;
 
 export const STAY_INCLUDE = {
   unit: { select: { id: true, unitNumber: true, propertyId: true, property: { select: { id: true, name: true, organizationId: true } } } },
@@ -22,6 +22,7 @@ export const STAY_INCLUDE = {
     orderBy: [{ isPrimary: "desc" as const }, { createdAt: "asc" as const }],
     select: {
       isPrimary: true,
+      createdAt: true,
       guest: {
         select: {
           id: true, name: true, phone: true, nationality: true, passportNumber: true,
@@ -53,9 +54,23 @@ export async function loadStay(entryId: string): Promise<{ ok: true; entry: Stay
   return { ok: true, entry };
 }
 
-function idStateOf(entry: Pick<StayEntry, "bookingGuests" | "guestStay">) {
+/**
+ * A guest's documents for THIS stay: those uploaded since they were added to
+ * the booking. A returning guest's older scans (from other stays, possibly on
+ * properties the viewer can't access) are neither shown nor counted — each stay
+ * needs its own ID.
+ */
+export function stayDocuments<T extends { uploadedAt: Date; incomeEntryId: string | null }>(
+  bg: { createdAt: Date; guest: { documents: T[] } },
+  entryId: string,
+): T[] {
+  return bg.guest.documents.filter((d) =>
+    d.incomeEntryId ? d.incomeEntryId === entryId : d.uploadedAt.getTime() >= bg.createdAt.getTime());
+}
+
+export function idStateOf(entry: Pick<StayEntry, "id" | "bookingGuests" | "guestStay">) {
   return stayIdState(
-    entry.bookingGuests.map((bg) => ({ isPrimary: bg.isPrimary, documentCount: bg.guest.documents.length })),
+    entry.bookingGuests.map((bg) => ({ isPrimary: bg.isPrimary, documentCount: stayDocuments(bg, entry.id).length })),
     entry.guestStay?.idOverrideReason ?? null,
   );
 }
@@ -119,7 +134,7 @@ export async function serializeStay(entry: StayEntry, session: Session) {
     nationality: bg.guest.nationality,
     idNumber: bg.guest.passportNumber,
     isPrimary: bg.isPrimary,
-    documents: await Promise.all(bg.guest.documents.map(async (d) => ({
+    documents: await Promise.all(stayDocuments(bg, entry.id).map(async (d) => ({
       id: d.id, label: d.label, fileName: d.fileName, mimeType: d.mimeType, uploadedAt: d.uploadedAt,
       url: await signedOrNull(d.storagePath),
       canDelete: manager || (!!d.uploadedByUserId && d.uploadedByUserId === session.user.id),
@@ -136,18 +151,33 @@ export async function serializeStay(entry: StayEntry, session: Session) {
 }
 
 /** Bookings overlapping [from, to] (yyyy-mm-dd, inclusive) on the session's properties. */
-export async function listStays(f: { from: string; to: string; propertyId?: string | null }) {
+/**
+ * Stays overlapping from..to. With `open`, also stays outside the window whose
+ * keys are still out — with the guest, or with the cleaner — so the Today list
+ * never loses them (bounded to check-outs in the last 180 days).
+ */
+export async function listStays(f: { from: string; to: string; propertyId?: string | null; open?: boolean }) {
   const propertyIds = await getAccessiblePropertyIds();
   if (!propertyIds) return [];
   const scope = f.propertyId ? propertyIds.filter((id) => id === f.propertyId) : propertyIds;
   const from = new Date(`${f.from}T00:00:00.000Z`);
   const toExclusive = new Date(new Date(`${f.to}T00:00:00.000Z`).getTime() + 86_400_000);
+  const inWindow: Prisma.IncomeEntryWhereInput = { checkIn: { not: null, lt: toExclusive }, checkOut: { not: null, gte: from } };
+  const keysOut: Prisma.IncomeEntryWhereInput = {
+    checkIn: { not: null },
+    checkOut: { not: null, gte: new Date(Date.now() - 180 * 86_400_000) },
+    guestStay: {
+      OR: [
+        { keysHandedAt: { not: null }, keysReturnedAt: null },
+        { cleanerKeysOutAt: { not: null }, cleanerKeysBackAt: null },
+      ],
+    },
+  };
   const rows = await prisma.incomeEntry.findMany({
     where: {
       type: "AIRBNB",
-      checkIn: { not: null, lt: toExclusive },
-      checkOut: { not: null, gte: from },
       unit: { propertyId: { in: scope } },
+      ...(f.open ? { OR: [inWindow, keysOut] } : inWindow),
     },
     orderBy: [{ checkIn: "asc" }],
     take: 500,

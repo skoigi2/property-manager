@@ -462,6 +462,8 @@ export const quoteActionSchema = z.object({
   note:          z.string().max(2000).nullable().optional(),
   availableDate: z.string().nullable().optional(),
   reason:        z.string().max(500).nullable().optional(),
+  /** accept: the price the manager was looking at — refused if the vendor has changed it since. */
+  expectedAmount: z.number().nullable().optional(),
 });
 
 export const stayGuestSchema = z.object({

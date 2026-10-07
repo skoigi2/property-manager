@@ -352,8 +352,11 @@ function validateInvoiceRow(row: Record<string, string>): string[] {
   if (!row["Period Month"] || isNaN(month) || month < 1 || month > 12)
     errors.push("Period Month must be 1–12");
   const rent = parseFloat(row["Rent Amount"] ?? "");
-  if (!row["Rent Amount"] || isNaN(rent) || rent <= 0)
-    errors.push("Rent Amount must be a positive number");
+  const num = (k: string) => parseFloat(row[k] ?? "") || 0;
+  if (!row["Rent Amount"]?.trim() || isNaN(rent) || rent < 0)
+    errors.push("Rent Amount must be a number (0 for a deposit / fee-only invoice)");
+  else if (rent + num("Service Charge") + num("Other Charges") + num("Deposit") + num("Lease Fee") + num("Wi-Fi") <= 0)
+    errors.push("The invoice must total more than 0");
   if (row["Due Date"]?.trim() && isNaN(Date.parse(row["Due Date"])))
     errors.push("Due Date is not a valid date");
   return errors;
@@ -1365,7 +1368,7 @@ export default function ImportPage() {
         {tab === "invoices" && (
           <ImportSection
             title="Import Historic Invoices"
-            description="Load rent invoices from before invoicing was managed in the system, so tenant statements show real balances instead of a payments-only record. Import any missing PAYMENTS on the Income tab FIRST — payment status here is derived, not supplied: an invoice matched by exactly one recorded payment (same amount, dated in the billing month or within 7 days of the due date) imports as PAID and is linked to it; anything else imports as SENT/OVERDUE and is listed for the manual Link… action on the Income page. One invoice per tenant per billing month; blank invoice numbers get a HIST- series."
+            description="Load rent invoices from before invoicing was managed in the system, so tenant statements show real balances instead of a payments-only record. Import any missing PAYMENTS on the Income tab FIRST — payment status here is derived, not supplied: an invoice matched by its recorded payments (dated in the billing month or within 7 days of the due date — one payment for the total on a rent-only invoice; one receipt of the right type per line when it has a deposit, lease fee or Wi-Fi) imports as PAID and is linked to them; anything else imports as SENT/OVERDUE and is listed for the manual Link… action on the Income page. One rent invoice per tenant per billing month (deposit / fee-only rows, with Rent Amount 0, may sit beside it); blank invoice numbers get a HIST- series."
             cols={INVOICE_COLS}
             validate={validateInvoiceRow}
             apiPath="/api/import/invoices"

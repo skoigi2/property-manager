@@ -319,6 +319,10 @@ async function main() {
   check("a rent-sized payment is booked as rent only", r.status === 201 && r.body.allocation?.length === 1 && r.body.allocation[0].type === "LONGTERM_RENT", r.body?.allocation ?? r);
   let dbInv1 = await prisma.invoice.findUnique({ where: { id: inv1.id } });
   check("…invoice stays unpaid with 20,000 recorded", dbInv1?.status !== "PAID" && Number(dbInv1?.paidAmount) === 20000, dbInv1?.status);
+  r = await mgr.json(`/api/invoices/${inv1.id}`, { method: "PATCH", json: { rentAmount: 25000 } });
+  check("a part-paid invoice's lines can't change (400)", r.status === 400 && r.body?.code === "INVOICE_HAS_PAYMENTS", r);
+  r = await mgr.json(`/api/invoices/${inv1.id}`, { method: "PATCH", json: { rentAmount: 20000, notes: "smoke note" } });
+  check("…but re-sending the same lines with a note is fine", r.status === 200 && r.body.totalAmount === 24415, r.body?.totalAmount ?? r);
 
   r = await mgr.json(`/api/utilities/readings/${readingWaterM1}/void`, { method: "POST", json: { reason: "testing the guard" } });
   check("void refused once a payment is on the invoice (409)", r.status === 409, r);
@@ -463,6 +467,28 @@ async function main() {
   const genWifi = await prisma.invoice.findFirst({ where: { tenantId: t2.id, periodYear: after.year, periodMonth: after.month, rentAmount: { gt: 0 } } });
   check("invoice generation bills the tenant's Wi-Fi charge", Number(genWifi?.wifiAmount) === 1500 && Number(genWifi?.totalAmount) === Number(genWifi?.rentAmount) + 1500 + Number(genWifi?.waterAmount) + Number(genWifi?.electricityAmount), genWifi);
   await prisma.tenant.update({ where: { id: t2.id }, data: { wifiCharge: 0 } });
+
+  // ── 10. Historical invoice importer: typed receipts, never a lump as rent ──
+  console.log("\n— invoice importer");
+  const pay = (day: string, grossAmount: number, type: "LONGTERM_RENT" | "DEPOSIT" | "UTILITY_RECOVERY", utilityType: "WIFI" | null = null) =>
+    prisma.incomeEntry.create({ data: { date: new Date(`${day}T09:00:00.000Z`), unitId: u2.id, tenantId: t2.id, type, grossAmount, utilityType } as any });
+  const [pRent, pDep, pWifi] = [await pay("2020-03-03", 20000, "LONGTERM_RENT"), await pay("2020-03-03", 40000, "DEPOSIT"), await pay("2020-03-04", 1500, "UTILITY_RECOVERY", "WIFI")];
+  const pLump = await pay("2020-04-03", 60000, "LONGTERM_RENT");
+  const row = (month: number, extra: object) => ({ tenantName: "Meter Tenant Two", unitNumber: "M2", propertyName: "Meter Court", periodYear: 2020, periodMonth: month, rentAmount: 20000, ...extra });
+  r = await mgr.json("/api/import/invoices", { method: "POST", json: { rows: [row(3, { depositAmount: 40000, wifiAmount: 1500 }), row(4, { depositAmount: 40000 })] } });
+  check("importer: two rows imported, three receipts linked", r.status === 200 && r.body.imported === 2 && r.body.linked === 3, r.body);
+  const march = await prisma.invoice.findFirst({ where: { tenantId: t2.id, periodYear: 2020, periodMonth: 3 }, include: { incomeEntries: { select: { id: true } } } });
+  check("…move-in row PAID, linked to its rent, deposit and Wi-Fi receipts",
+    march?.status === "PAID" && Number(march.totalAmount) === 61500 && march.incomeEntries.map((e) => e.id).sort().join() === [pRent.id, pDep.id, pWifi.id].sort().join(), march);
+  const april = await prisma.invoice.findFirst({ where: { tenantId: t2.id, periodYear: 2020, periodMonth: 4 }, include: { incomeEntries: { select: { id: true } } } });
+  const lumpLeft = await prisma.incomeEntry.findUnique({ where: { id: pLump.id }, select: { invoiceId: true } });
+  check("…a single lump payment is not linked (it would book the deposit as rent)",
+    april?.status !== "PAID" && april?.incomeEntries.length === 0 && lumpLeft?.invoiceId === null && (r.body.errors ?? []).some((e: any) => /one payment covers the whole invoice/.test(e.reason)), r.body.errors);
+  const depRow = row(5, { rentAmount: 0, depositAmount: 10000 });
+  r = await mgr.json("/api/import/invoices", { method: "POST", json: { rows: [depRow] } });
+  check("importer: a deposit-only row (rent 0) imports", r.status === 200 && r.body.imported === 1, r.body);
+  r = await mgr.json("/api/import/invoices", { method: "POST", json: { rows: [depRow] } });
+  check("…and the same file again doesn't duplicate it", r.status === 200 && r.body.imported === 0 && r.body.skipped === 1, r.body);
 
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

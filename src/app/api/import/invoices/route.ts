@@ -1,5 +1,6 @@
 import { requireManagerWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { matchImportedInvoicePayments } from "@/lib/invoice-import-match";
 
 export const maxDuration = 60;
 
@@ -10,9 +11,10 @@ export const maxDuration = 60;
  *   - no reverse orphans (PAID invoices with no payment behind them)
  *   - no false arrears (unpaid rows for rent that was actually collected)
  *
- * Status is therefore DERIVED, never supplied: exactly one matching payment
- * (same tenant, amount equal to the invoice total, dated inside the billing
- * month or within 7 days of the due date) → PAID + linked. Zero or multiple
+ * Status is therefore DERIVED, never supplied: the matching payments (same
+ * tenant, dated inside the billing month or within 7 days of the due date —
+ * one for the total on a rent-only invoice, one of the right type per line
+ * otherwise; src/lib/invoice-import-match.ts) → PAID + linked. Zero or multiple
  * matches → SENT/OVERDUE by due date, reported for the manual "Link…" action
  * on the Income page. No webhooks, hints, or case auto-advance fire — these
  * are historical records, not settle events.
@@ -63,7 +65,10 @@ export async function POST(req: Request) {
       }),
       prisma.invoice.findMany({
         where: { tenant: { unit: { propertyId: { in: propertyIds } } } },
-        select: { tenantId: true, periodYear: true, periodMonth: true },
+        select: {
+          tenantId: true, periodYear: true, periodMonth: true, rentAmount: true, status: true,
+          serviceCharge: true, otherCharges: true, depositAmount: true, leaseFee: true, wifiAmount: true,
+        },
       }),
       // Invoice numbers are globally unique — load them all (small table).
       prisma.invoice.findMany({ select: { invoiceNumber: true } }),
@@ -74,9 +79,10 @@ export async function POST(req: Request) {
       where: {
         tenantId: { in: tenantIds },
         invoiceId: null,
-        type: { in: [...LINKABLE_TYPES] },
+        // DEPOSIT / LEASE_FEE so a move-in row can match its typed receipts.
+        type: { in: [...LINKABLE_TYPES, "DEPOSIT", "LEASE_FEE"] },
       },
-      select: { id: true, tenantId: true, date: true, grossAmount: true },
+      select: { id: true, tenantId: true, date: true, grossAmount: true, type: true, utilityType: true },
     });
     const paymentsByTenant = new Map<string, typeof unlinkedPayments>();
     for (const p of unlinkedPayments) {
@@ -85,7 +91,22 @@ export async function POST(req: Request) {
       paymentsByTenant.set(p.tenantId!, list);
     }
 
-    const periodTaken = new Set(existingInvoices.map((i) => `${i.tenantId}:${i.periodYear}-${i.periodMonth}`));
+    // Only one RENT invoice per tenant per month; deposit / fee-only invoices may sit beside it.
+    const periodTaken = new Set(
+      existingInvoices.filter((i) => i.rentAmount > 0 && i.status !== "CANCELLED").map((i) => `${i.tenantId}:${i.periodYear}-${i.periodMonth}`),
+    );
+    // A deposit / fee-only row (rent 0) has no period rule, so a re-uploaded
+    // file is caught by the same lines on the same period instead.
+    const feeOnlyKey = (tenantId: string, y: number, m: number, l: { serviceCharge: number; otherCharges: number; depositAmount: number; leaseFee: number; wifiAmount: number }) =>
+      [tenantId, y, m, l.serviceCharge, l.otherCharges, l.depositAmount, l.leaseFee, l.wifiAmount].map((v) => (typeof v === "number" ? v.toFixed(2) : v)).join(":");
+    const feeOnlyTaken = new Set(
+      existingInvoices
+        .filter((i) => !(i.rentAmount > 0) && i.status !== "CANCELLED")
+        .map((i) => feeOnlyKey(i.tenantId, i.periodYear, i.periodMonth, {
+          serviceCharge: Number(i.serviceCharge ?? 0), otherCharges: Number(i.otherCharges ?? 0), depositAmount: Number(i.depositAmount ?? 0),
+          leaseFee: Number(i.leaseFee ?? 0), wifiAmount: Number(i.wifiAmount ?? 0),
+        })),
+    );
     const numberTaken = new Set(allInvoiceNumbers.map((i) => i.invoiceNumber));
     const claimedPaymentIds = new Set<string>();
     const now = new Date();
@@ -109,7 +130,7 @@ export async function POST(req: Request) {
         paidAmount: number | null;
         notes: string | null;
       };
-      paymentId: string | null;
+      paymentIds: string[];
     };
     const creations: Creation[] = [];
     let histSeq = 1;
@@ -133,8 +154,9 @@ export async function POST(req: Request) {
       // Wi-Fi line — paid after water and electricity, booked as UTILITY_RECOVERY / WIFI.
       const wifiAmount = Math.max(0, parseFloat(String(row.wifiAmount ?? "0")) || 0);
 
-      if (!tenantName || !unitNumber || isNaN(periodYear) || isNaN(periodMonth) || isNaN(rentAmount) || rentAmount <= 0) {
-        errors.push({ row: rowNum, reason: "Tenant Name, Unit Number, Period Year, Period Month and positive Rent Amount are required" });
+      const lineTotal = (isNaN(rentAmount) ? 0 : rentAmount) + serviceCharge + otherCharges + depositAmount + leaseFee + wifiAmount;
+      if (!tenantName || !unitNumber || isNaN(periodYear) || isNaN(periodMonth) || isNaN(rentAmount) || rentAmount < 0 || lineTotal <= 0) {
+        errors.push({ row: rowNum, reason: "Tenant Name, Unit Number, Period Year, Period Month and Rent Amount (0 for a deposit / fee-only invoice) are required, and the invoice must total more than 0" });
         skipped++;
         continue;
       }
@@ -162,12 +184,21 @@ export async function POST(req: Request) {
       }
 
       const periodKey = `${tenant.id}:${periodYear}-${periodMonth}`;
-      if (periodTaken.has(periodKey)) {
-        errors.push({ row: rowNum, reason: `An invoice already exists for ${tenantName}, ${periodYear}-${String(periodMonth).padStart(2, "0")}` });
+      if (rentAmount > 0 && periodTaken.has(periodKey)) {
+        errors.push({ row: rowNum, reason: `A rent invoice already exists for ${tenantName}, ${periodYear}-${String(periodMonth).padStart(2, "0")}` });
         skipped++;
         continue;
       }
-      periodTaken.add(periodKey);
+      if (rentAmount > 0) periodTaken.add(periodKey);
+      if (!(rentAmount > 0)) {
+        const key = feeOnlyKey(tenant.id, periodYear, periodMonth, { serviceCharge, otherCharges, depositAmount, leaseFee, wifiAmount });
+        if (feeOnlyTaken.has(key)) {
+          errors.push({ row: rowNum, reason: `The same deposit / fee invoice already exists for ${tenantName}, ${periodYear}-${String(periodMonth).padStart(2, "0")}` });
+          skipped++;
+          continue;
+        }
+        feeOnlyTaken.add(key);
+      }
 
       const dueDate =
         row.dueDate?.trim() && !isNaN(Date.parse(row.dueDate))
@@ -188,21 +219,34 @@ export async function POST(req: Request) {
 
       const totalAmount = rentAmount + serviceCharge + otherCharges + depositAmount + leaseFee + wifiAmount;
 
-      // Auto-link: exactly one unclaimed payment matching amount + period.
-      const candidates = (paymentsByTenant.get(tenant.id) ?? []).filter((p) => {
-        if (claimedPaymentIds.has(p.id)) return false;
-        if (Math.abs(p.grossAmount - totalAmount) >= 0.01) return false;
-        const inBillingMonth =
-          p.date.getUTCFullYear() === periodYear && p.date.getUTCMonth() + 1 === periodMonth;
-        const nearDue = Math.abs(p.date.getTime() - dueDate.getTime()) <= DUE_DATE_TOLERANCE_MS;
-        return inBillingMonth || nearDue;
+      // Auto-link. A rent-only invoice: exactly one unclaimed rent-side payment
+      // for the total. An invoice with deposit / lease fee / Wi-Fi lines: one
+      // payment of the right TYPE per line (rent side, DEPOSIT, LEASE_FEE,
+      // Wi-Fi utility recovery) — a single lump payment is never linked, as it
+      // would book the deposit or Wi-Fi as rent.
+      const inWindow = (p: { date: Date }) =>
+        (p.date.getUTCFullYear() === periodYear && p.date.getUTCMonth() + 1 === periodMonth) ||
+        Math.abs(p.date.getTime() - dueDate.getTime()) <= DUE_DATE_TOLERANCE_MS;
+      const pool = (paymentsByTenant.get(tenant.id) ?? []).filter((p) => !claimedPaymentIds.has(p.id) && inWindow(p));
+      const match = matchImportedInvoicePayments(pool, {
+        rentSide: rentAmount + serviceCharge + otherCharges,
+        deposit: depositAmount,
+        leaseFee,
+        wifi: wifiAmount,
       });
-
-      const matched = candidates.length === 1 ? candidates[0] : null;
-      if (matched) claimedPaymentIds.add(matched.id);
-      if (candidates.length > 1) {
-        errors.push({ row: rowNum, reason: `${tenantName} ${periodYear}-${String(periodMonth).padStart(2, "0")}: ${candidates.length} payments match — imported unpaid; allocate manually via Link… on the Income page` });
+      const matchedIds = match.outcome === "matched" ? match.ids : [];
+      const ambiguous = match.outcome === "ambiguous";
+      if (match.outcome === "lump") {
+        errors.push({ row: rowNum, reason: `${tenantName} ${periodYear}-${String(periodMonth).padStart(2, "0")}: one payment covers the whole invoice, but it would book the deposit / lease fee / Wi-Fi as rent — imported unpaid; link it with Link… on the Income page` });
       }
+      for (const id of matchedIds) claimedPaymentIds.add(id);
+      const matched = matchedIds.length > 0;
+      if (ambiguous) {
+        errors.push({ row: rowNum, reason: `${tenantName} ${periodYear}-${String(periodMonth).padStart(2, "0")}: more than one payment matches — imported unpaid; allocate manually via Link… on the Income page` });
+      }
+      const paidAt = matched
+        ? pool.filter((p) => matchedIds.includes(p.id)).reduce((d, p) => (p.date > d ? p.date : d), new Date(0))
+        : null;
 
       creations.push({
         data: {
@@ -219,11 +263,11 @@ export async function POST(req: Request) {
           totalAmount,
           dueDate,
           status: matched ? "PAID" : dueDate < now ? "OVERDUE" : "SENT",
-          paidAt: matched ? matched.date : null,
+          paidAt,
           paidAmount: matched ? totalAmount : null,
           notes: row.notes?.trim() || null,
         },
-        paymentId: matched?.id ?? null,
+        paymentIds: matchedIds,
       });
     }
 
@@ -232,7 +276,7 @@ export async function POST(req: Request) {
     if (creations.length > 0) {
       await prisma.invoice.createMany({ data: creations.map((c) => c.data) });
 
-      const withLinks = creations.filter((c) => c.paymentId);
+      const withLinks = creations.filter((c) => c.paymentIds.length > 0);
       if (withLinks.length > 0) {
         const created = await prisma.invoice.findMany({
           where: { invoiceNumber: { in: withLinks.map((c) => c.data.invoiceNumber) } },
@@ -244,11 +288,13 @@ export async function POST(req: Request) {
         for (let i = 0; i < withLinks.length; i += CHUNK) {
           const chunk = withLinks.slice(i, i + CHUNK);
           const results = await prisma.$transaction(
-            chunk.map((c) =>
-              prisma.incomeEntry.updateMany({
-                where: { id: c.paymentId!, invoiceId: null },
-                data: { invoiceId: idByNumber.get(c.data.invoiceNumber)! },
-              })
+            chunk.flatMap((c) =>
+              c.paymentIds.map((paymentId) =>
+                prisma.incomeEntry.updateMany({
+                  where: { id: paymentId, invoiceId: null },
+                  data: { invoiceId: idByNumber.get(c.data.invoiceNumber)! },
+                }),
+              ),
             )
           );
           linked += results.reduce((s, r) => s + r.count, 0);

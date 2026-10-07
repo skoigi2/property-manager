@@ -28,6 +28,20 @@ describe("re-let checklist items", () => {
     expect(decideTurnoverToggle("deposit", false, ctx(0, 0, true))).toMatchObject({ ok: false });
   });
 
+  it("lets only a manager tick repairs while damage has no repair job", () => {
+    const c = { repairs: { open: 0, total: 1, unraised: 2 }, depositSettled: false, completed: false };
+    expect(decideTurnoverToggle("repairs", true, c)).toMatchObject({ ok: false, status: 409 });
+    expect(decideTurnoverToggle("repairs", true, { ...c, isManager: true })).toEqual({ ok: true });
+    // Un-ticking is always allowed.
+    expect(decideTurnoverToggle("repairs", false, c)).toEqual({ ok: true });
+    // Not automatic while damage is unraised.
+    expect(effectiveTurnoverItems(defaultTurnoverItems(), c).find((i) => i.key === "repairs")?.done).toBe(false);
+    // A manual tick never survives an open repair job.
+    const ticked = setTurnoverItem(defaultTurnoverItems(), "repairs", true, "Joe");
+    expect(effectiveTurnoverItems(ticked, { ...c, repairs: { open: 1, total: 1, unraised: 1 } }).find((i) => i.key === "repairs")?.done).toBe(false);
+    expect(effectiveTurnoverItems(ticked, c).find((i) => i.key === "repairs")?.done).toBe(true);
+  });
+
   it("follows the records for repairs and the deposit", () => {
     const items = defaultTurnoverItems();
     expect(effectiveTurnoverItems(items, { repairs: { open: 0, total: 2 }, depositSettled: true })

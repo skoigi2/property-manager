@@ -51,19 +51,31 @@ export function normaliseTurnoverItems(raw: unknown): TurnoverItem[] {
   });
 }
 
-export type RepairJobsState = { total: number; open: number };
+/**
+ * The inspection's repair jobs: `total` raised, `open` not yet DONE / CANCELLED,
+ * `unraised` damaged items (POOR / FAIR) with no job yet.
+ */
+export type RepairJobsState = { total: number; open: number; unraised?: number };
 
 export type ToggleDecision = { ok: true } | { ok: false; status: number; error: string };
 
-/** "Repairs done" can't be ticked while repair jobs are still open; "Deposit settled" follows the checkout. */
+/**
+ * "Repairs done" can't be ticked while repair jobs are still open, nor by a
+ * caretaker while damage on the inspection has no repair job yet (a manager may
+ * — e.g. fair wear needing no repair). "Deposit settled" follows the checkout.
+ */
 export function decideTurnoverToggle(
   key: TurnoverItemKey,
   done: boolean,
-  ctx: { repairs: RepairJobsState; depositSettled: boolean; completed: boolean },
+  ctx: { repairs: RepairJobsState; depositSettled: boolean; completed: boolean; isManager?: boolean },
 ): ToggleDecision {
   if (ctx.completed) return { ok: false, status: 409, error: "This checklist is complete." };
   if (key === "repairs" && done && ctx.repairs.open > 0) {
     return { ok: false, status: 409, error: `${ctx.repairs.open} repair job${ctx.repairs.open === 1 ? " is" : "s are"} still open.` };
+  }
+  const unraised = ctx.repairs.unraised ?? 0;
+  if (key === "repairs" && done && unraised > 0 && !ctx.isManager) {
+    return { ok: false, status: 409, error: `${unraised} damaged item${unraised === 1 ? " has" : "s have"} no repair job yet — the manager raises them from the inspection.` };
   }
   if (key === "deposit" && done !== ctx.depositSettled && ctx.depositSettled) {
     return { ok: false, status: 409, error: "The deposit was settled at checkout." };
@@ -78,7 +90,11 @@ export function setTurnoverItem(items: TurnoverItem[], key: TurnoverItemKey, don
 /** The items as shown: auto items reflect the records (repair jobs, checkout). */
 export function effectiveTurnoverItems(items: TurnoverItem[], ctx: { repairs: RepairJobsState; depositSettled: boolean }): TurnoverItem[] {
   return items.map((i) => {
-    if (i.key === "repairs" && ctx.repairs.total > 0) return { ...i, done: ctx.repairs.open === 0 };
+    // Never done while a repair job is open. Done by itself once every damaged
+    // item has a job and they're all closed; with damage still unraised, the
+    // manager's tick decides.
+    if (i.key === "repairs" && ctx.repairs.open > 0) return { ...i, done: false };
+    if (i.key === "repairs" && ctx.repairs.total > 0 && !(ctx.repairs.unraised ?? 0)) return { ...i, done: true };
     if (i.key === "deposit" && ctx.depositSettled) return { ...i, done: true };
     return i;
   });

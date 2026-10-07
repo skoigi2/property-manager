@@ -1,4 +1,5 @@
 import "server-only";
+import { hasRepairJob } from "@/lib/inspection-rules";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -52,7 +53,7 @@ async function contextFor(rows: TurnoverRow[]) {
   const reportIds = rows.map((r) => r.conditionReportId).filter((x): x is string => !!x);
   const checkoutIds = rows.map((r) => r.checkoutId).filter((x): x is string => !!x);
   const tenantIds = rows.map((r) => r.tenantId).filter((x): x is string => !!x);
-  const [jobs, checkouts, tenants] = await Promise.all([
+  const [jobs, checkouts, tenants, reports] = await Promise.all([
     reportIds.length
       ? prisma.maintenanceJob.findMany({
           where: { conditionReportId: { in: reportIds } },
@@ -66,14 +67,27 @@ async function contextFor(rows: TurnoverRow[]) {
     tenantIds.length
       ? prisma.tenant.findMany({ where: { id: { in: tenantIds } }, select: { id: true, name: true } })
       : Promise.resolve([]),
+    reportIds.length
+      ? prisma.conditionReport.findMany({ where: { id: { in: reportIds } }, select: { id: true, items: true } })
+      : Promise.resolve([]),
   ]);
-  return { jobs, checkouts, tenants };
+  // Damaged items (POOR / FAIR) on each inspection that have no repair job yet.
+  const unraisedByReport = new Map(reports.map((r) => [
+    r.id,
+    ((r.items as unknown as { status?: string | null; jobId?: string | null; pendingAt?: string | null }[]) ?? [])
+      .filter((i) => (i.status === "POOR" || i.status === "FAIR") && !hasRepairJob(i)).length,
+  ]));
+  return { jobs, checkouts, tenants, unraisedByReport };
 }
 
 export function serializeTurnovers(rows: TurnoverRow[], ctx: Awaited<ReturnType<typeof contextFor>>) {
   return rows.map((r) => {
     const jobs = ctx.jobs.filter((j) => r.conditionReportId && j.conditionReportId === r.conditionReportId);
-    const repairs: RepairJobsState = { total: jobs.length, open: jobs.filter((j) => j.status !== "DONE" && j.status !== "CANCELLED").length };
+    const repairs: RepairJobsState = {
+      total: jobs.length,
+      open: jobs.filter((j) => j.status !== "DONE" && j.status !== "CANCELLED").length,
+      unraised: r.conditionReportId ? ctx.unraisedByReport.get(r.conditionReportId) ?? 0 : 0,
+    };
     const depositSettled = ctx.checkouts.some((c) => c.id === r.checkoutId && c.status === "COMPLETED");
     const items = effectiveTurnoverItems(normaliseTurnoverItems(r.items), { repairs, depositSettled });
     return {

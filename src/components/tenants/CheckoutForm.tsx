@@ -68,6 +68,8 @@ type CheckoutPrefill = {
     /** Accepted vendor quotes on the repair jobs raised from this inspection. */
     acceptedRepairQuotes: { title: string; vendorName: string; amount: number }[];
     acceptedRepairTotal: number;
+    /** Repair jobs raised from this inspection (not cancelled). */
+    repairJobCount?: number;
     prefill: {
       damageFound: boolean;
       damageNotes: string;
@@ -435,6 +437,14 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
       }
       const result = await res.json();
       toast.success("Checkout finalized");
+      if (result.damageExpense) {
+        const d = result.damageExpense;
+        toast(d.amount > 0
+          ? `Damage expense booked: ${formatCurrency(d.amount, currency)} (repair jobs book the rest).`
+          : d.unquotedRepairJobs > 0
+            ? `No damage expense booked — ${d.unquotedRepairJobs} repair job${d.unquotedRepairJobs === 1 ? " has" : "s have"} no accepted quote yet. Their expenses book the repair cost; add one for anything else.`
+            : "No separate damage expense — the repair jobs' quotes cover it.", { duration: 8000 });
+      }
       // Open the PDF in a new tab
       if (result.checkoutId) {
         window.open(`/api/checkouts/${result.checkoutId}/pdf`, "_blank");
@@ -635,6 +645,14 @@ export function CheckoutForm({ tenantId }: { tenantId: string }) {
                   />
                   Charge to landlord as a property expense (creates an ExpenseEntry)
                 </label>
+                {damageKeptByLandlord && (conditionReportId ?? data?.moveOutInspection?.id) === data?.moveOutInspection?.id && (data?.moveOutInspection?.repairJobCount ?? 0) > 0 && (
+                  <p className="text-caption text-amber-700">
+                    {data!.moveOutInspection!.repairJobCount} repair job{data!.moveOutInspection!.repairJobCount === 1 ? " was" : "s were"} raised from the inspection —
+                    each books its own cost when its expense is logged. The damage expense here covers only what their accepted quotes
+                    ({formatCurrency(data!.moveOutInspection!.acceptedRepairTotal, currency)}) don&apos;t; while a job has no accepted quote,
+                    none is booked here.
+                  </p>
+                )}
               </div>
             )}
           </Section>

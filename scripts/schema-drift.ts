@@ -26,6 +26,8 @@ const KNOWN_DRIFT: { match: string; why: string }[] = [
   { match: `"CaseEvent" ALTER COLUMN "attachmentUrls" DROP DEFAULT`, why: "client-side default" },
   { match: `"PaymentAccount" ALTER COLUMN "updatedAt" DROP DEFAULT`, why: "client-side default" },
   { match: `"UserOrganizationMembership" ALTER COLUMN "id" DROP DEFAULT`, why: "client-side default" },
+  // Partial unique index (one post-stay check per booking) — Prisma can't express it.
+  { match: `"ConditionReport_post_stay_booking_key"`, why: "partial unique index, hand-written SQL" },
 ];
 
 const diff = spawnSync(

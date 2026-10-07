@@ -57,17 +57,27 @@ export type StayDecision =
 
 const no = (status: number, error: string, code?: string): StayDecision => ({ ok: false, status, error, ...(code ? { code } : {}) });
 
+/** The day before a yyyy-mm-dd day (servers run in UTC; this tolerates the time zone). */
+function dayBefore(day: string): string {
+  const d = new Date(`${day}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export function decideStayAction(
   action: StayAction,
   stay: StayRecord,
   idState: StayIdState,
   actor: { isManager: boolean },
   input: StayActionInput,
+  /** The booking's check-out and today (yyyy-mm-dd) — for the cleaner's keys when none were handed over. */
+  dates?: { checkOut: Date | string; today: string },
 ): StayDecision {
   if ((action === "override_id" || action === "undo") && !actor.isManager) return no(403, "Only a manager can do that.");
   switch (action) {
     case "hand_keys": {
       if (stay.keysHandedAt) return no(409, "The keys are already with the guest.");
+      if (stay.cleanerKeysOutAt && !stay.cleanerKeysBackAt) return no(409, "The cleaner still has the keys — get them back first.");
       if (idState === "missing") return no(409, "Upload the main guest's ID before handing over the keys.", "ID_REQUIRED");
       const keys = normaliseKeys(input.keys);
       if (keys.length === 0) return no(400, "Say which keys the guest was given.");
@@ -80,6 +90,11 @@ export function decideStayAction(
     case "cleaner_out": {
       if (guestHasKeys(stay)) return no(409, "Get the keys back from the guest first.");
       if (stay.cleanerKeysOutAt) return no(409, "The cleaner already has the keys.");
+      // No keys ever handed over (a keybox): the clean is the after-stay one, so
+      // wait for check-out — a pre-arrival tick would block the real turnover.
+      if (!stay.keysHandedAt && dates && dates.today < dayBefore(dayOf(dates.checkOut))) {
+        return no(409, "The guest hasn't checked out yet — record the cleaner's keys after check-out.");
+      }
       const cleanerName = input.cleanerName?.trim().slice(0, 120) ?? "";
       if (!cleanerName) return no(400, "Who did you give the keys to?");
       return { ok: true, cleanerName };

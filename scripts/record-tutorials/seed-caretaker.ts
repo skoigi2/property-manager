@@ -194,7 +194,7 @@ export async function seedGuestStays(prisma: PrismaClient, fixturesDir: string):
     await prisma.bookingGuest.create({ data: { guestId: g.id, incomeEntryId: entryId, isPrimary: true } });
     if (withId) {
       await prisma.guestDocument.create({
-        data: { guestId: g.id, label: "ID document", fileName: "id-card.jpg", storagePath: fixturePath("id-card.jpg"), mimeType: "image/jpeg", fileSize: 60_000, uploadedByUserId: caretaker.id },
+        data: { guestId: g.id, incomeEntryId: entryId, label: "ID document", fileName: "id-card.jpg", storagePath: fixturePath("id-card.jpg"), mimeType: "image/jpeg", fileSize: 60_000, uploadedByUserId: caretaker.id },
       });
     }
     return g;

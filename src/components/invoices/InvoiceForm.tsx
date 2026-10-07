@@ -58,6 +58,8 @@ export interface InvoiceFormInvoice {
   electricityAmount?: number;
   dueDate: string;
   notes?: string | null;
+  /** Part payment already recorded — the lines are then locked (the server refuses a change). */
+  paidAmount?: number | null;
   tenant: { id: string; name: string; unit: { unitNumber: string; property: { name: string } } };
 }
 
@@ -125,6 +127,7 @@ export default function InvoiceForm({
   onSaved: () => void;
 }) {
   const isEdit = !!invoice;
+  const linesLocked = (invoice?.paidAmount ?? 0) > 0;
   const now = new Date();
 
   const [tenants, setTenants] = useState<TenantOption[]>([]);
@@ -383,7 +386,7 @@ export default function InvoiceForm({
                 <button
                   type="button"
                   onClick={() => setAddOpen((o) => !o)}
-                  disabled={availableLines.length === 0}
+                  disabled={availableLines.length === 0 || linesLocked}
                   className="flex items-center gap-1 text-caption font-medium text-gold hover:text-gold-dark disabled:opacity-40"
                 >
                   <Plus size={12} /> Add line
@@ -417,17 +420,20 @@ export default function InvoiceForm({
                     inputMode="decimal"
                     value={formatAmountInput(lines[k])}
                     onChange={(e) => setLine(k, e.target.value)}
+                    readOnly={linesLocked}
                     placeholder="0"
-                    className="w-32 border border-gray-200 rounded-lg px-2.5 py-1.5 text-body text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    className="w-32 border border-gray-200 rounded-lg px-2.5 py-1.5 text-body text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-gold/30 read-only:bg-gray-50 read-only:text-gray-500"
                   />
-                  <button
-                    type="button"
-                    onClick={() => removeLine(k)}
-                    title="Remove line"
-                    className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {!linesLocked && (
+                    <button
+                      type="button"
+                      onClick={() => removeLine(k)}
+                      title="Remove line"
+                      className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               ))}
               {(invoice?.waterAmount ?? 0) > 0 && (
@@ -453,6 +459,12 @@ export default function InvoiceForm({
                 <span className="text-body font-semibold text-header tabular-nums">{fmt(total)}</span>
               </div>
             </div>
+            {linesLocked && (
+              <p className="text-caption text-amber-700 mt-1.5">
+                A payment of {fmt(invoice!.paidAmount!)} is already recorded, so the lines can&apos;t change. You can still edit the due date and notes —
+                raise a separate invoice for anything extra.
+              </p>
+            )}
             {rentConflict && (
               <p className="text-caption text-amber-700 mt-1.5">
                 A rent invoice ({existingRentInvoice!.invoiceNumber}) already exists for {MONTH_NAMES[periodMonth - 1]} {periodYear}.

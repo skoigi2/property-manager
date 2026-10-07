@@ -82,7 +82,11 @@ export function QuotesModal({ jobId, onClose }: { jobId: string; onClose: (chang
       const res = await fetch(`/api/maintenance/${jobId}/quotes/${q.id}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...body }),
       });
-      if (!res.ok) { toast.error(await readError(res, "Couldn't save that")); return false; }
+      if (!res.ok) {
+        toast.error(await readError(res, "Couldn't save that"));
+        if (res.status === 409) await load(); // show what changed
+        return false;
+      }
       const json = await res.json();
       apply(json);
       if (action === "resend" && json.url) {
@@ -172,7 +176,7 @@ export function QuotesModal({ jobId, onClose }: { jobId: string; onClose: (chang
                       </>
                     )}
                     {data.viewer.isManager && open && q.status === "RECEIVED" && (
-                      <Button size="sm" onClick={() => act(q, "accept")} loading={busy === `accept:${q.id}`} disabled={busy !== null}>
+                      <Button size="sm" onClick={() => act(q, "accept", { expectedAmount: q.amount })} loading={busy === `accept:${q.id}`} disabled={busy !== null}>
                         <Check size={13} /> Accept
                       </Button>
                     )}

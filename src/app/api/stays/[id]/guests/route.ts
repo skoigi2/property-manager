@@ -3,10 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { stayGuestSchema } from "@/lib/validations";
 import { loadStay, serializeStay } from "@/lib/stays";
+import { isInspectionManager } from "@/lib/inspections";
 
-// Add a guest to a stay on site (ops staff incl. CARETAKER). A returning
-// guest is matched on the ID / passport number within the organisation and
-// linked rather than duplicated. The first guest added is the main guest.
+// Add a guest to a stay on site (ops staff incl. CARETAKER). The first guest
+// added is the main guest. Only a MANAGER's entry is matched to a returning
+// guest, and only on the ID / passport number AND the name — a caretaker's
+// always creates a new record, so typing a number never reveals someone else's
+// details. Either way, ID documents count per stay (stayDocuments).
 export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { session, error } = await requireOpsStaffWrite();
@@ -20,9 +23,19 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   const { name, phone, nationality, idNumber } = parsed.data;
   const orgId = entry.unit.property.organizationId;
 
-  const existing = idNumber && orgId
+  // The same ID number twice on one stay is a double entry (this stay's own guests only).
+  const idKey = idNumber?.trim().toLowerCase();
+  if (idKey && entry.bookingGuests.some((bg) => bg.guest.passportNumber?.trim().toLowerCase() === idKey)) {
+    return Response.json({ error: "A guest with that ID number is already on this stay." }, { status: 409 });
+  }
+
+  const existing = idNumber && orgId && isInspectionManager(session!)
     ? await prisma.airbnbGuest.findFirst({
-        where: { organizationId: orgId, passportNumber: { equals: idNumber, mode: "insensitive" } },
+        where: {
+          organizationId: orgId,
+          passportNumber: { equals: idNumber, mode: "insensitive" },
+          name: { equals: name.trim(), mode: "insensitive" },
+        },
         select: { id: true, phone: true, nationality: true },
       })
     : null;

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/audit";
 import { loadTurnover } from "@/lib/turnover-data";
 import { decideTurnoverToggle, normaliseTurnoverItems, setTurnoverItem, effectiveTurnoverItems, turnoverProgress, TURNOVER_ITEMS } from "@/lib/turnover";
+import { isInspectionManager } from "@/lib/inspections";
 
 const KEYS = TURNOVER_ITEMS.map((t) => t.key) as [string, ...string[]];
 const toggleSchema = z.union([
@@ -42,19 +43,30 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   const key = parsed.data.key as (typeof TURNOVER_ITEMS)[number]["key"];
 
   const decision = decideTurnoverToggle(key, parsed.data.done, {
-    repairs: view.repairs, depositSettled: view.depositSettled, completed: !!row.completedAt,
+    repairs: view.repairs, depositSettled: view.depositSettled, completed: !!row.completedAt, isManager: isInspectionManager(session!),
   });
   if (!decision.ok) return Response.json({ error: decision.error }, { status: decision.status });
 
-  const items = setTurnoverItem(normaliseTurnoverItems(row.items), key, parsed.data.done, byName);
-  const progress = turnoverProgress(effectiveTurnoverItems(items, { repairs: view.repairs, depositSettled: view.depositSettled }));
-  await prisma.unitTurnover.update({
-    where: { id: row.id },
-    data: {
-      items: items as unknown as Prisma.InputJsonValue,
-      ...(progress.complete ? { completedAt: new Date(), completedByName: byName } : {}),
-    },
-  });
+  // Two quick ticks must not undo each other: re-read the list and write only
+  // if it hasn't changed since (updatedAt), retrying a few times.
+  let progress = view.progress;
+  let saved = false;
+  for (let attempt = 0; attempt < 4 && !saved; attempt++) {
+    const current = attempt === 0 ? row : await prisma.unitTurnover.findUnique({ where: { id: row.id } });
+    if (!current) return Response.json({ error: "Checklist not found" }, { status: 404 });
+    if (current.completedAt) return Response.json({ error: "This checklist is complete." }, { status: 409 });
+    const items = setTurnoverItem(normaliseTurnoverItems(current.items), key, parsed.data.done, byName);
+    progress = turnoverProgress(effectiveTurnoverItems(items, { repairs: view.repairs, depositSettled: view.depositSettled }));
+    const res = await prisma.unitTurnover.updateMany({
+      where: { id: row.id, updatedAt: current.updatedAt },
+      data: {
+        items: items as unknown as Prisma.InputJsonValue,
+        ...(progress.complete ? { completedAt: new Date(), completedByName: byName } : {}),
+      },
+    });
+    saved = res.count === 1;
+  }
+  if (!saved) return Response.json({ error: "Someone else is updating this checklist — refresh and try again." }, { status: 409 });
   if (progress.complete) {
     await logAudit({
       userId: session!.user.id, userEmail: session!.user.email, action: "UPDATE", resource: "UnitTurnover",

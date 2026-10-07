@@ -1,5 +1,5 @@
 import "server-only";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { Session } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { getAccessiblePropertyIds, isSuperAdminSession, MANAGER_ROLES, isRoleAllowed } from "@/lib/auth-utils";
@@ -300,7 +300,7 @@ export async function createInspection(input: CreateInspectionInput, session: Se
     ? postStayItems((await lastPostStayRooms(unit.id)) ?? DEFAULT_ROOMS.map((r) => r.room), () => crypto.randomUUID())
     : seedItemsFromTemplate();
 
-  const report = await prisma.conditionReport.create({
+  const created = await prisma.conditionReport.create({
     data: {
       incomeEntryId,
       unitId: unit.id,
@@ -316,8 +316,19 @@ export async function createInspection(input: CreateInspectionInput, session: Se
       items: items as unknown as Prisma.InputJsonValue,
     },
     include: INSPECTION_INCLUDE,
+  }).then((report) => ({ report }), async (e) => {
+    // Two phones starting the same post-stay check at once: the partial unique
+    // index ConditionReport_post_stay_booking_key lets only one through.
+    if (incomeEntryId && e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const existing = await prisma.conditionReport.findFirst({ where: { incomeEntryId, reportType: "POST_STAY" }, select: { id: true } });
+      return { existingId: existing?.id ?? null };
+    }
+    throw e;
   });
-  return { ok: true as const, report };
+  if (!("report" in created)) {
+    return { ok: false as const, status: 409, error: "This stay already has a post-stay check.", existingId: created.existingId };
+  }
+  return { ok: true as const, report: created.report };
 }
 
 export type InspectionListFilter = {

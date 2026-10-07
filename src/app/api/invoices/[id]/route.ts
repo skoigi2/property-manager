@@ -84,6 +84,25 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   if (editsLines && invoice!.status === "PAID") {
     return Response.json({ error: "A paid invoice's lines can't be changed — revert it to unpaid first." }, { status: 400 });
   }
+  // Part-paid: the payment was already split across the lines as they stood
+  // (rent / utilities / Wi-Fi / deposit entries), so changing a line would leave
+  // those entries disagreeing with the invoice. The edit form re-sends every
+  // line, so only an actual change is refused.
+  const changes = (next: number | undefined, current: number | null | undefined) =>
+    next !== undefined && Math.abs(next - Number(current ?? 0)) > 0.005;
+  const linesChanged =
+    changes(rentAmount, invoice!.rentAmount) || changes(serviceCharge, invoice!.serviceCharge) ||
+    changes(otherCharges, invoice!.otherCharges) || changes(wifiAmount, invoice!.wifiAmount) ||
+    changes(depositAmount, invoice!.depositAmount) || changes(leaseFee, invoice!.leaseFee);
+  if (linesChanged) {
+    const payments = (invoice!.paidAmount ?? 0) > 0 ? 1 : await prisma.incomeEntry.count({ where: { invoiceId: params.id } });
+    if (payments > 0) {
+      return Response.json(
+        { error: "A payment has already been recorded against this invoice, so its lines can't be changed. Raise a separate invoice for the difference, or remove the payment first.", code: "INVOICE_HAS_PAYMENTS" },
+        { status: 400 },
+      );
+    }
+  }
 
   // Un-cancelling is refused when the invoice carried metered utilities: a
   // cancelled invoice releases its readings, which may since have been billed

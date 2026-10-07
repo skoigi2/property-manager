@@ -43,6 +43,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string; 
     data: {
       guestId: params.guestId, label, fileName: file.name || safeName, storagePath,
       fileSize: file.size, mimeType: type, uploadedByUserId: session!.user.id,
+      incomeEntryId: loaded.entry.id,
     },
   });
 

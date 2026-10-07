@@ -69,6 +69,7 @@ function StaysInner() {
     try {
       const qs = new URLSearchParams(range);
       if (selectedId) qs.set("propertyId", selectedId);
+      if (view === "today") qs.set("open", "1");
       const res = await fetch(`/api/stays?${qs}`);
       if (!res.ok) throw new Error();
       setRows(await res.json());
@@ -77,7 +78,7 @@ function StaysInner() {
     } finally {
       setLoading(false);
     }
-  }, [range, selectedId]);
+  }, [range, selectedId, view]);
   useEffect(() => { load(); }, [load]);
 
   return (
@@ -130,17 +131,22 @@ function shiftMonth(m: string, n: number): string {
 
 function TodayView({ rows, today }: { rows: StaySummaryDto[]; today: string }) {
   const groups = useMemo(() => {
-    const arriving: StaySummaryDto[] = [], departing: StaySummaryDto[] = [], inHouse: StaySummaryDto[] = [], turnover: StaySummaryDto[] = [];
+    const arriving: StaySummaryDto[] = [], departing: StaySummaryDto[] = [], overdue: StaySummaryDto[] = [], inHouse: StaySummaryDto[] = [], turnover: StaySummaryDto[] = [];
     for (const r of rows) {
       const stage = stageOf(r, today);
       if (stage === "arriving") arriving.push(r);
-      else if (stage === "in_house") (dayOf(r.checkOut) <= today ? departing : inHouse).push(r);
+      else if (stage === "in_house") {
+        const out = dayOf(r.checkOut);
+        (out < today ? overdue : out === today ? departing : inHouse).push(r);
+      }
       // A past stay nobody recorded anything on (e.g. booked before stays were
       // tracked) drops out a day after check-out instead of lingering here.
       else if (stage === "turnover" && (r.stay.keysReturnedAt || r.stay.cleanerKeysOutAt || r.inspection || dayOf(r.checkOut) >= addDays(today, -1))) turnover.push(r);
     }
     turnover.sort((a, b) => a.checkOut.localeCompare(b.checkOut));
+    overdue.sort((a, b) => a.checkOut.localeCompare(b.checkOut));
     return [
+      { key: "overdue", title: "Keys not back", hint: "The guest has checked out but the keys aren't recorded as returned.", rows: overdue },
       { key: "arriving", title: "Arriving", hint: "Upload the main guest's ID, then hand over the keys.", rows: arriving },
       { key: "departing", title: "Leaving today", hint: "Collect the keys.", rows: departing },
       { key: "turnover", title: "Turnover", hint: "Post-stay check, then keys to the cleaner and back.", rows: turnover },
@@ -169,7 +175,8 @@ function TodayView({ rows, today }: { rows: StaySummaryDto[]; today: string }) {
 function StayCard({ s, today }: { s: StaySummaryDto; today: string }) {
   const stage = stageOf(s, today);
   const st = s.stay;
-  const leavingToday = stage === "in_house" && dayOf(s.checkOut) <= today;
+  const leavingToday = stage === "in_house" && dayOf(s.checkOut) === today;
+  const keysOverdue = stage === "in_house" && dayOf(s.checkOut) < today;
   return (
     <Link href={`/stays/${s.id}`} className="block">
       <Card padding="sm" className="hover:border-gold/40 transition-colors">
@@ -183,7 +190,7 @@ function StayCard({ s, today }: { s: StaySummaryDto; today: string }) {
               {s.platform ? ` · ${PLATFORM_LABEL[s.platform] ?? s.platform}` : ""}
             </p>
           </div>
-          <Badge className="whitespace-nowrap shrink-0" variant={leavingToday ? "amber" : STAGE_BADGE[stage]}>{leavingToday ? "Leaving today" : STAY_STAGE_LABEL[stage]}</Badge>
+          <Badge className="whitespace-nowrap shrink-0" variant={keysOverdue ? "red" : leavingToday ? "amber" : STAGE_BADGE[stage]}>{keysOverdue ? "Keys not back" : leavingToday ? "Leaving today" : STAY_STAGE_LABEL[stage]}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-caption">
           <span className="flex items-center gap-1 text-gray-500"><Users size={12} /> {s.guestCount || "No"} guest{s.guestCount === 1 ? "" : "s"}</span>

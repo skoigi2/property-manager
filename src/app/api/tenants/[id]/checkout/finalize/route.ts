@@ -6,6 +6,7 @@ import { checkoutProcessSchema } from "@/lib/validations";
 import { calcDepositPosition } from "@/lib/deposit";
 import { parseFinalReadingInputs, settleFinalUtilities } from "@/lib/checkout-utilities";
 import { ownMoveOut } from "@/lib/inspections";
+import { damageExpenseFor } from "@/lib/inspection-checkout";
 import { startTurnover } from "@/lib/turnover-data";
 
 export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
@@ -150,9 +151,33 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   // Step 2: atomic close-out — pgBouncer-safe array form.
   const ops: ReturnType<typeof prisma.checkoutProcess.update>[] = [];
 
-  // Optional ExpenseEntry for landlord-kept damage
+  // The move-out inspection behind this checkout: the one linked by "Fill from
+  // the inspection", else the tenant's latest handed-in move-out.
+  const linkedReportId =
+    (await prisma.checkoutProcess.findUnique({ where: { id: processId }, select: { conditionReportId: true } }))?.conditionReportId
+    ?? (await prisma.conditionReport.findFirst({
+      where: { tenantId: tenant.id, reportType: "MOVE_OUT", status: { in: ["SUBMITTED", "ACCEPTED"] } },
+      orderBy: { submittedAt: "desc" },
+      select: { id: true },
+    }))?.id
+    ?? null;
+  // Repair jobs raised from it book their own cost when their expense is
+  // logged, so the REINSTATEMENT expense covers only the part of the damage
+  // charge their accepted quotes don't (never the same repair twice). While any
+  // job has no accepted quote its cost is unknown: no expense is booked here
+  // and the manager is told (they can add one for anything the jobs don't cover).
+  const repairJobs = linkedReportId
+    ? await prisma.maintenanceJob.findMany({
+        where: { conditionReportId: linkedReportId, status: { not: "CANCELLED" } },
+        select: { quotes: { where: { status: "ACCEPTED" }, select: { amount: true } } },
+      })
+    : [];
+  const { amount: damageExpenseAmount, coveredByRepairJobs, unquotedRepairJobs } = damageExpenseFor(
+    inventoryDamage,
+    repairJobs.map((j) => ({ acceptedQuote: j.quotes.length ? j.quotes.reduce((t, q) => t + (q.amount ?? 0), 0) : null })),
+  );
   let createdExpenseId: string | null = null;
-  if (data.damageFound && data.damageKeptByLandlord && inventoryDamage > 0) {
+  if (data.damageFound && data.damageKeptByLandlord && damageExpenseAmount > 0) {
     const expense = await prisma.expenseEntry.create({
       data: {
         date: checkOutDate,
@@ -160,11 +185,11 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
         propertyId: tenant.unit.property.id,
         scope: "UNIT",
         category: "REINSTATEMENT",
-        amount: inventoryDamage,
+        amount: damageExpenseAmount,
         organizationId: session!.user.organizationId ?? null,
         description: `Move-out damage charge — ${tenant.name} (Unit ${tenant.unit.unitNumber})${
-          data.inventoryDamageNotes ? ` — ${data.inventoryDamageNotes}` : ""
-        }`,
+          repairJobs.length ? ` — net of ${repairJobs.length} repair job${repairJobs.length === 1 ? "" : "s"} (accepted quotes ${coveredByRepairJobs.toFixed(2)}) booked separately` : ""
+        }${data.inventoryDamageNotes ? ` — ${data.inventoryDamageNotes}` : ""}`,
       },
     });
     createdExpenseId = expense.id;
@@ -199,6 +224,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
         finalizedAt: new Date(),
         finalizedByUserId: session!.user.id,
         expenseEntryId: createdExpenseId,
+        conditionReportId: linkedReportId,
       },
     }),
     ...(existingSettlement
@@ -265,13 +291,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   // The unit is vacant: start its "ready to re-let" checklist, following the
   // move-out inspection's repair jobs. Best-effort — the checkout is done.
   try {
-    const linkedInspection = (await ownMoveOut(data.conditionReportId ?? null, tenant.id))
-      ?? (await prisma.conditionReport.findFirst({
-        where: { tenantId: tenant.id, reportType: "MOVE_OUT", status: { in: ["SUBMITTED", "ACCEPTED"] } },
-        orderBy: { submittedAt: "desc" },
-        select: { id: true },
-      }))?.id
-      ?? null;
+    const linkedInspection = linkedReportId;
     const keysBack = Object.values(data.keysReturned ?? {}).some((n) => Number(n) > 0);
     await startTurnover({
       unitId: tenant.unit.id,
@@ -287,5 +307,10 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     console.error("[checkout] could not start the re-let checklist:", e);
   }
 
-  return Response.json({ ok: true, checkoutId: processId, balanceToRefund });
+  return Response.json({
+    ok: true, checkoutId: processId, balanceToRefund,
+    ...(repairJobs.length && data.damageFound && data.damageKeptByLandlord
+      ? { damageExpense: { amount: createdExpenseId ? damageExpenseAmount : 0, repairJobs: repairJobs.length, unquotedRepairJobs, coveredByRepairJobs } }
+      : {}),
+  });
 }

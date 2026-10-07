@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Wrench, ListChecks } from "lucide-react";
 import { readError, type InspectionDto } from "./types";
+import { hasRepairJob, REPAIR_CLAIM } from "@/lib/inspection-rules";
 
 const JOB_STATUS: Record<string, string> = {
   OPEN: "Open", IN_PROGRESS: "In progress", AWAITING_PARTS: "Awaiting parts", DONE: "Done", CANCELLED: "Cancelled",
@@ -21,7 +22,7 @@ export function RepairJobsPanel({ inspection, onChanged }: { inspection: Inspect
   const isManager = r.viewer.isManager;
   const worn = r.items.filter((i) => i.status === "POOR" || i.status === "FAIR");
   const jobById = new Map(r.repairJobs.map((j) => [j.id, j]));
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(worn.filter((i) => i.status === "POOR" && !i.jobId).map((i) => i.id)));
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(worn.filter((i) => i.status === "POOR" && !hasRepairJob(i)).map((i) => i.id)));
   const [busy, setBusy] = useState<"jobs" | "turnover" | null>(null);
 
   if (worn.length === 0 && r.reportType !== "MOVE_OUT") return null;
@@ -76,7 +77,7 @@ export function RepairJobsPanel({ inspection, onChanged }: { inspection: Inspect
             const job = i.jobId ? jobById.get(i.jobId) : undefined;
             return (
               <label key={i.id} className="flex items-start gap-2 py-2">
-                {isManager && !i.jobId && (
+                {isManager && !hasRepairJob(i) && (
                   <input type="checkbox" className="mt-1" checked={picked.has(i.id)}
                     onChange={(e) => setPicked((prev) => { const n = new Set(prev); if (e.target.checked) n.add(i.id); else n.delete(i.id); return n; })} />
                 )}
@@ -96,7 +97,9 @@ export function RepairJobsPanel({ inspection, onChanged }: { inspection: Inspect
                       </span>
                     )}
                   </Link>
-                ) : i.jobId ? (
+                ) : i.jobId === REPAIR_CLAIM && hasRepairJob(i) ? (
+                  <span className="text-caption text-gray-400 whitespace-nowrap">Raising the job…</span>
+                ) : i.jobId && i.jobId !== REPAIR_CLAIM ? (
                   <span className="text-caption text-gray-400 whitespace-nowrap">Job removed</span>
                 ) : null}
               </label>

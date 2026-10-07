@@ -117,7 +117,7 @@ export async function fakeStorage(
     const [, stayId, guestId] = route.request().url().match(/stays\/([^/]+)\/guests\/([^/]+)\/documents/)!;
     const file = fileNameOf(route);
     await prisma.guestDocument.create({
-      data: { guestId, label: "ID document", fileName: file, storagePath: fixturePath(file), mimeType: "image/jpeg", fileSize: 60_000, uploadedByUserId: uploader?.id ?? null },
+      data: { guestId, incomeEntryId: stayId, label: "ID document", fileName: file, storagePath: fixturePath(file), mimeType: "image/jpeg", fileSize: 60_000, uploadedByUserId: uploader?.id ?? null },
     });
     const res = await page.request.get(`${opts.baseUrl}/api/stays/${stayId}`);
     return route.fulfill({ status: 201, json: await rewrite(await res.json()) });

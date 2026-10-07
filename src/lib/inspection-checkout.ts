@@ -59,3 +59,22 @@ export function checkoutPrefillFromInspection(r: {
     finalMeterReadings,
   };
 }
+
+/**
+ * The REINSTATEMENT expense a finalised checkout books for damage the landlord
+ * keeps. Repair jobs raised from the move-out inspection book their own cost
+ * (their expense), so: no jobs → the whole damage charge; every job has an
+ * accepted quote → only what those quotes don't cover; a job without an
+ * accepted quote → nothing (its cost is unknown; the manager adds an expense
+ * for anything else). Never the same repair twice.
+ */
+export function damageExpenseFor(inventoryDamage: number, repairJobs: { acceptedQuote: number | null }[]) {
+  const coveredByRepairJobs = Math.round(repairJobs.reduce((s, j) => s + (j.acceptedQuote ?? 0), 0) * 100) / 100;
+  const unquotedRepairJobs = repairJobs.filter((j) => j.acceptedQuote === null).length;
+  const amount = !repairJobs.length
+    ? inventoryDamage
+    : unquotedRepairJobs > 0
+      ? 0
+      : Math.max(0, Math.round((inventoryDamage - coveredByRepairJobs) * 100) / 100);
+  return { amount, coveredByRepairJobs, unquotedRepairJobs };
+}

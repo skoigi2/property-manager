@@ -63,7 +63,8 @@ export default function StayPage() {
 function StayDetail({ stay, onChanged }: { stay: StayDto; onChanged: (s: StayDto) => void }) {
   const today = localDay();
   const stage = stageOf(stay, today);
-  const leavingToday = stage === "in_house" && dayOf(stay.checkOut) <= today;
+  const leavingToday = stage === "in_house" && dayOf(stay.checkOut) === today;
+  const keysOverdue = stage === "in_house" && dayOf(stay.checkOut) < today;
   const [busy, setBusy] = useState<string | null>(null);
 
   async function act(action: string, body: Record<string, unknown>, ok: string): Promise<boolean> {
@@ -92,7 +93,7 @@ function StayDetail({ stay, onChanged }: { stay: StayDto; onChanged: (s: StayDto
               {stay.platform ? ` · ${PLATFORM_LABEL[stay.platform] ?? stay.platform}` : ""}
             </p>
           </div>
-          <Badge className="whitespace-nowrap shrink-0" variant={stage === "done" ? "green" : stage === "turnover" || leavingToday ? "amber" : stage === "in_house" ? "blue" : "gold"}>{leavingToday ? "Leaving today" : STAY_STAGE_LABEL[stage]}</Badge>
+          <Badge className="whitespace-nowrap shrink-0" variant={keysOverdue ? "red" : stage === "done" ? "green" : stage === "turnover" || leavingToday ? "amber" : stage === "in_house" ? "blue" : "gold"}>{keysOverdue ? "Keys not back" : leavingToday ? "Leaving today" : STAY_STAGE_LABEL[stage]}</Badge>
         </div>
       </Card>
 

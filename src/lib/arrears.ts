@@ -40,6 +40,8 @@ export interface ArrearsCaseRow {
   id: string;
   tenantId: string;
   tenantName: string;
+  /** Unit owner (service charge only) — letters word the arrears as service charge. */
+  isUnitOwner: boolean;
   unitNumber: string;
   phone: string | null;
   email: string | null;
@@ -103,7 +105,7 @@ export async function buildArrearsCases(propertyIds: string[]): Promise<ArrearsC
   const tenants = await prisma.tenant.findMany({
     where: { id: { in: threads.map((t) => t.subjectId) } },
     select: {
-      id: true, name: true, phone: true, email: true,
+      id: true, name: true, phone: true, email: true, isUnitOwner: true,
       unit: { select: { unitNumber: true } },
     },
   });
@@ -123,6 +125,7 @@ export async function buildArrearsCases(propertyIds: string[]): Promise<ArrearsC
       id: t.id,
       tenantId: t.subjectId,
       tenantName: tenant?.name ?? "(deleted tenant)",
+      isUnitOwner: tenant?.isUnitOwner ?? false,
       unitNumber: tenant?.unit?.unitNumber ?? "—",
       phone: tenant?.phone ?? null,
       email: tenant?.email ?? null,

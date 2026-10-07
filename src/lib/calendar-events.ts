@@ -479,8 +479,12 @@ export async function buildCalendarEvents(
     });
   }
 
-  // ── Rent due ───────────────────────────────────────────────────────────────
+  // ── Payments due (rent / service charge / other invoices) ─────────────────
   for (const inv of invoices) {
+    // Name what the invoice bills: rent, a unit owner's service charge, or
+    // anything else (utilities, deposit) as a payment.
+    const word = Number(inv.rentAmount) > 0 ? "rent" : Number(inv.serviceCharge) > 0 ? "service charge" : "payment";
+    const Word = word.charAt(0).toUpperCase() + word.slice(1);
     const prop = inv.tenant.unit.property;
     const unitName = inv.tenant.unit.unitNumber;
     const due = new Date(inv.dueDate);
@@ -508,9 +512,9 @@ export async function buildCalendarEvents(
       refId: inv.id,
       type: "RENT_DUE",
       title: paid
-        ? `${inv.tenant.name} — rent paid (${inv.invoiceNumber})`
-        : `${inv.tenant.name} — rent due (${inv.invoiceNumber})`,
-      feedSummary: `Rent ${paid ? "paid" : "due"} — Unit ${unitName}`,
+        ? `${inv.tenant.name} — ${word} paid (${inv.invoiceNumber})`
+        : `${inv.tenant.name} — ${word} due (${inv.invoiceNumber})`,
+      feedSummary: `${Word} ${paid ? "paid" : "due"} — Unit ${unitName}`,
       date: toDateStr(due),
       propertyId: prop.id,
       propertyName: prop.name,

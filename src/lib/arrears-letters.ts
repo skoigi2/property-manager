@@ -31,6 +31,12 @@ export interface LetterContext {
   amount: string;
   /** Pre-formatted date. */
   today: string;
+  /**
+   * A unit owner (service charge only, src/lib/unit-owner.ts): the letters say
+   * "service charge" and refer to their obligations as an owner — they have no
+   * rent, lease or tenancy, and no notice to vacate applies.
+   */
+  isUnitOwner?: boolean;
 }
 
 export interface LetterTemplate {
@@ -51,6 +57,11 @@ const signOff = (ctx: LetterContext) =>
 const addressBlock = (ctx: LetterContext) =>
   `Date: ${ctx.today}\n\nTo: ${ctx.tenantName}\nUnit ${ctx.unitNumber}, ${ctx.propertyName}`;
 
+/** "rent" / "service charge" — what the account owes. */
+const charge = (ctx: LetterContext) => (ctx.isUnitOwner ? "service charge" : "rent");
+const Charge = (ctx: LetterContext) => (ctx.isUnitOwner ? "Service charge" : "Rent");
+const CHARGE = (ctx: LetterContext) => (ctx.isUnitOwner ? "SERVICE CHARGE" : "RENT");
+
 export const ARREARS_LETTERS: Record<string, LetterTemplate[]> = {
   // Stage 1 — states the balance and a date. No consequences language: this is
   // the document for a tenant who is days late and has probably just forgotten.
@@ -60,11 +71,11 @@ export const ARREARS_LETTERS: Record<string, LetterTemplate[]> = {
       title: "Formal Notice",
       purpose:
         "States the balance and a date to pay by. No threat of action — send this before the demand letter.",
-      subject: (ctx) => `Rent arrears notice — Unit ${ctx.unitNumber}, ${ctx.propertyName}`,
+      subject: (ctx) => `${Charge(ctx)} arrears notice — Unit ${ctx.unitNumber}, ${ctx.propertyName}`,
       body: (ctx) =>
-        `NOTICE OF RENT ARREARS\n\n${addressBlock(ctx)}\n\n` +
+        `NOTICE OF ${CHARGE(ctx)} ARREARS\n\n${addressBlock(ctx)}\n\n` +
         `Dear ${firstName(ctx.tenantName)},\n\n` +
-        `Our records show that the rent account for Unit ${ctx.unitNumber} is currently in arrears of ${ctx.amount}.\n\n` +
+        `Our records show that the ${charge(ctx)} account for Unit ${ctx.unitNumber} is currently in arrears of ${ctx.amount}.\n\n` +
         `We would be grateful if you could settle this balance within FOURTEEN (14) days of the date of this notice.\n\n` +
         `If payment has already been sent, please disregard this notice and let us know the date and method so we can trace it. ` +
         `If you are having difficulty paying, please contact us — we would rather agree a payment arrangement with you than let the balance grow.\n\n` +
@@ -79,11 +90,11 @@ export const ARREARS_LETTERS: Record<string, LetterTemplate[]> = {
       title: "Demand Letter",
       purpose:
         "Formal demand requiring payment within 7 days, stating that legal action follows. The pre-action document.",
-      subject: (ctx) => `Formal demand for rent payment — Unit ${ctx.unitNumber}`,
+      subject: (ctx) => `Formal demand for ${charge(ctx)} payment — Unit ${ctx.unitNumber}`,
       body: (ctx) =>
-        `DEMAND FOR RENT PAYMENT\n\n${addressBlock(ctx)}\n\n` +
+        `DEMAND FOR ${CHARGE(ctx)} PAYMENT\n\n${addressBlock(ctx)}\n\n` +
         `Dear ${firstName(ctx.tenantName)},\n\n` +
-        `Despite our previous notice, we note that your rent account is in arrears of ${ctx.amount}.\n\n` +
+        `Despite our previous notice, we note that your ${charge(ctx)} account is in arrears of ${ctx.amount}.\n\n` +
         `You are hereby formally demanded to settle the outstanding balance in full within SEVEN (7) days of the date of this letter.\n\n` +
         `Failure to comply will compel us to take legal action to recover the debt, including costs.\n\n` +
         `${signOff(ctx)}`,
@@ -97,12 +108,17 @@ export const ARREARS_LETTERS: Record<string, LetterTemplate[]> = {
       title: "Notice to Remedy Breach",
       purpose:
         "Puts the tenant on notice that the tenancy is in breach and proceedings will commence if unremedied.",
-      subject: (ctx) => `Legal notice — breach of tenancy, Unit ${ctx.unitNumber}`,
+      subject: (ctx) => ctx.isUnitOwner
+        ? `Legal notice — unpaid service charge, Unit ${ctx.unitNumber}`
+        : `Legal notice — breach of tenancy, Unit ${ctx.unitNumber}`,
       body: (ctx) =>
         `NOTICE TO REMEDY BREACH\n\n${addressBlock(ctx)}\n\n` +
         `Dear ${firstName(ctx.tenantName)},\n\n` +
-        `You are hereby given LEGAL NOTICE that your tenancy is in breach due to outstanding rent arrears of ${ctx.amount}.\n\n` +
-        `Under the terms of your lease agreement, you are required to remedy this breach within FOURTEEN (14) days.\n\n` +
+        (ctx.isUnitOwner
+          ? `You are hereby given LEGAL NOTICE that you are in breach of your obligations as the owner of Unit ${ctx.unitNumber} due to outstanding service charge arrears of ${ctx.amount}.\n\n` +
+            `Under the terms governing the development's service charge, you are required to remedy this breach within FOURTEEN (14) days.\n\n`
+          : `You are hereby given LEGAL NOTICE that your tenancy is in breach due to outstanding rent arrears of ${ctx.amount}.\n\n` +
+            `Under the terms of your lease agreement, you are required to remedy this breach within FOURTEEN (14) days.\n\n`) +
         `If the arrears are not cleared within this period, legal proceedings will be commenced without further notice.\n\n` +
         `${signOff(ctx)}`,
     },
@@ -128,9 +144,13 @@ export const ARREARS_LETTERS: Record<string, LetterTemplate[]> = {
   ],
 };
 
+/** A unit owner can't be told to vacate the unit they own over service charge arrears. */
+const NOT_FOR_OWNERS = new Set(["notice_to_vacate"]);
+
 /** Letters available at a given workflow stage. Empty for stages with none. */
-export function getArrearsLetters(stageKey: string): LetterTemplate[] {
-  return ARREARS_LETTERS[stageKey] ?? [];
+export function getArrearsLetters(stageKey: string, opts: { isUnitOwner?: boolean } = {}): LetterTemplate[] {
+  const letters = ARREARS_LETTERS[stageKey] ?? [];
+  return opts.isUnitOwner ? letters.filter((l) => !NOT_FOR_OWNERS.has(l.key)) : letters;
 }
 
 /** Every letter in the registry, for a "pick any document" affordance. */

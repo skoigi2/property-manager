@@ -34,6 +34,8 @@ interface ArrearsCase {
   id: string;
   tenantId: string;
   tenantName: string;
+  /** Unit owner (service charge only). */
+  isUnitOwner?: boolean;
   unitNumber: string;
   phone: string | null;
   email: string | null;
@@ -107,6 +109,7 @@ function letterContext(c: ArrearsCase): LetterContext {
     propertyName: c.propertyName,
     amount: formatCurrency(c.amountOwed, c.currency),
     today: formatDate(new Date()),
+    isUnitOwner: c.isUnitOwner,
   };
 }
 
@@ -127,7 +130,7 @@ function CaseCard({ arrearsCase, isManager, onEscalate, onDelete }: {
   const nextKey = arrearsCase.isResolved ? null : nextStageKey(arrearsCase.stageKey);
   // Letters live on the stage that produces them, so a manager can only send
   // the document appropriate to where the case actually is.
-  const letters = getArrearsLetters(arrearsCase.stageKey);
+  const letters = getArrearsLetters(arrearsCase.stageKey, { isUnitOwner: arrearsCase.isUnitOwner });
   const ctx = letterContext(arrearsCase);
   const letterBody = letter ? letter.body(ctx) : "";
 

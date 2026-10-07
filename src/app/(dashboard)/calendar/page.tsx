@@ -69,7 +69,7 @@ type TypeConfig = {
 };
 
 const TYPE_CONFIG: Record<EventType, TypeConfig> = {
-  RENT_DUE:          { label: "Rent Due",     plural: "rent payments due",   dot: "bg-green-600",   badge: "bg-green-100 text-green-800 border-green-300" },
+  RENT_DUE:          { label: "Payment Due",  plural: "payments due",   dot: "bg-green-600",   badge: "bg-green-100 text-green-800 border-green-300" },
   LEASE_EXPIRY:      { label: "Lease Expiry", plural: "leases expiring",     dot: "bg-amber-500",   badge: "bg-amber-100 text-amber-800 border-amber-300" },
   LEASE_START:       { label: "Lease Start",  plural: "leases starting",     dot: "bg-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
   RENT_REVIEW:       { label: "Rent Review",  plural: "rent reviews",        dot: "bg-lime-600",    badge: "bg-lime-100 text-lime-800 border-lime-300" },

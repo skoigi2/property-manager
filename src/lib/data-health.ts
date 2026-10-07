@@ -42,14 +42,16 @@ export const DATA_HEALTH_CHECKS: DataHealthCheck[] = [
   },
   {
     name: "Rent receipts without a tenant",
-    why: "The tenant ledger and arrears match LONGTERM_RENT receipts by tenant; one with no tenant, dated inside a tenancy of that unit, is invisible to them.",
+    why: "The tenant ledger and arrears match rent receipts — and service charge receipts of an owner, or of a tenant whose charges include service charge — by tenant; one with no tenant, dated inside such a tenancy of that unit, is invisible to them.",
     sql: (demoFilter) => `
       select o.name as org, p.name as property, u."unitNumber" as ref, e.date::date::text as date, e."grossAmount"::float as amount
       from "IncomeEntry" e join "Unit" u on u.id = e."unitId" join "Property" p on p.id = u."propertyId"
       left join "Organization" o on o.id = p."organizationId"
       where e.type in ('LONGTERM_RENT', 'SERVICE_CHARGE') and e."tenantId" is null ${demoFilter}
         and exists (select 1 from "Tenant" t where t."unitId" = u.id and t."leaseStart" <= e.date
-                    and coalesce(t."vacatedDate", case when t."isActive" then null else t."leaseEnd" end, 'infinity'::timestamp) >= e.date)`,
+                    and coalesce(t."vacatedDate", case when t."isActive" then null else t."leaseEnd" end, 'infinity'::timestamp) >= e.date
+                    -- A service charge receipt only counts for an owner or a tenant billed service charge (countsTowardRentSide).
+                    and (e.type = 'LONGTERM_RENT' or t."isUnitOwner" or t."serviceCharge" > 0))`,
   },
   {
     name: "Unit status ≠ occupancy",

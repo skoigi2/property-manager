@@ -1,5 +1,6 @@
 import { requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { parseAccountType, unitOwnerOverrides } from "@/lib/unit-owner";
 import { canAddProperty } from "@/lib/subscription";
 import { logAudit } from "@/lib/audit";
 import { uploadToStorage } from "@/lib/supabase-storage";
@@ -313,6 +314,7 @@ export async function POST(req: Request) {
           emergencyContactName:     str(row["Emergency Contact Name"]).slice(0, 120) || null,
           emergencyContactPhone:    str(row["Emergency Contact Phone"]).slice(0, 40) || null,
           emergencyContactRelation: str(row["Emergency Contact Relation"]).slice(0, 60) || null,
+          ...(parseAccountType(row["Account Type"]) ? { isUnitOwner: true, ...unitOwnerOverrides(true) } : {}),
         },
       });
       tenantNameMap.set(name.toLowerCase(), tenant.id);

@@ -127,7 +127,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   XLSX.utils.book_append_sheet(wb, wsExpense, "Expense Ledger");
 
   // Sheet 4 — Tenant Directory
-  const tenantHeaders = ["Name", "Email", "Phone", "Unit", `Monthly Rent (${cur})`, `Service Charge (${cur})`, `Deposit (${cur})`, "Lease Start", "Lease End", "Status", "Renewal Stage", "Month-to-month", `Wi-Fi (${cur})`, "Emergency Contact Name", "Emergency Contact Phone", "Emergency Contact Relation"];
+  const tenantHeaders = ["Name", "Email", "Phone", "Unit", `Monthly Rent (${cur})`, `Service Charge (${cur})`, `Deposit (${cur})`, "Lease Start", "Lease End", "Status", "Renewal Stage", "Month-to-month", `Wi-Fi (${cur})`, "Emergency Contact Name", "Emergency Contact Phone", "Emergency Contact Relation", "Account Type"];
   const tenantRows = tenants.map((t) => [
     t.name,
     t.email ?? "",
@@ -145,9 +145,10 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     t.emergencyContactName ?? "",
     t.emergencyContactPhone ?? "",
     t.emergencyContactRelation ?? "",
+    t.isUnitOwner ? "Unit owner" : "Tenant",
   ]);
   const wsTenants = XLSX.utils.aoa_to_sheet([tenantHeaders, ...tenantRows]);
-  wsTenants["!cols"] = [22,25,15,10,18,18,16,14,14,10,16,14,14,24,22,24].map((w) => ({ wch: w }));
+  wsTenants["!cols"] = [22,25,15,10,18,18,16,14,14,10,16,14,14,24,22,24,14].map((w) => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, wsTenants, "Tenant Directory");
 
   // Sheet 5 — Owner Invoices

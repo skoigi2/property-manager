@@ -8,6 +8,8 @@ interface StatementLine {
   unit:         string;
   rentExpected: number;
   rentReceived: number;
+  /** Service charge received (a unit owner's payments, or separate SC receipts). */
+  serviceCharge?: number;
   grossTotal:   number;
 }
 
@@ -44,7 +46,7 @@ function buildDraft(s: Props["statement"]): { subject: string; body: string } {
       .join("\n");
     incomeBlock = `Short-Let Revenue — ${s.lines.length} unit(s) recorded:\n${unitLines}`;
   } else {
-    const paidCount = s.lines.filter(l => l.rentReceived >= l.rentExpected * 0.99).length;
+    const paidCount = s.lines.filter(l => l.rentReceived + (l.serviceCharge ?? 0) >= l.rentExpected * 0.99).length;
     const tenantLines = s.lines
       .map(l => `  • ${l.tenantName} (Unit ${l.unit}):  ${fmt(l.rentReceived)}`)
       .join("\n");

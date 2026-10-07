@@ -216,7 +216,7 @@ export async function buildOwnerStatements(
       ).values(),
     );
     const managementFee = calcPropertyManagementFee({
-      tenants: feeTenants.map(t => ({ unitId: t.unitId, monthlyRent: t.monthlyRent })),
+      tenants: feeTenants.map(t => ({ unitId: t.unitId, monthlyRent: t.monthlyRent, serviceCharge: t.serviceCharge, isUnitOwner: t.isUnitOwner })),
       feeConfigs: feeConfigs.filter(c => propUnitIds.has(c.unitId)),
       propertyRatePercent: property.managementFeeRate,
       propertyFlatAmount: property.managementFeeFlat,

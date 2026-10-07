@@ -1,9 +1,12 @@
 import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { dialCodeForCurrency, normalizePhoneForWhatsApp } from "@/lib/whatsapp";
+import { parseAccountType, unitOwnerOverrides } from "@/lib/unit-owner";
 
 interface TenantRow {
   name?: string;
+  /** "Tenant" / "Unit owner" (service charge only); blank = tenant, or unchanged on an update. */
+  accountType?: string;
   unitNumber?: string;
   propertyName?: string;
   monthlyRent?: string | number;
@@ -155,6 +158,17 @@ export async function POST(req: Request) {
             name: { equals: name, mode: "insensitive" },
           },
         });
+        // A unit owner pays only the service charge (src/lib/unit-owner.ts).
+        const isUnitOwner = parseAccountType(row.accountType) ?? existing?.isUnitOwner ?? false;
+        if (!isUnitOwner && !(monthlyRent > 0)) {
+          errors.push({ row: rowNum, reason: `Monthly Rent for "${name}" must be more than 0 — or set Account Type to "Unit owner" for an owner who pays only the service charge` });
+          skipped++;
+          continue;
+        }
+        const owner = unitOwnerOverrides(isUnitOwner);
+        if (isUnitOwner && depositReceived != null) {
+          errors.push({ row: rowNum, reason: `"${name}" is a unit owner — Deposit Received ignored` });
+        }
 
         if (existing) {
           if (mode === "create") {
@@ -179,18 +193,23 @@ export async function POST(req: Request) {
               parkingFee,
               ...emergency,
               notes: row.notes?.trim() || null,
+              isUnitOwner,
+              ...owner,
               // Don't flip isActive on an upsert — preserve whatever the manager set.
             },
           });
           // Keep the rent timeline complete, like a manual edit does.
-          if (Math.abs(existing.monthlyRent - monthlyRent) > 0.005) {
+          if (isUnitOwner) {
+            // A unit owner pays no rent: no rent timeline (scheduled increases included).
+            await prisma.rentHistory.deleteMany({ where: { tenantId: existing.id } });
+          } else if (Math.abs(existing.monthlyRent - monthlyRent) > 0.005) {
             await prisma.rentHistory.create({
               data: { tenantId: existing.id, monthlyRent, effectiveDate: new Date(), reason: "Rent updated (import)" },
             });
           }
           // Mint the deposit receipt only when the tenant has no DEPOSIT
           // entry yet — a re-upload must not double-count the deposit.
-          if (depositReceived != null) {
+          if (depositReceived != null && !isUnitOwner) {
             const existingReceipt = await prisma.incomeEntry.findFirst({
               where: { tenantId: existing.id, type: "DEPOSIT" },
               select: { id: true },
@@ -235,6 +254,8 @@ export async function POST(req: Request) {
               ...emergency,
               notes: row.notes?.trim() || null,
               isActive: true,
+              isUnitOwner,
+              ...owner,
             },
           }),
           prisma.unit.update({
@@ -243,7 +264,7 @@ export async function POST(req: Request) {
           }),
         ]);
 
-        if (depositReceived != null) {
+        if (depositReceived != null && !isUnitOwner) {
           await prisma.incomeEntry.create({
             data: {
               date: depositReceivedDate,

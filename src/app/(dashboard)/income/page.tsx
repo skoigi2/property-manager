@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { exportIncome } from "@/lib/excel-export";
 import { frequencyMonths } from "@/lib/rent-schedule";
-import { computeArrears, rentSideDueForMonth, type ArrearsSummary } from "@/lib/rent-ledger";
+import { computeArrears, rentSideDueForMonth, type ArrearsSummary, countsTowardRentSide } from "@/lib/rent-ledger";
 import { GuestPanel } from "@/components/guests/GuestPanel";
 import { LinkInvoiceModal } from "@/components/income/LinkInvoiceModal";
 import Link from "next/link";
@@ -313,7 +313,7 @@ export default function IncomePage() {
     allTenants.map((tenant: any) => {
       const paid = entries.filter(
         (e: any) =>
-          e.type === "LONGTERM_RENT" &&
+          countsTowardRentSide(e.type, tenant) &&
           (e.tenantId === tenant.id || e.unitId === tenant.unitId),
       );
       const totalPaid = paid.reduce((s: number, e: any) => s + e.grossAmount, 0);
@@ -1396,7 +1396,7 @@ export default function IncomePage() {
                         return (
                         <div
                           key={tenant.id}
-                          className={`px-4 py-3 border-l-4 cursor-pointer ${summary.totalArrears > tenant.monthlyRent * 2 ? "border-red-300 bg-red-50/30" : summary.totalArrears > 0 ? "border-amber-300 bg-amber-50/20" : "border-transparent"}`}
+                          className={`px-4 py-3 border-l-4 cursor-pointer ${summary.totalArrears > ((tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0)) * 2 ? "border-red-300 bg-red-50/30" : summary.totalArrears > 0 ? "border-amber-300 bg-amber-50/20" : "border-transparent"}`}
                           onClick={() => toggleRow(tenant.id)}
                         >
                           {/* Header — tap anywhere on the card to expand the breakdown */}
@@ -1541,7 +1541,7 @@ export default function IncomePage() {
                         <tbody>
                           {arrearsRows.map(({ tenant, summary, annualRate }) => {
                             const isExpanded = expandedRows.has(tenant.id);
-                            const severity = summary.totalArrears > tenant.monthlyRent * 2
+                            const severity = summary.totalArrears > ((tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0)) * 2
                               ? "bg-red-50 border-l-4 border-red-300"
                               : summary.totalArrears > 0
                               ? "bg-amber-50/50 border-l-4 border-amber-300"

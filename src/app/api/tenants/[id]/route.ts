@@ -1,6 +1,7 @@
 import { requireAuth, requirePropertyAccess, requireManagerWrite, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
+import { unitOwnerOverrides } from "@/lib/unit-owner";
 import { checkUnitPaymentAccount } from "@/lib/unit-payment-account";
 import { z } from "zod";
 
@@ -73,7 +74,11 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
     return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { leaseStart, leaseEnd, paymentAccountId, escalationAnchorDate, ...rest } = parsed.data;
+  const { leaseStart, leaseEnd: formLeaseEnd, paymentAccountId, escalationAnchorDate, ...rest } = parsed.data;
+  // A unit owner pays only the service charge: no rent, deposit or lease end.
+  const owner = unitOwnerOverrides(rest.isUnitOwner);
+  if (rest.isUnitOwner) { rest.monthlyRent = 0; rest.depositAmount = 0; }
+  const leaseEnd = rest.isUnitOwner ? undefined : formLeaseEnd;
 
   const accountError = await checkUnitPaymentAccount(rest.unitId, paymentAccountId);
   if (accountError) return accountError;
@@ -108,17 +113,23 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
         escalationIntervalYears: rest.escalationIntervalYears ?? null,
         escalationNoticeDays: rest.escalationNoticeDays ?? null,
         escalationAnchorDate: escalationAnchorDate ? new Date(escalationAnchorDate) : null,
+        ...owner,
       },
       include: {
         unit: { include: { property: { select: { id: true, name: true, type: true } } } },
       },
     }),
   ];
+  if (rest.isUnitOwner) {
+    // A unit owner pays no rent: drop the rent timeline, scheduled increases
+    // included, so no old rent is ever expected or applied again.
+    ops.push(prisma.rentHistory.deleteMany({ where: { tenantId: params.id } }));
+  }
   if (paymentAccountId !== undefined) {
     // The form's payment-account dropdown edits the unit's override.
     ops.push(prisma.unit.update({ where: { id: rest.unitId }, data: { paymentAccountId } }));
   }
-  if (rentChanged) {
+  if (rentChanged && !rest.isUnitOwner) {
     ops.push(
       prisma.rentHistory.create({
         data: {

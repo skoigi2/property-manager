@@ -26,6 +26,7 @@ export function TenantFormFields({
   unitOptions,
   unitAccounts,
   unitLabel = "Unit",
+  isEditing = false,
 }: {
   register: UseFormRegister<TenantInput>;
   control: Control<TenantInput>;
@@ -36,10 +37,14 @@ export function TenantFormFields({
    *  provided, the Payment account dropdown is shown and follows the unit. */
   unitAccounts?: Record<string, UnitAccountInfo>;
   unitLabel?: string;
+  /** Editing an existing account (not adding one). */
+  isEditing?: boolean;
 }) {
   const contacts = useFieldArray({ control, name: "additionalContacts" });
   const unitId = useWatch({ control, name: "unitId" });
   const escalationType = useWatch({ control, name: "escalationType" });
+  // A unit owner pays only the service charge: no rent, deposit, lease end or rent reviews.
+  const isOwner = !!useWatch({ control, name: "isUnitOwner" });
   const unitInfo = unitId && unitAccounts ? unitAccounts[unitId] : undefined;
 
   // The dropdown edits the UNIT's override, so when the unit changes the field
@@ -52,7 +57,49 @@ export function TenantFormFields({
 
   return (
     <>
-      <Input label="Tenant Name" {...register("name")} error={errors.name?.message} />
+      <Controller
+        control={control}
+        name="isUnitOwner"
+        render={({ field }) => (
+          <div>
+            <span className="flex items-center gap-1.5 text-body font-medium text-gray-600 mb-1">
+              <span>Account type</span>
+              <HelpTip text="A unit owner owns their apartment on a development you manage and pays only the service charge (plus any metered utilities or Wi-Fi). Their payments are recorded as service charge, never rent, and there's no rent, deposit, lease end, rent review, renewal or letting fee." />
+            </span>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Account type">
+              {[
+                { value: false, label: "Tenant", hint: "Pays rent" },
+                { value: true, label: "Unit owner", hint: "Service charge only" },
+              ].map((o) => (
+                <button
+                  key={String(o.value)}
+                  type="button"
+                  role="radio"
+                  aria-checked={!!field.value === o.value}
+                  onClick={() => {
+                    // Turning an existing tenant into an owner removes their rent and rent history on save.
+                    if (o.value && !field.value && isEditing && !window.confirm(
+                      "Make this account a unit owner (service charge only)? Saving removes the rent, deposit, lease end and rent history. To record a tenant buying their unit, cancel, check the tenant out and add a new owner account instead.",
+                    )) return;
+                    field.onChange(o.value);
+                    if (o.value && setValue) { setValue("monthlyRent", 0); setValue("depositAmount", 0); }
+                  }}
+                  className={`text-left border rounded-lg px-3 py-2 transition-colors ${!!field.value === o.value ? "border-gold bg-gold/10" : "border-gray-200 hover:border-gray-300"}`}
+                >
+                  <span className="block text-body font-medium text-header">{o.label}</span>
+                  <span className="block text-caption text-gray-500">{o.hint}</span>
+                </button>
+              ))}
+            </div>
+            {isEditing && field.value && (
+              <p className="text-caption text-gray-500 mt-1">
+                An owner account has no rent, deposit, lease end or rent history — saving removes them. To record a tenant buying their unit, check the tenant out and add a new owner account instead.
+              </p>
+            )}
+          </div>
+        )}
+      />
+      <Input label={isOwner ? "Owner Name" : "Tenant Name"} {...register("name")} error={errors.name?.message} />
       <div className="grid grid-cols-2 gap-4">
         <Input label="Email" type="email" placeholder="tenant@example.com" {...register("email")} error={errors.email?.message} />
         <Input
@@ -128,6 +175,7 @@ export function TenantFormFields({
           </p>
         </div>
       )}
+      {!isOwner && (<>
       <div className="grid grid-cols-2 gap-4">
         <Input label="Monthly Rent" tooltip="The base rent amount, not including service charge. This is what's tracked in your rent roll and invoices." type="number" {...register("monthlyRent")} error={errors.monthlyRent?.message} />
         <Input label="Deposit" tooltip="Security held against potential damage or unpaid rent. Not counted as income — it's returned at lease end minus any deductions." type="number" {...register("depositAmount")} error={errors.depositAmount?.message} />
@@ -170,8 +218,16 @@ export function TenantFormFields({
           error={errors.escalationNoticeDays?.message}
         />
       </div>
+      </>)}
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Service Charge" tooltip="Shared building costs passed to the tenant — utilities, cleaning, maintenance. Keep separate from rent for clear reporting." type="number" {...register("serviceCharge")} />
+        <Input
+          label={isOwner ? "Service Charge (monthly)" : "Service Charge"}
+          tooltip={isOwner
+            ? "What the owner pays each month towards the development's shared costs. The Service charge page can set it from the year's budget (Apply charge)."
+            : "Shared building costs passed to the tenant — utilities, cleaning, maintenance. Keep separate from rent for clear reporting."}
+          type="number"
+          {...register("serviceCharge")}
+        />
         <Input label="Parking Fee" tooltip="Monthly parking line on the lease, billed alongside rent. Leave blank if not applicable." type="number" {...register("parkingFee")} />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -207,11 +263,17 @@ export function TenantFormFields({
         <Input label="Emergency phone" placeholder="+254 7…" {...register("emergencyContactPhone")} />
         <Input label="Relationship" placeholder="e.g. Spouse, brother" {...register("emergencyContactRelation")} />
       </div>
+      {isOwner ? (
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Billing starts" tooltip="The first month the owner is billed the service charge (usually when you took over the development, or when they bought the unit)." type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
+        </div>
+      ) : (<>
       <div className="grid grid-cols-2 gap-4">
         <Input label="Lease Start" type="date" {...register("leaseStart")} error={errors.leaseStart?.message} />
         <Input label="Lease End" tooltip="Leave blank if the end date isn't agreed yet. The tenant will show as 'Lease TBC' until a date is set." type="date" {...register("leaseEnd")} />
       </div>
       <p className="text-caption text-gray-400 ">Leave Lease End blank to mark as TBC</p>
+      </>)}
       <label className="flex items-start gap-2.5 cursor-pointer">
         <input type="checkbox" {...register("showVatOnInvoice")} className="mt-0.5 rounded border-gray-300 text-gold focus:ring-gold/30" />
         <span className="flex items-center gap-1.5 text-body text-gray-600">

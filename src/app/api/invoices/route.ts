@@ -125,7 +125,24 @@ export async function POST(req: Request) {
   }
 
   // One RENT invoice per tenant per month. Deposit-only / fees-only invoices
-  // may sit beside the month's rent invoice.
+  // may sit beside the month's rent invoice. A unit owner's regular invoice is
+  // the service charge one (rent 0) — one of those per month likewise.
+  if (tenant.isUnitOwner && rest.rentAmount <= 0 && ((rest.serviceCharge ?? 0) > 0 || (rest.wifiAmount ?? 0) > 0)) {
+    const existing = await prisma.invoice.findFirst({
+      where: {
+        tenantId: rest.tenantId, periodYear: rest.periodYear, periodMonth: rest.periodMonth,
+        serviceChargeBudgetId: null, status: { not: "CANCELLED" },
+        OR: [{ serviceCharge: { gt: 0 } }, { wifiAmount: { gt: 0 } }],
+      },
+      select: { id: true, invoiceNumber: true },
+    });
+    if (existing) {
+      return Response.json(
+        { error: `A service charge invoice (${existing.invoiceNumber}) already exists for ${format(new Date(rest.periodYear, rest.periodMonth - 1), "MMM yyyy")}.` },
+        { status: 409 },
+      );
+    }
+  }
   if (rest.rentAmount > 0) {
     const existing = await prisma.invoice.findFirst({
       where: {

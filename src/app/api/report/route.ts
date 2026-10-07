@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getMonthRange, getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
-import { rentSideDueForMonth } from "@/lib/rent-ledger";
+import { rentSideDueForMonth, countsTowardRentSide } from "@/lib/rent-ledger";
 import { generateReportPDF } from "@/lib/pdf-generator";
 import { format, getDaysInMonth } from "date-fns";
 import type { ReportData } from "@/types/report";
@@ -379,7 +379,7 @@ async function buildReportData(y: number, m: number, session: Session, propertyI
   // Schedule-aware: quarterly/biannual/annual payers owe the FULL period
   // amount on billing months (anchored to lease start) and 0 in between.
   const rentCollection = riaraTenants.map((t) => {
-    const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
+    const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && countsTowardRentSide(e.type, t));
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
     const due = rentSideDueForMonth(t, from);
     const expectedRent  = due.rent;
@@ -392,7 +392,7 @@ async function buildReportData(y: number, m: number, session: Session, propertyI
       serviceCharge,
       received,
       variance:      received - (expectedRent + serviceCharge),
-      status:        getLeaseStatus(t.leaseEnd, t.monthToMonth),
+      status:        getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };
   });
@@ -474,11 +474,11 @@ async function buildReportData(y: number, m: number, session: Session, propertyI
   const alerts: string[] = [];
   const leaseAlerts = tenants.filter((t) => {
     if (!t.isActive) return false; // vacated tenants can't have lease alerts
-    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
+    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner);
     return status === "WARNING" || status === "CRITICAL" || status === "TBC";
   });
   leaseAlerts.forEach((t) => {
-    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
+    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner);
     if (status === "TBC")      alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiry TBC — action required`);
     else if (status === "CRITICAL") alerts.push(`${t.name} (${t.unit.unitNumber}): Lease EXPIRED`);
     else                       alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiring soon`);
@@ -687,7 +687,7 @@ async function buildRangeReportData(
   // Schedule-aware: only billing months (per the tenant's payment cadence)
   // contribute expected rent + service charge to the period total.
   const rentCollection = riaraTenants.map((t) => {
-    const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT");
+    const unitIncome = incomeEntries.filter((e) => e.unitId === t.unitId && countsTowardRentSide(e.type, t));
     const received   = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
     let expectedRent  = 0;
     let serviceCharge = 0;
@@ -710,7 +710,7 @@ async function buildRangeReportData(
       serviceCharge,
       received,
       variance:      received - (expectedRent + serviceCharge),
-      status:        getLeaseStatus(t.leaseEnd, t.monthToMonth),
+      status:        getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner),
       leaseEnd:      t.leaseEnd ? formatDate(t.leaseEnd) : null,
     };
   });
@@ -782,8 +782,8 @@ async function buildRangeReportData(
   // Alerts
   const alerts: string[] = [];
   // Vacated tenants can't have lease alerts.
-  tenants.filter((t) => t.isActive && ["WARNING","CRITICAL","TBC"].includes(getLeaseStatus(t.leaseEnd, t.monthToMonth))).forEach((t) => {
-    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
+  tenants.filter((t) => t.isActive && ["WARNING","CRITICAL","TBC"].includes(getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner))).forEach((t) => {
+    const status = getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner);
     if (status === "TBC")           alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiry TBC`);
     else if (status === "CRITICAL") alerts.push(`${t.name} (${t.unit.unitNumber}): Lease EXPIRED`);
     else                            alerts.push(`${t.name} (${t.unit.unitNumber}): Lease expiring soon`);

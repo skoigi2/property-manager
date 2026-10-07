@@ -30,6 +30,8 @@ export interface WhatsAppMessageContext {
   portalUrl: string | null;
   monthlyRent: number;
   serviceCharge: number;
+  /** A unit owner (service charge only): "service charge" instead of "rent". */
+  isUnitOwner?: boolean;
   /** Latest rent payment, for the receipt template. */
   lastPayment: { amount: number; date: string } | null;
   leaseEnd: string | null;
@@ -65,13 +67,13 @@ const EN: Record<WhatsAppTemplate, (c: WhatsAppMessageContext) => string> = {
         ? [
             `Hi ${firstName(c.tenantName)},`,
             "",
-            `This is a reminder from ${c.senderName} that rent${c.periodLabel ? ` for ${c.periodLabel}` : ""} on ${where} is outstanding: *${fmt(c.outstanding)}*` +
+            `This is a reminder from ${c.senderName} that ${c.isUnitOwner ? "the service charge" : "rent"}${c.periodLabel ? ` for ${c.periodLabel}` : ""} on ${where} is outstanding: *${fmt(c.outstanding)}*` +
               (c.daysOverdue > 0 ? ` (${c.daysOverdue} day${c.daysOverdue === 1 ? "" : "s"} overdue).` : "."),
           ]
         : [
             `Hi ${firstName(c.tenantName)},`,
             "",
-            `A friendly reminder from ${c.senderName} that your rent of *${fmt(c.monthlyRent + c.serviceCharge)}* for ${where} is due this month.`,
+            `A friendly reminder from ${c.senderName} that your ${c.isUnitOwner ? "service charge" : "rent"} of *${fmt(c.monthlyRent + c.serviceCharge)}* for ${where} is due this month.`,
           ];
     if (c.portalUrl) lines.push("", `View your statement and payment details here: ${c.portalUrl}`);
     lines.push("", "If you have already paid, please ignore this message. Thank you.");
@@ -82,7 +84,7 @@ const EN: Record<WhatsAppTemplate, (c: WhatsAppMessageContext) => string> = {
     const fmt = (n: number) => formatCurrency(n, c.currency);
     const paid = c.lastPayment
       ? `your payment of *${fmt(c.lastPayment.amount)}* received on ${formatDate(c.lastPayment.date)}`
-      : `your rent payment of *${fmt(c.monthlyRent + c.serviceCharge)}*`;
+      : `your ${c.isUnitOwner ? "service charge" : "rent"} payment of *${fmt(c.monthlyRent + c.serviceCharge)}*`;
     const lines = [
       `Hi ${firstName(c.tenantName)},`,
       "",

@@ -15,6 +15,27 @@ import { resolveExpectedRent, type RentHistoryPoint } from "@/lib/rent-resolutio
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
 import { calcLateInterest } from "@/lib/calculations";
 
+/**
+ * Receipt types that can pay the rent side (rent + service charge). Narrow a
+ * query with these, then decide per account with countsTowardRentSide.
+ */
+export const RENT_SIDE_RECEIPT_TYPES = ["LONGTERM_RENT", "SERVICE_CHARGE"] as const;
+
+/**
+ * Does this receipt pay what the account is expected to pay (rent + its
+ * service charge)? LONGTERM_RENT always. SERVICE_CHARGE only for a unit owner,
+ * or a tenant whose service charge is part of their charges (serviceCharge > 0)
+ * — a service charge collected outside the tenant's charges must not read as
+ * rent paid and hide arrears. Every "received vs expected" comparison uses this.
+ */
+export function countsTowardRentSide(
+  type: string,
+  account: { isUnitOwner?: boolean | null; serviceCharge?: number | null },
+): boolean {
+  if (type === "LONGTERM_RENT") return true;
+  return type === "SERVICE_CHARGE" && (!!account.isUnitOwner || (account.serviceCharge ?? 0) > 0);
+}
+
 export interface LedgerTenant {
   id: string;
   unitId?: string | null;
@@ -24,6 +45,8 @@ export interface LedgerTenant {
   serviceCharge?: number | null;
   paymentFrequency?: string | null;
   rentHistory?: RentHistoryPoint[] | null;
+  /** Unit owner (service charge only): never owes rent. */
+  isUnitOwner?: boolean | null;
 }
 
 export interface LedgerEntry {
@@ -66,7 +89,7 @@ export interface ArrearsSummary {
  * each month's service charge into credit that hides real arrears.
  */
 export function rentSideDueForMonth(
-  tenant: Pick<LedgerTenant, "leaseStart" | "monthlyRent" | "serviceCharge" | "paymentFrequency" | "rentHistory">,
+  tenant: Pick<LedgerTenant, "leaseStart" | "monthlyRent" | "serviceCharge" | "paymentFrequency" | "rentHistory" | "isUnitOwner">,
   month: Date,
   today: Date = new Date(),
 ): { due: boolean; rent: number; serviceCharge: number; amount: number } {
@@ -74,7 +97,7 @@ export function rentSideDueForMonth(
     leaseStart: tenant.leaseStart ?? today,
     frequency: tenant.paymentFrequency,
     month,
-    rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+    rentForMonth: (m) => (tenant.isUnitOwner ? 0 : resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m)),
   });
   const serviceCharge = sched.due ? (tenant.serviceCharge ?? 0) * frequencyMonths(tenant.paymentFrequency) : 0;
   return { due: sched.due, rent: sched.amount, serviceCharge, amount: sched.amount + serviceCharge };
@@ -93,7 +116,7 @@ export function computeArrears(
 
   const tenantEntries = allEntries.filter(
     (e) =>
-      e.type === "LONGTERM_RENT" &&
+      countsTowardRentSide(e.type, tenant) &&
       (e.tenantId === tenant.id || (tenant.unitId != null && e.unitId === tenant.unitId)),
   );
 
@@ -194,7 +217,7 @@ export function buildLedger<E extends LedgerEntry>(
     const monthEnd   = addMonths(monthDate, 1);
     const payments   = incomeEntries.filter((e) => {
       const d = new Date(e.date);
-      return d >= monthDate && d < monthEnd && e.type === "LONGTERM_RENT";
+      return d >= monthDate && d < monthEnd && countsTowardRentSide(e.type, tenant);
     });
     const received = payments.reduce((s, e) => s + e.grossAmount, 0);
     // Expected rent is resolved per month from the RentHistory timeline so

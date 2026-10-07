@@ -147,8 +147,21 @@ async function seed() {
   await prisma.utilityTariff.deleteMany({ where: { propertyId: property.id } });
   await prisma.utilitySetting.deleteMany({ where: { propertyId: property.id } });
   await prisma.expenseEntry.deleteMany({ where: { propertyId: property.id, category: { in: ["WATER", "ELECTRICITY", "GENERATOR"] } } });
+  await wipeOwners(property.id);
 
   return { property, u1, u2, u3, t1, t2 };
+}
+
+/** Unit-owner accounts made by the "unit owner" section (and their money). */
+async function wipeOwners(propertyId: string) {
+  const owners = await prisma.tenant.findMany({ where: { unit: { propertyId }, name: { startsWith: "Smoke Owner" } }, select: { id: true, unitId: true } });
+  const ids = owners.map((o) => o.id);
+  if (!ids.length) return;
+  await prisma.incomeEntry.deleteMany({ where: { tenantId: { in: ids } } });
+  await prisma.invoice.deleteMany({ where: { tenantId: { in: ids } } });
+  await prisma.rentHistory.deleteMany({ where: { tenantId: { in: ids } } });
+  await prisma.tenant.deleteMany({ where: { id: { in: ids } } });
+  await prisma.unit.updateMany({ where: { id: { in: owners.map((o) => o.unitId) } }, data: { status: "VACANT" } });
 }
 
 async function main() {
@@ -489,6 +502,102 @@ async function main() {
   check("importer: a deposit-only row (rent 0) imports", r.status === 200 && r.body.imported === 1, r.body);
   r = await mgr.json("/api/import/invoices", { method: "POST", json: { rows: [depRow] } });
   check("…and the same file again doesn't duplicate it", r.status === 200 && r.body.imported === 0 && r.body.skipped === 1, r.body);
+
+  // ── 11. Unit owners: service charge only, never rent ─────────────────────
+  console.log("\n— unit owners");
+  const billStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
+  r = await mgr.json("/api/tenants", { method: "POST", json: { name: "Smoke Owner Three", unitId: u3.id, depositAmount: 0, leaseStart: billStart, monthlyRent: 0, serviceCharge: 6000 } });
+  check("a tenant with rent 0 is refused (400)", r.status === 400, r.status);
+  r = await mgr.json("/api/tenants", {
+    method: "POST",
+    json: { name: "Smoke Owner Three", isUnitOwner: true, unitId: u3.id, depositAmount: 5000, leaseStart: billStart, leaseEnd: "2030-01-01", monthlyRent: 15000, serviceCharge: 6000, escalationRate: 5 },
+  });
+  const ownerId: string | undefined = r.body?.id;
+  check("a unit owner is created with rent 0, no deposit, lease end or rent review (forced)",
+    r.status === 201 && r.body.isUnitOwner === true && Number(r.body.monthlyRent) === 0 && Number(r.body.depositAmount) === 0 && r.body.leaseEnd === null && r.body.escalationRate === null, r.body);
+  const ownerPeriod = after.month === 12 ? { year: after.year + 1, month: 1 } : { year: after.year, month: after.month + 1 };
+  await mgr.json("/api/invoices/bulk", { method: "POST", json: { year: ownerPeriod.year, month: ownerPeriod.month, propertyId: P } });
+  await mgr.json("/api/invoices/bulk", { method: "POST", json: { year: ownerPeriod.year, month: ownerPeriod.month, propertyId: P } });
+  const ownerInvs = await prisma.invoice.findMany({ where: { tenantId: ownerId, periodYear: ownerPeriod.year, periodMonth: ownerPeriod.month } });
+  check("invoice generation bills the owner once — service charge, no rent — even when run twice",
+    ownerInvs.length === 1 && Number(ownerInvs[0].rentAmount) === 0 && Number(ownerInvs[0].serviceCharge) === 6000 && Number(ownerInvs[0].totalAmount) === 6000, ownerInvs.map((i) => [i.rentAmount, i.serviceCharge]));
+  const ownerInv = ownerInvs[0];
+  r = await mgr.json("/api/invoices", { method: "POST", json: { tenantId: ownerId, periodYear: ownerPeriod.year, periodMonth: ownerPeriod.month, rentAmount: 0, serviceCharge: 6000, dueDate: `${ownerPeriod.year}-${String(ownerPeriod.month).padStart(2, "0")}-05` } });
+  check("a second service charge invoice for the same month is refused (409)", r.status === 409, r);
+  const ownerPdf = await mgr.fetch(`/api/invoices/${ownerInv?.id}/pdf`);
+  check("the owner's invoice PDF renders", ownerPdf.status === 200 && (ownerPdf.headers.get("content-type") ?? "").includes("pdf"), ownerPdf.status);
+  r = await mgr.json(`/api/invoices/${ownerInv?.id}`, { method: "PATCH", json: { status: "PAID", paidAt: new Date().toISOString() } });
+  const ownerEntries = await prisma.incomeEntry.findMany({ where: { invoiceId: ownerInv?.id } });
+  check("paid: booked as service charge, never rent", r.status === 200 && ownerEntries.length === 1 && ownerEntries[0].type === "SERVICE_CHARGE" && Number(ownerEntries[0].grossAmount) === 6000, ownerEntries.map((e) => e.type));
+  // A second invoice (manual, the next month) paid from the Income page as "rent".
+  const nextOwner = ownerPeriod.month === 12 ? { year: ownerPeriod.year + 1, month: 1 } : { year: ownerPeriod.year, month: ownerPeriod.month + 1 };
+  r = await mgr.json("/api/invoices", { method: "POST", json: { tenantId: ownerId, periodYear: nextOwner.year, periodMonth: nextOwner.month, rentAmount: 0, serviceCharge: 6000, dueDate: `${nextOwner.year}-${String(nextOwner.month).padStart(2, "0")}-05` } });
+  const inv2Id: string | undefined = r.body?.id ?? r.body?.invoice?.id;
+  check("a service charge invoice can be raised by hand", r.status === 201 && !!inv2Id, r);
+  r = await mgr.json("/api/income", { method: "POST", json: { date: new Date().toISOString().slice(0, 10), unitId: u3.id, type: "LONGTERM_RENT", grossAmount: 6000, agentCommission: 0, invoiceId: inv2Id } });
+  const ownerInv2 = await prisma.invoice.findUnique({ where: { id: inv2Id ?? "" }, include: { incomeEntries: true } });
+  check("a payment recorded as \"rent\" for an owner is booked as service charge and settles the invoice",
+    r.status === 201 && ownerInv2?.status === "PAID" && ownerInv2.incomeEntries.length === 1 && ownerInv2.incomeEntries[0].type === "SERVICE_CHARGE" && ownerInv2.incomeEntries[0].tenantId === ownerId, ownerInv2?.incomeEntries.map((e) => e.type));
+  // Importer: Account Type column.
+  r = await mgr.json("/api/import/tenants", { method: "POST", json: { mode: "create", rows: [
+    { name: "Smoke Owner Import", unitNumber: "M3", propertyName: "Meter Court", serviceCharge: 4500, leaseStart: billStart, accountType: "Unit owner", depositReceived: 1000 },
+    { name: "Smoke Owner Norent", unitNumber: "M3", propertyName: "Meter Court", leaseStart: billStart },
+  ] } });
+  const imported = await prisma.tenant.findFirst({ where: { name: "Smoke Owner Import", unitId: u3.id } });
+  const deps = imported ? await prisma.incomeEntry.count({ where: { tenantId: imported.id, type: "DEPOSIT" } }) : -1;
+  check("importer: an Account Type \"Unit owner\" row imports with rent 0 and no deposit receipt",
+    r.status === 200 && imported?.isUnitOwner === true && Number(imported.monthlyRent) === 0 && Number(imported.serviceCharge) === 4500 && deps === 0, r.body);
+  check("importer: a tenant row with no rent is refused",
+    !(await prisma.tenant.findFirst({ where: { name: "Smoke Owner Norent" } })) && (r.body?.errors ?? []).some((e: any) => /Monthly Rent/.test(e.reason)), r.body?.errors);
+  // Income importer: a "rent" row for an owner's unit is service charge.
+  r = await mgr.json("/api/import/income", { method: "POST", json: { rows: [
+    { date: new Date().toISOString().slice(0, 10), type: "LONGTERM_RENT", unitNumber: "M3", propertyName: "Meter Court", grossAmount: 4321 },
+  ] } });
+  const importedPay = await prisma.incomeEntry.findFirst({ where: { unitId: u3.id, grossAmount: 4321 } });
+  check("income importer: an owner's \"rent\" row is booked as service charge", r.status === 200 && importedPay?.type === "SERVICE_CHARGE", importedPay?.type ?? r.body);
+  r = await mgr.json(`/api/tenants/${ownerId}/rent-increase`, { method: "POST", json: { action: "schedule", newRent: 5000, effectiveDate: new Date().toISOString().slice(0, 10) } });
+  check("a rent increase can't be scheduled for an owner (400)", r.status === 400, r);
+  // Nothing to bill yet: no invoice (and no invoice number used) until the service charge is set.
+  const zeroOwner = await prisma.tenant.create({ data: { name: "Smoke Owner Zero", unitId: u3.id, isUnitOwner: true, monthlyRent: 0, depositAmount: 0, serviceCharge: 0, leaseStart: new Date(billStart), isActive: true } });
+  const wifiOwner = await prisma.tenant.create({ data: { name: "Smoke Owner Wifi", unitId: u3.id, isUnitOwner: true, monthlyRent: 0, depositAmount: 0, serviceCharge: 0, wifiCharge: 1500, leaseStart: new Date(billStart), isActive: true } });
+  const zPeriod = nextOwner.month === 12 ? { year: nextOwner.year + 1, month: 1 } : { year: nextOwner.year, month: nextOwner.month + 1 };
+  await mgr.json("/api/invoices/bulk", { method: "POST", json: { year: zPeriod.year, month: zPeriod.month, propertyId: P } });
+  await mgr.json("/api/invoices/bulk", { method: "POST", json: { year: zPeriod.year, month: zPeriod.month, propertyId: P } });
+  const zInvs = await prisma.invoice.count({ where: { tenantId: zeroOwner.id } });
+  const wInvs = await prisma.invoice.findMany({ where: { tenantId: wifiOwner.id, periodYear: zPeriod.year, periodMonth: zPeriod.month } });
+  check("an owner with nothing to bill gets no invoice", zInvs === 0, zInvs);
+  check("an owner billed only Wi-Fi gets one invoice, even when generation runs twice", wInvs.length === 1 && Number(wInvs[0].wifiAmount) === 1500, wInvs.length);
+  // Turning a tenant with a scheduled increase into an owner drops the rent timeline.
+  r = await mgr.json("/api/tenants", { method: "POST", json: { name: "Smoke Owner Convert", unitId: u3.id, depositAmount: 0, leaseStart: billStart, monthlyRent: 12000, serviceCharge: 1000 } });
+  const convId: string | undefined = r.body?.id;
+  if (convId) await prisma.rentHistory.create({ data: { tenantId: convId, monthlyRent: 13000, effectiveDate: new Date(Date.now() - 86_400_000), appliedAt: null, reason: "smoke scheduled" } });
+  r = await mgr.json(`/api/tenants/${convId}`, { method: "PUT", json: { name: "Smoke Owner Convert", isUnitOwner: true, unitId: u3.id, depositAmount: 0, leaseStart: billStart, monthlyRent: 12000, serviceCharge: 1000 } });
+  const convHist = await prisma.rentHistory.count({ where: { tenantId: convId } });
+  check("switching a tenant to owner: rent 0 and no rent timeline left (no scheduled increase can apply)", r.status === 200 && Number(r.body.monthlyRent) === 0 && convHist === 0, `${r.status} hist=${convHist}`);
+  // An ordinary tenant paying the service charge separately: it settles the invoice and stays service charge.
+  r = await mgr.json("/api/tenants", { method: "POST", json: { name: "Smoke Owner Plain Tenant", unitId: u3.id, depositAmount: 0, leaseStart: billStart, monthlyRent: 10000, serviceCharge: 2000 } });
+  const plainId: string | undefined = r.body?.id;
+  r = await mgr.json("/api/invoices", { method: "POST", json: { tenantId: plainId, periodYear: zPeriod.year, periodMonth: zPeriod.month, rentAmount: 10000, serviceCharge: 2000, dueDate: `${zPeriod.year}-${String(zPeriod.month).padStart(2, "0")}-05` } });
+  const plainInvId: string | undefined = r.body?.id ?? r.body?.invoice?.id;
+  const payDay = new Date().toISOString().slice(0, 10);
+  await mgr.json("/api/income", { method: "POST", json: { date: payDay, unitId: u3.id, tenantId: plainId, invoiceId: plainInvId, type: "LONGTERM_RENT", grossAmount: 10000, agentCommission: 0 } });
+  r = await mgr.json("/api/income", { method: "POST", json: { date: payDay, unitId: u3.id, tenantId: plainId, invoiceId: plainInvId, type: "SERVICE_CHARGE", grossAmount: 2000, agentCommission: 0 } });
+  const plainInv = await prisma.invoice.findUnique({ where: { id: plainInvId ?? "" }, include: { incomeEntries: true } });
+  const plainTypes = (plainInv?.incomeEntries ?? []).map((e) => `${e.type}=${Number(e.grossAmount)}`).sort().join(" ");
+  check("a tenant's separate service charge payment settles the invoice and stays service charge",
+    r.status === 201 && plainInv?.status === "PAID" && plainTypes === "LONGTERM_RENT=10000 SERVICE_CHARGE=2000", `${plainInv?.status} ${plainTypes}`);
+  // A tenant whose service charge is collected outside their charges: a separate
+  // service-charge receipt must not settle (or be matched to) their rent invoice.
+  r = await mgr.json("/api/tenants", { method: "POST", json: { name: "Smoke Owner NoSc Tenant", unitId: u3.id, depositAmount: 0, leaseStart: billStart, monthlyRent: 8000, serviceCharge: 0 } });
+  const noScId: string | undefined = r.body?.id;
+  r = await mgr.json("/api/invoices", { method: "POST", json: { tenantId: noScId, periodYear: now.getFullYear(), periodMonth: now.getMonth() + 1, rentAmount: 8000, dueDate: new Date().toISOString().slice(0, 10) } });
+  const noScInvId: string | undefined = r.body?.id ?? r.body?.invoice?.id;
+  r = await mgr.json("/api/income", { method: "POST", json: { date: payDay, unitId: u3.id, tenantId: noScId, type: "SERVICE_CHARGE", grossAmount: 1500, agentCommission: 0 } });
+  const noScInv = await prisma.invoice.findUnique({ where: { id: noScInvId ?? "" } });
+  check("a service charge collected outside a tenant's charges isn't matched to their rent invoice",
+    r.status === 201 && r.body?.invoiceId == null && noScInv?.status !== "PAID" && !Number(noScInv?.paidAmount ?? 0), `${r.body?.invoiceId} ${noScInv?.status} ${noScInv?.paidAmount}`);
+  await prisma.incomeEntry.deleteMany({ where: { unitId: u3.id, grossAmount: 4321 } });
+  await wipeOwners(P);
 
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

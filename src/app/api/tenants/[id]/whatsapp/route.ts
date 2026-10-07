@@ -25,7 +25,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     where: { id: params.id },
     select: {
       id: true, name: true, phone: true, portalToken: true, portalTokenExpiresAt: true,
-      monthlyRent: true, serviceCharge: true, leaseEnd: true, proposedRent: true, proposedLeaseEnd: true,
+      monthlyRent: true, serviceCharge: true, isUnitOwner: true, leaseEnd: true, proposedRent: true, proposedLeaseEnd: true,
       unit: {
         select: {
           unitNumber: true, propertyId: true,
@@ -53,7 +53,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     invoices.length === 1 ? format(new Date(invoices[0].periodYear, invoices[0].periodMonth - 1, 1), "MMMM yyyy") : null;
 
   const lastPayment = await prisma.incomeEntry.findFirst({
-    where: { tenantId: tenant.id, type: "LONGTERM_RENT" },
+    where: { tenantId: tenant.id, type: { in: ["LONGTERM_RENT", "SERVICE_CHARGE"] } },
     orderBy: { date: "desc" },
     select: { grossAmount: true, date: true },
   });
@@ -75,6 +75,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     periodLabel,
     monthlyRent: tenant.monthlyRent,
     serviceCharge: tenant.serviceCharge ?? 0,
+    isUnitOwner: tenant.isUnitOwner,
     lastPayment: lastPayment ? { amount: lastPayment.grossAmount, date: lastPayment.date.toISOString() } : null,
     leaseEnd: tenant.leaseEnd?.toISOString() ?? null,
     proposedRent: tenant.proposedRent ?? null,

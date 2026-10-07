@@ -25,6 +25,8 @@ export interface RentReminderInvoice {
     id: string;
     name: string;
     email: string | null;
+    /** A unit owner (service charge only) — the wording says "service charge", not "rent". */
+    isUnitOwner?: boolean | null;
     unit: {
       unitNumber: string;
       property: {
@@ -50,21 +52,23 @@ export function buildRentReminderEmail(inv: RentReminderInvoice, stage: Reminder
   const senderName = t.unit.property.organization?.name ?? propertyName;
   const dueDateLabel = format(new Date(inv.dueDate), "d MMMM yyyy");
 
+  const word = t.isUnitOwner ? "service charge" : "rent";
+  const Word = t.isUnitOwner ? "Service charge" : "Rent";
   const subject =
     stage === "UPCOMING"
-      ? `Rent due ${dueDateLabel} — ${propertyName}, ${periodLabel}`
+      ? `${Word} due ${dueDateLabel} — ${propertyName}, ${periodLabel}`
       : stage === "DUE"
-        ? `Rent due today — ${propertyName}, ${periodLabel}`
-        : `Rent payment reminder — ${propertyName}, ${periodLabel}`;
+        ? `${Word} due today — ${propertyName}, ${periodLabel}`
+        : `${Word} payment reminder — ${propertyName}, ${periodLabel}`;
 
   const lead =
     stage === "UPCOMING"
-      ? `This is a friendly reminder that your rent for <strong>${esc(periodLabel)}</strong>
+      ? `This is a friendly reminder that your ${word} for <strong>${esc(periodLabel)}</strong>
          (Unit ${esc(t.unit.unitNumber)}, ${esc(propertyName)}) is due in ${daysUntilDue} day${daysUntilDue !== 1 ? "s" : ""}, on <strong>${esc(dueDateLabel)}</strong>.`
       : stage === "DUE"
-        ? `This is a friendly reminder that your rent for <strong>${esc(periodLabel)}</strong>
+        ? `This is a friendly reminder that your ${word} for <strong>${esc(periodLabel)}</strong>
            (Unit ${esc(t.unit.unitNumber)}, ${esc(propertyName)}) is due <strong>today</strong>.`
-        : `This is a friendly reminder that your rent for <strong>${esc(periodLabel)}</strong>
+        : `This is a friendly reminder that your ${word} for <strong>${esc(periodLabel)}</strong>
            (Unit ${esc(t.unit.unitNumber)}, ${esc(propertyName)}) is still outstanding.`;
 
   const html = `

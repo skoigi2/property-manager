@@ -71,7 +71,9 @@ function DepositUnverifiedBadge() {
   );
 }
 
-function LeaseStatusBadge({ leaseEnd, monthToMonth }: { leaseEnd: string | null; monthToMonth?: boolean }) {
+function LeaseStatusBadge({ leaseEnd, monthToMonth, isUnitOwner }: { leaseEnd: string | null; monthToMonth?: boolean; isUnitOwner?: boolean }) {
+  // A unit owner has no lease: they pay the service charge only.
+  if (isUnitOwner) return <span title="Owns the unit — pays the service charge only"><Badge variant="blue">Unit owner</Badge></span>;
   const status = getLeaseStatus(toDate(leaseEnd), monthToMonth);
   if (status === "TBC")      return <Badge variant="gray">Lease TBC</Badge>;
   if (status === "ROLLING")  return <Badge variant="blue">Month-to-month</Badge>;
@@ -229,7 +231,7 @@ export default function TenantsPage() {
 
     // Lease status
     if (leaseFilter !== "ALL") {
-      list = list.filter((t) => getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth) === leaseFilter);
+      list = list.filter((t) => getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth, t.isUnitOwner) === leaseFilter);
     }
 
     // Can't be contacted (no email, no WhatsApp-usable phone)
@@ -322,6 +324,7 @@ export default function TenantsPage() {
     setEditingTenant(tenant);
     reset({
       name:             tenant.name,
+      isUnitOwner:      tenant.isUnitOwner ?? false,
       email:            tenant.email ?? "",
       phone:            tenant.phone ?? "",
       unitId:           tenant.unitId,
@@ -432,7 +435,7 @@ export default function TenantsPage() {
 
   // Urgent lease alerts
   const urgentTenants = tenants.filter((t) => {
-    const s = getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth);
+    const s = getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth, t.isUnitOwner);
     return s === "TBC" || s === "CRITICAL" || s === "WARNING";
   });
 
@@ -463,7 +466,7 @@ export default function TenantsPage() {
             </div>
             <div className="space-y-1.5">
               {urgentTenants.map((t) => {
-                const status = getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth);
+                const status = getLeaseStatus(toDate(t.leaseEnd), t.monthToMonth, t.isUnitOwner);
                 const isTBC = status === "TBC";
                 return (
                   <div key={t.id} className="flex items-center justify-between gap-3 flex-wrap">
@@ -696,7 +699,7 @@ export default function TenantsPage() {
           // ── CARD GRID VIEW ───────────────────────────────────────────────
           <div className="grid gap-3 sm:grid-cols-2">
             {filtered.map((tenant) => {
-              const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth);
+              const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth, tenant.isUnitOwner);
               const monthlyTotal = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
               return (
                 <Card
@@ -720,7 +723,7 @@ export default function TenantsPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} />
+                      <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} isUnitOwner={tenant.isUnitOwner} />
                       {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
                       {isUncontactable(tenant, currency) && <NoContactBadge />}
                     </div>
@@ -730,7 +733,9 @@ export default function TenantsPage() {
                   <div className="grid grid-cols-2 gap-2 text-body mb-3">
                     <div>
                       <p className="text-caption text-gray-400 ">Rent</p>
-                      <CurrencyDisplay currency={currency} amount={tenant.monthlyRent} size="sm" />
+                      {tenant.isUnitOwner
+                        ? <p className="text-body text-gray-400">— (owner)</p>
+                        : <CurrencyDisplay currency={currency} amount={tenant.monthlyRent} size="sm" />}
                     </div>
                     <div>
                       <p className="text-caption text-gray-400 ">Svc Charge</p>
@@ -748,7 +753,7 @@ export default function TenantsPage() {
                         status === "CRITICAL" && "text-expense font-medium",
                         status === "WARNING"  && "text-amber-500 font-medium",
                       )}>
-                        {tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
+                        {tenant.isUnitOwner ? "—" : tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
                       </p>
                     </div>
                   </div>
@@ -791,7 +796,7 @@ export default function TenantsPage() {
             {/* Mobile: stacked list (no horizontal scroll) */}
             <div className="md:hidden divide-y divide-gray-50">
               {filtered.map((tenant) => {
-                const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth);
+                const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth, tenant.isUnitOwner);
                 const monthlyTotal = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
                 return (
                   <div
@@ -808,7 +813,7 @@ export default function TenantsPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {tenant.isActive
-                          ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} />
+                          ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} isUnitOwner={tenant.isUnitOwner} />
                           : <Badge variant="gray">Vacated</Badge>
                         }
                         {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
@@ -840,7 +845,7 @@ export default function TenantsPage() {
                           status === "WARNING"  && "text-amber-500 font-medium",
                           status === "OK"       && "text-gray-600",
                         )}>
-                          {tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
+                          {tenant.isUnitOwner ? "—" : tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
                         </p>
                         {status === "WARNING" && (
                           <p className="text-caption text-amber-400 mt-0.5">
@@ -926,7 +931,7 @@ export default function TenantsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((tenant, i) => {
-                    const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth);
+                    const status = getLeaseStatus(toDate(tenant.leaseEnd), tenant.monthToMonth, tenant.isUnitOwner);
                     const monthlyTotal = (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0);
                     return (
                       <tr
@@ -984,7 +989,7 @@ export default function TenantsPage() {
                             status === "WARNING"  && "text-amber-500 font-medium",
                             status === "OK"       && "text-gray-500",
                           )}>
-                            {tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
+                            {tenant.isUnitOwner ? "—" : tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "TBC"}
                           </p>
                           {status === "WARNING" && (
                             <p className="text-caption text-amber-400 mt-0.5">
@@ -996,7 +1001,7 @@ export default function TenantsPage() {
                         <td className="px-4 py-3 text-center">
                           <div className="inline-flex flex-col items-center gap-1">
                             {tenant.isActive
-                              ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} />
+                              ? <LeaseStatusBadge leaseEnd={tenant.leaseEnd} monthToMonth={tenant.monthToMonth} isUnitOwner={tenant.isUnitOwner} />
                               : <Badge variant="gray">Vacated</Badge>
                             }
                             {isDepositUnverified(tenant) && <DepositUnverifiedBadge />}
@@ -1105,6 +1110,7 @@ export default function TenantsPage() {
               setValue={setValue}
               unitAccounts={unitAccounts}
               unitLabel={editingTenant ? "Unit" : "Unit (vacant/listed only)"}
+              isEditing={!!editingTenant}
               unitOptions={availableUnits.map((u: any) => ({
                 value: u.id,
                 label: `${u.unitNumber} (${u.propertyName})`,

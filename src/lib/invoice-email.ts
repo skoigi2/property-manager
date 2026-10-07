@@ -45,7 +45,7 @@ export async function emailInvoiceToTenant(
   const subject = `Invoice ${invoice.invoiceNumber} — ${propertyName}, ${periodLabel}`;
   const html = `
     <p>Dear ${esc(invoice.tenant.name)},</p>
-    <p>Please find attached your rent invoice for <strong>${esc(periodLabel)}</strong>
+    <p>Please find attached your ${invoice.rentAmount > 0 ? "rent invoice" : invoice.serviceCharge > 0 ? "service charge invoice" : "invoice"} for <strong>${esc(periodLabel)}</strong>
     (Unit ${esc(invoice.tenant.unit.unitNumber)}, ${esc(propertyName)}).</p>
     <table cellpadding="4" style="border-collapse:collapse">
       <tr><td>Invoice No:</td><td><strong>${esc(invoice.invoiceNumber)}</strong></td></tr>

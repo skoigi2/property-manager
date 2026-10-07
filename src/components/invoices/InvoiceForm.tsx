@@ -192,14 +192,15 @@ export default function InvoiceForm({
   // only — editing keeps the stored lines).
   useEffect(() => {
     if (isEdit || !detail) return;
-    const rent = String(detail.monthlyRent ?? "");
+    // A unit owner (service charge only) has rent 0: no rent line on their invoice.
+    const rentLine = (detail.monthlyRent ?? 0) > 0 ? { rentAmount: String(detail.monthlyRent) } : {};
     const sc = detail.serviceCharge > 0 ? String(detail.serviceCharge) : "";
     const wifi = (detail.wifiCharge ?? 0) > 0 ? String(detail.wifiCharge) : "";
     const dep = detail.depositAmount > 0 ? String(detail.depositAmount) : "";
     const lease = defaults?.leaseFeeDefault ? String(defaults.leaseFeeDefault) : "";
-    if (kind === "RENT") setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}) });
+    if (kind === "RENT") setLines({ ...rentLine, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}) });
     else if (kind === "MOVE_IN") {
-      setLines({ rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}), depositAmount: dep, leaseFee: lease });
+      setLines({ ...rentLine, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}), depositAmount: dep, leaseFee: lease });
       // The move-in invoice bills the lease-start month.
       const ls = detail.leaseStart ? new Date(detail.leaseStart) : null;
       if (ls && !Number.isNaN(ls.getTime())) {
@@ -208,7 +209,7 @@ export default function InvoiceForm({
         setDueDate(format(ls, "yyyy-MM-dd"));
       }
     } else if (kind === "DEPOSIT") setLines({ depositAmount: dep });
-    else setLines((prev) => (Object.keys(prev).length ? prev : { rentAmount: rent, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}) }));
+    else setLines((prev) => (Object.keys(prev).length ? prev : { ...rentLine, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}) }));
     // Deliberately NOT keyed on `defaults`: the property's fee default arrives
     // a moment after the tenant detail and must only fill the lease-fee line
     // (below), never re-apply the preset and undo a month the user changed.

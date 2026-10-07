@@ -90,8 +90,9 @@ export async function POST(req: Request) {
     }),
     prisma.tenant.findMany({
       where: tenantId
-        ? { id: tenantId, unit: { propertyId } }
-        : { unit: { propertyId }, leaseStart: { gte: start, lte: end } },
+        ? { id: tenantId, unit: { propertyId }, isUnitOwner: false }
+        // Unit owners were never let — no letting fee (src/lib/unit-owner.ts).
+        : { unit: { propertyId }, leaseStart: { gte: start, lte: end }, isUnitOwner: false },
       select: {
         id: true,
         name: true,

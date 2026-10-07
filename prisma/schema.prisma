@@ -894,6 +894,11 @@ model Tenant {
   // shows "Month-to-month" instead of "Expired". Reset whenever leaseEnd
   // changes (a renewal or an edited end date starts a new fixed term).
   monthToMonth     Boolean          @default(false)
+  // A unit owner on a development the organisation manages: pays only the
+  // service charge (+ metered utilities / Wi-Fi). Rent is 0 and there is no
+  // deposit, lease end, rent review, renewal or letting fee; payments are
+  // booked as SERVICE_CHARGE income (src/lib/unit-owner.ts).
+  isUnitOwner      Boolean          @default(false)
   escalationRate   Float?
   // How often the escalation applies, in years (1 = annual, 2 = every two
   // years, or any custom interval). Null = not configured.

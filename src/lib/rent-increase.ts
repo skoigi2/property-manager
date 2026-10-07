@@ -244,7 +244,8 @@ async function clearOpenRentIncreaseHints(tenantId: string) {
  */
 export async function applyDueRentIncreases(now: Date = new Date()): Promise<{ applied: number; skipped: number }> {
   const due = await prisma.rentHistory.findMany({
-    where: { appliedAt: null, effectiveDate: { lte: now } },
+    // A unit owner pays no rent: a scheduled row left from before is never applied.
+    where: { appliedAt: null, effectiveDate: { lte: now }, tenant: { isUnitOwner: false } },
     orderBy: { effectiveDate: "asc" },
     include: { tenant: { select: { id: true, isActive: true, monthlyRent: true, unit: { select: { property: { select: { organizationId: true } } } } } } },
   });

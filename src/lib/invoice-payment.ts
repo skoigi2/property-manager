@@ -23,7 +23,9 @@
 //
 // Pure module — the Prisma side lives in src/lib/invoice-payment-entries.ts.
 
-export type InvoicePaymentType = "LONGTERM_RENT" | "UTILITY_RECOVERY" | "DEPOSIT" | "LEASE_FEE";
+// SERVICE_CHARGE: the rent side of a unit owner's invoice (src/lib/unit-owner.ts) —
+// the allocator itself always yields LONGTERM_RENT; the Prisma side relabels it.
+export type InvoicePaymentType = "LONGTERM_RENT" | "SERVICE_CHARGE" | "UTILITY_RECOVERY" | "DEPOSIT" | "LEASE_FEE";
 export type InvoiceUtility = "WATER" | "ELECTRICITY" | "WIFI";
 
 export interface InvoiceLinesLike {
@@ -200,6 +202,7 @@ export function invoiceOutstandingByBucket(inv: InvoiceLinesLike, paid: number |
 export function describeAllocation(parts: PaymentAllocation[], fmt: (n: number) => string): string {
   const label: Record<InvoicePaymentType, string> = {
     LONGTERM_RENT: "rent",
+    SERVICE_CHARGE: "service charge",
     UTILITY_RECOVERY: "utilities",
     DEPOSIT: "deposit",
     LEASE_FEE: "lease fee",

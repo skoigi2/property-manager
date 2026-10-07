@@ -37,6 +37,8 @@ type PortalData = {
     email: string | null;
     phone: string | null;
     monthlyRent: number;
+    /** Unit owner: pays the service charge only (no rent row). */
+    isUnitOwner?: boolean;
     serviceCharge: number;
     leaseStart: string;
     leaseEnd: string | null;
@@ -613,12 +615,14 @@ export default function PortalPage(props: { params: Promise<{ token: string }> }
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+              {!tenant.isUnitOwner && (
               <div className="px-4 py-3 flex justify-between items-center">
                 <span className="text-body text-gray-500">Monthly Rent</span>
                 <span className="text-body font-semibold text-gray-900">
                   {formatCurrency(tenant.monthlyRent, currency)}
                 </span>
               </div>
+              )}
               {tenant.serviceCharge > 0 && (
                 <div className="px-4 py-3 flex justify-between items-center">
                   <span className="text-body text-gray-500">Service Charge</span>
@@ -666,7 +670,7 @@ export default function PortalPage(props: { params: Promise<{ token: string }> }
                 </span>
               </div>
               <div className="px-4 py-3 flex justify-between items-center">
-                <span className="text-body text-gray-500">Lease Start</span>
+                <span className="text-body text-gray-500">{tenant.isUnitOwner ? "Billing starts" : "Lease Start"}</span>
                 <span className="text-body text-gray-900">{format(new Date(tenant.leaseStart), "d MMM yyyy")}</span>
               </div>
               {tenant.leaseEnd && (

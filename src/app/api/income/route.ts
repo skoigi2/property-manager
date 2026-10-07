@@ -116,7 +116,7 @@ export async function POST(req: Request) {
   // invisible to settlement.
   let resolvedTenantId = tenantId ?? null;
   // UTILITY_RECOVERY too: metered water / electricity is a tenant payment.
-  if (!resolvedTenantId && (rest.type === "LONGTERM_RENT" || rest.type === "DEPOSIT" || rest.type === "UTILITY_RECOVERY")) {
+  if (!resolvedTenantId && (rest.type === "LONGTERM_RENT" || rest.type === "SERVICE_CHARGE" || rest.type === "DEPOSIT" || rest.type === "UTILITY_RECOVERY")) {
     const activeTenant = await prisma.tenant.findFirst({
       where: { unitId: rest.unitId, isActive: true },
       select: { id: true },
@@ -146,6 +146,7 @@ export async function POST(req: Request) {
     wifiAmount: true,
     depositAmount: true,
     leaseFee: true,
+    serviceChargeBudgetId: true,
   } as const;
   let resolvedInvoiceId = invoiceId ?? null;
   let matchedInvoice:
@@ -153,11 +154,20 @@ export async function POST(req: Request) {
         id: string; invoiceNumber: string; totalAmount: number; paidAmount: number | null; status: string; caseThreadId: string | null;
         rentAmount: number; serviceCharge: number; otherCharges: number; lateFeeAmount: number;
         waterAmount: number; electricityAmount: number; wifiAmount: number;
-        depositAmount: number; leaseFee: number;
+        depositAmount: number; leaseFee: number; serviceChargeBudgetId: string | null;
       }
     | null = null;
+  // A unit owner pays service charge, never rent (src/lib/unit-owner.ts): a
+  // "rent" payment recorded for one is booked as SERVICE_CHARGE, and their
+  // service charge payments settle their invoices like rent does.
+  const isUnitOwner = resolvedTenantId
+    ? (await prisma.tenant.findUnique({ where: { id: resolvedTenantId }, select: { isUnitOwner: true } }))?.isUnitOwner ?? false
+    : false;
+  if (isUnitOwner && rest.type === "LONGTERM_RENT") rest.type = "SERVICE_CHARGE";
   // Payments that walk an invoice's lines through the shared allocator.
-  const isInvoicePayment = rest.type === "LONGTERM_RENT" || rest.type === "UTILITY_RECOVERY";
+  // A service charge payment settles the invoice like rent does (any tenant) —
+  // otherwise the ledger shows it paid while the invoice stays open.
+  const isInvoicePayment = rest.type === "LONGTERM_RENT" || rest.type === "UTILITY_RECOVERY" || rest.type === "SERVICE_CHARGE";
   if (!resolvedInvoiceId && resolvedTenantId && isInvoicePayment) {
     const entryDate = new Date(date);
     const [tenantMeta, openInvoices] = await Promise.all([
@@ -183,9 +193,14 @@ export async function POST(req: Request) {
         return entryIndex >= startIndex && entryIndex < startIndex + n;
       })
       .filter((inv) => rest.type !== "UTILITY_RECOVERY" || inv.waterAmount + inv.electricityAmount + inv.wifiAmount > 0)
+      // A tenant's separately paid service charge only settles an invoice that bills service charge.
+      .filter((inv) => rest.type !== "SERVICE_CHARGE" || isUnitOwner || inv.serviceCharge > 0)
       .sort((a, b) => {
-        const rentFirst = Number(b.rentAmount > 0) - Number(a.rentAmount > 0);
-        if (rest.type === "LONGTERM_RENT" && rentFirst !== 0) return rentFirst;
+        // The regular invoice first: rent — or, for an owner, the service charge.
+        // (A service-charge budget's balancing invoice is never the regular one.)
+        const regular = (i: typeof a) => Number(i.rentAmount > 0 || (isUnitOwner && i.serviceCharge > 0 && !i.serviceChargeBudgetId));
+        const rentFirst = regular(b) - regular(a);
+        if (rest.type !== "UTILITY_RECOVERY" && rentFirst !== 0) return rentFirst;
         return a.periodYear * 12 + a.periodMonth - (b.periodYear * 12 + b.periodMonth) || a.invoiceNumber.localeCompare(b.invoiceNumber);
       });
     matchedInvoice = covering[0] ?? null;
@@ -244,12 +259,15 @@ export async function POST(req: Request) {
         propertyId,
         organizationId: orgId,
         isTaxExempt: tenantMeta?.isTaxExempt,
+        isUnitOwner,
         alreadyPaid: prevPaid,
       },
       amount: rest.grossAmount,
       date: new Date(date),
       paymentMethod: (rest as { paymentMethod?: string | null }).paymentMethod ?? null,
       note: rest.note ?? `Payment against invoice ${matchedInvoice.invoiceNumber}`,
+      // The rent side keeps the type the payment was recorded as (owners: always service charge).
+      rentSideType: rest.type === "SERVICE_CHARGE" ? "SERVICE_CHARGE" : isUnitOwner ? "SERVICE_CHARGE" : "LONGTERM_RENT",
     });
     ops.push(...entryOps);
     allocation = parts;

@@ -26,6 +26,8 @@ interface TenantInput {
   serviceCharge: number;
   /** Monthly Wi-Fi charge billed on the rent invoice. */
   wifiCharge?: number | null;
+  /** Unit owner (service charge only) — no rent, no reviews. */
+  isUnitOwner?: boolean | null;
   leaseStart: Date;
   leaseEnd: Date | null;
   escalationRate: number | null;
@@ -144,6 +146,8 @@ function advanceAssetMaintenanceCursor(cursor: Date, frequency: string): Date {
  * are not assumed to have happened — monthlyRent is taken as the truth today.
  */
 function getEscalatedRent(tenant: TenantInput, monthStart: Date, today: Date): number {
+  // A unit owner pays only the service charge (src/lib/unit-owner.ts).
+  if (tenant.isUnitOwner) return 0;
   const history = tenant.rentHistory ?? [];
   let rent = resolveExpectedRent(history, tenant.monthlyRent, monthStart);
   const terms: EscalationTerms = {

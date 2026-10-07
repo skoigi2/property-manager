@@ -577,6 +577,8 @@ export async function checkDepositNotSettled(): Promise<{ created: number }> {
       isActive: false,
       vacatedDate: { lte: cutoff, not: null },
       depositSettlement: null,
+      // A unit owner pays no deposit (src/lib/unit-owner.ts).
+      isUnitOwner: false,
       unit: { property: { organizationId: { not: null } } },
     },
     include: { unit: { include: { property: true } } },
@@ -1059,7 +1061,7 @@ export async function checkTenantRentReminders(): Promise<{ sent: number; skippe
       dueDate: true, periodYear: true, periodMonth: true,
       tenant: {
         select: {
-          id: true, name: true, email: true,
+          id: true, name: true, email: true, isUnitOwner: true,
           unit: {
             select: {
               unitNumber: true, propertyId: true,

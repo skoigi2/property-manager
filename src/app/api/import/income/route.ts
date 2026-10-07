@@ -92,10 +92,18 @@ export async function POST(req: Request) {
     const startOfDay = new Date(dateOnly + "T00:00:00.000Z");
     const endOfDay = new Date(dateOnly + "T23:59:59.999Z");
 
+    // Find active tenant for unit
+    const activeTenant = await prisma.tenant.findFirst({
+      where: { unitId: unit.id, isActive: true },
+      select: { id: true, isUnitOwner: true },
+    });
+    // A unit owner pays service charge, never rent (src/lib/unit-owner.ts).
+    const entryType = activeTenant?.isUnitOwner && type === "LONGTERM_RENT" ? "SERVICE_CHARGE" : type;
+
     const duplicate = await prisma.incomeEntry.findFirst({
       where: {
         unitId: unit.id,
-        type: type as never,
+        type: entryType as never,
         grossAmount,
         date: { gte: startOfDay, lte: endOfDay },
       },
@@ -106,11 +114,6 @@ export async function POST(req: Request) {
       continue;
     }
 
-    // Find active tenant for unit
-    const activeTenant = await prisma.tenant.findFirst({
-      where: { unitId: unit.id, isActive: true },
-      select: { id: true },
-    });
 
     try {
       const agentCommission = parseFloat(String(row.agentCommission ?? "0")) || 0;
@@ -118,7 +121,7 @@ export async function POST(req: Request) {
       await prisma.incomeEntry.create({
         data: {
           date,
-          type: type as never,
+          type: entryType as never,
           unitId: unit.id,
           grossAmount,
           agentCommission,

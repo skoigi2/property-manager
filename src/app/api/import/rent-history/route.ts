@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       where: { propertyId: { in: propertyIds } },
       include: {
         property: { select: { name: true } },
-        tenants:  { select: { id: true, name: true } },
+        tenants:  { select: { id: true, name: true, isUnitOwner: true } },
       },
     });
 
@@ -76,6 +76,11 @@ export async function POST(req: Request) {
       const tenant = unit.tenants.find((t) => t.name.toLowerCase() === tenantName.toLowerCase());
       if (!tenant) {
         errors.push({ row: rowNum, reason: `Tenant "${tenantName}" not found on unit ${unitNumber}` });
+        skipped++;
+        continue;
+      }
+      if (tenant.isUnitOwner) {
+        errors.push({ row: rowNum, reason: `"${tenantName}" is a unit owner (service charge only) — no rent history` });
         skipped++;
         continue;
       }

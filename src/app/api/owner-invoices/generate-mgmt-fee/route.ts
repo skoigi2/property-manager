@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getMonthRange } from "@/lib/date-utils";
 import { getActiveTaxConfigs, matchConfig, calcTax, taxLabel } from "@/lib/tax-engine";
-import { MGMT_FEE_EXCLUDED_INCOME_TYPES } from "@/lib/management-fee";
+import { MGMT_FEE_EXCLUDED_INCOME_TYPES, perUnitFeeBase } from "@/lib/management-fee";
 import { pendingLeaseFeeRecoveries, recoveryLineItem } from "@/lib/lease-fee-recovery";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     }),
     prisma.tenant.findMany({
       where: { isActive: true, unit: { propertyId } },
-      select: { unitId: true, monthlyRent: true, unit: { select: { unitNumber: true } } },
+      select: { unitId: true, monthlyRent: true, serviceCharge: true, isUnitOwner: true, unit: { select: { unitNumber: true } } },
     }),
     prisma.managementFeeConfig.findMany({
       where: {
@@ -99,10 +99,12 @@ export async function POST(req: Request) {
     for (const t of activeTenants) {
       const cfg = feeConfigs.find((c) => c.unitId === t.unitId);
       if (!cfg) continue;
-      const amount = cfg.flatAmount ?? (cfg.ratePercent / 100) * t.monthlyRent;
+      // A unit owner's per-unit % is charged on their service charge (src/lib/unit-owner.ts).
+      const base = perUnitFeeBase(t);
+      const amount = cfg.flatAmount ?? (cfg.ratePercent / 100) * base;
       const desc = cfg.flatAmount != null
         ? `Unit ${t.unit.unitNumber} — Management Fee (flat)`
-        : `Unit ${t.unit.unitNumber} — Management Fee (${cfg.ratePercent}% \u00d7 ${formatCurrency(t.monthlyRent, property!.currency ?? "USD")})`;
+        : `Unit ${t.unit.unitNumber} — Management Fee (${cfg.ratePercent}% \u00d7 ${formatCurrency(base, property!.currency ?? "USD")}${t.isUnitOwner ? " service charge" : ""})`;
       lineItems.push({ description: desc, amount, unitId: null, tenantId: null, incomeType: "OTHER" });
     }
   } else {

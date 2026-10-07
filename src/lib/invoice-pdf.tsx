@@ -208,7 +208,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
   const breakdown = data.outstandingBreakdown;
   const breakdownParts = breakdown
     ? [
-        breakdown.rent > 0 ? `rent ${fmt(breakdown.rent)}` : null,
+        breakdown.rent > 0 ? `${data.rentAmount > 0 ? "rent" : "service charge"} ${fmt(breakdown.rent)}` : null,
         breakdown.water > 0 ? `water ${fmt(breakdown.water)}` : null,
         breakdown.electricity > 0 ? `electricity ${fmt(breakdown.electricity)}` : null,
         (breakdown.wifi ?? 0) > 0 ? `Wi-Fi ${fmt(breakdown.wifi!)}` : null,
@@ -217,8 +217,9 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
       ].filter(Boolean)
     : [];
   const lineItems = [
-    // A utilities-only invoice has no rent row.
-    ...(data.rentAmount > 0 || (!hasDeposit && !hasUtilities) ? [{ label: rentLabel, amount: data.rentAmount }] : []),
+    // A utilities-only or service-charge-only (unit owner) invoice has no rent row.
+    ...(data.rentAmount > 0 || (!hasDeposit && !hasUtilities && !(data.serviceCharge > 0) && !(data.otherCharges > 0))
+      ? [{ label: rentLabel, amount: data.rentAmount }] : []),
     ...(data.serviceCharge > 0 ? [{ label: "Service Charge", amount: data.serviceCharge }] : []),
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
     ...utilityRows("WATER", data.waterAmount ?? 0, "Water"),

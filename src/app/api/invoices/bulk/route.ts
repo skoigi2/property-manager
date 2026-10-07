@@ -60,6 +60,7 @@ export async function POST(req: Request) {
   const created = result.created.map((c) => c.tenantName);
   const skipped = result.skipped.map((s) => s.tenantName);
   const notDue  = result.notDue.map((s) => s.tenantName);
+  const nothingToBill = result.nothingToBill.map((s) => s.tenantName);
   const errors  = result.errors.map(({ tenant, error: err }) => ({ tenant, error: err }));
 
   return Response.json({
@@ -70,10 +71,12 @@ export async function POST(req: Request) {
     createdNames: created,
     skippedNames: skipped,
     notDueNames:  notDue,
+    nothingToBillNames: nothingToBill,
     errorDetails: errors,
     message:
       `Generated ${created.length} invoice${created.length !== 1 ? "s" : ""} for ${periodLabel}` +
       `${skipped.length > 0 ? `, ${skipped.length} already existed` : ""}` +
-      `${notDue.length > 0 ? `, ${notDue.length} not due (covered by advance billing)` : ""}`,
+      `${notDue.length > 0 ? `, ${notDue.length} not due (covered by advance billing)` : ""}` +
+      `${nothingToBill.length > 0 ? `, ${nothingToBill.length} with nothing to bill (no service charge set: ${nothingToBill.join(", ")})` : ""}`,
   }, { status: 201 });
 }

@@ -77,6 +77,8 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
+  const ownerRow = await prisma.tenant.findUnique({ where: { id: params.id }, select: { isUnitOwner: true } });
+  if (ownerRow?.isUnitOwner) return Response.json({ error: "A unit owner pays only the service charge — there is no rent to review." }, { status: 400 });
   const actor = {
     userId: session!.user.id,
     email: session!.user.email,

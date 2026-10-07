@@ -29,6 +29,8 @@ export interface InvoicingTenant {
   leaseStart: Date;
   paymentFrequency?: string | null;
   rentHistory: { monthlyRent: number; effectiveDate: Date }[];
+  /** Unit owner (service charge only) — never billed rent. */
+  isUnitOwner?: boolean | null;
 }
 
 export interface GenerateInvoicesResult {
@@ -38,6 +40,8 @@ export interface GenerateInvoicesResult {
   skipped: { tenantId: string; tenantName: string }[];
   /** Not due this month (covered by quarterly/annual advance billing). */
   notDue: { tenantId: string; tenantName: string }[];
+  /** Nothing to bill yet (a unit owner whose service charge isn't set) — not "done" for the month. */
+  nothingToBill: { tenantId: string; tenantName: string }[];
   errors: { tenantId: string; tenant: string; error: string }[];
 }
 
@@ -57,16 +61,23 @@ export async function generateInvoicesForTenants(opts: {
   const status = opts.status ?? "SENT";
   const notePrefix = opts.notePrefix ?? "Auto-generated";
 
-  const result: GenerateInvoicesResult = { created: [], skipped: [], notDue: [], errors: [] };
+  const result: GenerateInvoicesResult = { created: [], skipped: [], notDue: [], nothingToBill: [], errors: [] };
   if (tenants.length === 0) return result;
 
+  // The month's regular invoice: the rent invoice — or, for a unit owner
+  // (rent 0), the service charge invoice (a service-charge budget's balancing
+  // invoice doesn't count). Never two for the same month.
   const existingInvoices = await prisma.invoice.findMany({
     where: {
       periodYear: year,
       periodMonth: month,
       tenantId: { in: tenants.map((t) => t.id) },
-      rentAmount: { gt: 0 },
       status: { not: "CANCELLED" },
+      OR: [
+        { rentAmount: { gt: 0 } },
+        // (Wi-Fi only counts too — an owner billed only Wi-Fi; a utilities-only invoice doesn't.)
+        { tenant: { isUnitOwner: true }, serviceChargeBudgetId: null, OR: [{ serviceCharge: { gt: 0 } }, { wifiAmount: { gt: 0 } }] },
+      ],
     },
     select: { tenantId: true },
   });
@@ -93,7 +104,8 @@ export async function generateInvoicesForTenants(opts: {
       leaseStart: tenant.leaseStart,
       frequency: tenant.paymentFrequency,
       month: periodStart,
-      rentForMonth: (m) => resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m),
+      // A unit owner never owes rent, whatever an old rent history says.
+      rentForMonth: (m) => (tenant.isUnitOwner ? 0 : resolveExpectedRent(tenant.rentHistory, tenant.monthlyRent ?? 0, m)),
     });
     if (!sched.due) {
       result.notDue.push({ tenantId: tenant.id, tenantName: tenant.name });
@@ -107,9 +119,6 @@ export async function generateInvoicesForTenants(opts: {
         : periodLabel;
 
     try {
-      // Each tenant's number comes from its resolved series (unit/property
-      // payment account with its own format, else the org default).
-      const invoiceNumber = await allocateInvoiceNumber(tenant.id, periodStart);
       const rentAmount = sched.amount;
       const serviceCharge = (tenant.serviceCharge ?? 0) * nMonths;
       const metered = utilities.get(tenant.id);
@@ -118,6 +127,15 @@ export async function generateInvoicesForTenants(opts: {
       // Wi-Fi is billed like the service charge: the monthly charge × months covered.
       const wifiAmount = (tenant.wifiCharge ?? 0) * nMonths;
       const totalAmount = invoiceLinesTotal({ rentAmount, serviceCharge, waterAmount, electricityAmount, wifiAmount });
+      // Nothing to bill (a unit owner whose service charge isn't set yet):
+      // no invoice number used, and not recorded as done for the month.
+      if (totalAmount <= 0) {
+        result.nothingToBill.push({ tenantId: tenant.id, tenantName: tenant.name });
+        continue;
+      }
+      // Each tenant's number comes from its resolved series (unit/property
+      // payment account with its own format, else the org default).
+      const invoiceNumber = await allocateInvoiceNumber(tenant.id, periodStart);
 
       const invoice = await prisma.invoice.create({
         data: {

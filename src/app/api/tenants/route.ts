@@ -2,6 +2,7 @@ import { requireSession, requireManager, getAccessiblePropertyIds } from "@/lib/
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { tenantSchema } from "@/lib/validations";
+import { unitOwnerOverrides } from "@/lib/unit-owner";
 import { checkUnitPaymentAccount } from "@/lib/unit-payment-account";
 import { TENANT_DIRECTORY_SELECT, tenantReadIsDirectory } from "@/lib/tenant-projection";
 
@@ -103,6 +104,7 @@ export async function POST(req: Request) {
         leaseStart: new Date(leaseStart),
         escalationAnchorDate: escalationAnchorDate ? new Date(escalationAnchorDate) : null,
         leaseEnd: leaseEnd ? new Date(leaseEnd) : null,
+        ...unitOwnerOverrides(rest.isUnitOwner),
       },
       include: {
         unit: { include: { property: { select: { id: true, name: true, type: true } } } },

@@ -91,6 +91,7 @@ const TENANT_COLS = [
   "Emergency Contact Name",
   "Emergency Contact Phone",
   "Emergency Contact Relation",
+  "Account Type",
   "Notes",
 ];
 
@@ -317,9 +318,16 @@ function validateTenantRow(row: Record<string, string>): string[] {
   if (!row["Name"]?.trim()) errors.push("Name is required");
   if (!row["Unit Number"]?.trim()) errors.push("Unit Number is required");
   const rent = parseFloat(row["Monthly Rent"] ?? "");
-  if (!row["Monthly Rent"] || isNaN(rent) || rent <= 0)
-    errors.push("Monthly Rent must be a positive number");
-  if (!row["Lease Start"]?.trim()) errors.push("Lease Start is required");
+  // A unit owner (Account Type "Unit owner") pays only the service charge: rent may be blank / 0.
+  const accountType = (row["Account Type"] ?? "").trim();
+  const owner = /owner/i.test(accountType);
+  // Blank rent is allowed for an owner — and for a blank Account Type (an
+  // existing owner being updated); the server refuses it for a tenant.
+  if (row["Monthly Rent"]?.trim() && (isNaN(rent) || rent < 0))
+    errors.push("Monthly Rent must be a number");
+  else if (/tenant/i.test(accountType) && !(rent > 0))
+    errors.push("Monthly Rent must be a positive number (or Account Type \"Unit owner\")");
+  if (!row["Lease Start"]?.trim()) errors.push(owner ? "Lease Start (billing start) is required" : "Lease Start is required");
   else if (isNaN(Date.parse(row["Lease Start"])))
     errors.push("Lease Start is not a valid date");
   const freq = row["Payment Frequency"]?.trim()?.toUpperCase();
@@ -602,6 +610,7 @@ function mapTenantRowToApi(row: Record<string, string>) {
     emergencyContactName:     row["Emergency Contact Name"],
     emergencyContactPhone:    row["Emergency Contact Phone"],
     emergencyContactRelation: row["Emergency Contact Relation"],
+    accountType:      row["Account Type"],
     notes:            row["Notes"],
   };
 }

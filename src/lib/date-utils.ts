@@ -8,7 +8,9 @@ export type LeaseStatus = "OK" | "WARNING" | "CRITICAL" | "TBC" | "ROLLING";
  * where it's known: an ended lease the manager agreed to roll on is ROLLING,
  * not CRITICAL.
  */
-export function getLeaseStatus(leaseEnd: Date | null | undefined, monthToMonth = false): LeaseStatus {
+export function getLeaseStatus(leaseEnd: Date | null | undefined, monthToMonth = false, isUnitOwner = false): LeaseStatus {
+  // A unit owner (service charge only) has no lease to expire.
+  if (isUnitOwner) return "OK";
   if (!leaseEnd) return "TBC";
   const daysLeft = differenceInDays(leaseEnd, new Date());
   if (daysLeft < 0) return monthToMonth ? "ROLLING" : "CRITICAL";

@@ -50,6 +50,9 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   if (!tenant || !accessibleIds.includes(tenant.unit.propertyId)) {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
+  if (tenant.isUnitOwner) {
+    return Response.json({ error: "A unit owner pays only the service charge — there is no rent to record." }, { status: 400 });
+  }
 
   const body = await req.json();
   const parsed = bodySchema.safeParse(body);

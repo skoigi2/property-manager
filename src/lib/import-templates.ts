@@ -78,19 +78,21 @@ export function downloadTenantsTemplate() {
     { header: "Emergency Contact Name",     required: false, width: 24 },
     { header: "Emergency Contact Phone",    required: false, width: 22 },
     { header: "Emergency Contact Relation", required: false, width: 24 },
+    { header: "Account Type",      required: false, width: 16 },
     { header: "Notes",             required: false, width: 40 },
   ];
 
   const sampleRows: (string | number)[][] = [
-    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678", "MONTHLY",   5,  "PERCENT", "",   1,  "",           "",   50000, "2025-01-01", 1500, "John Smith", "+254722000111", "Husband", ""],
-    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432", "QUARTERLY", "", "",        "",   "",  "",           "",   "",    "",           "",   "",           "",              "",        "Pays Q1+Q2 together"],
-    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111", "MONTHLY",   "", "FIXED",   5000, 2,  "2027-06-01", 5000, 100000, "2025-06-01", "",   "Mary Wanjiru", "+254733000222", "Office manager", "Parking bay 14 included"],
+    ["Jane Smith",     "A1", 25000, "2025-01-01", "Riara One", 2500,   50000,  "2026-01-01", "jane@example.com",     "0712345678", "MONTHLY",   5,  "PERCENT", "",   1,  "",           "",   50000, "2025-01-01", 1500, "John Smith", "+254722000111", "Husband", "", ""],
+    ["Ali Hassan",     "B3", 30000, "2025-03-15", "Riara One", "",     "",     "2026-03-15", "",                     "0798765432", "QUARTERLY", "", "",        "",   "",  "",           "",   "",    "",           "",   "",           "",              "",        "", "Pays Q1+Q2 together"],
+    ["Apex Corp Ltd",  "G1", 85000, "2025-06-01", "Riara One", 8500,  170000, "2026-05-31", "accounts@apex.co.ke",  "0711000111", "MONTHLY",   "", "FIXED",   5000, 2,  "2027-06-01", 5000, 100000, "2025-06-01", "",   "Mary Wanjiru", "+254733000222", "Office manager", "", "Parking bay 14 included"],
+    ["Grace Achieng",  "C2", "",    "2025-01-01", "Riara One", 6000,  "",     "",           "grace@example.com",    "+254700111222", "QUARTERLY", "", "",       "",   "",  "",           "",   "",    "",           "",   "",           "",              "",        "Unit owner", "Owns C2 — pays the service charge only"],
   ];
 
   const instructions: (string | number)[][] = [
     ["Name",              "Yes", "Text",         "Full legal name of the tenant or company"],
     ["Unit Number",       "Yes", "Text (e.g. A1, 2B, 101)", "Must match an existing unit in the system"],
-    ["Monthly Rent",      "Yes", "Number (no commas or currency symbols)", "Rent in the property's currency"],
+    ["Monthly Rent",      "Yes", "Number (no commas or currency symbols)", "Rent in the property's currency — leave blank for a unit owner (Account Type)"],
     ["Lease Start",       "Yes", "YYYY-MM-DD",   "Lease commencement date"],
     ["Property Name",     "No",  "Text",         "Disambiguates unit if the same number appears in multiple properties"],
     ["Service Charge",    "No",  "Number",       "Monthly service charge — leave blank or 0 if none"],
@@ -111,6 +113,7 @@ export function downloadTenantsTemplate() {
     ["Emergency Contact Name",     "No", "Text",  "Who to call if something happens to the tenant or the unit — shown to the caretaker on inspections (blank keeps the current contact when updating)"],
     ["Emergency Contact Phone",    "No", "Phone with country code", "e.g. +254722000111 — type it as text so Excel keeps a leading + or 0"],
     ["Emergency Contact Relation", "No", "Text",  "e.g. Spouse, Brother, Office manager"],
+    ["Account Type",      "No",  "Tenant or Unit owner", "Unit owner = owns the apartment on a development you manage and pays only the service charge: leave Monthly Rent blank; deposit, lease end and rent increases are ignored. Blank = Tenant (blank keeps the current type when updating)"],
     ["Notes",             "No",  "Text",         "Free-text notes — special clauses, status caveats, anything not captured above"],
   ];
 

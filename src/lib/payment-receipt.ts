@@ -104,7 +104,7 @@ export function receiptTypeLabel(type: string, utilityType?: string | null): str
 }
 
 /**
- * One line per entry. Rent lines carry the billing period when an invoice
+ * One line per entry. Rent and service charge lines carry the billing period when an invoice
  * period is known ("Rent — September 2026"), else the payment month.
  */
 export function receiptLines(
@@ -113,12 +113,12 @@ export function receiptLines(
 ): ReceiptLine[] {
   return entries.map((e) => {
     let label = receiptTypeLabel(e.type, e.utilityType);
-    if (e.type === "LONGTERM_RENT") {
+    if (e.type === "LONGTERM_RENT" || e.type === "SERVICE_CHARGE") {
       const d = new Date(e.date);
       const period = invoicePeriod
         ? `${MONTH_NAMES[invoicePeriod.periodMonth - 1]} ${invoicePeriod.periodYear}`
         : `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-      label = `Rent — ${period}`;
+      label = `${e.type === "SERVICE_CHARGE" ? "Service charge" : "Rent"} — ${period}`;
     }
     return { label, amount: e.grossAmount };
   });

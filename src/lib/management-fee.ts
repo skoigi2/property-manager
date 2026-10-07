@@ -40,6 +40,17 @@ export interface FeeConfigLike {
 export interface FeeTenantLike {
   unitId: string;
   monthlyRent: number | null;
+  serviceCharge?: number | null;
+  isUnitOwner?: boolean | null;
+}
+
+/**
+ * What a per-unit percentage fee is charged on: the rent — or, for a unit
+ * owner who pays only the service charge (src/lib/unit-owner.ts), the
+ * service charge.
+ */
+export function perUnitFeeBase(t: FeeTenantLike): number {
+  return t.isUnitOwner ? (t.serviceCharge ?? 0) : (t.monthlyRent ?? 0);
 }
 
 export function calcPropertyManagementFee(opts: {
@@ -64,7 +75,7 @@ export function calcPropertyManagementFee(opts: {
     return opts.tenants.reduce((s, t) => {
       const cfg = opts.feeConfigs.find((c) => c.unitId === t.unitId);
       if (!cfg) return s;
-      const perMonth = cfg.flatAmount ?? (cfg.ratePercent / 100) * (t.monthlyRent ?? 0);
+      const perMonth = cfg.flatAmount ?? (cfg.ratePercent / 100) * perUnitFeeBase(t);
       return s + perMonth * monthsMult;
     }, 0);
   }

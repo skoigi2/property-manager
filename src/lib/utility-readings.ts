@@ -531,6 +531,7 @@ const INVOICE_LINES_SELECT = {
   periodYear: true, periodMonth: true,
   rentAmount: true, serviceCharge: true, otherCharges: true, lateFeeAmount: true,
   waterAmount: true, electricityAmount: true, wifiAmount: true, depositAmount: true, leaseFee: true,
+  serviceChargeBudgetId: true,
   _count: { select: { incomeEntries: true } },
 } as const;
 
@@ -698,7 +699,12 @@ export async function billApprovedReadings(opts: {
     try {
       // Prefer the rent invoice so utilities go out with the rent.
       const candidates = invoices.filter((i) => i.tenantId === tenantId && invoiceChangeable(i));
-      const target = candidates.find((i) => i.rentAmount > 0) ?? candidates[0] ?? null;
+      // A unit owner's regular invoice is the service charge one; a budget's
+      // balancing invoice is the last resort.
+      const target = candidates.find((i) => i.rentAmount > 0)
+        ?? candidates.find((i) => !i.serviceChargeBudgetId && i.serviceCharge > 0)
+        ?? candidates.find((i) => !i.serviceChargeBudgetId)
+        ?? candidates[0] ?? null;
       const connect = bill.readingIds.map((id) => ({ id }));
 
       if (target) {

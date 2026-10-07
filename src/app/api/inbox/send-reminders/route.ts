@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       dueDate: true, periodYear: true, periodMonth: true,
       tenant: {
         select: {
-          id: true, name: true, email: true,
+          id: true, name: true, email: true, isUnitOwner: true,
           unit: {
             select: {
               unitNumber: true, propertyId: true,

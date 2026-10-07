@@ -64,6 +64,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ token: s
       email: tenant.email,
       phone: tenant.phone,
       monthlyRent: tenant.monthlyRent,
+      isUnitOwner: tenant.isUnitOwner,
       serviceCharge: tenant.serviceCharge,
       leaseStart: tenant.leaseStart,
       leaseEnd: tenant.leaseEnd,

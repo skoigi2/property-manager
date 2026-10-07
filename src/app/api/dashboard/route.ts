@@ -5,7 +5,7 @@ import { calcUnitSummary, calcPettyCashTotal } from "@/lib/calculations";
 import { resolveExpectedRent } from "@/lib/rent-resolution";
 import { allocatePayments } from "@/lib/ledger-allocation";
 import { scheduledExpectedForMonth, frequencyMonths } from "@/lib/rent-schedule";
-import { rentSideDueForMonth } from "@/lib/rent-ledger";
+import { rentSideDueForMonth, RENT_SIDE_RECEIPT_TYPES, countsTowardRentSide } from "@/lib/rent-ledger";
 import { calcPropertyManagementFee, mgmtFeeBase } from "@/lib/management-fee";
 import { getDaysInMonth } from "date-fns";
 
@@ -59,6 +59,7 @@ export async function GET(req: Request) {
           leaseStart: true,
           leaseEnd: true,
           monthToMonth: true,
+          isUnitOwner: true,
           monthlyRent: true,
           serviceCharge: true,
           unitId: true,
@@ -116,11 +117,11 @@ export async function GET(req: Request) {
       // Arrears: 12-month rolling rent log (was serial — now parallel)
       prisma.incomeEntry.findMany({
         where: {
-          type: "LONGTERM_RENT",
+          type: { in: [...RENT_SIDE_RECEIPT_TYPES] },
           unit: { propertyId: { in: propertyIds } },
           date: { gte: arrearsCutoff },
         },
-        select: { unitId: true, tenantId: true, grossAmount: true, date: true },
+        select: { unitId: true, tenantId: true, grossAmount: true, date: true, type: true },
       }),
       // Management-fee configs (was serial — now parallel)
       prisma.managementFeeConfig.findMany({
@@ -151,7 +152,7 @@ export async function GET(req: Request) {
     // Lease alerts
     const leaseAlerts = tenants
       .map((t) => {
-        const status = getLeaseStatus(t.leaseEnd, t.monthToMonth);
+        const status = getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner);
         const days   = daysUntilExpiry(t.leaseEnd);
         return {
           tenantId:    t.id,
@@ -172,11 +173,10 @@ export async function GET(req: Request) {
 
     // No-rent alerts per long-term tenant
     const longtermTenants = tenants.filter((t) => longtermPropertyIds.has(t.unit.propertyId));
-    const longtermIncomeUnitIds = new Set(
-      incomeEntries.filter((e) => e.type === "LONGTERM_RENT").map((e) => e.unitId)
-    );
     const noRentAlerts = longtermTenants
-      .filter((t) => !longtermIncomeUnitIds.has(t.unitId))
+      .filter((t) => !incomeEntries.some((e) => e.unitId === t.unitId && countsTowardRentSide(e.type, t)))
+      // Nothing billed (a unit owner whose service charge isn't set) → nothing to chase.
+      .filter((t) => (t.monthlyRent ?? 0) + (t.serviceCharge ?? 0) > 0)
       // Quarterly/biannual/annual payers only owe on billing months — no
       // alert for a covered month where nothing was due.
       .filter((t) =>
@@ -208,7 +208,7 @@ export async function GET(req: Request) {
         const end        = new Date(today.getFullYear(), today.getMonth(), 1);
 
         const tenantEntries = allRentEntries.filter(
-          (e) => e.tenantId === t.id || e.unitId === t.unitId,
+          (e) => (e.tenantId === t.id || e.unitId === t.unitId) && countsTowardRentSide(e.type, t),
         );
 
         // Statement-style allocation (oldest-first) so quarterly/annual
@@ -279,7 +279,7 @@ export async function GET(req: Request) {
     // Rent status per long-term property
     const rentStatus = longtermTenants.map((t) => {
       const unitIncome = incomeEntries.filter(
-        (e) => e.unitId === t.unitId && e.type === "LONGTERM_RENT"
+        (e) => e.unitId === t.unitId && countsTowardRentSide(e.type, t)
       );
       const received = unitIncome.reduce((s, e) => s + e.grossAmount, 0);
       // Schedule-aware expected for the SELECTED month: monthly payers owe the
@@ -289,7 +289,7 @@ export async function GET(req: Request) {
         leaseStart: t.leaseStart,
         frequency: t.paymentFrequency,
         month: from,
-        rentForMonth: (m) => resolveExpectedRent(t.rentHistory, t.monthlyRent, m),
+        rentForMonth: (m) => (t.isUnitOwner ? 0 : resolveExpectedRent(t.rentHistory, t.monthlyRent, m)),
       });
       const expectedRent = sched.amount;
       // Service charge for the whole period on a billing month (a quarterly
@@ -310,7 +310,7 @@ export async function GET(req: Request) {
         received,
         variance: received - expected,
         leaseEnd: t.leaseEnd,
-        leaseStatus: getLeaseStatus(t.leaseEnd, t.monthToMonth),
+        leaseStatus: getLeaseStatus(t.leaseEnd, t.monthToMonth, t.isUnitOwner),
       };
     });
 

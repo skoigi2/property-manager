@@ -19,6 +19,8 @@ export interface InvoicePaymentTarget extends InvoiceLinesLike {
   propertyId: string;
   organizationId: string | null | undefined;
   isTaxExempt?: boolean | null;
+  /** The tenant is a unit owner: the rent side is booked as SERVICE_CHARGE. Looked up when not given. */
+  isUnitOwner?: boolean | null;
   /** Sum of payments already booked against the invoice (before this one). */
   alreadyPaid: number;
 }
@@ -30,6 +32,8 @@ export interface InvoicePaymentInput {
   paymentMethod?: string | null;
   /** Free-text note for every created row (bank ref, "Auto-created from invoice …"). */
   note: string;
+  /** Book the rent side as this type. Default: SERVICE_CHARGE for a unit owner, else LONGTERM_RENT. */
+  rentSideType?: "LONGTERM_RENT" | "SERVICE_CHARGE";
 }
 
 export async function buildInvoicePaymentOps(input: InvoicePaymentInput): Promise<{
@@ -38,7 +42,15 @@ export async function buildInvoicePaymentOps(input: InvoicePaymentInput): Promis
   ops: any[];
 }> {
   const { invoice, amount, date, paymentMethod, note } = input;
-  const parts = allocateInvoicePayment(invoice, amount, invoice.alreadyPaid);
+  // A unit owner pays service charge, never rent: relabel the rent side. So
+  // does a payment the manager recorded as service charge.
+  const asServiceCharge = input.rentSideType
+    ? input.rentSideType === "SERVICE_CHARGE"
+    : invoice.isUnitOwner
+      ?? (await prisma.tenant.findUnique({ where: { id: invoice.tenantId }, select: { isUnitOwner: true } }))?.isUnitOwner
+      ?? false;
+  const parts = allocateInvoicePayment(invoice, amount, invoice.alreadyPaid)
+    .map((p) => (asServiceCharge && p.type === "LONGTERM_RENT" ? { ...p, type: "SERVICE_CHARGE" as const } : p));
 
   // Tax snapshot per entry type (rate as of the receipt date; stored
   // absolute, never recomputed on read) — parity with POST /api/income.

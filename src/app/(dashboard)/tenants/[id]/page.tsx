@@ -10,7 +10,7 @@ import { CurrencyDisplay } from "@/components/ui/CurrencyDisplay";
 import { Spinner } from "@/components/ui/Spinner";
 import { getLeaseStatus, formatDate } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/currency";
-import { buildLedger } from "@/lib/rent-ledger";
+import { buildLedger, countsTowardRentSide } from "@/lib/rent-ledger";
 import { calcDepositPosition } from "@/lib/deposit";
 import { DocumentUpload } from "@/components/tenants/DocumentUpload";
 import { DocumentList } from "@/components/tenants/DocumentList";
@@ -357,6 +357,7 @@ export default function TenantDetailPage() {
     if (!tenant) return;
     editReset({
       name:             tenant.name,
+      isUnitOwner:      tenant.isUnitOwner ?? false,
       email:            tenant.email ?? "",
       phone:            tenant.phone ?? "",
       unitId:           tenant.unitId,
@@ -502,7 +503,7 @@ export default function TenantDetailPage() {
     }
   }
 
-  const leaseStatus    = getLeaseStatus(tenant?.leaseEnd, tenant?.monthToMonth);
+  const leaseStatus    = getLeaseStatus(tenant?.leaseEnd, tenant?.monthToMonth, tenant?.isUnitOwner);
 
   async function setMonthToMonth(monthToMonth: boolean) {
     if (!tenant) return;
@@ -571,9 +572,12 @@ export default function TenantDetailPage() {
     { id: "invoices",  label: "Invoices",     icon: <ScrollText size={14} />, badge: invoices.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").length || undefined },
     { id: "utilities", label: "Utilities",    icon: <Gauge size={14} /> },
     { id: "documents", label: "Documents",    icon: <FolderOpen size={14} />, badge: documents.length || undefined },
-    { id: "history",   label: "Rent History", icon: <History size={14} /> },
-    { id: "renewal",   label: "Renewal",      icon: <RefreshCw size={14} /> },
-    { id: "deposit",   label: "Deposit",      icon: <Banknote size={14} /> },
+    // A unit owner (service charge only) has no rent history, renewal or deposit.
+    ...(tenant?.isUnitOwner ? [] : [
+      { id: "history" as Tab,   label: "Rent History", icon: <History size={14} /> },
+      { id: "renewal" as Tab,   label: "Renewal",      icon: <RefreshCw size={14} /> },
+      { id: "deposit" as Tab,   label: "Deposit",      icon: <Banknote size={14} /> },
+    ]),
     { id: "comms",     label: "Comms",        icon: <MessageSquare size={14} /> },
     { id: "messages",  label: "Portal Msgs",  icon: <MessageSquare size={14} /> },
     { id: "complaints", label: "Complaints",  icon: <MessageSquare size={14} /> },
@@ -622,7 +626,8 @@ export default function TenantDetailPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {tenant.isActive ? (
-                    leaseStatus === "TBC"      ? <Badge variant="gray">Lease TBC</Badge>
+                    tenant.isUnitOwner         ? <span title="Owns the unit — pays the service charge only"><Badge variant="blue">Unit owner · service charge only</Badge></span>
+                    : leaseStatus === "TBC"      ? <Badge variant="gray">Lease TBC</Badge>
                     : leaseStatus === "ROLLING"  ? <Badge variant="blue">Month-to-month</Badge>
                     : leaseStatus === "CRITICAL" ? <Badge variant="red">Lease Expired</Badge>
                     : leaseStatus === "WARNING"  ? <Badge variant="amber">Expiring Soon</Badge>
@@ -739,10 +744,10 @@ export default function TenantDetailPage() {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: "Monthly Rent",  value: tenant.monthlyRent },
+                  ...(tenant.isUnitOwner ? [] : [{ label: "Monthly Rent",  value: tenant.monthlyRent }]),
                   { label: "Service Charge", value: tenant.serviceCharge },
                   ...((tenant.wifiCharge ?? 0) > 0 ? [{ label: "Wi-Fi", value: tenant.wifiCharge }] : []),
-                  { label: "Deposit Held",   value: tenant.depositAmount },
+                  ...(tenant.isUnitOwner ? [] : [{ label: "Deposit Held",   value: tenant.depositAmount }]),
                   { label: "Total Monthly",  value: (tenant.monthlyRent ?? 0) + (tenant.serviceCharge ?? 0) + (tenant.wifiCharge ?? 0) },
                 ].map((item) => (
                   <div key={item.label}>
@@ -754,13 +759,15 @@ export default function TenantDetailPage() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-50">
                 <div>
-                  <p className="text-caption text-gray-400 ">Lease Start</p>
+                  <p className="text-caption text-gray-400 ">{tenant.isUnitOwner ? "Billing starts" : "Lease Start"}</p>
                   <p className="text-body text-header">{tenant.leaseStart ? formatDate(tenant.leaseStart) : "—"}</p>
                 </div>
+                {!tenant.isUnitOwner && (
                 <div>
                   <p className="text-caption text-gray-400 ">Lease End</p>
                   <p className="text-body text-header">{tenant.leaseEnd ? formatDate(tenant.leaseEnd) : "Open-ended"}</p>
                 </div>
+                )}
                 {tenant.paymentFrequency && (
                   <div>
                     <p className="text-caption text-gray-400 ">Payment Frequency</p>
@@ -815,7 +822,7 @@ export default function TenantDetailPage() {
             </Card>
 
             {/* ── Ledger Summary Cards ──────────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className={`grid grid-cols-2 gap-3 ${tenant.isUnitOwner ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
               <Card padding="sm">
                 <p className="text-label text-gray-400 uppercase ">Total Expected</p>
                 <CurrencyDisplay currency={currency} amount={totalExpected} className="block mt-1 text-gray-600" size="lg" />
@@ -824,7 +831,7 @@ export default function TenantDetailPage() {
               <Card padding="sm">
                 <p className="text-label text-gray-400 uppercase ">Total Received</p>
                 <CurrencyDisplay currency={currency} amount={totalReceived} className="block mt-1 text-income" size="lg" />
-                <p className="text-caption text-gray-400 mt-1">{tenantEntries.filter((e) => e.type === "LONGTERM_RENT").length} payment{tenantEntries.length !== 1 ? "s" : ""}</p>
+                <p className="text-caption text-gray-400 mt-1">{tenantEntries.filter((e) => countsTowardRentSide(e.type, tenant)).length} payment{tenantEntries.length !== 1 ? "s" : ""}</p>
               </Card>
               <Card padding="sm">
                 <p className="text-label text-gray-400 uppercase ">Balance</p>
@@ -833,6 +840,8 @@ export default function TenantDetailPage() {
                   {totalArrears > 0.5 ? "Overpaid / Advance" : totalArrears >= -0.5 ? "Up to date" : "In arrears"}
                 </p>
               </Card>
+              {/* A unit owner pays no deposit. */}
+              {!tenant.isUnitOwner && (
               <Card padding="sm">
                 <p className="text-label text-gray-400 uppercase ">Deposit</p>
                 <CurrencyDisplay currency={currency} amount={tenant.depositAmount} className="block mt-1 text-gray-600" size="lg" />
@@ -840,6 +849,7 @@ export default function TenantDetailPage() {
                   {tenant.depositPaidDate ? `Paid ${formatDate(tenant.depositPaidDate)}` : "Date unknown"}
                 </p>
               </Card>
+              )}
             </div>
 
             {/* ── Tab Navigation ────────────────────────────────────────────── */}
@@ -1578,6 +1588,7 @@ export default function TenantDetailPage() {
             setValue={editSetValue}
             unitOptions={tenant?.unit ? [{ value: tenant.unitId, label: `${tenant.unit.unitNumber} (${tenant.unit.property?.name ?? ""})` }] : []}
             unitAccounts={tenant?.unit ? { [tenant.unitId]: { override: tenant.unit.paymentAccountId ?? null, propertyDefault: tenant.unit.property?.agreement?.paymentAccountId ?? null } } : undefined}
+            isEditing
           />
           <div className="flex gap-3 pt-2">
             <Button type="submit" loading={editSubmitting}>Update</Button>

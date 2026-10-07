@@ -47,7 +47,7 @@ export const DATA_HEALTH_CHECKS: DataHealthCheck[] = [
       select o.name as org, p.name as property, u."unitNumber" as ref, e.date::date::text as date, e."grossAmount"::float as amount
       from "IncomeEntry" e join "Unit" u on u.id = e."unitId" join "Property" p on p.id = u."propertyId"
       left join "Organization" o on o.id = p."organizationId"
-      where e.type = 'LONGTERM_RENT' and e."tenantId" is null ${demoFilter}
+      where e.type in ('LONGTERM_RENT', 'SERVICE_CHARGE') and e."tenantId" is null ${demoFilter}
         and exists (select 1 from "Tenant" t where t."unitId" = u.id and t."leaseStart" <= e.date
                     and coalesce(t."vacatedDate", case when t."isActive" then null else t."leaseEnd" end, 'infinity'::timestamp) >= e.date)`,
   },

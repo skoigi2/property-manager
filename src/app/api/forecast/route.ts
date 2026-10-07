@@ -39,6 +39,7 @@ export async function GET(req: Request) {
           monthlyRent: true,
           serviceCharge: true,
           wifiCharge: true,
+          isUnitOwner: true,
           leaseStart: true,
           leaseEnd: true,
           escalationRate: true,

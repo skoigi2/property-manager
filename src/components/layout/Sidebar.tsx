@@ -51,6 +51,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { useProperty } from "@/lib/property-context";
 
 interface NavItem {
   href: string;
@@ -171,13 +172,19 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
   const [urgentCount, setUrgentCount] = useState(0);
+  // The badge counts the property picked in the header, like the Inbox page
+  // itself; "All properties" (null) counts every property.
+  const { selectedId, loading: propertiesLoading } = useProperty();
 
   useEffect(() => {
     // /api/inbox is manager-tier only — skip the poll for OWNER and CARETAKER.
     if (role === "OWNER" || role === "CARETAKER") return;
+    // Wait for the selected property, so the badge never flashes the whole org's count.
+    if (propertiesLoading) return;
     let cancelled = false;
+    const qs = selectedId ? `?propertyId=${encodeURIComponent(selectedId)}` : "";
     const load = () => {
-      fetch("/api/inbox")
+      fetch(`/api/inbox${qs}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (!cancelled && d?.counts) setUrgentCount(d.counts.urgent ?? 0);
@@ -190,7 +197,7 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
       cancelled = true;
       clearInterval(t);
     };
-  }, [role]);
+  }, [role, selectedId, propertiesLoading]);
 
   useEffect(() => {
     if (isSuperAdmin) return;

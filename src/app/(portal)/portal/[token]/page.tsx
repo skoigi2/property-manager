@@ -1207,7 +1207,7 @@ export default function PortalPage(props: { params: Promise<{ token: string }> }
                     </div>
                   ) : (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center text-body text-green-700">
-                      This thread is resolved.
+                      This conversation is closed. Start a new message if you need anything else.
                     </div>
                   )}
                 </>

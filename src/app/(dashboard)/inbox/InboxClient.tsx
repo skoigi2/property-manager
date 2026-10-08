@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { VendorSelect } from "@/components/ui/VendorSelect";
 import { InboxRowCard, InboxTableRow } from "@/components/inbox/InboxRow";
-import { AlertOctagon, CalendarClock, CalendarRange, Inbox, Mail, Wrench, X } from "lucide-react";
+import { AlertOctagon, CalendarClock, CalendarRange, CheckCircle2, Inbox, Mail, Wrench, X } from "lucide-react";
 import { useProperty } from "@/lib/property-context";
 import { useCachedFetch } from "@/lib/use-cached-fetch";
 import { WhatsAppBulkModal } from "@/components/whatsapp/WhatsAppBulkModal";
@@ -28,7 +28,7 @@ interface Props {
 export function InboxClient({ userName, role }: Props) {
   const { selectedId } = useProperty();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkModal, setBulkModal] = useState<null | "send-reminders" | "whatsapp-reminders" | "assign-vendor">(null);
+  const [bulkModal, setBulkModal] = useState<null | "send-reminders" | "whatsapp-reminders" | "assign-vendor" | "resolve-messages">(null);
 
   // SWR-from-sessionStorage — instant hydrate on repeat visits, background refresh.
   const qs = selectedId ? `?propertyId=${encodeURIComponent(selectedId)}` : "";
@@ -73,6 +73,7 @@ export function InboxClient({ userName, role }: Props) {
   );
   const selectedInvoices = selectedItems.filter((it) => it.type === "INVOICE_OVERDUE");
   const selectedJobs = selectedItems.filter((it) => it.type === "URGENT_MAINTENANCE" || it.type === "PORTAL_REQUEST");
+  const selectedMessages = selectedItems.filter((it) => it.type === "TENANT_MESSAGE" && it.tenantId);
 
   const urgent = items.filter((i) => i.severity === "URGENT");
   const warning = items.filter((i) => i.severity === "WARNING");
@@ -108,7 +109,7 @@ export function InboxClient({ userName, role }: Props) {
       {selectedItems.length >= 2 && (
         <div className="fixed inset-x-0 bottom-16 lg:bottom-4 z-40 flex justify-center pointer-events-none px-4">
           {/* Phones: count + clear on the first row, the actions wrap below. */}
-          <div className="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-2 bg-header text-white rounded-2xl shadow-2xl px-4 py-3 max-w-2xl w-full">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-2 bg-header text-white rounded-2xl shadow-2xl px-4 py-3 max-w-4xl w-full">
             <span className="text-body font-medium">
               {selectedItems.length} selected
             </span>
@@ -147,6 +148,15 @@ export function InboxClient({ userName, role }: Props) {
                 <Wrench size={13} />
                 Assign vendor ({selectedJobs.length})
               </button>
+              <button
+                onClick={() => setBulkModal("resolve-messages")}
+                disabled={selectedMessages.length === 0}
+                className="flex items-center gap-1.5 whitespace-nowrap text-caption font-medium px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title={selectedMessages.length === 0 ? "Select at least one tenant message" : "Close the conversations without a reply"}
+              >
+                <CheckCircle2 size={13} />
+                Mark resolved ({selectedMessages.length})
+              </button>
             </div>
           </div>
         </div>
@@ -165,6 +175,16 @@ export function InboxClient({ userName, role }: Props) {
       {bulkModal === "whatsapp-reminders" && (
         <WhatsAppBulkModal
           items={selectedInvoices}
+          onClose={() => setBulkModal(null)}
+          onDone={(processedIds) => {
+            setBulkModal(null);
+            processedIds.forEach((id) => handleActionComplete(id));
+          }}
+        />
+      )}
+      {bulkModal === "resolve-messages" && (
+        <BulkResolveMessagesModal
+          items={selectedMessages}
           onClose={() => setBulkModal(null)}
           onDone={(processedIds) => {
             setBulkModal(null);
@@ -361,7 +381,7 @@ function BulkAssignVendorModal({
     let assigned = 0;
     for (const it of items) {
       try {
-        const body: any = { vendorId };
+        const body: { vendorId: string; acknowledgedAt?: string } = { vendorId };
         if (it.type === "PORTAL_REQUEST") body.acknowledgedAt = new Date().toISOString();
         const r = await fetch(`/api/maintenance/${it.refId}`, {
           method: "PATCH",
@@ -387,6 +407,57 @@ function BulkAssignVendorModal({
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button variant="gold" onClick={run} loading={sending} disabled={!vendorId}>Assign</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function BulkResolveMessagesModal({
+  items, onClose, onDone,
+}: {
+  items: InboxItem[];
+  onClose: () => void;
+  onDone: (processedIds: string[]) => void;
+}) {
+  const [sending, setSending] = useState(false);
+
+  async function run() {
+    setSending(true);
+    const processed: string[] = [];
+    // Same call as the row's "Mark resolved", one conversation at a time.
+    for (const it of items) {
+      try {
+        const r = await fetch(`/api/tenants/${it.tenantId}/messages/${it.refId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "RESOLVED" }),
+        });
+        if (r.ok) processed.push(it.id);
+      } catch { /* continue */ }
+    }
+    setSending(false);
+    const failed = items.length - processed.length;
+    if (processed.length > 0) {
+      toast.success(`${processed.length} conversation${processed.length === 1 ? "" : "s"} resolved`);
+    }
+    if (failed > 0) toast.error(`${failed} couldn't be resolved — try again from the row`);
+    onDone(processed);
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Resolve tenant messages" size="md">
+      <div className="p-5 space-y-4">
+        <p className="text-body text-gray-600">
+          Close {items.length} conversation{items.length === 1 ? "" : "s"} without a reply. They leave the
+          Inbox and the tenant isn&apos;t notified. If the tenant writes again, it comes in as a new message.
+        </p>
+        <ul className="text-caption text-gray-500 list-disc list-inside max-h-40 overflow-y-auto">
+          {items.map((it) => <li key={it.id}>{it.title}{it.subtitle ? ` — ${it.subtitle}` : ""}</li>)}
+        </ul>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="gold" onClick={run} loading={sending}>Mark resolved</Button>
         </div>
       </div>
     </Modal>

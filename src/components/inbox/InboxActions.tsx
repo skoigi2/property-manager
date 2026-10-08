@@ -225,7 +225,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
     actions.push({
       key: "resolve-message",
       label: "Mark resolved",
-      tip: "Closes the conversation without a reply. It comes back if the tenant writes again.",
+      tip: "Closes the conversation without a reply. If the tenant writes again, it comes in as a new message.",
       icon: CheckCircle2,
       onClick: () => patch(`/api/tenants/${item.tenantId}/messages/${item.refId}`, { status: "RESOLVED" }, "Conversation resolved"),
     });

@@ -192,9 +192,9 @@ export async function POST(req: Request) {
     }
 
     return Response.json({ imported, updated, skipped, errors });
-  } catch (err: any) {
+  } catch (err) {
     return Response.json(
-      { error: "Import failed", detail: err?.message ?? String(err), hint: "Nothing from this batch was saved. Check the template columns and try again." },
+      { error: "Import failed", detail: err instanceof Error ? err.message : String(err), hint: "Nothing from this batch was saved. Check the template columns and try again." },
       { status: 500 },
     );
   }

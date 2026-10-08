@@ -26,7 +26,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     });
 
     return Response.json(logs);
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

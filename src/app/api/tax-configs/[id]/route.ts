@@ -59,7 +59,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     });
 
     return Response.json(updated);
-  } catch (err: any) {
+  } catch (err) {
     console.error("[PATCH /api/tax-configs/[id]]", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
@@ -114,7 +114,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
     });
 
     return Response.json({ deleted: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[DELETE /api/tax-configs/[id]]", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }

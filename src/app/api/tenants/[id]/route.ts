@@ -1,5 +1,6 @@
 import { requireAuth, requirePropertyAccess, requireManagerWrite, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { tenantSchema } from "@/lib/validations";
 import { unitOwnerOverrides } from "@/lib/unit-owner";
 import { checkUnitPaymentAccount } from "@/lib/unit-payment-account";
@@ -98,7 +99,7 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
     before !== null &&
     rest.monthlyRent !== before.monthlyRent;
 
-  const ops: any[] = [
+  const ops: Prisma.PrismaPromise<unknown>[] = [
     prisma.tenant.update({
       where: { id: params.id },
       data: {

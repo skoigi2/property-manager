@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     organizationId = clientOrgId;
   } else {
     // No org in body — fall back to server-side resolution
-    organizationId = (session!.user as any).organizationId as string | null;
+    organizationId = session!.user.organizationId;
     if (!organizationId) {
       const membership = await prisma.userOrganizationMembership.findFirst({
         where: { userId: session!.user.id },

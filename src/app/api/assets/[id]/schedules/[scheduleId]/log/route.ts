@@ -136,7 +136,7 @@ export async function POST(
     });
 
     return Response.json(log, { status: 201 });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

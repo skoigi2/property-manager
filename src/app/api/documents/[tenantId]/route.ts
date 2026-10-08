@@ -103,8 +103,8 @@ export async function POST(req: Request, props: { params: Promise<{ tenantId: st
 
   try {
     await uploadToStorage(storagePath, buffer, file.type);
-  } catch (e: any) {
-    return Response.json({ error: `Storage upload failed: ${e.message}` }, { status: 500 });
+  } catch (e) {
+    return Response.json({ error: `Storage upload failed: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 });
   }
 
   const doc = await prisma.tenantDocument.create({

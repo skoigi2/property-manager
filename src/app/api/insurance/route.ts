@@ -89,8 +89,8 @@ export async function GET(req: Request) {
     });
 
     return Response.json(result);
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }
 
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
     });
 
     return Response.json({ ...policy, documentsCount: 0, documentCategories: [] }, { status: 201 });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

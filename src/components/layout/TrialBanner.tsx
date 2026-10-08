@@ -15,7 +15,7 @@ interface SubscriptionInfo {
 export function TrialBanner() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const isBillingOwner = (session?.user as any)?.isBillingOwner ?? false;
+  const isBillingOwner = session?.user?.isBillingOwner ?? false;
   const [info, setInfo] = useState<SubscriptionInfo | null>(null);
 
   // Don't render on the billing page itself

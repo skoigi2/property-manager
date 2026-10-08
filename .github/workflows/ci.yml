@@ -28,7 +28,7 @@ jobs:
       # Errors fail. Warnings are capped at today's count so they can only go
       # down — lower the number when you clear some (see CLAUDE.md).
       - name: Lint
-        run: npm run lint -- --max-warnings 387
+        run: npm run lint -- --max-warnings 340
 
       - name: Unit tests
         run: npm test

@@ -164,8 +164,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
   const isSuperAdmin = role === "ADMIN" && organizationId === null;
   const pathname = usePathname();
   const { data: session, update } = useSession();
-  const membershipCount = (session?.user as any)?.membershipCount ?? 1;
-  const isBillingOwner = (session?.user as any)?.isBillingOwner ?? false;
+  const membershipCount = session?.user?.membershipCount ?? 1;
+  const isBillingOwner = session?.user?.isBillingOwner ?? false;
 
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);

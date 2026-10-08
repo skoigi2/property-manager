@@ -115,7 +115,7 @@ export function InboxActions({ item, onActionComplete }: Props) {
     return () => document.removeEventListener("mousedown", onDown);
   }, [mobileOpen]);
 
-  async function patch(url: string, body: any, successMsg: string) {
+  async function patch(url: string, body: unknown, successMsg: string) {
     const t = toast.loading("Saving…");
     try {
       const r = await fetch(url, {
@@ -126,8 +126,8 @@ export function InboxActions({ item, onActionComplete }: Props) {
       if (!r.ok) throw new Error(await r.text().catch(() => "Failed"));
       toast.success(successMsg, { id: t });
       onActionComplete(item.id);
-    } catch (e: any) {
-      toast.error(e?.message || "Action failed", { id: t });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Action failed", { id: t });
     }
   }
 
@@ -144,8 +144,8 @@ export function InboxActions({ item, onActionComplete }: Props) {
       if (item.hintId) await fetch(`/api/hints/${item.hintId}/act`, { method: "POST" }).catch(() => {});
       toast.success("Done", { id: t });
       onActionComplete(item.id);
-    } catch (e: any) {
-      toast.error(e?.message || "Action failed", { id: t });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Action failed", { id: t });
     }
   }
 
@@ -533,7 +533,7 @@ function AssignVendorModal({ item, onClose, onSaved }: { item: InboxItem; onClos
     if (!vendorId) return;
     setSaving(true);
     try {
-      const body: any = { vendorId };
+      const body: { vendorId: string; acknowledgedAt?: string } = { vendorId };
       // For portal triage, also acknowledge it
       if (item.type === "PORTAL_REQUEST") body.acknowledgedAt = new Date().toISOString();
       const r = await fetch(`/api/maintenance/${item.refId}`, {

@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   if (error) return error;
   const locked = await requireActiveSubscription(session!.user.organizationId);
   if (locked) return locked;
-  const orgId = session?.user ? (session.user as any).organizationId ?? null : null;
+  const orgId = session?.user?.organizationId ?? null;
 
   const body = await req.json();
   const { propertyId, certificateType, issueDate, expiryDate, certificateNumber, issuedBy, notes } = body;

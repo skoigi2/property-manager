@@ -58,7 +58,7 @@ export default auth((req) => {
   const isOnboardingPage = pathname.startsWith("/onboarding");
 
   if (isLoggedIn && !isSelectOrgPage && !isOnboardingPage) {
-    const user = req.auth?.user as any;
+    const user = req.auth?.user;
     const membershipCount = user?.membershipCount ?? 1;
     const orgId = user?.organizationId;
     const role = user?.role;
@@ -82,7 +82,7 @@ export default auth((req) => {
   // the role model entirely — a logged-in caretaker opening a tenant's portal
   // link must not be bounced to their home.
   if (isLoggedIn && orgRole === "CARETAKER" && !isPublicPage && !isPortalPage && !isApprovePage && !isSignPage) {
-    const superAdmin = req.auth?.user?.role === "ADMIN" && !(req.auth?.user as any)?.organizationId;
+    const superAdmin = req.auth?.user?.role === "ADMIN" && !req.auth?.user?.organizationId;
     if (!superAdmin && !CARETAKER_PATHS.some((p) => underPath(pathname, p))) {
       return NextResponse.redirect(new URL(CARETAKER_HOME, req.url));
     }
@@ -103,7 +103,7 @@ export default auth((req) => {
 
   // Billing page — only billing owner or super-admin
   if (isLoggedIn && pathname.startsWith("/billing")) {
-    const user = req.auth?.user as any;
+    const user = req.auth?.user;
     const superAdmin = user?.role === "ADMIN" && !user?.organizationId;
     if (!superAdmin && !user?.isBillingOwner) {
       return NextResponse.redirect(new URL("/dashboard?error=billing-owner-only", req.url));
@@ -113,7 +113,7 @@ export default auth((req) => {
   // Super-admin only routes
   if (isLoggedIn && pathname.startsWith("/admin")) {
     const role = req.auth?.user?.role;
-    const orgId = (req.auth?.user as any)?.organizationId;
+    const orgId = req.auth?.user?.organizationId;
     const isSuperAdmin = role === "ADMIN" && (orgId === null || orgId === undefined);
     if (!isSuperAdmin) {
       return NextResponse.redirect(new URL("/dashboard", req.url));

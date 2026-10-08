@@ -25,8 +25,8 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
 
   try {
     await prisma.insurancePolicyDocument.delete({ where: { id: params.docId } });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 
   await logAudit({

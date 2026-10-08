@@ -1,6 +1,6 @@
 import { requireAuth, getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { MaintenanceFrequency } from "@prisma/client";
+import { MaintenanceFrequency, RecurringFrequency } from "@prisma/client";
 
 function calcNextDue(lastDone: Date, frequency: string): Date {
   const d = new Date(lastDone);
@@ -14,7 +14,7 @@ function calcNextDue(lastDone: Date, frequency: string): Date {
   return d;
 }
 
-function toRecurringFrequency(f: string): string | null {
+function toRecurringFrequency(f: string): RecurringFrequency | null {
   switch (f) {
     case "MONTHLY": return "MONTHLY";
     case "QUARTERLY": return "QUARTERLY";
@@ -60,8 +60,8 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     });
 
     return Response.json(schedules);
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }
 
@@ -134,7 +134,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
             scope: asset.unitId ? "UNIT" : "PROPERTY",
             propertyId: asset.propertyId,
             unitId: asset.unitId ?? null,
-            frequency: recurringFreq as any,
+            frequency: recurringFreq,
             nextDueDate: nextDue,
             isActive: true,
           },
@@ -153,7 +153,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     }
 
     return Response.json(schedule, { status: 201 });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

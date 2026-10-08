@@ -139,8 +139,8 @@ function LineItemsTable({
   showTaxBreakdown?: boolean;
 }) {
   // Separate regular line items from tax line items
-  const regularItems = items.filter((i) => !(i as any).isTaxLine);
-  const taxItems     = items.filter((i) =>  (i as any).isTaxLine);
+  const regularItems = items.filter((i) => !i.isTaxLine);
+  const taxItems     = items.filter((i) =>  i.isTaxLine);
   const subtotal     = regularItems.reduce((s, i) => s + i.amount, 0);
 
   return (
@@ -188,8 +188,8 @@ function OwnerInvoicePDF({ data }: { data: OwnerInvoiceData }) {
   const org = data.org;
 
   // Show two pages for MANAGEMENT_FEE invoices that have a per-unit breakdown
-  const hasTaxLines  = data.lineItems.some((i) => (i as any).isTaxLine);
-  const showBreakdown = data.type === "MANAGEMENT_FEE" && data.lineItems.filter((i) => !(i as any).isTaxLine).length > 1;
+  const hasTaxLines  = data.lineItems.some((i) => i.isTaxLine);
+  const showBreakdown = data.type === "MANAGEMENT_FEE" && data.lineItems.filter((i) => !i.isTaxLine).length > 1;
 
   // How to Pay section
   const hasBankDetails = !!(org?.bankName || org?.bankAccountNumber);

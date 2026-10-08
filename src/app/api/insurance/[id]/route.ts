@@ -49,8 +49,8 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     }
 
     return Response.json({ ...policy, documents: await withSignedDocumentUrls(policy.documents) });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }
 
@@ -143,8 +143,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       documentsCount: documents.length,
       documentCategories: Array.from(new Set(documents.map((d) => d.category))),
     });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }
 
@@ -183,7 +183,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
     });
 
     return Response.json({ success: true });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

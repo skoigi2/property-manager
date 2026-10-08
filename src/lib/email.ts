@@ -133,10 +133,10 @@ export async function sendAndLog(args: SendAndLogArgs): Promise<{ id: string; re
       ...(replyTo ? { replyTo } : {}),
       ...(args.attachments?.length ? { attachments: args.attachments } : {}),
     });
-    resendId = (res as any)?.data?.id ?? (res as any)?.id ?? null;
-    if ((res as any)?.error) {
+    resendId = res.data?.id ?? null;
+    if (res.error) {
       status = "failed";
-      errorMessage = String((res as any).error?.message ?? (res as any).error);
+      errorMessage = res.error.message || res.error.name;
     }
   } catch (err) {
     status = "failed";

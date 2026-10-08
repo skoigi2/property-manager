@@ -3,7 +3,7 @@ import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
-import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot } from "@/lib/tax-engine";
+import { getActiveTaxConfigs, matchConfig, buildTaxSnapshot, type TaxSnapshot } from "@/lib/tax-engine";
 import { frequencyMonths } from "@/lib/rent-schedule";
 import { clearHints } from "@/lib/hints";
 import { dispatchWebhookEvent } from "@/lib/webhooks";
@@ -213,7 +213,7 @@ export async function POST(req: Request) {
   }
 
   // Tax snapshot — skip if tenant is exempt or no property/org context
-  let taxSnapshot = { taxConfigId: null as string | null, taxRate: null as number | null, taxAmount: null as number | null, taxType: null as any };
+  let taxSnapshot: TaxSnapshot = { taxConfigId: null, taxRate: null, taxAmount: null, taxType: null };
   if (propertyId && orgId) {
     const tenant = resolvedTenantId
       ? await prisma.tenant.findUnique({ where: { id: resolvedTenantId }, select: { isTaxExempt: true } })

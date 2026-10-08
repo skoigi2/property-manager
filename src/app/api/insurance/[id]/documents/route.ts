@@ -81,9 +81,9 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   const storagePath = insuranceStoragePath(params.id, file.name);
   try {
     await uploadToStorage(storagePath, buffer, file.type || "application/octet-stream");
-  } catch (e: any) {
+  } catch (e) {
     // Private bucket not reachable — nothing was written, so tell the client to retry later.
-    return Response.json({ error: `Storage is unavailable right now: ${e.message}`, code: "STORAGE_UNAVAILABLE" }, { status: 503 });
+    return Response.json({ error: `Storage is unavailable right now: ${e instanceof Error ? e.message : String(e)}`, code: "STORAGE_UNAVAILABLE" }, { status: 503 });
   }
 
   const doc = await prisma.insurancePolicyDocument.create({

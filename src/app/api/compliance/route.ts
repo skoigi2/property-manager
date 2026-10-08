@@ -168,7 +168,7 @@ export async function GET(req: Request) {
     id: u.id,
     unitNumber: u.unitNumber,
     propertyId: u.propertyId,
-    propertyName: (u as any).property?.name ?? "",
+    propertyName: u.property?.name ?? "",
     vacantSince: u.vacantSince,
     daysVacant: Math.floor((Date.now() - u.vacantSince!.getTime()) / (1000 * 60 * 60 * 24)),
   }));

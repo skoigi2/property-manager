@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     });
 
     return Response.json(configs);
-  } catch (err: any) {
+  } catch (err) {
     console.error("[GET /api/tax-configs]", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     });
 
     return Response.json(config, { status: 201 });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[POST /api/tax-configs]", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }

@@ -1,6 +1,6 @@
 import { getAccessiblePropertyIds, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { MaintenanceFrequency } from "@prisma/client";
+import { MaintenanceFrequency, RecurringFrequency } from "@prisma/client";
 
 function calcNextDue(lastDone: Date, frequency: string): Date {
   const d = new Date(lastDone);
@@ -14,7 +14,7 @@ function calcNextDue(lastDone: Date, frequency: string): Date {
   return d;
 }
 
-function toRecurringFrequency(f: string): string | null {
+function toRecurringFrequency(f: string): RecurringFrequency | null {
   switch (f) {
     case "MONTHLY": return "MONTHLY";
     case "QUARTERLY": return "QUARTERLY";
@@ -123,7 +123,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ scheduleId:
             category: "MAINTENANCE",
             scope: "PROPERTY",
             propertyId: schedulePropertyId,
-            frequency: recurringFreq as any,
+            frequency: recurringFreq,
             nextDueDate,
             isActive: effectiveIsActive,
           },
@@ -141,7 +141,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ scheduleId:
           data: {
             amount: effectiveEstimatedCost,
             isActive: effectiveIsActive,
-            ...(recurringFreq !== null && { frequency: recurringFreq as any }),
+            ...(recurringFreq !== null && { frequency: recurringFreq }),
           },
         }),
       ]);
@@ -164,8 +164,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ scheduleId:
     }
 
     return Response.json(updated);
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }
 
@@ -198,7 +198,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ scheduleI
       await prisma.assetMaintenanceSchedule.delete({ where: { id: params.scheduleId } });
     }
     return new Response(null, { status: 204 });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

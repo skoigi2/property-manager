@@ -66,7 +66,7 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   }
 
   // Track vacancy start date
-  const updateData: any = { ...parsed.data };
+  const updateData: typeof parsed.data & { vacantSince?: Date | null } = { ...parsed.data };
   if (parsed.data.status) {
     const wasVacant = unit!.status === "VACANT" || unit!.status === "LISTED";
     const becomingVacant = parsed.data.status === "VACANT" || parsed.data.status === "LISTED";

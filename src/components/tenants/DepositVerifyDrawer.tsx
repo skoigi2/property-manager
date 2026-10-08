@@ -90,8 +90,8 @@ export function DepositVerifyDrawer({
       setDone((p) => new Set(p).add(t.id));
       onVerified(t.id, amount);
       toast.success(`Deposit verified for ${t.name}`);
-    } catch (err: any) {
-      toast.error(err.message ?? "Failed to record receipt");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to record receipt");
     } finally {
       setSaving(null);
     }

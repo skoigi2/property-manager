@@ -114,8 +114,8 @@ function TaxConfigForm({
       const saved: TaxConfig = await res.json();
       toast.success(initial ? "Tax config updated" : "Tax config created");
       onSave(saved);
-    } catch (err: any) {
-      toast.error(err.message ?? "Failed to save");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
     }

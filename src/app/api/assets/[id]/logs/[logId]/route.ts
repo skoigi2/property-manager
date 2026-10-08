@@ -29,7 +29,7 @@ export async function DELETE(_req: Request, props: { params: Promise<{ id: strin
   try {
     await prisma.assetMaintenanceLog.delete({ where: { id: params.logId } });
     return new Response(null, { status: 204 });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
 }

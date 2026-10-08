@@ -58,8 +58,8 @@ export function DocumentUpload({ tenantId, onUploaded }: Props) {
       setFile(null);
       setLabel("");
       onUploaded();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setUploading(false);
     }

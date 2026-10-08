@@ -89,7 +89,7 @@ export async function POST(req: Request) {
   const grossIncome = incomeAgg._sum.grossAmount ?? 0;
 
   const label = `${MONTH_NAMES[periodMonth - 1]} ${periodYear}`;
-  const lineItems: { description: string; amount: number; unitId: null; tenantId: null; incomeType: string }[] = [];
+  const lineItems: { description: string; amount: number; unitId: null; tenantId: null; incomeType: string; isTaxLine?: boolean }[] = [];
 
   // Fee precedence mirrors calcPropertyManagementFee (src/lib/management-fee.ts):
   // per-unit ManagementFeeConfig lines first; else the property's rate/flat;
@@ -186,7 +186,7 @@ export async function POST(req: Request) {
         tenantId: null,
         incomeType: "OTHER",
         isTaxLine: true,
-      } as any);
+      });
       mgmtFeeOwing = mgmtFeeSubtotal + taxAmount;
     }
   }

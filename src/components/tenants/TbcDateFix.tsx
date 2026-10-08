@@ -27,8 +27,8 @@ export function TbcDateFix({ tenantId, onSaved }: { tenantId: string; onSaved: (
       }
       toast.success("Lease end date set");
       onSaved(date);
-    } catch (err: any) {
-      toast.error(err.message ?? "Failed to save lease end date");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save lease end date");
     } finally {
       setSaving(false);
     }

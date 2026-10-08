@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { frequencyMonths, scheduledExpectedForMonth } from "../rent-schedule";
+import { billingPeriodOf, frequencyMonths, scheduledExpectedForMonth } from "../rent-schedule";
 
 const flat = (rent: number) => () => rent;
 
@@ -72,5 +72,28 @@ describe("scheduledExpectedForMonth", () => {
       month: new Date("2026-04-01"), rentForMonth: flat(350000),
     });
     expect(r.due).toBe(true);
+  });
+});
+
+describe("billingPeriodOf", () => {
+  const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  it("finds the quarter a month falls in, anchored to the lease start", () => {
+    const p = billingPeriodOf("2026-10-01T00:00:00.000Z", "QUARTERLY", new Date(2026, 10, 1)); // November
+    expect([ym(p.start), ym(p.next), p.isBillingMonth, p.beforeStart]).toEqual(["2026-10", "2027-01", false, false]);
+    expect(billingPeriodOf("2026-10-01T00:00:00.000Z", "QUARTERLY", new Date(2027, 0, 1)).isBillingMonth).toBe(true);
+  });
+  it("points a month before billing starts at the first billing month", () => {
+    const p = billingPeriodOf("2026-10-01T00:00:00.000Z", "QUARTERLY", new Date(2026, 8, 1));
+    expect([ym(p.start), p.isBillingMonth, p.beforeStart]).toEqual(["2026-10", false, true]);
+  });
+  it("agrees with scheduledExpectedForMonth on which months are billed", () => {
+    for (let i = 0; i < 24; i++) {
+      const month = new Date(2026, 6 + i, 1);
+      const due = scheduledExpectedForMonth({ leaseStart: "2026-08-01T00:00:00.000Z", frequency: "BIANNUAL", month, rentForMonth: () => 1 }).due;
+      expect(billingPeriodOf("2026-08-01T00:00:00.000Z", "BIANNUAL", month).isBillingMonth).toBe(due);
+    }
+  });
+  it("treats every month as billed for a monthly payer", () => {
+    expect(billingPeriodOf("2026-10-01", "MONTHLY", new Date(2026, 11, 1)).isBillingMonth).toBe(true);
   });
 });

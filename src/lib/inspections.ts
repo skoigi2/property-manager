@@ -386,9 +386,14 @@ export function submitInputFor(report: InspectionRecord, meters: InspectionMeter
 }
 
 /** Hands the inspection in: findings lock, the inspector is recorded. */
-export async function markSubmitted(report: InspectionRecord, session: Session) {
-  return prisma.conditionReport.update({
-    where: { id: report.id },
+/**
+ * Hand the report in — only as it was read and checked (same updatedAt). Null
+ * when it changed in between (an autosave, another phone, a second click):
+ * the caller refuses rather than lock findings nobody checked.
+ */
+export async function markSubmitted(report: InspectionRecord, session: Session): Promise<InspectionRecord | null> {
+  const { count } = await prisma.conditionReport.updateMany({
+    where: { id: report.id, updatedAt: report.updatedAt },
     data: {
       status: "SUBMITTED",
       submittedAt: new Date(),
@@ -400,9 +405,16 @@ export async function markSubmitted(report: InspectionRecord, session: Session) 
       editRequestedByUserId: null,
       editRequestReason: null,
     },
-    include: INSPECTION_INCLUDE,
   });
+  if (count === 0) return null;
+  return prisma.conditionReport.findUniqueOrThrow({ where: { id: report.id }, include: INSPECTION_INCLUDE });
 }
+
+/** markSubmitted found the report changed since it was checked. */
+export const SUBMIT_CONFLICT = {
+  error: "The inspection changed while it was being handed in — check it and hand it in again.",
+  code: "CONFLICT",
+} as const;
 
 /** A checkout may only point at this tenant's own move-out inspection; anything else is dropped. */
 export async function ownMoveOut(conditionReportId: string | null, tenantId: string): Promise<string | null> {

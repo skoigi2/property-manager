@@ -1,7 +1,17 @@
 import { requireManager, requirePropertyAccess, requireManagerWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { assertGuestAccess } from "@/lib/guest-access";
+import { stayDocuments } from "@/lib/stays";
 import { z } from "zod";
+
+/** Flag the scans that count as ID for THIS stay (the rule the stays page and
+ *  the keys gate use); a returning guest's older scans are listed but marked. */
+function withStayFlags<
+  B extends { createdAt: Date; guest: { documents: { id: string; uploadedAt: Date; incomeEntryId: string | null }[] } },
+>(bg: B, entryId: string) {
+  const forStay = new Set(stayDocuments(bg, entryId).map((d) => d.id));
+  return { ...bg, guest: { ...bg.guest, documents: bg.guest.documents.map((d) => ({ ...d, forThisStay: forStay.has(d.id) })) } };
+}
 
 async function loadEntryPropertyId(entryId: string): Promise<string | null> {
   const e = await prisma.incomeEntry.findUnique({
@@ -34,7 +44,7 @@ export async function GET(_req: Request, props: { params: Promise<{ entryId: str
     orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
   });
 
-  return Response.json(bookingGuests);
+  return Response.json(bookingGuests.map((bg) => withStayFlags(bg, params.entryId)));
 }
 
 const linkSchema = z.object({
@@ -106,5 +116,5 @@ export async function POST(req: Request, props: { params: Promise<{ entryId: str
     },
   });
 
-  return Response.json(bookingGuest, { status: 201 });
+  return Response.json(withStayFlags(bookingGuest, params.entryId), { status: 201 });
 }

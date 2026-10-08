@@ -86,9 +86,16 @@ export function InspectionWalkthrough({ inspection, onChanged }: { inspection: I
   }
   async function saveNow() {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    const p = fetch(`/api/condition-reports/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload()),
-    }).then(async (res) => { if (!res.ok) toast.error(await readError(res, "Couldn't save — check your connection")); });
+    // One save at a time: wait for the one in flight, so saves land in order
+    // and none can arrive after a hand-in (the server would refuse it as locked).
+    const body = JSON.stringify(payload());
+    const p = (pending.current ?? Promise.resolve())
+      .catch(() => {})
+      .then(() => fetch(`/api/condition-reports/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body,
+      }))
+      .then(async (res) => { if (!res.ok) toast.error(await readError(res, "Couldn't save — check your connection")); })
+      .catch(() => { toast.error("Couldn't save — check your connection"); });
     pending.current = p;
     await p;
   }

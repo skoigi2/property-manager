@@ -909,7 +909,15 @@ async function main() {
         check("a scan uploaded for another stay doesn't show or count here",
           !JSON.stringify(s2).includes("other-stay.jpg") && (s2?.guests?.find((g: any) => g.id === priv.id)?.documents ?? []).length === 0 && s2?.idState === "missing");
         await expectStatus(mgr, "delete another stay's scan through this stay → 404", `/api/stays/${booking2.id}/guests/${priv.id}/documents/${elsewhere.id}`, 404, { method: "DELETE" });
-        await prisma.guestDocument.delete({ where: { id: elsewhere.id } });
+        // The manager's guest panel on /airbnb lists every scan the guest has,
+        // but marks which ones count as ID for this stay.
+        const own = await prisma.guestDocument.create({ data: { guestId: priv.id, incomeEntryId: booking2.id, label: "Passport", fileName: "y.jpg", storagePath: `guests/${priv.id}/this-stay.jpg`, mimeType: "image/jpeg" } });
+        const panel = await expectStatus(mgr, "manager's booking guest panel", `/api/bookings/${booking2.id}/guests`, 200);
+        const flags = Object.fromEntries(((panel ?? []).find((bg: any) => bg.guestId === priv.id)?.guest?.documents ?? [])
+          .map((d: any) => [d.storagePath.split("/").pop(), d.forThisStay]));
+        check("guest panel: this stay's scan counts, older and other-stay scans are marked as not",
+          flags["this-stay.jpg"] === true && flags["old.jpg"] === false && flags["other-stay.jpg"] === false, JSON.stringify(flags));
+        await prisma.guestDocument.deleteMany({ where: { id: { in: [elsewhere.id, own.id] } } });
       }
       await act(care, booking.id, { action: "undo", step: "keys_out" }, 403, "caretaker undoes a step → 403");
       await act(care, booking.id, { action: "override_id", reason: "x" }, 403, "caretaker waives the ID → 403");

@@ -4,7 +4,9 @@ import { Prisma } from "@prisma/client";
 import { conditionReportPatchSchema } from "@/lib/validations";
 import { deleteFromStorage } from "@/lib/supabase-storage";
 import { logAudit } from "@/lib/audit";
-import { loadInspection, loadUnitMeters, serializeInspection, checkAssignee, isInspectionManager, INSPECTION_INCLUDE } from "@/lib/inspections";
+import { loadInspection, loadUnitMeters, serializeInspection, checkAssignee, isInspectionManager, INSPECTION_INCLUDE, type InspectionRecord } from "@/lib/inspections";
+import type { Session } from "next-auth";
+import type { z } from "zod";
 import { canEditObservations, invalidPostStayRatings, keysState, normaliseKeys, normaliseMeterReadings } from "@/lib/inspection-rules";
 import { notifyInspectionAssigned } from "@/lib/inspection-notify";
 
@@ -31,14 +33,33 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   const params = await props.params;
   const { session, error } = await requireOpsStaffWrite();
   if (error) return error;
-  const loaded = await loadInspection(params.id);
-  if (!loaded.ok) return Response.json({ error: loaded.error }, { status: loaded.status });
-  const report = loaded.report;
 
   const parsed = conditionReportPatchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
   const data = parsed.data;
 
+  // The write only lands on the report as it was read (same updatedAt): a
+  // hand-in, an accept, a repair-job link or another phone's save in between
+  // makes it re-read and decide again — so an in-flight autosave can never
+  // overwrite locked findings or drop a repair job's link.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const loaded = await loadInspection(params.id);
+    if (!loaded.ok) return Response.json({ error: loaded.error }, { status: loaded.status });
+    const result = await applyPatch(loaded.report, data, session!);
+    if (result) return result;
+  }
+  return Response.json(
+    { error: "Someone else saved this inspection at the same moment — reload it and try again.", code: "CONFLICT" },
+    { status: 409 },
+  );
+}
+
+/** One attempt: a Response (saved, or refused), or null when the report changed since it was read. */
+async function applyPatch(
+  report: InspectionRecord,
+  data: z.infer<typeof conditionReportPatchSchema>,
+  session: Session,
+): Promise<Response | null> {
   const touchesObservations = OBSERVATION_FIELDS.some((f) => data[f] !== undefined);
   const touchesPlanning = PLANNING_FIELDS.some((f) => data[f] !== undefined);
 
@@ -64,9 +85,9 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     if (!t || t.unitId !== report.unitId) return Response.json({ error: "That tenant is not on this unit." }, { status: 400 });
   }
   if (data.assignedToUserId) {
-    const bad = await checkAssignee(data.assignedToUserId, report.property, session!);
+    const bad = await checkAssignee(data.assignedToUserId, report.property, session);
     if (bad) return Response.json({ error: bad.error }, { status: bad.status });
-  } else if (data.assignedToUserId === null && !isInspectionManager(session!) && report.assignedToUserId !== session!.user.id) {
+  } else if (data.assignedToUserId === null && !isInspectionManager(session) && report.assignedToUserId !== session.user.id) {
     return Response.json({ error: "Only a manager can unassign someone else." }, { status: 403 });
   }
   let scheduledFor: Date | null | undefined;
@@ -79,8 +100,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     ? normaliseMeterReadings(data.meterReadings, await loadUnitMeters(report.unitId))
     : undefined;
 
-  const updated = await prisma.conditionReport.update({
-    where: { id: report.id },
+  const { count } = await prisma.conditionReport.updateMany({
+    where: { id: report.id, updatedAt: report.updatedAt },
     data: {
       ...(touchesObservations && report.status === "SCHEDULED" ? { status: "IN_PROGRESS" as const } : {}),
       ...(data.reportDate !== undefined ? { reportDate: new Date(data.reportDate) } : {}),
@@ -100,8 +121,9 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       ...(data.assignedToUserId !== undefined ? { assignedToUserId: data.assignedToUserId } : {}),
       ...(data.tenantId !== undefined ? { tenantId: data.tenantId } : {}),
     },
-    include: INSPECTION_INCLUDE,
   });
+  if (count === 0) return null;
+  const updated = await prisma.conditionReport.findUniqueOrThrow({ where: { id: report.id }, include: INSPECTION_INCLUDE });
 
   // Planning changes and keys are worth an audit row; autosaved findings are not.
   const changed: Record<string, unknown> = {};
@@ -109,8 +131,8 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
   if (data.keys !== undefined) changed.keys = normaliseKeys(data.keys);
   if (Object.keys(changed).length) {
     await logAudit({
-      userId: session!.user.id,
-      userEmail: session!.user.email,
+      userId: session.user.id,
+      userEmail: session.user.email,
       action: "UPDATE",
       resource: "ConditionReport",
       resourceId: report.id,
@@ -120,10 +142,10 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     });
   }
   if (data.assignedToUserId && data.assignedToUserId !== report.assignedToUserId) {
-    await notifyInspectionAssigned(report.id, { id: session!.user.id, name: session!.user.name ?? session!.user.email ?? "A manager" });
+    await notifyInspectionAssigned(report.id, { id: session.user.id, name: session.user.name ?? session.user.email ?? "A manager" });
   }
 
-  return Response.json(await serializeInspection(updated, session!));
+  return Response.json(await serializeInspection(updated, session));
 }
 
 export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {

@@ -2,9 +2,12 @@
 //
 // A receipt covers ONE payment event. Paying a multi-line invoice creates one
 // typed IncomeEntry per line in the same transaction (src/lib/invoice-payment.ts),
-// so entries are grouped back into a single receipt by `receiptGroupKey`:
-// same invoice + same calendar day. Stand-alone entries (a deposit logged on
-// the Income page, a rent payment with no invoice) are their own receipt.
+// so entries are grouped back into a single receipt: same invoice + same
+// calendar day (`receiptGroupKey`), split into separate payments where the
+// rows were recorded more than PAYMENT_EVENT_GAP_MS apart (`splitPaymentEvents`)
+// — a second payment the same day is its own receipt with its own number.
+// Stand-alone entries (a deposit logged on the Income page, a rent payment
+// with no invoice) are their own receipt.
 //
 // Nothing is stored: the receipt number is derived from the group's primary
 // (earliest-created) entry, so the same payment always renders the same
@@ -33,7 +36,36 @@ function ymd(d: Date | string): string {
   return `${x.getFullYear()}-${m}-${day}`;
 }
 
-/** Entries sharing a key are one payment event → one receipt. */
+/** One payment's rows are created together, within a request; rows on the
+ *  same invoice and day recorded further apart than this are separate payments. */
+export const PAYMENT_EVENT_GAP_MS = 60_000;
+
+function createdMs(e: Pick<ReceiptableEntry, "createdAt">): number {
+  return e.createdAt ? new Date(e.createdAt).getTime() : 0;
+}
+
+function byCreation<T extends ReceiptableEntry>(a: T, b: T): number {
+  const ca = createdMs(a), cb = createdMs(b);
+  if (ca !== cb) return ca - cb;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** Split the entries of one invoice-day into payments: a new payment starts
+ *  wherever the gap since the previous row exceeds PAYMENT_EVENT_GAP_MS.
+ *  Each payment's rows come back in creation order. */
+export function splitPaymentEvents<T extends ReceiptableEntry>(entries: T[]): T[][] {
+  const sorted = [...entries].sort(byCreation);
+  const events: T[][] = [];
+  for (const e of sorted) {
+    const current = events[events.length - 1];
+    if (current && createdMs(e) - createdMs(current[current.length - 1]) <= PAYMENT_EVENT_GAP_MS) current.push(e);
+    else events.push([e]);
+  }
+  return events;
+}
+
+/** Entries on the same invoice and day share this key; `splitPaymentEvents`
+ *  then separates the payments within it. */
 export function receiptGroupKey(entry: Pick<ReceiptableEntry, "id" | "date" | "invoiceId">): string {
   return entry.invoiceId ? `${entry.invoiceId}:${ymd(entry.date)}` : entry.id;
 }
@@ -65,18 +97,13 @@ export function groupReceipts<T extends ReceiptableEntry>(entries: T[]): { key: 
   }
   // Lines in creation order (rent side → deposit → fees, as the allocator
   // creates them), regardless of how the caller's query happened to sort.
-  const byCreation = (a: T, b: T) => {
-    const ca = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const cb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    if (ca !== cb) return ca - cb;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  };
   return Array.from(map.entries())
-    .map(([key, list]) => ({
-      key,
-      primary: receiptPrimary(list),
-      entries: [...list].sort(byCreation),
-      amount: Math.round(list.reduce((s, e) => s + e.grossAmount, 0) * 100) / 100,
+    .flatMap(([key, list]) => splitPaymentEvents(list).map((event) => ({ key, event })))
+    .map(({ key, event }) => ({
+      key: `${key}:${receiptPrimary(event).id}`,
+      primary: receiptPrimary(event),
+      entries: event,
+      amount: Math.round(event.reduce((s, e) => s + e.grossAmount, 0) * 100) / 100,
     }))
     .sort((a, b) => new Date(b.primary.date).getTime() - new Date(a.primary.date).getTime());
 }

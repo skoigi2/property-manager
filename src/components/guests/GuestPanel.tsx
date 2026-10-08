@@ -9,6 +9,8 @@ interface GuestDoc {
   fileSize: number | null;
   uploadedAt: string;
   url?: string | null;
+  /** Uploaded for this booking — counts as ID for the stay. False = a returning guest's earlier scan. */
+  forThisStay?: boolean;
 }
 
 interface Guest {
@@ -43,6 +45,8 @@ function fmtBytes(b: number | null) {
 
 export function GuestPanel({ incomeEntryId }: Props) {
   const [bookingGuests, setBookingGuests] = useState<BookingGuest[]>([]);
+  // Whose ID the keys wait for: the main guest, else the first (stayIdState).
+  const idGuestId = (bookingGuests.find((b) => b.isPrimary) ?? bookingGuests[0])?.guestId;
   const [loading, setLoading]             = useState(true);
   const [showAdd, setShowAdd]             = useState(false);
 
@@ -313,7 +317,7 @@ export function GuestPanel({ incomeEntryId }: Props) {
         </div>
       )}
 
-      {/* Guest cards */}
+      {/* Guest cards. The main guest (else the first) is the one whose ID the keys wait for. */}
       {bookingGuests.length === 0 && !showAdd && (
         <p className="text-caption text-gray-400 italic">No guests recorded for this booking.</p>
       )}
@@ -387,8 +391,12 @@ export function GuestPanel({ incomeEntryId }: Props) {
 
             {/* Documents */}
             <div className="space-y-1.5">
-              {g.documents.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-2 text-caption text-gray-600">
+              {!g.documents.some((d) => d.forThisStay !== false) && (g.documents.length > 0 || guestId === idGuestId) && (
+                <p className="text-caption text-amber-700">No ID uploaded for this stay yet.{guestId === idGuestId ? " The caretaker can't hand over the keys until there is one, unless a manager waives it on the stay." : ""}</p>
+              )}
+              {[...g.documents].sort((a, b) => Number(b.forThisStay !== false) - Number(a.forThisStay !== false)).map((doc) => (
+                <div key={doc.id} className={`flex items-center gap-2 text-caption ${doc.forThisStay === false ? "text-gray-400" : "text-gray-600"}`}
+                  title={doc.forThisStay === false ? "Uploaded for an earlier stay — doesn't count as ID for this one" : undefined}>
                   <FileText size={12} className="text-gray-400 shrink-0" />
                   {doc.url ? (
                     <a href={doc.url} target="_blank" rel="noopener noreferrer"
@@ -397,6 +405,9 @@ export function GuestPanel({ incomeEntryId }: Props) {
                     </a>
                   ) : (
                     <span className="flex-1 truncate">{doc.label}</span>
+                  )}
+                  {doc.forThisStay === false && (
+                    <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-label uppercase text-gray-500">Earlier stay</span>
                   )}
                   {doc.fileSize && <span className="text-gray-400 shrink-0">{fmtBytes(doc.fileSize)}</span>}
                   <button

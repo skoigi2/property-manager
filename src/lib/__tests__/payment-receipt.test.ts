@@ -7,6 +7,7 @@ import {
   receiptNumberFor,
   receiptPrimary,
   receiptStamp,
+  splitPaymentEvents,
 } from "../payment-receipt";
 
 const d = (s: string) => new Date(s);
@@ -33,6 +34,26 @@ describe("receipt grouping", () => {
     expect(groups.map((g) => g.amount)).toEqual([25000, 77000, 50000]);
     expect(groups[1].entries).toHaveLength(3);
     expect(groups[1].primary.id).toBe(rent.id);
+  });
+});
+
+describe("two payments on the same invoice and day", () => {
+  // A part payment in the morning, the rest in the afternoon.
+  const morning = { id: "cmt000000000000000part01", date: d("2026-10-03"), type: "LONGTERM_RENT", grossAmount: 10000, invoiceId: "inv3", createdAt: d("2026-10-03T07:00:00Z") };
+  const afternoonRent = { id: "cmt000000000000000part02", date: d("2026-10-03"), type: "LONGTERM_RENT", grossAmount: 15000, invoiceId: "inv3", createdAt: d("2026-10-03T13:30:00Z") };
+  const afternoonWifi = { id: "cmt000000000000000part03", date: d("2026-10-03"), type: "UTILITY_RECOVERY", utilityType: "WIFI", grossAmount: 1500, invoiceId: "inv3", createdAt: d("2026-10-03T13:30:00.150Z") };
+
+  it("are separate receipts with their own numbers", () => {
+    const events = splitPaymentEvents([afternoonWifi, morning, afternoonRent]);
+    expect(events.map((e) => e.map((x) => x.id))).toEqual([[morning.id], [afternoonRent.id, afternoonWifi.id]]);
+    const groups = groupReceipts([afternoonWifi, morning, afternoonRent]);
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.amount).sort()).toEqual([10000, 16500]);
+    expect(new Set(groups.map((g) => receiptNumberFor(g.primary))).size).toBe(2);
+  });
+
+  it("keep one payment's rows together", () => {
+    expect(splitPaymentEvents([fee, rent, dep])).toEqual([[rent, dep, fee]]);
   });
 });
 

@@ -1,7 +1,7 @@
 import { requireOpsStaffWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { loadInspection, loadUnitMeters, markSubmitted, serializeInspection, submitInputFor, INSPECTION_INCLUDE } from "@/lib/inspections";
+import { loadInspection, loadUnitMeters, markSubmitted, serializeInspection, submitInputFor, INSPECTION_INCLUDE, SUBMIT_CONFLICT } from "@/lib/inspections";
 import { isCleanPostStay, submitProblems, type InspectionItem } from "@/lib/inspection-rules";
 import { notifyInspectionSubmitted } from "@/lib/inspection-notify";
 
@@ -22,7 +22,9 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   // Handed in before, then sent back or reopened for a correction? Those clear
   // submittedAt but keep who handed it in.
   const resubmission = !!loaded.report.submittedByUserId;
-  let updated = await markSubmitted(loaded.report, session!);
+  const submitted = await markSubmitted(loaded.report, session!);
+  if (!submitted) return Response.json(SUBMIT_CONFLICT, { status: 409 });
+  let updated = submitted;
   const clean = isCleanPostStay({
     reportType: updated.reportType,
     items: (updated.items as unknown as InspectionItem[]) ?? [],

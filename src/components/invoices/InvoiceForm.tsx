@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { Loader2, Plus, Receipt, X, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { HelpTip } from "@/components/ui/HelpTip";
-import { frequencyMonths } from "@/lib/rent-schedule";
+import { billingPeriodOf, frequencyMonths } from "@/lib/rent-schedule";
 
 // Tenant invoice form — create and edit. An invoice is a set of LINES:
 // rent, service charge, other charges, and the once-off move-in lines
@@ -149,10 +149,24 @@ export default function InvoiceForm({
   const months = frequencyMonths(detail?.paymentFrequency);
   const cadence = ({ 3: "Quarterly", 6: "Bi-annual", 12: "Annual" } as Record<number, string>)[months];
   const regularLabel = detail?.isUnitOwner ? "Service charge" : cadence ? `${cadence} rent` : KIND_META.RENT.label;
-  const periodNote =
-    detail && cadence && kind !== "DEPOSIT"
-      ? `${detail.name ?? "This tenant"} pays ${cadence.toLowerCase()}: this invoice covers ${format(new Date(periodYear, periodMonth - 1, 1), "MMM yyyy")} – ${format(new Date(periodYear, periodMonth - 1 + months - 1, 1), "MMM yyyy")} (${months} months of ${detail.isUnitOwner ? "service charge" : "rent and charges"}).`
-      : null;
+  // A period payer is billed on the first month of each period (from the lease
+  // start, as Generate invoices does). Any other month is inside a period that
+  // its first month's invoice already covers — billing it again double-bills.
+  const period = detail && cadence && kind !== "DEPOSIT"
+    ? billingPeriodOf(detail.leaseStart, detail.paymentFrequency, new Date(periodYear, periodMonth - 1, 1))
+    : null;
+  const who = detail?.name ?? "This tenant";
+  const monthYear = (d: Date) => format(d, "MMM yyyy");
+  const lastMonthOf = (start: Date) => new Date(start.getFullYear(), start.getMonth() + months - 1, 1);
+  const periodNote = period?.isBillingMonth
+    ? `${who} pays ${cadence!.toLowerCase()}: this invoice covers ${monthYear(period.start)} – ${monthYear(lastMonthOf(period.start))} (${months} months of ${detail!.isUnitOwner ? "service charge" : "rent and charges"}).`
+    : null;
+  const periodWarning = period && !period.isBillingMonth
+    ? period.beforeStart
+      ? `${who}'s billing starts in ${monthYear(period.start)} — ${format(new Date(periodYear, periodMonth - 1, 1), "MMMM")} is before it.`
+      : `${who} pays ${cadence!.toLowerCase()}: ${format(new Date(periodYear, periodMonth - 1, 1), "MMMM")} is inside the ${monthYear(period.start)} – ${monthYear(lastMonthOf(period.start))} ${({ 3: "quarter", 6: "half-year", 12: "year" } as Record<number, string>)[months]}, billed on its ${format(period.start, "MMMM")} invoice. An invoice here bills ${months} months again.`
+    : null;
+  const suggestedPeriod = period && !period.isBillingMonth ? (period.beforeStart ? period.start : period.next) : null;
   const [dueDate, setDueDate] = useState(
     invoice ? format(new Date(invoice.dueDate), "yyyy-MM-dd") : format(new Date(now.getFullYear(), now.getMonth(), 5), "yyyy-MM-dd"),
   );
@@ -377,6 +391,18 @@ export default function InvoiceForm({
               {periodNote && (
                 <p className="text-caption text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2">{periodNote}</p>
               )}
+              {periodWarning && suggestedPeriod && (
+                <div className="text-caption text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-2 space-y-1.5">
+                  <p>{periodWarning}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setPeriodYear(suggestedPeriod.getFullYear()); setPeriodMonth(suggestedPeriod.getMonth() + 1); }}
+                    className="font-medium underline hover:no-underline"
+                  >
+                    Bill {format(suggestedPeriod, "MMMM yyyy")} instead
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -391,7 +417,7 @@ export default function InvoiceForm({
             <div>
               <label className="text-label font-medium text-gray-500 uppercase block mb-1">Year *</label>
               <select value={periodYear} disabled={isEdit} onChange={(e) => setPeriodYear(Number(e.target.value))} className={`${inputCls} disabled:bg-gray-50 disabled:text-gray-400`}>
-                {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+                {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, ...(periodYear > now.getFullYear() + 1 ? [periodYear] : [])].map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <div>

@@ -61,3 +61,32 @@ export function scheduledExpectedForMonth(opts: {
   }
   return { due: true, amount };
 }
+
+export interface BillingPeriod {
+  /** First month of the period that contains the month asked about. */
+  start: Date;
+  /** First month of the following period. */
+  next: Date;
+  /** The month asked about is the period's first month — the one that is billed. */
+  isBillingMonth: boolean;
+  /** The month is before billing (lease start) begins; `start` is then the first billing month. */
+  beforeStart: boolean;
+}
+
+/**
+ * Which billing period a month falls in for a quarterly / bi-annual / annual
+ * payer — the same lease-start anchor as scheduledExpectedForMonth. Monthly
+ * payers: every month is its own period.
+ */
+export function billingPeriodOf(leaseStart: Date | string, frequency: string | null | undefined, month: Date): BillingPeriod {
+  const n = frequencyMonths(frequency);
+  const m = new Date(month.getFullYear(), month.getMonth(), 1);
+  const ls = new Date(leaseStart);
+  const anchor = new Date(ls.getFullYear(), ls.getMonth(), 1);
+  const elapsed = (m.getFullYear() - anchor.getFullYear()) * 12 + (m.getMonth() - anchor.getMonth());
+  if (n === 1) return { start: m, next: new Date(m.getFullYear(), m.getMonth() + 1, 1), isBillingMonth: true, beforeStart: elapsed < 0 };
+  if (elapsed < 0) return { start: anchor, next: new Date(anchor.getFullYear(), anchor.getMonth() + n, 1), isBillingMonth: false, beforeStart: true };
+  const offset = elapsed % n;
+  const start = new Date(m.getFullYear(), m.getMonth() - offset, 1);
+  return { start, next: new Date(start.getFullYear(), start.getMonth() + n, 1), isBillingMonth: offset === 0, beforeStart: false };
+}

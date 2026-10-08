@@ -20,7 +20,7 @@ export async function buildInvoicePdfPayload(invoiceId: string) {
       tenant: {
         select: {
           id: true, name: true, email: true, phone: true,
-          poBox: true, leaseStart: true, leaseEnd: true, paymentFrequency: true, showVatOnInvoice: true,
+          poBox: true, leaseStart: true, leaseEnd: true, paymentFrequency: true, showVatOnInvoice: true, isUnitOwner: true,
           unit: {
             select: {
               unitNumber: true, type: true,

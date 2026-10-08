@@ -134,6 +134,8 @@ export type InvoiceData = {
     leaseStart?: Date | string | null;
     leaseEnd?: Date | string | null;
     paymentFrequency?: string | null;
+    /** A unit owner has no lease: the details show when billing started instead. */
+    isUnitOwner?: boolean | null;
     unit: {
       unitNumber: string;
       type?: string;
@@ -173,9 +175,10 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
   const hasPayInstructions = !!(org?.paymentInstructions);
   const showPaySection = !isPaid && (hasBankDetails || hasMpesa || hasPayInstructions);
 
-  // Payment terms follow the tenant's agreed cadence — the invoice still
-  // covers one month, but the description must not say "Monthly" for a
-  // tenant on a quarterly/biannual/annual plan.
+  // Payment terms follow the tenant's agreed cadence. A quarterly / bi-annual
+  // / annual payer's invoice covers the whole period from its month (that is
+  // how Generate invoices and the invoice form bill them), so the rent and
+  // service charge rows name the months covered.
   const frequency = data.tenant.paymentFrequency ?? null;
   const PAYMENT_TERMS: Record<string, string> = {
     MONTHLY:   "Monthly",
@@ -184,10 +187,21 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
     ANNUAL:    "Annually in advance",
   };
   const paymentTerms = frequency ? PAYMENT_TERMS[frequency] ?? null : null;
+  // Only the rent side covers the period: a utilities-only or deposit-only
+  // invoice for the same tenant is still that one month.
+  const billsPeriod = data.rentAmount > 0 || data.serviceCharge > 0;
+  const periodMonths = billsPeriod ? ({ QUARTERLY: 3, BIANNUAL: 6, ANNUAL: 12 } as Record<string, number>)[frequency ?? ""] ?? 1 : 1;
+  const coveredLabel = periodMonths > 1
+    ? `${format(new Date(data.periodYear, data.periodMonth - 1, 1), "MMM yyyy")} – ${format(new Date(data.periodYear, data.periodMonth - 1 + periodMonths - 1, 1), "MMM yyyy")}`
+    : periodLabel;
   const rentLabel =
     !frequency || frequency === "MONTHLY"
       ? "Monthly Rent"
-      : `Rent — ${periodLabel} (payable ${PAYMENT_TERMS[frequency]?.toLowerCase() ?? "per agreement"})`;
+      : `Rent — ${coveredLabel} (payable ${PAYMENT_TERMS[frequency]?.toLowerCase() ?? "per agreement"})`;
+  const serviceChargeLabel =
+    !frequency || frequency === "MONTHLY"
+      ? "Service Charge"
+      : `Service Charge — ${coveredLabel} (payable ${PAYMENT_TERMS[frequency]?.toLowerCase() ?? "per agreement"})`;
 
   const leaseStart = data.tenant.leaseStart ? format(new Date(data.tenant.leaseStart), "d MMM yyyy") : null;
   const leaseEnd   = data.tenant.leaseEnd ? format(new Date(data.tenant.leaseEnd), "d MMM yyyy") : null;
@@ -220,7 +234,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
     // A utilities-only or service-charge-only (unit owner) invoice has no rent row.
     ...(data.rentAmount > 0 || (!hasDeposit && !hasUtilities && !(data.serviceCharge > 0) && !(data.otherCharges > 0))
       ? [{ label: rentLabel, amount: data.rentAmount }] : []),
-    ...(data.serviceCharge > 0 ? [{ label: "Service Charge", amount: data.serviceCharge }] : []),
+    ...(data.serviceCharge > 0 ? [{ label: serviceChargeLabel, amount: data.serviceCharge }] : []),
     ...(data.otherCharges > 0 ? [{ label: "Other Charges", amount: data.otherCharges }] : []),
     ...utilityRows("WATER", data.waterAmount ?? 0, "Water"),
     ...utilityRows("ELECTRICITY", data.electricityAmount ?? 0, "Electricity"),
@@ -306,12 +320,14 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
           <View style={styles.col}>
             <Text style={styles.sectionLabel}>Invoice Details</Text>
             <Text style={styles.bodyText}>Invoice No: <Text style={styles.boldText}>{data.invoiceNumber}</Text></Text>
-            <Text style={styles.bodyText}>Period: <Text style={styles.boldText}>{periodLabel}</Text></Text>
+            <Text style={styles.bodyText}>Period: <Text style={styles.boldText}>{coveredLabel}</Text></Text>
             <Text style={styles.bodyText}>Due Date: <Text style={styles.boldText}>{dueDate}</Text></Text>
             {paymentTerms && (
               <Text style={styles.bodyText}>Payment Terms: <Text style={styles.boldText}>{paymentTerms}</Text></Text>
             )}
-            {(leaseStart || leaseEnd) && (
+            {data.tenant.isUnitOwner ? (
+              leaseStart && <Text style={styles.bodyText}>Billing from: <Text style={styles.boldText}>{leaseStart}</Text></Text>
+            ) : (leaseStart || leaseEnd) && (
               <Text style={styles.bodyText}>
                 Lease: <Text style={styles.boldText}>{leaseStart ?? "—"} to {leaseEnd ?? "open-ended"}</Text>
               </Text>
@@ -345,7 +361,7 @@ function InvoicePDF({ data }: { data: InvoiceData }) {
         {/* Period badge */}
         <View style={styles.periodBadge}>
           <Text style={styles.periodText}>
-            Billing Period: {periodLabel}
+            Billing Period: {coveredLabel}
             {isAdvanceBilling ? "  (Advance billing — payment due before period start)" : ""}
           </Text>
         </View>

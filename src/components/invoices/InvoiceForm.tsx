@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { Loader2, Plus, Receipt, X, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { HelpTip } from "@/components/ui/HelpTip";
+import { frequencyMonths } from "@/lib/rent-schedule";
 
 // Tenant invoice form — create and edit. An invoice is a set of LINES:
 // rent, service charge, other charges, and the once-off move-in lines
@@ -71,7 +72,11 @@ interface TenantOption {
 
 interface TenantDetail {
   id: string;
+  name?: string;
   monthlyRent: number;
+  /** MONTHLY / QUARTERLY / BIANNUAL / ANNUAL — a period payer's invoice covers the whole period. */
+  paymentFrequency?: string | null;
+  isUnitOwner?: boolean;
   serviceCharge: number;
   wifiCharge?: number;
   depositAmount: number;
@@ -138,6 +143,16 @@ export default function InvoiceForm({
   const [kind, setKind] = useState<InvoiceKind>(initialKind ?? (invoice && ((invoice.depositAmount ?? 0) > 0 || (invoice.leaseFee ?? 0) > 0) ? "CUSTOM" : "RENT"));
   const [periodYear, setPeriodYear] = useState(invoice?.periodYear ?? now.getFullYear());
   const [periodMonth, setPeriodMonth] = useState(invoice?.periodMonth ?? now.getMonth() + 1);
+
+  // The regular invoice names what the tenant is billed: a unit owner's
+  // service charge, a period payer's quarterly / bi-annual / annual rent.
+  const months = frequencyMonths(detail?.paymentFrequency);
+  const cadence = ({ 3: "Quarterly", 6: "Bi-annual", 12: "Annual" } as Record<number, string>)[months];
+  const regularLabel = detail?.isUnitOwner ? "Service charge" : cadence ? `${cadence} rent` : KIND_META.RENT.label;
+  const periodNote =
+    detail && cadence && kind !== "DEPOSIT"
+      ? `${detail.name ?? "This tenant"} pays ${cadence.toLowerCase()}: this invoice covers ${format(new Date(periodYear, periodMonth - 1, 1), "MMM yyyy")} – ${format(new Date(periodYear, periodMonth - 1 + months - 1, 1), "MMM yyyy")} (${months} months of ${detail.isUnitOwner ? "service charge" : "rent and charges"}).`
+      : null;
   const [dueDate, setDueDate] = useState(
     invoice ? format(new Date(invoice.dueDate), "yyyy-MM-dd") : format(new Date(now.getFullYear(), now.getMonth(), 5), "yyyy-MM-dd"),
   );
@@ -192,10 +207,13 @@ export default function InvoiceForm({
   // only — editing keeps the stored lines).
   useEffect(() => {
     if (isEdit || !detail) return;
+    // A quarterly / bi-annual / annual payer is billed the whole period on one
+    // invoice, like Generate invoices does: the monthly amounts × months covered.
+    const months = frequencyMonths(detail.paymentFrequency);
     // A unit owner (service charge only) has rent 0: no rent line on their invoice.
-    const rentLine = (detail.monthlyRent ?? 0) > 0 ? { rentAmount: String(detail.monthlyRent) } : {};
-    const sc = detail.serviceCharge > 0 ? String(detail.serviceCharge) : "";
-    const wifi = (detail.wifiCharge ?? 0) > 0 ? String(detail.wifiCharge) : "";
+    const rentLine = (detail.monthlyRent ?? 0) > 0 ? { rentAmount: String(detail.monthlyRent * months) } : {};
+    const sc = detail.serviceCharge > 0 ? String(detail.serviceCharge * months) : "";
+    const wifi = (detail.wifiCharge ?? 0) > 0 ? String((detail.wifiCharge ?? 0) * months) : "";
     const dep = detail.depositAmount > 0 ? String(detail.depositAmount) : "";
     const lease = defaults?.leaseFeeDefault ? String(defaults.leaseFeeDefault) : "";
     if (kind === "RENT") setLines({ ...rentLine, ...(sc ? { serviceCharge: sc } : {}), ...(wifi ? { wifiAmount: wifi } : {}) });
@@ -351,11 +369,14 @@ export default function InvoiceForm({
                     onClick={() => setKind(k)}
                     className={`px-2 py-1.5 rounded-md text-caption font-medium transition-colors ${kind === k ? "bg-white text-header shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                   >
-                    {KIND_META[k].label}
+                    {k === "RENT" ? regularLabel : KIND_META[k].label}
                   </button>
                 ))}
               </div>
               <p className="text-caption text-gray-400 mt-1.5">{KIND_META[kind].help}</p>
+              {periodNote && (
+                <p className="text-caption text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2">{periodNote}</p>
+              )}
             </div>
           )}
 

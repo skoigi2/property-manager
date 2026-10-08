@@ -55,12 +55,13 @@ const nextConfig = {
   // of the server bundle.
   serverExternalPackages: ["@react-pdf/renderer"],
   // react-pdf ≥ 4.4 renders through upstream pdfkit, which loads its 14
-  // standard fonts (Helvetica…) with a runtime require of "#standard-fonts/*".
+  // standard fonts (Helvetica…, plus their shared chunks/ file) with a runtime
+  // require of "#standard-fonts/*".
   // The deploy's file tracing can't see that, so the font files were missing
   // on Vercel and every PDF failed (2026-10-05 → 10-08). Ship them with every
   // API route (PDFs are rendered in routes and the cron).
   outputFileTracingIncludes: {
-    "/api/**/*": ["./node_modules/pdfkit/js/standard-fonts/*.cjs"],
+    "/api/**/*": ["./node_modules/pdfkit/js/standard-fonts/**/*.cjs"],
   },
   // No dev badge: the guide screenshots and tutorial videos are captured from
   // `next dev`. Errors still open the overlay.

@@ -10,7 +10,7 @@ function MarketingFooter() {
         <Link href="/" className="flex flex-col items-start gap-1">
           <span className="flex items-center gap-2">
             <BrandLogo size={24} />
-            <span className="font-display text-body text-header dark:text-white">Groundwork PM</span>
+            <span className="font-display text-body text-header dark:text-white">GroundWork PM</span>
           </span>
           <span className="text-caption text-gray-400 dark:text-gray-500">
             The operating system for modern property management teams.
@@ -20,6 +20,7 @@ function MarketingFooter() {
           <Link href="/pricing" className="hover:text-header dark:hover:text-white transition-colors">Pricing</Link>
           <Link href="/examples" className="hover:text-header dark:hover:text-white transition-colors">Examples</Link>
           <Link href="/tools/airbnb-vs-long-term-rental-calculator" className="hover:text-header dark:hover:text-white transition-colors">Airbnb vs Rent Calculator</Link>
+          <Link href="/about" className="hover:text-header dark:hover:text-white transition-colors">About</Link>
           <Link href="/contact" className="hover:text-header dark:hover:text-white transition-colors">Contact</Link>
           <Link href="/login" className="hover:text-header dark:hover:text-white transition-colors">Sign in</Link>
           <Link href="/signup" className="hover:text-header dark:hover:text-white transition-colors">Sign up</Link>
@@ -29,7 +30,7 @@ function MarketingFooter() {
           <a href="mailto:support@groundworkpm.com" className="hover:text-header dark:hover:text-white transition-colors">Support</a>
         </div>
         <p className="text-caption text-gray-300 dark:text-gray-600 ">
-          © {new Date().getFullYear()} Groundwork PM
+          © {new Date().getFullYear()} GroundWork PM. All rights reserved.
         </p>
       </div>
     </footer>

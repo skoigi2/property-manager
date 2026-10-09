@@ -15,6 +15,7 @@ export function LandingNav() {
     { label: "Examples", href: "/examples" },
     { label: "Calculator", href: "/tools/airbnb-vs-long-term-rental-calculator" },
     { label: "Pricing", href: "/pricing" },
+    { label: "About", href: "/about" },
     { label: "Contact", href: "/contact" },
     { label: "Sign in", href: "/login" },
   ];
@@ -27,7 +28,7 @@ export function LandingNav() {
           <div className="flex items-center gap-10">
             <Link href="/" className="flex items-center gap-2">
               <BrandLogo size={32} />
-              <span className="font-display text-body-lg text-header dark:text-white">Groundwork PM</span>
+              <span className="font-display text-body-lg text-header dark:text-white">GroundWork PM</span>
             </Link>
 
             {/* Desktop links */}

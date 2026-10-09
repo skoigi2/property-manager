@@ -3,14 +3,14 @@ import Link from "next/link";
 import { ContactForm } from "./ContactForm";
 
 export const metadata: Metadata = {
-  title: "Contact — Groundwork PM",
-  description: "Get in touch with the Groundwork PM team for support, feature requests, or partnership enquiries.",
+  title: "Contact — GroundWork PM",
+  description: "Get in touch with the GroundWork PM team for support, feature requests, or partnership enquiries.",
   alternates: { canonical: "https://groundworkpm.com/contact" },
   openGraph: {
-    title: "Contact — Groundwork PM",
-    description: "Get in touch with the Groundwork PM team.",
+    title: "Contact — GroundWork PM",
+    description: "Get in touch with the GroundWork PM team.",
     url: "https://groundworkpm.com/contact",
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "website",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -33,12 +33,12 @@ export default async function ContactPage(
             {isDemo ? "Book a 15-minute demo" : "Get in touch"}
           </span>
           <h1 className=" text-h1 md:text-display text-header dark:text-white mb-4">
-            {isDemo ? "See Groundwork PM on your portfolio" : "We're here to help"}
+            {isDemo ? "See GroundWork PM on your portfolio" : "We're here to help"}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-body-lg ">
             {isDemo
               ? "Tell us a few times that suit you and we'll confirm a 15-minute call by email within 1 business day. A real person walks you through it — no commitment."
-              : "Questions about Groundwork PM? A feature you'd like to see? Drop us a message and we'll get back to you within 1 business day."}
+              : "Questions about GroundWork PM? A feature you'd like to see? Drop us a message and we'll get back to you within 1 business day."}
           </p>
         </div>
       </section>
@@ -96,7 +96,7 @@ export default async function ContactPage(
                 </div>
 
                 <div>
-                  <h2 className=" text-h3 text-header dark:text-white mb-3">New to Groundwork PM?</h2>
+                  <h2 className=" text-h3 text-header dark:text-white mb-3">New to GroundWork PM?</h2>
                   <p className="text-body text-gray-500 dark:text-gray-400 mb-4">
                     Start with a 30-day free trial. No credit card required.
                   </p>

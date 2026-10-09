@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Refund Policy — Groundwork PM",
-  description: "Groundwork PM's refund and cancellation policy for subscriptions.",
+  title: "Refund Policy — GroundWork PM",
+  description: "GroundWork PM's refund and cancellation policy for subscriptions.",
   alternates: {
     canonical: "https://groundworkpm.com/refund",
   },
   openGraph: {
-    title: "Refund Policy — Groundwork PM",
-    description: "Groundwork PM's refund and cancellation policy for subscriptions.",
+    title: "Refund Policy — GroundWork PM",
+    description: "GroundWork PM's refund and cancellation policy for subscriptions.",
     url: "https://groundworkpm.com/refund",
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "website",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -27,7 +27,7 @@ export default function RefundPage() {
           <section>
             <h2 className=" text-h2 text-header mb-3">1. Free Trial</h2>
             <p>
-              All new Groundwork PM accounts include a 30-day free trial. No payment is required to start your
+              All new GroundWork PM accounts include a 30-day free trial. No payment is required to start your
               trial, and you will not be charged unless you explicitly choose to subscribe after your trial ends.
               There is nothing to refund during the trial period.
             </p>

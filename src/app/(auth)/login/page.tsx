@@ -71,7 +71,7 @@ function LoginInner() {
             <div className="mx-auto w-fit">
               <BrandLogo size={56} dark />
             </div>
-            <h1 className="font-display font-normal text-h1 text-white group-hover:text-white/80 transition-colors">Groundwork PM</h1>
+            <h1 className="font-display font-normal text-h1 text-white group-hover:text-white/80 transition-colors">GroundWork PM</h1>
           </Link>
           <p className="text-white/60 text-body mt-1 ">Property insights. Built on solid groundwork.</p>
         </div>

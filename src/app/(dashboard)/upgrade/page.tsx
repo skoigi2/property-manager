@@ -82,7 +82,7 @@ export default function UpgradePage() {
       <div className="text-center mb-10">
         <h1 className=" text-h1 text-header mb-2">Choose your plan</h1>
         <p className="text-body text-gray-500 ">
-          Your free trial has ended. Select a plan to continue using Groundwork PM.
+          Your free trial has ended. Select a plan to continue using GroundWork PM.
         </p>
 
         {/* Billing toggle */}

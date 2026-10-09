@@ -4,7 +4,7 @@ import { InboxMock } from "@/components/landing/InboxMock";
 import { DashboardPreview } from "@/components/landing/DashboardPreview";
 
 export const metadata: Metadata = {
-  title: "Examples — GroundWorkPM",
+  title: "Examples — GroundWork PM",
   description:
     "See what you'll actually ship to owners and tenants: the operational inbox, owner statements, and the tenant portal — before you sign up.",
 };

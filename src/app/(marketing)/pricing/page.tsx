@@ -141,14 +141,14 @@ const PLANS = [
 ] as const;
 
 const STARTER_BULLETS = [
-  "Everything in Groundwork PM",
+  "Everything in GroundWork PM",
   "Up to 2 properties · unlimited units",
   "1 team member + 2 caretaker seats",
   "Tenant portal · magic-link approvals · daily expiry cron",
 ];
 
 const GROWTH_BULLETS = [
-  "Everything in Groundwork PM",
+  "Everything in GroundWork PM",
   "Up to 10 properties · unlimited units",
   "Up to 10 team members + 10 caretaker seats",
   "Inbox queue with one-click suggested actions",
@@ -157,7 +157,7 @@ const GROWTH_BULLETS = [
 ];
 
 const PRO_BULLETS = [
-  "Everything in Groundwork PM",
+  "Everything in GroundWork PM",
   "Unlimited properties · unlimited team members",
   "Multiple organisations",
   "Priority support",

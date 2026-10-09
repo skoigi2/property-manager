@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 
   const ics = calendarEventsToIcs(events, {
     origin,
-    name: "GroundWorkPM",
+    name: "GroundWork PM",
     description: "Snapshot export — this file does not update automatically.",
   });
 

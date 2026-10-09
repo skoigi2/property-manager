@@ -5,14 +5,14 @@ import { BLOG_POSTS } from "@/lib/blog-posts";
 const post = BLOG_POSTS.find((p) => p.slug === "run-rental-properties-like-a-business")!;
 
 export const metadata: Metadata = {
-  title: `${post.title} — Groundwork PM`,
+  title: `${post.title} — GroundWork PM`,
   description: post.excerpt,
   alternates: { canonical: `https://groundworkpm.com/blog/${post.slug}` },
   openGraph: {
     title: post.title,
     description: post.excerpt,
     url: `https://groundworkpm.com/blog/${post.slug}`,
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "article",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -67,7 +67,7 @@ export default function Article() {
         balances automatically, and keeps deposits completely separate from income.
       </p>
       <p>
-        In Groundwork PM, every tenant has an invoice ledger. Partial payments are tracked
+        In GroundWork PM, every tenant has an invoice ledger. Partial payments are tracked
         against the invoice they belong to. Arrears are visible without any manual review.
       </p>
 
@@ -106,7 +106,7 @@ export default function Article() {
         shouldn&apos;t be a new piece of work. It should be a formatted view of existing data.
       </p>
       <p>
-        In Groundwork PM, owner reports and P&amp;L statements are generated from the income and
+        In GroundWork PM, owner reports and P&amp;L statements are generated from the income and
         expense entries already in the system. When you log income and expenses consistently,
         reporting takes seconds.
       </p>

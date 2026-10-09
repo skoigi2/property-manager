@@ -102,7 +102,7 @@ export default function TypographySpecimen() {
 
       <section className="bg-white rounded-xl shadow-card p-5">
         <h2 className="text-h2 mb-3">Exceptions</h2>
-        <p className="font-display font-normal text-h2 text-header">Groundwork PM</p>
+        <p className="font-display font-normal text-h2 text-header">GroundWork PM</p>
         <p className="text-caption text-gray-400 mb-3">↑ DM Serif Display — logo wordmark only</p>
         <p className="font-mono text-caption">gwpm_ak_9f2c…e41b · sha256:ab12cd</p>
         <p className="text-caption text-gray-400">↑ System mono — API keys, tokens, reference codes only. Never money.</p>

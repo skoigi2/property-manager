@@ -64,7 +64,7 @@ ffmpeg -y -loglevel error -ss "${TRIM_START_SEC:-0}" -i "$SRC" \
 
 # 2. Title card (2s, navy background, gold-on-white text).
 ffmpeg -y -loglevel error -f lavfi -i "color=c=0x132635:s=1280x800:d=2:r=25" \
-  -vf "drawtext=fontfile='$FONT_ESC':text='$TITLE_ESC':fontcolor=white:fontsize=52:x=(w-text_w)/2:y=(h-text_h)/2-30,drawtext=fontfile='$FONT_ESC':text='Groundwork PM tutorial':fontcolor=0xC69C4A:fontsize=26:x=(w-text_w)/2:y=(h-text_h)/2+50" \
+  -vf "drawtext=fontfile='$FONT_ESC':text='$TITLE_ESC':fontcolor=white:fontsize=52:x=(w-text_w)/2:y=(h-text_h)/2-30,drawtext=fontfile='$FONT_ESC':text='GroundWork PM tutorial':fontcolor=0xC69C4A:fontsize=26:x=(w-text_w)/2:y=(h-text_h)/2+50" \
   -c:v libx264 -pix_fmt yuv420p -an "$TMP/title.mp4"
 
 # 3. End card (2s, "Next: …").

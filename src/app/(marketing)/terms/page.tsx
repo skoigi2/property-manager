@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms and Conditions — Groundwork PM",
-  description: "Terms and Conditions governing use of the Groundwork PM property management platform.",
+  title: "Terms and Conditions — GroundWork PM",
+  description: "Terms and Conditions governing use of the GroundWork PM property management platform.",
   alternates: {
     canonical: "https://groundworkpm.com/terms",
   },
   openGraph: {
-    title: "Terms and Conditions — Groundwork PM",
-    description: "Terms and Conditions governing use of the Groundwork PM property management platform.",
+    title: "Terms and Conditions — GroundWork PM",
+    description: "Terms and Conditions governing use of the GroundWork PM property management platform.",
     url: "https://groundworkpm.com/terms",
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "website",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -27,7 +27,7 @@ export default function TermsPage() {
           <section>
             <h2 className=" text-h2 text-header mb-3">1. Acceptance of Terms</h2>
             <p>
-              By accessing or using Groundwork PM (&ldquo;the Service&rdquo;), you agree to be bound by these Terms and
+              By accessing or using GroundWork PM (&ldquo;the Service&rdquo;), you agree to be bound by these Terms and
               Conditions (&ldquo;Terms&rdquo;). If you do not agree to these Terms, you may not use the Service. These
               Terms apply to all visitors, users, and others who access or use the Service.
             </p>
@@ -36,10 +36,10 @@ export default function TermsPage() {
           <section>
             <h2 className=" text-h2 text-header mb-3">2. Description of Service</h2>
             <p>
-              Groundwork PM is a cloud-based property management platform that provides tools for tracking rental
+              GroundWork PM is a cloud-based property management platform that provides tools for tracking rental
               income, managing expenses, monitoring tenant leases, generating financial reports, and related property
-              management functions. The Service is provided by Groundwork PM, a software business operating from
-              the Kingdom of Bahrain.
+              management functions. The Service is provided by GroundWork PM, a software business operating from
+              Kenya.
             </p>
           </section>
 
@@ -97,12 +97,12 @@ export default function TermsPage() {
             <h2 className=" text-h2 text-header mb-3">7. Data and Intellectual Property</h2>
             <p>
               You retain full ownership of all data you enter into the Service, including property details, tenant
-              records, and financial information (&ldquo;Your Data&rdquo;). You grant Groundwork PM a limited licence
+              records, and financial information (&ldquo;Your Data&rdquo;). You grant GroundWork PM a limited licence
               to store and process Your Data solely to provide and improve the Service.
             </p>
             <p className="mt-3">
               All software, design, trademarks, and content comprising the Service (excluding Your Data) are the
-              intellectual property of Groundwork PM and may not be copied, reproduced, or used without our express
+              intellectual property of GroundWork PM and may not be copied, reproduced, or used without our express
               written consent.
             </p>
           </section>
@@ -131,7 +131,7 @@ export default function TermsPage() {
             <p>
               The Service is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo; without warranties of any kind,
               express or implied, including but not limited to merchantability, fitness for a particular purpose, or
-              non-infringement. Groundwork PM does not warrant that the Service will meet your specific requirements
+              non-infringement. GroundWork PM does not warrant that the Service will meet your specific requirements
               or that it will be error-free.
             </p>
           </section>
@@ -139,7 +139,7 @@ export default function TermsPage() {
           <section>
             <h2 className=" text-h2 text-header mb-3">11. Limitation of Liability</h2>
             <p>
-              To the maximum extent permitted by applicable law, Groundwork PM shall not be liable for any indirect,
+              To the maximum extent permitted by applicable law, GroundWork PM shall not be liable for any indirect,
               incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill,
               arising out of or in connection with your use of the Service. Our total aggregate liability to you for
               any claim shall not exceed the amount you paid to us in the three months preceding the claim.
@@ -162,9 +162,9 @@ export default function TermsPage() {
           <section>
             <h2 className=" text-h2 text-header mb-3">13. Governing Law</h2>
             <p>
-              These Terms are governed by and construed in accordance with the laws of the Kingdom of Bahrain. Any
+              These Terms are governed by and construed in accordance with the laws of Kenya. Any
               disputes arising under or in connection with these Terms shall be subject to the exclusive jurisdiction
-              of the courts of Bahrain.
+              of the courts of Kenya.
             </p>
           </section>
 

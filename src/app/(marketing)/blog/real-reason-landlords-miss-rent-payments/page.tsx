@@ -5,14 +5,14 @@ import { BLOG_POSTS } from "@/lib/blog-posts";
 const post = BLOG_POSTS.find((p) => p.slug === "real-reason-landlords-miss-rent-payments")!;
 
 export const metadata: Metadata = {
-  title: `${post.title} — Groundwork PM`,
+  title: `${post.title} — GroundWork PM`,
   description: post.excerpt,
   alternates: { canonical: `https://groundworkpm.com/blog/${post.slug}` },
   openGraph: {
     title: post.title,
     description: post.excerpt,
     url: `https://groundworkpm.com/blog/${post.slug}`,
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "article",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },

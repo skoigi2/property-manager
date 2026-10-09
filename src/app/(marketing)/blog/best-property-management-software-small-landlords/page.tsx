@@ -5,14 +5,14 @@ import { BLOG_POSTS } from "@/lib/blog-posts";
 const post = BLOG_POSTS.find((p) => p.slug === "best-property-management-software-small-landlords")!;
 
 export const metadata: Metadata = {
-  title: `${post.title} — Groundwork PM`,
+  title: `${post.title} — GroundWork PM`,
   description: post.excerpt,
   alternates: { canonical: `https://groundworkpm.com/blog/${post.slug}` },
   openGraph: {
     title: post.title,
     description: post.excerpt,
     url: `https://groundworkpm.com/blog/${post.slug}`,
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "article",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -113,9 +113,9 @@ export default function Article() {
 
       <TrialCTA headline="Built for landlords managing 2–20 properties. Not 200." />
 
-      <h2>What Groundwork PM does differently</h2>
+      <h2>What GroundWork PM does differently</h2>
       <p>
-        Groundwork PM was built specifically for independent landlords and small property managers.
+        GroundWork PM was built specifically for independent landlords and small property managers.
         Not as a lite version of an enterprise platform — from the ground up for portfolios of
         2–50 properties.
       </p>
@@ -125,7 +125,7 @@ export default function Article() {
         <thead>
           <tr>
             <th>What you need</th>
-            <th>Groundwork PM</th>
+            <th>GroundWork PM</th>
           </tr>
         </thead>
         <tbody>

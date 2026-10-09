@@ -84,7 +84,7 @@ async function runOne(key: TutorialKey, burn: boolean): Promise<void> {
   const vttPath = generateVtt(key, shifted, PUBLIC_TUTORIALS);
 
   console.log("• postprocess (ffmpeg)");
-  const nextLine = meta.next ? `Next: ${TUTORIAL_VIDEOS[meta.next].title}` : "Groundwork PM";
+  const nextLine = meta.next ? `Next: ${TUTORIAL_VIDEOS[meta.next].title}` : "GroundWork PM";
   execFileSync(
     "bash",
     [

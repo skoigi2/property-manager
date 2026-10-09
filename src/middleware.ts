@@ -23,6 +23,7 @@ export default auth((req) => {
     pathname === "/" ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/examples") ||
+    pathname === "/about" ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
@@ -125,6 +126,8 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|guide\\.html|guide-screenshots).*)",
+    // Crawler and link-preview files must stay public too: until 2026-10-09 the
+    // sitemap, robots.txt, og-image and Google verification file redirected to /login.
+    "/((?!api|_next/static|_next/image|favicon.ico|favicon-[^/]*\\.png|icons|icon\\.svg|logo\\.svg|og-image\\.png|sitemap\\.xml|robots\\.txt|google[0-9a-f]+\\.html|manifest.json|sw.js|guide\\.html|guide-screenshots).*)",
   ],
 };

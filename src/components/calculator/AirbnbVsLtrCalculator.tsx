@@ -242,7 +242,7 @@ export function AirbnbVsLtrCalculator() {
   const handleCopyResults = async () => {
     const be = result.breakevenOccupancyPct;
     const text = [
-      "Airbnb vs Long-Term Rental — GroundWorkPM Calculator",
+      "Airbnb vs Long-Term Rental — GroundWork PM Calculator",
       "",
       `Long-term rental monthly NOI: ${fmt(result.longTerm.monthlyNoi)}`,
       `Airbnb monthly NOI: ${fmt(result.airbnb.monthlyNoi)}`,
@@ -759,14 +759,14 @@ export function AirbnbVsLtrCalculator() {
         </div>
       </section>
 
-      {/* ════════ GroundWorkPM CTA ════════ */}
+      {/* ════════ GroundWork PM CTA ════════ */}
       <section aria-labelledby="gwpm-heading" className="mt-14 print:hidden">
         <h2 id="gwpm-heading" className="text-h1 text-header dark:text-white text-center max-w-3xl mx-auto">
           You Know Which Strategy Fits Your Investment Goals. Now Run It Efficiently.
         </h2>
         <p className="text-body text-gray-500 dark:text-gray-400 text-center mt-3 max-w-2xl mx-auto">
           Whichever way you go, the winners treat their property like a business — with real numbers, not guesswork.
-          GroundWorkPM is the operating system for exactly that.
+          GroundWork PM is the operating system for exactly that.
         </p>
         <div className="grid md:grid-cols-2 gap-4 mt-8 max-w-3xl mx-auto">
           <div className={`rounded-2xl border p-6 ${ltWins ? "border-gold bg-gold/5" : "border-gray-100 dark:border-white/10 bg-white dark:bg-white/[0.04]"}`}>
@@ -788,7 +788,7 @@ export function AirbnbVsLtrCalculator() {
         </div>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
           <Link href="/examples" className="w-full sm:w-auto text-center bg-header dark:bg-gold text-white dark:text-header text-body font-semibold px-8 py-3.5 rounded-xl hover:bg-header/90 dark:hover:bg-gold/90 transition-colors">
-            See How GroundWorkPM Works
+            See How GroundWork PM Works
           </Link>
           <Link href="/signup" className="w-full sm:w-auto text-center border border-gray-300 dark:border-white/20 text-header dark:text-white text-body font-semibold px-8 py-3.5 rounded-xl hover:border-gold hover:text-gold-dark dark:hover:text-gold transition-colors">
             Start Free

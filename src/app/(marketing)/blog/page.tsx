@@ -66,7 +66,7 @@ export default function BlogIndexPage() {
             Ready to put these systems to work?
           </h2>
           <p className="text-gray-500 dark:text-gray-400 text-body mb-6">
-            Groundwork PM is built for landlords managing 2–50 properties. Try it free for 30 days.
+            GroundWork PM is built for landlords managing 2–50 properties. Try it free for 30 days.
           </p>
           <a
             href="/signup"

@@ -1,4 +1,4 @@
-// Playwright screenshot capture for the GroundWorkPM user guide (public/guide.html).
+// Playwright screenshot capture for the GroundWork PM user guide (public/guide.html).
 //
 // Prerequisites:
 //   1. A dev server on http://localhost:3000 (npm run dev)

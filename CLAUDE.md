@@ -78,7 +78,7 @@ Next.js 15 (15.5) App Router app on React 19. All source code lives in `src/`.
 ### Route groups
 - `src/app/(auth)/` — unauthenticated pages (`/login`, `/signup`, `/forgot-password`, `/reset-password`, `/select-org`)
 - `src/app/(dashboard)/` — all protected pages, share a sidebar layout (`layout.tsx`)
-- `src/app/(marketing)/` — public pages outside the dashboard chrome (`/blog`, `/pricing`, `/contact`, `/privacy`, `/terms`, `/refund`)
+- `src/app/(marketing)/` — public pages outside the dashboard chrome (`/about` — founder story + company facts: GroundWork PM, registered in Kenya, which is also what Terms / Privacy name as the home and governing law; `/blog`, `/pricing`, `/contact`, `/privacy`, `/terms`, `/refund`)
 - `src/app/(portal)/` — token-based tenant portal (no auth, no sidebar); bypassed by middleware
 - Top-level routes outside any group: `/onboarding`, `/invite/[token]`, plus `robots.ts` and `sitemap.ts`. The landing page `/` lives inside `(marketing)` as `src/app/(marketing)/page.tsx` so it inherits the shared nav + footer from `(marketing)/layout.tsx`
 - `src/app/api/` — Route Handlers only; no server components fetch data directly
@@ -303,7 +303,7 @@ The tenant's lease agreement fee (`LEASE_FEE` income entry) is paid into the lan
 
 **Registration**: `register: false` — Serwist's own registration would use scope `/`. The Utilities page registers `/sw.js` itself, **scoped to `/utilities`**, so only those pages are controlled (`reloadOnOnline: false`: the page replays queued readings itself). Runtime rules (`src/app/sw.ts`): `pages-offline` (`/utilities` navigations + RSC payloads, NetworkFirst 8 s, 7 days) and `session-offline` (`/api/auth/session`, `/api/properties?minimal=true`, 7 days). There is **no** API data cache — the month's readings offline come from the copy the page keeps on the phone (`src/lib/offline-readings.ts`), which is what shows the offline banner. **Precache** = the app's `/_next/static` chunks plus `manifest.json`, `favicon.ico` and `public/icons/*`, listed explicitly in `next.config.mjs` (`additionalPrecacheEntries`, forward slashes + content hashes — Serwist's own public glob keeps Windows backslashes, a 404 that fails the install). Never precache the rest of `public/` — next-pwa pushed every tutorial video and guide screenshot (~40 MB) onto each caretaker phone. Serwist already leaves out server files and root `*.json` build manifests; `exclude` drops source maps. `sw.ts` deletes the old `workbox-precache-*` cache on activate. Verify a change with Playwright Chromium against a local `next start` (the Claude browser pane can't register service workers). To add offline to another caretaker page (maintenance / complaints), follow the Utilities pattern: an IndexedDB queue for writes + a page snapshot, and widen the `pages-offline` path match — never a blanket API cache.
 
-PWA app name is **GroundWorkPM** (`public/manifest.json`). Icons live in `public/icons/`: `icon-192.png`, `icon-512.png`, `icon-maskable.png` (512 × 512, navy `#132635` background, logo inside 80 % safe zone), `apple-touch-icon.png` (180 × 180, cream background). If the source logo changes, regenerate from `Logo/GroundWorkPM Logo.png` using Python Pillow (see git history for the script).
+PWA app name is **GroundWork PM** (`public/manifest.json`; `short_name` stays `GroundWorkPM`, since a space truncates the home-screen label). The brand is spelled **GroundWork PM** in everything people read (decision 2026-10-09; the legal name) — never "Groundwork PM" or "GroundWorkPM" (kept only in the manifest `short_name`, the ICS `PRODID` and the logo file name). Icons live in `public/icons/`: `icon-192.png`, `icon-512.png`, `icon-maskable.png` (512 × 512, navy `#132635` background, logo inside 80 % safe zone), `apple-touch-icon.png` (180 × 180, cream background). If the source logo changes, regenerate from `Logo/GroundWorkPM Logo.png` using Python Pillow (see git history for the script).
 
 ## Property & Domain Model
 
@@ -347,7 +347,7 @@ Single token scale, defined as `fontSize` tuples in `tailwind.config.ts` (size +
 
 Rules (full doc: [docs/typography.md](docs/typography.md), specimen at `/dev/typography` in dev):
 - **Three weights only: 400 / 500 / 600** (`font-normal` / `font-medium` / `font-semibold`). Never `font-bold` or lighter-than-400. Heading tokens bake 600 — don't add a weight to them.
-- **Serif is logo-only**: `font-display` may appear only on the "Groundwork PM" wordmark (Sidebar, LandingNav, marketing footer, auth lockups — with `font-normal`, the face ships 400 only).
+- **Serif is logo-only**: `font-display` may appear only on the "GroundWork PM" wordmark (Sidebar, LandingNav, marketing footer, auth lockups — with `font-normal`, the face ships 400 only).
 - **Mono is references-only**: `font-mono` (system stack, no webfont) for API keys, tokens, audit IDs, case refs, account numbers. Money is never mono — numeric columns and KPI values use Inter + `tabular-nums` (`CurrencyDisplay` applies it automatically).
 - **No arbitrary font sizes, no `leading-*` / `tracking-*`** in normal use (spacing lives in the tokens; `leading-none` is grandfathered only in MobileNav labels, the Sidebar wordmark, and count badges). Charts use `CHART_FONT` from `src/lib/chart-style.ts` — the one sanctioned home for inline font sizes.
 - PDF generators and email templates are exempt (own font registration / web-safe stacks).
@@ -898,7 +898,7 @@ NEXTAUTH_URL                  # App URL (http://localhost:3000 for dev)
 NEXT_PUBLIC_SUPABASE_URL      # Supabase project URL (for document storage)
 SUPABASE_SERVICE_ROLE_KEY     # Supabase service role key (server-only, never exposed to browser)
 RESEND_API_KEY                # Resend email API key — required for all email sending
-RESEND_FROM_EMAIL             # Optional sender address (default: "Groundwork PM <noreply@groundworkpm.com>")
+RESEND_FROM_EMAIL             # Optional sender address (default: "GroundWork PM <noreply@groundworkpm.com>")
 CRON_SECRET                   # Random secret that Vercel sends as Bearer token to authenticate cron calls
 ANTHROPIC_API_KEY             # Optional — enables the meter photo check (Claude reads the meter photo). Off when absent
 NEXT_PUBLIC_SENTRY_DSN        # Sentry error monitoring (client+server). Set in Vercel Production; SDK no-ops when absent (preview, local)

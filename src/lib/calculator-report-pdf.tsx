@@ -58,7 +58,7 @@ function Footer() {
   return (
     <View style={styles.footer} fixed>
       <Text style={styles.footerText}>
-        GroundWorkPM · groundworkpm.com · This report provides estimates only and should not replace professional
+        GroundWork PM · groundworkpm.com · This report provides estimates only and should not replace professional
         financial, tax, or legal advice. Actual results depend on market conditions, local regulations, and execution.
       </Text>
     </View>
@@ -105,7 +105,7 @@ export async function generateCalculatorReportPdf(
   });
 
   const doc = (
-    <Document title="Airbnb vs Long-Term Rental — Investor Report" author="GroundWorkPM">
+    <Document title="Airbnb vs Long-Term Rental — Investor Report" author="GroundWork PM">
       {/* ── Page 1: summary + analyses ── */}
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
@@ -236,7 +236,7 @@ export async function generateCalculatorReportPdf(
         <Text style={styles.sectionLabel}>Run the winning strategy efficiently</Text>
         <Text style={styles.para}>
           Whichever strategy you choose, the investors who win treat their property like a business — tracking every
-          payment, expense, and maintenance job against real numbers. GroundWorkPM is the operating system for exactly
+          payment, expense, and maintenance job against real numbers. GroundWork PM is the operating system for exactly
           that: rent and booking income tracking, expense management, maintenance coordination, owner reports, and true
           profitability analysis for both long-term and short-let portfolios. Start a free 30-day trial at
           groundworkpm.com — no credit card required.

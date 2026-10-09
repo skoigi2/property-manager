@@ -356,7 +356,7 @@ export default function AutomationsPage() {
           <p className="text-caption text-blue-700 flex items-start gap-2">
             <Zap className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
-              Control everything GroundWorkPM does for you automatically — workflow automations that
+              Control everything GroundWork PM does for you automatically — workflow automations that
               open Cases, the email alerts your managers receive, and the proactive reminders in your
               Inbox. The main toggle applies to your whole organisation; expand{" "}
               <strong>Customise per property</strong> to override it for individual properties.

@@ -43,7 +43,7 @@ function caseEmailHtml(title: string, triggerLine: string, propertyName: string)
                 border-radius:8px; text-decoration:none; font-size:14px; font-weight:600;">
         Open the Inbox →
       </a>
-      <p style="color:#9ca3af; font-size:11px; margin-top:24px;">Groundwork PM · Automated workflow</p>
+      <p style="color:#9ca3af; font-size:11px; margin-top:24px;">GroundWork PM · Automated workflow</p>
     </div>`;
 }
 
@@ -493,7 +493,7 @@ async function runAutoInvoiceGeneration(organizationId: string): Promise<Handler
                     border-radius:8px; text-decoration:none; font-size:14px; font-weight:600;">
             Review invoices →
           </a>
-          <p style="color:#9ca3af; font-size:11px; margin-top:24px;">Groundwork PM · Automated workflow</p>
+          <p style="color:#9ca3af; font-size:11px; margin-top:24px;">GroundWork PM · Automated workflow</p>
         </div>`;
       for (const mgr of managers) {
         if (!(await wantsEmail(mgr.userId, "WORKFLOW"))) continue;

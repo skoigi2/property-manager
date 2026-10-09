@@ -27,7 +27,7 @@ export function calendarEventsToIcs(
       date: e.date,
       summary: e.feedSummary,
       location,
-      description: `Open in GroundWorkPM: ${opts.origin}${e.link}`,
+      description: `Open in GroundWork PM: ${opts.origin}${e.link}`,
       url: `${opts.origin}${e.link}`,
     };
   });

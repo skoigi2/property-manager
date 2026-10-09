@@ -8,31 +8,31 @@ import { HomeDifferentiator } from "@/components/landing/HomeDifferentiator";
 import { HomeFinalCTA } from "@/components/landing/HomeFinalCTA";
 
 export const metadata: Metadata = {
-  title: "Groundwork PM — Run property operations from one system.",
+  title: "GroundWork PM — Run property operations from one system.",
   description:
     "Stop running property operations through WhatsApp and spreadsheets. Track rent, maintenance, owner approvals, renewals and reporting in one operational system. Book a 15-minute demo.",
   alternates: {
     canonical: "https://groundworkpm.com",
   },
   openGraph: {
-    title: "Groundwork PM — Run property operations from one system.",
+    title: "GroundWork PM — Run property operations from one system.",
     description:
       "Track rent, maintenance, owner approvals, renewals and reporting in one operational system — so nothing falls through the cracks as your portfolio grows.",
     url: "https://groundworkpm.com",
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "website",
     images: [
       {
         url: "https://groundworkpm.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Groundwork PM — Operating system for property management teams",
+        alt: "GroundWork PM — Operating system for property management teams",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Groundwork PM — Run property operations from one system.",
+    title: "GroundWork PM — Run property operations from one system.",
     description:
       "Track rent, maintenance, owner approvals, renewals and reporting in one operational system. 30-day free trial.",
     images: ["https://groundworkpm.com/og-image.png"],
@@ -54,7 +54,7 @@ export default async function RootPage() {
       {
         "@type": "Organization",
         "@id": "https://groundworkpm.com/#organization",
-        name: "Groundwork PM",
+        name: "GroundWork PM",
         url: "https://groundworkpm.com",
         logo: "https://groundworkpm.com/logo.svg",
         description:
@@ -63,7 +63,7 @@ export default async function RootPage() {
       {
         "@type": "SoftwareApplication",
         "@id": "https://groundworkpm.com/#software",
-        name: "Groundwork PM",
+        name: "GroundWork PM",
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
         url: "https://groundworkpm.com",

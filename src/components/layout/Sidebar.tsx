@@ -265,8 +265,8 @@ export function Sidebar({ role, organizationId }: SidebarProps) {
         <div className="flex items-center gap-3">
           <BrandLogo size={32} dark />
           <div className="flex-1 min-w-0">
-            <p className="font-display text-white text-body leading-none">Groundwork PM</p>
-            <p className="text-white/40 text-caption mt-0.5">Groundwork PM</p>
+            <p className="font-display text-white text-body leading-none">GroundWork PM</p>
+            <p className="text-white/40 text-caption mt-0.5">GroundWork PM</p>
           </div>
         </div>
 

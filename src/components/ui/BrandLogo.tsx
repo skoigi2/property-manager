@@ -6,7 +6,7 @@ interface BrandLogoProps {
   className?: string;
 }
 
-/** Groundwork PM logo — inlined SVG so it renders reliably in all contexts */
+/** GroundWork PM logo — inlined SVG so it renders reliably in all contexts */
 function LogoSvg({ size }: { size: number }) {
   return (
     <svg
@@ -39,7 +39,7 @@ function LogoSvg({ size }: { size: number }) {
 }
 
 /**
- * Groundwork PM brand logo — inline SVG, no external file fetch.
+ * GroundWork PM brand logo — inline SVG, no external file fetch.
  * - Use `dark` on dark backgrounds (sidebar, auth header cards).
  * - Use without `dark` on light/white/cream backgrounds.
  */

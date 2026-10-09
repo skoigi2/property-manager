@@ -9,7 +9,7 @@ const baseEvent: IcsEvent = {
 };
 
 function build(events: IcsEvent[] = [baseEvent]) {
-  return buildIcsCalendar(events, { name: "GroundWorkPM" });
+  return buildIcsCalendar(events, { name: "GroundWork PM" });
 }
 
 describe("buildIcsCalendar", () => {
@@ -24,7 +24,7 @@ describe("buildIcsCalendar", () => {
     const ics = build();
     expect(ics).toContain("BEGIN:VCALENDAR\r\nVERSION:2.0");
     expect(ics).toContain("METHOD:PUBLISH");
-    expect(ics).toContain("X-WR-CALNAME:GroundWorkPM");
+    expect(ics).toContain("X-WR-CALNAME:GroundWork PM");
     expect(ics).toContain("REFRESH-INTERVAL;VALUE=DURATION:PT6H");
     expect(ics).toContain("X-PUBLISHED-TTL:PT6H");
     expect(ics.trimEnd().endsWith("END:VCALENDAR")).toBe(true);

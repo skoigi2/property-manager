@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Groundwork PM",
-  description: "How Groundwork PM collects, uses, and protects your personal data.",
+  title: "Privacy Policy — GroundWork PM",
+  description: "How GroundWork PM collects, uses, and protects your personal data.",
   alternates: {
     canonical: "https://groundworkpm.com/privacy",
   },
   openGraph: {
-    title: "Privacy Policy — Groundwork PM",
-    description: "How Groundwork PM collects, uses, and protects your personal data.",
+    title: "Privacy Policy — GroundWork PM",
+    description: "How GroundWork PM collects, uses, and protects your personal data.",
     url: "https://groundworkpm.com/privacy",
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "website",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -27,8 +27,8 @@ export default function PrivacyPage() {
           <section>
             <h2 className=" text-h2 text-header mb-3">1. Who We Are</h2>
             <p>
-              Groundwork PM (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;) is a property management
-              software business operating from the Kingdom of Bahrain. We operate the Groundwork PM platform
+              GroundWork PM (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;) is a property management
+              software business operating from Kenya. We operate the GroundWork PM platform
               accessible at groundworkpm.com. For privacy matters, you may contact us at{" "}
               <a href="mailto:support@groundworkpm.com" className="text-header hover:underline">
                 support@groundworkpm.com
@@ -77,7 +77,7 @@ export default function PrivacyPage() {
             </ul>
             <p className="mt-3">
               We do not sell your personal data to third parties, and we do not use your data for advertising
-              or marketing purposes beyond communications about Groundwork PM itself.
+              or marketing purposes beyond communications about GroundWork PM itself.
             </p>
           </section>
 

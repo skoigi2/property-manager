@@ -4,7 +4,7 @@ import { AirbnbVsLtrCalculator } from "@/components/calculator/AirbnbVsLtrCalcul
 const PAGE_URL = "https://groundworkpm.com/tools/airbnb-vs-long-term-rental-calculator";
 
 export const metadata: Metadata = {
-  title: "Airbnb vs Long-Term Rental Calculator — Compare True Profitability | GroundWorkPM",
+  title: "Airbnb vs Long-Term Rental Calculator — Compare True Profitability | GroundWork PM",
   description:
     "Free Airbnb vs long-term rental calculator. Compare net operating income using real operating costs, find your Airbnb breakeven occupancy, and stress-test your short-term rental strategy before you commit.",
   keywords: [
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     description:
       "Compare the true profitability of Airbnb vs long-term renting using real operating costs — and discover the occupancy rate Airbnb needs just to break even.",
     url: PAGE_URL,
-    siteName: "GroundWorkPM",
+    siteName: "GroundWork PM",
     type: "website",
   },
   twitter: {
@@ -87,7 +87,7 @@ function JsonLd() {
       "Free calculator comparing the net profitability of Airbnb short-term rental versus long-term renting, including breakeven occupancy analysis and stress testing.",
     publisher: {
       "@type": "Organization",
-      name: "GroundWorkPM",
+      name: "GroundWork PM",
       url: "https://groundworkpm.com",
     },
   };

@@ -46,8 +46,8 @@ export async function GET(req: Request, props: { params: Promise<{ token: string
 
   const ics = calendarEventsToIcs(events, {
     origin,
-    name: feed.label || "GroundWorkPM",
-    description: "Lease, compliance, maintenance and rent dates from GroundWorkPM.",
+    name: feed.label || "GroundWork PM",
+    description: "Lease, compliance, maintenance and rent dates from GroundWork PM.",
   });
 
   touchCalendarFeedToken(feed.id);

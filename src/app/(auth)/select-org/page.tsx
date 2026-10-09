@@ -53,8 +53,8 @@ export default function SelectOrgPage() {
         <div className="flex items-center gap-3 mb-8 justify-center">
           <BrandLogo size={40} />
           <div>
-            <p className="font-display font-normal text-[#1a2332] text-h3">Groundwork PM</p>
-            <p className="text-gray-400 text-caption mt-0.5">Groundwork PM</p>
+            <p className="font-display font-normal text-[#1a2332] text-h3">GroundWork PM</p>
+            <p className="text-gray-400 text-caption mt-0.5">GroundWork PM</p>
           </div>
         </div>
 

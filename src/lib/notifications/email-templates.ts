@@ -10,7 +10,7 @@ function shell(
   heading: string,
   headingColor: string,
   body: string,
-  footer = "You receive these alerts because you manage this property on GroundWorkPM.",
+  footer = "You receive these alerts because you manage this property on GroundWork PM.",
 ): string {
   return `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
@@ -375,7 +375,7 @@ export function complaintResolvedTemplate(data: {
       <p style="color:${GRAY};font-size:14px;line-height:1.6;">If the issue is not sorted, reply through your tenant portal and we will look again.</p>
       ${data.portalUrl ? cta("Open tenant portal", data.portalUrl) : ""}
       <hr style="border:none;border-top:1px solid #f3f4f6;margin:24px 0;" />
-      <p style="color:${LGRAY};font-size:11px;margin:0;">Sent by your property manager via GroundWorkPM.</p>
+      <p style="color:${LGRAY};font-size:11px;margin:0;">Sent by your property manager via GroundWork PM.</p>
     </div>`;
   return { subject, html };
 }
@@ -426,7 +426,7 @@ export function ownerMonthlyReportTemplate(data: {
 
 // ─── Inspections ──────────────────────────────────────────────────────────────
 
-const STAFF_FOOTER = "You receive these alerts because you work on this property on GroundWorkPM.";
+const STAFF_FOOTER = "You receive these alerts because you work on this property on GroundWork PM.";
 
 type InspectionRef = {
   inspectionId: string;

@@ -9,7 +9,7 @@ export function HomeDifferentiator() {
       <div className="max-w-4xl mx-auto">
         <h2 className=" text-h1 text-header dark:text-white text-center max-w-2xl mx-auto mb-12">
           Most property software stores information.{" "}
-          <span className="text-gold">GroundWorkPM manages work.</span>
+          <span className="text-gold">GroundWork PM manages work.</span>
         </h2>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -28,10 +28,10 @@ export function HomeDifferentiator() {
             </ul>
           </div>
 
-          {/* GroundWorkPM */}
+          {/* GroundWork PM */}
           <div className="bg-header dark:bg-gold/10 border border-header dark:border-gold/30 rounded-2xl p-7">
             <p className="text-label font-semibold uppercase text-gold mb-5">
-              GroundWorkPM
+              GroundWork PM
             </p>
             <ul className="space-y-3">
               {GROUNDWORK.map((t) => (

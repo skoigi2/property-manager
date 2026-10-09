@@ -11,7 +11,7 @@ into CSS — the token scale is the only way to size text.
 | Face | Class | Loaded via | Used for |
 |---|---|---|---|
 | **Inter** (variable) | `font-sans` (body default) | `next/font/google` in `src/app/layout.tsx` | Everything |
-| **DM Serif Display** (400) | `font-display` | `next/font/google` | The "Groundwork PM" logo wordmark ONLY — never headings, never numbers |
+| **DM Serif Display** (400) | `font-display` | `next/font/google` | The "GroundWork PM" logo wordmark ONLY — never headings, never numbers |
 | System mono stack | `font-mono` | none (no download) | API keys, tokens, IDs, reference codes, payload dumps. **Never money.** |
 
 ## The scale

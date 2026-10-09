@@ -12,7 +12,7 @@ import { FinalCTA } from "@/components/landing/FinalCTA";
 
 // Archived original homepage — kept for reference. Not indexed, not linked.
 export const metadata: Metadata = {
-  title: "Groundwork PM — Homepage (archived v1)",
+  title: "GroundWork PM — Homepage (archived v1)",
   robots: { index: false, follow: false },
 };
 

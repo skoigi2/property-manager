@@ -5,14 +5,14 @@ import { BLOG_POSTS } from "@/lib/blog-posts";
 const post = BLOG_POSTS.find((p) => p.slug === "how-to-manage-multiple-rental-properties")!;
 
 export const metadata: Metadata = {
-  title: `${post.title} — Groundwork PM`,
+  title: `${post.title} — GroundWork PM`,
   description: post.excerpt,
   alternates: { canonical: `https://groundworkpm.com/blog/${post.slug}` },
   openGraph: {
     title: post.title,
     description: post.excerpt,
     url: `https://groundworkpm.com/blog/${post.slug}`,
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "article",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -97,7 +97,7 @@ export default function Article() {
         B&apos;s financials in 10 seconds without sorting through a shared spreadsheet.
       </p>
       <p>
-        In Groundwork PM, each property is created with its own units, and all income, expenses,
+        In GroundWork PM, each property is created with its own units, and all income, expenses,
         and maintenance are scoped to that property. Switch between properties in one click.
       </p>
 

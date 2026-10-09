@@ -129,7 +129,7 @@ async function main() {
         `<html><body style="margin:0;background:#f4f1ea;padding:20px">
           <div id="mail" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;max-width:600px;margin:0 auto;font-family:sans-serif">
             <div style="padding:14px 24px;border-bottom:1px solid #eee;font-size:13px;color:#374151">
-              <div><strong>From:</strong> Groundwork PM &lt;noreply@groundworkpm.com&gt;</div>
+              <div><strong>From:</strong> GroundWork PM &lt;noreply@groundworkpm.com&gt;</div>
               <div><strong>To:</strong> ${email.toEmail}</div>
               <div><strong>Subject:</strong> ${email.subject}</div>
             </div>

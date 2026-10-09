@@ -75,7 +75,7 @@ export function BlogPostLayout({ post, children }: BlogPostProps) {
             Start managing your properties like a business
           </h2>
           <p className="text-gray-500 dark:text-gray-400 text-body mb-8">
-            Groundwork PM gives you income tracking, maintenance logs, tenant management, and owner reports — all in one platform. 30-day free trial, no credit card required.
+            GroundWork PM gives you income tracking, maintenance logs, tenant management, and owner reports — all in one platform. 30-day free trial, no credit card required.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link

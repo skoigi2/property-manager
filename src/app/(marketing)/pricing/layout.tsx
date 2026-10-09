@@ -3,31 +3,31 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   // Default to variant (b) — no-gates promise as the hook. Two variants listed
   // in the plan for selection: see the post-implementation report.
-  title: "Pricing — Groundwork PM",
+  title: "Pricing — GroundWork PM",
   description:
     "Three tiers, one platform. Automatic rent posting, magic-link approvals, expiry alerts, and owner statements that update themselves. 30-day free trial.",
   alternates: {
     canonical: "https://groundworkpm.com/pricing",
   },
   openGraph: {
-    title: "Pricing — Groundwork PM",
+    title: "Pricing — GroundWork PM",
     description:
       "Every tier includes the full feature set. Tiers differ by portfolio size and team headcount. 30-day free trial, no card.",
     url: "https://groundworkpm.com/pricing",
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "website",
     images: [
       {
         url: "https://groundworkpm.com/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Groundwork PM Pricing",
+        alt: "GroundWork PM Pricing",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pricing — Groundwork PM",
+    title: "Pricing — GroundWork PM",
     description:
       "Three tiers, one platform. Same automation in every plan. 30-day free trial, no card.",
     images: ["https://groundworkpm.com/og-image.png"],

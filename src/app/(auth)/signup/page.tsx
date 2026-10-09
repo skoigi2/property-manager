@@ -105,7 +105,7 @@ function SignupInner() {
           <div className="mx-auto mb-4 w-fit">
             <BrandLogo size={56} dark />
           </div>
-          <h1 className="font-display font-normal text-h1 text-white">Groundwork PM</h1>
+          <h1 className="font-display font-normal text-h1 text-white">GroundWork PM</h1>
           <p className="text-white/60 text-body mt-1 ">Property insights. Built on solid groundwork.</p>
         </div>
 

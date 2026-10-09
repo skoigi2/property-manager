@@ -17,7 +17,7 @@ function getResend(): Resend {
 /** Same-subject emails to a case within this window collapse into one timeline event. */
 const EMAIL_EVENT_MERGE_WINDOW_MS = 10 * 60 * 1000;
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Groundwork PM <noreply@groundworkpm.com>";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "GroundWork PM <noreply@groundworkpm.com>";
 
 // ─── HTML escaping ────────────────────────────────────────────────────────────
 export function esc(s: string | null | undefined): string {
@@ -186,12 +186,12 @@ export async function sendPasswordReset(email: string, resetLink: string, userId
     kind: "PASSWORD_RESET",
     to: email,
     userId: userId ?? null,
-    subject: "Reset your Groundwork PM password",
+    subject: "Reset your GroundWork PM password",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Reset your password</h2>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-          We received a request to reset the password for your Groundwork PM account.
+          We received a request to reset the password for your GroundWork PM account.
           Click the button below to choose a new password. This link expires in <strong>1 hour</strong>.
         </p>
         <a href="${resetLink}"
@@ -205,7 +205,7 @@ export async function sendPasswordReset(email: string, resetLink: string, userId
           Your password won't change until you click the link above.
         </p>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
-        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Smart property management for landlords &amp; agencies worldwide</p>
+        <p style="color: #9ca3af; font-size: 11px;">GroundWork PM · Smart property management for landlords &amp; agencies worldwide</p>
       </div>
     `,
   });
@@ -258,13 +258,13 @@ export async function sendOrgInvitation(
     to: email,
     organizationId: meta?.organizationId ?? null,
     userId: meta?.userId ?? null,
-    subject: `You've been invited to join ${orgName} on Groundwork PM`,
+    subject: `You've been invited to join ${orgName} on GroundWork PM`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">You're invited to join ${esc(orgName)}</h2>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
           <strong>${esc(inviterName)}</strong> has invited you to join <strong>${esc(orgName)}</strong>
-          on Groundwork PM as a <strong>${esc(roleLabel)}</strong>.
+          on GroundWork PM as a <strong>${esc(roleLabel)}</strong>.
         </p>
         <a href="${esc(acceptUrl)}"
            style="display: inline-block; margin: 24px 0; background: #1a1a2e; color: white;
@@ -276,10 +276,10 @@ export async function sendOrgInvitation(
           This invitation expires on ${esc(expiryStr)}.
         </p>
         <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">
-          If you don't have a Groundwork PM account yet, you'll be prompted to create one after clicking the link above.
+          If you don't have a GroundWork PM account yet, you'll be prompted to create one after clicking the link above.
         </p>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
-        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Smart property management for landlords &amp; agencies worldwide</p>
+        <p style="color: #9ca3af; font-size: 11px;">GroundWork PM · Smart property management for landlords &amp; agencies worldwide</p>
       </div>
     `,
   });
@@ -318,7 +318,7 @@ export async function sendContactEmail(
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 16px 0;" />
         <p style="color: #374151; font-size: 14px; line-height: 1.7; white-space: pre-wrap;">${esc(message)}</p>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
-        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Contact form</p>
+        <p style="color: #9ca3af; font-size: 11px;">GroundWork PM · Contact form</p>
       </div>
     `,
   });
@@ -327,7 +327,7 @@ export async function sendContactEmail(
   await sendAndLog({
     kind: "CONTACT_AUTOREPLY",
     to: safeEmail,
-    subject: "We received your message — Groundwork PM",
+    subject: "We received your message — GroundWork PM",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Thanks for reaching out, ${esc(name)}!</h2>
@@ -335,7 +335,7 @@ export async function sendContactEmail(
           We've received your message and will reply within <strong>1 business day</strong>.
         </p>
         <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-          In the meantime, you can explore Groundwork PM with a free 30-day trial — no credit card required.
+          In the meantime, you can explore GroundWork PM with a free 30-day trial — no credit card required.
         </p>
         <a href="${esc(process.env.NEXTAUTH_URL ?? "https://groundworkpm.com")}/signup"
            style="display: inline-block; margin: 24px 0; background: #c9a84c; color: white;
@@ -347,7 +347,7 @@ export async function sendContactEmail(
           If your message is urgent, you can also reply directly to this email.
         </p>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
-        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Smart property management for landlords &amp; agencies worldwide</p>
+        <p style="color: #9ca3af; font-size: 11px;">GroundWork PM · Smart property management for landlords &amp; agencies worldwide</p>
       </div>
     `,
   });
@@ -382,7 +382,7 @@ export async function sendNewUserAlert(
           <tr><td style="padding: 8px 0; color:#6b7280;">Organisation</td><td style="color:#1a1a2e;">${esc(orgName)}</td></tr>
         </table>
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 24px 0;" />
-        <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Internal signup notification</p>
+        <p style="color: #9ca3af; font-size: 11px;">GroundWork PM · Internal signup notification</p>
       </div>
     `,
   });
@@ -418,7 +418,7 @@ export async function sendTeamWelcome(opts: {
     to: email,
     userId: userId ?? null,
     organizationId: organizationId ?? null,
-    subject: `Welcome to ${orgName} on Groundwork PM`,
+    subject: `Welcome to ${orgName} on GroundWork PM`,
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Welcome to ${esc(orgName)}, ${esc(name)}!</h2>
@@ -454,7 +454,7 @@ export async function sendWelcome(email: string, name: string, userId?: string):
     kind: "WELCOME",
     to: email,
     userId: userId ?? null,
-    subject: "Welcome to Groundwork PM 🏠",
+    subject: "Welcome to GroundWork PM 🏠",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a2e; font-size: 22px; margin-bottom: 8px;">Welcome, ${esc(name)}!</h2>

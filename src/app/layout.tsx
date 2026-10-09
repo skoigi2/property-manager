@@ -20,13 +20,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "GroundWorkPM",
+  title: "GroundWork PM",
   description: "Property insights. Built on solid groundwork.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "GroundWorkPM",
+    title: "GroundWork PM",
   },
   icons: {
     icon: [

@@ -5,14 +5,14 @@ import { BLOG_POSTS } from "@/lib/blog-posts";
 const post = BLOG_POSTS.find((p) => p.slug === "how-to-track-rent-payments")!;
 
 export const metadata: Metadata = {
-  title: `${post.title} — Groundwork PM`,
+  title: `${post.title} — GroundWork PM`,
   description: post.excerpt,
   alternates: { canonical: `https://groundworkpm.com/blog/${post.slug}` },
   openGraph: {
     title: post.title,
     description: post.excerpt,
     url: `https://groundworkpm.com/blog/${post.slug}`,
-    siteName: "Groundwork PM",
+    siteName: "GroundWork PM",
     type: "article",
     images: [{ url: "https://groundworkpm.com/og-image.png", width: 1200, height: 630 }],
   },
@@ -111,7 +111,7 @@ export default function Article() {
         you something to send to the tenant as a formal payment reminder.
       </p>
       <p>
-        In Groundwork PM, invoices can be generated individually or for all tenants at once.
+        In GroundWork PM, invoices can be generated individually or for all tenants at once.
         Each invoice is linked to the specific tenant, unit, and month it covers.
       </p>
 

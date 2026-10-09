@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     await sendAndLog({
       kind: "NOTIFICATION",
       to: email,
-      subject: "Your Airbnb vs Long-Term Rental investor report — GroundWorkPM",
+      subject: "Your Airbnb vs Long-Term Rental investor report — GroundWork PM",
       attachments: [{ filename: "airbnb-vs-long-term-rental-report.pdf", content: pdf }],
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
             hassle-adjusted recommendation — feel free to share it with a spouse, partner, or lender.
           </p>
           <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
-            When you're ready to run your property like a business, GroundWorkPM tracks every payment, expense, and
+            When you're ready to run your property like a business, GroundWork PM tracks every payment, expense, and
             maintenance job for long-term and short-let portfolios alike.
           </p>
           <a href="https://groundworkpm.com/signup"
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
           <p style="color: #9ca3af; font-size: 11px; line-height: 1.6;">
             This report provides estimates only and should not replace professional financial, tax, or legal advice.
             We'll occasionally send practical property investment insights — you can unsubscribe anytime.<br/>
-            Groundwork PM · Smart property management for landlords &amp; agencies worldwide
+            GroundWork PM · Smart property management for landlords &amp; agencies worldwide
           </p>
         </div>
       `,
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
             <tr><td style="padding: 6px 0; color:#6b7280;">Breakeven occupancy</td><td style="color:#1a1a2e;">${be === null ? "N/A" : `${be.toFixed(1)}%`}</td></tr>
             <tr><td style="padding: 6px 0; color:#6b7280;">Verdict</td><td style="color:#1a1a2e;">${esc(r.verdict)}</td></tr>
           </table>
-          <p style="color: #9ca3af; font-size: 11px;">Groundwork PM · Airbnb vs LTR calculator lead capture</p>
+          <p style="color: #9ca3af; font-size: 11px;">GroundWork PM · Airbnb vs LTR calculator lead capture</p>
         </div>
       `,
     }).catch((err) => console.error("[calculator-report] lead alert failed:", err));

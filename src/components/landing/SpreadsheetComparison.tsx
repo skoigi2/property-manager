@@ -54,7 +54,7 @@ export function SpreadsheetComparison() {
               <tr className="bg-cream-dark dark:bg-[#162032] text-left">
                 <th className="px-5 py-4 text-label tabular-nums uppercase text-gray-400 dark:text-gray-500 w-1/4">Task</th>
                 <th className="px-5 py-4 text-label tabular-nums uppercase text-gray-400 dark:text-gray-500 w-2/5">Excel + WhatsApp + email</th>
-                <th className="px-5 py-4 text-label tabular-nums uppercase text-gold-dark dark:text-gold/80">Groundwork PM</th>
+                <th className="px-5 py-4 text-label tabular-nums uppercase text-gold-dark dark:text-gold/80">GroundWork PM</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-white/5 bg-white dark:bg-[#0C1B2E]">
@@ -88,7 +88,7 @@ export function SpreadsheetComparison() {
               <div className="px-4 py-3 flex items-start gap-2">
                 <Check className="w-4 h-4 mt-0.5 shrink-0 text-gold" />
                 <div>
-                  <p className="text-label tabular-nums uppercase text-gold-dark dark:text-gold/80 mb-1">Groundwork PM</p>
+                  <p className="text-label tabular-nums uppercase text-gold-dark dark:text-gold/80 mb-1">GroundWork PM</p>
                   <p className="text-body text-header dark:text-white">{row.groundwork}</p>
                 </div>
               </div>

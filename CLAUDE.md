@@ -731,7 +731,7 @@ The "Checkout" button lives in the tenant detail header. Once finalized the chec
 
 ### Email Logging & Super-admin Composer
 
-Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.
+**A send a route doesn't await must go through `after()` from `next/server`** (sign-up welcome / new-user alert, password reset, new-complaint and petty-cash notifications, `invoice.paid` webhooks): a bare `void send()` / `.catch(console.error)` is cut off when the Vercel function freezes after the response — password-reset emails mostly never left until 2026-10-09. Every email the app sends goes through `sendAndLog()` in `src/lib/email.ts`, which writes an `EmailLog` row (kind, from/to, subject, full body, `resendId`, `status`, `errorMessage`, optional `organizationId` / `userId` / `inReplyToId`). `EmailKind` covers: `PASSWORD_RESET`, `ORG_INVITATION`, `CONTACT_FORM`, `CONTACT_AUTOREPLY`, `NEW_USER_ALERT`, `WELCOME`, `NOTIFICATION`, `MANUAL`.
 
 Super-admin only:
 - Page: `/admin/emails` (`src/app/(dashboard)/admin/emails/page.tsx`) — browses the log with filters, opens detail in a sandboxed iframe, and exposes Reply / Forward / New email via `EmailComposer` (`src/components/admin/EmailComposer.tsx`)

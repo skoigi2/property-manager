@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordReset } from "@/lib/email";
 import { generateToken, hashToken } from "@/lib/token-utils";
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     const resetLink = `${baseUrl}/reset-password?token=${token}`;
 
     // Fire-and-forget — response must not reveal whether email exists
-    sendPasswordReset(user.email as string, resetLink).catch(console.error);
+    after(() => sendPasswordReset(user.email as string, resetLink).catch(console.error));
 
     return NextResponse.json({ ok: true });
   } catch (err) {

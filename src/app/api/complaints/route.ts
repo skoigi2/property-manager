@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireSession, requireOpsStaffWrite, requirePropertyAccess, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { createComplaintSchema, COMPLAINT_CATEGORIES } from "@/lib/validations";
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
     actor: { userId: session!.user.id, email: session!.user.email ?? null, name: session!.user.name ?? null },
   });
 
-  void notifyNewComplaint(complaint.id);
+  after(() => notifyNewComplaint(complaint.id));
 
   return Response.json(complaintToDto(complaint), { status: 201 });
 }

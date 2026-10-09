@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireSession, requireOpsStaffWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { resolvePettyCashOutStatus } from "@/lib/petty-cash-status";
@@ -268,14 +269,14 @@ export async function POST(req: Request) {
   const entry = txResults[0];
 
   if (paidFromPettyCash && pettyCashStatus === "PENDING" && pettyCashPropertyId) {
-    void notifyPettyCashPending({
+    after(() => notifyPettyCashPending({
       propertyId: pettyCashPropertyId,
       amount: computedAmount,
       description: rest.description ?? `${rest.category} expense`,
       receiptRef: rest.paymentReference || null,
       submittedBy: session!.user.email ?? session!.user.name ?? "—",
       excludeUserId: session!.user.id,
-    });
+    }));
   }
 
   // Re-fetch with all relations

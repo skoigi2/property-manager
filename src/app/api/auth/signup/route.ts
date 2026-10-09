@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendWelcome, sendTeamWelcome, sendNewUserAlert } from "@/lib/email";
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         userId:         invitedUser.id,
         organizationId: invitation.organizationId,
       }).catch(console.error);
-      sendNewUserAlert(invitedUser.email as string, invitedUser.name ?? "Unknown", invitingOrg?.name ?? "an existing organisation").catch(console.error);
+      after(() => sendNewUserAlert(invitedUser.email as string, invitedUser.name ?? "Unknown", invitingOrg?.name ?? "an existing organisation").catch(console.error));
 
       return NextResponse.json({ ok: true, userId: invitedUser.id, invited: true }, { status: 201 });
     }
@@ -138,8 +138,8 @@ export async function POST(req: NextRequest) {
     const user = newUser;
 
     // ── Send welcome email (fire-and-forget — don't block the response) ───────
-    sendWelcome(user.email as string, user.name ?? "there").catch(console.error);
-    sendNewUserAlert(user.email as string, user.name ?? "Unknown", organizationName.trim()).catch(console.error);
+    after(() => sendWelcome(user.email as string, user.name ?? "there").catch(console.error));
+    after(() => sendNewUserAlert(user.email as string, user.name ?? "Unknown", organizationName.trim()).catch(console.error));
 
     return NextResponse.json({ ok: true, userId: user.id }, { status: 201 });
   } catch (err) {

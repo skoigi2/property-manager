@@ -1,6 +1,6 @@
 export const maxDuration = 60;
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireManagerWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
@@ -128,14 +128,14 @@ export async function POST(req: Request) {
         if (invoice.caseThreadId) {
           await tryAutoAdvance(invoice.caseThreadId, { kind: "INVOICE_PAID" });
         }
-        void dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
+        after(() => dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
           invoiceId: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
           totalAmount: invoice.totalAmount,
           paidAmount: newPaidTotal,
           paidAt: paidDate,
           tenantId: invoice.tenantId,
-        });
+        }));
       }
 
       await logAudit({

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
@@ -128,14 +129,14 @@ export async function POST(req: Request) {
 
   // Notify managers when entry requires approval
   if (status === "PENDING" && propertyId) {
-    void notifyPettyCashPending({
+    after(() => notifyPettyCashPending({
       propertyId,
       amount: rest.amount,
       description: rest.description,
       receiptRef: receiptRef?.trim() || null,
       submittedBy: session!.user.email ?? "—",
       excludeUserId: session!.user.id,
-    });
+    }));
   }
 
   return Response.json(entry, { status: 201 });

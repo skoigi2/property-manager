@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireExpenseMutation } from "@/lib/expense-access";
 import { resolvePettyCashOutStatus, reevaluatePettyCashOutStatus } from "@/lib/petty-cash-status";
@@ -235,14 +236,14 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
   await prisma.$transaction(ops);
 
   if (pendingNotify && pettyCashPropertyId) {
-    void notifyPettyCashPending({
+    after(() => notifyPettyCashPending({
       propertyId: pettyCashPropertyId,
       amount: computedAmount,
       description: rest.description ?? `${rest.category} expense`,
       receiptRef: rest.paymentReference || null,
       submittedBy: session!.user.email ?? session!.user.name ?? "—",
       excludeUserId: session!.user.id,
-    });
+    }));
   }
 
   const entry = await prisma.expenseEntry.findUnique({

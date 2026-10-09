@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { requireManagerWrite, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
@@ -94,7 +95,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string; 
     after: { convertedToComplaint: complaint.id, category: parsed.data.category },
   });
 
-  void notifyNewComplaint(complaint.id);
+  after(() => notifyNewComplaint(complaint.id));
 
   return Response.json({ ...complaintToDto(complaint), threadId: thread.id }, { status: 201 });
 }

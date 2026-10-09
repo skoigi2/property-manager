@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireAuth, getAccessiblePropertyIds, requireManagerWrite, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -245,14 +246,14 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
 
   // Public-API webhooks — fire-and-forget after the transaction commits
   if (updated.status === "PAID" && invoice!.status !== "PAID") {
-    void dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
+    after(() => dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
       invoiceId: updated.id,
       invoiceNumber: updated.invoiceNumber,
       totalAmount: updated.totalAmount,
       paidAmount: updated.paidAmount,
       paidAt: updated.paidAt,
       tenantId: updated.tenantId,
-    });
+    }));
   }
 
   // Receipt to the tenant — one per payment event, when the payment was

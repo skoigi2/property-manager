@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireAuth, requireManager, getAccessiblePropertyIds } from "@/lib/auth-utils";
 import { requireActiveSubscription } from "@/lib/subscription";
 import { prisma } from "@/lib/prisma";
@@ -335,14 +336,14 @@ export async function POST(req: Request) {
     if (matchedInvoice.caseThreadId) {
       await tryAutoAdvance(matchedInvoice.caseThreadId, { kind: "INVOICE_PAID" });
     }
-    void dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
+    after(() => dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
       invoiceId: matchedInvoice.id,
       invoiceNumber: matchedInvoice.invoiceNumber,
       totalAmount: matchedInvoice.totalAmount,
       paidAmount: newPaidTotal,
       paidAt: new Date(date),
       tenantId: resolvedTenantId,
-    });
+    }));
   }
 
   await logAudit({

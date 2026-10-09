@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { z } from "zod";
 import { validatePortalToken } from "@/lib/portal-auth";
 import { prisma } from "@/lib/prisma";
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ token: s
     actor: { userId: null, email: tenant.email ?? null, name: tenant.name },
   });
 
-  void notifyNewComplaint(complaint.id);
+  after(() => notifyNewComplaint(complaint.id));
 
   const events = complaint.caseThreadId
     ? await prisma.caseEvent.findMany({

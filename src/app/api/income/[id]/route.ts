@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requirePropertyAccess, requireManagerWrite, requirePermissionWrite } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { incomeEntrySchema } from "@/lib/validations";
@@ -126,14 +127,14 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
     if (invoice.caseThreadId) {
       await tryAutoAdvance(invoice.caseThreadId, { kind: "INVOICE_PAID" });
     }
-    void dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
+    after(() => dispatchWebhookEvent(session!.user.organizationId, "invoice.paid", {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       totalAmount: invoice.totalAmount,
       paidAmount: newPaidTotal,
       paidAt: before?.date ?? new Date(),
       tenantId: entry.tenantId,
-    });
+    }));
   }
 
   await logAudit({

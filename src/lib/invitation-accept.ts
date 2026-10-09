@@ -127,9 +127,10 @@ export async function autoAcceptPendingInvitations(user: {
   name?: string | null;
   role: string;
   organizationId: string | null;
+  isPlatformAdmin?: boolean;
 }): Promise<string | null> {
   if (!user.email) return null;
-  if (user.role === "ADMIN" && !user.organizationId) return null;
+  if (user.isPlatformAdmin) return null;
   try {
     const memberships = await prisma.userOrganizationMembership.count({ where: { userId: user.id } });
     if (memberships > 0) return null;

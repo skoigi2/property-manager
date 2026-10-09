@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireAdminWrite } from "@/lib/auth-utils";
+import { requireAdminWrite, isSuperAdminSession } from "@/lib/auth-utils";
 import { roleOutranksCaller } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -31,13 +31,13 @@ export async function GET() {
   const { session, error } = await requireManagerSession();
   if (error) return error;
 
-  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  const isSuperAdmin = isSuperAdminSession(session!);
   const orgId = session!.user.organizationId;
 
   let whereClause: Record<string, unknown> = {};
 
   // Never expose super-admin accounts to non-super-admins
-  const excludeSuperAdmins = { NOT: { role: "ADMIN", organizationId: null } };
+  const excludeSuperAdmins = { NOT: { isPlatformAdmin: true } };
 
   if (isSuperAdmin) {
     // Super-admin sees all users across all orgs
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
   // the stored value, so mixed-case rows are a login footgun and a dup bypass.
   const email = rawEmail.toLowerCase();
 
-  const isSuperAdmin = session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  const isSuperAdmin = isSuperAdminSession(session!);
 
   // Role escalation guard — cannot create a user above your own org role
   // (mirrors POST /api/invitations)

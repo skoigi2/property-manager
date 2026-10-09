@@ -40,9 +40,11 @@ export async function POST(req: NextRequest) {
   });
 
   try {
+    // The founder's global role becomes ADMIN with their organisation — never
+    // before, since ADMIN with no organisation used to mean platform admin.
     await prisma.user.update({
       where: { id: session!.user.id },
-      data:  { organizationId: org.id },
+      data:  { organizationId: org.id, ...(session!.user.role === "MANAGER" ? { role: "ADMIN" as const } : {}) },
     });
     await prisma.userOrganizationMembership.create({
       data: { userId: session!.user.id, organizationId: org.id, role: "ADMIN", isBillingOwner: true },

@@ -110,6 +110,10 @@ model User {
   role             UserRole         @default(MANAGER)
   phone            String?
   isActive         Boolean          @default(true)
+  // Platform super-admin: sees and manages every organisation. Set by hand
+  // (never by sign-up). "ADMIN with no organisation" alone is NOT enough —
+  // a Google sign-up sits in that state until it creates its organisation.
+  isPlatformAdmin  Boolean          @default(false)
   organizationId          String?
   organization            Organization?                @relation(fields: [organizationId], references: [id])
   organizationMemberships UserOrganizationMembership[]

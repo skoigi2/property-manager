@@ -149,7 +149,8 @@ export async function sendWeeklyDataHealthReport(now: Date = new Date()): Promis
   if (failing.length === 0) return { failing: 0 };
 
   const admins = await prisma.user.findMany({
-    where: { role: "ADMIN", organizationId: null, email: { not: "" } },
+    // Platform admins only: the report lists rows from every organisation.
+    where: { isPlatformAdmin: true, email: { not: "" } },
     select: { id: true, email: true },
   });
   const subject = `${REPORT_SUBJECT} ${failing.length} check${failing.length === 1 ? "" : "s"} found rows`;

@@ -36,7 +36,7 @@ async function main() {
   const managerPassword = await bcrypt.hash("manager123", 10);
   const ownerPassword = await bcrypt.hash("owner123", 10);
 
-  // Platform super-admin — organizationId stays null
+  // Platform super-admin — organizationId stays null; the flag is what grants it
   await prisma.user.create({
     data: {
       name: "Super Admin",
@@ -44,6 +44,7 @@ async function main() {
       password: superAdminPassword,
       role: UserRole.ADMIN,
       organizationId: null,
+      isPlatformAdmin: true,
     },
   });
 

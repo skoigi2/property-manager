@@ -32,7 +32,7 @@ export async function getSession() {
 /** True when the session belongs to the platform super-admin (no org). */
 function isSuperAdmin(session: Session | null): boolean {
   if (!session) return false;
-  return session.user.role === "ADMIN" && session.user.organizationId === null;
+  return session.user.isPlatformAdmin === true && session.user.role === "ADMIN" && session.user.organizationId === null;
 }
 export const isSuperAdminSession = isSuperAdmin;
 
@@ -249,6 +249,7 @@ export async function getAccessiblePropertyIds(): Promise<string[] | null> {
     orgId:   session.user.organizationId,
     role:    session.user.role,
     orgRole: session.user.orgRole,
+    isPlatformAdmin: session.user.isPlatformAdmin === true,
   });
 }
 
@@ -266,7 +267,7 @@ export async function getAccessiblePropertyIdsForUser(
 ): Promise<string[] | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, role: true, organizationId: true },
+    select: { id: true, role: true, organizationId: true, isPlatformAdmin: true },
   });
   if (!user) return null;
 
@@ -287,6 +288,7 @@ export async function getAccessiblePropertyIdsForUser(
     orgId:   user.organizationId ?? null,
     role:    user.role,
     orgRole: membership?.role ?? user.role,
+    isPlatformAdmin: user.isPlatformAdmin,
   });
 }
 
@@ -304,11 +306,13 @@ async function resolveAccessiblePropertyIds(actor: {
   orgId: string | null;
   role: string;
   orgRole: string;
+  isPlatformAdmin: boolean;
 }): Promise<string[]> {
-  const { userId, orgId, role, orgRole } = actor;
+  const { userId, orgId, role, orgRole, isPlatformAdmin } = actor;
 
-  // Platform super-admin — full access across all orgs
-  if (role === "ADMIN" && orgId === null) {
+  // Platform super-admin — full access across all orgs. The flag, never
+  // "ADMIN with no organisation" alone (a Google sign-up before onboarding).
+  if (isPlatformAdmin && role === "ADMIN" && orgId === null) {
     const all = await prisma.property.findMany({ select: { id: true } });
     return all.map((p) => p.id);
   }

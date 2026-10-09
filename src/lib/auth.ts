@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { authConfig } from "./auth.config";
+import { authConfig, withPlatformScope } from "./auth.config";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { autoAcceptPendingInvitations } from "@/lib/invitation-accept";
 
@@ -81,6 +81,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           isBillingOwner: membership?.isBillingOwner ?? false,
           organizationId: user.organizationId ?? null,
           membershipCount,
+          isPlatformAdmin: user.isPlatformAdmin,
         };
       },
     }),
@@ -90,23 +91,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        // Detect brand-new self-signup: PrismaAdapter just created a User with
-        // the schema default role (MANAGER) and no organisationId.
-        // Promote them to ADMIN so they can create their own organisation.
+        // A brand-new self-signup: PrismaAdapter just created a User with the
+        // schema default role (MANAGER) and no organisation. Invited to an
+        // existing org? Join it. Otherwise it stays MANAGER until it creates
+        // its organisation (POST /api/onboarding/create-org makes it ADMIN
+        // then) — ADMIN with no organisation used to read as the platform
+        // super-admin.
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email! },
-          select: { id: true, email: true, name: true, role: true, organizationId: true },
+          select: { id: true, email: true, name: true, role: true, organizationId: true, isPlatformAdmin: true },
         });
         if (dbUser && !dbUser.organizationId) {
-          // Invited to an existing org? Join it — an invitee must never be
-          // promoted into founding an org of their own.
-          const joinedOrgId = await autoAcceptPendingInvitations(dbUser);
-          if (!joinedOrgId && dbUser.role === "MANAGER") {
-            await prisma.user.update({
-              where: { id: dbUser.id },
-              data: { role: "ADMIN" },
-            });
-          }
+          await autoAcceptPendingInvitations(dbUser);
         }
       }
       return true;
@@ -148,7 +144,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (account?.provider === "google") {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id! },
-            select: { role: true, organizationId: true },
+            select: { role: true, organizationId: true, isPlatformAdmin: true },
           });
           const [membershipCount, membership] = await Promise.all([
             prisma.userOrganizationMembership.count({ where: { userId: user.id! } }),
@@ -169,6 +165,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.isBillingOwner = membership?.isBillingOwner ?? false;
           token.organizationId = dbUser?.organizationId ?? null;
           token.membershipCount = membershipCount;
+          token.isPlatformAdmin = dbUser?.isPlatformAdmin === true;
         } else {
           // Credentials: all fields already on the user object from authorize()
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -181,10 +178,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.organizationId = (user as any).organizationId ?? null;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           token.membershipCount = (user as any).membershipCount ?? 1;
+          token.isPlatformAdmin = user.isPlatformAdmin === true;
         }
       }
 
-      return token;
+      // A token issued before the flag existed: look it up once, so the real
+      // platform admin keeps access without signing in again.
+      if (token.isPlatformAdmin === undefined && token.id && !token.organizationId) {
+        const u = await prisma.user.findUnique({ where: { id: token.id as string }, select: { isPlatformAdmin: true } });
+        token.isPlatformAdmin = u?.isPlatformAdmin === true;
+      }
+
+      return withPlatformScope(token);
     },
   },
 });

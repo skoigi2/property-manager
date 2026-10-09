@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireSuperAdmin } from "@/lib/auth-utils";
+import { requireAdmin, requireSuperAdmin, isSuperAdminSession } from "@/lib/auth-utils";
 import { roleOutranksCaller } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { z } from "zod";
@@ -30,12 +30,11 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
 
   const target = await prisma.user.findUnique({
     where: { id: params.id },
-    select: { name: true, phone: true, isActive: true, role: true, organizationId: true },
+    select: { name: true, phone: true, isActive: true, role: true, organizationId: true, isPlatformAdmin: true },
   });
   if (!target) return Response.json({ error: "Not found" }, { status: 404 });
-  const targetIsSuperAdmin = target.role === "ADMIN" && target.organizationId === null;
-  const callerIsSuperAdmin =
-    session!.user.role === "ADMIN" && session!.user.organizationId === null;
+  const targetIsSuperAdmin = target.isPlatformAdmin;
+  const callerIsSuperAdmin = isSuperAdminSession(session!);
 
   // Only super-admin can modify a super-admin
   if (targetIsSuperAdmin && !callerIsSuperAdmin) {
@@ -155,12 +154,11 @@ export async function DELETE(req: Request, props: { params: Promise<{ id: string
 
   const target = await prisma.user.findUnique({
     where: { id: params.id },
-    select: { name: true, email: true, role: true, organizationId: true },
+    select: { name: true, email: true, role: true, organizationId: true, isPlatformAdmin: true },
   });
   if (!target) return Response.json({ error: "Not found" }, { status: 404 });
-  const targetIsSuperAdmin = target.role === "ADMIN" && target.organizationId === null;
-  const callerIsSuperAdmin =
-    session.user.role === "ADMIN" && session.user.organizationId === null;
+  const targetIsSuperAdmin = target.isPlatformAdmin;
+  const callerIsSuperAdmin = isSuperAdminSession(session);
 
   if (targetIsSuperAdmin && !callerIsSuperAdmin) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
